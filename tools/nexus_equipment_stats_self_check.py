@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NEXUS CUSTOMIZE lower-left panel: live equipped stats and zero filtering."""
+"""NEXUS CUSTOMIZE top aggregate: live equipped stats, adaptivity and zero filtering."""
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
@@ -9,7 +9,10 @@ manifest = (root / "tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 for required in (
     'const EquipmentStatRows = preload("res://scripts/sera_nexus_stat_rows.gd")',
     'customize_stats_scroll = ScrollContainer.new()',
-    'focus_panel.add_child(customize_stats_scroll)',
+    'hud.add_child(customize_stats_scroll)',
+    '"StatColumnRule"',
+    'customize_stats_grid.columns = 3',
+    'columns: int = 3 if inner_width >= 590.0',
     'customize_stats_grid.columns =',
     'func _refresh_customization_stats() -> void:',
     'EquipmentStatRows.from_selection(selected)',

@@ -9,6 +9,8 @@ const IconAtlas = preload("res://scripts/sera_item_icons.gd")
 const PrototypeCatalog = preload("res://scripts/sera_prototype_catalog.gd")
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const EquipmentStatRows = preload("res://scripts/sera_nexus_stat_rows.gd")
+const PartViewer = preload("res://scripts/sera_part_preview_widget.gd")
+const RotateMark = preload("res://scripts/sera_rotatable_mark.gd")
 const CONTROL_SETTINGS_FILE: String = "user://sera_settings.cfg"
 const NexusSelectionOutline = preload("res://scripts/nexus_selection_outline.gd")
 const CUSTOMIZE_GLOW_SHADER = preload("res://shaders/nexus_customize_radial_glow.gdshader")
@@ -39,6 +41,21 @@ var customize_equipment_rows: Dictionary = {}
 var customize_stats_scroll: ScrollContainer
 var customize_stats_grid: GridContainer
 var customize_stat_cells: Array[Dictionary] = []
+var customize_single_part_preview: Control
+var customize_body_rotate_cue: Control
+var customize_part_preview_slot: String = "head"
+var customize_part_picker: Control
+var customize_part_picker_window: Panel
+var customize_part_picker_title: Label
+var customize_part_picker_scroll: ScrollContainer
+var customize_part_grid: GridContainer
+var customize_part_picker_cells: Array[Dictionary] = []
+var customize_picker_touch_id: int = -1
+var customize_picker_start: Vector2 = Vector2.ZERO
+var customize_picker_last: Vector2 = Vector2.ZERO
+var customize_picker_mouse: bool = false
+var customize_part_touch_id: int = -1
+var customize_part_mouse_drag: bool = false
 const CUSTOMIZE_SLOTS = ["head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"]
 const CUSTOMIZE_SLOT_LABELS = {
     "head": "HEAD", "torso": "TORSO", "legs": "LOWER BODY",
@@ -615,6 +632,8 @@ func _hud() -> void:
     customize_right_header.add_theme_stylebox_override("panel", _menu_header_style())
     customize_right_panel.add_child(customize_right_header)
     _create_equipment_controls()
+    _create_single_part_preview()
+    _create_customization_part_picker()
     action_panel = Panel.new()
     action_panel.name = "DestinationAction"
     action_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -846,20 +865,24 @@ func _create_customization_stats() -> void:
     customize_stats_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
     customize_stats_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
     customize_stats_scroll.visible = false
-    focus_panel.add_child(customize_stats_scroll)
+    # Total combat stats belong ABOVE the SERA and the right-hand part menu.
+    hud.add_child(customize_stats_scroll)
     customize_stats_grid = GridContainer.new()
     customize_stats_grid.name = "CustomizeEquipmentStatsGrid"
-    customize_stats_grid.columns = 2
+    customize_stats_grid.columns = 3
     customize_stats_grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
     customize_stats_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    customize_stats_grid.add_theme_constant_override("h_separation", 6)
-    customize_stats_grid.add_theme_constant_override("v_separation", 5)
+    customize_stats_grid.add_theme_constant_override("h_separation", 4)
+    customize_stats_grid.add_theme_constant_override("v_separation", 4)
     customize_stats_scroll.add_child(customize_stats_grid)
     for i in range(20):
         var cell := Panel.new()
         cell.name = "EquipmentStat_" + str(i)
         cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        cell.add_theme_stylebox_override("panel", LaboSkin.card_style("normal"))
+        var style := StyleBoxFlat.new()
+        style.bg_color = Color("#10242e")
+        style.set_corner_radius_all(0)
+        cell.add_theme_stylebox_override("panel", style)
         cell.visible = false
         customize_stats_grid.add_child(cell)
         var name_label := Label.new()
@@ -876,32 +899,46 @@ func _create_customization_stats() -> void:
         value_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
         value_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
         cell.add_child(value_label)
+        var rule := ColorRect.new()
+        rule.name = "StatColumnRule"
+        rule.color = Color("#55798a")
+        rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        cell.add_child(rule)
         customize_stat_cells.append({
-            "panel": cell, "name": name_label, "value": value_label
+            "panel": cell, "name": name_label, "value": value_label,
+            "rule": rule
         })
 
 
 func _layout_customization_stats() -> void:
-    if customize_stats_scroll == null:
+    if customize_stats_scroll == null or hud == null:
         return
     customize_stats_scroll.visible = focused_target == "CUSTOMIZE"
-    var inner_width: float = maxf(50.0, focus_panel.size.x - 24.0)
-    var columns: int = 2 if inner_width >= 260.0 else 1
+    var view: Vector2 = hud.size
+    var inner_width: float = maxf(180.0, view.x * 0.94)
+    var columns: int = 3 if inner_width >= 590.0 else (2 if inner_width >= 370.0 else 1)
     customize_stats_grid.columns = columns
-    customize_stats_scroll.position = Vector2(12.0, focus_header.size.y + 8.0)
+    customize_stats_scroll.position = Vector2((view.x - inner_width) * 0.5,
+        maxf(24.0, view.y * 0.045))
     customize_stats_scroll.size = Vector2(inner_width,
-        maxf(24.0, focus_panel.size.y - focus_header.size.y - 20.0))
+        minf(view.y * 0.182, 246.0))
     var cell_width: float = floorf(
-        (inner_width - 10.0 - 6.0 * float(columns - 1)) / float(columns))
-    for entry in customize_stat_cells:
+        (inner_width - 4.0 * float(columns - 1)) / float(columns))
+    var cell_height: float = 30.0
+    for i in range(customize_stat_cells.size()):
+        var entry: Dictionary = customize_stat_cells[i]
         var cell: Panel = entry["panel"]
-        cell.custom_minimum_size = Vector2(cell_width, 29.0)
-        var name_label: Label = entry["name"]
-        var value_label: Label = entry["value"]
-        name_label.position = Vector2(7.0, 0.0)
-        name_label.size = Vector2(floorf(cell_width * 0.57) - 7.0, 29.0)
-        value_label.position = Vector2(floorf(cell_width * 0.57), 0.0)
-        value_label.size = Vector2(cell_width * 0.43 - 7.0, 29.0)
+        cell.custom_minimum_size = Vector2(cell_width, cell_height)
+        var label: Label = entry["name"]
+        var value: Label = entry["value"]
+        label.position = Vector2(8, 0)
+        label.size = Vector2(floorf(cell_width * 0.59) - 10.0, cell_height)
+        value.position = Vector2(floorf(cell_width * 0.59), 0.0)
+        value.size = Vector2(cell_width * 0.41 - 10.0, cell_height)
+        var line: ColorRect = entry["rule"]
+        line.position = Vector2(cell_width - 2, 4)
+        line.size = Vector2(1, cell_height - 8)
+        line.visible = i % columns < columns - 1 and cell.visible
 
 
 func _refresh_customization_stats() -> void:
@@ -909,10 +946,12 @@ func _refresh_customization_stats() -> void:
         return
     var selected: Dictionary = _current_system_equipment()
     var entries: Array[Dictionary] = EquipmentStatRows.from_selection(selected)
+    var columns: int = maxi(1, customize_stats_grid.columns)
     for i in range(customize_stat_cells.size()):
         var cell: Dictionary = customize_stat_cells[i]
         var show: bool = i < entries.size()
         (cell["panel"] as Panel).visible = show
+        (cell["rule"] as ColorRect).visible = show and i % columns < columns - 1
         if show:
             (cell["name"] as Label).text = str(entries[i]["label"])
             (cell["value"] as Label).text = str(entries[i]["value"])
@@ -920,153 +959,80 @@ func _refresh_customization_stats() -> void:
 
 func _create_equipment_controls() -> void:
     customize_equipment_header = Label.new()
-    customize_equipment_header.text = "PARTS / SETS"
+    customize_equipment_header.text = "EQUIPMENT"
     customize_equipment_header.mouse_filter = Control.MOUSE_FILTER_IGNORE
     customize_equipment_header.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
     customize_equipment_header.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    customize_equipment_header.add_theme_font_size_override("font_size", 19)
-    customize_equipment_header.add_theme_color_override("font_color", Color("#d1efff"))
     customize_right_header.add_child(customize_equipment_header)
+    # Each row is ONLY the installed part's name, not a model-set selector.
     for slot in CUSTOMIZE_SLOTS:
-        var row := Panel.new()
-        row.name = "Equipment_" + slot
-        row.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        row.add_theme_stylebox_override("panel", LaboSkin.card_style("normal"))
-        customize_right_panel.add_child(row)
-        var name_label := Label.new()
-        name_label.text = str(CUSTOMIZE_SLOT_LABELS[slot])
-        name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        name_label.clip_text = true
-        name_label.add_theme_font_size_override("font_size", 17)
-        name_label.add_theme_color_override("font_color", Color("#a6cfdf"))
-        row.add_child(name_label)
-        var set_label := Label.new()
-        set_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        set_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-        set_label.clip_text = true
-        set_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-        set_label.add_theme_font_size_override("font_size", 20)
-        set_label.add_theme_color_override("font_color", Color("#dcfaff"))
-        row.add_child(set_label)
-        var item_icon := TextureRect.new()
-        item_icon.name = "CraftedEquipmentIcon_" + slot
-        item_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        item_icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-        # Each atlas tile is 72px. Without this, TextureRect's natural
-        # minimum size can override our smaller card icon and touch its label.
-        item_icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-        item_icon.visible = false
-        row.add_child(item_icon)
-        var model_code := Label.new()
-        model_code.name = "EquippedModelCode_" + slot
-        model_code.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        model_code.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-        model_code.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-        model_code.clip_text = true
-        model_code.add_theme_font_size_override("font_size", 12)
-        model_code.add_theme_color_override("font_color", Color("#8c959e"))
-        model_code.visible = false
-        row.add_child(model_code)
-        customize_equipment_rows[slot] = {
-            "panel": row, "name": name_label, "value": set_label,
-            "equipped_icon": item_icon, "model_code": model_code
-        }
+        var button := Button.new()
+        button.name = "Equipment_" + slot
+        button.text = ""
+        button.alignment = HORIZONTAL_ALIGNMENT_CENTER
+        button.clip_contents = true
+        button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        button.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+        button.add_theme_stylebox_override(
+            "normal", LaboSkin.terminal_segment_style("normal"))
+        button.add_theme_stylebox_override(
+            "hover", LaboSkin.terminal_segment_style("selected"))
+        button.add_theme_stylebox_override(
+            "pressed", LaboSkin.terminal_segment_style("selected"))
+        button.add_theme_color_override("font_color", Color("#e2eef2"))
+        customize_right_panel.add_child(button)
+        customize_equipment_rows[slot] = {"panel": button}
     _refresh_equipment_controls()
+
 
 func _layout_equipment_controls() -> void:
     if customize_equipment_header == null or customize_right_panel == null:
         return
     customize_equipment_header.position = Vector2.ZERO
     customize_equipment_header.size = customize_right_header.size
-    var top: float = customize_right_header.size.y + 9.0
-    var height_per_row: float = maxf(36.0,
-        (customize_right_panel.size.y - top - 10.0) / float(CUSTOMIZE_SLOTS.size()))
+    var top: float = customize_right_header.size.y + 10.0
+    var available: float = customize_right_panel.size.y - top - 8.0
+    var row_pitch: float = maxf(41.0, available / float(CUSTOMIZE_SLOTS.size()))
     for i in range(CUSTOMIZE_SLOTS.size()):
-        var row_data: Dictionary = customize_equipment_rows[CUSTOMIZE_SLOTS[i]]
-        var row: Panel = row_data["panel"]
-        row.position = Vector2(10.0, top + float(i) * height_per_row)
-        row.size = Vector2(maxf(50.0, customize_right_panel.size.x - 20.0),
-            maxf(30.0, height_per_row - 7.0))
-        var name_label: Label = row_data["name"]
-        var value_label: Label = row_data["value"]
-        var item_icon: TextureRect = row_data["equipped_icon"]
-        var model_code: Label = row_data["model_code"]
-        # Keep an inset square icon at the exact card-height centre. The
-        # separate text lane is never allowed to touch the icon frame.
-        # For a 720px portrait viewport: 60px icon, ~16px left inset and
-        # ~24px whitespace before the item name. Narrow viewports scale down.
-        var icon_left: float = clampf(row.size.x * 0.055, 12.0, 18.0)
-        var icon_size: float = minf(row.size.y - 28.0,
-            clampf(row.size.x * 0.21, 40.0, 60.0))
-        var icon_gap: float = clampf(row.size.x * 0.08, 17.0, 24.0)
-        var text_left: float = icon_left + icon_size + icon_gap
-        var text_width: float = maxf(20.0, row.size.x - text_left - 12.0)
-        var code_height: float = clampf(row.size.y * 0.23, 15.0, 21.0)
-        var code_top: float = row.size.y - code_height - 5.0
-        var value_top: float = row.size.y * 0.35
-        item_icon.position = Vector2(icon_left, (row.size.y - icon_size) * 0.5)
-        item_icon.size = Vector2(icon_size, icon_size)
-        name_label.position = Vector2(text_left, 5.0)
-        name_label.size = Vector2(text_width, row.size.y * 0.27)
-        value_label.position = Vector2(text_left, value_top)
-        value_label.size = Vector2(text_width,
-            maxf(14.0, code_top - value_top - 3.0))
-        model_code.position = Vector2(text_left, code_top)
-        model_code.size = Vector2(text_width, code_height)
+        var button: Button = customize_equipment_rows[CUSTOMIZE_SLOTS[i]]["panel"]
+        button.position = Vector2(9.0, top + float(i) * row_pitch)
+        button.size = Vector2(maxf(68.0, customize_right_panel.size.x - 18.0),
+            maxf(37.0, row_pitch - 5.0))
+
 
 func _refresh_equipment_controls() -> void:
     for slot in CUSTOMIZE_SLOTS:
         if not customize_equipment_rows.has(slot):
             continue
-        var options: Array = ["A"]
-        var current_set: String = "A"
+        var button: Button = customize_equipment_rows[slot]["panel"]
+        var selected_model: String = "A"
         var blocker: Dictionary = {}
         if sera_display_rig != null and bool(sera_display_rig.get("loading_ok")):
-            options = sera_display_rig.call("get_equipment_options", slot)
-            current_set = str(sera_display_rig.call("get_equipment_selection", slot))
+            selected_model = str(sera_display_rig.call("get_equipment_selection", slot))
             blocker = sera_display_rig.call(
                 "get_equipment_two_handed_blocker", slot)
-        var row_data: Dictionary = customize_equipment_rows[slot]
-        var row: Panel = row_data["panel"]
-        var label: Label = row_data["value"]
-        var icon: TextureRect = row_data["equipped_icon"]
-        var model_code: Label = row_data["model_code"]
-        icon.visible = false
-        model_code.text = ""
-        model_code.visible = false
         if not blocker.is_empty():
-            # v291: the other hand is physically occupied by a two-hand
-            # weapon. Keep the row as non-clickable grey UI and show its
-            # actual weapon name, not the hidden saved off-hand set.
-            row.modulate = Color(0.48, 0.50, 0.54, 1.0)
-            label.text = str(blocker.get("name", "TWO-HANDED"))
-            LaboSkin.refresh_name_underline(label)
+            button.text = str(blocker.get("name", "TWO-HANDED"))
+            button.modulate = Color(0.52, 0.57, 0.61, 1.0)
             continue
-        row.modulate = Color.WHITE
-        var variant_label: String = "MID" if current_set == "A" else "HEAVY"
-        if (slot == "weapon_r" or slot == "weapon_l") and current_set == "K":
-            variant_label = "KATANA"
-        if slot == "head" and current_set == "D":
-            variant_label = "アイリス"
-        if slot == "legs" and current_set == "C":
-            variant_label = "BIRD"
-        elif slot == "legs" and current_set == "D":
-            variant_label = "NEW"
-        var equipped_prototype: String = SeraSave.get_equipped_prototype(slot)
-        if not equipped_prototype.is_empty():
-            var blueprint: String = equipped_prototype.get_slice("-", 0)
-            icon.texture = IconAtlas.equipment_icon(blueprint)
-            icon.visible = icon.texture != null
-            label.text = str(PrototypeCatalog.spec(blueprint).get("name", blueprint))
-            model_code.text = equipped_prototype
-            model_code.visible = true
-            label.add_theme_font_size_override("font_size", 18)
+        button.modulate = Color.WHITE
+        var uid: String = SeraSave.get_equipped_prototype(slot)
+        if not uid.is_empty():
+            var blueprint: String = uid.get_slice("-", 0)
+            button.text = str(PrototypeCatalog.spec(blueprint).get("name", blueprint))
         else:
-            label.text = "%s  %s" % [current_set, variant_label] \
-                if options.size() > 1 else current_set
-            label.add_theme_font_size_override("font_size", 20)
-        LaboSkin.refresh_name_underline(label)
+            button.text = _default_part_name(slot, selected_model)
     _refresh_customization_stats()
+    if focused_target == "CUSTOMIZE" and not in_transition:
+        _refresh_single_part_preview(customize_part_preview_slot)
+
+func _default_part_name(slot: String, model: String) -> String:
+    for id in PrototypeCatalog.ORDER:
+        var spec: Dictionary = PrototypeCatalog.spec(str(id))
+        if str(spec.get("slot", "")) == slot and (
+                str(spec.get("rig_set", "")) == model):
+            return str(spec.get("name", id))
+    return str(CUSTOMIZE_SLOT_LABELS.get(slot, slot))
 
 
 func _tap_equipment_control(point: Vector2) -> bool:
@@ -1075,62 +1041,277 @@ func _tap_equipment_control(point: Vector2) -> bool:
         return false
     var local: Vector2 = point - customize_right_panel.position
     for slot in CUSTOMIZE_SLOTS:
-        var row: Panel = customize_equipment_rows[slot]["panel"]
-        if not Rect2(row.position, row.size).has_point(local):
-            continue
-        # No arrows/no interaction when the opposite slot owns both hands.
-        # If a future LEFT two-hand weapon is equipped, the RIGHT row is
-        # blocked by exactly this same rule (no side-specific UI branch).
-        var blocker: Dictionary = sera_display_rig.call(
-            "get_equipment_two_handed_blocker", slot)
-        if not blocker.is_empty():
+        var row: Button = customize_equipment_rows[slot]["panel"]
+        if Rect2(row.position, row.size).has_point(local):
+            var blocker: Dictionary = sera_display_rig.call(
+                "get_equipment_two_handed_blocker", slot)
+            if blocker.is_empty():
+                _show_customization_part_picker(slot)
             return true
-        var choices: Array = sera_display_rig.call("get_equipment_options", slot)
-        var selectable: Array[String] = []
-        for value in choices:
-            selectable.append("set:" + str(value))
-        for crafted in SeraSave.get_owned_prototypes(slot):
-            selectable.append("crafted:" + str(crafted["uid"]))
-        if selectable.size() < 2:
-            return true
-        var current_set: String = str(sera_display_rig.call(
-            "get_equipment_selection", slot))
-        var active_uid: String = SeraSave.get_equipped_prototype(slot)
-        var current_choice: String = ("crafted:" + active_uid
-            if not active_uid.is_empty() else "set:" + current_set)
-        var index: int = maxi(0, selectable.find(current_choice))
-        var direction: int = -1 if local.x < row.position.x + row.size.x * 0.45 else 1
-        var next_index: int = posmod(index + direction, selectable.size())
-        var choice: String = selectable[next_index]
-        var updated: bool = false
-        if choice.begins_with("crafted:"):
-            var uid: String = choice.trim_prefix("crafted:")
-            var blueprint: String = uid.get_slice("-", 0)
-            var catalog_entry: Dictionary = PrototypeCatalog.spec(blueprint)
-            var rig_set: String = str(catalog_entry.get("rig_set", "A"))
-            # A rig is a provisional stand-in. Never pretend the icon has
-            # a new authored mesh, or change the world-space hitboxes.
-            if bool(sera_display_rig.call("set_equipment_selection", slot, rig_set)):
-                updated = SeraSave.equip_prototype(slot, uid)
-        else:
-            var target_set: String = choice.trim_prefix("set:")
-            if bool(sera_display_rig.call("set_equipment_selection", slot, target_set)):
-                var current_proto: String = SeraSave.get_equipped_prototype(slot)
-                updated = current_proto.is_empty() or (
-                    SeraSave.clear_equipped_prototype(slot))
-        if updated:
-            _refresh_equipment_controls()
-            if slot == "legs" or slot == "arms":
-                _fit_nexus_arms_to_lower_body()
-            _capture_sera_silhouette(sera_display_rig)
-            _update_projected_silhouettes()
-            outline.queue_redraw()
-        return true
     return true
 
 
-## v171 DATA ARCHIVE: reusable focus-panel elements. Text-only slot rows keep
-## the 3D data bank visible and avoid a second full-screen UI layer.
+func _create_customization_part_picker() -> void:
+    customize_part_picker = Control.new()
+    customize_part_picker.name = "CustomizePartPickerOverlay"
+    customize_part_picker.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    customize_part_picker.visible = false
+    customize_part_picker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    hud.add_child(customize_part_picker)
+    var shade := ColorRect.new()
+    shade.name = "CustomizePartPickerShade"
+    shade.color = Color(0.003, 0.010, 0.02, 0.87)
+    shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    customize_part_picker.add_child(shade)
+    customize_part_picker_window = Panel.new()
+    customize_part_picker_window.name = "CustomizePartPickerWindow"
+    customize_part_picker_window.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    customize_part_picker_window.add_theme_stylebox_override(
+        "panel", _menu_body_style())
+    customize_part_picker.add_child(customize_part_picker_window)
+    customize_part_picker_title = Label.new()
+    customize_part_picker_title.name = "CustomizePartPickerTitle"
+    customize_part_picker_title.add_theme_font_override(
+        "font", LaboSkin.tracked_display_font())
+    customize_part_picker_title.add_theme_font_size_override("font_size", 24)
+    customize_part_picker_title.add_theme_color_override(
+        "font_color", Color("#e1eef3"))
+    customize_part_picker_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    customize_part_picker_window.add_child(customize_part_picker_title)
+    customize_part_picker_scroll = ScrollContainer.new()
+    customize_part_picker_scroll.name = "CustomizePartPickerScroll"
+    customize_part_picker_scroll.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    customize_part_picker_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+    customize_part_picker_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+    customize_part_picker_window.add_child(customize_part_picker_scroll)
+    customize_part_grid = GridContainer.new()
+    customize_part_grid.name = "CustomizePartPickerGrid"
+    customize_part_grid.columns = 3
+    customize_part_grid.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    customize_part_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    customize_part_grid.add_theme_constant_override("h_separation", 8)
+    customize_part_grid.add_theme_constant_override("v_separation", 8)
+    customize_part_picker_scroll.add_child(customize_part_grid)
+    hud.resized.connect(_layout_customization_part_picker)
+
+func _layout_customization_part_picker() -> void:
+    if customize_part_picker == null:
+        return
+    var view: Vector2 = hud.size
+    customize_part_picker_window.position = Vector2(view.x * 0.055,
+        view.y * 0.218)
+    customize_part_picker_window.size = Vector2(view.x * 0.890,
+        view.y * 0.638)
+    customize_part_picker_title.position = Vector2(17, 13)
+    customize_part_picker_title.size = Vector2(
+        customize_part_picker_window.size.x - 34, 42)
+    customize_part_picker_scroll.position = Vector2(12, 62)
+    customize_part_picker_scroll.size = Vector2(
+        customize_part_picker_window.size.x - 24,
+        maxf(100.0, customize_part_picker_window.size.y - 76))
+    customize_part_grid.columns = 3
+    var width: float = (customize_part_picker_scroll.size.x - 16.0) / 3.0
+    for entry in customize_part_picker_cells:
+        var card: Button = entry["button"]
+        card.custom_minimum_size = Vector2(width, width + 47.0)
+        var art: TextureRect = entry["art"]
+        var side: float = width - 12.0
+        art.custom_minimum_size = Vector2(side, side)
+
+func _show_customization_part_picker(slot: String) -> void:
+    if customize_part_picker == null:
+        return
+    customize_part_preview_slot = slot
+    _refresh_single_part_preview(slot)
+    customize_part_picker_title.text = str(CUSTOMIZE_SLOT_LABELS.get(slot, slot)) + "   /   SELECT PART    ×"
+    for child in customize_part_grid.get_children():
+        customize_part_grid.remove_child(child)
+        child.queue_free()
+    customize_part_picker_cells.clear()
+    # Every installed mesh is selectable, plus each independently owned
+    # crafted UID. Only owned copies carry their five randomized affixes.
+    for id in PrototypeCatalog.ORDER:
+        var spec: Dictionary = PrototypeCatalog.spec(str(id))
+        if str(spec.get("slot", "")) != slot:
+            continue
+        _append_customization_choice("model:" + str(id),
+            str(spec.get("name", "")), str(id), "")
+    for item in SeraSave.get_owned_prototypes(slot):
+        var uid: String = str(item.get("uid", ""))
+        var blueprint: String = str(item.get("blueprint", ""))
+        if PrototypeCatalog.spec(blueprint).is_empty():
+            continue
+        var part_name: String = str(PrototypeCatalog.spec(blueprint)["name"])
+        _append_customization_choice("crafted:" + uid, part_name,
+            blueprint, uid)
+    _layout_customization_part_picker()
+    customize_part_picker_scroll.scroll_vertical = 0
+    customize_part_picker.visible = true
+    customize_part_picker.move_to_front()
+
+func _append_customization_choice(choice: String, name: String,
+        blueprint: String, uid: String) -> void:
+    var card := Button.new()
+    card.name = "PartChoice_" + choice.replace(":", "_")
+    card.text = ""
+    card.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    card.clip_contents = true
+    card.add_theme_stylebox_override("normal", LaboSkin.card_style("normal"))
+    card.add_theme_stylebox_override("hover", LaboSkin.card_style("selected"))
+    customize_part_grid.add_child(card)
+    var column := VBoxContainer.new()
+    column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    column.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    column.add_theme_constant_override("separation", 3)
+    card.add_child(column)
+    var image := TextureRect.new()
+    image.name = "ChoiceThumbnail"
+    image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+    image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+    image.texture = IconAtlas.equipment_icon(blueprint)
+    image.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    image.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    column.add_child(image)
+    var caption := Label.new()
+    caption.name = "ChoiceName"
+    caption.text = name
+    caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    caption.clip_text = true
+    caption.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+    caption.add_theme_font_override("font", LaboSkin.equipment_font())
+    caption.add_theme_font_size_override("font_size", 16)
+    caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    column.add_child(caption)
+    if not uid.is_empty():
+        var ref := Label.new()
+        ref.name = "ChoiceUID"
+        ref.text = uid
+        ref.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        ref.add_theme_font_override("font", LaboSkin.tracked_data_font())
+        ref.add_theme_font_size_override("font_size", 12)
+        ref.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        column.add_child(ref)
+    customize_part_picker_cells.append({
+        "button": card, "art": image, "choice": choice
+    })
+
+func _choose_customization_part(choice: String) -> void:
+    if sera_display_rig == null:
+        return
+    var slot: String = customize_part_preview_slot
+    if not (sera_display_rig.call(
+            "get_equipment_two_handed_blocker", slot) as Dictionary).is_empty():
+        return
+    var previous_set: String = str(sera_display_rig.call(
+        "get_equipment_selection", slot))
+    var selected_id: String = choice.trim_prefix("model:")
+    var uid: String = ""
+    if choice.begins_with("crafted:"):
+        uid = choice.trim_prefix("crafted:")
+        selected_id = uid.get_slice("-", 0)
+    var spec: Dictionary = PrototypeCatalog.spec(selected_id)
+    if str(spec.get("slot", "")) != slot:
+        return
+    var model: String = str(spec.get("rig_set", "A"))
+    if not bool(sera_display_rig.call("set_equipment_selection", slot, model)):
+        return
+    var saved: bool = false
+    if not uid.is_empty():
+        saved = bool(SeraSave.equip_prototype(slot, uid))
+    else:
+        var current_uid: String = SeraSave.get_equipped_prototype(slot)
+        saved = current_uid.is_empty() or bool(
+            SeraSave.clear_equipped_prototype(slot))
+    if not saved:
+        sera_display_rig.call("set_equipment_selection", slot, previous_set)
+        return
+    _close_customization_part_picker()
+    _refresh_equipment_controls()
+    _refresh_single_part_preview(slot)
+    if slot == "legs" or slot == "arms":
+        _fit_nexus_arms_to_lower_body()
+    _capture_sera_silhouette(sera_display_rig)
+    _update_projected_silhouettes()
+    outline.queue_redraw()
+
+func _tap_customization_part_picker(point: Vector2) -> void:
+    if customize_part_picker == null or not customize_part_picker.visible:
+        return
+    var window_rect := Rect2(customize_part_picker_window.position,
+        customize_part_picker_window.size)
+    if not window_rect.has_point(point):
+        _close_customization_part_picker()
+        return
+    var header_rect := Rect2(customize_part_picker_window.position,
+        Vector2(customize_part_picker_window.size.x, 60.0))
+    if header_rect.has_point(point):
+        _close_customization_part_picker()
+        return
+    var clipping: Rect2 = customize_part_picker_scroll.get_global_rect()
+    if not clipping.has_point(point):
+        return
+    for entry in customize_part_picker_cells:
+        var card: Button = entry["button"]
+        if card.get_global_rect().has_point(point):
+            _choose_customization_part(str(entry["choice"]))
+            return
+
+func _close_customization_part_picker() -> void:
+    if customize_part_picker != null:
+        customize_part_picker.visible = false
+    customize_picker_touch_id = -1
+    customize_picker_mouse = false
+
+
+func _create_single_part_preview() -> void:
+    customize_single_part_preview = PartViewer.new()
+    customize_single_part_preview.name = "CustomizeSinglePartPreview"
+    customize_single_part_preview.visible = false
+    focus_panel.add_child(customize_single_part_preview)
+    customize_body_rotate_cue = RotateMark.new()
+    customize_body_rotate_cue.name = "CustomizeBodyRotateCue"
+    customize_body_rotate_cue.size = Vector2(28, 28)
+    customize_body_rotate_cue.visible = false
+    hud.add_child(customize_body_rotate_cue)
+
+func _layout_single_part_preview() -> void:
+    if customize_single_part_preview == null:
+        return
+    var view: Vector2 = hud.size
+    var header_height: float = focus_header.size.y
+    var side: float = minf(focus_panel.size.x - 10.0,
+        focus_panel.size.y - header_height - 10.0)
+    customize_single_part_preview.position = Vector2(
+        (focus_panel.size.x - side) * 0.5, header_height + 5)
+    customize_single_part_preview.size = Vector2(side, side)
+    var area: Rect2 = _customize_model_area(view)
+    customize_body_rotate_cue.position = area.position + Vector2(8, 8)
+    customize_body_rotate_cue.visible = focused_target == "CUSTOMIZE"
+
+func _refresh_single_part_preview(slot: String) -> void:
+    if customize_single_part_preview == null or (
+            focused_target != "CUSTOMIZE"):
+        return
+    var selected_model: String = "A"
+    if sera_display_rig != null:
+        selected_model = str(sera_display_rig.call(
+            "get_equipment_selection", slot))
+    var uid: String = SeraSave.get_equipped_prototype(slot)
+    var blueprint: String = uid.get_slice("-", 0) if not uid.is_empty() else ""
+    if blueprint.is_empty():
+        for candidate in PrototypeCatalog.ORDER:
+            var spec: Dictionary = PrototypeCatalog.spec(str(candidate))
+            if str(spec.get("slot", "")) == slot and (
+                    str(spec.get("rig_set", "")) == selected_model):
+                blueprint = str(candidate)
+                break
+    if not blueprint.is_empty():
+        customize_part_preview_slot = slot
+        customize_single_part_preview.show_part(blueprint)
+        customize_single_part_preview.visible = true
+
+
 func _load_system_lock_preference() -> void:
     var settings := ConfigFile.new()
     if settings.load(CONTROL_SETTINGS_FILE) == OK:
@@ -1669,11 +1850,10 @@ func _apply_labo_typography() -> void:
         _skin_label(entry["label"] as Label, LaboSkin.title_font(), 21, accent)
         LaboSkin.attach_name_underline(entry["label"] as Label)
     for slot in CUSTOMIZE_SLOTS:
-        var part: Dictionary = customize_equipment_rows[slot]
-        _skin_label(part["name"] as Label, display, 16, secondary)
-        _skin_label(part["value"] as Label, equipment, 20, accent)
-        _skin_label(part["model_code"] as Label, stats, 12, Color("#8c959e"))
-        LaboSkin.attach_name_underline(part["value"] as Label)
+        var button: Button = customize_equipment_rows[slot]["panel"]
+        button.add_theme_font_override("font", equipment)
+        button.add_theme_font_size_override("font_size", 22)
+        button.add_theme_color_override("font_color", accent)
     for cell in customize_stat_cells:
         _skin_label(cell["name"] as Label, stats, 13, secondary)
         _skin_label(cell["value"] as Label, stats, 15, accent)
@@ -1699,13 +1879,13 @@ func _customize_square_menu_rect(view: Vector2) -> Rect2:
 
 func _customize_tall_menu_rect(view: Vector2) -> Rect2:
     return Rect2(
-        Vector2(view.x * 0.525, view.y * 0.135),
-        Vector2(view.x * 0.440, view.y * 0.730))
+        Vector2(view.x * 0.525, view.y * 0.258),
+        Vector2(view.x * 0.440, view.y * 0.605))
 
 func _customize_model_area(view: Vector2) -> Rect2:
     var square: Rect2 = _customize_square_menu_rect(view)
-    var top: float = view.y * 0.10
-    var bottom: float = minf(view.y * 0.615,
+    var top: float = view.y * 0.245
+    var bottom: float = minf(view.y * 0.625,
         square.position.y - maxf(12.0, view.y * 0.012))
     return Rect2(
         Vector2(square.position.x, top),
@@ -1745,12 +1925,14 @@ func _layout_hud() -> void:
         customize_right_header.size = Vector2(
             tall.size.x, minf(60.0, view.y * 0.068))
         _layout_equipment_controls()
+        _layout_customization_part_picker()
     # The opaque top stripe belongs to the focus panel; rest stays blue/clear.
     focus_header.position = Vector2.ZERO
     focus_header.size = Vector2(focus_panel.size.x, minf(60.0, view.y * 0.068))
     focus_title.position = Vector2(16.0, 0.0)
     focus_title.size = Vector2(focus_header.size.x - 32.0, focus_header.size.y)
     _layout_customization_stats()
+    _layout_single_part_preview()
     action_panel.position = Vector2(16.0, focus_panel.size.y - 84.0)
     action_panel.size = Vector2(focus_panel.size.x - 32.0, 60.0)
     action_label.position = Vector2.ZERO
@@ -2437,6 +2619,9 @@ func _on_android_back() -> void:
     _navigate_back()
 
 func _navigate_back() -> void:
+    if customize_part_picker != null and customize_part_picker.visible:
+        _close_customization_part_picker()
+        return
     if in_transition:
         return
     if focused_target.is_empty():
@@ -2445,6 +2630,88 @@ func _navigate_back() -> void:
         _return_to_overview()
 
 func _input(event: InputEvent) -> void:
+    # Picker taps occur on RELEASE so upward swipes cannot accidentally equip.
+    # The scroll is manual because NEXUS uses raw Android touch navigation.
+    if customize_part_picker != null and customize_part_picker.visible:
+        if event is InputEventScreenTouch:
+            if event.pressed:
+                if customize_picker_touch_id == -1:
+                    customize_picker_touch_id = event.index
+                    customize_picker_start = event.position
+                    customize_picker_last = event.position
+            elif event.index == customize_picker_touch_id:
+                if event.position.distance_to(customize_picker_start) < 14.0:
+                    _tap_customization_part_picker(event.position)
+                customize_picker_touch_id = -1
+            get_viewport().set_input_as_handled()
+            return
+        elif event is InputEventScreenDrag:
+            if event.index == customize_picker_touch_id:
+                customize_part_picker_scroll.scroll_vertical -= roundi(event.relative.y)
+                customize_picker_last = event.position
+            get_viewport().set_input_as_handled()
+            return
+        elif event is InputEventMouseButton:
+            if event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+                customize_part_picker_scroll.scroll_vertical += (
+                    -64 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 64)
+            elif event.button_index == MOUSE_BUTTON_LEFT:
+                if event.pressed:
+                    customize_picker_mouse = true
+                    customize_picker_start = event.position
+                else:
+                    if customize_picker_mouse and event.position.distance_to(
+                            customize_picker_start) < 14.0:
+                        _tap_customization_part_picker(event.position)
+                    customize_picker_mouse = false
+            get_viewport().set_input_as_handled()
+            return
+        elif event is InputEventMouseMotion and customize_picker_mouse:
+            customize_part_picker_scroll.scroll_vertical -= roundi(event.relative.y)
+            get_viewport().set_input_as_handled()
+            return
+    # Dedicated bottom-left part preview never rotates the full SERA body.
+    if focused_target == "CUSTOMIZE" and customize_single_part_preview != null and (
+            customize_single_part_preview.visible):
+        var part_rect := Rect2(
+            focus_panel.position + customize_single_part_preview.position,
+            customize_single_part_preview.size)
+        if event is InputEventScreenTouch:
+            if event.pressed and part_rect.has_point(event.position):
+                customize_part_touch_id = event.index
+                customize_single_part_preview.feed_touch(event.index, true,
+                    event.position - part_rect.position)
+                get_viewport().set_input_as_handled()
+                return
+            if not event.pressed and event.index == customize_part_touch_id:
+                customize_single_part_preview.feed_touch(event.index, false,
+                    event.position - part_rect.position)
+                customize_part_touch_id = -1
+                get_viewport().set_input_as_handled()
+                return
+        elif event is InputEventScreenDrag and event.index == customize_part_touch_id:
+            customize_single_part_preview.feed_drag(event.index,
+                event.position - part_rect.position)
+            get_viewport().set_input_as_handled()
+            return
+        elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+            if event.pressed and part_rect.has_point(event.position):
+                customize_part_mouse_drag = true
+                customize_single_part_preview.feed_touch(-10, true,
+                    event.position - part_rect.position)
+                get_viewport().set_input_as_handled()
+                return
+            if not event.pressed and customize_part_mouse_drag:
+                customize_single_part_preview.feed_touch(-10, false,
+                    event.position - part_rect.position)
+                customize_part_mouse_drag = false
+                get_viewport().set_input_as_handled()
+                return
+        elif event is InputEventMouseMotion and customize_part_mouse_drag:
+            customize_single_part_preview.feed_drag(-10,
+                event.position - part_rect.position)
+            get_viewport().set_input_as_handled()
+            return
     if event.is_action_pressed("ui_cancel") or (
             event is InputEventKey and event.pressed and not event.echo
             and event.keycode in [KEY_BACK, KEY_ESCAPE]):
@@ -2633,6 +2900,8 @@ func _focus_arrived(target_name: String) -> void:
     customize_right_panel.visible = target_name == "CUSTOMIZE"
     if target_name == "CUSTOMIZE":
         _refresh_equipment_controls()
+        _refresh_single_part_preview(customize_part_preview_slot)
+        _layout_single_part_preview()
 
 func _return_to_overview() -> void:
     if in_transition or focused_target.is_empty():
@@ -2645,6 +2914,14 @@ func _return_to_overview() -> void:
     if focused_target == "CUSTOMIZE" and customize_glow_quad != null:
         customize_glow_quad.visible = false
     in_transition = true
+    _close_customization_part_picker()
+    customize_part_touch_id = -1
+    customize_part_mouse_drag = false
+    if customize_single_part_preview != null:
+        customize_single_part_preview.set_preview_active(false)
+        customize_single_part_preview.visible = false
+    if customize_body_rotate_cue != null:
+        customize_body_rotate_cue.visible = false
     focus_panel.visible = false
     customize_right_panel.visible = false
     _set_training_visible(false)

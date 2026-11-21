@@ -5,6 +5,8 @@ const BaseMaterials = preload("res://scripts/sera_base_materials.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
 const IconAtlas = preload("res://scripts/sera_item_icons.gd")
 const EquipmentPreview = preload("res://tools/equipment_intake/godot_preview.gd")
+const WarehouseDetailPopup = preload("res://scripts/sera_warehouse_detail_popup.gd")
+const RotateMark = preload("res://scripts/sera_rotatable_mark.gd")
 const PrototypeCatalog = preload("res://scripts/sera_prototype_catalog.gd")
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const MarkIcon = preload("res://scripts/sera_mark_icon.gd")
@@ -58,6 +60,8 @@ var module_caption: Label
 var module_status: Label
 var modal_title: Label
 var warehouse_header_marks: HBoxContainer
+var warehouse_detail_popup: Control
+var craft_rotate_cue: Control
 var modal_body: Label
 var modal_actions: VBoxContainer
 var item_layer: Control
@@ -915,6 +919,12 @@ func attach_hud(hud: Control) -> void:
     confirmation_preview_host.mouse_default_cursor_shape = Control.CURSOR_MOVE
     confirmation_preview_host.visible = false
     square_content.add_child(confirmation_preview_host)
+    craft_rotate_cue = RotateMark.new()
+    craft_rotate_cue.name = "LaboCraftRotateCue"
+    craft_rotate_cue.position = Vector2(9, 9)
+    craft_rotate_cue.size = Vector2(28, 28)
+    craft_rotate_cue.visible = false
+    square_content.add_child(craft_rotate_cue)
     var preview_legend := Label.new()
     preview_legend.name = "LaboConfirmPreviewLegend"
     preview_legend.text = "DRAG / ROTATE       •       PINCH / ZOOM"
@@ -992,6 +1002,12 @@ func attach_hud(hud: Control) -> void:
     confirmation_accept_button.add_theme_color_override("font_color", Color("#edffff"))
     confirmation_accept_button.pressed.connect(_accept_confirmation)
     confirm_buttons.add_child(confirmation_accept_button)
+    # One overlay is reused for every warehouse UID; do not allocate it for
+    # each of the 999 virtualized equipment cards.
+    warehouse_detail_popup = WarehouseDetailPopup.new()
+    modal.add_child(warehouse_detail_popup)
+    warehouse_detail_popup.closed.connect(_on_warehouse_detail_closed)
+    warehouse_detail_popup.marks_changed.connect(_show_warehouse_equipment)
 
 func _layout_craft_confirmation() -> void:
     if confirmation_overlay == null or confirmation_preview_square == null:
@@ -1045,6 +1061,7 @@ func _request_confirmation(title: String, detail: String, action: Callable,
         confirmation_item_icon.texture = IconAtlas.equipment_icon(equipment_blueprint)
         confirmation_item_icon.visible = true
         confirmation_preview_host.visible = false
+        craft_rotate_cue.visible = false
         confirmation_item_name.text = str(spec.get("name", ""))
         confirmation_item_slot.text = "EQUIPMENT / " + str(
             spec.get("slot", "")).to_upper()
@@ -1106,12 +1123,15 @@ func _show_craft_rotatable_part(blueprint: String) -> void:
         "seq": -1})
     confirmation_item_icon.visible = false
     confirmation_preview_host.visible = true
+    craft_rotate_cue.visible = true
 
 func _dismiss_confirmation() -> void:
     pending_confirmation = Callable()
     _set_labo_scroll_input_enabled(true)
     if confirmation_preview_host != null:
         confirmation_preview_host.visible = false
+    if craft_rotate_cue != null:
+        craft_rotate_cue.visible = false
     if confirmation_preview_viewport != null:
         confirmation_preview_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
     if confirmation_overlay != null:
@@ -1660,6 +1680,8 @@ func open_facility(key: String) -> void:
     if modal == null or spec.is_empty():
         return
     _dismiss_confirmation()
+    if warehouse_detail_popup != null:
+        warehouse_detail_popup.close_item()
     active_key = key
     page = "home"
     modal_body.visible = not key in ["LABO", "SMELTER", "RECYCLER", "STORAGE"]
@@ -2214,55 +2236,25 @@ func _on_warehouse_entry_pressed(item: Dictionary) -> void:
     _show_warehouse_item_detail(str(item.get("uid", "")))
 
 func _show_warehouse_item_detail(uid: String) -> void:
+    # Window overlays STORAGE without replacing its fast virtual list.
+    # Stats are calculated once for this actual UID by WarehouseDetailPopup.
     var owned: Array = SeraSave.get_owned_prototypes(warehouse_slot)
-    for item in owned:
-        if str(item.get("uid", "")) != uid:
+    for record in owned:
+        var entry: Dictionary = record
+        if str(entry.get("uid", "")) != uid:
             continue
-        var blueprint: String = str(item.get("blueprint", ""))
-        var spec: Dictionary = PrototypeCatalog.spec(blueprint)
-        if spec.is_empty():
+        var blueprint: String = str(entry.get("blueprint", ""))
+        if PrototypeCatalog.spec(blueprint).is_empty():
             return
         page = "warehouse_item"
-        _clear_actions()
-        modal_title.text = str(spec["name"])
-        _set_warehouse_header_marks(bool(item.get("favorite", false)),
-            bool(item.get("junk", false)))
-        modal_body.text = "%s / %s" % [
-            uid, _warehouse_slot_name(warehouse_slot)]
-        # One cell per stat name, one wide expression cell, and one aligned
-        # total cell. Thin grid only; no repeated text annotations.
-        var stat_table: GridContainer = WarehouseStatsTable.build(
-            blueprint, item.get("affixes", []),
-            get_viewport().get_visible_rect().size.x)
-        modal_actions.add_child(stat_table)
-        if not warehouse_notice.is_empty():
-            _add_terminal_notice(warehouse_notice)
-        _add_item_tile(IconAtlas.equipment_icon(blueprint),
-            str(spec["name"]) + "  " + uid, "WarehouseDetail_" + uid)
-        var favorite := Button.new()
-        favorite.name = "WarehouseFavoriteToggle"
-        favorite.text = "お気に入り解除" if bool(item.get("favorite", false)) else "お気に入りに指定"
-        favorite.custom_minimum_size.y = 70
-        favorite.add_theme_font_size_override("font_size", 21)
-        _style_terminal_segment(favorite)
-        _add_labo_mark_icon(favorite, "favorite")
-        favorite.pressed.connect(_invoke_scroll_action.bind(
-            _mark_warehouse_item.bind(uid, "favorite",
-                not bool(item.get("favorite", false))), actions_scroll))
-        modal_actions.add_child(favorite)
-        var junk := Button.new()
-        junk.name = "WarehouseJunkToggle"
-        junk.text = "不用品指定を解除" if bool(item.get("junk", false)) else "不用品に指定"
-        junk.custom_minimum_size.y = 70
-        junk.add_theme_font_size_override("font_size", 21)
-        _style_terminal_segment(junk)
-        _add_labo_mark_icon(junk, "junk")
-        junk.pressed.connect(_invoke_scroll_action.bind(
-            _mark_warehouse_item.bind(uid, "junk",
-                not bool(item.get("junk", false))), actions_scroll))
-        modal_actions.add_child(junk)
-        _configure_page_scroll(0, true)
+        warehouse_detail_popup.open_item(entry)
         return
+
+
+func _on_warehouse_detail_closed() -> void:
+    # Close returns to the exact hanger position; no list reconstruction.
+    if page == "warehouse_item":
+        page = "inventory"
 
 func _mark_warehouse_item(uid: String, mark: String, enabled: bool) -> void:
     # Success is already represented instantly by the heading icon and
@@ -2669,6 +2661,9 @@ func navigate_back() -> void:
     if confirmation_overlay != null and confirmation_overlay.visible:
         _dismiss_confirmation()
         return
+    if warehouse_detail_popup != null and warehouse_detail_popup.is_open():
+        warehouse_detail_popup.close_item()
+        return
     match page:
         "conversion":
             page = "families"
@@ -2687,6 +2682,8 @@ func navigate_back() -> void:
             close_menu()
 
 func close_menu() -> void:
+    if warehouse_detail_popup != null:
+        warehouse_detail_popup.close_item()
     _dismiss_confirmation()
     _set_labo_hero(false)
     if modal != null:
@@ -2709,6 +2706,8 @@ func _input(event: InputEvent) -> void:
             and event.keycode in [KEY_BACK, KEY_ESCAPE]):
         if confirmation_overlay != null and confirmation_overlay.visible:
             _dismiss_confirmation()
+        elif warehouse_detail_popup != null and warehouse_detail_popup.is_open():
+            warehouse_detail_popup.close_item()
         else:
             navigate_back()
         get_viewport().set_input_as_handled()

@@ -91,8 +91,9 @@ assert 'cfg.set_value("equipment", "schema_version", 2)' in code
 
 nexus = get("scripts/command_nexus.gd")
 assert '"legs": "LOWER BODY"' in nexus
-assert 'variant_label = "BIRD"' in nexus
-assert 'variant_label = "NEW"' in nexus
+# The visual label is now the real blueprint name; no placeholder BIRD/NEW.
+assert 'func _default_part_name(slot: String, model: String) -> String:' in nexus
+assert 'button.text = _default_part_name(slot, selected_model)' in nexus
 print("PASS: D uses isolated, author-derived 12-mesh asset and export snapshot")
 print("PASS: no duplicate D, dedicated standard joints, C bird and head routing preserved")
 print("PASS: visibility, saved D selection and foot grounding paths retained")

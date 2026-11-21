@@ -3,16 +3,20 @@
 from pathlib import Path
 r = Path(__file__).resolve().parents[1]
 ui = (r/"scripts/base_facility_system.gd").read_text("utf-8")
+popup = (r/"scripts/sera_warehouse_detail_popup.gd").read_text("utf-8")
 stats = (r/"scripts/sera_labo_stats.gd").read_text("utf-8")
 table = (r/"scripts/sera_warehouse_stats_table.gd").read_text("utf-8")
 manifest = (r/"tools/sera_ci_manifest.txt").read_text("utf-8")
 for token in (
     'const WarehouseStatsTable = preload("res://scripts/sera_warehouse_stats_table.gd")',
-    'var stat_table: GridContainer = WarehouseStatsTable.build(',
-    'modal_actions.add_child(stat_table)',
+    'warehouse_detail_popup.open_item(entry)',
     'info.replace("基礎ステータス / ", "")',
 ):
     assert token in ui, token
+for token in ('const StatTable = preload("res://scripts/sera_warehouse_stats_table.gd")',
+              'var table: GridContainer = StatTable.build(', 'stats_container.add_child(table)',
+              'WarehouseDetailStatsScroll'):
+    assert token in popup, token
 assert 'breakdown.name = "WarehouseStatsBreakdown"' not in ui
 assert 'breakdown.text = LaboStats.total_formula' not in ui
 for token in (

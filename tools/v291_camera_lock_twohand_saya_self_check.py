@@ -76,13 +76,14 @@ assert 'piece.visible = not reserved and set_id == str(selected.get(slot, "A"))'
 assert "get_equipment_two_handed_blocker(slot: String) -> Dictionary:" in rig
 refresh=nexus.split("func _refresh_equipment_controls() -> void:",1)[1].split(
     "func _tap_equipment_control(",1)[0]
-assert 'row.modulate = Color(0.48, 0.50, 0.54, 1.0)' in refresh
-assert 'label.text = str(blocker.get("name", "TWO-HANDED"))' in refresh
-assert 'row.modulate = Color.WHITE' in refresh
+assert 'button.modulate = Color(0.52, 0.57, 0.61, 1.0)' in refresh
+assert 'button.text = str(blocker.get("name", "TWO-HANDED"))' in refresh
+assert 'button.modulate = Color.WHITE' in refresh
 tap=nexus.split("func _tap_equipment_control(point: Vector2) -> bool:",1)[1].split(
     "func ",1)[0]
 assert '"get_equipment_two_handed_blocker", slot' in tap
-assert "if not blocker.is_empty():" in tap
+assert "if blocker.is_empty():" in tap
+assert "_show_customization_part_picker(slot)" in tap
 
 # The authored Katana_l3 sheath mesh has a real +90deg element-local yaw.
 # Godot previously imported local rotations only for Bird_, causing the

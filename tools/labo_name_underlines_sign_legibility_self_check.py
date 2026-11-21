@@ -8,6 +8,7 @@ facility = (root / "scripts/base_facility_system.gd").read_text(encoding="utf-8"
 stage = (root / "scripts/labo_hero_stage.gd").read_text(encoding="utf-8")
 warehouse = (root / "scripts/sera_warehouse_grid.gd").read_text(encoding="utf-8")
 nexus = (root / "scripts/command_nexus.gd").read_text(encoding="utf-8")
+popup = (root / "scripts/sera_warehouse_detail_popup.gd").read_text(encoding="utf-8")
 manifest = (root / "tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 
 assert 'const NAME_UNDERLINE_COLOR: Color = Color("#55798a")' in skin
@@ -28,8 +29,9 @@ for token in ('LaboSkin.attach_name_underline(title)',
     assert token in warehouse, token
 for token in ('LaboSkin.attach_name_underline(focus_title)',
               'LaboSkin.attach_name_underline(entry["label"] as Label)',
-              'LaboSkin.attach_name_underline(part["value"] as Label)'):
+              'button.add_theme_font_override("font", equipment)'):
     assert token in nexus, token
+assert 'LaboSkin.attach_name_underline(detail_name)' in popup
 assert 'hero_host.stretch_shrink = 1' in facility
 assert 'label.font = LaboSkin.display_font()' in stage
 assert 'label.outline_size = 2' in stage

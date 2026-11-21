@@ -62,7 +62,7 @@ assert 'Quaternion(Vector3.BACK, deg_to_rad(sign * degrees)) * original' in nexu
 
 # Re-evaluate when selected lower-body or arms change, and on profile load.
 switch = nexus[nexus.index("func _tap_equipment_control("):]
-assert 'if slot == "legs" or slot == "arms":\n                _fit_nexus_arms_to_lower_body()' in switch
+assert 'if slot == "legs" or slot == "arms":\n        _fit_nexus_arms_to_lower_body()' in switch
 assert '    _fit_nexus_arms_to_lower_body()\n    _capture_sera_silhouette(sera_display_rig)' in switch
 assert 'rig.set_process(false)' in nexus
 assert 'rig.set_physics_process(false)' in nexus
