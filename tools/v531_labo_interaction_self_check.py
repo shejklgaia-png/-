@@ -14,7 +14,7 @@ for anchor in ('actions_scroll = LaboTouchScroll.new()',
                'var slot_tabs := HBoxContainer.new()',
                'func _request_confirmation(',
                '_confirm_selected_prototype()', '_confirm_conversion.bind(rank)',
-               'var amount := SpinBox.new()', 'func _confirm_bulk_junk_deletion(',
+               'var stepper := HBoxContainer.new()', 'func _confirm_bulk_junk_deletion(',
                'func _mark_warehouse_item(', 'WarehouseStatsTable.build('):
     assert anchor in ui, anchor
 assert '"CraftSlotScroll"' not in ui, "all seven fixed part tabs must fit without horizontal scrolling"
