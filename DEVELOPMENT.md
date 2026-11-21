@@ -1,3 +1,9 @@
+## 2026-11-22 — NEXUS hangar opaque metal contrast (night task)
+- The existing NEXUS Blockbench MultiMesh batches retain all transforms, sizes, geometry, camera settings, and the seven-index material mapping.
+- Opaque structural palette indices 1–3 use metallic 0.28 and roughness 0.52 instead of 0.16/0.70 to separate plate edges under the existing directional light. Other indices and emissive accents 5–7 are unchanged; no new nodes, lights, textures or draw calls.
+- Added `tools/nexus_material_contrast_self_check.py` and registered it in CI before editing the renderer. Python/Godot execution and Android visual validation remain pending; this change must not be described as visually verified.
+- Handoff: run focused check and full registered CI on main after merge; capture NEXUS portrait screenshots, verify material highlights, model intersections, UI readability, and performance on Android.
+
 ## 2026-11-22 — Bittaran：落下モーション可変速・4足床接地・復帰前踏み替え（v534）
 - 最新ユーザー指定：原本0.0〜0.5秒は100→30%へ滑らかに減速、0.5〜0.6秒は30%、0.6〜1.75秒は30→基本55%へ加速。再生速度は「原本キーフレーム時刻」に対する割合であり、フレームレート非依存の分割積分で再生する。
 - 部位破壊直後に原本0秒から再生し、原本1.75秒で停止する。モーション開始時点からは倒れ時間に算入しない。着地して初めて従来2.5秒／全脚6.0秒を計時、作者の1.75秒姿勢を維持する。
