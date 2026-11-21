@@ -14,14 +14,15 @@ func _fail(why: String) -> void:
     quit(1)
 
 func _pose_time(pose_fraction: float) -> float:
-    # The IK's actual pose is cubic-smoothed elapsed time. Invert it
-    # so the 70% gate is tested in POSE space, not elapsed-time space.
+    # v532: physical rise now uses C2 quintic smootherstep, not cubic.
+    # Invert actual POSE space so the 70% head gate is tested correctly.
     var lo: float = 0.0
     var hi: float = 1.0
     for _i in range(32):
         var mid: float = (lo + hi) * 0.5
-        var cubic: float = mid * mid * (3.0 - 2.0 * mid)
-        if cubic < pose_fraction:
+        var quintic: float = mid * mid * mid * (
+            mid * (mid * 6.0 - 15.0) + 10.0)
+        if quintic < pose_fraction:
             lo = mid
         else:
             hi = mid
