@@ -34,7 +34,7 @@ desired = {
     "LABO": (.503, .641),
     "SMELTER": (.190, .396),
     "RECYCLER": (.790, .414),
-    "STORAGE": (.205, .568),
+    "STORAGE": (.198, .571),
     "GENERATOR": (.812, .586),
     "SCRAP_COLLECTOR": (.172, .745),
     "BUILD_TERMINAL": (.706, .760),

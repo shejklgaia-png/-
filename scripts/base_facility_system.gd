@@ -40,7 +40,7 @@ const FACILITY_SPECS = [
         "size": Vector3(2.45, 2.55, 2.35), "subtitle": "不要素材の分解"},
     {"id": "GENERATOR", "name": "発電機", "at": Vector3(8.85, 0.0, -1.65),
         "size": Vector3(2.40, 3.10, 2.25), "subtitle": "拠点電力"},
-    {"id": "STORAGE", "name": "資材保管庫", "at": Vector3(-2.15, 0.0, 5.35),
+    {"id": "STORAGE", "name": "資材保管庫", "at": Vector3(-2.15, 0.0, 5.58),
         "size": Vector3(2.45, 2.15, 2.30), "subtitle": "資源の保管"},
     {"id": "BUILD_TERMINAL", "name": "建設端末", "at": Vector3(14.35, 0.0, 9.20),
         "size": Vector3(2.10, 2.55, 2.10), "subtitle": "拠点の建設・拡張"}
