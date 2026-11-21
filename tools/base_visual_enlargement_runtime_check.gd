@@ -17,13 +17,13 @@ func _run() -> void:
             break
     var expected := {
         "NEXUSBuilding/NexusArchitecture": 1.14,
-        "BaseFacilities/LABO/IndustrialModel": 1.28,
-        "BaseFacilities/SCRAP_COLLECTOR/IndustrialModel": 1.36,
-        "BaseFacilities/SMELTER/IndustrialModel": 1.36,
-        "BaseFacilities/RECYCLER/IndustrialModel": 1.36,
-        "BaseFacilities/GENERATOR/IndustrialModel": 1.36,
-        "BaseFacilities/STORAGE/IndustrialModel": 1.36,
-        "BaseFacilities/BUILD_TERMINAL/IndustrialModel": 1.36,
+        "BaseFacilities/LABO/IndustrialModel": 1.45,
+        "BaseFacilities/SCRAP_COLLECTOR/IndustrialModel": 1.55,
+        "BaseFacilities/SMELTER/IndustrialModel": 1.55,
+        "BaseFacilities/RECYCLER/IndustrialModel": 1.55,
+        "BaseFacilities/GENERATOR/IndustrialModel": 1.55,
+        "BaseFacilities/STORAGE/IndustrialModel": 1.55,
+        "BaseFacilities/BUILD_TERMINAL/IndustrialModel": 1.55,
     }
     for path in expected:
         var model: Node3D = hub.get_node_or_null(path) as Node3D
