@@ -2,6 +2,7 @@ extends RefCounted
 const BaseClutter = preload("res://scripts/sera_base_clutter.gd")
 const BasePolish = preload("res://scripts/sera_base_reference_polish.gd")
 const BaseSilhouette = preload("res://scripts/sera_base_silhouette_refinement.gd")
+const BaseFinish = preload("res://scripts/sera_base_functional_finish.gd")
 const BasePolygon = preload("res://scripts/sera_base_polygon_meshes.gd")
 const WEATHERED_STEEL_PATH: String = "res://assets/base/industrial_steel_grunge.svg"
 const WEATHERED_CANVAS_PATH: String = "res://assets/base/aged_canvas_weave.svg"
@@ -13,7 +14,7 @@ const COLORS = {
     "dark": "#202934", "void": "#121d27", "armor": "#53616f",
     "armor_light": "#72808c", "slate": "#3b4a59", "edge": "#84909a",
     "trim": "#303e4c", "crate": "#5a6573", "rubber": "#242b31",
-    "gold": "#a98448", "caution": "#c4a35f", "cloth": "#8c8b80",
+    "gold": "#a98448", "caution": "#c4a35f", "cloth": "#78776e",
     "rust": "#785644", "blue": "#357d95", "blue_light": "#81d6ed",
     "amber": "#dd8647", "amber_light": "#ffc18b", "glass": "#276076",
     "white": "#b3c1c8"
@@ -351,6 +352,7 @@ static func build_nexus(parent: Node3D) -> void:
         Vector3(0.33, 0.13, 0.55), "rust", -0.28)
     BasePolish.add_details(g, "NEXUS")
     BaseSilhouette.add_details(g, "NEXUS")
+    BaseFinish.add_details(g, "NEXUS")
     g.detail_scale = 1.0
     BaseClutter.decorate(g, "NEXUS")
     g.flush()
@@ -632,6 +634,7 @@ static func build_facility(parent: Node3D, key: String) -> void:
                 Vector3(0.11, 0.055, 0.11), "edge")
     BasePolish.add_details(g, key)
     BaseSilhouette.add_details(g, key)
+    BaseFinish.add_details(g, key)
     g.detail_scale = 1.0
     BaseClutter.decorate(g, key)
     g.flush()
