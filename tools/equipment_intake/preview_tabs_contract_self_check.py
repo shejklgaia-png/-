@@ -72,6 +72,6 @@ assert 'rig.call("_apply_animation", 0.0)' in godot
 assert "_apply_preview_standing_pose()" in godot
 assert 'active_full_body_pose' in godot
 assert 'icon_idle_clip' in godot
-assert godot.index('_apply_preview_standing_pose()\n    if view_mode=="icon":') < godot.index('_apply_edit_size()\n    _apply_frame()')
+assert godot.index('_apply_preview_standing_pose()\n    if view_mode=="icon":') < godot.index('_apply_edit_size()\n    _fit_full_body_clearance()\n    _apply_frame()')
 
 print("SERA_INTAKE_PREVIEW_TABS_STATIC_OK")
