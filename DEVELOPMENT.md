@@ -3845,3 +3845,9 @@
 - 40 authored object IDs and multiple physical silhouettes use `scripts/sera_base_clutter.gd`, emitted into the existing `sera_base_architecture.gd` material-batched MultiMeshes without new independent object draws. Decorative geometry includes no new physics/collisions, shaders or live loops.
 - Authored X/Z footprints fit within each reserved single-piece facility slab with entrance and CRATE traffic lanes kept open. Existing 8 building positions, floor panels, Android portrait camera, UI, equipment and resource mechanics remain unchanged.
 - Required static+Godot runtime checks added in `tools/base_site_prop_variety_*.{py,gd}` before implementation. End-to-end CI and on-device visuals must be verified separately.
+
+## 2026-11-21 BASE storage/parts stacking visual
+- Layered 19 of the existing 52 accessory groups, including six 3-tier clusters, using authored per-item `stack` values in `scripts/sera_base_clutter.gd`.
+- New `LiftedBatch` forwards shifted actual mesh calls to the same existing facility material-batched MultiMesh. Style differences come from tier-specific color variations and small XZ staggering. Uses stack-specific contact pitch, only one ground skid, and no new per-frame logic.
+- All eight single-slab sites retain placement, entries, floor colors, tap navigation and CRATE traversal. Nonstackable equipment remains a single item.
+- Test-first `base_prop_stacks_self_check.py` / `base_prop_stacks_runtime_check.gd` registered in the full CI suite; runtime test records actual 3D crate Y coordinates and validates 2/3-tier diversity and clearance.
