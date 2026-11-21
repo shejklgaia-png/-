@@ -4120,3 +4120,11 @@
 - `tools/sera_workplan.py` に `documentation.required/selected/fallback/missing` を追加。拠点、LABO、倉庫、UI、ビットタランを含む機能分類から、存在する現行仕様書と関連Python/Godotテストを選択。未知の依頼はリポジトリ規約・索引へフォールバック。マッピングはツール内を唯一の正本にし、複製を避ける。
 - 変更前に `tools/sera_ci_manifest.txt`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、`tools/sera_workplan_self_check.py`、既存の開発ルールを確認。新しいルーティング期待値・文書存在・必須ルール保存・AGENTS容量のチェックを実装前に追加。既存の全CI登録・Godotモデル・セーブ・ゲーム仕様・テストケースは変更しない。
 - Godot Android画面・ゲーム挙動は今回変更なし。PR統合後のmain全CIが最終確認。ルーティング判定はヒューリスティックで、シグナルや動的参照などは手動調査を継続。
+
+
+## 2026-11-21 — アイリス装備設定フォームのタブ分離とプレビュー修正
+- 旧単体HTMLおよびGodotネイティブWeb版の編集UIを統一。全身はFULL BODY、単体はICON、小型単体プレビューと特殊効果はSTATS / FX、素材はRECIPEへ配置。
+- HEAD D+他部位Aを初期状態とし、部位別3D切替を復元。編集対象部位だけA基準サイズ調整（比率保持初期ON）。
+- 旧WebGL版の各部位単体抽出、リサイズ、非同期サムネイル撮影を修正。フォーム出力互換`SERA_EQUIPMENT_INTAKE_V1`と原本モデルを維持。
+- Godot部位単体可視性・全身復元のランタイム検査、フォームのタブ所属静的検査を追加。
+- HTML Raw URLの直接起動禁止は既存のSERA HTML配布規約を引き継ぐ。Androidブラウザ/Godot実機表示は別途確認対象。

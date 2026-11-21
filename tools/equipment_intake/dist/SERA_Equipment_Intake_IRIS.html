@@ -40,21 +40,32 @@ details.manual{border:1px solid #334a58;background:#101b24;margin-top:10px;paddi
 .nearestLine{display:flex;gap:10px;align-items:center}.nearestLine img,#distLegend img{border:1px solid #507485;object-fit:contain;background:#152b38;image-rendering:pixelated}
 #distSearch{display:block;width:100%;min-height:42px;border:1px solid #507485;background:#10202c;color:#d5e5ee;padding:9px;margin-top:8px}
 #distLegend{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;margin:10px 0}.distLegendRow{display:flex;align-items:center;gap:6px;min-width:0;padding:6px;background:#162a35;border:1px solid #34505f;font-size:11px}.distLegendRow span{overflow-wrap:anywhere}
+
+/* Explicit per-tab visual scopes; keep hidden Godot iframe alive only while capturing a thumbnail. */
+#intake-main #intake-viewer-card[hidden]{display:none!important}
+#intake-main #intake-viewer-card.capture-staging{position:fixed!important;left:0;top:0;width:512px;height:auto;opacity:.005;z-index:-1;pointer-events:none}
+#intake-main:has(#intake-viewer-card[hidden])>.intakePanel:not([hidden]){grid-column:1/-1;width:min(100%,820px);margin-inline:auto}
+.statsPreviewHeader{display:flex;gap:18px;align-items:center;padding:12px 0 16px;border-bottom:1px solid #365361;margin-bottom:14px}
+#statsPartPreview{display:block;width:144px;height:144px;flex:0 0 144px;object-fit:contain;background:#101e29;border:1px solid #486777}
+.statsPreviewHeader>div{min-width:0}
+.statsPreviewHeader .subhead{display:block;margin:0 0 7px}
+#intake-viewer-card #downloadPng[hidden],#intake-viewer-card #iris[hidden]{display:none!important}
+@media(max-width:800px){.statsPreviewHeader{gap:12px}#statsPartPreview{width:112px;height:112px;flex-basis:112px}#intake-main:has(#intake-viewer-card[hidden])>.intakePanel:not([hidden]){width:100%}}
 </style>
 </head>
 <body>
 <header><div class="title">SERA <span>EQUIPMENT INTAKE</span></div><span class="tag">OFFLINE / NO UPLOAD</span></header>
 <nav id="intakeTabs" aria-label="装備設定タブ">
-<button data-nav="setup" class="active" type="button">MODEL</button>
-<button data-nav="rig" type="button">CUSTOMIZE</button>
+<button data-nav="setup" type="button">INFO</button>
+<button data-nav="rig" class="active" type="button">FULL BODY</button>
 <button data-nav="icon" type="button">ICON</button>
-<button data-nav="stats" type="button">PARAMETERS</button>
-<button data-nav="materials" type="button">RECIPE / EFFECT</button>
+<button data-nav="stats" type="button">STATS / FX</button>
+<button data-nav="materials" type="button">RECIPE</button>
 <button data-nav="analysis" type="button">ANALYSIS</button>
 <button data-nav="output" type="button">EXPORT</button>
 </nav>
 <main id="intake-main">
-<section class="card">
+<section class="card" id="intake-viewer-card">
   <div class="viewer-top"><h2>3D PREVIEW <span class="pill">512 × 512</span></h2><small id="modelTitle">モデル未読み込み</small></div>
   <div class="viewer" id="viewer"><canvas id="glview" width="512" height="512" aria-label="ドラッグでモデルを回転します"></canvas><div id="frame"></div><div class="viewer-caption" id="hint">1本指：回転　2本指：移動・拡大</div></div>
   <div id="status" role="status">埋め込みモデルを読み込んでいます…</div>
@@ -96,23 +107,27 @@ details.manual{border:1px solid #334a58;background:#101b24;margin-top:10px;paddi
 <div class="formItem"><label for="blueprint">設計図ID</label><input id="blueprint" value="H02" maxlength="18"></div>
 <div class="formItem"><label for="slot">部位</label><select id="slot"></select></div>
 <div class="formItem"><label for="rigSet">装備セット</label><select id="rigSet"></select></div>
-<p class="loaded-note">原本：models/storage/カメラアイ頭部.bbmodel。初期値は現行Aセット基準。変更した分類値・特殊効果は承認前にゲームへ適用しません。</p>
-<div class="subhead">SIZE / A STANDARD OBB</div>
-<div class="field"><label>大きさ差分</label><input id="sizeDelta" type="range" min="-300" max="300" step="1" value="0"><input id="sizeNumber" class="ratioNumber" type="number" min="-300" max="300" value="0"></div>
-<div class="sample-row"><label><input id="sizeAspect" type="checkbox"> 縦横奥行の比率を保持する</label><output id="sizeEffective">100%</output></div>
-<p class="helper">負側は逆倍率縮小。−300 → 25%、0 → 100%、＋300 → 400%。変更は3Dプレビューへ反映します。</p>
-<div id="massStatus" class="massReadout"></div></section>
-<section class="card intakePanel" data-section="rig" hidden><h2>CUSTOMIZE / FULL BODY</h2>
-<p class="loaded-note">画面左（縦画面では上）の3Dを操作してください。各部位のサムネイル付きプルダウンで装備を選べます。</p>
-<button type="button" data-nav="icon" onclick="document.querySelector('[data-nav=icon]').click()">アイコン撮影設定へ</button></section>
+<p class="loaded-note">アイリス：HEAD D / H02。原本：models/storage/カメラアイ頭部.bbmodel。基本情報のみ登録します。全身編成・大きさは「FULL BODY」で操作してください。</p>
+</section>
+<section class="card intakePanel" data-section="rig"><h2>FULL BODY / CUSTOMIZE &amp; SIZE</h2>
+<p class="loaded-note">初期構成：HEAD D アイリス ＋ 他部位Aセット。3D下の各部位のプルダウンから装備を換装できます。このタブでは全身のカスタマイズと大きさのみ調整します。</p>
+<div class="subhead">SIZE / A STANDARD BOUNDING BOX</div>
+<div class="field"><label for="sizeDelta">大きさ差分</label><input id="sizeDelta" type="range" min="-300" max="300" step="1" value="0"><input id="sizeNumber" class="ratioNumber" aria-label="大きさ差分 %" type="number" min="-300" max="300" value="0"></div>
+<div class="sample-row"><label><input id="sizeAspect" type="checkbox" checked> 縦横奥行の比率を保持</label><output id="sizeEffective">100%</output></div>
+<p class="helper">−300%→25%、0%→100%、＋300%→400%。編集対象の部位だけ大きさを変更します。</p></section>
 <section class="card intakePanel" data-section="stats" hidden>
-<h2>PARAMETERS / RELATIVE TO A</h2><div class="loaded-note">対応しないステータスはグレーアウト表示。数値バーと%直接入力が連動し、右端に実値を表示します。</div>
-<div class="subhead" id="statSlot"></div><div class="statHead"><span>ステータス</span><span>割合</span><span>A比 %</span><span>絶対値</span></div><div id="statRows"></div></section>
-<section class="card intakePanel" data-section="materials" hidden><h2>RECIPE / SPECIAL EFFECT</h2>
-<div class="subhead">必要素材</div><div id="materialRows"></div><button type="button" id="addMaterial">＋ 素材を追加</button>
+<h2>PARAMETERS / SPECIAL EFFECT</h2>
+<div class="statsPreviewHeader"><img id="statsPartPreview" alt="アイリスの単体3Dプレビューを準備中" width="144" height="144"><div><span class="subhead" id="statSlot"></span><p class="helper">選択中の部位だけを小さく表示します。全身は表示しません。</p></div></div>
+<div class="loaded-note">A基準の割合と実値が連動します。対応しないステータスはグレーアウトします。</div>
+<div class="statHead"><span>ステータス</span><span>割合</span><span>A比 %</span><span>絶対値</span></div><div id="statRows"></div>
+<div id="massStatus" class="massReadout"></div>
 <div class="subhead">SPECIAL EFFECT / 自由記述</div>
-<textarea id="specialEffect" placeholder="特殊効果の動作・発動条件・倍率・演出などを文章で記述してください。"></textarea>
-<p class="loaded-note">新しい分類値や特殊効果は「要相談」として保存します。ChatGPTとの相談・承認までは実装しません。</p></section>
+<textarea id="specialEffect" placeholder="特殊効果の発動条件・倍率・演出・持続時間などを文章で指定してください。"></textarea>
+<p class="loaded-note">特殊効果や新しい分類値は要相談です。承認前にはゲームに登録しません。</p>
+</section>
+<section class="card intakePanel" data-section="materials" hidden><h2>RECIPE / REQUIRED MATERIALS</h2>
+<div class="subhead">必要素材</div><div id="materialRows"></div><button type="button" id="addMaterial">＋ 素材を追加</button>
+<p class="loaded-note">このタブでは必要素材のみ編集します。特殊効果は「STATS / FX」で設定してください。</p></section>
 <section class="card intakePanel" data-section="analysis" hidden><h2>COMPARISON / STATISTICS</h2>
 <div class="subhead">レーダー / 近似装備</div><canvas id="radar" aria-label="ステータスの星型比較"></canvas><div class="nearestLine"><img id="nearestThumb" src="" alt="類似装備のサムネイル" width="54" height="54"><div id="nearest" class="loaded-note"></div></div>
 <div class="subhead">DISTRIBUTION / 分布図</div><div class="two"><select id="distX" aria-label="X軸"></select><select id="distY" aria-label="Y軸"></select></div>
@@ -174,7 +189,7 @@ async function loadEmbedded(){const bundle=packagedModel();if(!bundle){$('iris')
 function snapshot(){return{format:presetsPrefix,version:1,source:{filename:sourceFilename,repository_path:activeBundle?.source_path||'',name:model?.name||'',fingerprint:hash,fingerprint_algorithm:hash.startsWith('fnv32-')?'FNV1a-32':'SHA-256',element_count:model?.elements?.length||0},equipment:{blueprint_id:activeBundle?.blueprint_id||'',slot:activeBundle?.slot||'',rig_set:activeBundle?.rig_set||''},render:{engine:'SERA Icon Studio WebGL',camera:'orthographic_front',model_rotation_deg:{x:state.pitch,y:state.yaw,z:state.roll},model_scale:state.zoom,pan_clip:{x:state.panX,y:state.panY},auto_fit:ORTHO_PADDING,outline:{enabled:state.outlinePx>0,stroke_px_at_512:state.outlinePx,crease_degrees:80,color:'#17212F'},image:{width:512,height:512,background:'transparent',ui_frame_baked:false},mesh_transform:'element vertices -> element origin/rotation -> parent group -> model center -> user rotation',texture_source:'Blockbench embedded PNG(s)'},note:'SERA source is registered by repository_path and fingerprint. Upload this PNG in another ChatGPT conversation; its metadata identifies the equipment and capture transform. Do not use AI image generation.'}}
 function updateText(){if(document.activeElement===$('presetText'))return;$('presetText').value=presetsPrefix+'\n'+JSON.stringify(snapshot(),null,2)}
 async function sha256(text){if(typeof crypto!=='undefined'&&crypto.subtle){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}let h=2166136261;for(let i=0;i<text.length;i++)h=Math.imul(h^text.charCodeAt(i),16777619);return'fnv32-'+(h>>>0).toString(16)}
-async function loadText(text,name,expectedHash='',bundle=null){try{const d=JSON.parse(text);if(!d||!Array.isArray(d.elements))throw Error('Blockbench (.bbmodel) 形式ではありません。');const stats=parseModel(d);if(!gl)throw Error('WebGLを利用できません。');await uploadTexture(d);uploadGeometry();sourceFilename=name;model=d;activeBundle=bundle;const measured=await sha256(text);if(expectedHash&&!measured.startsWith('fnv32-')&&measured!==expectedHash)throw Error('原本のSHA-256が埋込情報と一致しません');hash=expectedHash||measured;$('modelTitle').textContent=d.name||name;updateControls();say(`${d.name||name}：${stats.elements}要素 / ${stats.faces}面 自動読み込み完了。ファイル選択は不要です。`);refreshSaved()}catch(err){console.error(err);say('読込失敗：'+err.message,true)}}
+async function loadText(text,name,expectedHash='',bundle=null){try{const d=JSON.parse(text);if(!d||!Array.isArray(d.elements))throw Error('Blockbench (.bbmodel) 形式ではありません。');const stats=parseModel(d);if(!gl)throw Error('WebGLを利用できません。');await uploadTexture(d);uploadGeometry();sourceFilename=name;model=d;activeBundle=bundle;const measured=await sha256(text);if(expectedHash&&!measured.startsWith('fnv32-')&&measured!==expectedHash)throw Error('原本のSHA-256が埋込情報と一致しません');hash=expectedHash||measured;$('modelTitle').textContent=d.name||name;updateControls();say(`${d.name||name}：${stats.elements}要素 / ${stats.faces}面 自動読み込み完了。ファイル選択は不要です。`);refreshSaved();queueMicrotask(()=>window.SERA_INTAKE_REQUEST_REFRESH?.())}catch(err){console.error(err);say('読込失敗：'+err.message,true)}}
 $('file').addEventListener('change',async e=>{const f=e.target.files?.[0];if(f)await loadText(await f.text(),f.name)});
 const drop=$('dropzone');['dragenter','dragover'].forEach(n=>drop.addEventListener(n,e=>{e.preventDefault();drop.classList.add('drag')}));['dragleave','drop'].forEach(n=>drop.addEventListener(n,e=>{e.preventDefault();drop.classList.remove('drag')}));drop.addEventListener('drop',async e=>{const f=e.dataTransfer?.files?.[0];if(f)await loadText(await f.text(),f.name)});
 $('iris').addEventListener('click',async()=>{try{await loadEmbedded()}catch(e){say('埋込原本の復元に失敗：'+e.message,true)}});
@@ -239,7 +254,7 @@ function intakeBounds(meshes){
  for(const e of meshes)for(const v of Object.values(e.vertices||{})){const o=e.origin||[0,0,0],q=rotatePoint(v,(e.rotation||[0,0,0]).map(Number)).map((x,i)=>x+o[i]);for(let i=0;i<3;i++){a[i]=Math.min(a[i],q[i]);b[i]=Math.max(b[i],q[i])}}
  return {lo:a,hi:b,center:a.map((v,i)=>(v+b[i])/2),size:a.map((v,i)=>Math.max(.00001,b[i]-v))};
 }
-function intakeExternal(doc,packName,select,reference,scale,keepAspect){
+function intakeExternal(doc,packName,select,reference,scale,keepAspect,slot){
  const external=intakeDoc(packName),picked=[];
  intakeWalk(external,(e,path)=>{if(!select||select(e,path))picked.push(e)});
  if(!picked.length)return;
@@ -253,7 +268,7 @@ function intakeExternal(doc,packName,select,reference,scale,keepAspect){
  let count=0;
  for(const src of picked){
   const item=structuredClone(src),oldOrigin=item.origin||[0,0,0],oldRotation=item.rotation||[0,0,0];
-  item.uuid="intake_"+packName+"_"+count++;item.origin=[0,0,0];item.rotation=[0,0,0];item.visibility=true;item.export=true;
+  item.uuid="intake_"+packName+"_"+count++;item.origin=[0,0,0];item.rotation=[0,0,0];item.visibility=true;item.export=true;item.intake_slot=slot;
   for(const [key,vertex] of Object.entries(item.vertices||{})){
    let q=rotatePoint(vertex,oldRotation).map((v,i)=>v+Number(oldOrigin[i]||0));
    item.vertices[key]=q.map((v,i)=>refBounds.center[i]+(v-sourceBounds.center[i])*(keepAspect?uniform:ax[i])*scale);
@@ -265,43 +280,79 @@ function intakeExternal(doc,packName,select,reference,scale,keepAspect){
   doc.elements.push(item);doc.outliner.push(item.uuid);
  }
 }
-function intakeComposedDoc(selection,scale,keepAspect){
+function intakeScaleSlot(pieces,reference,scale,keepAspect){
+ if(!pieces.length||!reference?.length)return;
+ const source=intakeBounds(pieces),standard=intakeBounds(reference);
+ const ratios=standard.size.map((v,i)=>v/source.size[i]);
+ const factor=keepAspect?Math.min(...ratios):0;
+ const applied=ratios.map(v=>(keepAspect?factor:v)*scale);
+ for(const element of pieces){
+  const oldOrigin=element.origin||[0,0,0],oldRotation=element.rotation||[0,0,0];
+  for(const [key,vertex] of Object.entries(element.vertices||{})){
+   const v=rotatePoint(vertex,oldRotation).map((q,i)=>q+Number(oldOrigin[i]||0));
+   element.vertices[key]=v.map((q,i)=>standard.center[i]+(q-source.center[i])*applied[i]);
+  }
+  element.origin=[0,0,0];element.rotation=[0,0,0];
+ }
+}
+function intakeComposedDoc(selection,scale,keepAspect,editingSlot="head"){
  const base=intakeDoc("equipment"),document3d=structuredClone(base),selectedMeshes=[];
  const reference={};
  intakeWalk(base,(e,path)=>{
   const root=(path[0]||"");const set=root==="Waist2"?"B":"A",slot=intakeSlot(path);
-  if(set==="A"){(reference[slot]||(reference[slot]=[])).push(e)}
+  if(set==="A")(reference[slot]||(reference[slot]=[])).push(e);
   let requested=selection[slot]||"A";
   if(slot==="booster"&&requested==="B")requested="A";
   if(slot==="head"&&["C","D"].includes(requested))return;
   if(slot==="legs"&&["C","D"].includes(requested))return;
   if(slot==="weapon_r"&&requested==="K")return;
   if(slot==="weapon_l"&&selection.weapon_r==="K")return;
-  if(root.startsWith("Waist")&&requested===set)selectedMeshes.push(e);
+  if(root.startsWith("Waist")&&requested===set)selectedMeshes.push({mesh:e,slot});
  });
- document3d.elements=selectedMeshes.map(e=>{const x=structuredClone(e);x.visibility=true;x.export=true;return x});
+ document3d.elements=selectedMeshes.map(({mesh,slot})=>{
+  const x=structuredClone(mesh);x.visibility=true;x.export=true;x.intake_slot=slot;return x;
+ });
  document3d.outliner=document3d.elements.map(x=>x.uuid);
  document3d.groups=[];
- if(selection.head==="D")intakeExternal(document3d,"head_d",null,reference.head,scale,keepAspect);
- if(selection.head==="C")intakeExternal(document3d,"head_c",null,reference.head,scale,keepAspect);
- if(selection.legs==="D")intakeExternal(document3d,"legs_d",null,reference.legs,1,true);
- if(selection.legs==="C")intakeExternal(document3d,"bird_leg",(e,path)=>path.some(x=>/bird_/i.test(x)),reference.legs,1,true);
- if(selection.weapon_r==="K")intakeExternal(document3d,"katana",(e,path)=>path.some(x=>/katana_/i.test(x)),reference.weapon_r,1,true);
+ if(selection.head==="D")intakeExternal(document3d,"head_d",null,reference.head,1,true,"head");
+ if(selection.head==="C")intakeExternal(document3d,"head_c",null,reference.head,1,true,"head");
+ if(selection.legs==="D")intakeExternal(document3d,"legs_d",null,reference.legs,1,true,"legs");
+ if(selection.legs==="C")intakeExternal(document3d,"bird_leg",(e,path)=>path.some(x=>/bird_/i.test(x)),reference.legs,1,true,"legs");
+ if(selection.weapon_r==="K")intakeExternal(document3d,"katana",(e,path)=>path.some(x=>/katana_/i.test(x)),reference.weapon_r,1,true,"weapon_r");
+ // Only the edited slot is resized. Keep the rest of the A-set proportions.
+ const edited=document3d.elements.filter(e=>e.intake_slot===editingSlot);
+ intakeScaleSlot(edited,reference[editingSlot],scale,keepAspect);
  return document3d;
 }
-async function intakeRender(kind,selected={},scale=1,keepAspect=true){
+function intakeStandaloneDoc(selection,slot,scale,keepAspect){
+ const composite=intakeComposedDoc(selection,scale,keepAspect,slot);
+ const picked=composite.elements.filter(e=>e.intake_slot===slot);
+ if(!picked.length)throw Error(slot+" の3D装備モデルがありません");
+ composite.elements=picked;
+ composite.outliner=picked.map(e=>e.uuid);
+ composite.name=slot+" "+(selection[slot]||"A");
+ return composite;
+}
+let intakeRenderQueue=Promise.resolve();
+async function intakeRender(kind,selected={},scale=1,keepAspect=true,slot="head"){
  if(!gl||!model)return;
  if(!intakeOriginal)intakeOriginal=model;
+ const doc=kind==="body"?intakeComposedDoc(selected,scale,keepAspect,slot):
+   intakeStandaloneDoc(selected,slot,scale,keepAspect);
  try{
-  const doc=kind==="body"?intakeComposedDoc(selected,scale,keepAspect):intakeOriginal;
   parseModel(doc);await uploadTexture(doc);uploadGeometry();
   intakePreviewKind=kind;
-  $('modelTitle').textContent=kind==="body"?"装備A基準・全身換装プレビュー":(intakeOriginal.name||"原本モデル");
+  $('modelTitle').textContent=kind==="body"?"Aセット基準 / 全身換装":"単体 / "+slot+" "+(selected[slot]||"A");
   $('downloadPng').disabled=kind==="body";
-  draw();schedule();say(kind==="body"?"全身3D構成を表示。Godotネイティブと描画差があるため撮影確定はICONタブで行ってください。":"原本のアイコン撮影モード");
- }catch(e){say("換装プレビューの構成エラー："+e.message,true);console.error(e)}
+  draw();schedule();
+ }catch(e){say("装備プレビューの構成エラー："+e.message,true);console.error(e);throw e}
 }
-window.SERA_INTAKE_RENDER={render:intakeRender,previewKind:()=>intakePreviewKind};
+window.SERA_INTAKE_RENDER={
+ render:(kind,selected,scale,keepAspect,slot)=>intakeRenderQueue=intakeRenderQueue.catch(()=>{}).then(()=>intakeRender(kind,selected,scale,keepAspect,slot)),
+ snapshot:async()=>{await intakeRenderQueue;draw();return canvas.toDataURL("image/png")},
+ previewKind:()=>intakePreviewKind
+};
+
 
 window.addEventListener('error',e=>say('アプリの処理エラー：'+e.message,true));try{initGL();refreshSaved();updateControls();loadEmbedded().catch(e=>say('埋め込みモデル読込エラー：'+e.message,true))}catch(e){say('WebGL起動エラー：'+e.message,true)}
 })();
@@ -318,9 +369,10 @@ const STAT_KEYS=[...new Set(Object.values(DB.profiles).flatMap(v=>Object.values(
 const materials=[["scrap_low","汎用スクラップ"],["scrap_mid","応用スクラップ"],["scrap_high","高度スクラップ"],["alloy_low","基礎金属複合材"],["alloy_mid","精密金属複合材"],["alloy_high","高次金属複合材"],["electronics_low","汎用電子部品"],["electronics_mid","精密電子部品"],["electronics_high","高度電子部品"],["organic_low","微弱有機素材"],["organic_mid","活性有機素材"],["organic_high","旺盛有機素材"]];
 const choices={head:["A","B","C","D"],torso:["A","B"],arms:["A","B"],legs:["A","B","C","D"],booster:["A","B"],weapon_r:["A","B","K"],weapon_l:["A","B"]};
 const labels={head:{A:"A 標準頭部",B:"B 重装頭部",C:"C 頭部",D:"D アイリス"},legs:{A:"A 標準脚",B:"B 重量脚",C:"C 鳥脚",D:"D 重量脚"},weapon_r:{A:"A エッジブレード",B:"B ブレード",K:"K カタナ"}};
-let activeTab="setup",slot="head",selected=Object.fromEntries(Object.keys(choices).map(x=>[x,"A"])),scaleDelta=0,keepAspect=false;
+let activeTab="rig",slot="head",selected=Object.fromEntries(Object.keys(choices).map(x=>[x,x==="head"?"D":"A"])),scaleDelta=0,keepAspect=true;
 let statPct={},customClassifications={},materialEntries=[{id:"scrap_low",count:0}],showAll=true;
 let radarNear="", thumbnailCache={}, imageCache=new Map(), hiddenVariants=new Set();
+let statsTicket=0, captureQueue=Promise.resolve();
 const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
 const profile=(s,set)=>DB.profiles[s][set]||DB.profiles[s].A;
 const metric=(key,base)=>key==="defense"?((base*100).toFixed(2)+"%"):typeof base==="number"?Number(base.toFixed(4)).toString():String(base);
@@ -340,14 +392,57 @@ function effectiveWeight(){
  for(const s of weights){if(s==="weapon_l"&&selected.weapon_r==="K")continue;const w=s===slot?getDraft().weight_pct:profile(s,selected[s]).weight_pct||100;mass+=(DB.shares[s]||0)*w}
  return mass;
 }
+function activePreviewMode(){return activeTab==="rig"?"body":"icon";}
+function renderActivePreview(){
+ if(activeTab!=="rig"&&activeTab!=="icon")return Promise.resolve();
+ return window.SERA_INTAKE_RENDER?.render(activePreviewMode(),selected,
+   sizeMultiplier(),keepAspect,slot).catch(console.warn) ?? Promise.resolve();
+}
+function withStagedPreview(operation){
+ const panel=$("intake-viewer-card");
+ const work=captureQueue.catch(()=>{}).then(async()=>{
+  const needed=panel.hidden;
+  if(needed){panel.hidden=false;panel.classList.add("capture-staging");}
+  try{return await operation()}
+  finally{
+   panel.classList.remove("capture-staging");
+   if(activeTab!=="rig"&&activeTab!=="icon")panel.hidden=true;
+   else{panel.hidden=false;await renderActivePreview();}
+  }
+ });
+ captureQueue=work.catch(()=>{});
+ return work;
+}
+async function updateStatsPreview(){
+ const photo=$("statsPartPreview");
+ if(!photo||!window.SERA_INTAKE_RENDER?.snapshot)return;
+ const ticket=++statsTicket;
+ photo.alt="読み込み中："+SLOT_NAMES[slot]+" / "+selected[slot];
+ try{
+  await withStagedPreview(async()=>{
+   await window.SERA_INTAKE_RENDER.render("icon",selected,sizeMultiplier(),keepAspect,slot);
+   const image=await window.SERA_INTAKE_RENDER.snapshot();
+   if(ticket===statsTicket&&activeTab==="stats"){
+    photo.src=image;
+    photo.alt=SLOT_NAMES[slot]+" "+selected[slot]+" 単体プレビュー";
+   }
+  });
+ }catch(e){photo.alt="単体プレビューを取得できません";console.warn(e);}
+}
 function setTab(name){
+ if(!["setup","rig","icon","stats","materials","analysis","output"].includes(name))return;
  activeTab=name;
  document.querySelectorAll("[data-section]").forEach(n=>n.hidden=n.dataset.section!==name);
- document.querySelectorAll("[data-nav]").forEach(n=>n.classList.toggle("active",n.dataset.nav===name));
+ document.querySelectorAll("#intakeTabs [data-nav]").forEach(n=>n.classList.toggle("active",n.dataset.nav===name));
  $("intake-controls").hidden=name!=="icon";
  $("intake-picker").hidden=name!=="rig";
- $("rigHint").textContent=name==="rig"?"全身装備を表示（ゲーム本体とは描画差があります）":"原本モデルを表示";
- if(window.SERA_INTAKE_RENDER)window.SERA_INTAKE_RENDER.render(name==="rig"?"body":"icon",selected,scaleMultiplier());
+ $("intake-viewer-card").hidden=name!=="rig"&&name!=="icon";
+ $("downloadPng").hidden=name!=="icon";
+ if($("iris"))$("iris").hidden=name!=="icon";
+ $("rigHint").textContent="他部位はAセットが初期値です。各部位のモデルを換装できます。";
+ window.SERA_INTAKE_ACTIVE_SLOT=slot;
+ if(name==="rig"||name==="icon")renderActivePreview();
+ if(name==="stats")updateStatsPreview();
  if(name==="analysis"){drawCharts();warmComparisonThumbnails();}
  if(name==="output")updateOutput();
 }
@@ -358,7 +453,8 @@ function renderSize(){
  $("sizeDelta").value=scaleDelta;$("sizeNumber").value=scaleDelta;
  $("sizeEffective").textContent=(sizeMultiplier()*100).toFixed(1)+"%";
  $("sizeAspect").checked=keepAspect;
- window.SERA_INTAKE_RENDER?.render("body",selected,sizeMultiplier(),keepAspect);
+ if(activeTab==="rig"||activeTab==="icon")renderActivePreview();
+  if(activeTab==="stats")updateStatsPreview();
 }
 function numericRow(key,base,index=null){
  const id=key+(index==null?"":"."+index), val=percentValue(key,index),number=base*val/100;
@@ -462,23 +558,23 @@ function renderDistributionLegend(){
 }
 function drawCharts(){renderDistributionLegend();drawRadar();drawDistribution()}
 async function warmComparisonThumbnails(){
- if(!window.SERA_INTAKE_RENDER)return;
- const saved={...selected};let updated=false;
- for(const variant of Object.keys(DB.profiles[slot])){
-  const key=slot+variant;
-  if(thumbnailCache[key])continue;
-  await window.SERA_INTAKE_RENDER.render("body",{...saved,[slot]:variant},1,false);
-  thumbnailCache[key]=$("glview").toDataURL("image/png");
-  const image=new Image();image.src=thumbnailCache[key];
-  image.onload=()=>{if(activeTab==="analysis")drawDistribution()};imageCache.set(key,image);
-  updated=true;
- }
- await window.SERA_INTAKE_RENDER.render(activeTab==="rig"?"body":"icon",saved,sizeMultiplier(),keepAspect);
- if(updated&&activeTab==="analysis")drawCharts();
+ if(!window.SERA_INTAKE_RENDER?.snapshot)return;
+ const targetSlot=slot,saved={...selected};
+ try{await withStagedPreview(async()=>{
+  for(const variant of Object.keys(DB.profiles[targetSlot])){
+   const key=targetSlot+variant;
+   if(thumbnailCache[key])continue;
+   await window.SERA_INTAKE_RENDER.render("icon",{...saved,[targetSlot]:variant},1,true,targetSlot);
+   thumbnailCache[key]=await window.SERA_INTAKE_RENDER.snapshot();
+   const image=new Image();image.src=thumbnailCache[key];
+   image.onload=()=>{if(activeTab==="analysis"&&slot===targetSlot)drawDistribution()};
+   imageCache.set(key,image);
+  }
+ });if(activeTab==="analysis"&&slot===targetSlot)drawCharts();
+ }catch(e){console.warn("Comparison thumbnails:",e);}
 }
-
 function updateOutput(){
- const data={format:"SERA_EQUIPMENT_INTAKE_V1",version:1,source:{repository_path:DB.source.path,sha256:DB.source.sha256,base_commit:DB.source.commit},equipment:{blueprint_id:$("blueprint").value.trim(),name:$("equipName").value.trim(),slot,rig_set:$("rigSet").value,rig_selection:{...selected}},model:{size_delta_percent:scaleDelta,effective_scale_percent:sizeMultiplier()*100,keep_aspect:keepAspect,standard:"A slot OBB reference; preview is advisory"},stats:{a_relative_percent:{...statPct},absolute:getDraft(),part_weight_class:weightClass(getDraft().weight_pct||100),whole_weight_pct:effectiveWeight(),whole_weight_class:weightClass(effectiveWeight()),unapproved_classifications:{...customClassifications}},recipe:materialEntries.filter(x=>x.count>0).map(x=>({...x})),special_effects:{description:$("specialEffect").value,approval_required:true,implementation_status:"PENDING_CHATGPT_DISCUSSION"},render_preset_text:$("presetText").value,review_required:true};
+ const data={format:"SERA_EQUIPMENT_INTAKE_V1",version:1,source:{repository_path:DB.source.path,sha256:DB.source.sha256,base_commit:DB.source.commit},equipment:{blueprint_id:$("blueprint").value.trim(),name:$("equipName").value.trim(),slot,rig_set:$("rigSet").value,rig_selection:{...selected}},model:{size_delta_percent:scaleDelta,effective_scale_percent:sizeMultiplier()*100,keep_aspect:keepAspect,standard:"Native Godot SeraRig / A bounding-box normalization for edited slot"},stats:{a_relative_percent:{...statPct},absolute:getDraft(),part_weight_class:weightClass(getDraft().weight_pct||100),whole_weight_pct:effectiveWeight(),whole_weight_class:weightClass(effectiveWeight()),unapproved_classifications:{...customClassifications}},recipe:materialEntries.filter(x=>x.count>0).map(x=>({...x})),special_effects:{description:$("specialEffect").value,approval_required:true,implementation_status:"PENDING_CHATGPT_DISCUSSION"},render_preset_text:$("presetText").value,review_required:true};
  const content="SERA_EQUIPMENT_INTAKE_V1\n"+JSON.stringify(data,null,2);$("exportText").value=content;return content;
 }
 async function copy(){
@@ -487,29 +583,45 @@ async function copy(){
 function renderPickers(){
  const root=$("partChoices");root.replaceChildren();
  for(const [key,opts] of Object.entries(choices)){
-  const wrapper=document.createElement("div");wrapper.className="pickRow";const label=document.createElement("span");label.textContent=SLOT_NAMES[key];
+  const wrapper=document.createElement("div");wrapper.className="pickRow";
+  const label=document.createElement("span");label.textContent=SLOT_NAMES[key];
   const picker=document.createElement("details");picker.className="pickDropdown";
-  const summary=document.createElement("summary");summary.textContent=(labels[key]?.[selected[key]]||key+" "+selected[key]);picker.append(summary);
+  const summary=document.createElement("summary");
+  summary.textContent=labels[key]?.[selected[key]]||key+" "+selected[key];
+  picker.append(summary);
   const list=document.createElement("div");list.className="pickerMenu";
   for(const value of opts){
-   const btn=document.createElement("button");btn.type="button";const img=document.createElement("img");img.alt="装備プレビュー";img.src=thumbnailCache[key+value]||"";img.width=40;img.height=40;
+   const btn=document.createElement("button");btn.type="button";
+   const img=document.createElement("img");img.alt=SLOT_NAMES[key]+" "+value;
+   img.src=thumbnailCache[key+value]||"";img.width=40;img.height=40;
    const txt=document.createElement("span");txt.textContent=labels[key]?.[value]||key+" "+value;
-   btn.append(img,txt);btn.addEventListener("click",async()=>{selected[key]=value;picker.open=false;renderPickers();await window.SERA_INTAKE_RENDER?.render("body",selected,sizeMultiplier(),keepAspect);const src=$("glview").toDataURL("image/png");thumbnailCache[key+value]=src;renderPickers();updateWeight()});list.append(btn)}
+   btn.append(img,txt);
+   btn.addEventListener("click",async()=>{
+    selected[key]=value;if(key===slot)$("rigSet").value=value;picker.open=false;renderPickers();updateWeight();
+    if(activeTab==="stats")updateStatsPreview();else await renderActivePreview();
+   });
+   list.append(btn);
+  }
   picker.append(list);wrapper.append(label,picker);root.append(wrapper);
-  picker.addEventListener("toggle",async()=>{if(!picker.open||activeTab!=="rig")return;
-    const saved={...selected};for(const value of opts){const id=key+value;if(thumbnailCache[id])continue;
-      await window.SERA_INTAKE_RENDER?.render("body",{...saved,[key]:value},1,true);
-      thumbnailCache[id]=$("glview").toDataURL("image/png");
-      const image=[...list.querySelectorAll("button img")][opts.indexOf(value)];if(image)image.src=thumbnailCache[id];
+  picker.addEventListener("toggle",async()=>{
+   if(!picker.open||activeTab!=="rig"||!window.SERA_INTAKE_RENDER?.snapshot)return;
+   const saved={...selected};
+   try{await withStagedPreview(async()=>{
+    for(const value of opts){
+     const id=key+value;if(thumbnailCache[id])continue;
+     await window.SERA_INTAKE_RENDER.render("icon",{...saved,[key]:value},1,true,key);
+     thumbnailCache[id]=await window.SERA_INTAKE_RENDER.snapshot();
+     const image=[...list.querySelectorAll("button img")][opts.indexOf(value)];
+     if(image)image.src=thumbnailCache[id];
     }
-    await window.SERA_INTAKE_RENDER?.render("body",saved,sizeMultiplier(),keepAspect);
+   });}catch(e){console.warn("Picker thumbnails:",e);}
   });
  }
 }
 function init(){
  document.querySelectorAll("[data-nav]").forEach(btn=>btn.addEventListener("click",()=>setTab(btn.dataset.nav)));
- $("slot").addEventListener("change",e=>{slot=e.target.value;statPct={};customClassifications={};renderStats();renderPickers()});
- $("rigSet").addEventListener("change",e=>{selected[slot]=e.target.value;renderPickers();updateWeight()});
+ $("slot").addEventListener("change",e=>{slot=e.target.value;window.SERA_INTAKE_ACTIVE_SLOT=slot;statPct={};customClassifications={};renderStats();renderPickers();setTab(activeTab)});
+ $("rigSet").addEventListener("change",e=>{selected[slot]=e.target.value;renderPickers();updateWeight();if(activeTab==="stats")updateStatsPreview();else renderActivePreview()});
  $("sizeDelta").addEventListener("input",e=>{scaleDelta=Number(e.target.value);renderSize()});
  $("sizeNumber").addEventListener("input",e=>{scaleDelta=clamp(Number(e.target.value)||0,-300,300);renderSize()});
  $("sizeAspect").addEventListener("change",e=>{keepAspect=e.target.checked;renderSize()});
@@ -523,10 +635,11 @@ function init(){
  $("distX").addEventListener("change",drawDistribution);$("distY").addEventListener("change",drawDistribution);
  $("distSearch").addEventListener("input",drawCharts);
  $("slot").value=slot;
- $("rigSet").replaceChildren(...choices[slot].map(x=>{const o=document.createElement("option");o.value=x;o.textContent=x;return o}));
+ $("rigSet").replaceChildren(...choices[slot].map(x=>{const o=document.createElement("option");o.value=x;o.textContent=x;return o}));$("rigSet").value=selected[slot];
  $("slot").addEventListener("change",()=>{$("rigSet").replaceChildren(...choices[slot].map(x=>{const o=document.createElement("option");o.value=x;o.textContent=x;return o}));$("rigSet").value=selected[slot]});
- renderStats();renderMaterials();renderPickers();renderSize();setTab("setup");
+ renderStats();renderMaterials();renderPickers();renderSize();setTab("rig");
 }
+window.SERA_INTAKE_REQUEST_REFRESH=renderActivePreview;
 window.addEventListener("DOMContentLoaded",init);
 })();
 </script>
