@@ -28,7 +28,7 @@ on:
   workflow_dispatch:
 concurrency:
   # A newer main revision supersedes the earlier post-merge verification run.
-  group: sera-model-policy-main
+  group: sera-model-policy-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   model-policy:
