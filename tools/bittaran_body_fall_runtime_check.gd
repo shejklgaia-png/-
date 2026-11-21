@@ -30,26 +30,24 @@ func _run() -> void:
         return
     var head: Vector3 = parts.call("get_part_aim_world", "head")
     ik.call("start_leg_break_slide", "leg_fl", head.y, false)
-    if absf(float(ik.get("break_duration")) - 3.10) > 0.001:
+    if absf(float(ik.get("break_duration")) - 4.66) > 0.001:
         _fail("normal down timing changed")
         return
+    battle.call("_tick_bittaran_body_fall_fx")
+    if int(fx.get("body_fall_burst_count")) != 0:
+        _fail("dust emitted before authored 1.75 second contact")
+        return
+    ik.set("authored_down_source_seconds", 1.749)
+    battle.call("_tick_bittaran_body_fall_fx")
+    if int(fx.get("body_fall_burst_count")) != 0:
+        _fail("dust emitted before final keyed frame")
+        return
+    ik.set("authored_down_source_seconds", 1.75)
     ik.set("windup_elapsed", -1.0)
     ik.set("break_elapsed", 0.0)
     battle.call("_tick_bittaran_body_fall_fx")
-    if int(fx.get("body_fall_burst_count")) != 0:
-        _fail("fall dust appeared before body reached ground")
-        return
-    ik.call("_advance_leg_break", IK_SCRIPT.LEG_BREAK_FALL_SECONDS + 0.01)
-    battle.call("_tick_bittaran_body_fall_fx")
-    if int(fx.get("body_fall_burst_count")) != 0:
-        _fail("authored front collapse emitted before its actual impact key")
-        return
-    # Native 1x front source makes contact at t=1.75s from the start
-    # of the 0.60s windup; dust must wait for that frame, not t=0.17.
-    ik.set("break_elapsed", 1.16)
-    battle.call("_tick_bittaran_body_fall_fx")
     if int(fx.get("body_fall_burst_count")) != 1:
-        _fail("body fall did not produce exactly one burst")
+        _fail("contact failed to emit exactly one dust burst")
         return
     var box: AABB = parts.call("get_body_hit_aabb")
     var layers: Array = fx.get("body_fall_emitters")
@@ -71,6 +69,7 @@ func _run() -> void:
     for p in [0.0, 0.05, 0.50, 0.95, 1.0]:
         var t: float = float(p)
         ik.set("break_elapsed", float(ik.get("break_recover_start"))
+            + IK_SCRIPT.DOWN_REPLANT_SECONDS
             + IK_SCRIPT.SINGLE_LEG_RISE_SECONDS * t)
         var actual: float = float(ik.call("standup_pose_fraction"))
         var expected: float = t * t * t * (t * (t * 6.0 - 15.0) + 10.0)
@@ -79,8 +78,8 @@ func _run() -> void:
             return
     # The four-shin case keeps 6.0s down and 1.3s upright transition.
     ik.call("start_leg_break_slide", "leg_fr", head.y, true)
-    if (absf(float(ik.get("break_recover_start")) - 5.4) > 0.001
-            or absf(float(ik.get("break_duration")) - 6.7) > 0.001):
+    if (absf(float(ik.get("break_recover_start")) - 6.0) > 0.001
+            or absf(float(ik.get("break_duration")) - 8.46) > 0.001):
         _fail("all-leg recovery clock changed")
         return
     fx.call("reset")

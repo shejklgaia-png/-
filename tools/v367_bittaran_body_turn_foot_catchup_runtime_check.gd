@@ -1,9 +1,9 @@
 extends SceneTree
-## v478: while standing up the chassis looks toward SERA at 68deg/s,
-## world-locked IK soles do not begin gait. On the first upright frame
-## the most displaced diagonal steps, its landing target continuously
-## follows the latest body stance without changing STEP_DURATION_SECONDS.
+## v534: keep 68deg/s chassis yaw and no normal gait during rise,
+## but replant both diagonal pairs after the full DOWN hold and BEFORE
+## BODY moves upward. Check live authored Wait footprint targets.
 const AI = preload("res://scripts/bittaran_ai.gd")
+const IK = preload("res://scripts/bittaran_foot_ik.gd")
 const DT: float = 1.0 / 60.0
 const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const ONE_LEG: Array[String] = ["leg_fl"]
@@ -56,7 +56,7 @@ func _run_case(battle: Node3D, ids: Array[String],
     var last_swing_targets: Dictionary = {}
     var upright_frame: int = -1
     var had_fallen: bool = false
-    for frame in range(550):
+    for frame in range(1100):
         var before_break: bool = bool(ik.call("down_pose_active"))
         var rising_this_tick: bool = bool(ik.call("standup_turn_enabled", DT))
         var previous_yaw: float = boss.rotation.y
@@ -95,51 +95,52 @@ func _run_case(battle: Node3D, ids: Array[String],
         var still_down: bool = bool(ik.call("down_pose_active"))
         var pair: int = int(ik.get("source_ik_step_pair"))
         var all_legs: Array = ik.get("legs")
+        var down_step_pair: int = int(
+            ik.get("authored_down_replant_pair"))
         if still_down:
             had_fallen = true
             if pair != -1:
-                _fail("feet lifted during chassis stand-up")
+                _fail("normal gait stepped during authored down")
                 return false
-            for leg in all_legs:
-                if bool((leg as Dictionary)["stepping"]):
-                    _fail("planted foot began moving before upright")
+            # The new approved sequence replants BOTH diagonal pairs
+            # after the full hold, while BODY remains at t=1.75.
+            if down_step_pair >= 0:
+                if float(ik.call("standup_pose_fraction")) > 0.000001:
+                    _fail("foot replant started after BODY lift")
                     return false
+                if upright_first_pair < 0:
+                    upright_first_pair = down_step_pair
+                elif upright_first_pair != down_step_pair:
+                    second_pair_seen = true
+                for leg in all_legs:
+                    var foot: Dictionary = leg
+                    if not bool(foot["stepping"]):
+                        continue
+                    if float(foot["swing_elapsed"]) > (
+                            IK.DOWN_REPLANT_SECONDS * 0.5
+                            + DT + 0.00001):
+                        _fail("down foot replant exceeded original step clock")
+                        return false
+                    var expected: Vector3 = ik.call(
+                        "_source_ik_home", foot)
+                    var actual: Vector3 = foot["swing_to"]
+                    if actual.distance_to(expected) > 0.00005:
+                        _fail("replant target not at live Wait footprint")
+                        return false
+                    live_target_updates += 1
+            elif float(ik.call("standup_pose_fraction")) > 0.001:
+                if not second_pair_seen:
+                    _fail("BODY rose before both foot pairs moved")
+                    return false
+                for leg in all_legs:
+                    if bool((leg as Dictionary)["stepping"]):
+                        _fail("foot lifted while raising the chassis")
+                        return false
         elif had_fallen and upright_frame < 0:
             upright_frame = frame
-            if pair < 0:
-                _fail("first upright tick failed to initiate foot catch-up")
+            if upright_first_pair < 0 or not second_pair_seen:
+                _fail("recovery ended without both grounded replant steps")
                 return false
-            upright_first_pair = pair
-            # The oldest displaced foot pair starts first. Capture its
-            # swing duration and never shorten it to solve alignment.
-            for leg in all_legs:
-                var foot: Dictionary = leg
-                if bool(foot["stepping"]):
-                    if float(foot["swing_elapsed"]) > DT + 0.00001:
-                        _fail("stepping began before the body stood up")
-                        return false
-        elif upright_frame >= 0:
-            if pair >= 0 and pair != upright_first_pair:
-                second_pair_seen = true
-            for leg in all_legs:
-                var foot: Dictionary = leg
-                if not bool(foot["stepping"]):
-                    continue
-                if float(foot["swing_elapsed"]) > STEP_TIME + 0.00001:
-                    _fail("gait speed changed while catching up")
-                    return false
-                var expected: Vector3 = ik.call("_source_ik_home", foot)
-                var actual: Vector3 = foot["swing_to"]
-                if actual.distance_to(expected) > 0.00005:
-                    _fail("landing target did not follow live body stance: "
-                        + str(actual) + " expected " + str(expected))
-                    return false
-                var foot_name: String = str(foot["upper"].name)
-                if last_swing_targets.has(foot_name):
-                    var before: Vector3 = last_swing_targets[foot_name]
-                    if before.distance_to(actual) > 0.00002:
-                        live_target_updates += 1
-                last_swing_targets[foot_name] = actual
         if upright_frame >= 0 and frame > upright_frame + 115:
             break
     if rise_frames < 12 or hold_frames < 80 or upright_frame < 0 \
@@ -153,8 +154,8 @@ func _run_case(battle: Node3D, ids: Array[String],
     print("V367_BODY_FOOT_CASE_PASS: " + requested + " legs="
         + str(ids.size()) + " rising=" + str(rise_frames)
         + " frames, first upright frame=" + str(upright_frame)
-        + ", dynamic landing updates=" + str(live_target_updates)
-        + ", both diagonal pairs caught up without speeding step")
+        + ", verified replant contacts=" + str(live_target_updates)
+        + ", both diagonal pairs stepped BEFORE BODY lift")
     return true
 
 func _run() -> void:
@@ -167,6 +168,6 @@ func _run() -> void:
             if not _run_case(battle, broken, motion):
                 return
     print("GODOT_V367_BITTARAN_FOOT_CATCHUP_PASS: chassis turns at "
-        + "68deg/s while rising, planted feet follow only after upright "
-        + "via live landing positions at original 0.58s step duration")
+        + "68deg/s while rising, both diagonal pairs replant before torso "
+        + "lift with grounded, authored Wait targets")
     quit(0)

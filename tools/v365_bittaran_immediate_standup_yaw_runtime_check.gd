@@ -50,9 +50,10 @@ func _run_case(battle: Node3D, ids: Array[String], label: String) -> bool:
     var post_rise_frames: int = 0
     var yaw_at_first_rise: float = -1.0
     var finished: bool = false
-    for frame in range(490):
+    for frame in range(1100):
         var elapsed: float = float(ik.get("break_elapsed"))
-        var recovery_start: float = float(ik.get("break_recover_start"))
+        var recovery_start: float = (float(ik.get("break_recover_start"))
+            + 1.16)
         var down_active: bool = bool(ik.call("down_pose_active"))
         var in_windup: bool = bool(ik.call("windup_active"))
         var ready_to_move: bool = bool(ik.call("locomotion_ready"))

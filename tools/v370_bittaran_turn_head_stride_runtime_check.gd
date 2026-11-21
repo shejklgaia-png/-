@@ -81,7 +81,7 @@ func _run() -> void:
     # Rise fully before testing the formerly unchecked NORMAL Turn gait.
     player.global_position = boss.global_position + Vector3(26.0, 0.0, 0.0)
     var upright: bool = false
-    for frame in range(350):
+    for frame in range(850):
         battle.call("_advance_target_motion", DT)
         battle.call("_finalize_target_pose", DT)
         if bool(ik.call("locomotion_ready")):

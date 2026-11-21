@@ -5,6 +5,7 @@ const DT: float = 1.0 / 60.0
 const MAX_RISE_WEIGHT: float = 0.60
 const START: float = 0.70
 const POST_SETTLE: float = 0.24
+const IK_DOWN_REPLANT_SECONDS: float = 1.16
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -30,7 +31,8 @@ func _pose_time(pose_fraction: float) -> float:
 
 func _check_rise(battle: Node3D, ik: RefCounted,
         rise_seconds: float) -> bool:
-    var start: float = float(ik.get("break_recover_start"))
+    var start: float = (float(ik.get("break_recover_start"))
+        + IK_DOWN_REPLANT_SECONDS)
     var previous: float = -1.0
     for requested in [0.0, 0.45, 0.69, 0.70, 0.71, 0.78, 0.86, 0.94, 0.99, 1.0]:
         var pose: float = float(requested)
@@ -88,7 +90,7 @@ func _run() -> void:
                 return
         ik.set("windup_elapsed", -1.0)
         var rise: float = float(ik.get("break_duration")) - float(
-            ik.get("break_recover_start"))
+            ik.get("break_recover_start")) - IK_DOWN_REPLANT_SECONDS
         var needed: float = 1.30 if ids.size() == 4 else 1.0
         if absf(rise - needed) > 0.0001:
             _fail("unexpected physical rise duration")

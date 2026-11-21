@@ -35,7 +35,7 @@ func _case(battle: Node3D, broken: Array[String],
             return false
     if not (absf(float(ik.get("break_recover_start")) - recovery_start) < 0.0001
             and absf(float(ik.get("break_duration")) -
-            (recovery_start + expected_rise)) < 0.0001):
+            (recovery_start + 1.16 + expected_rise)) < 0.0001):
         _fail("wrong recovery timing " + str([ik.get("break_recover_start"),
             ik.get("break_duration"), expected_rise]))
         return false
@@ -43,18 +43,18 @@ func _case(battle: Node3D, broken: Array[String],
     var saw_hold: bool = false
     var finished: bool = false
     var greatest_front_lift: float = 0.0
-    for frame in range(550):
+    for frame in range(1100):
         battle.call("_advance_target_motion", DT)
         var base_pose: Quaternion = body.quaternion
         battle.call("_finalize_target_pose", DT)
         var down: bool = bool(ik.call("down_pose_active"))
         var elapsed: float = float(ik.get("break_elapsed"))
-        if down and elapsed >= 0.17 and elapsed < recovery_start:
+        if down and elapsed >= 0.0 and elapsed < recovery_start:
             saw_hold = true
-        if down and elapsed >= recovery_start:
+        if down and elapsed >= recovery_start + 1.16:
             frames_rising += 1
             var t: float = clampf(
-                (elapsed - recovery_start) / expected_rise, 0.0, 1.0)
+                (elapsed - recovery_start - 1.16) / expected_rise, 0.0, 1.0)
             var backward: float = deg_to_rad(BACK_LEAN_DEGREES) * sin(PI * t)
             # v533 authored pose supersedes the old procedural nose-dip.
             # Preserve the SAME 10-degree rear-lean shoulder lift while
@@ -110,9 +110,9 @@ func _run() -> void:
     root.add_child(battle)
     battle.set_process(false)
     battle.set_physics_process(false)
-    if not _case(battle, ["leg_fl"], 1.0, 2.10):
+    if not _case(battle, ["leg_fl"], 1.0, 2.50):
         return
-    if not _case(battle, IDS, 1.3, 5.40):
+    if not _case(battle, IDS, 1.3, 6.00):
         return
     print("GODOT_V369_BITTARAN_STANDUP_PASS: rise 1.0s / 1.3s, "
         + "10-degree rear lean lifting front shoulders")

@@ -34,7 +34,7 @@ func _run() -> void:
         return
     player.global_position = boss.global_position + Vector3(25.0, 0.0, 0.0)
     var recovered: bool = false
-    for frame in range(350):
+    for frame in range(850):
         battle.call("_advance_target_motion", DT)
         battle.call("_finalize_target_pose", DT)
         if bool(ik.call("down_pose_active")) and not bool(
