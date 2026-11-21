@@ -57,8 +57,8 @@ func _run() -> void:
             if absf(scale - 1.14) > 0.001:
                 _fail("NEXUS unexpectedly enlarged")
                 return
-        elif scale < 1.27 or scale > 1.37:
-            _fail("station not enlarged: " + key)
+        elif not is_equal_approx(scale, 1.45 if key == "LABO" else 1.55):
+            _fail("station not enlarged to current approved size: " + key)
             return
         var features: Array = model.get_meta("unique_model_features", [])
         if not features.has(FEATURES[key]):
