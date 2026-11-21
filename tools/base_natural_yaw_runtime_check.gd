@@ -27,8 +27,8 @@ func _run() -> void:
     var back: Vector3 = camera.global_transform.basis.z.normalized()
     var camera_elevation: float = rad_to_deg(asin(back.y))
     var viewer_heading := Vector3(back.x, 0.0, back.z).normalized()
-    if camera_elevation < 31.0 or camera_elevation > 36.0:
-        _fail("camera must be lower than the previous 41-degree overhead view")
+    if camera_elevation < 25.0 or camera_elevation > 29.0:
+        _fail("camera must be roughly 27 degrees to show facility facades")
         return
     var specs: Array = facilities.get_script().get_script_constant_map().get("FACILITY_SPECS", [])
     var sites: Array[Dictionary] = Deck.facility_sites(nexus.position, specs)

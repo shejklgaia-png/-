@@ -1,3 +1,11 @@
+## 2026-11-21 — BASEカメラの水平寄り俯瞰と施設周辺の小物密度増強
+- 720×1280ポートレート正投影・水平方位・施設全8件の入口向きは維持し、BASE Camera eye Y 25.1→19.5m（注視点Y2.1m）、俯角約33.8°→約26.9°に変更。建物の前面・天幕・排気機構が見えやすい低い俯瞰とする。GRID遷移は既存のBASE_CAMERA_POSITION定数に追従。
+- 前回指定されたLABOからの下段距離を損なわないよう、回収機は(8.91, 0, 20.83)、建設端末は(18.56, 0, 14.68)へ。画面Xの変化を最小化するカメラ下向き世界ベクトル(+1.60,+2.10m)。既存6施設・NEXUS・モデルスケール・板床の仕様は変更しない。
+- 施設周辺の独立した小物を従来68→76（8施設に1つずつ）へ増量。追加8種類はNEXUS: service_keypack、LABO: calibration_probe、SMELTER: slag_thermometer、RECYCLER: roller_bearing、SCRAP_COLLECTOR: claw_pins、STORAGE: cargo_latch、GENERATOR: flux_coupler、BUILD_TERMINAL: layout_marker。すべて実体3Dパーツ（ボックス・ロッド・リング）として1枚床の敷地内、既存装置／通路を避けた指定位置に描画。既存のMultiMesh Batchを再利用し、余分なノード・物理演算や非決定的ランダム要素は追加しない。
+- 仕様変更前にCI期待値を変更。対象：`base_isometric_layout_self_check.py`、`base_lower_larger_composition_{self_check.py,runtime_check.gd}`、`base_natural_yaw_runtime_check.gd`、`base_soft_center_space_{self_check.py,runtime_check.gd}`、`base_inward_facilities_self_check.py`、`base_isometric_layout_runtime_check.gd`、`base_compact_prop_variety_{self_check.py,runtime_check.gd}`、`base_prop_stacks_runtime_check.gd`、`base_site_prop_variety_runtime_check.gd`。
+- 主な保持条件：全施設を正投影画角内に表示・操作可能、LABOと下段2施設のY間隔、全入口の独立角度、8枚の施設単独床、床と小物の非干渉、52主要小物群の粗密リズム、各施設の小物種類の豊富さ。小物24個はすべて独立種類で、追加モデルも実装しCIで描画検証する。
+- GodotのスクリーンショットとフルCIはマージ後に確認。Android実機の画面・操作感は別途確認。
+
 ## 2026-11-21 — BASE下段再配置のレガシーCI整合
 - PR #635をmainへ統合した後の静的CI 283件中282件合格。残り1件(`base_inward_facilities_self_check.py`)は旧承認座標と8施設すべての中心方向距離を固定していたため、新規に下へ離した2施設の変更と競合。
 - 既存8施設の独立Yaw・入口のカメラ正面向き・画面左右に応じた角度は継続検証。NEXUS、LABO、精製、分解、保管、電力制御の6施設については既存の中心寄せ不変条件を保持。

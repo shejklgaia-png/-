@@ -34,13 +34,13 @@ const MATERIAL_ICON_WIDTH: int = 54
 ## staggered toward the camera without forming rigid rows, keeping a loose center.
 ## Base field architecture: LABO is one building; resources, power and construction
 ## are independent physical machines. NEXUS remains in the parent scene.
-## The collector and build terminal sit 80 portrait pixels farther down than
-## LABO-relative previous positions; move along camera-down in XZ to preserve
-## their horizontal slots and entry-facing yaw.
+## The collector and build terminal remain visually detached from LABO even
+## with the lower 26.9-degree camera elevation: shift them a further 2.6m
+## toward the bottom of the portrait in the camera-down XZ direction.
 const FACILITY_SPECS = [
     {"id": "LABO", "name": "LABO", "at": Vector3(5.95, 0.0, 5.40),
         "size": Vector3(4.25, 4.1, 4.35), "subtitle": "Shell / OS / スロット開発"},
-    {"id": "SCRAP_COLLECTOR", "name": "回収機", "at": Vector3(7.31, 0.0, 18.73),
+    {"id": "SCRAP_COLLECTOR", "name": "回収機", "at": Vector3(8.91, 0.0, 20.83),
         "size": Vector3(2.35, 2.55, 2.25), "subtitle": "スクラップ収集"},
     {"id": "SMELTER", "name": "精製装置", "at": Vector3(-9.60, 0.0, -3.80),
         "size": Vector3(2.40, 2.85, 2.40), "subtitle": "素材の精製"},
@@ -50,7 +50,7 @@ const FACILITY_SPECS = [
         "size": Vector3(2.40, 3.10, 2.25), "subtitle": "電力・素材・熱の回路制御"},
     {"id": "STORAGE", "name": "資材保管庫", "at": Vector3(-2.15, 0.0, 5.58),
         "size": Vector3(2.45, 2.15, 2.30), "subtitle": "資源の保管"},
-    {"id": "BUILD_TERMINAL", "name": "建設端末", "at": Vector3(16.96, 0.0, 12.58),
+    {"id": "BUILD_TERMINAL", "name": "建設端末", "at": Vector3(18.56, 0.0, 14.68),
         "size": Vector3(2.10, 2.55, 2.10), "subtitle": "拠点の建設・拡張"}
 ]
 

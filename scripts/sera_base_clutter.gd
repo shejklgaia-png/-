@@ -66,6 +66,14 @@ const FOOTPRINTS = {
     "busbar_kit": Vector2(0.44, 0.44),
     "blueprint_tube": Vector2(0.44, 0.44),
     "locator_beacon": Vector2(0.44, 0.44),
+    "service_keypack": Vector2(0.44, 0.44),
+    "calibration_probe": Vector2(0.44, 0.44),
+    "slag_thermometer": Vector2(0.44, 0.44),
+    "roller_bearing": Vector2(0.44, 0.44),
+    "claw_pins": Vector2(0.44, 0.44),
+    "cargo_latch": Vector2(0.44, 0.44),
+    "flux_coupler": Vector2(0.44, 0.44),
+    "layout_marker": Vector2(0.44, 0.44),
 }
 
 # A tier is an actual translated set of meshes, not a label or oversized box.
@@ -98,6 +106,9 @@ const COMPACT_KINDS = [
     "busbar_kit",
     "blueprint_tube",
     "locator_beacon",
+    "service_keypack", "calibration_probe", "slag_thermometer",
+    "roller_bearing", "claw_pins", "cargo_latch", "flux_coupler",
+    "layout_marker",
 ]
 
 # Rhythmic site plan: a compact run of four near one edge, a generous
@@ -340,6 +351,7 @@ static func _authored_props_for(key: String) -> Array[Dictionary]:
                 _item("tool_cart", -4.18, 4.18),
                 _accent("sealed_canister", -3.66, -5.03),
                 _accent("beacon_spares", -4.96, -5.03),
+                _accent("service_keypack", -2.32, -4.39),
             ]
         "LABO":
             return [
@@ -353,6 +365,7 @@ static func _authored_props_for(key: String) -> Array[Dictionary]:
                 _item("worklight", 3.24, 2.76, 0.80),
                 _accent("micro_servo", -3.21, -3.03),
                 _accent("welding_mask", -3.88, 2.69),
+                _accent("calibration_probe", -1.67, -2.44),
             ]
         "SMELTER":
             return [
@@ -364,6 +377,7 @@ static func _authored_props_for(key: String) -> Array[Dictionary]:
                 _item("pressure_valve", 2.18, 1.95, 0.80),
                 _accent("slag_sample", -2.02, 1.98),
                 _accent("heat_shield", -2.91, -2.05),
+                _accent("slag_thermometer", -0.64, -2.00),
             ]
         "RECYCLER":
             return [
@@ -375,6 +389,7 @@ static func _authored_props_for(key: String) -> Array[Dictionary]:
                 _item("scrap_hopper", 2.06, 1.35),
                 _accent("gear_pin", 2.06, -2.62),
                 _accent("cutter_tooth", 2.06, 2.06),
+                _accent("roller_bearing", -0.68, 2.39),
             ]
         "SCRAP_COLLECTOR":
             return [
@@ -386,6 +401,7 @@ static func _authored_props_for(key: String) -> Array[Dictionary]:
                 _item("hydraulic_kit", 2.14, 1.92),
                 _accent("servo_joint", -2.21, 2.08),
                 _accent("grip_fingers", -1.30, -2.08),
+                _accent("claw_pins", -0.13, -2.99),
             ]
         "STORAGE":
             return [
@@ -397,6 +413,7 @@ static func _authored_props_for(key: String) -> Array[Dictionary]:
                 _item("panel_stack", 2.12, 1.37, 1.00, 2),
                 _accent("packing_wedges", 2.13, 2.06),
                 _accent("folded_tarp", 1.35, -1.97),
+                _accent("cargo_latch", -0.71, 2.42),
             ]
         "GENERATOR":
             return [
@@ -408,6 +425,7 @@ static func _authored_props_for(key: String) -> Array[Dictionary]:
                 _item("power_box", -2.06, 1.29, 1.00, 2),
                 _accent("ceramic_fuse", -2.19, -2.71),
                 _accent("busbar_kit", -2.06, 1.97),
+                _accent("flux_coupler", -0.61, 2.27),
             ]
         "BUILD_TERMINAL":
             return [
@@ -419,6 +437,7 @@ static func _authored_props_for(key: String) -> Array[Dictionary]:
                 _item("building_parts", 2.13, 0.22, 1.00, 2),
                 _accent("blueprint_tube", 2.02, 1.99),
                 _accent("locator_beacon", 2.15, -2.69),
+                _accent("layout_marker", 0.54, 1.96),
             ]
         _:
             return []
@@ -638,7 +657,7 @@ static func _ring(g: Variant, name: String, at: Vector2, k: float,
         radius * k, tint, axis)
 
 
-# Sixteen compact functional silhouettes; each emits multiple actual 3D
+# Twenty-four compact functional silhouettes; each emits multiple actual 3D
 # primitives into the existing facility material MultiMesh. Designed to fit
 # within their own conservative 0.36–0.44m footprint, with no collisions.
 static func _make_micro(g: Variant, kind: String, at: Vector2, k: float,
@@ -787,6 +806,92 @@ static func _make_micro(g: Variant, kind: String, at: Vector2, k: float,
                 Vector3(0, 0.83, 0), Vector3(0.18, 0.15, 0.18), "blue_light")
             _ring(g, kind + "_guard", at, k,
                 Vector3(0, 0.82, 0), 0.12, "gold")
+
+        "service_keypack":
+            _box(g, kind + "_tray", at, k, Vector3(0, 0.19, 0),
+                Vector3(0.36, 0.09, 0.30), "trim")
+            for i in range(3):
+                var x: float = float(i - 1) * 0.12
+                _rod(g, kind + "_key", at, k, Vector3(x, 0.25, -0.10),
+                    Vector3(x + 0.025, 0.44, 0.10), 0.05, "edge")
+                _box(g, kind + "_tooth", at, k,
+                    Vector3(x + 0.025, 0.43, 0.13),
+                    Vector3(0.085, 0.055, 0.075), "gold")
+        "calibration_probe":
+            _box(g, kind + "_carrier", at, k, Vector3(0, 0.19, 0),
+                Vector3(0.34, 0.13, 0.32), "slate")
+            _rod(g, kind + "_needle", at, k,
+                Vector3(-0.12, 0.24, -0.13), Vector3(0.12, 0.66, 0.13),
+                0.065, "edge")
+            _box(g, kind + "_optical_tip", at, k, Vector3(0.12, 0.70, 0.14),
+                Vector3(0.10, 0.14, 0.10), "blue_light")
+            _ring(g, kind + "_calibration", at, k,
+                Vector3(0, 0.30, 0), 0.13, "gold")
+        "slag_thermometer":
+            _box(g, kind + "_pad", at, k, Vector3(0, 0.17, 0),
+                Vector3(0.34, 0.10, 0.34), "rust")
+            _rod(g, kind + "_stem", at, k,
+                Vector3(0, 0.22, 0), Vector3(0, 0.80, 0), 0.08, "edge")
+            _ring(g, kind + "_dial", at, k,
+                Vector3(0, 0.71, 0.08), 0.15, "white", "z")
+            _box(g, kind + "_heat_mark", at, k, Vector3(0, 0.70, 0.18),
+                Vector3(0.16, 0.05, 0.035), "amber")
+        "roller_bearing":
+            _box(g, kind + "_cradle", at, k, Vector3(0, 0.18, 0),
+                Vector3(0.33, 0.10, 0.30), "trim")
+            for side in [-1.0, 1.0]:
+                _ring(g, kind + "_race", at, k,
+                    Vector3(side * 0.12, 0.37, 0), 0.14, "edge", "x")
+            _rod(g, kind + "_axle", at, k,
+                Vector3(-0.18, 0.38, 0), Vector3(0.18, 0.38, 0),
+                0.09, "rust")
+            _box(g, kind + "_cap", at, k, Vector3(0, 0.49, 0),
+                Vector3(0.18, 0.06, 0.18), "gold")
+        "claw_pins":
+            _box(g, kind + "_parts_box", at, k, Vector3(0, 0.18, 0),
+                Vector3(0.35, 0.13, 0.32), "rust")
+            for i in range(3):
+                var xx: float = float(i - 1) * 0.11
+                _rod(g, kind + "_pin", at, k,
+                    Vector3(xx, 0.27, -0.13), Vector3(xx, 0.54, 0.13),
+                    0.066, "armor_light")
+                _ring(g, kind + "_pin_eye", at, k,
+                    Vector3(xx, 0.56, 0.13), 0.055, "gold", "z")
+        "cargo_latch":
+            _box(g, kind + "_housing", at, k, Vector3(0, 0.23, 0),
+                Vector3(0.34, 0.23, 0.31), "armor_light")
+            for side in [-1.0, 1.0]:
+                _rod(g, kind + "_hook", at, k,
+                    Vector3(side * 0.12, 0.33, -0.12),
+                    Vector3(side * 0.12, 0.67, 0.12), 0.07, "gold")
+            _ring(g, kind + "_handle", at, k,
+                Vector3(0, 0.57, 0.02), 0.15, "edge", "z")
+            _box(g, kind + "_lock", at, k, Vector3(0, 0.38, 0.16),
+                Vector3(0.15, 0.10, 0.05), "dark")
+        "flux_coupler":
+            _box(g, kind + "_socket", at, k, Vector3(0, 0.22, 0),
+                Vector3(0.33, 0.20, 0.32), "trim")
+            for row in range(3):
+                _ring(g, kind + "_coil", at, k,
+                    Vector3(0, 0.36 + float(row) * 0.12, 0),
+                    0.145, "gold")
+            _rod(g, kind + "_busbar", at, k,
+                Vector3(-0.14, 0.32, 0), Vector3(0.14, 0.70, 0),
+                0.07, "armor_light")
+            _box(g, kind + "_charge", at, k, Vector3(0.14, 0.73, 0),
+                Vector3(0.10, 0.13, 0.10), "blue_light")
+        "layout_marker":
+            _box(g, kind + "_plate", at, k, Vector3(0, 0.17, 0),
+                Vector3(0.35, 0.09, 0.33), "slate")
+            for side in [-1.0, 1.0]:
+                _rod(g, kind + "_leg", at, k,
+                    Vector3(side * 0.15, 0.22, -0.12),
+                    Vector3(0, 0.69, 0), 0.065, "gold")
+            _box(g, kind + "_viewer", at, k,
+                Vector3(0, 0.73, 0.04), Vector3(0.28, 0.16, 0.08), "blue")
+            _box(g, kind + "_cursor", at, k,
+                Vector3(0.02, 0.74, 0.09),
+                Vector3(0.045, 0.08, 0.03), "blue_light")
 
 static func _make(g: Variant, kind: String, at: Vector2, k: float,
         order: int, ground_skid: bool = true) -> void:

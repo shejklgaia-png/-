@@ -38,7 +38,7 @@ func _run() -> void:
         _fail("LABO must sit slightly below the open middle")
         return
     if absf(nexus_uv.x - 0.50) > 0.10 or (
-            labo_uv.y - nexus_uv.y < 0.31 or
+            labo_uv.y - nexus_uv.y < 0.29 or
             labo_uv.y - nexus_uv.y > 0.44):
         _fail("center gap is too cramped or a huge formal plaza")
         return

@@ -5,10 +5,10 @@ root = Path(__file__).resolve().parents[1]
 hub = (root / "scripts/base_exploration.gd").read_text(encoding="utf-8")
 arch = (root / "scripts/sera_base_architecture.gd").read_text(encoding="utf-8")
 ci = (root / "tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
-# Translate camera and target together by 2.1m. Keeping their difference
-# unchanged preserves yaw, overhead angle and orthographic depth proportions.
+# Preserve the formerly approved downward screen framing and model sizes;
+# the camera now drops in altitude to show more of the front facades.
 assert 'const BASE_ORTHO_SIZE: float = 38.0' in hub
-assert 'const BASE_CAMERA_POSITION: Vector3 = Vector3(21.0, 25.1, 25.0)' in hub
+assert 'const BASE_CAMERA_POSITION: Vector3 = Vector3(21.0, 19.5, 25.0)' in hub
 assert 'const BASE_CAMERA_TARGET: Vector3 = Vector3(0.0, 2.1, -2.2)' in hub
 assert 'cam.keep_aspect = Camera3D.KEEP_HEIGHT' in hub
 assert 'cam.look_at(BASE_CAMERA_TARGET, Vector3.UP)' in hub

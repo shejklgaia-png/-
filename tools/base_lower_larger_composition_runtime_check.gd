@@ -29,13 +29,13 @@ func _run() -> void:
             not is_equal_approx(camera.size, 38.0)):
         _fail("base camera lost orthographic composition")
         return
-    if camera.position.distance_to(Vector3(21.0, 25.1, 25.0)) > 0.02:
+    if camera.position.distance_to(Vector3(21.0, 19.5, 25.0)) > 0.02:
         _fail("camera was not translated downward on screen")
         return
     var view: Vector2 = camera.get_viewport().get_visible_rect().size
     var nexus_uv: Vector2 = camera.unproject_position(nexus.global_position) / view
     if nexus_uv.x < 0.45 or nexus_uv.x > 0.55 or (
-            nexus_uv.y < 0.31 or nexus_uv.y > 0.34):
+            nexus_uv.y < 0.35 or nexus_uv.y > 0.38):
         _fail("NEXUS not centered near upper third: " + str(nexus_uv))
         return
     var nexus_model: Node3D = nexus.get_node_or_null("NexusArchitecture") as Node3D
@@ -74,12 +74,12 @@ func _run() -> void:
     var terminal: Node3D = stations.get_node("BUILD_TERMINAL") as Node3D
     var bottom_uv: Vector2 = camera.unproject_position(
         terminal.global_position) / view
-    if bottom_uv.y < 0.855 or bottom_uv.y > 0.89:
+    if bottom_uv.y < 0.825 or bottom_uv.y > 0.865:
         _fail("lower yard still leaves excess space: " + str(bottom_uv))
         return
     var lab: Node3D = stations.get_node("LABO") as Node3D
     var lab_uv: Vector2 = camera.unproject_position(lab.global_position) / view
-    if lab_uv.y < 0.67 or lab_uv.y > 0.71:
+    if lab_uv.y < 0.645 or lab_uv.y > 0.685:
         _fail("LABO moved off lower central area: " + str(lab_uv))
         return
     for lower in ["SCRAP_COLLECTOR", "BUILD_TERMINAL"]:

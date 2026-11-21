@@ -10,7 +10,7 @@ ci = (r/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 assert 'cam.projection = Camera3D.PROJECTION_ORTHOGONAL' in base
 assert 'cam.size = BASE_ORTHO_SIZE' in base
 assert 'const BASE_ORTHO_SIZE: float = 38.0' in base
-assert 'const BASE_CAMERA_POSITION: Vector3 = Vector3(21.0, 25.1, 25.0)' in base
+assert 'const BASE_CAMERA_POSITION: Vector3 = Vector3(21.0, 19.5, 25.0)' in base
 assert 'const BASE_CAMERA_TARGET: Vector3 = Vector3(0.0, 2.1, -2.2)' in base
 assert 'cam.look_at(BASE_CAMERA_TARGET' in base
 assert 'cam.fov = 0.0' not in base, "Godot cannot use 0-degree perspective"
@@ -29,16 +29,16 @@ assert 'gd tools/base_isometric_layout_runtime_check.gd' in ci
 # NEXUS anchors the upper center, LABO is a little below the open mid-field.
 # Three peripheral rows are intentionally asymmetric rather than a strict grid.
 # These independent target coordinates are the approved composition.
-# Bottom row is 80px lower than before so its roofs clear the LABO foreground.
+# Frontal 26.9-degree camera shows facades; preserve lower-row clearance.
 desired = {
-    "NEXUS": (.509, .320),
-    "LABO": (.503, .687),
-    "SMELTER": (.190, .442),
-    "RECYCLER": (.790, .460),
-    "STORAGE": (.198, .617),
-    "GENERATOR": (.812, .631),
-    "SCRAP_COLLECTOR": (.172, .854),
-    "BUILD_TERMINAL": (.705, .869),
+    "NEXUS": (.509, .366),
+    "LABO": (.503, .664),
+    "SMELTER": (.190, .465),
+    "RECYCLER": (.790, .479),
+    "STORAGE": (.198, .607),
+    "GENERATOR": (.812, .619),
+    "SCRAP_COLLECTOR": (.172, .831),
+    "BUILD_TERMINAL": (.705, .843),
 }
 read_nexus = re.search(
     r'const NEXUS_BUILDING_ORIGIN: Vector3 = Vector3\(([-.\d]+), ([-.\d]+), ([-.\d]+)\)', base)
@@ -52,7 +52,7 @@ for name in desired:
         facility, flags=re.S)
     assert m, "missing world placement for " + name
     positions[name] = (float(m[1]), float(m[3]))
-eye = (21., 25.1, 25.)
+eye = (21., 19.5, 25.)
 target = (0., 2.1, -2.2)
 dx,dy,dz = (target[i]-eye[i] for i in range(3))
 norm = math.sqrt(dx*dx+dy*dy+dz*dz)

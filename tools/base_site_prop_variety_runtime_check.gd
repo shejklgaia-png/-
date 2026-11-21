@@ -101,7 +101,7 @@ func _run() -> void:
             _fail(key + " prop data not submitted to actual batch")
             return
         total += props.size()
-    if total != 68 or seen_shapes.size() < 55:
+    if total != 76 or seen_shapes.size() < 63:
         _fail("insufficient global assortment across base facilities")
         return
     print("SERA_BASE_SITE_PROP_VARIETY_RUNTIME_PASS props=", total,

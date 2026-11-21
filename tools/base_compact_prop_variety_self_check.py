@@ -10,7 +10,7 @@ assert 'static func _make_micro(' in code
 assert 'item["accent"] = true' in code, "accent flag must be set in the authored item"
 assert '"sealed_canister":' in code
 assert '"locator_beacon":' in code
-assert code.count('_accent("') == 16, "two additional authored objects per site"
+assert code.count('_accent("') == 24, "three distinct compact objects per site"
 assert 'g.host.set_meta("clutter_props", props)' in code
 assert 'BaseClutter.decorate(g, "NEXUS")' in arch
 assert 'BaseClutter.decorate(g, key)' in arch
