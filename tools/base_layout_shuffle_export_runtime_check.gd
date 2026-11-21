@@ -83,14 +83,21 @@ func _run() -> void:
         _fail("reroll moved a facility")
         return
     for site in after["sites"]:
-        if (site["items"] as Array).size() != Props.props_for(str(site["site"]), false).size():
+        if (site["items"] as Array).size() != Props.default_props_for(str(site["site"])).size():
             _fail("missing or extra item in text export")
             return
         for item in site["items"]:
-            for field in ["index", "kind", "x", "z", "scale", "yaw_deg", "stack", "accent"]:
+            for field in ["index", "kind", "x", "z", "scale", "yaw_deg", "stack", "pattern", "accent"]:
                 if not item.has(field):
                     _fail("cannot reproduce model, field absent: " + field)
                     return
+    for scrap in after["scrap"]:
+        if not scrap.has("stack") or not scrap.has("pattern"):
+            _fail("copy format dropped selected scrap stack layout")
+            return
+        if int(scrap["stack"]) < 1 or int(scrap["stack"]) > 8:
+            _fail("scrap amount outside model capability")
+            return
     for i in range(16):
         var scrap_node: Node3D = hub.get_node_or_null("ScrapPile_%02d" % i)
         if scrap_node == null:

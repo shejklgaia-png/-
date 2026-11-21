@@ -79,11 +79,15 @@ func _run() -> void:
             var at: Vector2 = item["at"]
             var factor: float = float(item["scale"])
             var stack_count: int = int(item.get("stack", 1))
-            if stack_count < 1 or stack_count > 4:
-                _fail("stack count out of range: " + kind)
+            var limit: int = 8 if Props.is_loose_pile(kind) else (
+                4 if Props.is_stack_container(kind) else 3)
+            if stack_count < 1 or stack_count > limit:
+                _fail("stack count outside this material class: " + kind)
                 return
-            if not Props.is_stack_container(kind) and stack_count > 3:
-                _fail("non-container has unsafe four-tier stack: " + kind)
+            if Props.is_loose_pile(kind) and (
+                    int(item.get("pattern", -1)) < 0 or
+                    int(item.get("pattern", -1)) >= Props.PILE_PATTERN_COUNT):
+                _fail("new scrap/panel stack has no valid model pattern: " + kind)
                 return
             if stack_count > 1 and Props.stack_pitch_for(kind) <= 0.0:
                 _fail("unsafe non-stackable equipment: " + kind)

@@ -113,11 +113,48 @@ static func _stable_seed(key: String, kind: String, index: int) -> int:
         h = posmod(h * 131 + value.unicode_at(i), 2147483647)
     return posmod(h + index * 104729, 2147483647)
 
+const LOOSE_PANEL_KINDS = [
+    "panel_stack", "armored_bundle", "armor_rack", "bent_armor",
+    "building_parts", "rack_stack",
+]
+const LOOSE_SCRAP_KINDS = [
+    "scrap_gears", "scrap_hopper", "pipe_bundle", "ingot_pallet",
+]
+const PILE_MAX_COUNT: int = 8
+const PILE_PATTERN_COUNT: int = 4
+
+
+static func is_loose_pile(kind: String) -> bool:
+    return kind in LOOSE_PANEL_KINDS or kind in LOOSE_SCRAP_KINDS
+
+
 static func is_stack_container(kind: String) -> bool:
     return kind in ["cargo_box", "fastener_box", "power_box", "battery"]
 
+
+static func pile_pattern_for(key: String, kind: String, index: int) -> int:
+    return posmod(int(_stable_seed(key, kind, index) / 17) + index, PILE_PATTERN_COUNT)
+
+
 static func stack_count_for(key: String, kind: String, index: int) -> int:
     var seed: int = _stable_seed(key, kind, index)
+    if is_loose_pile(kind):
+        var sample: int = posmod(seed + int(seed / 17), 100)
+        if sample < 13:
+            return 1
+        if sample < 29:
+            return 2
+        if sample < 46:
+            return 3
+        if sample < 62:
+            return 4
+        if sample < 76:
+            return 5
+        if sample < 87:
+            return 6
+        if sample < 95:
+            return 7
+        return 8
     if is_stack_container(kind):
         return 1 + posmod(seed + int(seed / 7), 4)
     return 1 + posmod(seed, 3)
@@ -252,7 +289,13 @@ static func default_props_for(key: String) -> Array[Dictionary]:
     for index in range(items.size()):
         var item: Dictionary = items[index]
         var kind: String = str(item["kind"])
-        if int(item["stack"]) > 1:
+        if is_loose_pile(kind):
+            # Each metal/scrap site is one procedural model with 1–8 major
+            # pieces, not 1–8 copies of a prebuilt six-sheet model.
+            item["stack"] = stack_count_for(key, kind, index)
+            item["pattern"] = pile_pattern_for(key, kind, index)
+            items[index] = item
+        elif int(item["stack"]) > 1:
             var count: int = stack_count_for(key, kind, index)
             item["stack"] = count
             items[index] = item
@@ -492,6 +535,8 @@ static func stack_pitch_for(kind: String) -> float:
             return 0.36
         "armored_bundle", "armor_rack", "bent_armor", "building_parts":
             return 0.73
+        "scrap_gears", "scrap_hopper", "pipe_bundle", "ingot_pallet":
+            return 0.24
         _:
             return 0.0
 
@@ -539,6 +584,19 @@ class LiftedBatch:
 
     func crate(at: Vector3, size: Vector3, index: int = 0) -> void:
         target.crate(at + delta, size, index)
+
+# One generated prop model for the selected count. Four layouts include broad
+# bottom rows, smaller second rows, one sparse peak and nonparallel fragments.
+# Same MultiMesh Batch, no 3D node per sheet. Keep stack and pattern in JSON.
+static func _make_loose_pile(g: Variant, kind: String, at: Vector2, k: float,
+        index: int, stack_count: int, pattern: int) -> void:
+    var pieces: int = clampi(stack_count, 1, PILE_MAX_COUNT)
+    var style: int = posmod(pattern, PILE_PATTERN_COUNT)
+    if kind in LOOSE_PANEL_KINDS:
+        JunkGeometry.panel_stack(g, at, k, index, pieces, style)
+    else:
+        JunkGeometry.loose_scrap_pile(g, at, k, index, pieces, style, kind)
+
 
 static func _make_stacked(g: Variant, kind: String, at: Vector2, k: float,
         order: int, stack_count: int) -> void:
@@ -967,6 +1025,10 @@ static func decorate(g: Variant, key: String) -> void:
         if is_stack_container(kind) and int(p.get("stack", 1)) > 0:
             _make_container_stack(g, key, kind, index,
                 p["at"] as Vector2, float(p["scale"]))
+        elif is_loose_pile(kind):
+            _make_loose_pile(g, kind, anchor, float(p["scale"]),
+                index, int(p.get("stack", 1)),
+                int(p.get("pattern", pile_pattern_for(key, kind, index))))
         else:
             _make_stacked(g, kind, p["at"] as Vector2,
                 float(p["scale"]), index, int(p.get("stack", 1)))
