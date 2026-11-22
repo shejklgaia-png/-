@@ -332,7 +332,7 @@ func _copy_iris_material_settings() -> void:
     if not fullscreen or not _is_iris_preview():
         return
     DisplayServer.clipboard_set(JSON.stringify(
-        _current_iris_material_payload(), "\\t"))
+        _current_iris_material_payload(), "\t"))
     _material_panel.call("set_copied", true)
 
 func _flash_iris_material(material_id: int) -> void:
