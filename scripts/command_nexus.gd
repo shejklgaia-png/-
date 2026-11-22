@@ -3266,6 +3266,9 @@ func _on_android_back() -> void:
     _navigate_back()
 
 func _navigate_back() -> void:
+    if customize_part_preview_fullscreen_active:
+        _set_single_part_preview_fullscreen(false)
+        return
     if customize_part_picker != null and customize_part_picker.visible:
         _close_customization_part_picker()
         return
@@ -3277,6 +3280,9 @@ func _navigate_back() -> void:
         _return_to_overview()
 
 func _input(event: InputEvent) -> void:
+    if _route_fullscreen_preview_input(event):
+        get_viewport().set_input_as_handled()
+        return
     # Aggregate stats are read-only and can scroll without rotating the
     # character or treating the upper strip as a dismiss tap.
     if focused_target == "CUSTOMIZE" and (
@@ -3341,9 +3347,7 @@ func _input(event: InputEvent) -> void:
     # Dedicated bottom-left part preview never rotates the full SERA body.
     if focused_target == "CUSTOMIZE" and customize_single_part_preview != null and (
             customize_single_part_preview.visible):
-        var part_rect := Rect2(
-            focus_panel.position + customize_single_part_preview.position,
-            customize_single_part_preview.size)
+        var part_rect: Rect2 = customize_single_part_preview.get_global_rect()
         if event is InputEventScreenTouch:
             if event.pressed and part_rect.has_point(event.position):
                 customize_part_touch_id = event.index
@@ -3590,6 +3594,7 @@ func _focus_arrived(target_name: String) -> void:
 func _return_to_overview() -> void:
     if in_transition or focused_target.is_empty():
         return
+    _set_single_part_preview_fullscreen(false)
     _clear_customization_part_glow()
     # Back immediately ends the bright selection, before camera return.
     outline.set("active_target", "")
