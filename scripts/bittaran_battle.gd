@@ -9,6 +9,7 @@ const BALANCE = preload("res://scripts/bittaran_balance.gd")
 const BittaranAttacks = preload("res://scripts/bittaran_attacks.gd")
 const BittaranDirtFX = preload("res://scripts/bittaran_dirt_fx.gd")
 const BittaranSoundData = preload("res://assets/bittaran_sfx_data.gd")
+const BittaranSweepLoopData = preload("res://assets/bittaran_sweep_loop_data.gd")
 const BittaranRailgun = preload("res://scripts/bittaran_railgun.gd")
 const BittaranLegTurrets = preload("res://scripts/bittaran_leg_turrets.gd")
 const BittaranSweepFXTrack = preload("res://scripts/bittaran_sweep_fx_track.gd")
@@ -186,6 +187,13 @@ var bittaran_thud_audio: AudioStreamPlayer
 var bittaran_sfx_players: Dictionary = {}
 var bittaran_sfx_event_counts: Dictionary = {}
 var bittaran_attack_sfx_active: bool = false
+# User-provided sweep rumble plays at normal pitch through the SOURCE hit window.
+# A separate linear-gain three-second tail outlasts the real collision only.
+const BITTARAN_SWEEP_LOOP_FADE_SECONDS: float = 3.0
+const BITTARAN_SWEEP_LOOP_VOLUME_DB: float = 2.0
+var bittaran_sweep_loop_audio: AudioStreamPlayer
+var bittaran_sweep_loop_fade_remaining: float = 0.0
+var bittaran_sweep_loop_was_hit_active: bool = false
 var fall_vertical_shake_strength: float = 0.0
 # v454: gapless 174-BPM audio provided by the creator. The Ogg source
 # must be included at this resource path for Android export; a user://
@@ -209,6 +217,7 @@ func _ready() -> void:
     super._ready()
     _start_neural_flow_bgm()
     _initialize_bittaran_sfx()
+    _initialize_bittaran_sweep_loop_audio()
     # Dedicated boss locomotion is not controlled by training-room settings.
     target_move_enabled = true
     if move_target_button != null:
@@ -607,7 +616,7 @@ func _initialize_bittaran_sfx() -> void:
         "punch": BittaranSoundData.PUNCH
     }
     var gain_db: Dictionary = {
-        "footstep": -5.0, "arm": 4.0,
+        "footstep": -13.0, "arm": 4.0,
         "collapse": -4.0, "punch": -4.0
     }
     for cue in encoded:
@@ -622,7 +631,7 @@ func _initialize_bittaran_sfx() -> void:
         channel.name = "BittaranSFX_" + str(cue)
         channel.stream = stream
         channel.volume_db = float(gain_db[cue])
-        channel.max_polyphony = 4 if cue == "footstep" else 2
+        channel.max_polyphony = 2
         add_child(channel)
         bittaran_sfx_players[cue] = channel
         bittaran_sfx_event_counts[cue] = 0
@@ -647,6 +656,66 @@ func _tick_bittaran_attack_sfx() -> void:
     if playing and not bittaran_attack_sfx_active:
         _play_bittaran_sound("arm")
     bittaran_attack_sfx_active = playing
+
+
+
+func _initialize_bittaran_sweep_loop_audio() -> void:
+    var bytes: PackedByteArray = Marshalls.base64_to_raw(
+        BittaranSweepLoopData.SWEEP_MP3)
+    var stream: AudioStreamMP3 = AudioStreamMP3.load_from_buffer(bytes)
+    if stream == null:
+        push_error("BITTARAN_SWEEP_LOOP_MISSING: creator sound unreadable")
+        return
+    stream.loop = true
+    var player := AudioStreamPlayer.new()
+    player.name = "BittaranSweepHitLoop"
+    player.bus = "Master"
+    player.stream = stream
+    player.max_polyphony = 1
+    player.pitch_scale = 1.0
+    player.volume_db = BITTARAN_SWEEP_LOOP_VOLUME_DB
+    add_child(player)
+    bittaran_sweep_loop_audio = player
+
+
+func _reset_bittaran_sweep_loop_audio() -> void:
+    bittaran_sweep_loop_fade_remaining = 0.0
+    bittaran_sweep_loop_was_hit_active = false
+    if bittaran_sweep_loop_audio != null:
+        bittaran_sweep_loop_audio.stop()
+        bittaran_sweep_loop_audio.pitch_scale = 1.0
+        bittaran_sweep_loop_audio.volume_db = BITTARAN_SWEEP_LOOP_VOLUME_DB
+
+
+func _tick_bittaran_sweep_loop_audio(delta: float) -> void:
+    if bittaran_sweep_loop_audio == null:
+        return
+    # Same front 0.67..1.38 / rear 0.17..0.63 SOURCE hitbox as damage.
+    # This intentionally ignores the one-hit damage latch, because the
+    # dangerous leg remains in motion until its complete hit window ends.
+    var hit_active: bool = _sweep_hit_window_active()
+    if hit_active:
+        if not bittaran_sweep_loop_audio.playing:
+            bittaran_sweep_loop_audio.play()
+        bittaran_sweep_loop_audio.pitch_scale = 1.0
+        bittaran_sweep_loop_audio.volume_db = BITTARAN_SWEEP_LOOP_VOLUME_DB
+        bittaran_sweep_loop_fade_remaining = 0.0
+    else:
+        if bittaran_sweep_loop_was_hit_active:
+            bittaran_sweep_loop_fade_remaining = BITTARAN_SWEEP_LOOP_FADE_SECONDS
+        if bittaran_sweep_loop_fade_remaining > 0.0:
+            bittaran_sweep_loop_fade_remaining = maxf(
+                0.0, bittaran_sweep_loop_fade_remaining - maxf(0.0, delta))
+            if bittaran_sweep_loop_fade_remaining <= 0.0:
+                bittaran_sweep_loop_audio.stop()
+                bittaran_sweep_loop_audio.volume_db = BITTARAN_SWEEP_LOOP_VOLUME_DB
+            else:
+                # A 3.0-second linear-volume fade, not a 3s dB ramp.
+                var ratio: float = bittaran_sweep_loop_fade_remaining / (
+                    BITTARAN_SWEEP_LOOP_FADE_SECONDS)
+                bittaran_sweep_loop_audio.volume_db = (
+                    BITTARAN_SWEEP_LOOP_VOLUME_DB + linear_to_db(ratio))
+    bittaran_sweep_loop_was_hit_active = hit_active
 
 
 func _make_bittaran_thud() -> AudioStreamWAV:
@@ -2103,6 +2172,7 @@ func _physics_process(delta: float) -> void:
     _tick_bittaran_leg_turrets(delta)
     _tick_bittaran_footfalls()
     _tick_bittaran_sweep_shake(delta)
+    _tick_bittaran_sweep_loop_audio(delta)
     _tick_impact_shake(delta)
     _update_bittaran_lock_permissions()
 
@@ -2606,6 +2676,7 @@ func _reset_target_after_respawn() -> void:
         bittaran_head.position = boss_head_rest_local_position
     boss_downed_escaping = false
     bittaran_attack_sfx_active = false
+    _reset_bittaran_sweep_loop_audio()
     fall_vertical_shake_strength = 0.0
     impact_shake_strength = 0.0
     sweep_shake_strength = 0.0
