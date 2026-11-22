@@ -32,9 +32,9 @@ func _run() -> void:
     if sound == null or sound.stream == null:
         _fail("actual sweep loop player/embedded source missing")
         return
-    if not sound.stream is AudioStreamMP3 or (
-            not bool(sound.stream.loop)):
-        _fail("provided audio is not a loopable MP3")
+    var ogg: AudioStreamOggVorbis = sound.stream as AudioStreamOggVorbis
+    if ogg == null or not ogg.loop:
+        _fail("provided audio is not a loopable Ogg Vorbis")
         return
     if sound.stream.get_length() < 3.8 or sound.stream.get_length() > 4.3:
         _fail("source is not a repeatable four-second unit")
