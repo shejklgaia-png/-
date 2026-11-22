@@ -3012,7 +3012,7 @@ func _rotate_customization_preview(delta: Vector2) -> void:
         return
     var yaw_delta: float = delta.x / maxf(hud.size.x, 1.0) * CUSTOMIZE_DRAG_FULL_TURN
     var pitch_delta: float = -delta.y / maxf(hud.size.y, 1.0) * PI
-    customize_preview_yaw = wrapf(customize_preview_yaw - yaw_delta, -PI, PI)
+    customize_preview_yaw = wrapf(customize_preview_yaw + yaw_delta, -PI, PI)
     customize_preview_pitch = clampf(customize_preview_pitch + pitch_delta,
         deg_to_rad(-55.0), deg_to_rad(55.0))
     # Rotation only: no translation, scale or center correction per gesture.
