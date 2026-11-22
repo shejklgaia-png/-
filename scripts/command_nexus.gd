@@ -85,8 +85,8 @@ const OUTLINE_DIAGNOSTIC_MODES: Array[String] = [
     "17一致", "書込停止≠17"
 ]
 const OUTLINE_DIAGNOSTIC_EXPLAINS: Array[String] = [
-    "不透明深度で内側を除外し、外周3pxを描画します。",
-    "青緑: 不透明深度で残った外周エッジを強調表示。",
+    "GPU深度テスト＋面向き判定で奥の線を除外します。外周3px。",
+    "青緑: 可視シルエットのみをGPU深度判定で描画。",
     "黄: 生成済みの全エッジ。視点による非表示を解除。",
     "橙: 開放境界のみ。閉じた装甲には通常ありません。",
     "紫: メッシュ同士の交差から生成した接合線のみ。",
@@ -94,14 +94,14 @@ const OUTLINE_DIAGNOSTIC_EXPLAINS: Array[String] = [
     "緑: 輪郭へ登録した表示中のメッシュを着色。",
     "橙: ステンシル書込みパスを着色。描画確認用。",
     "紫: マスクなしの反転ハル。面の破綻を確認。",
-    "青緑: 現行の深度判定＋GPUエッジを確認。",
+    "青緑: GPU深度テスト＋面向き判定の外周を表示。",
     "立方体: 書込29に一致する部分が緑なら成功候補。",
     "立方体: 29と異なる外周が紫、中心は抜けるはず。",
     "全身: ステンシル17と一致する領域を緑で表示。",
     "橙: カリングを逆転。紫のハル単独と比較。",
     "桃: 法線＋8px。青緑の元輪郭より外に出るか確認。",
     "黄: 法線－8px。青緑の元輪郭より外に出るか確認。",
-    "青緑: 同じ3pxリボンを深度判定なしで描画。合成確認と比較。",
+    "青緑: 診断用の全エッジを表示。深度・面向き判定なし。",
     "緑: 旧ステンシル診断。書込みONで参照17一致画素を表示。",
     "紫: 旧ステンシル診断。書込みOFFで参照17不一致画素を表示。"
 ]
@@ -3176,7 +3176,7 @@ func _refresh_outline_debug(delta: float) -> void:
         int(data.get("contact_segments", 0)),
         "OK" if bool(data.get("camera_present", false)) else "なし",
         "ON" if bool(data.get("enabled", false)) else "OFF",
-        "不透明深度" if bool(data.get("depth_sampled", false)) else (
+        "GPU深度" if bool(data.get("hardware_depth_test", false)) else (
             "無視" if bool(data.get("depth_disabled", false))
             else "診断モード"),
         "済" if bool(data.get("contacts_cached", false)) else "なし",
