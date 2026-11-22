@@ -112,8 +112,9 @@ func _add_entrance(key: String) -> void:
     # the player, so the interior reads as strongly lit from the real camera.
     _make_surface("DoorLightLeak", origin, span, Vector3.ZERO,
         SHAFT_SHADER, Color(tint.r, tint.g, tint.b, 0.95))
+    # Keep the light plane just above the 0.32m industrial foundation slab.
     _make_surface("DoorLightFloor",
-        Vector3(origin.x, 0.065, origin.z + 1.55),
+        Vector3(origin.x, 0.29, origin.z + 1.55),
         Vector2(span.x * 1.64, 3.14), Vector3(-PI * 0.5, 0, 0),
         SHAFT_SHADER, Color(tint.r, tint.g, tint.b, 0.70), true)
 
@@ -176,8 +177,9 @@ func _add_smoke() -> void:
 func _add_fire_floor() -> void:
     # Light-pool illusion, not a real screen-space SSR/reflection: this works
     # on mobile GL Compatibility without depth-copy or refraction passes.
+    # This plane must clear the foundation top, not clip into the slab.
     _make_surface("SmelterFireFloorReflection",
-        Vector3(0.0, 0.071, 2.20), Vector2(3.0, 3.40),
+        Vector3(0.0, 0.30, 2.20), Vector2(3.0, 3.40),
         Vector3(-PI * 0.5, 0.0, 0.0),
         FIRE_FLOOR_SHADER)
 
