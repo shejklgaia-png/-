@@ -53,7 +53,26 @@ void fragment() {
     ALPHA = clamp(glow_tint.a * round_pool * 1.15, 0.0, 1.0);
 }
 """
+# NEXUS shutter: a narrow projected strip, bright at the airlock and
+# fading down the long axis. -90° on X maps UV.y=1 to the near entrance
+# and UV.y=0 to the far end of the projected floor quad.
+const NEXUS_SHUTTER_BEAM_SHADER: String = """
+shader_type spatial;
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never;
+uniform vec4 beam_tint : source_color = vec4(0.73, 0.92, 1.0, 0.72);
+void fragment() {
+    float longitudinal = clamp(1.0 - UV.y, 0.0, 1.0);
+    float side = abs(UV.x - 0.5) * 2.0;
+    float transverse = 1.0 - smoothstep(0.61, 0.99, side);
+    float reach = 1.0 - smoothstep(0.09, 1.0, longitudinal);
+    float band = transverse * pow(reach, 1.20);
+    ALBEDO = beam_tint.rgb;
+    EMISSION = beam_tint.rgb * band * 6.2;
+    ALPHA = clamp(beam_tint.a * band, 0.0, 1.0);
+}
+"""
 static var _pool_shader: Shader
+static var _nexus_shutter_beam_shader: Shader
 
 const FIRE_FLOOR_SHADER: String = """
 shader_type spatial;
@@ -123,6 +142,11 @@ func _make_surface(label: String, at: Vector3, span: Vector2,
             _pool_shader = Shader.new()
             _pool_shader.code = POOL_SHADER
         shader = _pool_shader
+    elif shader_source == NEXUS_SHUTTER_BEAM_SHADER:
+        if _nexus_shutter_beam_shader == null:
+            _nexus_shutter_beam_shader = Shader.new()
+            _nexus_shutter_beam_shader.code = NEXUS_SHUTTER_BEAM_SHADER
+        shader = _nexus_shutter_beam_shader
     else:
         shader = Shader.new()
         shader.code = shader_source
@@ -136,6 +160,8 @@ func _make_surface(label: String, at: Vector3, span: Vector2,
         mat.set_shader_parameter("floor_mode", 1.0 if is_floor else 0.0)
     elif shader_source == POOL_SHADER:
         mat.set_shader_parameter("glow_tint", hue)
+    elif shader_source == NEXUS_SHUTTER_BEAM_SHADER:
+        mat.set_shader_parameter("beam_tint", hue)
     surface.material_override = mat
     surface.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     surface.position = at
@@ -244,9 +270,13 @@ func _generator_vent_slit(label: String, at: Vector3, size: Vector3,
     fixture.set_meta("FX_NO_OUTLINE", true)
     fixture.position = at
     add_child(fixture)
-    _box(fixture, "RecessedBlueEmitter",
+    var source := _box(fixture, "RecessedBlueEmitter",
         Vector3(0.0, 0.0, -0.012),
         size, tint, true)
+    # Preserve metal cut-outs while boosting only the luminous cavity;
+    # the general fixture brightness on other buildings stays unchanged.
+    var emitter_mat := source.material_override as StandardMaterial3D
+    emitter_mat.emission_energy_multiplier = 8.0
     var steel := Color("#223541")
     for side in [-1.0, 1.0]:
         _box(fixture, "ShadowedVentLip",
@@ -351,9 +381,13 @@ func _add_practical_lighting(key: String) -> void:
             _spot("ShutterGapLight", Vector3(0.0, 0.53, 2.99),
                 Vector3(0.0, 0.31, 3.58), Color("#bceaff"),
                 1.15, 3.1, 59.0)
-            _round_floor_pool("ShutterLowerGapSpill",
-                Vector3(0.0, 0.33, 3.36), Vector2(2.70, 1.34),
-                Color("#bbecff"), 0.72)
+            # Replaces the previous broad oval with a forward-projecting
+            # strip: near edge z=2.99 at shutter, far edge z=8.79.
+            # It follows the facility yaw/scale through the VFX parent.
+            _make_surface("ShutterLowerGapSpill",
+                Vector3(0.0, 0.34, 5.89), Vector2(1.42, 5.80),
+                Vector3(-PI * 0.5, 0.0, 0.0),
+                NEXUS_SHUTTER_BEAM_SHADER, Color("#bbecff"), false)
         "RECYCLER":
             for side in [-1.0, 1.0]:
                 _work_lamp("ProtectedCrusherWorklamp",
@@ -374,24 +408,24 @@ func _add_practical_lighting(key: String) -> void:
             # Core halo is physically behind the shadow louvers and moving
             # rotor blades. Opaque material passes depth-occlude its edges.
             _make_surface("RotorRearBlueGlow",
-                Vector3(-0.27, 1.43, 1.085), Vector2(1.34, 0.66),
-                Vector3.ZERO, POOL_SHADER, Color(0.38, 0.80, 1.0, 0.72))
+                Vector3(-0.27, 1.43, 1.085), Vector2(1.56, 0.74),
+                Vector3.ZERO, POOL_SHADER, Color(0.60, 0.91, 1.0, 0.96))
             for row in range(4):
                 _generator_vent_slit("PowerCabinetWallSlit",
                     # Cabinet opaque surface ends near z=0.455;
                     # a light source at 0.505 is behind the louvers at +0.04.
                     Vector3(1.22, 1.70 + row * 0.125, 0.505),
-                    Vector3(0.34, 0.032, 0.026), Color("#a5ecff"))
+                    Vector3(0.42, 0.060, 0.026), Color("#d0f7ff"))
             # A small, depth-tested spill is visible through the real vent
             # slots, while the steel lips remain opaque in front.
             _make_surface("CabinetVentInnerBloom",
-                Vector3(1.22, 1.89, 0.511), Vector2(0.50, 0.66),
-                Vector3.ZERO, POOL_SHADER, Color(0.42, 0.78, 1.0, 0.21))
+                Vector3(1.22, 1.89, 0.511), Vector2(0.54, 0.66),
+                Vector3.ZERO, POOL_SHADER, Color(0.53, 0.88, 1.0, 0.41))
             _work_lamp("RotorGuardWorklamp", Vector3(-0.61, 1.90, 1.06),
                 Vector3(0.30, 0.13, 0.22), Color("#9cdeff"))
             _spot("RotorVentLight", Vector3(-0.54, 1.84, 1.10),
                 Vector3(-0.27, 1.42, 1.18),
-                Color("#8cdcff"), 1.55, 2.5, 54.0)
+                Color("#b2edff"), 2.40, 2.8, 54.0)
         "STORAGE":
             # Two independent protected industrial fixtures make circular
             # warm landing pools in front of the loading opening.
