@@ -175,6 +175,8 @@ class Batch:
         # clutter. Their companion edge MultiMesh therefore has its own
         # subset indices, never a projected building-wide convex hull.
         var selected_by_bucket: Dictionary = {}
+        if not outline_entries.is_empty():
+            host.set_meta("sera_outline_role", "facility")
         for raw_entry in outline_entries:
             var selected: Dictionary = raw_entry
             var bucket: String = str(selected["bucket"])
@@ -213,11 +215,20 @@ class Batch:
             var multi := MultiMesh.new()
             multi.transform_format = MultiMesh.TRANSFORM_3D
             multi.mesh = mesh
+            # A single batched draw may mix large machine pieces and small
+            # clutter; per-instance role flags keep their line widths distinct.
+            multi.use_custom_data = true
             multi.instance_count = poses.size()
+            var facility_indices: Dictionary = {}
+            for record in selected_by_bucket.get(key, []):
+                facility_indices[int(record["index"])] = true
             if not motion_indices.is_empty():
                 motion_multimeshes[key] = multi
             for i in range(poses.size()):
                 multi.set_instance_transform(i, poses[i])
+                multi.set_instance_custom_data(i, Color(
+                    0.25 if facility_indices.has(i) else 0.375,
+                    0.0, 0.0, 1.0))
             var surface := StandardMaterial3D.new()
             surface.albedo_color = Color(COLORS[tint])
             # Only authored polygon meshes have face-tone vertex colors.
@@ -262,6 +273,11 @@ class Batch:
             draw.multimesh = multi
             draw.material_override = surface
             draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+            draw.set_meta("sera_outline_instanced_roles", true)
+            if tint in ["blue_light", "amber_light", "amber"]:
+                # Emissive visual details can occlude opaque contours, but
+                # must never receive ink themselves.
+                draw.set_meta("sera_outline_occluder_only", true)
             host.add_child(draw)
             if selected_by_bucket.has(key):
                 var edge_mesh: ArrayMesh = BaseFacilityInk.overlay_for(
@@ -312,7 +328,9 @@ class Batch:
                         crease_draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
                         crease_draw.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
                         crease_draw.extra_cull_margin = 0.30
-                        crease_draw.visible = false
+                        # Independent 1px front-facing polygon corners.
+                        # Transparent VFX render later and cover this ink.
+                        crease_draw.visible = true
                         crease_draw.set_meta("FX_NO_OUTLINE", true)
                         host.add_child(crease_draw)
                         outline_crease_meshes_by_bucket[key] = crease_multi
