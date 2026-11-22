@@ -9,6 +9,8 @@ uniform sampler2D mesh_id_texture : filter_nearest, repeat_disable;
 uniform vec2 mesh_id_texel = vec2(0.0026041667);
 uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
 uniform vec4 ink_screen_bounds = vec4(0.0);
+// Enlarged 4px outside scan applies ONLY to projected facility meshes.
+uniform vec4 facility_screen_bounds = vec4(0.0);
 uniform float main_inside_px = 1.0;
 uniform float main_outside_px = 3.0;
 uniform float main_seam_px = 3.0;
@@ -127,7 +129,14 @@ void fragment() {
                 pixel_uv.x <= ink_screen_bounds.z &&
                 pixel_uv.y >= ink_screen_bounds.y &&
                 pixel_uv.y <= ink_screen_bounds.w) {
+            bool near_facility = pixel_uv.x >= facility_screen_bounds.x &&
+                pixel_uv.x <= facility_screen_bounds.z &&
+                pixel_uv.y >= facility_screen_bounds.y &&
+                pixel_uv.y <= facility_screen_bounds.w;
             for (int r = 1; r <= 4; r++) {
+                if (r == 4 && !near_facility) {
+                    break;
+                }
                 for (int d = 0; d < 8; d++) {
                     // Fourth-ring diagonals are 5.66px away; only the
                     // four axis samples are needed for a 4px outside rim.
