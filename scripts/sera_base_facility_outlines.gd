@@ -21,6 +21,19 @@ static func overlay_for(geometry: String, physical_mesh: Mesh) -> ArrayMesh:
     # This intentionally calls the latest SERA builder directly.  Its welded
     # normal inverted hull eliminates interior angled-face ink entirely.
     var ink: ArrayMesh = SeraViewEdges._build_overlay(physical_mesh)
+    if ink != null:
+        # BASE polygon geometry and Godot primitive meshes submit their
+        # visible triangles clockwise; SERA's default right-hand CPU normals
+        # point inward for those batches. Flip ONLY the BASE companion hull.
+        # Do not affect SERA/Bittaran's optional fast 3px material path.
+        var arrays: Array = ink.surface_get_arrays(0)
+        var outward_normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+        for i in range(outward_normals.size()):
+            outward_normals[i] = -outward_normals[i]
+        arrays[Mesh.ARRAY_NORMAL] = outward_normals
+        var base_hull := ArrayMesh.new()
+        base_hull.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+        ink = base_hull
     _silhouette_cache[geometry] = ink
     return ink
 

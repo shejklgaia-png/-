@@ -13,7 +13,8 @@ manifest = (root / "tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 # Approved: keep the original 3px dark outline, on SERA + training target + boss,
 # but render per-MeshInstance visible silhouettes only (like the IRIS comparison).
 assert '_ink_material.set_shader_parameter("stroke_px", 3.0)' in script
-assert 'uniform float stroke_px : hint_range(0.5, 4.0) = 3.0;' in shader
+assert 'uniform float stroke_px : hint_range(0.5, 8.0) = 3.0;' in shader
+assert 'float depth_probe_px = stroke_px > 4.0 ? stroke_px * 1.5 : stroke_px;' in shader
 assert 'Color("#17212f")' in script
 assert '"SeraEdgeInk"' in script
 assert 'OUTLINE_SCRIPT.new()' in rig and 'OUTLINE_SCRIPT.new()' in boss
@@ -27,7 +28,9 @@ assert 'normal_sum' in script and 'vertex_normals' in script
 assert '_mesh_cache' in script and 'SCAN_INTERVAL' in script
 assert 'MAX_TRIANGLES_PER_MESH' in script
 assert 'source.add_child(instance)' in script
-assert 'instance.material_override = _ink_material' in script
+# Existing verified-closed armor fast path must remain untouched.
+assert 'instance.material_override = _fast_ink_material if use_fast else _ink_material' in script
+assert 'const FAST_INK_SHADER = preload("res://shaders/sera_view_edges_fast.gdshader")' in script
 
 # No hinge angles, view-dependent front/back sign tests, or camera-space
 # edge ribbons: even a 90-degree steep surface must NOT generate an ink line.

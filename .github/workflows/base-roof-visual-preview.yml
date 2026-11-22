@@ -82,6 +82,7 @@ jobs:
           SERA_UI_RENDER_DIR: ${{ runner.temp }}/base-roof-visual
           SERA_BASE_PREVIEW_LOG: "1"
           SERA_BASE_ANIMATION_CAPTURE: "1"
+          SERA_BASE_ASSERT_OUTLINES: "1"
         run: |
           set -euo pipefail
           mkdir -p "$SERA_UI_RENDER_DIR"
@@ -91,6 +92,7 @@ jobs:
             --script tools/base_isometric_visual_capture.gd
           test -s "$SERA_UI_RENDER_DIR/sera_base_orthographic.png"
           test -s "$SERA_UI_RENDER_DIR/sera_base_animated.png"
+          test -s "$SERA_UI_RENDER_DIR/sera_base_without_6px.png"
       - name: Check actual eight BASE silhouettes and touch behavior
         run: |
           set -euo pipefail
