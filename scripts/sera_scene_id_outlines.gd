@@ -9,6 +9,7 @@ const MULTI_ID_CLOSED = preload("res://shaders/sera_scene_multimesh_iris_id_clos
 const MULTI_ID_OPEN = preload("res://shaders/sera_scene_multimesh_iris_id_open.gdshader")
 const INK = preload("res://shaders/sera_iris_mesh_id_outline.gdshader")
 const NEXUS_CONTACT_INK = preload("res://shaders/sera_nexus_mesh_contact_ink.gdshader")
+const NEXUS_CONTACT_INK_3D = preload("res://shaders/sera_nexus_mesh_contact_ink_3d.gdshader")
 const NEXUS_CONTACT_CLOSED = preload("res://shaders/sera_nexus_mesh_contact_closed.gdshader")
 const NEXUS_CONTACT_OPEN = preload("res://shaders/sera_nexus_mesh_contact_open.gdshader")
 const SHARED_INK = preload("res://shaders/sera_scene_visible_ink_3d.gdshader")
@@ -176,7 +177,10 @@ func set_shared_scene_mode(enabled: bool) -> void:
 
 
 func _sync_screen_quad(camera: Camera3D) -> void:
-    if not _shared_scene_mode or not is_instance_valid(camera):
+    if not (_shared_scene_mode or _nexus_sera_contact_mode) or (
+            not is_instance_valid(camera)):
+        return
+    if _screen_material == null:
         return
     if not is_instance_valid(_screen_quad):
         _screen_quad = MeshInstance3D.new()
@@ -191,6 +195,8 @@ func _sync_screen_quad(camera: Camera3D) -> void:
         camera.add_child(_screen_quad)
     elif _screen_quad.get_parent() != camera:
         _screen_quad.reparent(camera, false)
+    if _screen_quad.material_override != _screen_material:
+        _screen_quad.material_override = _screen_material
     _screen_camera = camera
     _screen_quad.position = Vector3(0.0, 0.0,
         -maxf(0.2, camera.near * 1.5))
@@ -224,12 +230,11 @@ func set_stroke_px(px: float) -> void:
         (ink.material as ShaderMaterial).set_shader_parameter("stroke_px", _ink_stroke)
 
 
-# Change this compositor only in the NEXUS viewport. The single ID target
-# keeps its depth buffer; the canvas ink owns the outer silhouette and contacts.
+# NEXUS keeps the working RGB-ID renderer for outer silhouette and contacts,
+# but composites in 3D before foreground FX instead of the CanvasLayer.
 func set_nexus_sera_contact_mode(enabled: bool) -> void:
     if enabled and _shared_scene_mode:
-        # Restore the working NEXUS 4px silhouette + 3px contact ink.
-        # Both the full-screen 3D quad and its ID encoding are disabled.
+        # Keep the proven RGB contact palette, not the generic RGB12 palette.
         set_shared_scene_mode(false)
     if _nexus_sera_contact_mode == enabled:
         return
@@ -248,6 +253,22 @@ func set_nexus_sera_contact_mode(enabled: bool) -> void:
             material.set_shader_parameter("sera_stroke_px", 4.0)
             material.set_shader_parameter("sera_seam_px", 3.0)
             material.set_shader_parameter("sera_screen_bounds", Vector4.ZERO)
+    if enabled:
+        _screen_material = ShaderMaterial.new()
+        _screen_material.shader = NEXUS_CONTACT_INK_3D
+        _screen_material.render_priority = -30
+        _screen_material.set_shader_parameter(
+            "mesh_id_texture", id_viewport.get_texture())
+        _screen_material.set_shader_parameter("mesh_id_texel", Vector2(
+            1.0 / float(id_viewport.size.x),
+            1.0 / float(id_viewport.size.y)))
+        _screen_material.set_shader_parameter("ink_color", Color("#17212f"))
+        _screen_material.set_shader_parameter("stroke_px", _ink_stroke)
+        _screen_material.set_shader_parameter("sera_stroke_px", 4.0)
+        _screen_material.set_shader_parameter("sera_seam_px", 3.0)
+        _screen_material.set_shader_parameter("sera_screen_bounds", Vector4.ZERO)
+    elif is_instance_valid(_screen_quad):
+        _screen_quad.visible = false
     _clear_copies()
     _scan_elapsed = 0.0
 
@@ -275,8 +296,10 @@ func _process(delta: float) -> void:
         if is_instance_valid(_screen_quad):
             _screen_quad.visible = false
         return
-    ink.visible = not _shared_scene_mode
-    if _shared_scene_mode:
+    # CanvasLayer would paint contours on top of all smoke/glow. Draw the
+    # dedicated NEXUS RGB ink before transparent VFX in the 3D pipeline.
+    ink.visible = not (_shared_scene_mode or _nexus_sera_contact_mode)
+    if _shared_scene_mode or _nexus_sera_contact_mode:
         _sync_screen_quad(source_camera)
     var dirty: bool = _sync_camera(source_camera)
     _scan_elapsed -= delta
@@ -298,6 +321,14 @@ func _process(delta: float) -> void:
 # Restrict the one-pixel OUTSIDE silhouette search to the screen-space region
 # covered by the displayed SERA. This avoids a full-screen neighbor scan.
 # Only calculate when ID rendering is dirty (camera/motion/equipment changes).
+func _set_nexus_screen_bounds(bounds: Vector4) -> void:
+    if is_instance_valid(ink) and ink.material is ShaderMaterial:
+        (ink.material as ShaderMaterial).set_shader_parameter(
+            "sera_screen_bounds", bounds)
+    if _screen_material != null and _nexus_sera_contact_mode:
+        _screen_material.set_shader_parameter("sera_screen_bounds", bounds)
+
+
 func _update_nexus_sera_screen_bounds(camera: Camera3D) -> void:
     if not is_instance_valid(ink) or not is_instance_valid(camera):
         return
@@ -306,7 +337,7 @@ func _update_nexus_sera_screen_bounds(camera: Camera3D) -> void:
         return
     var viewport_size: Vector2 = source_viewport.get_visible_rect().size
     if viewport_size.x <= 1.0 or viewport_size.y <= 1.0:
-        material.set_shader_parameter("sera_screen_bounds", Vector4.ZERO)
+        _set_nexus_screen_bounds(Vector4.ZERO)
         return
     var low: Vector2 = Vector2(1000000.0, 1000000.0)
     var high: Vector2 = Vector2(-1000000.0, -1000000.0)
@@ -335,18 +366,17 @@ func _update_nexus_sera_screen_bounds(camera: Camera3D) -> void:
                     found = true
     if crosses_camera:
         # Conservative: never crop an edge that might enter the near plane.
-        material.set_shader_parameter("sera_screen_bounds",
-            Vector4(0.0, 0.0, 1.0, 1.0))
+        _set_nexus_screen_bounds(Vector4(0.0, 0.0, 1.0, 1.0))
     elif found:
         var margin: Vector2 = Vector2(5.0, 5.0)
         var uv_min: Vector2 = ((low - margin) / viewport_size).clamp(
             Vector2.ZERO, Vector2.ONE)
         var uv_max: Vector2 = ((high + margin) / viewport_size).clamp(
             Vector2.ZERO, Vector2.ONE)
-        material.set_shader_parameter("sera_screen_bounds", Vector4(
+        _set_nexus_screen_bounds(Vector4(
             uv_min.x, uv_min.y, uv_max.x, uv_max.y))
     else:
-        material.set_shader_parameter("sera_screen_bounds", Vector4.ZERO)
+        _set_nexus_screen_bounds(Vector4.ZERO)
 
 # Project the bounds of styled opaque meshes for outside ink only. An empty
 # mask draws no outline, so clear depth does not become a full-screen border.
