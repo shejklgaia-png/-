@@ -59,6 +59,20 @@ func _run() -> void:
     if shader_code.contains("depth_test_disabled") or not shader_code.contains("ALPHA = 1.0;"):
         _fail("silhouette must be depth-tested in the post-opaque pass")
         return
+    # Android IRIS regression: the hull must check a neighborhood in the
+    # already-rendered opaque depth buffer and discard interior overdraw.
+    if not shader_code.contains("hint_depth_texture") or (
+            not shader_code.contains("INV_PROJECTION_MATRIX")) or (
+            not shader_code.contains("opaque_depth_at")):
+        _fail("inverted hull needs GL-compatible opaque depth")
+        return
+    if not shader_code.contains("abs(opaque_center - source_depth) <= near_epsilon") or (
+            not shader_code.contains("if (!near_surface)")):
+        _fail("hull surface-fill safety guard is missing")
+        return
+    if not shader_code.contains("CURRENT_RENDERER == RENDERER_COMPATIBILITY"):
+        _fail("OpenGL compatibility NDC reconstruction is missing")
+        return
     var source := MeshInstance3D.new()
     source.mesh = BoxMesh.new()
     var actor := Node3D.new()

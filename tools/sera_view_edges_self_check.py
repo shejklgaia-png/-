@@ -52,6 +52,29 @@ assert 'const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")' in
 assert '_ink_material.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE' in script
 assert 'ALPHA = 1.0;' in shader
 
+# Regression reported on Android customization with IRIS HEAD D:
+# Backfaces of authored double-sided/partially open geometry must never paint
+# whole dark patches over the source. Require opaque depth attachment and a
+# four-direction neighborhood vote before accepting a 3px contour fragment.
+assert 'hint_depth_texture' in shader
+assert 'filter_nearest' in shader and 'repeat_disable' in shader
+assert 'INV_PROJECTION_MATRIX' in shader
+assert 'return -view.z / view.w;' in shader
+# Shader code must contain actual line breaks, never serialized literal \\n tokens.
+assert (chr(92) + "n") not in shader
+assert 'CURRENT_RENDERER == RENDERER_COMPATIBILITY' in shader
+assert 'opaque_depth_at' in shader
+assert 'source_depth' in shader and 'SCREEN_UV' in shader
+assert 'fwidth(source_depth)' in shader
+assert 'abs(opaque_center - source_depth) <= near_epsilon' in shader
+assert 'discard;' in shader
+assert 'opaque_depth_at(SCREEN_UV + vec2(pixel_step.x, 0.0))' in shader
+assert 'opaque_depth_at(SCREEN_UV - vec2(pixel_step.x, 0.0))' in shader
+assert 'opaque_depth_at(SCREEN_UV + vec2(0.0, pixel_step.y))' in shader
+assert 'opaque_depth_at(SCREEN_UV - vec2(0.0, pixel_step.y))' in shader
+assert 'if (!near_surface)' in shader
+assert 'ALPHA = 1.0;' in shader
+
 # Preserve full subtree FX exclusion and runtime stale-ink cleanup.
 assert 'func _is_eligible(' in script and 'func _is_fx_node(' in script
 assert 'var ancestor: Node = source' in script

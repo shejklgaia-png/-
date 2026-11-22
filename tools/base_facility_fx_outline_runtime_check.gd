@@ -1,6 +1,6 @@
 extends SceneTree
 const FACILITY_SHADER = preload("res://shaders/sera_view_edges.gdshader")
-const CORNER_SHADER = preload("res://shaders/base_facility_view_edges.gdshader")
+const CREASE_SHADER = preload("res://shaders/base_facility_view_edges.gdshader")
 ## Acceptance: real BASE scene, actual screen-space strokes, solid-only model
 ## metadata, 8 door shafts, two live chimney plumes and animated floor bounce.
 const FACILITIES: Array[String] = [
@@ -44,28 +44,39 @@ func _run() -> void:
                 _fail(key + " emissive appearance entered solid-only mask")
                 return
         var ink_count: int = 0
-        var corner_count: int = 0
+        var crease_count: int = 0
         for piece in model.get_children():
             if not piece is MultiMeshInstance3D:
                 continue
+            if str(piece.name).begins_with("ArchitecturalCreaseInk_"):
+                var crease: MultiMeshInstance3D = piece as MultiMeshInstance3D
+                crease_count += (crease.multimesh.instance_count
+                    if crease.multimesh != null else 0)
+                var corner_mat: ShaderMaterial = crease.material_override as ShaderMaterial
+                if corner_mat == null or corner_mat.shader != CREASE_SHADER or (
+                        not is_equal_approx(float(
+                        corner_mat.get_shader_parameter("crease_px")), 2.0)):
+                    _fail(key + " old 2px corner line changed")
+                    return
+                if corner_mat.get_shader_parameter("ink_color") != Color("#353535"):
+                    _fail(key + " 2px polygon corners must be dark gray")
+                    return
+                continue
+            if not str(piece.name).begins_with("ArchitecturalEdgeInk_"):
+                continue
             var ink: MultiMeshInstance3D = piece as MultiMeshInstance3D
+            ink_count += ink.multimesh.instance_count if ink.multimesh != null else 0
             var shaded: ShaderMaterial = ink.material_override as ShaderMaterial
-            if str(piece.name).begins_with("ArchitecturalEdgeInk_"):
-                ink_count += ink.multimesh.instance_count if ink.multimesh != null else 0
-                if shaded == null or shaded.shader != FACILITY_SHADER or (
-                        not is_equal_approx(
-                        float(shaded.get_shader_parameter("stroke_px")), 6.0)):
-                    _fail(key + " not using 6px SERA physical hull shader")
-                    return
-            elif str(piece.name).begins_with("ArchitecturalCreaseInk_"):
-                corner_count += ink.multimesh.instance_count if ink.multimesh != null else 0
-                if shaded == null or shaded.shader != CORNER_SHADER or (
-                        not is_equal_approx(
-                        float(shaded.get_shader_parameter("crease_px")), 2.0)):
-                    _fail(key + " missing independent 2px front-facing corners")
-                    return
-        if ink_count < 18 or corner_count < 18:
-            _fail(key + " physical 6px hull and 2px corners not rendered")
+            if shaded == null or shaded.shader != FACILITY_SHADER or (
+                    not is_equal_approx(float(
+                    shaded.get_shader_parameter("stroke_px")), 6.0)):
+                _fail(key + " not using latest SERA inverted hull at 6px")
+                return
+            if shaded.get_shader_parameter("ink_color") != Color("#000000"):
+                _fail(key + " 6px SERA silhouette must be black")
+                return
+        if ink_count < 18 or crease_count != ink_count:
+            _fail(key + " 6px hull or original 2px crease missing")
             return
         var fx: Node3D = model.get_node_or_null("BaseFacilityVFX") as Node3D
         if fx == null:

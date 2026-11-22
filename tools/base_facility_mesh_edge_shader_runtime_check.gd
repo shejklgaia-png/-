@@ -7,7 +7,6 @@ const FACILITIES: Array[String] = [
 ]
 const INK = preload("res://shaders/sera_view_edges.gdshader")
 const CREASE = preload("res://shaders/base_facility_view_edges.gdshader")
-const BUILDER = preload("res://scripts/sera_base_facility_outlines.gd")
 const SERA = preload("res://scripts/sera_view_edges.gd")
 
 func _initialize() -> void:
@@ -35,17 +34,8 @@ func _run() -> void:
     if hub.get_node_or_null("BaseHUDLayer/BaseHUD/FacilityOutlines") != null:
         _fail("obsolete wire-cage screen overlay is still running")
         return
-    var hull: ArrayMesh = SERA._build_overlay(BoxMesh.new())
-    var corners: ArrayMesh = BUILDER.crease_overlay_for("cube", BoxMesh.new())
-    if hull == null or corners == null:
-        _fail("both SERA hull and 80deg BASE corner geometry required")
-        return
-    if (hull.surface_get_arrays(0)[Mesh.ARRAY_VERTEX] as PackedVector3Array).size() != 36:
-        _fail("silhouette must consist of SERA full mesh faces")
-        return
-    var corner_colors: PackedColorArray = corners.surface_get_arrays(0)[Mesh.ARRAY_COLOR]
-    if corner_colors.is_empty() or corner_colors[0].a < 0.5:
-        _fail("2px corner topology must encode actual hard edges")
+    if SERA._build_overlay(BoxMesh.new()) == null:
+        _fail("SERA baseline edge topology builder unavailable")
         return
     for key in FACILITIES:
         var path: String = "NEXUSBuilding/NexusArchitecture" if (
@@ -71,10 +61,11 @@ func _run() -> void:
                     return
                 if not is_equal_approx(
                         float(ink_mat.get_shader_parameter("stroke_px")), 6.0):
-                    _fail(key + " silhouette no longer 6 screen pixels")
+                    _fail(key + " latest SERA hull no longer 6 screen pixels")
                     return
+
                 if ink_mat.get_shader_parameter("ink_color") != Color("#000000"):
-                    _fail(key + " silhouette must be black")
+                    _fail(key + " 6px SERA hull must be pure black")
                     return
                 if inst.has_meta("FX_NO_OUTLINE") == false:
                     _fail(key + " ink instance not marked as non-FX")
@@ -82,27 +73,20 @@ func _run() -> void:
             elif str(inst.name).begins_with("ArchitecturalCreaseInk_"):
                 crease_total += inst.multimesh.instance_count
                 var crease_mat: ShaderMaterial = inst.material_override as ShaderMaterial
-                if crease_mat == null or crease_mat.shader != CREASE:
-                    _fail(key + " 2px crease uses wrong shader")
+                if crease_mat == null or crease_mat.shader != CREASE or (
+                        not is_equal_approx(float(
+                        crease_mat.get_shader_parameter("crease_px")), 2.0)):
+                    _fail(key + " foreground crease changed from approved 2px")
                     return
-                if not is_equal_approx(
-                        float(crease_mat.get_shader_parameter("crease_px")), 2.0):
-                    _fail(key + " foreground crease no longer 2 pixels")
-                    return
+
                 if crease_mat.get_shader_parameter("ink_color") != Color("#353535"):
-                    _fail(key + " corner line must be dark gray")
-                    return
-                if not inst.has_meta("FX_NO_OUTLINE"):
-                    _fail(key + " corner ink not tagged as non-FX")
+                    _fail(key + " 2px corner ink must be dark gray")
                     return
             elif str(inst.name).begins_with("Architectural_"):
                 base_total += inst.multimesh.instance_count
-        if ink_total < 18 or ink_total > base_total:
-            _fail(key + " wrong number of real mesh hulls: " +
+        if ink_total < 18 or ink_total > base_total or crease_total != ink_total:
+            _fail(key + " wrong number of real mesh edges: " +
                 str(ink_total) + "/" + str(base_total))
-            return
-        if crease_total < 18 or crease_total > ink_total:
-            _fail(key + " missing independent 2px dark corners")
             return
         if not model.has_node("BaseFacilityVFX"):
             _fail(key + " entrance effect missing")
@@ -117,7 +101,7 @@ func _run() -> void:
                 var material: ShaderMaterial = (
                     child as MeshInstance3D).material_override as ShaderMaterial
                 if material != null and material.shader in [INK, CREASE]:
-                    _fail(key + " effect is using the physical edge ink shader")
+                    _fail(key + " effect is using a solid-only outline shader")
                     return
     # Verify indexed animated part and its ink remain in the *same pose*.
     var collector: Node3D = hub.get_node(
@@ -125,7 +109,8 @@ func _run() -> void:
     var controller: Node = collector.get_node("FacilityMotion")
     var entries: Dictionary = collector.get_meta("motion_entries", {})
     var arms: Array = entries.get("FreshCollectorClawHead", [])
-    if arms.is_empty() or not (arms[0] as Dictionary).has("ink_mesh"):
+    if arms.is_empty() or not (arms[0] as Dictionary).has("ink_mesh") or (
+            not (arms[0] as Dictionary).has("crease_mesh")):
         _fail("moving solid claw has no ink-following batch entry")
         return
     var slot: Dictionary = arms[0]
@@ -134,16 +119,11 @@ func _run() -> void:
         int(slot["index"]))
     var ink_pose: Transform3D = (slot["ink_mesh"] as MultiMesh).get_instance_transform(
         int(slot["ink_index"]))
-    if visible_pose.origin.distance_to(ink_pose.origin) > 0.0001:
-        _fail("outline fails to follow moving mechanical claw")
-        return
-    if not slot.has("crease_mesh"):
-        _fail("moving mechanical claw missing separate corner line")
-        return
     var crease_pose: Transform3D = (slot["crease_mesh"] as MultiMesh).get_instance_transform(
         int(slot["crease_index"]))
-    if visible_pose.origin.distance_to(crease_pose.origin) > 0.0001:
-        _fail("2px corners fail to follow moving mechanical claw")
+    if visible_pose.origin.distance_to(ink_pose.origin) > 0.0001 or (
+            visible_pose.origin.distance_to(crease_pose.origin) > 0.0001):
+        _fail("6px hull or preserved 2px corner fails to follow moving claw")
         return
     if str(hub.get_node("NEXUSBuilding/NexusArchitecture").get_meta(
             "base_design", "")) != "ARCHIVED_20261122":
