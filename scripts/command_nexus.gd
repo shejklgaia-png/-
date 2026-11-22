@@ -80,7 +80,8 @@ var customize_body_rotate_cue: Control
 const OUTLINE_DIAGNOSTIC_MODES: Array[String] = [
     "通常", "外周候補", "全エッジ", "開放境界", "接合線", "深度無視",
     "対象メッシュ", "マスク表示", "ハル単独", "合成確認",
-    "立方体＝", "立方体≠", "全身＝", "面反転"
+    "立方体＝", "立方体≠", "全身＝", "面反転",
+    "法線＋8px", "法線－8px"
 ]
 const OUTLINE_DIAGNOSTIC_EXPLAINS: Array[String] = [
     "通常の線幅と色。診断は終了時に自動解除します。",
@@ -96,7 +97,9 @@ const OUTLINE_DIAGNOSTIC_EXPLAINS: Array[String] = [
     "立方体: 書込29に一致する部分が緑なら成功候補。",
     "立方体: 29と異なる外周が紫、中心は抜けるはず。",
     "全身: ステンシル17と一致する領域を緑で表示。",
-    "橙: カリングを逆転。紫のハル単独と比較。"
+    "橙: カリングを逆転。紫のハル単独と比較。",
+    "桃: 法線＋8px。青緑の元輪郭より外に出るか確認。",
+    "黄: 法線－8px。青緑の元輪郭より外に出るか確認。"
 ]
 var outline_debug_button: Panel
 var outline_debug_button_text: Label
@@ -2991,7 +2994,7 @@ func _create_outline_debug() -> void:
     heading.add_theme_font_size_override("font_size", 14)
     heading.add_theme_color_override("font_color", Color("#d8f2f9"))
     outline_debug_panel.add_child(heading)
-    # Ten manual-tap diagnostic cells, avoiding Android mouse emulation.
+    # Diagnostic modes are selected by a compact touch grid; no mouse emulation.
     # The cells never intercept drags outside the diagnostic panel.
     for i in range(OUTLINE_DIAGNOSTIC_MODES.size()):
         var item := Panel.new()
@@ -3018,8 +3021,8 @@ func _create_outline_debug() -> void:
 
     outline_debug_stats = Label.new()
     outline_debug_stats.name = "GPUEdgeGeometryCounts"
-    outline_debug_stats.position = Vector2(10.0, 261.0)
-    outline_debug_stats.size = Vector2(286.0, 139.0)
+    outline_debug_stats.position = Vector2(10.0, 305.0)
+    outline_debug_stats.size = Vector2(286.0, 137.0)
     outline_debug_stats.text = "GPU 輪郭メッシュの準備状態を確認中"
     outline_debug_stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
     outline_debug_stats.add_theme_font_size_override("font_size", 13)
@@ -3029,8 +3032,8 @@ func _create_outline_debug() -> void:
 
     outline_debug_hint = Label.new()
     outline_debug_hint.name = "GPUEdgeDiagnosticsHelp"
-    outline_debug_hint.position = Vector2(10.0, 405.0)
-    outline_debug_hint.size = Vector2(286.0, 58.0)
+    outline_debug_hint.position = Vector2(10.0, 449.0)
+    outline_debug_hint.size = Vector2(286.0, 60.0)
     outline_debug_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     outline_debug_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
     outline_debug_hint.add_theme_font_size_override("font_size", 11)
@@ -3053,10 +3056,10 @@ func _layout_outline_debug(view: Vector2) -> void:
     # top of SERA at left. The model stays visible for rotation/screenshots.
     var panel_width: float = minf(307.0, view.x - 2.0 * x)
     var panel_x: float = view.x - x - panel_width
-    var panel_y: float = minf(view.y - 474.0,
-        maxf(255.0, view.y * 0.25))
+    var panel_y: float = minf(view.y - 521.0,
+        maxf(230.0, view.y * 0.24))
     outline_debug_panel.position = Vector2(panel_x, panel_y)
-    outline_debug_panel.size = Vector2(panel_width, 470.0)
+    outline_debug_panel.size = Vector2(panel_width, 516.0)
 
 
 func _set_gpu_outline_debug_mode(mode: int) -> void:
@@ -3155,7 +3158,8 @@ func _refresh_outline_debug(delta: float) -> void:
         + "候補エッジ: %d  交差線: %d\n"
         + "カメラ: %s  枠線設定: %s\n"
         + "深度: %s  接合線キャッシュ: %s\n"
-        + "立方体: 値%d / カメラ%s"
+        + "立方体: 値%d / カメラ%s\n"
+        + "法線比較: %s"
     ) % [
         int(stencil_data.get("candidates_visible", 0)),
         int(stencil_data.get("candidates_total", 0)),
@@ -3171,7 +3175,10 @@ func _refresh_outline_debug(delta: float) -> void:
         "無視" if bool(data.get("depth_disabled", false)) else "有効",
         "済" if bool(data.get("contacts_cached", false)) else "なし",
         int(stencil_data.get("probe_ref", 0)),
-        "OK" if bool(stencil_data.get("probe_camera", false)) else "未確認"
+        "OK" if bool(stencil_data.get("probe_camera", false)) else "未確認",
+        "+8px" if int(stencil_data.get("signed_offset_px", 0)) == 8 else (
+            "-8px" if int(stencil_data.get("signed_offset_px", 0)) == -8
+            else "OFF")
     ]
 
 func _layout_hud() -> void:
