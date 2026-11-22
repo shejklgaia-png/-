@@ -10,7 +10,11 @@ render_mode unshaded, cull_disabled, depth_draw_never, fog_disabled;
 uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
 uniform float silhouette_px : hint_range(1.0, 6.0) = 3.0;
 uniform float boundary_px : hint_range(0.5, 6.0) = 1.0;
+// 0=production, 1=contours, 2=all extracted edges, 3=open borders,
+// 4=mesh contacts, 5=all edges without scene depth (diagnostics only).
+uniform int diagnostic_mode = 0;
 varying float edge_visible;
+varying float edge_category;
 
 void vertex() {
     vec3 eye_vertex = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -41,7 +45,18 @@ void vertex() {
         contour = (facing_product <= 0.00002)
             && (min(a_facing, b_facing) <= 0.0);
     }
-    edge_visible = (contact || contour) ? 1.0 : 0.0;
+    edge_category = contact ? 2.0 : (boundary ? 1.0 : 0.0);
+    if (diagnostic_mode == 1) {
+        edge_visible = contour && !boundary ? 1.0 : 0.0;
+    } else if (diagnostic_mode == 2 || diagnostic_mode == 5) {
+        edge_visible = 1.0;
+    } else if (diagnostic_mode == 3) {
+        edge_visible = boundary ? 1.0 : 0.0;
+    } else if (diagnostic_mode == 4) {
+        edge_visible = contact ? 1.0 : 0.0;
+    } else {
+        edge_visible = (contact || contour) ? 1.0 : 0.0;
+    }
 
     // Use the established BASE projected-ribbon calculation verbatim.
     // This avoids the unreliable tangent/color repacking that caused
@@ -77,6 +92,20 @@ void fragment() {
     if (edge_visible < 0.5) {
         discard;
     }
-    ALBEDO = ink_color.rgb;
+    vec3 debug_color = ink_color.rgb;
+    if (diagnostic_mode == 1) {
+        debug_color = vec3(0.16, 0.96, 0.97);
+    } else if (diagnostic_mode == 2) {
+        debug_color = vec3(1.0, 0.89, 0.25);
+    } else if (diagnostic_mode == 3) {
+        debug_color = vec3(1.0, 0.48, 0.18);
+    } else if (diagnostic_mode == 4) {
+        debug_color = vec3(0.85, 0.40, 1.0);
+    } else if (diagnostic_mode == 5) {
+        debug_color = edge_category > 1.5 ? vec3(0.85, 0.40, 1.0) :
+            (edge_category > 0.5 ? vec3(1.0, 0.48, 0.18) :
+            vec3(0.16, 0.96, 0.97));
+    }
+    ALBEDO = debug_color;
     ALPHA = 1.0;
 }
