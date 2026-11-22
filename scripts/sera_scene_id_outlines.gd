@@ -1,7 +1,7 @@
 extends Control
 ## One shared visible-mesh-ID outline compositor PER rendering Viewport.
-## Uses the HEAD D / IRIS shaders directly: red-only IDs + 3px canvas mask.
-## No source mesh, material, hitbox, authored motion or render texture changes.
+## All 3D scenes use one per-viewport RGB visible-ID pass with 3D ink before
+## foreground VFX. One shared ID viewport, no CPU pixel reads or source edits.
 # Reuse the proven IRIS resources, with no reimplementation of their code.
 const ID_CLOSED = preload("res://shaders/sera_iris_mesh_id_closed.gdshader")
 const ID_OPEN = preload("res://shaders/sera_iris_mesh_id_open.gdshader")
@@ -69,12 +69,18 @@ func get_outline_metrics() -> Dictionary:
             is_instance_valid(source_viewport.get_camera_3d())),
         "overlay_visible": visible and is_instance_valid(ink) and ink.visible,
         "ink_rect_size": ink.size if is_instance_valid(ink) else Vector2.ZERO,
-        "ink_shader_bound": is_instance_valid(ink) and (
-            ink.material is ShaderMaterial and
+        "ink_shader_bound": (is_instance_valid(_screen_quad) and
+            _screen_material != null and
+            _screen_material.shader == SHARED_INK) if _shared_scene_mode else (
+            is_instance_valid(ink) and ink.material is ShaderMaterial and
             (ink.material as ShaderMaterial).shader == INK),
+        "shared_vfx_safe_3d_ink": _shared_scene_mode,
+        "front_effects_cover_ink": _shared_scene_mode,
         "ink_draw_source": "transparent_1px",
-        "id_encoding": "IRIS_RED_1_OF_7",
-        "palette_collision_possible": _id_allocations.size() > IRIS_PALETTE_COUNT,
+        "id_encoding": "ROLE_GREEN_AND_RGB12" if _shared_scene_mode else
+            "IRIS_RED_1_OF_7",
+        "palette_collision_possible": _id_allocations.size() > (
+            MAX_IDENTIFIED_MESHES if _shared_scene_mode else IRIS_PALETTE_COUNT),
         "canvas_layer": (get_parent() as CanvasLayer).layer if (
             get_parent() is CanvasLayer) else -1,
         "redraw_requests": _redraw_requests
