@@ -44,7 +44,7 @@ func _sample(optimized: bool) -> Dictionary:
         "render_draw_calls": draw_count / float(SAMPLES),
         "render_primitives": primitive_count / float(SAMPLES),
         "engine_fps": fps_sum / float(SAMPLES),
-        "shader_depth_samples_per_fragment": 0 if optimized else 5
+        "maximum_depth_texture_fetches_per_fragment": 0 if optimized else 5
     }
 
 func _run() -> void:
