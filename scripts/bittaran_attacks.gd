@@ -70,11 +70,13 @@ const BETWEEN_ATTACKS_SECONDS: float = 1.35
 # the four-leg SWEEP covers mid/far and lateral/rear flanks. Every
 # selection is also validated against the actual available foot.
 const STOMP_RANGE_METERS: float = 3.00
-# v453: reserve KICK for a genuinely separated forward midrange target.
-# The short-to-mid gap belongs to grounded SWEEP, not close-range KICK.
-const KICK_MIN_RANGE_METERS: float = 3.75
-const KICK_RANGE_METERS: float = 5.15
-const KICK_HALF_ANGLE_DEGREES: float = 38.0
+# v541: broaden only the FRONT-leg KICK activation envelope.
+# Use each live foot's actual sole, NOT the boss center; preserve STOMP
+# for within 3m and the original Blockbench KICK hit geometry/timings.
+# KICK can now be selected at a wider midrange or diagonal approach.
+const KICK_MIN_RANGE_METERS: float = 3.10
+const KICK_RANGE_METERS: float = 6.30
+const KICK_HALF_ANGLE_DEGREES: float = 60.0
 const SWEEP_MIN_RANGE_METERS: float = 2.70
 const SWEEP_RANGE_METERS: float = 7.10
 const SWEEP_HALF_ANGLE_DEGREES: float = 115.0
@@ -324,7 +326,7 @@ func _choose_leg(player_position: Vector3, feet: Dictionary,
 
 
 ## Closest-to-sole attack selection, BEFORE an authored clip starts:
-## 1) any near foot -> STOMP, 2) separated frontal foot -> KICK,
+## 1) any near foot -> STOMP, 2) widened front kick -> KICK,
 ## 3) a legal front/rear foot -> SWEEP. If no leg has an attack in its
 ## own sector/range, keep walking/turning instead of attacking from
 ## the boss center or inventing hitbox reach.
