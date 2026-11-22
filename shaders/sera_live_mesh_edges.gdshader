@@ -85,6 +85,13 @@ void vertex() {
     float width = (contact || boundary) ? boundary_px : silhouette_px;
     clip.xy += side * vec2(1.0 / VIEWPORT_SIZE.x,
         1.0 / VIEWPORT_SIZE.y) * width * clip.w * UV.x;
+    // UV.y is -1 at the beginning and +1 at the end of a topological
+    // edge. Extend each cap by ~0.45px for a 3px contour, closing tiny
+    // holes between connected low-poly edges without broadening faces.
+    // The contact probe mesh uses UV.y=0 and remains unaffected.
+    vec2 along = normalize(delta_px);
+    clip.xy += along * vec2(1.0 / VIEWPORT_SIZE.x,
+        1.0 / VIEWPORT_SIZE.y) * width * 0.30 * clip.w * UV.y;
     POSITION = clip;
 }
 

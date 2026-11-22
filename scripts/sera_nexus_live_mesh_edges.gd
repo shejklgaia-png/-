@@ -8,7 +8,7 @@ const RenderOrder = preload("res://scripts/render_order_policy.gd")
 const EDGE_SHADER = preload("res://shaders/sera_live_mesh_edges.gdshader")
 const XRAY_SHADER = preload("res://shaders/sera_live_mesh_edges_xray.gdshader")
 const ContactSeams = preload("res://scripts/sera_nexus_contact_seams.gd")
-const RibbonGeometry = preload("res://scripts/sera_base_facility_crease_geometry.gd")
+const RibbonGeometry = preload("res://scripts/sera_nexus_outline_geometry.gd")
 const RESCAN_SECONDS: float = 0.35
 const WELD_GRID: float = 10000.0
 const MAX_TRIANGLES_PER_MESH: int = 12000
@@ -23,6 +23,7 @@ var _edge_links: Dictionary = {} # source ID -> {source, mesh, draw}
 var _geometry_cache: Dictionary = {} # Mesh resource instance ID -> ArrayMesh/null
 var _contact_links: Dictionary = {} # mesh ID -> depth-tested contact ribbons
 var _last_contact_signature: String = ""
+var _visible_sources: Dictionary = {}
 var _rescan_elapsed: float = 0.0
 
 func configure(rig: Node3D) -> void:
@@ -35,7 +36,7 @@ func _ready() -> void:
     _edge_material = ShaderMaterial.new()
     _edge_material.shader = EDGE_SHADER
     _edge_material.render_priority = RenderOrder.NEXUS_SURFACE_EDGES
-    _edge_material.set_shader_parameter("ink_color", Color("#17212f"))
+    _edge_material.set_shader_parameter("ink_color", Color("#0b1118"))
     _edge_material.set_shader_parameter("silhouette_px", 3.0)
     _edge_material.set_shader_parameter("boundary_px", 1.0)
     _edge_material.set_shader_parameter("diagnostic_mode", 0)
@@ -134,11 +135,25 @@ func _refresh_meshes() -> void:
         _edge_links[key] = {
             "source": weakref(source), "mesh": source.mesh, "draw": draw
         }
-    _refresh_contact_lines(found)
-    # New edge/contact children inherit the currently selected diagnostic
-    # material immediately, including after an equipment swap.
+    _visible_sources = found
+    # Contact intersection geometry is costly and rarely contributes to the
+    # exterior outline. Build it only when its diagnostic is explicitly open.
+    if _diagnostic_mode == 4 or _diagnostic_mode == 5:
+        _refresh_contact_lines(found)
+    # A new equipment mesh inherits the selected debug material without
+    # re-entering the expensive contact extraction on every rescan.
     if _diagnostic_mode != 0:
-        set_diagnostic_mode(_diagnostic_mode)
+        var current_material: ShaderMaterial = (
+            _xray_material if _diagnostic_mode == 5 else _edge_material)
+        for record in _edge_links.values():
+            var draw: MeshInstance3D = record.get("draw") as MeshInstance3D
+            if is_instance_valid(draw):
+                draw.material_override = current_material
+        for value in _contact_links.values():
+            var contact: MeshInstance3D = value as MeshInstance3D
+            if is_instance_valid(contact):
+                contact.material_override = current_material
+                contact.visible = (_diagnostic_mode == 4 or _diagnostic_mode == 5)
 
 # Reuse the proven GPU edge extractor used by BASE facilities.
 # Its SurfaceTool format is consumed identically by SERA's new 3D shader,
@@ -147,7 +162,7 @@ func _edge_geometry(source_mesh: Mesh) -> ArrayMesh:
     var cache_key: int = source_mesh.get_instance_id()
     if _geometry_cache.has(cache_key):
         return _geometry_cache[cache_key] as ArrayMesh
-    var result: ArrayMesh = RibbonGeometry._build_overlay(source_mesh)
+    var result: ArrayMesh = RibbonGeometry.build(source_mesh)
     _geometry_cache[cache_key] = result
     return result
 
@@ -236,6 +251,9 @@ func set_diagnostic_mode(mode: int) -> void:
     _diagnostic_mode = clampi(mode, 0, 5)
     if _edge_material == null or _xray_material == null:
         return
+    if _diagnostic_mode == 4 or _diagnostic_mode == 5:
+        # On-demand extraction, not a continuous background contact scan.
+        _refresh_contact_lines(_visible_sources)
     _edge_material.set_shader_parameter("diagnostic_mode", _diagnostic_mode)
     _xray_material.set_shader_parameter("diagnostic_mode", _diagnostic_mode)
     var chosen: ShaderMaterial = (
@@ -248,6 +266,7 @@ func set_diagnostic_mode(mode: int) -> void:
         var contact: MeshInstance3D = value as MeshInstance3D
         if is_instance_valid(contact):
             contact.material_override = chosen
+            contact.visible = _diagnostic_mode == 4 or _diagnostic_mode == 5
 
 func get_diagnostic_snapshot() -> Dictionary:
     # No GPU readback: these are counts of prepared geometry, not claims
