@@ -12,6 +12,7 @@ uniform vec4 outline_color : source_color =
     vec4(0.043137, 0.066667, 0.094118, 1.0);
 uniform float exterior_px : hint_range(0.5, 8.0) = 3.0;
 varying float projected_edge_valid;
+// Ribbon width is a vertex-stage local; it never needs interpolation.
 
 void vertex() {
     vec3 eye = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -22,12 +23,18 @@ void vertex() {
     mat3 normal_matrix = transpose(inverse(mat3(MODELVIEW_MATRIX)));
     vec3 n_a = normalize(normal_matrix *
         (-normalize(COLOR.rgb * 2.0 - vec3(1.0))));
+    // All 6 ribbon vertices use ONE camera-facing classification, sampled
+    // at the topology edge midpoint stored in CUSTOM1. This avoids partial
+    // line disappearance along long or tilted Blockbench edges.
+    vec3 edge_center_eye = (MODELVIEW_MATRIX *
+        vec4(CUSTOM1.xyz, 1.0)).xyz;
     vec3 view_ray = PROJECTION_MATRIX[3][3] > 0.5 ?
-        vec3(0.0, 0.0, 1.0) : normalize(-eye);
+        vec3(0.0, 0.0, 1.0) : normalize(-edge_center_eye);
     float a_facing = dot(n_a, view_ray);
     bool boundary = CUSTOM0.w < 0.5;
     bool contact = CUSTOM0.w > 1.5;
     bool silhouette = boundary;
+    float ribbon_width_scale = 1.0;
 
     if (!boundary && !contact) {
         vec3 n_b = normalize(normal_matrix *
@@ -37,14 +44,21 @@ void vertex() {
         // A tiny tolerance avoids gaps at grazing angles.
         bool front_back = (a_facing * b_facing <= 0.00002)
             && (min(a_facing, b_facing) <= 0.0);
-        // Camera-grazing faces on duplicated/low-poly armor can have
-        // the same tiny sign due to precision/face orientation. Only
-        // admit that near-grazing transition; the GPU depth test still
-        // rejects edges behind the visible armor.
-        bool grazing = min(abs(a_facing), abs(b_facing)) < 0.05
-            && max(a_facing, b_facing) > 0.10
-            && min(a_facing, b_facing) < 0.06;
+        // Rescue only sharp polygon corners with one face almost
+        // edge-on. This is sign tolerant for Blockbench winding variants,
+        // but NOT a wholesale "all sharp edges" fallback.
+        // Keep recovered lines narrow so front-facing internal creases do
+        // not grow into thick visible bands when the camera rotates.
+        float most_grazing = min(abs(a_facing), abs(b_facing));
+        float strongest_face = max(abs(a_facing), abs(b_facing));
+        float face_similarity = dot(n_a, n_b);
+        bool grazing = most_grazing < 0.12
+            && strongest_face > 0.40
+            && face_similarity < 0.55;
         silhouette = front_back || grazing;
+        if (grazing && !front_back) {
+            ribbon_width_scale = 0.62;
+        }
     }
     // Contact/interior and both-front edges are not the full-body outline.
     projected_edge_valid = (silhouette && !contact) ? 1.0 : 0.0;
@@ -67,9 +81,12 @@ void vertex() {
         if (pixel_length > 0.0001) {
             vec2 along_px = pixel_tangent / pixel_length;
             vec2 across_px = vec2(-along_px.y, along_px.x);
-            vec2 offset_px = across_px * exterior_px * UV.x;
-            // A short projected end cap joins adjacent low-poly contours.
-            offset_px += along_px * min(exterior_px * 0.55, 1.65) * UV.y;
+            vec2 offset_px = across_px * exterior_px *
+                ribbon_width_scale * UV.x;
+            // The cap is slightly extended on proven silhouettes. Narrow
+            // fallback strokes keep shorter caps; no interior thickening.
+            offset_px += along_px * min(exterior_px * 0.65, 1.95) *
+                ribbon_width_scale * UV.y;
             clip.xy += offset_px * (2.0 / VIEWPORT_SIZE) * clip.w;
         } else {
             projected_edge_valid = 0.0;

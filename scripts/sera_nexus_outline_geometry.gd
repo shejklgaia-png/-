@@ -8,6 +8,10 @@ static func build(mesh: Mesh) -> ArrayMesh:
     var surface := SurfaceTool.new()
     surface.begin(Mesh.PRIMITIVE_TRIANGLES)
     surface.set_custom_format(0, SurfaceTool.CUSTOM_RGBA_FLOAT)
+    # One mesh-local midpoint per edge. It is identical at all six ribbon
+    # vertices, preventing one half of an edge from changing visibility while
+    # the other half survives the camera-facing test.
+    surface.set_custom_format(1, SurfaceTool.CUSTOM_RGBA_FLOAT)
     var count: int = 0
     for value in BaseTopology._extract_edges(mesh):
         if count >= MAX_EDGES_PER_MESH:
@@ -27,6 +31,8 @@ static func build(mesh: Mesh) -> ArrayMesh:
             first.z * 0.5 + 0.5, 0.0)
         var adjacent := Color(second.x, second.y, second.z,
             1.0 if entry.has("face_b") else 0.0)
+        var midpoint: Vector3 = (a + b) * 0.5
+        var edge_center := Color(midpoint.x, midpoint.y, midpoint.z, 0.0)
         # UV.x is +/- stroke width direction, UV.y is +/- endpoint cap.
         # The extra projected cap closes pinholes at adjacent edges without
         # modifying the source mesh or adding a second camera.
@@ -36,6 +42,7 @@ static func build(mesh: Mesh) -> ArrayMesh:
             surface.set_normal(tangent)
             surface.set_color(face_color)
             surface.set_custom(0, adjacent)
+            surface.set_custom(1, edge_center)
             surface.set_uv(Vector2(float(vertex[1]), float(vertex[2])))
             surface.add_vertex(vertex[0])
         count += 1
