@@ -47,6 +47,8 @@ func get_outline_metrics() -> Dictionary:
         "source_camera": is_instance_valid(source_viewport) and (
             is_instance_valid(source_viewport.get_camera_3d())),
         "overlay_visible": visible and is_instance_valid(ink) and ink.visible,
+        "canvas_layer": (get_parent() as CanvasLayer).layer if (
+            get_parent() is CanvasLayer) else -1,
         "redraw_requests": _redraw_requests
     }
 
