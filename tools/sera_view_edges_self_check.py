@@ -65,10 +65,10 @@ assert 'source_depth' in shader and 'SCREEN_UV' in shader
 assert 'fwidth(source_depth)' in shader
 assert 'abs(opaque_center - source_depth) <= near_epsilon' in shader
 assert 'discard;' in shader
-assert 'opaque_depth_at(SCREEN_UV + vec2(radius_px, 0.0))' in shader
-assert 'opaque_depth_at(SCREEN_UV - vec2(radius_px, 0.0))' in shader
-assert 'opaque_depth_at(SCREEN_UV + vec2(0.0, radius_px))' in shader
-assert 'opaque_depth_at(SCREEN_UV - vec2(0.0, radius_px))' in shader
+assert 'opaque_depth_at(SCREEN_UV + vec2(pixel_step.x, 0.0))' in shader
+assert 'opaque_depth_at(SCREEN_UV - vec2(pixel_step.x, 0.0))' in shader
+assert 'opaque_depth_at(SCREEN_UV + vec2(0.0, pixel_step.y))' in shader
+assert 'opaque_depth_at(SCREEN_UV - vec2(0.0, pixel_step.y))' in shader
 assert 'if (!near_surface)' in shader
 assert 'ALPHA = 1.0;' in shader
 
