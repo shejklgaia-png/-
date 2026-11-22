@@ -46,7 +46,9 @@ void fragment() {
     vec2 rad = UV * 2.0 - vec2(1.0);
     float round_pool = pow(max(0.0, 1.0 - dot(rad, rad)), 2.6);
     ALBEDO = glow_tint.rgb;
-    EMISSION = glow_tint.rgb * round_pool * 1.2;
+    // The earlier subtle pool was virtually invisible at BASE overview zoom.
+    // Keep falloff compact, but make its illuminated center legible.
+    EMISSION = glow_tint.rgb * round_pool * 2.9;
     ALPHA = glow_tint.a * round_pool;
 }
 """
@@ -197,8 +199,16 @@ func _work_lamp(label: String, at: Vector3, dimensions: Vector3,
     _box(lamp, "RuggedMetalLampHousing", Vector3.ZERO, dimensions,
         Color("#344753"))
     _box(lamp, "RecessedLampDiffuser",
-        Vector3(0.0, -dimensions.y * 0.49, 0.0),
-        Vector3(dimensions.x * 0.77, 0.022, dimensions.z * 0.78),
+        Vector3(0.0, -dimensions.y * 0.52, 0.0),
+        Vector3(dimensions.x * 0.77, 0.028, dimensions.z * 0.78),
+        tint, true)
+    # The original bottom-facing diffuser is hidden from the 27-degree
+    # overhead BASE camera. This thin front face reads from that viewpoint,
+    # while the actual spotlight continues illuminating the work area.
+    _box(lamp, "FrontFacingLampGlass",
+        Vector3(0.0, -dimensions.y * 0.14,
+            dimensions.z * 0.50 + 0.014),
+        Vector3(dimensions.x * 0.72, dimensions.y * 0.45, 0.028),
         tint, true)
     # A physical short bracket connects the industrial fixture to the frame.
     _box(lamp, "LampMountBracket",
@@ -219,7 +229,7 @@ func _slot_lamp(label: String, at: Vector3, size: Vector3,
         Vector3(size.x + 0.08, size.y + 0.06, size.z + 0.04),
         Color("#283944"))
     _box(enclosure, "IlluminatedGap",
-        Vector3(0.0, 0.0, size.z * 0.54),
+        Vector3(0.0, 0.0, size.z * 0.71),
         size, tint, true)
 
 
@@ -233,10 +243,13 @@ func _spot(label: String, at: Vector3, target: Vector3,
     spot.position = at
     spot.look_at(to_global(target), Vector3.UP)
     spot.light_color = tint
-    spot.light_energy = energy
-    spot.spot_range = reach * _visual_scale
+    # Small, unshadowed spots were nearly absent on the dim BASE materials.
+    # Concentrate their energy into a readable pool instead of increasing
+    # the number of lights, meshes or full-screen passes.
+    spot.light_energy = energy * 2.5
+    spot.spot_range = reach
     spot.spot_angle = cone
-    spot.spot_attenuation = 1.8
+    spot.spot_attenuation = 1.05
     spot.shadow_enabled = false
 
 
@@ -316,8 +329,8 @@ func _add_practical_lighting(key: String) -> void:
                 Vector3(0.0, 0.31, 3.58), Color("#bceaff"),
                 0.72, 2.7, 55.0)
             _round_floor_pool("ShutterLowerGapSpill",
-                Vector3(0.0, 0.06, 3.36), Vector2(2.35, 1.16),
-                Color("#bbecff"), 0.23)
+                Vector3(0.0, 0.33, 3.36), Vector2(2.35, 1.16),
+                Color("#bbecff"), 0.49)
         "RECYCLER":
             for side in [-1.0, 1.0]:
                 _work_lamp("ProtectedCrusherWorklamp",
@@ -327,6 +340,9 @@ func _add_practical_lighting(key: String) -> void:
                 Vector3(0.0, 2.05, 1.01),
                 Vector3(0.0, 1.11, 0.18),
                 Color("#ffd5ab"), 1.34, 2.9, 49.0)
+            _round_floor_pool("CrusherMouthWarmAccent",
+                Vector3(0.0, 0.35, 1.12), Vector2(1.45, 0.90),
+                Color("#ffca8c"), 0.28)
         "GENERATOR":
             # The luminous backing sits BEHIND the real rotating fan.
             # Opaque blades still depth-occlude it; it only shines through
@@ -356,7 +372,7 @@ func _add_practical_lighting(key: String) -> void:
                     Color("#ffdda6"), 1.10, 3.4, 39.0)
                 _round_floor_pool("WarehouseRoundFloorGlow",
                     Vector3(side * 0.70, 0.33, 1.74),
-                    Vector2(1.35, 1.35), Color("#ffdfac"), 0.18)
+                    Vector2(1.35, 1.35), Color("#ffdfac"), 0.44)
         "SCRAP_COLLECTOR":
             # Scrap recognition pad and loaded collection bin have SEPARATE
             # spotlights, making the machine's two purposes readable.
@@ -373,6 +389,12 @@ func _add_practical_lighting(key: String) -> void:
             _spot("CollectorBinSpot", Vector3(0.80, 2.28, 0.92),
                 Vector3(0.35, 0.55, 1.10),
                 Color("#c2ebff"), 1.0, 2.8, 36.0)
+            _round_floor_pool("CollectorPickupPatch",
+                Vector3(0.20, 0.36, 1.23), Vector2(1.10, 0.85),
+                Color("#9bdfff"), 0.29)
+            _round_floor_pool("CollectorBinPatch",
+                Vector3(0.46, 0.35, 1.65), Vector2(0.90, 0.78),
+                Color("#c2ebff"), 0.30)
         "LABO":
             # Keep its existing single task light, add its physical housing.
             _work_lamp("ExistingLabTaskLampHousing",

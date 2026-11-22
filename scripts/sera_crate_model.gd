@@ -65,6 +65,9 @@ static func _shell(parent: Node3D, name: String, pos: Vector3,
 static func create_model() -> Node3D:
     var robot := Node3D.new()
     robot.name = "CRATE"
+    # Inherit the same thin ink in BASE and any LABO/other scene.
+    # CRATE is not a facility and never receives convex ribbon geometry.
+    robot.set_meta("sera_outline_role", "crate")
     var track_colors := ["#27343d", "#34434e", "#526574"]
     # Both tracks have a believable continuous belt, wheel hubs and tread plates.
     for side in [-1, 1]:

@@ -23,6 +23,10 @@ uniform float facility_seam_px = 1.0;
 uniform float clutter_inside_px = 1.0;
 uniform float clutter_outside_px = 1.0;
 uniform float clutter_seam_px = 2.0;
+// CRATE has its own 1px interior/1px exterior/1px contact ink.
+uniform float crate_inside_px = 1.0;
+uniform float crate_outside_px = 1.0;
+uniform float crate_seam_px = 1.0;
 
 void vertex() {
     // QuadMesh defaults to a 1x1 rectangle; VERTEX.xy is -0.5..0.5.
@@ -42,11 +46,11 @@ vec3 sample_id(vec2 pixel_uv) {
 
 int role_of(vec3 id_value) {
     // G encodes render class: 1=actor, 2=facility, 3=small prop,
-    // 4=power GRID. R/B identify frontmost individual meshes/instances.
+    // 4=power GRID, 5=CRATE. R/B identify visible meshes/instances.
     if (id_value.g < 0.06) {
         return 0;
     }
-    return clamp(int(floor(id_value.g * 8.0 + 0.5)), 1, 4);
+    return clamp(int(floor(id_value.g * 8.0 + 0.5)), 1, 5);
 }
 
 bool same_visible_id(vec3 a, vec3 b) {
@@ -89,10 +93,13 @@ void fragment() {
     if (center_role != 0) {
         bool small = center_role == 3;
         bool facility = center_role == 2;
-        float in_px = small ? clutter_inside_px :
-            (facility ? facility_inside_px : main_inside_px);
-        float seam_px = small ? clutter_seam_px :
-            (facility ? facility_seam_px : main_seam_px);
+        bool is_crate = center_role == 5;
+        float in_px = is_crate ? crate_inside_px :
+            (small ? clutter_inside_px :
+            (facility ? facility_inside_px : main_inside_px));
+        float seam_px = is_crate ? crate_seam_px :
+            (small ? clutter_seam_px :
+            (facility ? facility_seam_px : main_seam_px));
         float to_empty = 99.0;
         float to_contact = 99.0;
         // Sample only the reachable 3px neighborhood. No ID readback.
@@ -149,9 +156,10 @@ void fragment() {
                     if (next_role == 0) {
                         continue;
                     }
-                    float width_px = next_role == 3 ?
+                    float width_px = next_role == 5 ?
+                        crate_outside_px : (next_role == 3 ?
                         clutter_outside_px : (next_role == 2 ?
-                        facility_outside_px : main_outside_px);
+                        facility_outside_px : main_outside_px));
                     coverage = max(coverage, fill_px(length(off), width_px));
                     if (coverage >= 1.0) {
                         break;
