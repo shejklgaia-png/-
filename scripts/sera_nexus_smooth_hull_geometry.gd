@@ -21,7 +21,8 @@ static func _add_direction(directions: Dictionary, position: Vector3,
     # Each adjacent surface contributes one DISTINCT face direction. UV
     # splits and triangulated coplanar quads must not bias the average.
     for existing in candidates:
-        if (existing as Vector3).dot(normal) >= 1.0 - NORMAL_EPSILON:
+        var candidate_normal: Vector3 = existing
+        if candidate_normal.dot(normal) >= 1.0 - NORMAL_EPSILON:
             return
     candidates.append(normal)
     directions[key] = candidates
