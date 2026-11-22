@@ -31,16 +31,48 @@ func _run() -> void:
         "head": "B", "torso": "B", "arms": "B", "legs": "B",
         "booster": "B", "weapon_r": "B", "weapon_l": "B"
     })
-    if _value(a, "耐久力") != "320" or _value(b, "耐久力") != "416":
+    if _value(a, "耐久力") != "320.0" or _value(b, "耐久力") != "416.0":
         _fail("HP must derive from existing equipped part profiles")
         return
-    if _value(a, "攻撃EN消費") != "" or _value(b, "攻撃EN消費") != "4":
+    if _value(a, "攻撃EN消費") != "" or _value(b, "攻撃EN消費") != "5.3EN":
         _fail("zero A weapon EN cost should hide; B cost should appear")
         return
 
-    if _value(a, "重量比（中量）").is_empty() or (
-            _value(b, "重量比（重量）").is_empty()):
+    if _value(a, "重量") != "100.0%" or (
+            _value(b, "重量").is_empty()):
         _fail("dynamic equipment weight class must appear in Japanese")
+        return
+    if _value(a, "ダメージ") != "16.7" or (
+            _value(b, "ダメージ") != "23.3") or (
+            _value(a, "破壊") != "20.0") or (
+            _value(b, "怯み") != "23.7"):
+        _fail("right weapon stats must average all three attacks to one decimal")
+        return
+    if _value(a, "バッシュダメージ") != "12.0" or (
+            _value(b, "バッシュダメージ") != "16.0") or (
+            _value(a, "ガード移行") != "0.1s"):
+        _fail("left-hand weapon stats must reflect the actual equipped shield")
+        return
+    var katana: Array[Dictionary] = StatRows.from_selection({
+        "head": "A", "torso": "A", "arms": "A", "legs": "A",
+        "booster": "A", "weapon_r": "K", "weapon_l": "B"
+    })
+    if not _value(katana, "バッシュダメージ").is_empty() or (
+            not _value(katana, "ガード移行").is_empty()):
+        _fail("two-handed Katana must hide unavailable left-hand weapon stats")
+        return
+    var body_seen: bool = false
+    var weapon_seen: bool = false
+    for row in b:
+        if str(row.get("group", "")) == "body":
+            if weapon_seen:
+                _fail("body stats appeared after the weapon divider")
+                return
+            body_seen = true
+        elif str(row.get("group", "")) == "weapon":
+            weapon_seen = true
+    if not body_seen or not weapon_seen:
+        _fail("body/weapon groups were not separated")
         return
     var nexus: Node3D = load("res://scenes/command_nexus.tscn").instantiate()
     root.add_child(nexus)
@@ -52,9 +84,12 @@ func _run() -> void:
     var hud: Control = nexus.get("hud") as Control
     var scroll: ScrollContainer = nexus.get("customize_stats_scroll") as ScrollContainer
     var grid: GridContainer = nexus.get("customize_stats_grid") as GridContainer
+    var weapon_divider: ColorRect = nexus.get("customize_weapon_divider") as ColorRect
     var cells: Array = nexus.get("customize_stat_cells")
-    if hud == null or scroll == null or grid == null or cells.size() < 8:
-        _fail("top-wide aggregate status UI not initialized")
+    if hud == null or scroll == null or grid == null or cells.size() < 21 or (
+            weapon_divider == null or not weapon_divider.visible):
+
+        _fail("top-wide aggregate status or weapon divider not initialized")
         return
     if scroll.get_parent() != hud or grid.columns < 1 or grid.columns > 3:
         _fail("aggregate stats must be above model in adaptive columns")
@@ -120,15 +155,25 @@ func _run() -> void:
                 title.position.y + title.size.y > stat_panel.size.y + 1.0):
             _fail("enlarged full-body metric text exceeds its row height")
             return
-        if scroll.size.x >= 590.0 and not scroll.get_global_rect().encloses(
-                stat_panel.get_global_rect()):
-            _fail("720px full-body status requires no vertical scrolling")
+        if scroll.size.x >= 590.0 and (
+                not scroll.get_global_rect().encloses(
+                stat_panel.get_global_rect())) and (
+                stat_panel.name == "EquipmentStat_0"):
+            _fail("basic body stats must remain visible without scrolling")
             return
         if title.text == "耐久力":
             typography_ok = title.get_theme_font_size("font_size") >= 19 and (
                 amount.get_theme_font_size("font_size") >= 24)
     if not typography_ok:
         _fail("full-body Japanese label/number type is still too small")
+        return
+    var scrollbar: VScrollBar = scroll.get_v_scroll_bar()
+    if grid.columns == 3 and not (scrollbar.max_value > scrollbar.page):
+        _fail("full loadout needs a scrollable weapon tail at unchanged type size")
+        return
+    if weapon_divider.size.x < scroll.size.x * 0.8 or (
+            weapon_divider.color != Color("#55798a")):
+        _fail("weapon attack/defense status divider must span the same status window")
         return
     var seen: Dictionary = {}
     for cell in cells:
@@ -139,7 +184,7 @@ func _run() -> void:
                 _fail("visible stat has missing or zero content")
                 return
             seen[name] = value
-    if not seen.has("耐久力") or not seen.has("防御率"):
+    if not seen.has("耐久力") or not seen.has("防御"):
         _fail("HP/DEF were not painted in the status cells")
         return
 

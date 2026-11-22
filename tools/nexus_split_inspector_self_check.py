@@ -82,6 +82,17 @@ stat_ui=(root/"scripts/sera_status_column_ui.gd").read_text(encoding="utf-8")
 assert 'static func semantic_stat_lines(' in stat_ui
 assert 'name_label.text = semantic_stat_lines(' in stat_ui
 assert 'name_label.autowrap_mode = TextServer.AUTOWRAP_OFF' in stat_ui
+for control in (
+    'customize_preview_pitch',
+    'customize_touch_last_y',
+    'customize_mouse_last_y',
+    '_rotate_customization_preview(event.position - customize_touch_last)',
+    'if not is_customization_capture:',
+    'Basis(Vector3.RIGHT, customize_preview_pitch)',
+    'customize_single_part_preview.position = Vector2.ZERO',
+    'customize_single_part_preview.size = focus_panel.size',
+):
+    assert control in nexus, control
 assert 'StatUI.layout_metric_pair(' in nexus
 assert 'button.text = _default_part_name(slot, selected_model)' in nexus
 assert 'py tools/nexus_split_inspector_self_check.py' in manifest
