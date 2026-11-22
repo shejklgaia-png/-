@@ -50,14 +50,14 @@ func _run() -> void:
         if hub.get_node_or_null("BaseFacilities/LABO/IndustrialModel") != null:
             break
     var expected := {
-        "NEXUSBuilding/NexusArchitecture": "NexusGabledEntranceShelter",
-        "BaseFacilities/LABO/IndustrialModel": "LabFabricCanopyRail",
-        "BaseFacilities/SCRAP_COLLECTOR/IndustrialModel": "CollectorOpenGearHousing",
-        "BaseFacilities/SMELTER/IndustrialModel": "FurnaceExhaustCowling",
-        "BaseFacilities/RECYCLER/IndustrialModel": "CrusherLouveredDriveCase",
-        "BaseFacilities/GENERATOR/IndustrialModel": "GeneratorFinnedVentFace",
-        "BaseFacilities/STORAGE/IndustrialModel": "CargoShelterRoof",
-        "BaseFacilities/BUILD_TERMINAL/IndustrialModel": "BlueprintShelteredMonitor",
+        "NEXUSBuilding/NexusArchitecture": "FreshNexusSplitCrown",
+        "BaseFacilities/LABO/IndustrialModel": "FreshLabTensionedAwning",
+        "BaseFacilities/SCRAP_COLLECTOR/IndustrialModel": "FreshCollectorSortPan",
+        "BaseFacilities/SMELTER/IndustrialModel": "FreshSmelterObliqueShield",
+        "BaseFacilities/RECYCLER/IndustrialModel": "FreshRecyclerOpenVJaws",
+        "BaseFacilities/GENERATOR/IndustrialModel": "FreshGeneratorFrontRotor",
+        "BaseFacilities/STORAGE/IndustrialModel": "FreshStorageOffsetStacks",
+        "BaseFacilities/BUILD_TERMINAL/IndustrialModel": "FreshTerminalMonitorVisor",
     }
     for path in expected:
         var group: Node3D = hub.get_node_or_null(path) as Node3D
@@ -71,7 +71,11 @@ func _run() -> void:
         for child in group.get_children():
             if child is MultiMeshInstance3D and (
                     child.name.begins_with("Architectural_roof_") or
-                    child.name.begins_with("Architectural_louver_")):
+                    child.name.begins_with("Architectural_louver_") or
+                    child.name.begins_with("Architectural_canvas_") or
+                    child.name.begins_with("Architectural_bevel_") or
+                    child.name.begins_with("Architectural_hopper_") or
+                    child.name.begins_with("Architectural_drum_")):
                 if not child.multimesh.mesh is ArrayMesh:
                     _fail("non-polygonal refinement in " + path)
                     return
