@@ -67,21 +67,34 @@ func _run() -> void:
         if not (group.get_meta("unique_model_features", []) as Array).has(expected[path]):
             _fail("missing visible sculpt feature " + expected[path])
             return
+        # Polygon-library topology is still tested above. The seven devices
+        # now intentionally render sharp cubes instead of rounded bevel/drum;
+        # the untouched archival NEXUS retains original polygon plates.
+        var is_nexus: bool = path.begins_with("NEXUSBuilding/")
         var sculpted_instances: int = 0
         for child in group.get_children():
-            if child is MultiMeshInstance3D and (
-                    child.name.begins_with("Architectural_roof_") or
-                    child.name.begins_with("Architectural_louver_") or
-                    child.name.begins_with("Architectural_canvas_") or
-                    child.name.begins_with("Architectural_bevel_") or
-                    child.name.begins_with("Architectural_hopper_") or
-                    child.name.begins_with("Architectural_drum_")):
-                if not child.multimesh.mesh is ArrayMesh:
-                    _fail("non-polygonal refinement in " + path)
+            if not child is MultiMeshInstance3D:
+                continue
+            var draw: MultiMeshInstance3D = child as MultiMeshInstance3D
+            if draw.multimesh == null:
+                continue
+            var name: String = str(draw.name)
+            if is_nexus and (
+                    name.begins_with("Architectural_roof_") or
+                    name.begins_with("Architectural_louver_") or
+                    name.begins_with("Architectural_bevel_") or
+                    name.begins_with("Architectural_canvas_")):
+                if not draw.multimesh.mesh is ArrayMesh:
+                    _fail("archived NEXUS polygon drawing missing")
                     return
-                sculpted_instances += child.multimesh.instance_count
-        if sculpted_instances < 1:
-            _fail("no new polygon batches for " + path)
+                sculpted_instances += draw.multimesh.instance_count
+            elif not is_nexus and name.begins_with("Architectural_cube_"):
+                if not draw.multimesh.mesh is BoxMesh:
+                    _fail("angular station is not sharp-edged: " + path)
+                    return
+                sculpted_instances += draw.multimesh.instance_count
+        if sculpted_instances < (1 if is_nexus else 25):
+            _fail("original NEXUS / seven angular facilities missing visible meshes: " + path)
             return
     print("SERA_BASE_SILHOUETTE_REFINEMENT_RUNTIME_PASS")
     quit(0)
