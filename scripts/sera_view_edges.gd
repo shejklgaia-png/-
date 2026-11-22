@@ -49,11 +49,13 @@ func _register() -> void:
         _compositor.name = COMPOSITOR_NAME
         layer.add_child(_compositor)
     _compositor.call("register_root", actor, self)
-    # All 3D scenes share the same depth-resolved visible-ID ink, before FX.
-    _compositor.call("set_shared_scene_mode", true)
-    _compositor.call("set_stroke_px", _stroke_px)
+    # The NEXUS full-body preview retains its proven RGB contact and
+    # silhouette Canvas ink. The 3D overlay hides its exterior contour.
     if _nexus_sera_contact_mode:
         _compositor.call("set_nexus_sera_contact_mode", true)
+    else:
+        _compositor.call("set_shared_scene_mode", true)
+    _compositor.call("set_stroke_px", _stroke_px)
 
 
 func set_contour_enabled(enabled: bool) -> void:
