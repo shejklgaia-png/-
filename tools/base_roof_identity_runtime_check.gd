@@ -1,20 +1,21 @@
 extends SceneTree
-## Real Godot scene: roof shapes must be concise and leave active faces exposed.
+## Real Godot scene: newly authored roof/machine shapes must expose active faces.
 const Arch = preload("res://scripts/sera_base_architecture.gd")
-const Roof = preload("res://scripts/sera_base_roof_identity.gd")
+const Roof = preload("res://scripts/sera_base_fresh_design.gd")
 const FEATURES = {
-    "NEXUS": ["NexusRoofCommandStripe", "NexusEntranceDirectionBand", "NexusDoorOuterFrame"],
-    "LABO": ["LabSingleSlopeCanopy", "LabSideRoll", "LabPrinterToolhead", "LabFocalPrintBed"],
-    "SCRAP_COLLECTOR": ["CollectorOpenBoomCrossbar", "CollectorCraneMarker", "CollectorOpenClawJaw", "CollectorRaisedJib", "CollectorClawSignalCheek"],
-    "SMELTER": ["SmelterHeatShieldRib", "SmelterHeatVent", "SmelterStackHeatCollar"],
-    "RECYCLER": ["RecyclerSideRoofShutter", "RecyclerOpenThroatRail", "RecyclerOpenVFeedRail", "RecyclerOpposedJawFace"],
-    "GENERATOR": ["GeneratorTurbineHoop", "GeneratorPowerSpine", "GeneratorCoreCorona"],
-    "STORAGE": ["StorageContainerRoof", "StorageRoofRidge", "StorageLoadingHeader"],
-    "BUILD_TERMINAL": ["TerminalSlimDataVisor", "TerminalVisorBracket", "TerminalScanFrameSide"],
+    "NEXUS": ["FreshNexusSplitCrown", "FreshNexusGateCore"],
+    "LABO": ["FreshLabTensionedAwning", "FreshLabOpenPrinterBridge", "FreshLabFabricationBed"],
+    "SCRAP_COLLECTOR": ["FreshCollectorTallBoom", "FreshCollectorOpenGrip"],
+    "SMELTER": ["FreshSmelterTwinStacks", "FreshSmelterHotThroat"],
+    "RECYCLER": ["FreshRecyclerOpenVJaws", "FreshRecyclerRoller"],
+    "GENERATOR": ["FreshGeneratorBlueCorona", "FreshGeneratorFrontRotor"],
+    "STORAGE": ["FreshStorageOffsetStacks", "FreshStorageShortRearTarp"],
+    "BUILD_TERMINAL": ["FreshTerminalMonitorVisor", "FreshTerminalWideScreen"],
 }
+
 const TOP_MIN = {
     "NEXUS": 4.7, "LABO": 3.2, "SCRAP_COLLECTOR": 2.55,
-    "SMELTER": 2.55, "RECYCLER": 2.10, "GENERATOR": 2.55,
+    "SMELTER": 2.55, "RECYCLER": 1.60, "GENERATOR": 2.55,
     "STORAGE": 2.6, "BUILD_TERMINAL": 2.55,
 }
 
@@ -66,8 +67,8 @@ func _run() -> void:
                     var size: Vector3 = pose.basis.get_scale()
                     widest_upper_piece = maxf(widest_upper_piece, maxf(size.x, size.z))
         host.free()
-        if n < 3 or n > 27:
-            _fail(key + " roof detail count is too dense/sparse: " + str(n))
+        if n < 25 or n > 260:
+            _fail(key + " new independently authored structure is too dense/sparse: " + str(n))
             return
         if highest < float(TOP_MIN[key]):
             _fail(key + " signature below equipment silhouette")
