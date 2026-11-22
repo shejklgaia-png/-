@@ -182,6 +182,7 @@ class Batch:
                 selected_by_bucket[bucket] = []
             (selected_by_bucket[bucket] as Array).append(selected)
         var outline_meshes_by_bucket: Dictionary = {}
+        var outline_crease_meshes_by_bucket: Dictionary = {}
         var outline_links_by_bucket: Dictionary = {}
         for key_variant in keys:
             var key: String = str(key_variant)
@@ -287,6 +288,29 @@ class Batch:
                     host.add_child(edge_draw)
                     outline_meshes_by_bucket[key] = edge_multi
                     outline_links_by_bucket[key] = edge_indices
+                    # Distinct 2px pass: retain the previous 80-degree
+                    # front/front crease mesh independent of SERA's 6px hull.
+                    var crease_geometry: ArrayMesh = BaseFacilityInk.crease_for(
+                        geometry, mesh)
+                    if crease_geometry != null:
+                        var crease_multi := MultiMesh.new()
+                        crease_multi.transform_format = MultiMesh.TRANSFORM_3D
+                        crease_multi.mesh = crease_geometry
+                        crease_multi.instance_count = selected_instances.size()
+                        for k in range(selected_instances.size()):
+                            var crease_record: Dictionary = selected_instances[k]
+                            crease_multi.set_instance_transform(
+                                k, crease_record["pose"])
+                        var crease_draw := MultiMeshInstance3D.new()
+                        crease_draw.name = "ArchitecturalCreaseInk_" + geometry + "_" + tint
+                        crease_draw.multimesh = crease_multi
+                        crease_draw.material_override = BaseFacilityInk.crease_material()
+                        crease_draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+                        crease_draw.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+                        crease_draw.extra_cull_margin = 0.30
+                        crease_draw.set_meta("FX_NO_OUTLINE", true)
+                        host.add_child(crease_draw)
+                        outline_crease_meshes_by_bucket[key] = crease_multi
         host.set_meta("unique_model_features", features.duplicate())
         if not outline_entries.is_empty():
             host.set_meta("outline_solid_entries", outline_entries.duplicate())
@@ -312,6 +336,10 @@ class Batch:
                         animated_record["ink_mesh"] = outline_meshes_by_bucket[
                             bucket_name]
                         animated_record["ink_index"] = int(linked[instance_index])
+                        if outline_crease_meshes_by_bucket.has(bucket_name):
+                            animated_record["crease_mesh"] = outline_crease_meshes_by_bucket[
+                                bucket_name]
+                            animated_record["crease_index"] = int(linked[instance_index])
                     recorded.append(animated_record)
                 motion_entries[feature] = recorded
             host.set_meta("motion_entries", motion_entries)
