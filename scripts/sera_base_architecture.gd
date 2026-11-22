@@ -247,10 +247,15 @@ class Batch:
                     "rubber":
                         surface_tint = Color("#30414e")
             surface.albedo_color = surface_tint
-            # Only authored polygon meshes have face-tone vertex colors.
-            # Tubes/cubes keep the original material contract unchanged.
-            surface.vertex_color_use_as_albedo = (
+            # Only generated polygons contain valid authored vertex colors.
+            # Primitive cube/tube meshes lack that channel (reads as black
+            # when vertex_color_use_as_albedo is forced on). BASE NEXUS
+            # previously multiplied its tint + texture by additional vertex
+            # paint; disable that extra darkening only on this building.
+            var has_vertex_colors: bool = (
                 geometry != "cube" and geometry != "tube")
+            surface.vertex_color_use_as_albedo = (
+                has_vertex_colors and host.name != "NexusArchitecture")
             surface.metallic = 0.31 if tint != "cloth" else 0.0
             surface.roughness = 0.75 if tint != "glass" else 0.46
             # Damp oxidized mechanics and aged painted plates read as rough,
@@ -296,6 +301,9 @@ class Batch:
                 draw.set_meta("sera_base_authored_material", surface)
                 draw.set_meta("sera_preserve_authored_material", true)
                 draw.set_meta("sera_base_material_tint", tint)
+                # Keep the source mesh's actual vertex-color capability for
+                # the diagnostic, independently of the displayed material.
+                draw.set_meta("sera_base_has_vertex_color", has_vertex_colors)
             if host.name == "NexusArchitecture":
                 # Per-material bright-face floor without touching SERA,
                 # boss, GRID or other BASE facility shading.

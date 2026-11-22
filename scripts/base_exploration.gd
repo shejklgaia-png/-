@@ -811,11 +811,16 @@ func _cycle_nexus_material_probe() -> void:
                 diagnostic.albedo_color = Color.WHITE
                 diagnostic.vertex_color_use_as_albedo = false
             elif nexus_material_probe_mode == 3:
-                # Authored flat polygon vertex tones (uncolored BoxMesh = white).
+                # SurfaceTool polygons include vertex colors. BoxMesh and
+                # CylinderMesh do not; forcing the channel on these rendered
+                # most of NEXUS black, misleading the previous diagnosis.
+                # A primitive instead appears neutral white here.
                 diagnostic.albedo_color = Color.WHITE
                 diagnostic.albedo_texture = null
-                diagnostic.vertex_color_use_as_albedo = true
-            # Mode 4 retains authored tint × SVG × vertex with lighting OFF.
+                diagnostic.vertex_color_use_as_albedo = bool(
+                    draw.get_meta("sera_base_has_vertex_color", false))
+            # Mode 4 uses authored tint + SVG with lighting disabled;
+            # NEXUS no longer multiplies by extra vertex paint.
             draw.material_override = diagnostic
         altered += 1
     nexus_material_probe_button.text = (
