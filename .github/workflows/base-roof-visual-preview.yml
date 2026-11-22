@@ -61,6 +61,7 @@ jobs:
       - name: Render actual 720x1280 GL Compatibility BASE screenshot
         env:
           SERA_UI_RENDER_DIR: ${{ runner.temp }}/base-roof-visual
+          SERA_BASE_PREVIEW_LOG: "1"
         run: |
           set -euo pipefail
           mkdir -p "$SERA_UI_RENDER_DIR"
