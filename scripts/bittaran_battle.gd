@@ -591,6 +591,15 @@ func _build_target() -> void:
     add_child(bittaran_leg_turrets)
     if not bool(bittaran_leg_turrets.call("setup", bittaran_rig)):
         push_error("Bittaran: four leg cannon setup failed")
+    # The rig shell was shaded in BittaranRig._ready; these independent
+    # weapons need the same material classification after construction.
+    # Animated charge bars, muzzle emission and projectiles remain native.
+    if bittaran_railgun != null:
+        SharedMaterialShading.apply_to_subtree(bittaran_railgun)
+    SharedMaterialShading.apply_to_subtree(bittaran_leg_turrets)
+    var turret_edges := SeraViewEdges.new()
+    turret_edges.name = "ViewEdges"
+    bittaran_leg_turrets.add_child(turret_edges)
     _build_bittaran_shockwave()
     _build_boss_death_particles()
 
