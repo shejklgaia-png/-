@@ -36,7 +36,32 @@ func _run() -> void:
         if (raw_piece as MeshInstance3D).material_overlay == selected_material:
             _fail("nonselected arm must not glow")
             return
+    # One clear blink cycle: fade-free OFF then ON, with no extra meshes.
+    var rows: Dictionary = nexus.get("customize_equipment_rows") as Dictionary
+    var head_button: Button = rows["head"]["panel"] as Button
+    var arm_button: Button = rows["arms"]["panel"] as Button
+    var head_style: StyleBoxFlat = head_button.get_theme_stylebox("normal") as StyleBoxFlat
+    var arm_style: StyleBoxFlat = arm_button.get_theme_stylebox("normal") as StyleBoxFlat
+    if head_style == null or arm_style == null or (
+            head_style.bg_color.get_luminance() <= arm_style.bg_color.get_luminance()):
+        _fail("inspected HEAD row must be brighter than the inactive ARMS row")
+        return
+    nexus.call("_update_customization_part_blink", 0.70)
+    for raw_piece in head:
+        if (raw_piece as MeshInstance3D).material_overlay != null:
+            _fail("highlight should fully turn off during the blink gap")
+            return
+    nexus.call("_update_customization_part_blink", 0.31)
+    for raw_piece in head:
+        if (raw_piece as MeshInstance3D).material_overlay != selected_material:
+            _fail("highlight should turn back on at the start of each cycle")
+            return
     nexus.call("_inspect_customization_part", "arms")
+    head_style = head_button.get_theme_stylebox("normal") as StyleBoxFlat
+    arm_style = arm_button.get_theme_stylebox("normal") as StyleBoxFlat
+    if arm_style.bg_color.get_luminance() <= head_style.bg_color.get_luminance():
+        _fail("selected-row brightness did not follow the inspected ARMS slot")
+        return
     for raw_piece in head:
         if (raw_piece as MeshInstance3D).material_overlay == selected_material:
             _fail("previous head overlay was not cleared")
