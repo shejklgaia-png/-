@@ -35,8 +35,8 @@ static func _part_material_hint(mesh: MeshInstance3D, slot: String) -> int:
     labels = labels.to_lower()
     for keyword in ["joint", "hinge", "piston", "shaft", "gear", "servo",
             "inner", "mechanism", "cable", "motor", "axle", "rubber",
-            "connector", "waist", "elbow", "knee", "neck", "pivot",
-            "shin", "forearm", "linkage", "actuator", "chassis",
+            "connector", "elbow", "knee", "neck",
+            "shin", "linkage", "actuator",
             "関節", "内部", "駆動", "軸", "機構"]:
         if labels.contains(keyword):
             return 2
@@ -46,7 +46,8 @@ static func _part_material_hint(mesh: MeshInstance3D, slot: String) -> int:
 
 
 static func _is_display_piece(mesh: MeshInstance3D) -> bool:
-    if not is_instance_valid(mesh) or mesh.mesh == null:
+    if not is_instance_valid(mesh) or mesh.mesh == null or (
+            mesh.mesh is QuadMesh or mesh.mesh is PlaneMesh):
         return false
     var cursor: Node = mesh
     while cursor != null:
@@ -118,7 +119,8 @@ static func _white() -> Texture2D:
 static func _make_shaded_material(geometry: GeometryInstance3D,
         hint: int, preserve_per_object: bool) -> ShaderMaterial:
     var source: StandardMaterial3D = geometry.material_override as StandardMaterial3D
-    if source == null or source.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
+    if source == null or source.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED or (
+            source.albedo_color.a < 0.999):
         return null
     # Opaque material with a special rendering pass retains it as next_pass.
     # Transparent/high-energy visuals are filtered by caller name/metadata.
@@ -129,12 +131,13 @@ static func _make_shaded_material(geometry: GeometryInstance3D,
     var cull: int = source.cull_mode
     var next_id: int = (source.next_pass.get_instance_id()
         if source.next_pass != null else 0)
-    var key: String = "%d:%s:%d:%d:%d:%d:%s:%g" % [
+    var key: String = str([
         texture.get_instance_id(), source.albedo_color.to_html(true),
         hint, cull, int(iris_atlas), next_id,
         source.emission.to_html(true) if source.emission_enabled else "none",
-        source.emission_energy_multiplier if source.emission_enabled else 0.0
-    ]
+        source.emission_energy_multiplier if source.emission_enabled else 0.0,
+        source.vertex_color_use_as_albedo, source.uv1_scale, source.uv1_offset
+    ])
     var shaded: ShaderMaterial = _shared_materials.get(key) as ShaderMaterial
     if shaded == null or preserve_per_object:
         shaded = ShaderMaterial.new()
@@ -151,6 +154,12 @@ static func _make_shaded_material(geometry: GeometryInstance3D,
         shaded.set_shader_parameter("lens_levels", LENS_STEPS)
         shaded.set_shader_parameter("lens_threshold", LENS_THRESHOLD)
         shaded.set_shader_parameter("lens_emissive", LENS_LIT)
+        shaded.set_shader_parameter("texture_uv_scale",
+            Vector2(source.uv1_scale.x, source.uv1_scale.y))
+        shaded.set_shader_parameter("texture_uv_offset",
+            Vector2(source.uv1_offset.x, source.uv1_offset.y))
+        shaded.set_shader_parameter("use_vertex_color",
+            source.vertex_color_use_as_albedo)
         shaded.set_shader_parameter("fx_emission", Vector3(source.emission.r,
             source.emission.g, source.emission.b) * (
             source.emission_energy_multiplier if source.emission_enabled else 0.0))
@@ -183,6 +192,8 @@ static func apply_to_subtree(root: Node3D,
         elif node is MultiMeshInstance3D:
             var batch: MultiMeshInstance3D = node as MultiMeshInstance3D
             if batch.multimesh != null and batch.multimesh.mesh != null and (
+                    not batch.multimesh.mesh is QuadMesh) and (
+                    not batch.multimesh.mesh is PlaneMesh) and (
                     batch.material_override is StandardMaterial3D) and (
                     not bool(batch.get_meta("FX_NO_OUTLINE", false))):
                 var src: StandardMaterial3D = batch.material_override as StandardMaterial3D
