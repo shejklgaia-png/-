@@ -1,5 +1,5 @@
-# Post-merge workflow: full Python/Godot CI runs after updates reach main.
-# PR body acknowledgements are reviewed before merge; post-merge runs verify source integrity.
+# Manual-only deep verification. Local scoped checks are the everyday default.
+# Run by workflow_dispatch when broad Python/Godot/asset validation is explicitly required.
 # CI optimization: all original static/Godot cases are still executed;
 # test subprocesses remain isolated and full test failures are reported.
 # The test manifest is the authoritative inventory for both suites.
