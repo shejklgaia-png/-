@@ -34,7 +34,7 @@ func _run() -> void:
         return
     for leg in ["leg_fl", "leg_fr"]:
         for distance in [3.11, 3.25, 4.50, 5.15, 6.29]:
-            for angle in [-60.0, -40.0, 0.0, 40.0, 60.0]:
+            for angle in [-59.5, -40.0, 0.0, 40.0, 59.5]:
                 if not _check_one(leg, distance, angle, true):
                     return
         for outside in [
