@@ -441,6 +441,15 @@ static func _generator(g: Variant) -> void:
         g.box("FreshGeneratorFanShadowLouver",
             Vector3(-0.27, 1.15 + float(i) * 0.14, 1.114),
             Vector3(1.62, 0.067, 0.060), "edge")
+    # The actual four open channels between the five steel louvers:
+    # each thin emitter is centered in the 0.073m vertical opening.
+    # Keep the LED face behind the grille's front depth (z=1.144).
+    # All leak bars use the existing generator_emitter MultiMesh batch;
+    # this adds no new SpotLights or individual mesh draw calls.
+    for i in range(4):
+        g.box("FreshGeneratorRotorGapLeak",
+            Vector3(-0.27, 1.22 + float(i) * 0.14, 1.095),
+            Vector3(1.44, 0.050, 0.020), "generator_emitter")
     # Horizontal energy rails emphasize the cylindrical blue core,
     # rather than allowing the front circular corona to read as a white logo.
     for y in [1.00, 1.81]:
@@ -476,6 +485,16 @@ static func _generator(g: Variant) -> void:
         g.box("FreshGeneratorMeterRow",
             Vector3(1.22, 1.74 + i * 0.15, 0.48),
             Vector3(0.35, 0.055, 0.05), "blue_light")
+    # Line up luminous filaments with the four actual cut-outs created
+    # by BaseFacilityVFX._generator_vent_slit. The metal lips remain
+    # closer to the camera than these two fine cores in each vent.
+    for row in range(4):
+        for filament in [-1.0, 1.0]:
+            g.box("FreshGeneratorCabinetSlotLeak",
+                Vector3(1.22,
+                    1.70 + float(row) * 0.125 + filament * 0.017,
+                    0.517),
+                Vector3(0.36, 0.010, 0.014), "generator_emitter")
     g.poly("FreshGeneratorCoolingPod", "drum",
         Vector3(-1.20, 2.60, -0.57),
         Vector3(0.55, 0.89, 0.55), "slate")
@@ -483,6 +502,12 @@ static func _generator(g: Variant) -> void:
         g.box("FreshGeneratorHeatSink",
             Vector3(-1.20, 2.90 + i * 0.16, -0.57),
             Vector3(0.64, 0.09, 0.66), "edge")
+    # Two emission strips sit in the visible gaps between the heat
+    # sinks, recessed behind their front (+Z) metal edges.
+    for i in range(2):
+        g.box("FreshGeneratorCoolingGapLeak",
+            Vector3(-1.20, 2.98 + float(i) * 0.16, -0.255),
+            Vector3(0.50, 0.036, 0.018), "generator_emitter")
     g.rod("FreshGeneratorPowerCable", Vector3(1.40, 0.60, 0.35),
         Vector3(1.40, 0.45, 1.39), 0.12, "rubber")
 
