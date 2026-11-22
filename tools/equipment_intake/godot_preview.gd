@@ -44,7 +44,7 @@ var _js_callback: JavaScriptObject
 var _last_request_seq: int = -1
 
 func _ready() -> void:
-    # Identical to main.gd:_build_world(), also used by the native icon capture.
+    # Reuse the gameplay rig lighting while applying the brighter preview-only backdrop.
     var env := Environment.new()
     env.background_mode = Environment.BG_COLOR
     env.background_color = IconBackdrop.SOLID_COLOR
