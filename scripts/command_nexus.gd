@@ -46,6 +46,8 @@ var customize_stats_panel: Panel
 var customize_total_title: Label
 var customize_stats_scroll: ScrollContainer
 var customize_stats_grid: GridContainer
+var customize_weapon_divider: ColorRect
+var customize_weapon_first_index: int = -1
 var customize_part_stats_panel: Panel
 var customize_part_stats_header: Label
 var customize_part_stats_name: Label
@@ -147,10 +149,15 @@ var customize_preview_position: Vector3 = Vector3.ZERO
 var customize_preview_scale: float = 0.80
 var customize_preview_fitted_scale: float = 1.40
 var customize_preview_yaw: float = PI
+var customize_preview_pitch: float = 0.0
 var customize_touch_id: int = -1
 var customize_touch_last_x: float = 0.0
+var customize_touch_last_y: float = 0.0
+var customize_touch_last: Vector2 = Vector2.ZERO
 var customize_mouse_drag: bool = false
 var customize_mouse_last_x: float = 0.0
+var customize_mouse_last_y: float = 0.0
+var customize_mouse_last: Vector2 = Vector2.ZERO
 
 const CUSTOMIZE_PREVIEW_DISTANCE: float = 3.25
 const CUSTOMIZE_GLOW_DEPTH_OFFSET: float = 1.80
@@ -883,6 +890,12 @@ func _create_customization_stats() -> void:
     customize_stats_panel.add_theme_stylebox_override(
         "panel", StatUI.status_window_style())
     customize_total_accents = StatUI.attach_status_marks(customize_stats_panel)
+    customize_weapon_divider = ColorRect.new()
+    customize_weapon_divider.name = "CustomizeWeaponStatDivider"
+    customize_weapon_divider.color = Color("#55798a")
+    customize_weapon_divider.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    customize_weapon_divider.visible = false
+    customize_stats_panel.add_child(customize_weapon_divider)
     customize_stats_panel.visible = false
     hud.add_child(customize_stats_panel)
     var total_bar := Panel.new()
@@ -909,6 +922,8 @@ func _create_customization_stats() -> void:
     customize_stats_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
     customize_stats_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
     customize_stats_scroll.visible = false
+    customize_stats_scroll.get_v_scroll_bar().value_changed.connect(
+        _update_customization_weapon_divider)
     # Total combat stats belong ABOVE the SERA and the right-hand part menu.
     hud.add_child(customize_stats_scroll)
     customize_stats_grid = GridContainer.new()
@@ -919,7 +934,7 @@ func _create_customization_stats() -> void:
     customize_stats_grid.add_theme_constant_override("h_separation", 9)
     customize_stats_grid.add_theme_constant_override("v_separation", 1)
     customize_stats_scroll.add_child(customize_stats_grid)
-    for i in range(20):
+    for i in range(24):
         var cell := Panel.new()
         cell.name = "EquipmentStat_" + str(i)
         cell.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -965,7 +980,7 @@ func _layout_customization_stats() -> void:
     var width: float = maxf(180.0, view.x * 0.93)
     var left: float = (view.x - width) * 0.5
     var top: float = maxf(20.0, view.y * 0.025)
-    var height: float = minf(view.y * 0.225, 290.0)
+    var height: float = minf(view.y * 0.227, 290.0)
     customize_stats_panel.position = Vector2(left, top)
     customize_stats_panel.size = Vector2(width, height)
     StatUI.layout_status_marks(customize_total_accents, customize_stats_panel.size)
@@ -986,6 +1001,7 @@ func _layout_customization_stats() -> void:
     var cell_width: float = floorf(
         (inner_width - 9.0 * float(columns - 1)) / float(columns))
     var cell_height: float = 44.0
+    _update_customization_weapon_divider()
     for i in range(customize_stat_cells.size()):
         var entry: Dictionary = customize_stat_cells[i]
         var cell: Panel = entry["panel"]
@@ -995,11 +1011,33 @@ func _layout_customization_stats() -> void:
         StatUI.layout_metric_pair(label, value, cell_width, cell_height, 19, 25, 16, 20)
         (entry["rule"] as ColorRect).visible = false
 
+func _update_customization_weapon_divider(_scroll_value: float = 0.0) -> void:
+    if customize_weapon_divider == null or customize_stats_grid == null or (
+            customize_stats_scroll == null or customize_stats_panel == null):
+        return
+    var weapon_first: int = customize_weapon_first_index
+    var columns: int = maxi(1, customize_stats_grid.columns)
+    var body_rows: int = ceili(float(maxi(0, weapon_first)) / float(columns))
+    var line_y: float = 8.0 + float(body_rows) * 45.0 - 1.0 - (
+        float(customize_stats_scroll.scroll_vertical))
+    customize_weapon_divider.visible = (
+        customize_stats_panel.visible and weapon_first >= 0 and
+        line_y > 8.0 and line_y < customize_stats_panel.size.y - 8.0)
+    customize_weapon_divider.position = Vector2(14.0, line_y)
+    customize_weapon_divider.size = Vector2(
+        maxf(30.0, customize_stats_panel.size.x - 28.0), 2.0)
+
+
 func _refresh_customization_stats() -> void:
     if customize_stats_grid == null:
         return
     var selected: Dictionary = _current_system_equipment()
     var entries: Array[Dictionary] = EquipmentStatRows.from_selection(selected)
+    customize_weapon_first_index = -1
+    for row_index in range(entries.size()):
+        if str(entries[row_index].get("group", "")) == "weapon":
+            customize_weapon_first_index = row_index
+            break
     var columns: int = maxi(1, customize_stats_grid.columns)
     for i in range(customize_stat_cells.size()):
         var cell: Dictionary = customize_stat_cells[i]
@@ -1013,6 +1051,7 @@ func _refresh_customization_stats() -> void:
             StatUI.layout_metric_pair(
                 cell["name"] as Label, cell["value"] as Label,
                 row.custom_minimum_size.x, 44.0, 19, 25, 16, 20)
+    _layout_customization_stats()
 
 
 func _create_equipment_controls() -> void:
@@ -1513,12 +1552,11 @@ func _layout_single_part_preview() -> void:
     if customize_single_part_preview == null:
         return
     var view: Vector2 = hud.size
-    var header_height: float = focus_header.size.y
-    var side: float = minf(focus_panel.size.x - 14.0,
-        focus_panel.size.y - header_height - 10.0)
-    customize_single_part_preview.position = Vector2(
-        (focus_panel.size.x - side) * 0.5, header_height + 5)
-    customize_single_part_preview.size = Vector2(side, side)
+    # The SubViewportContainer owns the rectangular frame; stretching it
+    # across this window keeps the grid backdrop aligned to the chamfer rim.
+    # Its native viewport receives the actual aspect ratio automatically.
+    customize_single_part_preview.position = Vector2.ZERO
+    customize_single_part_preview.size = focus_panel.size
     var area: Rect2 = _customize_model_area(view)
     customize_body_rotate_cue.position = area.position + Vector2(8, 8)
     customize_body_rotate_cue.visible = focused_target == "CUSTOMIZE"
@@ -2464,7 +2502,8 @@ func _update_customization_glow() -> void:
 func _apply_customization_preview_transform() -> void:
     if sera_display_rig == null or cam == null:
         return
-    var basis := Basis(Vector3.UP, customize_preview_yaw)
+    var basis := Basis(Vector3.UP, customize_preview_yaw) * (
+        Basis(Vector3.RIGHT, customize_preview_pitch))
     basis = basis.scaled(Vector3.ONE * customize_preview_scale)
     sera_display_rig.global_transform = cam.global_transform * Transform3D(
         basis, customize_preview_position)
@@ -2522,6 +2561,7 @@ func _show_customization_preview() -> void:
     customize_preview_scale = 1.40
     customize_preview_fitted_scale = 1.40
     customize_preview_yaw = PI
+    customize_preview_pitch = 0.0
     customize_preview_active = true
     _apply_customization_preview_transform()
     _capture_sera_silhouette(sera_display_rig)
@@ -2898,16 +2938,20 @@ func _is_customization_drag_zone(pixel: Vector2) -> bool:
         return false
     return true
 
-func _rotate_customization_preview(delta_x: float) -> void:
+func _rotate_customization_preview(delta: Vector2) -> void:
     if not customize_preview_active or sera_display_rig == null:
         return
-    if absf(delta_x) < 0.001:
+    if delta.length_squared() < 0.000001:
         return
-    var yaw_delta := delta_x / maxf(hud.size.x, 1.0) * CUSTOMIZE_DRAG_FULL_TURN
+    var yaw_delta: float = delta.x / maxf(hud.size.x, 1.0) * CUSTOMIZE_DRAG_FULL_TURN
+    var pitch_delta: float = delta.y / maxf(hud.size.y, 1.0) * PI
     customize_preview_yaw = wrapf(customize_preview_yaw - yaw_delta, -PI, PI)
-    # Only rotate around the default fitted location, never scale/recenter.
-    # The frozen radial backdrop and its grid must not move with SERA.
+    customize_preview_pitch = clampf(customize_preview_pitch + pitch_delta,
+        deg_to_rad(-55.0), deg_to_rad(55.0))
+    # Keep full-body camera rotation safely inside the character's frame.
+    # The frozen backdrop and its grid must not move with SERA.
     _apply_customization_preview_transform()
+    _constrain_customization_preview_to_safe_area()
     _capture_sera_silhouette(sera_display_rig)
     _update_projected_silhouettes()
 
@@ -3057,12 +3101,20 @@ func _input(event: InputEvent) -> void:
         var is_pointer: bool = (event is InputEventScreenTouch or
             event is InputEventScreenDrag or event is InputEventMouseButton or
             event is InputEventMouseMotion)
-        if is_pointer and (
-                (customize_stats_panel != null and
-                customize_stats_panel.get_global_rect().has_point(event.position)) or
-                (customize_part_stats_panel != null and
-                customize_part_stats_panel.get_global_rect().has_point(event.position))):
-            return
+        # Once a finger/mouse began on SERA, capture its full gesture until
+        # release even when crossing total stats, part view or equipment rows.
+        var is_customization_capture: bool = (
+            (event is InputEventScreenDrag and event.index == customize_touch_id) or
+            (event is InputEventScreenTouch and event.index == customize_touch_id) or
+            (event is InputEventMouseMotion and customize_mouse_drag) or
+            (event is InputEventMouseButton and customize_mouse_drag))
+        if not is_customization_capture:
+            if is_pointer and (
+                    (customize_stats_panel != null and
+                    customize_stats_panel.get_global_rect().has_point(event.position)) or
+                    (customize_part_stats_panel != null and
+                    customize_part_stats_panel.get_global_rect().has_point(event.position))):
+                return
     # Picker taps occur on RELEASE so upward swipes cannot accidentally equip.
     # The scroll is manual because NEXUS uses raw Android touch navigation.
     if customize_part_picker != null and customize_part_picker.visible:
@@ -3158,6 +3210,8 @@ func _input(event: InputEvent) -> void:
             if customize_touch_id == -1 and _is_customization_drag_zone(event.position):
                 customize_touch_id = event.index
                 customize_touch_last_x = event.position.x
+                customize_touch_last_y = event.position.y
+                customize_touch_last = event.position
             else:
                 _tap_at(event.position)
             get_viewport().set_input_as_handled()
@@ -3166,24 +3220,28 @@ func _input(event: InputEvent) -> void:
             get_viewport().set_input_as_handled()
     elif event is InputEventScreenDrag:
         if event.index == customize_touch_id:
-            if _is_customization_drag_zone(event.position):
-                _rotate_customization_preview(event.position.x - customize_touch_last_x)
+            _rotate_customization_preview(event.position - customize_touch_last)
+            customize_touch_last = event.position
             customize_touch_last_x = event.position.x
+            customize_touch_last_y = event.position.y
             get_viewport().set_input_as_handled()
     elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
         if event.pressed:
             if _is_customization_drag_zone(event.position):
                 customize_mouse_drag = true
                 customize_mouse_last_x = event.position.x
+                customize_mouse_last_y = event.position.y
+                customize_mouse_last = event.position
             else:
                 _tap_at(event.position)
         else:
             customize_mouse_drag = false
         get_viewport().set_input_as_handled()
     elif event is InputEventMouseMotion and customize_mouse_drag:
-        if _is_customization_drag_zone(event.position):
-            _rotate_customization_preview(event.position.x - customize_mouse_last_x)
+        _rotate_customization_preview(event.position - customize_mouse_last)
+        customize_mouse_last = event.position
         customize_mouse_last_x = event.position.x
+        customize_mouse_last_y = event.position.y
         get_viewport().set_input_as_handled()
 
 func _tap_at(point: Vector2) -> void:
