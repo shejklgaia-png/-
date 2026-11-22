@@ -5,10 +5,6 @@ const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
 const LiveMeshEdges = preload("res://scripts/sera_nexus_live_mesh_edges.gd")
-const ID_DEBUG_SHADER = preload("res://shaders/sera_scene_id_debug.gdshader")
-const ID_INK_SHADER = preload("res://shaders/sera_iris_mesh_id_outline.gdshader")
-const ID_SOLID_SHADER = preload("res://shaders/sera_scene_id_solid_probe.gdshader")
-const ID_BASIC_SHADER = preload("res://shaders/sera_scene_id_basic_probe.gdshader")
 const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const TrainingDefaults = preload("res://scripts/training_defaults.gd")
@@ -78,18 +74,27 @@ var customize_single_part_preview: Control
 var customize_part_preview_fullscreen_layer: Panel
 var customize_part_preview_fullscreen_active: bool = false
 var customize_body_rotate_cue: Control
-# Temporary, opt-in NEXUS-only diagnostics for missing shared mesh-ID ink.
+# NEXUS-only, opt-in diagnostic for the active same-frame GPU contours.
+# Unlike the removed ID-mask probe, this operates on the actual SERA mesh.
+const OUTLINE_DIAGNOSTIC_MODES: Array[String] = [
+    "通常", "外周候補", "全エッジ", "開放境界", "接合線", "深度無視"
+]
+const OUTLINE_DIAGNOSTIC_EXPLAINS: Array[String] = [
+    "通常の線幅と色。診断は終了時に自動解除します。",
+    "青緑: 視点の表裏で切り替わる外周候補のみ。",
+    "黄: 生成済みの全エッジ。視点による非表示を解除。",
+    "橙: 開放境界のみ。閉じた装甲には通常ありません。",
+    "紫: メッシュ同士の交差から生成した接合線のみ。",
+    "青緑/橙/紫: 深度判定を外し、遮蔽を切り分けます。"
+]
 var outline_debug_button: Panel
 var outline_debug_button_text: Label
 var outline_debug_panel: Panel
-var outline_debug_raw_id: TextureRect
-var outline_debug_shader_probe: ColorRect
-var outline_debug_probe_title: Label
-var outline_debug_probe_mode: int = 0 # 0: shared MASK; 1: shared SOLID; 2: standalone BASIC
-var outline_debug_shared_material: ShaderMaterial
-var outline_debug_solid_material: ShaderMaterial
-var outline_debug_basic_material: ShaderMaterial
+var outline_debug_mode_buttons: Array[Panel] = []
+var outline_debug_mode_labels: Array[Label] = []
+var outline_debug_mode: int = 0
 var outline_debug_stats: Label
+var outline_debug_hint: Label
 var outline_debug_enabled: bool = false
 var outline_debug_elapsed: float = 0.0
 var customize_part_preview_slot: String = "head"
@@ -2916,16 +2921,28 @@ func _customize_model_area(view: Vector2) -> Rect2:
         Vector2(part_view.size.x, maxf(1.0, bottom - top)))
 
 
+func _gpu_outline_diagnostics() -> Node:
+    if not is_instance_valid(sera_display_rig):
+        return null
+    return sera_display_rig.get_node_or_null("SeraLiveMeshEdges")
+
+
+func _outline_debug_style(selected: bool) -> StyleBoxFlat:
+    var style := StyleBoxFlat.new()
+    style.bg_color = Color("#3c6779") if selected else Color("#173442")
+    style.border_color = Color("#9ccbd9") if selected else Color("#55798a")
+    style.set_border_width_all(1)
+    style.set_corner_radius_all(3)
+    return style
+
+
 func _create_outline_debug() -> void:
     outline_debug_button = Panel.new()
-    outline_debug_button.name = "SeraOutlineDebugToggle"
+    outline_debug_button.name = "SeraGPUOutlineDebugToggle"
     outline_debug_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
     outline_debug_button.visible = false
-    var btn_style := StyleBoxFlat.new()
-    btn_style.bg_color = Color("#294856")
-    btn_style.border_color = Color("#7894a3")
-    btn_style.set_border_width_all(1)
-    outline_debug_button.add_theme_stylebox_override("panel", btn_style)
+    outline_debug_button.add_theme_stylebox_override(
+        "panel", _outline_debug_style(false))
     hud.add_child(outline_debug_button)
     outline_debug_button_text = Label.new()
     outline_debug_button_text.text = "輪郭診断"
@@ -2933,81 +2950,78 @@ func _create_outline_debug() -> void:
     outline_debug_button_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     outline_debug_button_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
     outline_debug_button_text.add_theme_font_size_override("font_size", 15)
-    outline_debug_button_text.add_theme_color_override("font_color", Color("#c5e7f0"))
+    outline_debug_button_text.add_theme_color_override(
+        "font_color", Color("#c5e7f0"))
     outline_debug_button.add_child(outline_debug_button_text)
 
     outline_debug_panel = Panel.new()
-    outline_debug_panel.name = "SeraIDOutlineDiagnostics"
+    outline_debug_panel.name = "SeraGPUOutlineDiagnostics"
     outline_debug_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
     outline_debug_panel.visible = false
     outline_debug_panel.z_index = 90
-    var debug_style := StyleBoxFlat.new()
-    debug_style.bg_color = Color("#0d2330")
-    debug_style.border_color = Color("#55798a")
-    debug_style.set_border_width_all(2)
-    outline_debug_panel.add_theme_stylebox_override("panel", debug_style)
+    var background := StyleBoxFlat.new()
+    background.bg_color = Color("#0d2330")
+    background.border_color = Color("#55798a")
+    background.set_border_width_all(2)
+    outline_debug_panel.add_theme_stylebox_override("panel", background)
     hud.add_child(outline_debug_panel)
+
     var heading := Label.new()
-    heading.text = "RAW ID (left) / INK (right)"
-    heading.position = Vector2(8, 5)
-    heading.size = Vector2(285, 24)
-    heading.add_theme_font_size_override("font_size", 14)
-    heading.add_theme_color_override("font_color", Color("#b9d9e9"))
+    heading.name = "GPUEdgeDiagnosticsHeading"
+    heading.text = "GPU 輪郭診断  |  NEXUS全身"
+    heading.position = Vector2(10.0, 6.0)
+    heading.size = Vector2(286.0, 26.0)
     heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    heading.add_theme_font_size_override("font_size", 14)
+    heading.add_theme_color_override("font_color", Color("#d8f2f9"))
     outline_debug_panel.add_child(heading)
-
-    outline_debug_raw_id = TextureRect.new()
-    outline_debug_raw_id.position = Vector2(9, 35)
-    outline_debug_raw_id.size = Vector2(134, 151)
-    outline_debug_raw_id.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-    outline_debug_raw_id.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-    outline_debug_raw_id.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-    outline_debug_raw_id.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    var preview_shader := ShaderMaterial.new()
-    preview_shader.shader = ID_DEBUG_SHADER
-    outline_debug_raw_id.material = preview_shader
-    outline_debug_panel.add_child(outline_debug_raw_id)
-
-    # On-screen shader probe is CLIPPED to this small diagnostics panel.
-    # Its base is white on purpose: if the shared ink shader fails to run,
-    # the failure is obvious HERE without blanking the whole 3D screen.
-    outline_debug_shader_probe = ColorRect.new()
-    outline_debug_shader_probe.name = "SharedInkFragmentProbe"
-    outline_debug_shader_probe.position = Vector2(157, 35)
-    outline_debug_shader_probe.size = Vector2(140, 151)
-    outline_debug_shader_probe.color = Color.WHITE
-    outline_debug_shader_probe.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    var probe_material := ShaderMaterial.new()
-    probe_material.shader = ID_INK_SHADER
-    probe_material.set_shader_parameter("mesh_id_texel",
-        Vector2(1.0 / 384.0, 1.0 / 384.0))
-    probe_material.set_shader_parameter("ink_color", Color("#17212f"))
-    probe_material.set_shader_parameter("stroke_px", 3.0)
-    # Display exactly the same IRIS fragment shader as the shared compositor.
-    outline_debug_shared_material = probe_material
-    outline_debug_solid_material = ShaderMaterial.new()
-    outline_debug_solid_material.shader = ID_SOLID_SHADER
-    outline_debug_basic_material = ShaderMaterial.new()
-    outline_debug_basic_material.shader = ID_BASIC_SHADER
-    outline_debug_shader_probe.material = outline_debug_shared_material
-    outline_debug_panel.add_child(outline_debug_shader_probe)
-    outline_debug_probe_title = Label.new()
-    outline_debug_probe_title.position = Vector2(155, 187)
-    outline_debug_probe_title.size = Vector2(150, 20)
-    outline_debug_probe_title.text = "MASK (tap: SOLID)"
-    outline_debug_probe_title.add_theme_font_size_override("font_size", 12)
-    outline_debug_probe_title.add_theme_color_override("font_color", Color("#c5e7f0"))
-    outline_debug_probe_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    outline_debug_panel.add_child(outline_debug_probe_title)
+    # Six manual-tap diagnostic cells, avoiding Android mouse emulation.
+    # The cells never intercept drags outside the diagnostic panel.
+    for i in range(OUTLINE_DIAGNOSTIC_MODES.size()):
+        var item := Panel.new()
+        item.name = "GPUEdgeMode%d" % i
+        item.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        item.position = Vector2(8.0 + float(i % 3) * 98.0,
+            37.0 + float(int(i / 3)) * 44.0)
+        item.size = Vector2(93.0, 37.0)
+        item.add_theme_stylebox_override(
+            "panel", _outline_debug_style(i == 0))
+        outline_debug_panel.add_child(item)
+        outline_debug_mode_buttons.append(item)
+        var text_label := Label.new()
+        text_label.text = OUTLINE_DIAGNOSTIC_MODES[i]
+        text_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        text_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        text_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        text_label.size = item.size
+        text_label.add_theme_font_size_override("font_size", 12)
+        text_label.add_theme_color_override(
+            "font_color", Color("#d6f3fb"))
+        item.add_child(text_label)
+        outline_debug_mode_labels.append(text_label)
 
     outline_debug_stats = Label.new()
-    outline_debug_stats.position = Vector2(9, 211)
-    outline_debug_stats.size = Vector2(289, 90)
-    outline_debug_stats.text = "ID WAIT"
+    outline_debug_stats.name = "GPUEdgeGeometryCounts"
+    outline_debug_stats.position = Vector2(10.0, 131.0)
+    outline_debug_stats.size = Vector2(286.0, 111.0)
+    outline_debug_stats.text = "GPU 輪郭メッシュの準備状態を確認中"
     outline_debug_stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    outline_debug_stats.add_theme_font_size_override("font_size", 12)
-    outline_debug_stats.add_theme_color_override("font_color", Color("#d6f3fb"))
+    outline_debug_stats.add_theme_font_size_override("font_size", 13)
+    outline_debug_stats.add_theme_color_override(
+        "font_color", Color("#d6f3fb"))
     outline_debug_panel.add_child(outline_debug_stats)
+
+    outline_debug_hint = Label.new()
+    outline_debug_hint.name = "GPUEdgeDiagnosticsHelp"
+    outline_debug_hint.position = Vector2(10.0, 244.0)
+    outline_debug_hint.size = Vector2(286.0, 54.0)
+    outline_debug_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    outline_debug_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    outline_debug_hint.add_theme_font_size_override("font_size", 11)
+    outline_debug_hint.add_theme_color_override(
+        "font_color", Color("#a4d5e4"))
+    outline_debug_hint.text = OUTLINE_DIAGNOSTIC_EXPLAINS[0]
+    outline_debug_panel.add_child(outline_debug_hint)
 
 
 func _layout_outline_debug(view: Vector2) -> void:
@@ -3016,25 +3030,35 @@ func _layout_outline_debug(view: Vector2) -> void:
     var x: float = 26.0
     var y: float = maxf(313.0, view.y * 0.208)
     outline_debug_button.position = Vector2(x, y)
-    outline_debug_button.size = Vector2(100, 34)
+    outline_debug_button.size = Vector2(100.0, 34.0)
     outline_debug_button_text.position = Vector2.ZERO
     outline_debug_button_text.size = outline_debug_button.size
-    outline_debug_panel.position = Vector2(x, y + 42)
-    outline_debug_panel.size = Vector2(minf(307.0, view.x - 2.0 * x), 306.0)
+    outline_debug_panel.position = Vector2(x, y + 42.0)
+    outline_debug_panel.size = Vector2(
+        minf(307.0, view.x - 2.0 * x), 306.0)
+
+
+func _set_gpu_outline_debug_mode(mode: int) -> void:
+    outline_debug_mode = clampi(mode, 0,
+        OUTLINE_DIAGNOSTIC_MODES.size() - 1)
+    var live: Node = _gpu_outline_diagnostics()
+    if live != null:
+        live.call("set_diagnostic_mode", outline_debug_mode)
+    for i in range(outline_debug_mode_buttons.size()):
+        var button: Panel = outline_debug_mode_buttons[i]
+        button.add_theme_stylebox_override(
+            "panel", _outline_debug_style(i == outline_debug_mode))
+    if is_instance_valid(outline_debug_hint):
+        outline_debug_hint.text = OUTLINE_DIAGNOSTIC_EXPLAINS[
+            outline_debug_mode]
+    outline_debug_elapsed = 0.0
 
 
 func _hide_outline_debug() -> void:
     outline_debug_enabled = false
-    outline_debug_elapsed = 0.0
-    outline_debug_probe_mode = 0
-    if is_instance_valid(outline_debug_shader_probe):
-        outline_debug_shader_probe.material = outline_debug_shared_material
-    if is_instance_valid(outline_debug_probe_title):
-        outline_debug_probe_title.text = "MASK (tap: SOLID)"
-    if outline_debug_panel != null:
+    _set_gpu_outline_debug_mode(0)
+    if is_instance_valid(outline_debug_panel):
         outline_debug_panel.visible = false
-    if outline_debug_raw_id != null:
-        outline_debug_raw_id.texture = null
 
 
 func _handle_outline_debug_input(event: InputEvent) -> bool:
@@ -3057,73 +3081,57 @@ func _handle_outline_debug_input(event: InputEvent) -> bool:
         if not released:
             outline_debug_enabled = not outline_debug_enabled
             outline_debug_panel.visible = outline_debug_enabled
-            outline_debug_elapsed = 0.0
-            _refresh_outline_debug(0.0)
+            _set_gpu_outline_debug_mode(0)
+            if outline_debug_enabled:
+                _refresh_outline_debug(0.0)
         return true
     if outline_debug_enabled and Rect2(outline_debug_panel.position,
             outline_debug_panel.size).has_point(at):
-        if not released and is_instance_valid(outline_debug_shader_probe):
-            outline_debug_probe_mode = (outline_debug_probe_mode + 1) % 3
-            match outline_debug_probe_mode:
-                0:
-                    outline_debug_shader_probe.material = outline_debug_shared_material
-                1:
-                    outline_debug_shader_probe.material = outline_debug_solid_material
-                2:
-                    outline_debug_shader_probe.material = outline_debug_basic_material
-            match outline_debug_probe_mode:
-                0:
-                    outline_debug_probe_title.text = "MASK (tap: SOLID)"
-                1:
-                    outline_debug_probe_title.text = "SOLID (tap: BASIC)"
-                2:
-                    outline_debug_probe_title.text = "BASIC (tap: MASK)"
+        if not released:
+            var local: Vector2 = at - outline_debug_panel.position
+            for i in range(outline_debug_mode_buttons.size()):
+                var button: Panel = outline_debug_mode_buttons[i]
+                if Rect2(button.position, button.size).has_point(local):
+                    _set_gpu_outline_debug_mode(i)
+                    _refresh_outline_debug(0.0)
+                    break
         return true
     return false
 
 
 func _refresh_outline_debug(delta: float) -> void:
-    if not outline_debug_enabled or outline_debug_stats == null:
+    if not outline_debug_enabled or not is_instance_valid(
+            outline_debug_stats):
         return
     outline_debug_elapsed -= delta
     if outline_debug_elapsed > 0.0:
         return
     outline_debug_elapsed = 0.45
-    var layer: Node = get_viewport().get_node_or_null(
-        "SeraIDOutlineLayer/SeraIDOutlineControl")
-    if layer == null:
-        outline_debug_stats.text = "NO ID LAYER"
-        outline_debug_raw_id.texture = null
+    var live: Node = _gpu_outline_diagnostics()
+    if live == null:
+        outline_debug_stats.text = (
+            "GPU輪郭制御: 未生成\n"
+            "NEXUS全身SERAの表示状態を確認してください。")
         return
-    var metrics: Dictionary = layer.call("get_outline_metrics")
-    var count: int = int(metrics.get("id_copies", -1))
-    var camera_ok: bool = bool(metrics.get("source_camera", false))
-    var showing: bool = bool(metrics.get("overlay_visible", false))
-    var id_target: Variant = metrics.get("id_target_size", Vector2i.ZERO)
+    var data: Dictionary = live.call("get_diagnostic_snapshot")
+    var count: int = int(data.get("active_sources", 0))
+    var draws: int = int(data.get("edge_draws", 0))
+    var missing: int = int(data.get("missing_draws", 0))
     outline_debug_stats.text = (
-        "Roots %d  Meshes %d  Cam %s  Overlay %s\nLayer %d  ID %s  Redraw %d\nInkShader %s  Quad %s" % [
-            int(metrics.get("roots", 0)),
-            count,
-            "ON" if camera_ok else "OFF",
-            "ON" if showing else "OFF",
-            int(metrics.get("canvas_layer", -1)),
-            str(id_target),
-            int(metrics.get("redraw_requests", 0)),
-            "BOUND" if bool(metrics.get("ink_shader_bound", false)) else "MISSING",
-            str(metrics.get("ink_rect_size", Vector2.ZERO))
-        ])
-    var offscreen: SubViewport = layer.get("id_viewport") as SubViewport
-    if is_instance_valid(offscreen):
-        outline_debug_raw_id.texture = offscreen.get_texture()
-        if is_instance_valid(outline_debug_shader_probe):
-            for probe_mat in [outline_debug_shared_material, outline_debug_solid_material]:
-                probe_mat.set_shader_parameter("mesh_id_texture", offscreen.get_texture())
-                if id_target is Vector2i and id_target.x > 0 and id_target.y > 0:
-                    probe_mat.set_shader_parameter("mesh_id_texel", Vector2(
-                        1.0 / float(id_target.x), 1.0 / float(id_target.y)))
-    else:
-        outline_debug_raw_id.texture = null
-
+        "描画元: %d  輪郭生成: %d  欠落: %d\n"
+        + "候補エッジ: %d  交差線: %d\n"
+        + "カメラ: %s  枠線設定: %s\n"
+        + "深度: %s  接合線キャッシュ: %s\n"
+        + "※数値は生成ジオメトリ数です。画素数ではありません。"
+    ) % [
+        count, draws, missing,
+        int(data.get("edge_segments", 0)),
+        int(data.get("contact_segments", 0)),
+        "OK" if bool(data.get("camera_present", false)) else "なし",
+        "ON" if bool(data.get("enabled", false)) else "OFF",
+        "無視" if bool(data.get("depth_disabled", false)) else "有効",
+        "済" if bool(data.get("contacts_cached", false)) else "なし"
+    ]
 
 func _layout_hud() -> void:
     if hud == null or back_panel == null or focus_panel == null:
