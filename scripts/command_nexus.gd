@@ -5,6 +5,7 @@ const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
 const LiveMeshEdges = preload("res://scripts/sera_nexus_live_mesh_edges.gd")
+const EightWayOutline = preload("res://scripts/sera_nexus_eightway_outline.gd")
 const StencilHull = preload("res://scripts/sera_nexus_stencil_hull.gd")
 const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
@@ -85,8 +86,8 @@ const OUTLINE_DIAGNOSTIC_MODES: Array[String] = [
     "17一致", "書込停止≠17"
 ]
 const OUTLINE_DIAGNOSTIC_EXPLAINS: Array[String] = [
-    "GPU深度テスト＋面向き判定で奥の線を除外します。外周3px。",
-    "青緑: 可視シルエットのみをGPU深度判定で描画。",
+    "全身メッシュを8方向へ各3px移動。共通マスクの外側だけ黒く表示。",
+    "青緑: 新8方向＋共通マスクの外周のみを強調表示。",
     "黄: 生成済みの全エッジ。視点による非表示を解除。",
     "橙: 開放境界のみ。閉じた装甲には通常ありません。",
     "紫: メッシュ同士の交差から生成した接合線のみ。",
@@ -94,7 +95,7 @@ const OUTLINE_DIAGNOSTIC_EXPLAINS: Array[String] = [
     "緑: 輪郭へ登録した表示中のメッシュを着色。",
     "橙: ステンシル書込みパスを着色。描画確認用。",
     "紫: マスクなしの反転ハル。面の破綻を確認。",
-    "青緑: GPU深度テスト＋面向き判定の外周を表示。",
+    "青緑: 新8方向全身オフセット＋ステンシル17の合成。",
     "立方体: 書込29に一致する部分が緑なら成功候補。",
     "立方体: 29と異なる外周が紫、中心は抜けるはず。",
     "全身: ステンシル17と一致する領域を緑で表示。",
@@ -577,13 +578,16 @@ func _sera_display() -> void:
     _remember_nexus_arm_rest_pose(rig)
     _fit_nexus_arms_to_lower_body()
     _capture_sera_silhouette(rig)
-    # Each generated GPU ribbon is a child of the real SERA mesh; there is
-    # no delayed ID-mask copy when the player drags the preview or swaps gear.
+    # New production path: eight shifts of the ORIGINAL filled meshes and
+    # one shared full-body stencil. No extra camera/viewport, no face normals.
+    var eight_way: Node3D = EightWayOutline.new()
+    eight_way.call("configure", rig)
+    rig.add_child(eight_way)
+    # Keep the previous GPU edges and inverted-hull tools for diagnostics,
+    # but do not draw or build them in the normal NEXUS preview.
     var live_edges: Node3D = LiveMeshEdges.new()
     live_edges.call("configure", rig)
     rig.add_child(live_edges)
-    # Group all current/future opaque equipment meshes into one stencil
-    # value, then draw seamless smoothed-backface exterior hulls.
     var stencil_hull: Node3D = StencilHull.new()
     stencil_hull.call("configure", rig)
     rig.add_child(stencil_hull)
@@ -3077,6 +3081,10 @@ func _set_gpu_outline_debug_mode(mode: int) -> void:
             "SeraStencilHull")
         if stencil != null:
             stencil.call("set_diagnostic_mode", outline_debug_mode)
+        var eightway: Node = sera_display_rig.get_node_or_null(
+            "SeraEightWayOutline")
+        if eightway != null:
+            eightway.call("set_diagnostic_mode", outline_debug_mode)
     for i in range(outline_debug_mode_buttons.size()):
         var button: Panel = outline_debug_mode_buttons[i]
         button.add_theme_stylebox_override(
@@ -3151,32 +3159,37 @@ func _refresh_outline_debug(delta: float) -> void:
     var draws: int = int(data.get("edge_draws", 0))
     var missing: int = int(data.get("missing_draws", 0))
     var stencil_data: Dictionary = {}
+    var eightway_data: Dictionary = {}
     if is_instance_valid(sera_display_rig):
         var stencil: Node = sera_display_rig.get_node_or_null("SeraStencilHull")
         if stencil != null:
             stencil_data = stencil.call("get_stencil_snapshot")
+        var eightway: Node = sera_display_rig.get_node_or_null(
+            "SeraEightWayOutline")
+        if eightway != null:
+            eightway_data = eightway.call("get_outline_snapshot")
     outline_debug_stats.text = (
-        "表示対象: %d / 候補総数: %d  非表示: %d\n"
-        + "旧マスク(診断専用): %d/%d  非対応: %d\n"
-        + "描画元: %d  エッジ生成: %d  欠落: %d\n"
+        "8方向対象: %d / 候補: %d  非表示: %d\n"
+        + "8方向複製: %d  マスク: %d  旧ハル: %d\n"
+        + "旧エッジ(診断): %d / %d  欠落: %d\n"
         + "候補エッジ: %d  交差線: %d\n"
         + "カメラ: %s  枠線設定: %s\n"
         + "画素判定: %s  接合線キャッシュ: %s\n"
         + "立方体: 値%d / カメラ%s\n"
         + "法線比較: %s"
     ) % [
-        int(stencil_data.get("candidates_visible", 0)),
-        int(stencil_data.get("candidates_total", 0)),
-        int(stencil_data.get("candidates_hidden", 0)),
+        int(eightway_data.get("parts", 0)),
+        int(eightway_data.get("candidates", 0)),
+        int(eightway_data.get("hidden", 0)),
+        int(eightway_data.get("direction_instances", 0)),
+        int(eightway_data.get("mask_draws", 0)),
         int(stencil_data.get("hulls", 0)),
-        int(stencil_data.get("parts", 0)),
-        int(stencil_data.get("unsupported", 0)),
         count, draws, missing,
         int(data.get("edge_segments", 0)),
         int(data.get("contact_segments", 0)),
         "OK" if bool(data.get("camera_present", false)) else "なし",
         "ON" if bool(data.get("enabled", false)) else "OFF",
-        "GPU深度" if bool(data.get("hardware_depth_test", false)) else (
+        "8方向マスク" if bool(eightway_data.get("active", false)) else (
             "無視" if bool(data.get("depth_disabled", false))
             else "診断モード"),
         "済" if bool(data.get("contacts_cached", false)) else "なし",
