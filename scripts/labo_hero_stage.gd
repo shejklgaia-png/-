@@ -1,6 +1,8 @@
 extends Node3D
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const CrateModel = preload("res://scripts/sera_crate_model.gd")
+const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
+const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
 ## Three independently built portrait-game LABO preview stages. Geometry and
 ## camera placement follow the three panoramic Scene A / B / C user references.
 ## Only the CRATE model is shared with the outdoor base; no generic room reuse.
@@ -666,6 +668,12 @@ func _ready() -> void:
     warehouse_group.add_child(warehouse_scanner)
     _block(warehouse_scanner, "ScanHead", Vector3.ZERO,
         Vector3(0.16, 0.10, 0.24), Color("#50b6cd"), true)
+    # LAB manufacturing / recycling / storage use independent 3D scenes.
+    # Retain emitted lights and no separate surface pass for solid shading.
+    SharedMaterialShading.apply_to_subtree(self)
+    var ink := SeraViewEdges.new()
+    ink.name = "ViewEdges"
+    add_child(ink)
     hero_camera = Camera3D.new()
     hero_camera.name = "HeroCamera"
     add_child(hero_camera)
