@@ -1,5 +1,5 @@
 extends SceneTree
-## Validate geometric 80-degree creases, smooth joins and GL-compat shader construction.
+## Runtime: per-mesh screen-pixel inverted-hull outline, no face crease ribbons.
 const OUTLINE = preload("res://scripts/sera_view_edges.gd")
 const SHADER = preload("res://shaders/sera_view_edges.gdshader")
 const FX_SHADER = preload("res://shaders/back_thruster.gdshader")
@@ -23,55 +23,41 @@ func _hinge(degrees: float) -> ArrayMesh:
         st.add_vertex(p)
     return st.commit()
 
-func _shared_edge(edges: Array) -> Dictionary:
-    for raw in edges:
-        var e: Dictionary = raw
-        var a: Vector3 = e["a"]
-        var b: Vector3 = e["b"]
-        if (a.distance_to(Vector3.ZERO) < 0.001 and b.distance_to(Vector3.RIGHT) < 0.001) or (
-                b.distance_to(Vector3.ZERO) < 0.001 and a.distance_to(Vector3.RIGHT) < 0.001):
-            return e
-    return {}
-
 func _run() -> void:
-    var low: Dictionary = _shared_edge(OUTLINE._extract_edges(_hinge(79.0)))
-    var high: Dictionary = _shared_edge(OUTLINE._extract_edges(_hinge(81.0)))
-    if low.is_empty() or high.is_empty():
-        _fail("shared hinge not extracted")
-        return
-    if bool(low["crease"]) or not bool(high["crease"]):
-        _fail("80-degree threshold is not exclusive for 79 and inclusive for 81")
-        return
-    for angle: float in [0.0, 30.0, 79.0, 81.0, 90.0]:
+    # View-space silhouette overlays contain whole triangle geometry, not
+    # conditional edge ribbons. Changing the angle does not add/remove lines.
+    for angle: float in [0.0, 30.0, 79.0, 81.0, 90.0, 120.0]:
         var overlay: ArrayMesh = OUTLINE._build_overlay(_hinge(angle))
         if overlay == null or overlay.get_surface_count() != 1:
-            _fail("overlay mesh missing for angle " + str(angle))
+            _fail("silhouette geometry missing for angle " + str(angle))
             return
-        if (overlay.surface_get_arrays(0)[Mesh.ARRAY_VERTEX] as PackedVector3Array).size() % 6 != 0:
-            _fail("non-triangle edge ribbons")
+        var arrays: Array = overlay.surface_get_arrays(0)
+        var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+        var normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+        if verts.size() != 6 or normals.size() != 6:
+            _fail("inverted hull must use the original 2 triangle faces, not 6-vertex edge ribbons")
             return
-    # Screen-view contract: the two visible faces of a cube's near
-    # corner are NOT an outline even when their dihedral is 90 degrees.
-    # A true contour/near-layer occlusion is one front-facing and one
-    # back-facing surface, regardless of which side is front.
+        for normal in normals:
+            if not normal.is_finite() or normal.length() < 0.9:
+                _fail("smoothing normals are invalid")
+                return
+    var cube: ArrayMesh = OUTLINE._build_overlay(BoxMesh.new())
+    if cube == null:
+        _fail("cube silhouette mesh is missing")
+        return
+    var cube_arrays: Array = cube.surface_get_arrays(0)
+    if (cube_arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size() != 36:
+        _fail("cube faces must remain twelve triangles and no polygon edge ribbons")
+        return
+    # The shader rasterizes only enlarged rear faces; front-facing surfaces
+    # occlude internal convex/concave mesh polygon joins in the depth buffer.
     var shader_code: String = SHADER.code
-    if shader_code.contains("hard_crease") or (
-            not shader_code.contains("visible = silhouette;")):
-        _fail("visible front-front cube corners must never receive ink")
+    if not shader_code.contains("cull_front") or shader_code.contains("a_facing") or (
+            not shader_code.contains("POSITION = clip;")):
+        _fail("view-dependent silhouette shader was not installed")
         return
-    var face_forward := Vector3.FORWARD
-    var face_right := Vector3.RIGHT
-    var corner_view := Vector3(1.0, 0.0, -1.0).normalized()
-    var a_dot: float = face_forward.dot(corner_view)
-    var b_dot: float = face_right.dot(corner_view)
-    if a_dot <= 0.02 or b_dot <= 0.02:
-        _fail("regression setup: corner must have two camera-facing faces")
-        return
-    var silhouette_view := Vector3(1.0, 0.0, 1.0).normalized()
-    a_dot = face_forward.dot(silhouette_view)
-    b_dot = face_right.dot(silhouette_view)
-    if not (a_dot < -0.02 and b_dot > 0.02):
-        _fail("regression setup: contour must have opposite face signs")
+    if shader_code.contains("depth_test_disabled") or not shader_code.contains("ALPHA = 1.0;"):
+        _fail("silhouette must be depth-tested in the post-opaque pass")
         return
     var source := MeshInstance3D.new()
     source.mesh = BoxMesh.new()
