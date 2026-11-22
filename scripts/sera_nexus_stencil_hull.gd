@@ -141,14 +141,17 @@ func _rebuild_links() -> void:
     for id in found.keys():
         var part: MeshInstance3D = found[id] as MeshInstance3D
         var previous: Dictionary = _links.get(id, {})
-        if previous.get("source_mesh") == part.mesh and (
-                is_instance_valid(previous.get("mask")) and
-                is_instance_valid(previous.get("hull"))):
-            var old_mask: MeshInstance3D = previous["mask"]
-            var old_hull: MeshInstance3D = previous["hull"]
-            old_mask.layers = part.layers
-            old_hull.layers = part.layers
-            continue
+        if previous.get("source_mesh") == part.mesh:
+            if bool(previous.get("unsupported", false)):
+                continue
+            var old_mask: MeshInstance3D = previous.get(
+                "mask") as MeshInstance3D
+            var old_hull: MeshInstance3D = previous.get(
+                "hull") as MeshInstance3D
+            if is_instance_valid(old_mask) and is_instance_valid(old_hull):
+                old_mask.layers = part.layers
+                old_hull.layers = part.layers
+                continue
         for role in ["mask", "hull"]:
             var old: MeshInstance3D = previous.get(role) as MeshInstance3D
             if is_instance_valid(old):
@@ -158,7 +161,7 @@ func _rebuild_links() -> void:
             # Do not attempt to show a partially transformed outline for
             # unsupported blend shapes or oversized procedural meshes.
             _links[id] = {"source_mesh": part.mesh, "mask": null,
-                "hull": null}
+                "hull": null, "unsupported": true}
             continue
         var mask: MeshInstance3D = _prepare_draw(part, part.mesh,
             _mask_material, "Mask")
