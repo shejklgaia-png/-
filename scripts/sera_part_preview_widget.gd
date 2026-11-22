@@ -4,6 +4,7 @@ extends Control
 const EquipmentPreview = preload("res://tools/equipment_intake/godot_preview.gd")
 const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
 const RotateMark = preload("res://scripts/sera_rotatable_mark.gd")
+const IrisIDContour = preload("res://scripts/sera_iris_id_silhouette_preview.gd")
 # The live part preview starts at the same angle as the approved 19 PNGs.
 const DEFAULT_YAW: float = 156.900744628906
 const DEFAULT_PITCH: float = 11.8749389648438
@@ -14,6 +15,9 @@ var preview_host: SubViewportContainer
 var ready_for_commands: bool = false
 var current_blueprint: String = ""
 var active_preview: bool = false
+## Opt-in ONLY for NEXUS. LABO/STORAGE keep the original 3D renderer.
+var enable_nexus_iris_id_contour: bool = false
+var _iris_contour: Control
 var selected_parts: Dictionary = {}
 var _request_serial: int = 0
 var _pressed_mouse: bool = false
@@ -57,6 +61,8 @@ func show_part(blueprint: String, selections: Dictionary = {}) -> void:
     if spec.is_empty():
         return
     current_blueprint = blueprint
+    if is_instance_valid(_iris_contour):
+        _iris_contour.call("set_active", false)
     selected_parts = selections.duplicate(true)
     active_preview = true
     show()
@@ -94,6 +100,14 @@ func _load_part(request: int) -> void:
             "zoom": 1.0, "outlinePx": 3.0},
         "seq": request
     })
+    if enable_nexus_iris_id_contour and current_blueprint == "H02" and (
+            request == _request_serial):
+        if not is_instance_valid(_iris_contour):
+            _iris_contour = IrisIDContour.new()
+            add_child(_iris_contour)
+            # Keep the rotation cue above this non-interactive ink layer.
+            move_child(_iris_contour, get_child_count() - 2)
+        _iris_contour.call("set_active", true, preview_scene, render_viewport)
 
 func set_preview_active(enabled: bool) -> void:
     active_preview = enabled
@@ -101,6 +115,8 @@ func set_preview_active(enabled: bool) -> void:
         render_viewport.render_target_update_mode = (
             SubViewport.UPDATE_ALWAYS if enabled else SubViewport.UPDATE_DISABLED)
     if not enabled:
+        if is_instance_valid(_iris_contour):
+            _iris_contour.call("set_active", false)
         _request_serial += 1
         _pressed_mouse = false
         if is_instance_valid(preview_scene):
