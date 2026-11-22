@@ -4,6 +4,7 @@ extends Node3D
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
+const ID_DEBUG_SHADER = preload("res://shaders/sera_scene_id_debug.gdshader")
 const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const TrainingDefaults = preload("res://scripts/training_defaults.gd")
@@ -70,6 +71,14 @@ var customize_single_part_preview: Control
 var customize_part_preview_fullscreen_layer: Panel
 var customize_part_preview_fullscreen_active: bool = false
 var customize_body_rotate_cue: Control
+# Temporary, opt-in NEXUS-only diagnostics for missing shared mesh-ID ink.
+var outline_debug_button: Panel
+var outline_debug_button_text: Label
+var outline_debug_panel: Panel
+var outline_debug_raw_id: TextureRect
+var outline_debug_stats: Label
+var outline_debug_enabled: bool = false
+var outline_debug_elapsed: float = 0.0
 var customize_part_preview_slot: String = "head"
 # One shared, depth-tested glow for only the visible mesh of the inspected slot.
 # Never modify the source mesh/material or the training SeraRig.
@@ -281,6 +290,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
     SeraSave.record_game_time(delta)
+    _refresh_outline_debug(delta)
     _update_system_confirmation_blink(delta)
     _update_training_start_pulse(delta)
     _update_customization_part_blink(delta)
@@ -743,6 +753,7 @@ func _hud() -> void:
     explore_panel.add_child(explore_label)
     _apply_labo_typography()
     _refresh_customization_stats()
+    _create_outline_debug()
     VersionIndicator.attach(hud)
     hud.resized.connect(_layout_hud)
     _layout_hud()
@@ -2808,11 +2819,160 @@ func _customize_model_area(view: Vector2) -> Rect2:
     return Rect2(Vector2(part_view.position.x, top),
         Vector2(part_view.size.x, maxf(1.0, bottom - top)))
 
+
+func _create_outline_debug() -> void:
+    outline_debug_button = Panel.new()
+    outline_debug_button.name = "SeraOutlineDebugToggle"
+    outline_debug_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    outline_debug_button.visible = false
+    var btn_style := StyleBoxFlat.new()
+    btn_style.bg_color = Color("#294856")
+    btn_style.border_color = Color("#7894a3")
+    btn_style.set_border_width_all(1)
+    outline_debug_button.add_theme_stylebox_override("panel", btn_style)
+    hud.add_child(outline_debug_button)
+    outline_debug_button_text = Label.new()
+    outline_debug_button_text.text = "輪郭診断"
+    outline_debug_button_text.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    outline_debug_button_text.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    outline_debug_button_text.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    outline_debug_button_text.add_theme_font_size_override("font_size", 15)
+    outline_debug_button_text.add_theme_color_override("font_color", Color("#c5e7f0"))
+    outline_debug_button.add_child(outline_debug_button_text)
+
+    outline_debug_panel = Panel.new()
+    outline_debug_panel.name = "SeraIDOutlineDiagnostics"
+    outline_debug_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    outline_debug_panel.visible = false
+    outline_debug_panel.z_index = 90
+    var debug_style := StyleBoxFlat.new()
+    debug_style.bg_color = Color("#0d2330")
+    debug_style.border_color = Color("#55798a")
+    debug_style.set_border_width_all(2)
+    outline_debug_panel.add_theme_stylebox_override("panel", debug_style)
+    hud.add_child(outline_debug_panel)
+    var heading := Label.new()
+    heading.text = "RAW MESH ID  (brightened)"
+    heading.position = Vector2(8, 5)
+    heading.size = Vector2(285, 24)
+    heading.add_theme_font_size_override("font_size", 14)
+    heading.add_theme_color_override("font_color", Color("#b9d9e9"))
+    heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    outline_debug_panel.add_child(heading)
+
+    outline_debug_raw_id = TextureRect.new()
+    outline_debug_raw_id.position = Vector2(9, 32)
+    outline_debug_raw_id.size = Vector2(155, 165)
+    outline_debug_raw_id.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+    outline_debug_raw_id.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+    outline_debug_raw_id.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+    outline_debug_raw_id.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    var preview_shader := ShaderMaterial.new()
+    preview_shader.shader = ID_DEBUG_SHADER
+    outline_debug_raw_id.material = preview_shader
+    outline_debug_panel.add_child(outline_debug_raw_id)
+
+    outline_debug_stats = Label.new()
+    outline_debug_stats.position = Vector2(175, 32)
+    outline_debug_stats.size = Vector2(125, 167)
+    outline_debug_stats.text = "ID WAIT"
+    outline_debug_stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    outline_debug_stats.add_theme_font_size_override("font_size", 12)
+    outline_debug_stats.add_theme_color_override("font_color", Color("#d6f3fb"))
+    outline_debug_panel.add_child(outline_debug_stats)
+
+
+func _layout_outline_debug(view: Vector2) -> void:
+    if outline_debug_button == null:
+        return
+    var x: float = 26.0
+    var y: float = maxf(313.0, view.y * 0.208)
+    outline_debug_button.position = Vector2(x, y)
+    outline_debug_button.size = Vector2(100, 34)
+    outline_debug_button_text.position = Vector2.ZERO
+    outline_debug_button_text.size = outline_debug_button.size
+    outline_debug_panel.position = Vector2(x, y + 42)
+    outline_debug_panel.size = Vector2(minf(307.0, view.x - 2.0 * x), 206.0)
+
+
+func _hide_outline_debug() -> void:
+    outline_debug_enabled = false
+    outline_debug_elapsed = 0.0
+    if outline_debug_panel != null:
+        outline_debug_panel.visible = false
+    if outline_debug_raw_id != null:
+        outline_debug_raw_id.texture = null
+
+
+func _handle_outline_debug_input(event: InputEvent) -> bool:
+    if focused_target != "CUSTOMIZE" or outline_debug_button == null or (
+            not outline_debug_button.visible):
+        return false
+    var at: Vector2 = Vector2.ZERO
+    var released: bool = false
+    if event is InputEventScreenTouch:
+        at = event.position
+        released = not event.pressed
+    elif event is InputEventMouseButton and (
+            event.button_index == MOUSE_BUTTON_LEFT):
+        at = event.position
+        released = not event.pressed
+    else:
+        return false
+    if Rect2(outline_debug_button.position,
+            outline_debug_button.size).has_point(at):
+        if not released:
+            outline_debug_enabled = not outline_debug_enabled
+            outline_debug_panel.visible = outline_debug_enabled
+            outline_debug_elapsed = 0.0
+            _refresh_outline_debug(0.0)
+        return true
+    if outline_debug_enabled and Rect2(outline_debug_panel.position,
+            outline_debug_panel.size).has_point(at):
+        return true
+    return false
+
+
+func _refresh_outline_debug(delta: float) -> void:
+    if not outline_debug_enabled or outline_debug_stats == null:
+        return
+    outline_debug_elapsed -= delta
+    if outline_debug_elapsed > 0.0:
+        return
+    outline_debug_elapsed = 0.45
+    var layer: Node = get_viewport().get_node_or_null(
+        "SeraIDOutlineLayer/SeraIDOutlineControl")
+    if layer == null:
+        outline_debug_stats.text = "NO ID LAYER"
+        outline_debug_raw_id.texture = null
+        return
+    var metrics: Dictionary = layer.call("get_outline_metrics")
+    var count: int = int(metrics.get("id_copies", -1))
+    var camera_ok: bool = bool(metrics.get("source_camera", false))
+    var showing: bool = bool(metrics.get("overlay_visible", false))
+    var id_target: Variant = metrics.get("id_target_size", Vector2i.ZERO)
+    outline_debug_stats.text = (
+        "Roots %d\nMeshes %d\nCamera %s\nOverlay %s\nID %s\nRedraw %d" % [
+            int(metrics.get("roots", 0)),
+            count,
+            "ON" if camera_ok else "OFF",
+            "ON" if showing else "OFF",
+            str(id_target),
+            int(metrics.get("redraw_requests", 0))
+        ])
+    var offscreen: SubViewport = layer.get("id_viewport") as SubViewport
+    if is_instance_valid(offscreen):
+        outline_debug_raw_id.texture = offscreen.get_texture()
+    else:
+        outline_debug_raw_id.texture = null
+
+
 func _layout_hud() -> void:
     if hud == null or back_panel == null or focus_panel == null:
         return
     var view := hud.size
     var margin := maxf(16.0, view.x * 0.04)
+    _layout_outline_debug(view)
     # Dedicated raw-touch hit area: GUI mouse emulation remains off.
     explore_panel.position = Vector2(margin, view.y - margin - 66.0)
     explore_panel.size = Vector2(minf(190.0, view.x * 0.43), 66.0)
@@ -3499,6 +3659,9 @@ func _input(event: InputEvent) -> void:
     if _route_fullscreen_preview_input(event):
         get_viewport().set_input_as_handled()
         return
+    if _handle_outline_debug_input(event):
+        get_viewport().set_input_as_handled()
+        return
     # Aggregate stats are read-only and can scroll without rotating the
     # character or treating the upper strip as a dismiss tap.
     if focused_target == "CUSTOMIZE" and (
@@ -3800,6 +3963,10 @@ func _focus_arrived(target_name: String) -> void:
     _layout_hud()
     focus_panel.visible = true
     customize_right_panel.visible = target_name == "CUSTOMIZE"
+    if outline_debug_button != null:
+        outline_debug_button.visible = target_name == "CUSTOMIZE"
+    if target_name != "CUSTOMIZE":
+        _hide_outline_debug()
     if target_name == "CUSTOMIZE":
         _refresh_equipment_controls()
         _inspect_customization_part(customize_part_preview_slot)
@@ -3833,6 +4000,9 @@ func _return_to_overview() -> void:
         customize_body_rotate_cue.visible = false
     focus_panel.visible = false
     customize_right_panel.visible = false
+    _hide_outline_debug()
+    if outline_debug_button != null:
+        outline_debug_button.visible = false
     if customize_stats_panel != null:
         customize_stats_panel.visible = false
     if customize_stats_scroll != null:
