@@ -16,7 +16,16 @@ func _run() -> void:
     if screen == null:
         _fail("not a Control")
         return
+    var previous_fps: int = Engine.max_fps
+    var previous_time_scale: float = Engine.time_scale
+    Engine.max_fps = 40  # Simulate a personalized BASE/NEXUS FPS selection.
     root.add_child(screen)
+    if Engine.max_fps != 10:
+        _fail("loading screen did not activate its independent 10 FPS cap")
+        return
+    if Engine.time_scale != previous_time_scale:
+        _fail("loading cap changed gameplay time scale")
+        return
     screen.size = Vector2(720.0, 1280.0)
     screen.set_process(false)
     # Only the terminal's offscreen target is half resolution.
@@ -168,6 +177,14 @@ func _run() -> void:
     if bool(screen.get("preview_running")):
         _fail("completed demo is still advancing")
         return
+    screen.free()
+    if Engine.max_fps != 40:
+        _fail("closing the loading overlay did not restore the device FPS limit")
+        return
+    if Engine.time_scale != previous_time_scale:
+        _fail("closing loading overlay changed time scale")
+        return
+    Engine.max_fps = previous_fps
     await process_frame
     print("SERA_LOADING_CONSOLE_RUNTIME_PASS")
     quit(0)
