@@ -83,7 +83,7 @@ static func _edge_hit(a: Vector3, b: Vector3,
     return hit
 
 static func _add_unique(points: Array[Vector3], hit: Variant) -> void:
-    if not hit is Vector3:
+    if not (hit is Vector3):
         return
     var point: Vector3 = hit
     for current in points:
@@ -145,8 +145,9 @@ static func build(rig: Node3D, sources: Dictionary) -> Dictionary:
             if not entries.has(second_key):
                 continue
             var second: Dictionary = entries[second_key]
-            if not (first["aabb"] as AABB).intersects(
-                    second["aabb"] as AABB):
+            var first_aabb: AABB = first["aabb"]
+            var second_aabb: AABB = second["aabb"]
+            if not first_aabb.intersects(second_aabb):
                 continue
             var inverse: Transform3D = first["inverse"]
             var out: PackedVector3Array = segments.get(first_key,
@@ -156,7 +157,9 @@ static func build(rig: Node3D, sources: Dictionary) -> Dictionary:
                     checked += 1
                     if checked > MAX_PAIR_TRIANGLE_CHECKS:
                         return segments
-                    if not (ta["aabb"] as AABB).intersects(tb["aabb"] as AABB):
+                    var triangle_aabb: AABB = ta["aabb"]
+                    var other_aabb: AABB = tb["aabb"]
+                    if not triangle_aabb.intersects(other_aabb):
                         continue
                     var hit: PackedVector3Array = _intersection(ta, tb)
                     if hit.size() != 2:
