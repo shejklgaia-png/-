@@ -1,7 +1,7 @@
 shader_type spatial;
-// SERA full-body NEXUS exhibition only: all currently installed AND
-// switchable body-part/weapon MeshInstances. Source meshes, UV and rim outlines
-// stay unchanged; no transparent FX or second surface pass is added.
+// Shared opaque model shading across SERA (combat, previews), BITTARAN,
+// BASE, NEXUS and LAB/Warehouse rooms. Preserve authored UV, vertex paint,
+// special effects and outlines. No additional surface draw pass.
 render_mode unshaded, cull_disabled, depth_draw_opaque;
 
 uniform sampler2D source_texture : source_color, filter_nearest, repeat_disable;
