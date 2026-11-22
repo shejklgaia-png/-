@@ -75,12 +75,12 @@ func _run() -> void:
                 var crease_mat: ShaderMaterial = inst.material_override as ShaderMaterial
                 if crease_mat == null or crease_mat.shader != CREASE or (
                         not is_equal_approx(float(
-                        crease_mat.get_shader_parameter("crease_px")), 2.0)):
-                    _fail(key + " foreground crease changed from approved 2px")
+                        crease_mat.get_shader_parameter("crease_px")), 1.0)):
+                    _fail(key + " foreground crease changed from approved 1px")
                     return
 
-                if crease_mat.get_shader_parameter("ink_color") != Color("#000000"):
-                    _fail(key + " 2px corner ink must be black")
+                if crease_mat.get_shader_parameter("ink_color") != Color("#202020"):
+                    _fail(key + " 1px corner ink must be black")
                     return
             elif str(inst.name).begins_with("Architectural_"):
                 base_total += inst.multimesh.instance_count
@@ -123,7 +123,7 @@ func _run() -> void:
         int(slot["crease_index"]))
     if visible_pose.origin.distance_to(ink_pose.origin) > 0.0001 or (
             visible_pose.origin.distance_to(crease_pose.origin) > 0.0001):
-        _fail("4px hull or preserved 2px corner fails to follow moving claw")
+        _fail("4px hull or preserved 1px corner fails to follow moving claw")
         return
     if str(hub.get_node("NEXUSBuilding/NexusArchitecture").get_meta(
             "base_design", "")) != "ARCHIVED_20261122":

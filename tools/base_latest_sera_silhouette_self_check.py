@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""BASE: same SERA 2026-11-22 inverted hull for 4px, previous 2px crease."""
+"""BASE: same SERA 2026-11-22 inverted hull for 4px, new 1px near-black crease."""
 from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 sera = (root / "shaders/sera_view_edges.gdshader").read_text(encoding="utf-8")
@@ -33,11 +33,11 @@ assert '"stroke_px", 4.0' in ink
 assert 'hint_range(0.5, 8.0)' in sera
 assert 'depth_probe_px = stroke_px > 4.0 ? stroke_px * 1.5 : stroke_px;' in sera
 assert 'Color("#000000")' in ink
-assert 'Color("#000000")' in ink
+assert 'Color("#202020")' in ink
 assert 'Color("#55798A")' not in ink
 assert 'preload("res://shaders/base_facility_view_edges.gdshader")' in ink
 assert "BaseFacilityCreaseGeometry._build_overlay" in ink
-assert '"crease_px", 2.0' in ink
+assert '"crease_px", 1.0' in ink
 assert "crease_material()" in ink
 assert "CREASE_DEGREES: float = 80.0" in creases
 assert "_extract_edges(mesh: Mesh)" in creases

@@ -1,5 +1,5 @@
 extends SceneTree
-## Runtime inspection of actual BASE scene: separate 4px BASE silhouette and 2px ink.
+## Runtime inspection of actual BASE scene: separate 4px BASE silhouette and 1px ink.
 const FACILITIES: Array[String] = [
     "NEXUS", "LABO", "SCRAP_COLLECTOR", "SMELTER",
     "RECYCLER", "GENERATOR", "STORAGE", "BUILD_TERMINAL"
@@ -13,7 +13,7 @@ func _initialize() -> void:
     call_deferred("_run")
 
 func _fail(message: String) -> void:
-    push_error("SERA_BASE_LATEST_HULL_2PX_CREASE_FAIL: " + message)
+    push_error("SERA_BASE_LATEST_HULL_1PX_CREASE_FAIL: " + message)
     quit(1)
 
 func _run() -> void:
@@ -35,7 +35,7 @@ func _run() -> void:
     var hull: ArrayMesh = BASE_EDGES.overlay_for("test_unit_hull", raw)
     var crease: ArrayMesh = BASE_EDGES.crease_for("test_unit", raw)
     if hull == null or crease == null:
-        _fail("BASE silhouette or 2px line geometry not generated")
+        _fail("BASE silhouette or 1px line geometry not generated")
         return
     var hull_arrays: Array = hull.surface_get_arrays(0)
     var hull_vertices: PackedVector3Array = hull_arrays[Mesh.ARRAY_VERTEX]
@@ -79,11 +79,11 @@ func _run() -> void:
                 var mat2: ShaderMaterial = node.material_override as ShaderMaterial
                 if mat2 == null or mat2.shader != CREASE_SHADER or (
                         not is_equal_approx(float(
-                        mat2.get_shader_parameter("crease_px")), 2.0)):
-                    _fail(key + " foreground crease not preserved at 2px")
+                        mat2.get_shader_parameter("crease_px")), 1.0)):
+                    _fail(key + " foreground crease not preserved at 1px")
                     return
-                if mat2.get_shader_parameter("ink_color") != Color("#000000"):
-                    _fail(key + " retained 2px polygon corners must be black")
+                if mat2.get_shader_parameter("ink_color") != Color("#202020"):
+                    _fail(key + " retained 1px polygon corners must be black")
                     return
         if hull_parts.is_empty() or crease_parts.is_empty() or (
                 hull_parts.size() != crease_parts.size()):
@@ -134,5 +134,5 @@ func _run() -> void:
             "base_design", "")) != "ARCHIVED_20261122":
         _fail("archived NEXUS model changed")
         return
-    print("SERA_BASE_LATEST_HULL_6PX_PRESERVED_CREASE_2PX_RUNTIME_PASS")
+    print("SERA_BASE_LATEST_HULL_6PX_PRESERVED_CREASE_1PX_RUNTIME_PASS")
     quit(0)

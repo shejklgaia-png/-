@@ -55,11 +55,11 @@ func _run() -> void:
                 var corner_mat: ShaderMaterial = crease.material_override as ShaderMaterial
                 if corner_mat == null or corner_mat.shader != CREASE_SHADER or (
                         not is_equal_approx(float(
-                        corner_mat.get_shader_parameter("crease_px")), 2.0)):
-                    _fail(key + " old 2px corner line changed")
+                        corner_mat.get_shader_parameter("crease_px")), 1.0)):
+                    _fail(key + " old 1px corner line changed")
                     return
-                if corner_mat.get_shader_parameter("ink_color") != Color("#000000"):
-                    _fail(key + " 2px polygon corners must be black")
+                if corner_mat.get_shader_parameter("ink_color") != Color("#202020"):
+                    _fail(key + " 1px polygon corners must be black")
                     return
                 continue
             if not str(piece.name).begins_with("ArchitecturalEdgeInk_"):
@@ -76,7 +76,7 @@ func _run() -> void:
                 _fail(key + " 4px SERA silhouette must be black")
                 return
         if ink_count < 18 or crease_count != ink_count:
-            _fail(key + " 4px hull or original 2px crease missing")
+            _fail(key + " 4px hull or original 1px crease missing")
             return
         var fx: Node3D = model.get_node_or_null("BaseFacilityVFX") as Node3D
         if fx == null:
@@ -127,5 +127,5 @@ func _run() -> void:
             "base_design", "") != "ARCHIVED_20261122":
         _fail("two-versions-ago NEXUS model was overwritten")
         return
-    print("SERA_BASE_FX_PIXEL_OUTLINES_RUNTIME_PASS 8x4px+2px, 8 door portals, 2 smoke emitters, floor flicker")
+    print("SERA_BASE_FX_PIXEL_OUTLINES_RUNTIME_PASS 8x4px+1px, 8 door portals, 2 smoke emitters, floor flicker")
     quit(0)
