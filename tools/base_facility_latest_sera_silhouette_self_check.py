@@ -24,7 +24,7 @@ assert "SeraViewEdges._position_key" in base
 assert 'func crease_overlay_for' in base and 'func silhouette_overlay_for' in base
 assert 'func silhouette_material' in base and 'func crease_material' in base
 assert "SurfaceTool.CUSTOM_RGBA_FLOAT" in base
-assert "dot(normal_b)" in base
+assert "fa.dot(fb)" in base
 assert "cos(deg_to_rad(80.0))" in base
 assert "inverted_hull" in sera
 assert "normal_sum" in sera
