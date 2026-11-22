@@ -288,8 +288,8 @@ class Batch:
                     host.add_child(edge_draw)
                     outline_meshes_by_bucket[key] = edge_multi
                     outline_links_by_bucket[key] = edge_indices
-                    # Distinct 2px pass: retain the previous 80-degree
-                    # front/front crease mesh independent of SERA's 6px hull.
+                    # Distinct 1px near-black pass: retain the 80-degree
+                    # front/front crease mesh separate from the outer silhouette.
                     var crease_geometry: ArrayMesh = BaseFacilityInk.crease_for(
                         geometry, mesh)
                     if crease_geometry != null:

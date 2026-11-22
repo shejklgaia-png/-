@@ -1,7 +1,7 @@
 extends RefCounted
 ## BASE uses physical mesh contour ribbons to avoid inverted-hull full-face
 ## overdraw and depth-mask disappearance on Android GL Compatibility.
-## Black 4px camera-facing silhouette and black 2px visible hard creases
+## Black 4px camera-facing silhouette and #202020 1px visible hard creases
 ## share edge geometry but have separate material passes. FX is excluded.
 const BaseFacilityCreaseGeometry = preload(
     "res://scripts/sera_base_facility_crease_geometry.gd")
@@ -30,7 +30,7 @@ static func crease_for(geometry: String, physical_mesh: Mesh) -> ArrayMesh:
     if _crease_cache.has(geometry):
         return _crease_cache[geometry] as ArrayMesh
     # Reuse the exact same edge mesh as the camera-dependent silhouette.
-    # The 2px shader selects only front/front >=80 degree hard creases.
+    # The 1px shader selects only front/front >=80 degree hard creases.
     var ink: ArrayMesh = overlay_for(geometry, physical_mesh)
     _crease_cache[geometry] = ink
     return ink
@@ -51,6 +51,6 @@ static func crease_material() -> ShaderMaterial:
         _shared_crease_material.shader = BASE_CREASE_SHADER
         _shared_crease_material.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
         _shared_crease_material.set_shader_parameter(
-            "ink_color", Color("#000000"))
-        _shared_crease_material.set_shader_parameter("crease_px", 2.0)
+            "ink_color", Color("#202020"))
+        _shared_crease_material.set_shader_parameter("crease_px", 1.0)
     return _shared_crease_material
