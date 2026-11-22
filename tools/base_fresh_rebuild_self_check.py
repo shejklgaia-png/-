@@ -43,6 +43,18 @@ for name in (
     "FreshTerminalWideScreen", "FreshTerminalSignalMast",
 ):
     assert name in fresh, name
+# Reference-image landmarks are part of the accepted silhouette, not optional trim.
+for name in (
+    "FreshNexusCanvasAwning", "FreshNexusCommandAntenna",
+    "FreshLabPrinterHotHead", "FreshLabHangingBanner",
+    "FreshCollectorClawHead", "FreshCollectorLooseScrap",
+    "FreshSmelterFlameTongue", "FreshSmelterCombustionHood",
+    "FreshRecyclerTooth", "FreshRecyclerFeedRamp",
+    "FreshGeneratorCoreRib", "FreshGeneratorAxialLight",
+    "FreshStorageCaseLid", "FreshStorageCargoPlate",
+    "FreshTerminalBlueprintRows", "FreshTerminalTactileKey",
+):
+    assert f'"{name}"' in fresh, "missing reference-image landmark: " + name
 assert "py tools/base_fresh_rebuild_self_check.py" in manifest
 assert "gd tools/base_fresh_rebuild_runtime_check.gd" in manifest
 assert "'scripts/sera_base_fresh_design.gd'" in workflow
