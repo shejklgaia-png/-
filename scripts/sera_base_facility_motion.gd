@@ -159,9 +159,9 @@ func sample_at(seconds: float) -> void:
                         pose.origin += _at(Vector3(0.0,
                             0.11 * sin(time * 2.1 + float(i) * 0.62), 0.0))
                     elif feature == "FreshTerminalMastLamp":
-                        var signal: float = 0.93 + 0.19 * (
+                        var blink: float = 0.93 + 0.19 * (
                             0.5 + 0.5 * sin(time * 3.4))
                         pose.basis = rest.basis.scaled_local(
-                            Vector3(signal, signal, signal))
+                            Vector3(blink, blink, blink))
             var multi: MultiMesh = record["mesh"] as MultiMesh
             multi.set_instance_transform(int(record["index"]), pose)
