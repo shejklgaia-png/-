@@ -2210,7 +2210,7 @@ func _create_fps_option_controls() -> void:
         {"scope": "base_outline", "title": "拠点の枠線"},
         {"scope": "character_outline", "title": "全身キャラ枠線"},
         {"scope": "part_outline", "title": "単体パーツ枠線"},
-        {"scope": "motion_blur", "title": "ステップ/ブースト残像"},
+        {"scope": "motion_blur", "title": "モーションブラー"},
     ]:
         var panel := Panel.new()
         panel.name = "FPSRow_" + str(spec["scope"])
