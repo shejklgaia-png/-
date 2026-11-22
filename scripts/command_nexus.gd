@@ -265,6 +265,11 @@ func _ready() -> void:
     SharedMaterialShading.apply_to_subtree(self)
     _sera_display()
     _camera()
+    # Scene-wide IRIS-style ID pass: architecture and display SERA share
+    # ONE viewport compositor instead of duplicate inverted-hull passes.
+    var id_outline := SeraViewEdges.new()
+    id_outline.name = "ViewEdges"
+    add_child(id_outline)
     _create_customization_glow()
     _wall_mark()
     _hud()
