@@ -68,6 +68,10 @@ var customize_part_preview_slot: String = "head"
 # Never modify the source mesh/material or the training SeraRig.
 var customize_selection_material: StandardMaterial3D
 var customize_highlighted_meshes: Array[MeshInstance3D] = []
+const CUSTOMIZE_SELECTION_BLINK_PERIOD_SECONDS: float = 1.0
+const CUSTOMIZE_SELECTION_BLINK_ON_RATIO: float = 0.60
+var customize_selection_blink_elapsed: float = 0.0
+var customize_selection_blink_on: bool = true
 var customize_part_picker: Control
 var customize_part_picker_window: Panel
 var customize_part_picker_title: Label
@@ -256,6 +260,7 @@ func _process(delta: float) -> void:
     SeraSave.record_game_time(delta)
     _update_system_confirmation_blink(delta)
     _update_training_start_pulse(delta)
+    _update_customization_part_blink(delta)
     if focused_target == "DATA ARCHIVE" and not in_transition:
         archive_refresh_elapsed += delta
         if archive_refresh_elapsed >= 1.0:
@@ -1085,6 +1090,11 @@ func _create_equipment_controls() -> void:
             LaboSkin.terminal_segment_style("selected").duplicate(true) as StyleBoxFlat)
         row_active.content_margin_left = 17.0
         row_active.content_margin_right = 64.0
+        row_active.bg_color = Color("#2b596b")
+        row_active.border_color = Color("#adeeff")
+        row_active.border_width_top = 2
+        row_active.border_width_left = 2
+        row_active.border_width_right = 2
         button.add_theme_stylebox_override("normal", row_normal)
         button.add_theme_stylebox_override("hover", row_active)
         button.add_theme_stylebox_override("pressed", row_active)
@@ -1119,7 +1129,8 @@ func _create_equipment_controls() -> void:
         underline.size = Vector2(0.0, 1.0)
         button.add_child(underline)
         customize_equipment_rows[slot] = {
-            "panel": button, "expand": expand, "underline": underline
+            "panel": button, "expand": expand, "underline": underline,
+            "normal_style": row_normal, "selected_style": row_active
         }
     _refresh_equipment_controls()
 
@@ -1200,10 +1211,32 @@ func _refresh_equipment_controls() -> void:
         else:
             button.text = _default_part_name(slot, selected_model)
         _layout_equipment_name_underline(slot)
+    _sync_customization_row_selection()
     _refresh_customization_stats()
     if focused_target == "CUSTOMIZE" and not in_transition:
         _refresh_single_part_preview(customize_part_preview_slot)
         _refresh_customization_part_stats(customize_part_preview_slot)
+
+# Inspecting a name highlights only the current equipment row.
+# This is separate from the thumbnail button's equipment selection.
+func _sync_customization_row_selection() -> void:
+    for slot in CUSTOMIZE_SLOTS:
+        if not customize_equipment_rows.has(slot):
+            continue
+        var entry: Dictionary = customize_equipment_rows[slot]
+        var button: Button = entry["panel"] as Button
+        var selected: bool = (focused_target == "CUSTOMIZE" and
+            slot == customize_part_preview_slot and button.modulate == Color.WHITE)
+        button.add_theme_stylebox_override("normal",
+            entry["selected_style"] if selected else entry["normal_style"])
+        button.add_theme_color_override("font_color",
+            Color("#f3fcff") if selected else Color("#e2eef2"))
+        var expand: Button = entry["expand"] as Button
+        expand.add_theme_stylebox_override("normal",
+            LaboSkin.terminal_segment_style("selected" if selected else "normal"))
+        (entry["underline"] as ColorRect).color = (
+            Color("#adeeff") if selected else Color("#55798a"))
+
 
 func _default_part_name(slot: String, model: String) -> String:
     for id in PrototypeCatalog.ORDER:
@@ -1792,6 +1825,8 @@ func _clear_customization_part_glow() -> void:
 
 func _sync_customization_part_glow() -> void:
     _clear_customization_part_glow()
+    customize_selection_blink_elapsed = 0.0
+    customize_selection_blink_on = true
     if not customize_preview_active or focused_target != "CUSTOMIZE" or (
             sera_display_rig == null or not bool(sera_display_rig.get("loading_ok"))):
         return
@@ -1819,6 +1854,28 @@ func _sync_customization_part_glow() -> void:
         customize_highlighted_meshes.append(part)
 
 
+func _update_customization_part_blink(delta: float) -> void:
+    if focused_target != "CUSTOMIZE" or in_transition or (
+            not customize_preview_active or customize_highlighted_meshes.is_empty()):
+        return
+    customize_selection_blink_elapsed = fposmod(
+        customize_selection_blink_elapsed + maxf(delta, 0.0),
+        CUSTOMIZE_SELECTION_BLINK_PERIOD_SECONDS)
+    var next_on: bool = (customize_selection_blink_elapsed <
+        CUSTOMIZE_SELECTION_BLINK_PERIOD_SECONDS * CUSTOMIZE_SELECTION_BLINK_ON_RATIO)
+    if next_on == customize_selection_blink_on:
+        return
+    customize_selection_blink_on = next_on
+    # Hard ON/OFF: existing 3D material overlay only; untouched authored base.
+    for part in customize_highlighted_meshes:
+        if not is_instance_valid(part):
+            continue
+        if next_on and part.visible and part.material_overlay == null:
+            part.material_overlay = customize_selection_material
+        elif not next_on and part.material_overlay == customize_selection_material:
+            part.material_overlay = null
+
+
 func _inspect_customization_part(slot: String) -> void:
     if focused_target != "CUSTOMIZE":
         return
@@ -1826,6 +1883,7 @@ func _inspect_customization_part(slot: String) -> void:
     _refresh_single_part_preview(slot)
     _refresh_customization_part_stats(slot)
     _sync_customization_part_glow()
+    _sync_customization_row_selection()
 
 
 func _load_system_lock_preference() -> void:
@@ -2912,55 +2970,8 @@ func _fit_customization_preview() -> void:
         _apply_customization_preview_transform()
         _capture_sera_silhouette(sera_display_rig)
 
-    # Keep the enlarged front scale as the reference for subsequent yaw input.
+    # The initial one-time fitting is preserved; drag only changes rotation.
     customize_preview_fitted_scale = customize_preview_scale
-    _constrain_customization_preview_to_safe_area()
-
-func _constrain_customization_preview_to_safe_area() -> void:
-    if not customize_preview_active or hud == null or cam == null:
-        return
-    var size := hud.size
-    if size.x <= 1.0 or size.y <= 1.0:
-        return
-    var frame: Rect2 = _customize_model_area(size)
-    var left_limit: float = frame.position.x
-    var right_limit: float = frame.end.x
-    var top_limit: float = frame.position.y
-    var bottom_limit: float = frame.end.y
-    var allowed_width: float = maxf(1.0, right_limit - left_limit)
-    var allowed_height: float = maxf(1.0, bottom_limit - top_limit)
-    var center_target_x: float = (left_limit + right_limit) * 0.5
-    var target_center_y: float = frame.get_center().y + 3.0
-
-    # Return to the original enlarged scale after every drag update.
-    # Only a sideways weapon/pose wider than the safe area is reduced,
-    # temporarily, rather than reducing the default front view forever.
-    customize_preview_scale = customize_preview_fitted_scale
-    _apply_customization_preview_transform()
-    for pass_index in range(2):
-        _capture_sera_silhouette(sera_display_rig)
-        var rect := _customization_screen_bounds()
-        if rect.size.x <= 1.0 or rect.size.y <= 1.0:
-            return
-        var fit: float = minf(1.0, minf(
-            allowed_width / rect.size.x, (allowed_height * 0.90) / rect.size.y))
-        if fit < 0.999:
-            customize_preview_scale *= maxf(0.1, fit * 0.99)
-            _apply_customization_preview_transform()
-            _capture_sera_silhouette(sera_display_rig)
-            rect = _customization_screen_bounds()
-        var depth: float = -customize_preview_position.z
-        var half_height: float = (cam.size * 0.5 if (
-            cam.projection == Camera3D.PROJECTION_ORTHOGONAL) else
-            depth * tan(deg_to_rad(cam.fov) * 0.5))
-        var px_per_world := size.y / maxf(0.001, 2.0 * half_height)
-        var error := Vector2(
-            center_target_x - (rect.position.x + rect.size.x * 0.5),
-            target_center_y - (rect.position.y + rect.size.y * 0.5))
-        customize_preview_position.x += error.x / px_per_world
-        customize_preview_position.y -= error.y / px_per_world
-        _apply_customization_preview_transform()
-    _capture_sera_silhouette(sera_display_rig)
 
 func _is_customization_drag_zone(pixel: Vector2) -> bool:
     if focused_target != "CUSTOMIZE" or not customize_preview_active or hud == null:
@@ -2990,14 +3001,12 @@ func _rotate_customization_preview(delta: Vector2) -> void:
     if delta.length_squared() < 0.000001:
         return
     var yaw_delta: float = delta.x / maxf(hud.size.x, 1.0) * CUSTOMIZE_DRAG_FULL_TURN
-    var pitch_delta: float = delta.y / maxf(hud.size.y, 1.0) * PI
+    var pitch_delta: float = -delta.y / maxf(hud.size.y, 1.0) * PI
     customize_preview_yaw = wrapf(customize_preview_yaw - yaw_delta, -PI, PI)
     customize_preview_pitch = clampf(customize_preview_pitch + pitch_delta,
         deg_to_rad(-55.0), deg_to_rad(55.0))
-    # Keep full-body camera rotation safely inside the character's frame.
-    # The frozen backdrop and its grid must not move with SERA.
+    # Rotation only: no translation, scale or center correction per gesture.
     _apply_customization_preview_transform()
-    _constrain_customization_preview_to_safe_area()
     _capture_sera_silhouette(sera_display_rig)
     _update_projected_silhouettes()
 
