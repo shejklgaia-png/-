@@ -8,11 +8,9 @@ sweep = (root / "scripts/sera_loading_sweep.gd").read_text("utf-8")
 manifest = (root / "tools/sera_ci_manifest.txt").read_text("utf-8")
 
 # The first frame still uses only engine-native primitives, with no texture import.
-assert 'const LoadingSweep = preload("res://scripts/sera_loading_sweep.gd")' in base
-assert 'sweep.name = "LoadingSweep"' in base
-assert "sweep.mouse_filter = Control.MOUSE_FILTER_IGNORE" in base
-assert "startup_layer.add_child(sweep)" in base
-assert base.index("startup_layer.add_child(sweep)") < base.index("startup_layer.add_child(startup_label)")
+assert 'const LoadingConsole = preload("res://scripts/sera_loading_console.gd")' in base
+assert 'screen.name = "SeraLoadingConsole"' in base
+assert "startup_layer.add_child(screen)" in base
 assert "startup_layer.queue_free()" in base
 assert "await get_tree().process_frame" in base
 
