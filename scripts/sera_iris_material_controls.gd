@@ -43,7 +43,7 @@ func _ready() -> void:
     add_child(root)
 
     var heading := Label.new()
-    heading.text = "材質                  陰影段階                 しきい値"
+    heading.text = "材質                  陰影段階            しきい値"
     heading.add_theme_font_size_override("font_size", 17)
     heading.add_theme_color_override("font_color", Color("#cce6ee"))
     heading.custom_minimum_size.y = 23.0
@@ -55,36 +55,36 @@ func _ready() -> void:
         row.add_theme_constant_override("separation", 4)
         root.add_child(row)
 
-        var name_button: Button = _new_button(MATERIAL_NAMES[material_id], 116)
+        var name_button: Button = _new_button(MATERIAL_NAMES[material_id], 94)
         row.add_child(name_button)
         name_button.pressed.connect(_select_material.bind(material_id))
 
-        var minus_steps: Button = _new_button("−", 36)
+        var minus_steps: Button = _new_button("−", 32)
         row.add_child(minus_steps)
         minus_steps.pressed.connect(_change.bind(material_id, "steps", -1))
         var step_label := Label.new()
         step_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        step_label.custom_minimum_size.x = 51.0
+        step_label.custom_minimum_size.x = 40.0
         step_label.add_theme_font_size_override("font_size", 16)
         row.add_child(step_label)
-        var plus_steps: Button = _new_button("+", 36)
+        var plus_steps: Button = _new_button("+", 32)
         row.add_child(plus_steps)
         plus_steps.pressed.connect(_change.bind(material_id, "steps", 1))
 
         var gap := Control.new()
-        gap.custom_minimum_size.x = 12.0
+        gap.custom_minimum_size.x = 3.0
         gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
         row.add_child(gap)
 
-        var minus_threshold: Button = _new_button("−", 36)
+        var minus_threshold: Button = _new_button("−", 32)
         row.add_child(minus_threshold)
         minus_threshold.pressed.connect(_change.bind(material_id, "threshold", -1))
         var threshold_label := Label.new()
         threshold_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        threshold_label.custom_minimum_size.x = 59.0
+        threshold_label.custom_minimum_size.x = 46.0
         threshold_label.add_theme_font_size_override("font_size", 16)
         row.add_child(threshold_label)
-        var plus_threshold: Button = _new_button("+", 36)
+        var plus_threshold: Button = _new_button("+", 32)
         row.add_child(plus_threshold)
         plus_threshold.pressed.connect(_change.bind(material_id, "threshold", 1))
         _rows.append({
@@ -96,10 +96,10 @@ func _ready() -> void:
     footer.custom_minimum_size.y = 47.0
     footer.add_theme_constant_override("separation", 9)
     root.add_child(footer)
-    _light_button = _new_button("水色 点灯: OFF", 153)
+    _light_button = _new_button("水色 点灯: OFF", 125)
     _light_button.pressed.connect(_on_emission_pressed)
     footer.add_child(_light_button)
-    var copy_button: Button = _new_button("全材質をコピー", 173)
+    var copy_button: Button = _new_button("全材質をコピー", 137)
     copy_button.pressed.connect(_on_copy_pressed)
     footer.add_child(copy_button)
     _copy_status = Label.new()
@@ -113,13 +113,13 @@ func _ready() -> void:
     extra.custom_minimum_size.y = 43.0
     extra.add_theme_constant_override("separation", 6)
     root.add_child(extra)
-    var presets_button := _new_button("セーブ／ロード", 170)
+    var presets_button := _new_button("セーブ／ロード", 124)
     presets_button.pressed.connect(_open_presets)
     extra.add_child(presets_button)
-    var import_button := _new_button("貼付け復元", 147)
+    var import_button := _new_button("貼付け復元", 100)
     import_button.pressed.connect(_on_import_pressed)
     extra.add_child(import_button)
-    var reset_button := _new_button("標準に戻す", 138)
+    var reset_button := _new_button("標準に戻す", 100)
     reset_button.pressed.connect(_on_reset_pressed)
     extra.add_child(reset_button)
 
@@ -161,20 +161,20 @@ func _ready() -> void:
         slot_rows.add_child(row)
         var number := Label.new()
         number.text = "%02d" % slot
-        number.custom_minimum_size.x = 32.0
+        number.custom_minimum_size.x = 28.0
         row.add_child(number)
         var editor := LineEdit.new()
         editor.name = "IrisPresetName_%d" % slot
         editor.placeholder_text = "プリセット %d" % slot
         editor.max_length = 24
-        editor.custom_minimum_size = Vector2(162.0, 40.0)
+        editor.custom_minimum_size = Vector2(106.0, 40.0)
         editor.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         row.add_child(editor)
         _preset_names.append(editor)
-        var save_button := _new_button("保存", 80)
+        var save_button := _new_button("保存", 68)
         save_button.pressed.connect(_request_save.bind(slot))
         row.add_child(save_button)
-        var load_button := _new_button("読込", 80)
+        var load_button := _new_button("読込", 68)
         load_button.pressed.connect(_request_load.bind(slot))
         row.add_child(load_button)
     _preset_status = Label.new()
