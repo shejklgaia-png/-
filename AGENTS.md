@@ -2,28 +2,23 @@
 
 > **Authority:** latest user instructions, latest `main`, `project.godot`, running code, and `models/manifest.json`. Old notes (`docs/history/`) are not current specifications. This file is the small mandatory entrypoint; all prior operative rules were preserved verbatim by section in `docs/agent/`.
 
-## Required for every change
-1. Verify current `main` SHA, open PRs, `project.godot` version and real source before editing. Never infer the live state from memory or older README.
-2. **Read `docs/agent/CI_WORKFLOW.md` on every change**, and inspect `.github/workflows/`, `tools/sera_ci_manifest.txt`, `docs/SERA_ACTIVE_CI_POLICY_ja.md`, and related current tests **before** implementation. Classify new expectations, old expectations, invariants and unaffected tests. For intentional spec changes, update related CI tests first and keep them in the same PR. Never delete, skip or weaken tests to hide regressions.
-3. Generate a focused plan with `python3 tools/sera_workplan.py --query "<user request>" --json` (or `--changed <path>`), then read its `documentation.required` and `documentation.selected`. Inspect selected code/tests; routing is heuristic, not authority. For unmapped or mixed features, manually expand dependencies and run sufficiently broad local tests. Follow `docs/SERA_MANUAL_TEST_WORKFLOW_ja.md`; automatic full CI is not required.
-4. Work in a short-lived branch. Keep unrelated behavior, model masters, existing save formats, Android compatibility and inputs intact. Use existing modules; avoid speculative rewrites.
-5. Run scoped registered local tests appropriate to the change, broadening coverage for shared or high-risk systems. **No automatic full CI is required.** Review tests, source diffs and unverified risks before merging. Do not merge known regressions; report failed and unexecuted checks separately. Headless checks do not establish Android visual, touch, motion or audio correctness. Follow `docs/SERA_MANUAL_TEST_WORKFLOW_ja.md`.
-6. Update `DEVELOPMENT.md` for meaningful changes. Increment SERA version only for requested gameplay changes.
+## Required for every change — 2026-11-22 user's latest rules
+1. Latest user instructions and current source/specifications are authoritative. Inspect the relevant game code, model masters and non-test design documents as needed. Do not substitute old memories for source.
+2. **CI / テスト全面禁止（最優先・解除指示まで継続）:** CIテストの項目・ケース・期待値・登録内容を**確認、修正、追加、適用しない**。テスト用ファイル、manifest、CIワークフローに触れない。GitHub ActionsのCI、ローカルPython/Godotテスト、静的テスト、ランタイムテスト、実機テストを**実行・起動しない**。テスト目的の検証・再実行も禁止する。開発支援ツールもCIテスト項目を調査したりテストを実行するものは使用しない。従来の「CI期待値を先に直す」「各変更でテストする」「検査がない場合はマージ保留」は**適用しない**。
+3. Implement only the requested production code/assets/documentation with focused manual source reading and change review **that does not inspect any CI test item or execute a test**. Keep unrelated behavior, save formats, Android compatibility, and model masters intact; avoid speculative rewrites.
+4. 「実装」は変更を作成してmainへマージせず待機する。ただし従来のChatGPT側の動作テスト要求より**本テスト禁止を優先**し、テストは行わない。「マージ」はテスト・CI待機・CI項目更新なしで統合する。どちらの指示でも画像生成を行わない。
+5. Test outcomes must never be described as PASS or verified when no test was run. If needed, report remaining unverified risks plainly; testing being prohibited is not, by itself, a reason to block a user-requested merge.
+6. Log meaningful changes in `DEVELOPMENT.md`. Increment SERA version only for requested gameplay changes.
 
 ## Routed rules (load when relevant)
 - `docs/agent/SOURCE_POLICY.md`: canonical model sources, generated assets, GitSync/Android, import, rendering and diagnostic guards.
 - **HTML配布・起動リンク:** `docs/SERA_HTML_ARTIFACT_DELIVERY_POLICY_ja.md` — Raw URLをアプリの直リンクとして提示しない。公開HTTPS/実HTML添付/複数ファイル配布を区別し、起動を確認する。
 - `docs/agent/EQUIPMENT.md`: warehouse individual UID / 999-limit rules, Icon Studio handoff, LAB integration, model acceptance. **New-chat equipment implementation contract:** `docs/SERA_EQUIPMENT_CROSS_CHAT_HANDOFF_ja.md` (mandatory for `SERA_EQUIPMENT_INTAKE_V1` exports).
 - `docs/agent/RUNTIME_BOUNDARIES.md`: `main.gd` split-contract ownership for input, physics, combat, camera, EN, HUD and FX.
-- **BASE external visual changes:** `docs/agent/BASE_VISUAL_REVIEW.md` — every BASE design change requires opening the current actual gameplay screenshot, running a new full-initialization screenshot at the unchanged camera, inspecting the real image, iterating until the on-screen silhouette is readable, and providing before/after image evidence. Do not merge based on CI text alone.
+- **BASE external visual changes:** `docs/agent/BASE_VISUAL_REVIEW.md` — 現行画像が利用できる場合は見た目の設計判断に参照できるが、テストとしての実行・撮影・検証は上記禁止ルールにより行わない。
 - Feature-specific canonical contracts are selected by `tools/sera_workplan.py`; read the underlying `docs/` specifications and real source. When models or animations change, also read `docs/MODEL_PART_WORKFLOW_ja.md` (**SERA_MODEL_PARTS_V1**), `docs/SERA_ANIMATION_RUNTIME_POLICY_ja.md`, and `models/manifest.json`. When rendering changes, read `docs/RENDER_PIPELINE_POLICY_ja.md`.
 - Old, superseded policies are retained at `docs/history/AGENTS_THROUGH_V316.md`, not treated as current.
 
-## Quick checks
-```sh
-python3 tools/sera_workplan.py --query "倉庫 UI" --json
-python3 tools/sera_workplan.py --query step --execute
-python3 tools/sera_quick_check.py
-python3 tools/sera_ci_suite.py static --workers 4
-# Full Godot tests are optional local/manual diagnostics; not automatic after merge.
-```
+## テスト運用の優先順位
+- `docs/agent/CI_WORKFLOW.md` と `docs/SERA_MANUAL_TEST_WORKFLOW_ja.md` は、上記禁止ルールを正本とする。
+- 旧文書に残るテスト実施・CI項目先行更新・CI修正・テスト必須の文言は、2026-11-22のユーザー指示によって無効化する。
