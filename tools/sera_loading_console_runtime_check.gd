@@ -19,9 +19,39 @@ func _run() -> void:
     root.add_child(screen)
     screen.size = Vector2(720.0, 1280.0)
     screen.set_process(false)
+    # Only the terminal's offscreen target is half resolution.
+    var reduced_view: SubViewport = screen.get_node_or_null(
+        "TerminalLowResViewport") as SubViewport
+    var display: TextureRect = screen.get_node_or_null(
+        "TerminalLowResOutput") as TextureRect
+    if reduced_view == null or display == null:
+        _fail("missing dedicated low-resolution terminal target")
+        return
+    if reduced_view.size != Vector2i(360, 640):
+        _fail("720x1280 terminal must render internally at 360x640")
+        return
+    if display.texture != reduced_view.get_texture():
+        _fail("terminal display is not presenting reduced-resolution texture")
+        return
+    if display.texture_filter != CanvasItem.TEXTURE_FILTER_NEAREST:
+        _fail("terminal texture was blurred by linear interpolation")
+        return
+    var source_canvas: Control = reduced_view.get_node_or_null(
+        "TerminalLowResCanvas") as Control
+    if source_canvas == null or source_canvas.scale != Vector2(0.5, 0.5):
+        _fail("offscreen terminal retains an incorrect source scale")
+        return
+    screen.size = Vector2(450.0, 800.0)
+    if reduced_view.size != Vector2i(225, 400):
+        _fail("offscreen viewport did not follow small-screen resize")
+        return
+    screen.size = Vector2(720.0, 1280.0)
     screen.call("set_stage", "CORE / ONLINE", 18)
     if int(screen.get("percent")) != 18:
         _fail("real milestone not committed")
+        return
+    if int(source_canvas.get("percent")) != 18:
+        _fail("offscreen renderer did not receive actual loading progress")
         return
     screen.call("set_stage", "STALE", 10)
     if int(screen.get("percent")) != 18:

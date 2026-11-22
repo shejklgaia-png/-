@@ -7,6 +7,8 @@ signal preview_finished
 const PREVIEW_SECONDS: float = 5.0
 const PREVIEW_STEPS: int = 100
 const MAX_HISTORY: int = 120
+# Loading terminal alone renders at 50%; the game's 720x1280 viewport is intact.
+const CONSOLE_RENDER_SCALE: float = 0.5
 # Every activation is keyed to a completed BASE loading milestone.
 const SYSTEM_PHASE_THRESHOLDS = {
     "CORE": 18, "NEXUS": 33, "LAB": 49, "GRID": 67,
@@ -41,21 +43,85 @@ var anim_time: float = 0.0
 var visual_elapsed: float = 0.0
 var electronic_texture: Texture2D
 var screen_font: Font
+var pixel_source_mode: bool = false
+var pixel_viewport: SubViewport
+var pixel_source: Control
+var pixel_output: TextureRect
 
 func _ready() -> void:
-    mouse_filter = Control.MOUSE_FILTER_STOP
-    texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+    mouse_filter = Control.MOUSE_FILTER_IGNORE if pixel_source_mode else Control.MOUSE_FILTER_STOP
     screen_font = ThemeDB.fallback_font
-    _create_electronic_texture()
-    resized.connect(queue_redraw)
+    if pixel_source_mode:
+        texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+        _create_electronic_texture()
+        resized.connect(queue_redraw)
+    else:
+        _setup_pixel_renderer()
+        resized.connect(_resize_pixel_renderer)
     if history.is_empty():
         set_stage("BOOT / SYSTEM LINK OPEN", 0)
-    set_process(true)
+    # The offscreen CanvasItem never runs another timer or preview.
+    set_process(not pixel_source_mode)
+
+func _setup_pixel_renderer() -> void:
+    # An offscreen SubViewport rasterizes the unchanged 720x1280 layout at half
+    # resolution. Only this loading overlay is sampled back; gameplay is not.
+    pixel_viewport = SubViewport.new()
+    pixel_viewport.name = "TerminalLowResViewport"
+    pixel_viewport.disable_3d = true
+    pixel_viewport.transparent_bg = false
+    pixel_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+    add_child(pixel_viewport)
+
+    var script_source: Script = get_script() as Script
+    pixel_source = script_source.new() as Control
+    pixel_source.name = "TerminalLowResCanvas"
+    pixel_source.set("pixel_source_mode", true)
+    pixel_viewport.add_child(pixel_source)
+    pixel_source.scale = Vector2(CONSOLE_RENDER_SCALE, CONSOLE_RENDER_SCALE)
+
+    pixel_output = TextureRect.new()
+    pixel_output.name = "TerminalLowResOutput"
+    pixel_output.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    pixel_output.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+    pixel_output.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+    pixel_output.stretch_mode = TextureRect.STRETCH_SCALE
+    add_child(pixel_output)
+    pixel_output.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    pixel_output.texture = pixel_viewport.get_texture()
+    _resize_pixel_renderer()
+
+func _resize_pixel_renderer() -> void:
+    if pixel_source_mode or pixel_viewport == null or pixel_source == null:
+        return
+    var render_width: int = maxi(1, int(ceilf(size.x * CONSOLE_RENDER_SCALE)))
+    var render_height: int = maxi(1, int(ceilf(size.y * CONSOLE_RENDER_SCALE)))
+    pixel_viewport.size = Vector2i(render_width, render_height)
+    # Keep existing absolute UI coordinates and font sizes; scale only when
+    # rasterizing into the viewport. This is not a gameplay viewport resize.
+    pixel_source.size = size
+    pixel_source.scale = Vector2(CONSOLE_RENDER_SCALE, CONSOLE_RENDER_SCALE)
+    _queue_console_redraw()
+
+func _queue_console_redraw() -> void:
+    if pixel_source_mode:
+        queue_redraw()
+        return
+    if pixel_source == null:
+        return
+    # State is owned by the actual/loading presenter, never independently
+    # simulated by the low-res visual replica.
+    pixel_source.set("percent", percent)
+    pixel_source.set("history", history.duplicate())
+    pixel_source.set("noise_phase", noise_phase)
+    pixel_source.set("anim_time", anim_time)
+    pixel_source.set("screen_font", screen_font)
+    pixel_source.queue_redraw()
 
 func set_cyber_font(font: Font) -> void:
     if font != null:
         screen_font = font
-        queue_redraw()
+        _queue_console_redraw()
 
 func set_stage(message: String, completed_percent: int) -> void:
     var next_percent: int = clampi(completed_percent, 0, 100)
@@ -67,7 +133,7 @@ func set_stage(message: String, completed_percent: int) -> void:
     history.push_back(message)
     while history.size() > MAX_HISTORY:
         history.pop_front()
-    queue_redraw()
+    _queue_console_redraw()
 
 func start_preview() -> void:
     # Preview progress is fake by design; the live path never calls this.
@@ -94,12 +160,12 @@ func _process(delta: float) -> void:
     visual_elapsed += dt
     if visual_elapsed >= 1.0 / 30.0:
         visual_elapsed = fposmod(visual_elapsed, 1.0 / 30.0)
-        queue_redraw()
+        _queue_console_redraw()
     noise_elapsed += dt
     if noise_elapsed >= 0.055:
         noise_elapsed = fposmod(noise_elapsed, 0.055)
         noise_phase += 1
-        queue_redraw()
+        _queue_console_redraw()
     if preview_running:
         preview_elapsed = minf(PREVIEW_SECONDS, preview_elapsed + dt)
         var target: int = mini(PREVIEW_STEPS,
@@ -134,6 +200,8 @@ func _create_electronic_texture() -> void:
     electronic_texture = ImageTexture.create_from_image(screen_image)
 
 func _draw() -> void:
+    if not pixel_source_mode:
+        return  # The presenter must never draw a full-resolution duplicate.
     if size.x < 120.0 or size.y < 180.0:
         return
     var w: float = size.x
