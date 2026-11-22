@@ -11,6 +11,14 @@ on:
       - 'shaders/sera_view_edges.gdshader'
       - 'tools/sera_armour_visible_ink_capture.gd'
       - '.github/workflows/sera-armour-visible-ink.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/sera_rig.gd'
+      - 'scripts/sera_face_culling.gd'
+      - 'shaders/sera_view_edges_fast.gdshader'
+      - 'tools/sera_armour_visible_ink_capture.gd'
+      - '.github/workflows/sera-armour-visible-ink.yml'
   workflow_dispatch:
 
 permissions:
