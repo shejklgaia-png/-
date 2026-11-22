@@ -6,7 +6,8 @@ render_mode unshaded, cull_disabled, depth_draw_opaque;
 
 uniform sampler2D source_texture : source_color, filter_nearest, repeat_disable;
 uniform vec4 source_tint : source_color = vec4(1.0);
-uniform int material_hint = 0; // 0 palette, 1 armor, 2 internal mechanism
+uniform int material_hint = 0; // 1 external shell, 2 joint/mechanism
+uniform bool iris_palette = false; // 16x16 HEAD D, otherwise 96x32 atlas
 uniform int armor_levels : hint_range(0, 8) = 8;
 uniform float armor_threshold : hint_range(0.0, 1.0) = 0.65;
 uniform int dark_levels : hint_range(0, 8) = 2;
@@ -38,10 +39,14 @@ void fragment() {
     bool cyan = iris_cyan || (pixel_color.b > pixel_color.r * 1.38
         && pixel_color.g > pixel_color.r * 1.26
         && pixel_color.g > 0.18 && pixel_color.b > 0.23);
-    // Dark mechanism includes joints and shadowed framing; light armor is
-    // the default. Colored armor remains armor even under a red set tint.
-    bool dark_pixel = high < 0.34 || (
-        material_hint == 2 && high < 0.70 && grayness < 0.24);
+    // UV colors are baked directional tones; mid/dark atlas pixels may be
+    // shadow-facing ARMOR, not separate mechanism. Prefer authored position
+    // or mesh naming for standard 96x32 equipment. On IRIS' standalone
+    // 16x16 atlas, light-grey shell vs two dark-grey frame tones are distinct.
+    // This works with both sRGB and linear GL color sampling.
+    bool dark_pixel = iris_palette ? (high < 0.45 && !cyan) :
+        ((material_hint == 2 && high < 0.70 && grayness < 0.24) ||
+        (high < 0.05 && grayness < 0.06));
     int kind = cyan ? 2 : (dark_pixel ? 1 : 0);
     int levels = kind == 2 ? lens_levels : (
         kind == 1 ? dark_levels : armor_levels);
