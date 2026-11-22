@@ -291,6 +291,12 @@ class Batch:
             draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
             draw.set_meta("sera_outline_instanced_roles", true)
             if host.name == "NexusArchitecture":
+                # Preserve the actual authored StandardMaterial3D rather than
+                # replacing it later with the global character preview shader.
+                draw.set_meta("sera_base_authored_material", surface)
+                draw.set_meta("sera_preserve_authored_material", true)
+                draw.set_meta("sera_base_material_tint", tint)
+            if host.name == "NexusArchitecture":
                 # Per-material bright-face floor without touching SERA,
                 # boss, GRID or other BASE facility shading.
                 draw.set_meta("sera_scene_min_brightness", 0.82)
