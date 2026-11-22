@@ -6,6 +6,7 @@ extends Node3D
 const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
 const RenderOrder = preload("res://scripts/render_order_policy.gd")
 const EDGE_SHADER = preload("res://shaders/sera_live_mesh_edges.gdshader")
+const XRAY_SHADER = preload("res://shaders/sera_live_mesh_edges_xray.gdshader")
 const ContactSeams = preload("res://scripts/sera_nexus_contact_seams.gd")
 const RibbonGeometry = preload("res://scripts/sera_base_facility_crease_geometry.gd")
 const RESCAN_SECONDS: float = 0.35
@@ -16,6 +17,8 @@ const COPLANAR_DOT: float = 0.995
 
 var _source_root: Node3D
 var _edge_material: ShaderMaterial
+var _xray_material: ShaderMaterial
+var _diagnostic_mode: int = 0
 var _edge_links: Dictionary = {} # source ID -> {source, mesh, draw}
 var _geometry_cache: Dictionary = {} # Mesh resource instance ID -> ArrayMesh/null
 var _contact_links: Dictionary = {} # mesh ID -> depth-tested contact ribbons
@@ -35,6 +38,9 @@ func _ready() -> void:
     _edge_material.set_shader_parameter("ink_color", Color("#17212f"))
     _edge_material.set_shader_parameter("silhouette_px", 3.0)
     _edge_material.set_shader_parameter("boundary_px", 1.0)
+    _edge_material.set_shader_parameter("diagnostic_mode", 0)
+    _xray_material = _edge_material.duplicate() as ShaderMaterial
+    _xray_material.shader = XRAY_SHADER
     visible = GraphicsSettings.get_enabled("character_outline")
     if visible:
         _refresh_meshes()
@@ -129,6 +135,10 @@ func _refresh_meshes() -> void:
             "source": weakref(source), "mesh": source.mesh, "draw": draw
         }
     _refresh_contact_lines(found)
+    # New edge/contact children inherit the currently selected diagnostic
+    # material immediately, including after an equipment swap.
+    if _diagnostic_mode != 0:
+        set_diagnostic_mode(_diagnostic_mode)
 
 # Reuse the proven GPU edge extractor used by BASE facilities.
 # Its SurfaceTool format is consumed identically by SERA's new 3D shader,
@@ -219,3 +229,67 @@ func _refresh_contact_lines(found: Dictionary) -> void:
         contact.extra_cull_margin = 1.0
         part.add_child(contact)
         _contact_links[key] = contact
+
+## Diagnostic controls are intentionally separate from the persistent
+## GRAPHICS SETTINGS switch; all modes return to production on exit.
+func set_diagnostic_mode(mode: int) -> void:
+    _diagnostic_mode = clampi(mode, 0, 5)
+    if _edge_material == null or _xray_material == null:
+        return
+    _edge_material.set_shader_parameter("diagnostic_mode", _diagnostic_mode)
+    _xray_material.set_shader_parameter("diagnostic_mode", _diagnostic_mode)
+    var chosen: ShaderMaterial = (
+        _xray_material if _diagnostic_mode == 5 else _edge_material)
+    for record in _edge_links.values():
+        var draw: MeshInstance3D = record.get("draw") as MeshInstance3D
+        if is_instance_valid(draw):
+            draw.material_override = chosen
+    for value in _contact_links.values():
+        var contact: MeshInstance3D = value as MeshInstance3D
+        if is_instance_valid(contact):
+            contact.material_override = chosen
+
+func get_diagnostic_snapshot() -> Dictionary:
+    # No GPU readback: these are counts of prepared geometry, not claims
+    # about how many screen pixels were actually rasterized.
+    var active_sources: int = 0
+    var live_draws: int = 0
+    var missing_draws: int = 0
+    var topology_edges: int = 0
+    for record in _edge_links.values():
+        var ref: WeakRef = record.get("source") as WeakRef
+        var source: MeshInstance3D = (
+            ref.get_ref() as MeshInstance3D if ref != null else null)
+        if not is_instance_valid(source) or not source.is_visible_in_tree():
+            continue
+        active_sources += 1
+        var draw: MeshInstance3D = record.get("draw") as MeshInstance3D
+        if not is_instance_valid(draw) or draw.mesh == null:
+            missing_draws += 1
+            continue
+        live_draws += 1
+        if draw.mesh.get_surface_count() > 0:
+            var arrays: Array = draw.mesh.surface_get_arrays(0)
+            var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+            topology_edges += int(points.size() / 6)
+    var contact_strokes: int = 0
+    for value in _contact_links.values():
+        var draw: MeshInstance3D = value as MeshInstance3D
+        if is_instance_valid(draw) and draw.mesh != null and (
+                draw.mesh.get_surface_count() > 0):
+            var arrays: Array = draw.mesh.surface_get_arrays(0)
+            var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+            contact_strokes += int(points.size() / 6)
+    var camera: Camera3D = get_viewport().get_camera_3d()
+    return {
+        "mode": _diagnostic_mode,
+        "active_sources": active_sources,
+        "edge_draws": live_draws,
+        "missing_draws": missing_draws,
+        "edge_segments": topology_edges,
+        "contact_segments": contact_strokes,
+        "camera_present": is_instance_valid(camera),
+        "enabled": GraphicsSettings.get_enabled("character_outline"),
+        "depth_disabled": _diagnostic_mode == 5,
+        "contacts_cached": not _last_contact_signature.is_empty()
+    }
