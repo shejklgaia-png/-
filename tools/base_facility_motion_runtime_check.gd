@@ -70,6 +70,7 @@ func _run() -> void:
                     poses[0].basis.z.distance_to(poses[i].basis.z) > 0.02):
                 changed = true
         if not changed:
+            print("SERA_BASE_MOTION_POSE_DIAG " + key + " " + str(poses))
             _fail(key + " model part does not actually move across time")
             return
         var tap: Vector2 = camera.unproject_position(site.global_position +
