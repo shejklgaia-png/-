@@ -17,6 +17,9 @@ var _enabled: bool = false
 var _copies: Dictionary = {}  # source_instance_id -> MeshInstance3D
 var _source_refs: Dictionary = {}
 var _original_ink_visibility: Dictionary = {}
+var _last_camera_transform: Transform3D = Transform3D.IDENTITY
+var _last_camera_size: float = -1.0
+var _last_camera_projection: int = -1
 
 func _ready() -> void:
     name = "NexusIrisVisibleMeshContour"
@@ -81,7 +84,10 @@ func set_active(enabled: bool, preview: Node3D = null,
     source_viewport = viewport
     _enabled = true
     visible = true
-    id_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+    # Only render the six ID solids if camera/pose/visibility changes.
+    # Avoid a second 3D draw pass on idle frames.
+    id_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+    _last_camera_size = -1.0
     set_process(true)
     _sync_id_pass()
 
@@ -101,18 +107,27 @@ func _sync_id_pass() -> void:
     var new_size: Vector2i = source_viewport.size
     if new_size.x < 32 or new_size.y < 32:
         return
+    var dirty: bool = false
     if id_viewport.size != new_size:
         id_viewport.size = new_size
+        dirty = true
     var src_camera: Camera3D = source_preview.get("camera") as Camera3D
     if not is_instance_valid(src_camera):
         return
-    id_camera.projection = src_camera.projection
-    id_camera.size = src_camera.size
-    id_camera.fov = src_camera.fov
-    id_camera.near = src_camera.near
-    id_camera.far = src_camera.far
-    id_camera.keep_aspect = src_camera.keep_aspect
-    id_camera.global_transform = src_camera.global_transform
+    if _last_camera_transform != src_camera.global_transform or (
+            _last_camera_size != src_camera.size) or (
+            _last_camera_projection != src_camera.projection):
+        dirty = true
+        _last_camera_transform = src_camera.global_transform
+        _last_camera_size = src_camera.size
+        _last_camera_projection = src_camera.projection
+        id_camera.projection = src_camera.projection
+        id_camera.size = src_camera.size
+        id_camera.fov = src_camera.fov
+        id_camera.near = src_camera.near
+        id_camera.far = src_camera.far
+        id_camera.keep_aspect = src_camera.keep_aspect
+        id_camera.global_transform = src_camera.global_transform
 
     var sources: Array = source_preview.call("_mesh_in_slot", "head", "D")
     var wanted: Dictionary = {}
@@ -125,6 +140,7 @@ func _sync_id_pass() -> void:
         wanted[key] = true
         var clone: MeshInstance3D = _copies.get(key) as MeshInstance3D
         if not is_instance_valid(clone):
+            dirty = true
             clone = MeshInstance3D.new()
             clone.name = "DepthID_%d" % index
             clone.mesh = source.mesh # Shared vertex data; NOT duplicated.
@@ -140,8 +156,13 @@ func _sync_id_pass() -> void:
             _source_refs[key] = source
         # Source is in a separate World3D. Global transforms share the same
         # coordinate system because both viewport roots have identity transform.
+        var show_id: bool = source.visible and source.is_visible_in_tree()
+        if clone.global_transform != source.global_transform or (
+                clone.visible != show_id) or clone.mesh != source.mesh:
+            dirty = true
+        clone.mesh = source.mesh
         clone.global_transform = source.global_transform
-        clone.visible = source.visible and source.is_visible_in_tree()
+        clone.visible = show_id
         var legacy_ink: MeshInstance3D = source.get_node_or_null(
             "SeraEdgeInk") as MeshInstance3D
         if is_instance_valid(legacy_ink):
@@ -155,9 +176,14 @@ func _sync_id_pass() -> void:
             continue
         var previous: MeshInstance3D = _copies[key] as MeshInstance3D
         if is_instance_valid(previous):
+            if previous.get_parent() != null:
+                previous.get_parent().remove_child(previous)
             previous.queue_free()
+            dirty = true
         _copies.erase(key)
         _source_refs.erase(key)
+    if dirty:
+        id_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 
 func _restore_original_ink() -> void:
     for old in _original_ink_visibility.values():
@@ -169,6 +195,8 @@ func _restore_original_ink() -> void:
 func _clear_copies() -> void:
     for copy in _copies.values():
         if is_instance_valid(copy):
+            if copy.get_parent() != null:
+                copy.get_parent().remove_child(copy)
             copy.queue_free()
     _copies.clear()
     _source_refs.clear()
