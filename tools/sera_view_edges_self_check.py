@@ -59,6 +59,7 @@ assert 'ALPHA = 1.0;' in shader
 assert 'hint_depth_texture' in shader
 assert 'filter_nearest' in shader and 'repeat_disable' in shader
 assert 'INV_PROJECTION_MATRIX' in shader
+assert 'return -view.z / view.w;' in shader
 assert 'CURRENT_RENDERER == RENDERER_COMPATIBILITY' in shader
 assert 'opaque_depth_at' in shader
 assert 'source_depth' in shader and 'SCREEN_UV' in shader
