@@ -50,7 +50,7 @@ assert 'uniform vec2 mesh_id_texel' in canvas
 assert 'texture(mesh_id_texture, uv).r' in canvas
 assert 'if (id >= 0.06)' in canvas
 assert 'return;' not in canvas   # No undefined fragment() early return
-assert 'COLOR = vec4(ink_color.rgb, edge ? ink_color.a : 0.0);' in canvas
+assert 'COLOR = vec4(ink_color.rgb, ink_color.a * coverage);' in canvas
 # Raw ID texture MUST NOT be assigned to the displayed TextureRect.
 assert 'ink_rect.texture = id_viewport.get_texture()' not in layer
 assert 'safe_image.fill(Color.TRANSPARENT)' in layer
@@ -60,8 +60,47 @@ assert '"mesh_id_texel"' in layer
 assert 'mismatched_id' in canvas
 assert 'neighbor_id + 0.05 < center_id' in canvas
 assert 'if (id >= 0.06)' in canvas
-assert 'COLOR = vec4(ink_color.rgb, edge ? ink_color.a : 0.0);' in canvas
-assert 'for (int r = 1; r <= 3; r++)' in canvas
+assert 'COLOR = vec4(ink_color.rgb, ink_color.a * coverage);' in canvas
+assert 'for (int dy = -3; dy <= 3; dy++)' in canvas
+assert 'for (int dx = -3; dx <= 3; dx++)' in canvas
+assert 'distance_sq > 10' in canvas
+assert 'sqrt(float(distance_sq))' in canvas
+assert 'stroke_px + 0.5 - nearest_dist' in canvas
+assert 'nearest_dist <= stroke_px' in canvas
+# The ID raster must match the actual overlay, not the initial 384x384 size.
+assert 'roundi(ink_rect.size.x)' in layer
+assert 'roundi(ink_rect.size.y)' in layer
+assert 'func get_outline_metrics() -> Dictionary:' in layer
+assert 'id_redraw_requests' in layer
+assert 'estimated_max_id_samples_per_ink_pixel' in layer
+# Numeric independent reference for a strict 3px solid core, with a 0.5px
+# alpha edge on diagonals only. Two touching IDs get a single high-ID seam.
+from math import sqrt
+
+def coverage(ids, x, y):
+    center = ids[y][x]
+    if center == 0:
+        return 0.0
+    nearest = 99.0
+    for dy in range(-3, 4):
+        for dx in range(-3, 4):
+            dsq = dx * dx + dy * dy
+            if not (0 < dsq <= 10):
+                continue
+            neighbor = ids[y + dy][x + dx]
+            if neighbor == 0 or neighbor < center:
+                nearest = min(nearest, sqrt(dsq))
+    return min(1.0, max(0.0, (3.5 - nearest) / 0.5))
+
+filled = [[1 if 12 <= x < 24 else 0 for x in range(40)] for y in range(40)]
+assert [coverage(filled, x, 20) for x in range(11, 17)] == [0, 1, 1, 1, 0, 0]
+touched = [[1 if 5 <= x < 20 else (2 if 20 <= x < 35 else 0)
+            for x in range(40)] for y in range(40)]
+assert [coverage(touched, x, 20) for x in range(17, 24)] == [0, 0, 0, 1, 1, 1, 0]
+diagonal = [[1 if x + y >= 34 else 0 for x in range(48)] for y in range(48)]
+for y in range(12, 23):
+    line = [x for x in range(10, 35) if coverage(diagonal, x, y) > 0]
+    assert line == list(range(min(line), max(line) + 1))  # no 45-degree breaks
 # Other systems untouched: no new blanket replacement of SeraViewEdges.
 assert 'const INK_SHADER = preload("res://shaders/sera_view_edges.gdshader")' in read(
     "scripts/sera_view_edges.gd")
