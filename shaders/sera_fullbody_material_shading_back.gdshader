@@ -39,14 +39,17 @@ void fragment() {
     }
     // Provisional visual material selection from authored palette plus part
     // location/name hint. Compare BEFORE red-tint, preserving authored B paint.
-    float high = max(pixel_color.r, max(pixel_color.g, pixel_color.b));
-    float low = min(pixel_color.r, min(pixel_color.g, pixel_color.b));
+    vec3 classify_color = iris_palette ? pixel_color : original;
+    float high = max(classify_color.r,
+        max(classify_color.g, classify_color.b));
+    float low = min(classify_color.r,
+        min(classify_color.g, classify_color.b));
     float grayness = high - low;
-    bool iris_cyan = distance(pixel_color,
+    bool iris_cyan = iris_palette && distance(pixel_color,
         vec3(43.0, 141.0, 173.0) / 255.0) < 0.075;
-    bool cyan = iris_cyan || (pixel_color.b > pixel_color.r * 1.38
-        && pixel_color.g > pixel_color.r * 1.26
-        && pixel_color.g > 0.18 && pixel_color.b > 0.23);
+    bool cyan = iris_cyan || (classify_color.b > classify_color.r * 1.38
+        && classify_color.g > classify_color.r * 1.26
+        && classify_color.g > 0.18 && classify_color.b > 0.23);
     // UV colors are baked directional tones; mid/dark atlas pixels may be
     // shadow-facing ARMOR, not separate mechanism. Prefer authored position
     // or mesh naming for standard 96x32 equipment. On IRIS' standalone
