@@ -22,7 +22,7 @@ assert "static func make_face_uniform_mesh(" in helper
 assert "source_mesh.surface_get_arrays(0)" in helper
 assert "Mesh.ARRAY_NORMAL" in helper and "Mesh.ARRAY_VERTEX" in helper
 assert "surface_get_primitive_type(0)" in helper
-assert "if offset + count * 3 != vertices.size()" in helper
+assert "if expected_count != vertices.size()" in helper
 assert "surface.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)" in helper
 assert 'source.mesh = preview_mesh' in widget
 assert '"original_mesh": source.mesh' in widget
@@ -65,7 +65,7 @@ for element in model["elements"]:
             combined = [n0[i] + n1[i] for i in range(3)]
             assert mag(combined) > 1e-8
             shared = [v / mag(combined) for v in combined]
-            assert all(abs(sum(v*v for v in shared)-1) < 1e-8 for _ in range(2))
+            assert abs(sum(v*v for v in shared)-1) < 1e-8
 assert triangle_count == 396, triangle_count
 assert twisted_quads == 28, twisted_quads
 assert 13.0 < max_diagonal_angle < 13.5
