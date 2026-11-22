@@ -1,3 +1,9 @@
+## 2026-11-22 — 3D輪郭の3px復帰と急角度面の黒塗り抑制
+- 最新Android画面でアイリス単体に対し全身の輪郭が異常に太く、頭部・四肢の折れ目に黒い帯状領域を確認。前回のViewport短辺/384で線幅を自動拡大する変更を取り消し、全てのSeraViewEdges描画で`stroke_px=3.0`を使用。
+- 閉じたBlockbench装甲パーツ用の`sera_view_edges_fast.gdshader`は背面の拡張メッシュを無条件に塗りつぶしていたため、`cull_back`を維持したまま深度テクスチャの中心と4方向の近傍に実際の描画表面がある場合のみ描画する方式へ変更。開いたメッシュ用`sera_view_edges.gdshader`にも3pxに合わせた近傍判定を適用。
+- 輪郭色#17212f、アイリス専用ID輪郭の3px、施設独自2px/4px、モデル/UV/陰影数値は変更なし。高速版も深度テクスチャを使うためGPU負荷上昇の可能性あり。
+- ユーザールールに従いCI項目・manifest・テストコードを確認修正せず、テスト実行もなし。Android/Godotの描画・FPSは未確認。ユーザーの「マージ」指示によりmainへ統合する。
+
 ## 2026-11-22 — 全身・通常単体プレビューの輪郭消失を修正（未マージ）
 - PR #747後の実機スクリーンショットで、アイリス専用ID輪郭以外の3D輪郭が見えないことを確認。共通輪郭シェーダー `sera_view_edges.gdshader`／`sera_view_edges_fast.gdshader` の新規補助関数が `VIEWPORT_SIZE` ビルトインを直接参照していた点を修正。
 - 補助関数を `effective_stroke_px(vec2 viewport_size, float base_stroke_px)` とし、`vertex()`／`fragment()` から `VIEWPORT_SIZE` を引数で渡す。通常版の深度再構成補助関数も `INV_PROJECTION_MATRIX` を明示的に引数で渡す方式へ変更。Godotシェーダーのビルトイン参照スコープを遵守。
