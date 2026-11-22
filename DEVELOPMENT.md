@@ -1,3 +1,12 @@
+## 2026-11-22 — BASE施設の6pxシルエットを最新SERAシェーダーに更新（2px角線は維持）
+
+- 指示：「シルエット線を最新のセラシェーダーに置き換えてください。2pxの線はそのままでよい」。
+- 調査で`scripts/sera_view_edges.gd` + `shaders/sera_view_edges.gdshader` の現行実装が**平均化法線・頂点拡張・裏面カリングのInverted Hull**になっていると判明。BASE側の旧`SeraViewEdges._build_overlay`呼出しは現在Inverted Hullを返すのに、前面/背面エッジ用リボンシェーダーへ渡していたため描画方式が不一致だった。
+- **6pxのシルエットだけを最新のSERA物理メッシュシェーダーに置き換え**。`SeraViewEdges._build_overlay`により現行SERAと同じ法線平均化済みの裏面ハルを生成、`shaders/sera_view_edges.gdshader`をBASEの`ShaderMaterial`へ直接割り当て。BASE固有の`#55798A`・画面6px設定。SERA本体のソース・3px・`#17212f`は変更しない。
+- **2pxの角線は引き続き独立描画**。`shaders/base_facility_view_edges.gdshader`の80度以上・両面カメラ向き・深度テスト・2px幅を維持し、新しい6pxシルエットと重複する前後面境界だけを除外する`crease_only`スイッチを追加。新SERAのInverted Hullからは旧エッジ情報が得られないため、BASEの2px専用メッシュを物理メッシュの三角形の隣接から生成、面内の三角化線は除外。
+- 8施設の従来の不透明ソリッドメッシュだけを対象に`ArchitecturalEdgeInk_*`（6px）・`ArchitecturalCreaseInk_*`（2px）を別MultiMeshバッチ化。煙・光・炎・炉の床反射・発光体には適用しない。既存のアニメ可動部は両パスへ同じ変換を転送する。旧型NEXUS、7施設モデル、タップ、GRID、CRATE、照明は不変。
+- CI仕様を先に更新：`base_facility_latest_sera_silhouette_self_check.py`と`base_facility_latest_sera_silhouette_runtime_check.gd`を追加し、既存のBASE FX/mesh-edge検査も6pxと2pxの個別パスへ更新。実Godotの720×1280キャプチャ・Android実機の見え方は別途判定する。
+
 ## 2026-11-22 — SERA・標的の可視独立メッシュ輪郭へ移行
 
 - アイリス（HEAD D）の比較実験で確定した「急角度の面の線は消し、モデル外周と独立した可視メッシュ輪郭は残す」をセラ・訓練標的・ビットタランの共通 `SeraViewEdges` に採用。80°の隣接ポリゴン判定／表裏切替エッジリボンは廃止。画面に現れる背面ハルのみを3pxで拡張する軽量実装へ置換。FX・非発光・材質・アニメ・装備交換契約は維持。
