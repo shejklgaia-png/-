@@ -14,7 +14,8 @@ workflow = (root / ".github/workflows/base-roof-visual-preview.yml").read_text(e
 assert "extends RefCounted" in edge
 assert "SeraViewEdges._build_overlay" in edge
 assert "ShaderMaterial.new()" in edge
-assert '"silhouette_px", 6.0' in edge
+assert '"stroke_px", 6.0' in edge
+assert 'preload("res://shaders/sera_view_edges.gdshader")' in edge
 assert '"crease_px", 2.0' in edge
 assert 'Color("#55798A")' in edge
 assert "RENDER_ORDER.DEPTH_TESTED_EMISSIVE" in edge
@@ -26,7 +27,8 @@ assert "uniform float silhouette_px" in shader
 assert "uniform float crease_px" in shader
 assert "CUSTOM0.xyz" in shader and "COLOR.a" in shader
 assert "a_facing > 0.02 && b_facing > 0.02" in shader
-assert "visible = contour" in shader
+assert "contour && !crease_only" in shader
+assert "uniform bool crease_only = false" in shader
 assert "both_front && COLOR.a > 0.5" in shader
 assert "POSITION = clip" in shader
 assert "VIEWPORT_SIZE" in shader
@@ -38,11 +40,14 @@ assert "ALPHA = 1.0" in shader
 assert "FacilityOutlines" not in hub
 assert "SeraBaseFacilityOutlines" not in hub
 assert "outline_meshes_by_bucket" in arch
+assert "crease_meshes_by_bucket" in arch
+assert "ArchitecturalCreaseInk_" in arch
 assert "ArchitecturalEdgeInk_" in arch
 assert 'tint not in ["blue_light", "amber_light", "amber", "glass"]' in arch
 assert 'set_meta("FX_NO_OUTLINE", true)' in arch
 assert "ink_mesh" in arch and "ink_index" in arch
 assert 'record.has("ink_mesh")' in motion
+assert 'record.has("crease_mesh")' in motion
 assert 'ink_mesh.set_instance_transform' in motion
 assert 'set_meta("FX_NO_OUTLINE", true)' in vfx
 assert 'py tools/base_facility_mesh_edge_shader_self_check.py' in manifest
