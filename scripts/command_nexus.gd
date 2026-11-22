@@ -291,6 +291,7 @@ func _ready() -> void:
     var id_outline := SeraViewEdges.new()
     id_outline.name = "ViewEdges"
     id_outline.set_nexus_sera_contact_mode(true)
+    id_outline.set_stroke_px(2.0)
     add_child(id_outline)
     _create_customization_glow()
     _wall_mark()
@@ -1667,7 +1668,7 @@ func _create_single_part_preview() -> void:
     customize_part_preview_fullscreen_layer.mouse_filter = Control.MOUSE_FILTER_STOP
     customize_part_preview_fullscreen_layer.z_index = 90
     var fullscreen_style := StyleBoxFlat.new()
-    fullscreen_style.bg_color = Color("#172d3a")
+    fullscreen_style.bg_color = Color("#263f4d")
     customize_part_preview_fullscreen_layer.add_theme_stylebox_override(
         "panel", fullscreen_style)
     customize_part_preview_fullscreen_layer.visible = false
@@ -3129,8 +3130,8 @@ func _create_customization_glow() -> void:
     quad.size = Vector2.ONE
     var material := ShaderMaterial.new()
     material.shader = CUSTOMIZE_BACKDROP_SHADER
-    material.set_shader_parameter("base_tint", Color("#172935"))
-    material.set_shader_parameter("grid_tint", Color("#0c1c27"))
+    material.set_shader_parameter("base_tint", Color("#294755"))
+    material.set_shader_parameter("grid_tint", Color("#193241"))
     material.set_shader_parameter("grid_strength", 0.77)
     material.set_shader_parameter("base_opacity", 0.96)
     var backdrop := MeshInstance3D.new()
