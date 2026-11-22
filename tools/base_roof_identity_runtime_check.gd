@@ -3,7 +3,7 @@ extends SceneTree
 const Arch = preload("res://scripts/sera_base_architecture.gd")
 const Roof = preload("res://scripts/sera_base_fresh_design.gd")
 const FEATURES = {
-    "NEXUS": ["FreshNexusSplitCrown", "FreshNexusGateCore"],
+    "NEXUS": ["NexusCutCornerShell", "ArmoredRoof", "GatePortal"],
     "LABO": ["FreshLabTensionedAwning", "FreshLabOpenPrinterBridge", "FreshLabFabricationBed"],
     "SCRAP_COLLECTOR": ["FreshCollectorTallBoom", "FreshCollectorOpenGrip"],
     "SMELTER": ["FreshSmelterTwinStacks", "FreshSmelterHotThroat"],

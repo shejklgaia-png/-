@@ -1,3 +1,6 @@
+# BASE two-version NEXUS restoration + angular-only seven facilities.
+py tools/base_angular_archive_nexus_self_check.py
+gd tools/base_angular_archive_nexus_runtime_check.gd
 # BASE: actual 720x1280 gameplay-camera pixel visibility, not just world geometry.
 py tools/base_gameplay_angle_visibility_self_check.py
 gd tools/base_gameplay_angle_visibility_runtime_check.gd

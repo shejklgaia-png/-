@@ -43,9 +43,9 @@ func _run() -> void:
             return
     var nexus: Node3D = hub.get_node("NEXUSBuilding/NexusArchitecture") as Node3D
     var features: Array = nexus.get_meta("unique_model_features", [])
-    if not features.has("FreshNexusFrontButtress") or (
-            not features.has("FreshNexusSideLoadingHood")):
-        _fail("fresh asymmetric NEXUS command wings not drawn")
+    if not features.has("NexusLeftMaintenanceAnnex") or (
+            not features.has("NexusRightServiceTower")):
+        _fail("archived NEXUS asymmetric wings not drawn")
         return
     print("SERA_BASE_VISUAL_ENLARGEMENT_RUNTIME_PASS")
     quit(0)

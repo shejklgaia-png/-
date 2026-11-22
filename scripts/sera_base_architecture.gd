@@ -8,6 +8,8 @@ const BaseStructuralMass = preload("res://scripts/sera_base_structural_mass.gd")
 const BaseRoofIdentity = preload("res://scripts/sera_base_roof_identity.gd")
 const BaseFreshDesign = preload("res://scripts/sera_base_fresh_design.gd")
 const ACTIVE_BASE_MODEL: String = "FRESH_20261122"
+# User reverted the NEXUS two versions: the pre-FRESH archived geometry is intact.
+const ARCHIVED_NEXUS_MODEL: bool = true
 const BasePolygon = preload("res://scripts/sera_base_polygon_meshes.gd")
 const WEATHERED_STEEL_PATH: String = "res://assets/base/industrial_steel_grunge.svg"
 const WEATHERED_CANVAS_PATH: String = "res://assets/base/aged_canvas_weave.svg"
@@ -50,13 +52,19 @@ class Batch:
     var pivot: Vector3 = Vector3.ZERO
     # Optional per-salvage uniform scale; equipment models stay at 1x.
     var detail_scale: float = 1.0
+    # Seven outdoor machines use rectangular, sharp 90-degree mesh edges.
+    # The archived NEXUS is deliberately NOT affected by this flag.
+    var hard_edges: bool = false
 
     func _init(node: Node3D) -> void:
         host = node
 
     func _put(feature: String, kind: String, tint: String, basis: Basis,
             at: Vector3) -> void:
-        var key: String = kind + "|" + tint
+        var resolved_kind: String = kind
+        if hard_edges and kind in ["bevel", "drum", "gear", "hopper", "canvas", "tube"]:
+            resolved_kind = "cube"
+        var key: String = resolved_kind + "|" + tint
         if not entries.has(key):
             entries[key] = []
         # A whole 3D subassembly rotates about its own pivot, including boxes,
@@ -103,9 +111,10 @@ class Batch:
     func ring(feature: String, center: Vector3, radius: float,
             tint: String, axis: String = "y") -> void:
         # Eight straight segments: an angular, physically readable machine rim.
-        for index in range(8):
-            var a: float = TAU * float(index) / 8.0
-            var b: float = TAU * float(index + 1) / 8.0
+        var segments: int = 4 if hard_edges else 8
+        for index in range(segments):
+            var a: float = TAU * float(index) / float(segments)
+            var b: float = TAU * float(index + 1) / float(segments)
             if axis == "z":
                 rod(feature, center + Vector3(cos(a) * radius, sin(a) * radius, 0),
                     center + Vector3(cos(b) * radius, sin(b) * radius, 0), 0.065, tint)
@@ -254,7 +263,7 @@ static func build_nexus(parent: Node3D) -> void:
     g.detail_scale = 1.14
     node.set_meta("visual_model_scale", g.detail_scale)
     node.set_meta("body_yaw", g.yaw)
-    if ACTIVE_BASE_MODEL == "FRESH_20261122":
+    if ACTIVE_BASE_MODEL == "FRESH_20261122" and not ARCHIVED_NEXUS_MODEL:
         node.set_meta("base_design", ACTIVE_BASE_MODEL)
         BaseFreshDesign.add_details(g, "NEXUS")
         # Retain existing site dressing only, not old building geometry.
@@ -264,7 +273,9 @@ static func build_nexus(parent: Node3D) -> void:
         _light(node, "NexusAmberGateLight", Vector3(0, 2.55, 2.89),
             "#ffc491", 1.05, 4.0)
         return
-    # Archived original geometry for reversible comparison / older tests.
+    # Exact pre-FRESH archived NEXUS geometry. Its original shell, facade,
+    # roof modules and mechanical service add-ons remain byte-for-byte intact.
+    node.set_meta("base_design", "ARCHIVED_20261122")
     # Wide reinforced shell, individual roof modules, recessed front blast door.
     g.poly("NexusCutCornerShell", "bevel", Vector3(0, 2.25, -0.08), Vector3(5.70, 3.98, 4.95), "armor")
     g.poly("ArmoredRoof", "bevel", Vector3(0, 4.38, -0.15), Vector3(6.27, 0.32, 5.27), "slate")
@@ -636,6 +647,7 @@ static func build_facility(parent: Node3D, key: String) -> void:
     node.name = "IndustrialModel"
     parent.add_child(node)
     var g := Batch.new(node)
+    g.hard_edges = true
     g.yaw = facility_yaw_radians(key)
     # Seven work buildings grow into the unused portrait space; NEXUS retains
     # its own 1.14x size. Keep all pad, tap anchor and clutter placements.

@@ -4,7 +4,7 @@ extends SceneTree
 const Arch = preload("res://scripts/sera_base_architecture.gd")
 const Mass = preload("res://scripts/sera_base_fresh_design.gd")
 const Features = {
-    "NEXUS": ["FreshNexusCommandHull", "FreshNexusSplitCrown"],
+    "NEXUS": ["NexusCutCornerShell", "ArmoredRoof"],
     "LABO": ["FreshLabStructuralPost", "FreshLabTensionedAwning", "FreshLabFabricationBed"],
     "SCRAP_COLLECTOR": ["FreshCollectorTallBoom", "FreshCollectorOpenGrip"],
     "SMELTER": ["FreshSmelterTwinStacks", "FreshSmelterHotThroat"],
