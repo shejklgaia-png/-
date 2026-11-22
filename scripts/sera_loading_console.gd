@@ -29,7 +29,6 @@ var preview_running: bool = false
 var preview_hold: float = -1.0
 var noise_elapsed: float = 0.0
 var noise_phase: int = 0
-var sweep_phase: float = 0.0
 var electronic_texture: Texture2D
 var screen_font: Font
 
@@ -80,8 +79,6 @@ func _preview_message(point: int) -> String:
 
 func _process(delta: float) -> void:
     var dt: float = maxf(delta, 0.0)
-    sweep_phase = fposmod(sweep_phase + dt, 0.78)
-    queue_redraw()  # Preserve the earlier high-tempo left-to-right light pass.
     noise_elapsed += dt
     if noise_elapsed >= 0.055:
         noise_elapsed = fposmod(noise_elapsed, 0.055)
@@ -129,13 +126,10 @@ func _draw() -> void:
     if electronic_texture != null:
         draw_texture_rect(electronic_texture, Rect2(Vector2.ZERO, size),
             true, Color(1.0, 1.0, 1.0, 0.85))
-    # Persisted scanlines and a moving interference band give the electronic
-    # surface its texture without touching the content or measuring time as load.
+    # Fixed scanlines plus changing granular noise: no traveling horizontal band.
     for y in range(0, int(h), 7):
         draw_line(Vector2(0, y), Vector2(w, y),
             Color("#05131e", 0.15), 1.0)
-    var scan_y: float = fposmod(float(noise_phase * 17), h)
-    draw_rect(Rect2(0.0, scan_y, w, 2.0), Color("#a6e7ff", 0.050))
     for n in range(18):
         var fx: float = float((n * 137 + noise_phase * 41) % maxi(1, int(w)))
         var fy: float = float((n * 293 + noise_phase * 19) % maxi(1, int(h)))
@@ -176,17 +170,6 @@ func _draw_frame(w: float, h: float) -> void:
         draw_rect(Rect2(x, rail_y + 1.0, span, 8.0), tint)
     draw_line(Vector2(left, rail_y + 13.0), Vector2(left + usable, rail_y + 13.0),
         Color("#55798a", 0.25), 1.0)
-    # Existing white-core / blue-edge left-to-right motif, now a narrow
-    # high-speed scanner ABOVE the terminal's real-data progress segments.
-    var head_x: float = left + usable * lerpf(-0.12, 1.12, sweep_phase / 0.78)
-    var scan_width: float = usable * 0.14
-    for layer in range(3):
-        var stroke: float = 7.0 - float(layer) * 2.6
-        var col: Color = [Color("#278bd6", 0.20),
-            Color("#4dccff", 0.48), Color("#efffff", 0.96)][layer]
-        draw_line(Vector2(head_x - scan_width * 0.5, rail_y - 11.0),
-            Vector2(head_x + scan_width * 0.5, rail_y - 11.0),
-            col, stroke, true)
 
 func _draw_text(message: String, at: Vector2, font_size: int,
         color: Color, glow: bool = false) -> void:
