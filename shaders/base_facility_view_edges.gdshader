@@ -7,6 +7,7 @@ render_mode unshaded, cull_disabled, depth_draw_never;
 
 uniform vec4 ink_color : source_color = vec4(0.12549, 0.12549, 0.12549, 1.0);
 uniform float crease_px : hint_range(0.5, 6.0) = 2.0;
+uniform bool outlines_enabled = true;
 varying float edge_visible;
 
 void vertex() {
@@ -58,7 +59,7 @@ void vertex() {
 }
 
 void fragment() {
-    if (edge_visible < 0.5) {
+    if (!outlines_enabled || edge_visible < 0.5) {
         discard;
     }
     ALBEDO = ink_color.rgb;
