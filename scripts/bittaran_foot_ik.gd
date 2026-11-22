@@ -119,6 +119,9 @@ const DOWN_MIN_SPEED: float = 0.30
 const DOWN_BRAKE_END_SOURCE_SECONDS: float = 0.50
 const DOWN_ACCEL_BEGIN_SOURCE_SECONDS: float = 0.60
 const DOWN_CONTACT_SOURCE_SECONDS: float = 1.75
+# VFX contact keys are independent from the original DOWN-hold clock.
+const DOWN_FRONT_FX_SOURCE_SECONDS: float = 1.75
+const DOWN_REAR_FX_SOURCE_SECONDS: float = 0.75
 # A two-diagonal, lifted foot-reset BEFORE any chassis lift.
 const DOWN_REPLANT_SECONDS: float = 1.16
 const DOWN_REPLANT_LIFT_METERS: float = 0.26
@@ -2083,13 +2086,18 @@ func _rise_ease(t: float) -> float:
     return x * x * x * (x * (x * 6.0 - 15.0) + 10.0)
 
 
-# Only the first physical fall may create a body-wide impact. Consume it
-# AFTER the IK tick has actually reached the floor, not at part-break time.
+# Only the first physical fall may create a body-wide impact. The
+# authored front contact is t=1.75; rear is t=0.75. DOWN hold still starts
+# at source 1.75 for BOTH clips; the dust key must not alter that clock.
+func body_fall_fx_source_seconds() -> float:
+    return (DOWN_REAR_FX_SOURCE_SECONDS
+        if authored_down_clip.begins_with("後足")
+        else DOWN_FRONT_FX_SOURCE_SECONDS)
+
+
 func consume_body_fall_impact() -> bool:
-    # Both fore and rear author clips now hold the same exact 1.75s
-    # contact, and the DOWN timer starts only on this source key.
     if not body_fall_impact_armed or (
-            authored_down_motion_time() < DOWN_CONTACT_SOURCE_SECONDS):
+            authored_down_motion_time() < body_fall_fx_source_seconds()):
         return false
     body_fall_impact_armed = false
     return true
