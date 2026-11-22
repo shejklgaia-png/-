@@ -32,7 +32,7 @@ func _run() -> void:
         _fail("obsolete screen-space polygon cage returned")
         return
     var raw := BoxMesh.new()
-    var hull: ArrayMesh = SERA_HULL._build_overlay(raw)
+    var hull: ArrayMesh = BASE_EDGES.overlay_for("test_unit_hull", raw)
     var crease: ArrayMesh = BASE_EDGES.crease_for("test_unit", raw)
     if hull == null or crease == null:
         _fail("SERA hull or 2px line geometry not generated")

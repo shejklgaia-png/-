@@ -27,6 +27,40 @@ func _run() -> void:
     if int(screen.get("percent")) != 18:
         _fail("real progress rolled backward")
         return
+    # Node lights represent completed BASE stages, never elapsed animation time.
+    if not bool(screen.call("_system_node_online", "CORE")):
+        _fail("CORE should be online at real 18 percent")
+        return
+    if bool(screen.call("_system_node_online", "NEXUS")):
+        _fail("NEXUS lit before its 33 percent milestone")
+        return
+    screen.call("set_stage", "NEXUS / COMMAND LINK ONLINE", 33)
+    if not bool(screen.call("_system_node_online", "NEXUS")):
+        _fail("NEXUS did not light at stage completion")
+        return
+    if bool(screen.call("_system_node_online", "GRID")):
+        _fail("GRID lit before 67 percent")
+        return
+    screen.call("set_stage", "GRID / ADDRESS MAP VERIFIED", 67)
+    if not bool(screen.call("_system_node_online", "GRID")):
+        _fail("GRID did not light at stage completion")
+        return
+    if bool(screen.call("_system_node_online", "OS")):
+        _fail("OS lit before HUD 99 percent")
+        return
+    var bounds: Rect2 = screen.call("_system_visual_bounds", 720.0, 1280.0)
+    if bounds.position.y < 108.0 or bounds.end.y > 770.0:
+        _fail("CORE illustration collides with header/log region on portrait")
+        return
+    var narrow_bounds: Rect2 = screen.call("_system_visual_bounds", 450.0, 800.0)
+    if narrow_bounds.position.y < 108.0 or narrow_bounds.end.y > 535.0:
+        _fail("CORE illustration overflows narrow portrait terminal")
+        return
+    var live_percent: int = int(screen.get("percent"))
+    screen.call("_process", 0.5)
+    if float(screen.get("anim_time")) < 0.49 or int(screen.get("percent")) != live_percent:
+        _fail("decorative animation must advance without faking real load progress")
+        return
     screen.call("start_preview")
     screen.set_process(false)
     screen.call("_process", 2.5)

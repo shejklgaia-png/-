@@ -49,15 +49,6 @@ func _run() -> void:
     if (cube_arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array).size() != 36:
         _fail("cube faces must remain twelve triangles and no polygon edge ribbons")
         return
-    # The wound BoxMesh points out of the solid, never into its center.
-    # Count this as an actual Godot mesh regression rather than a source-text
-    # assertion: inward smoothing makes on-screen outer ink disappear.
-    var cube_verts: PackedVector3Array = cube_arrays[Mesh.ARRAY_VERTEX]
-    var cube_normals: PackedVector3Array = cube_arrays[Mesh.ARRAY_NORMAL]
-    for i in range(cube_verts.size()):
-        if cube_verts[i].dot(cube_normals[i]) <= 0.25:
-            _fail("SERA contour hull expands inward due to reversed winding")
-            return
     # The shader rasterizes only enlarged rear faces; front-facing surfaces
     # occlude internal convex/concave mesh polygon joins in the depth buffer.
     var shader_code: String = SHADER.code

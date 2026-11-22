@@ -73,6 +73,10 @@ gd tools/camera_eye_head_runtime_check.gd
 # One test per line. Preserve tests not explicitly retired by a specification change.
 py tools/sera_view_edges_self_check.py
 gd tools/sera_view_edges_runtime_check.gd
+# Authored model topology repair, closed-shell single-sided shading and measurable A/B profiling.
+py tools/sera_face_culling_self_check.py
+gd tools/sera_face_culling_runtime_check.gd
+gd tools/sera_render_performance_benchmark.gd
 # NEXUS CUSTOMIZE lower-left equipped stats; hide zero values and refresh on set change.
 py tools/nexus_equipment_stats_self_check.py
 gd tools/nexus_equipment_stats_runtime_check.gd

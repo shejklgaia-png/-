@@ -7,6 +7,14 @@ signal preview_finished
 const PREVIEW_SECONDS: float = 5.0
 const PREVIEW_STEPS: int = 100
 const MAX_HISTORY: int = 120
+# Every activation is keyed to a completed BASE loading milestone.
+const SYSTEM_PHASE_THRESHOLDS = {
+    "CORE": 18, "NEXUS": 33, "LAB": 49, "GRID": 67,
+    "ARCHIVE": 79, "SHELL": 86, "CRATE": 92, "OS": 99,
+}
+const SYSTEM_NODE_ORDER = [
+    "CORE", "SHELL", "OS", "NEXUS", "GRID", "LAB", "ARCHIVE", "CRATE"
+]
 const PREVIEW_MESSAGES = [
     "CORE / RESONANCE VERIFIED",
     "SHELL / GEOMETRY INDEXED",
@@ -29,6 +37,8 @@ var preview_running: bool = false
 var preview_hold: float = -1.0
 var noise_elapsed: float = 0.0
 var noise_phase: int = 0
+var anim_time: float = 0.0
+var visual_elapsed: float = 0.0
 var electronic_texture: Texture2D
 var screen_font: Font
 
@@ -79,6 +89,12 @@ func _preview_message(point: int) -> String:
 
 func _process(delta: float) -> void:
     var dt: float = maxf(delta, 0.0)
+    # Cosmetic animation may run independently, but never advances progress.
+    anim_time += dt
+    visual_elapsed += dt
+    if visual_elapsed >= 1.0 / 30.0:
+        visual_elapsed = fposmod(visual_elapsed, 1.0 / 30.0)
+        queue_redraw()
     noise_elapsed += dt
     if noise_elapsed >= 0.055:
         noise_elapsed = fposmod(noise_elapsed, 0.055)
@@ -136,6 +152,7 @@ func _draw() -> void:
         draw_rect(Rect2(fx, fy, float(2 + n % 5), 1.0),
             Color("#b6eeff", 0.040 + float(n % 3) * 0.026))
     _draw_frame(w, h)
+    _draw_system_visual(w, h)
     _draw_readout(w, h)
 
 func _draw_frame(w: float, h: float) -> void:
@@ -171,6 +188,132 @@ func _draw_frame(w: float, h: float) -> void:
     draw_line(Vector2(left, rail_y + 13.0), Vector2(left + usable, rail_y + 13.0),
         Color("#55798a", 0.25), 1.0)
 
+func _system_node_online(label: String) -> bool:
+    return percent >= int(SYSTEM_PHASE_THRESHOLDS.get(label, 101))
+
+func _system_visual_bounds(w: float, h: float) -> Rect2:
+    # Separate the 3 animated zones from the existing terminal log and HUD.
+    var top: float = 154.0 if h >= 940.0 else 120.0
+    var scale: float = clampf((h - 800.0) / 480.0, 0.0, 1.0)
+    var bottom: float = h - (290.0 + 240.0 * scale)
+    return Rect2(Vector2(28.0, top),
+        Vector2(maxf(0.0, w - 56.0), maxf(0.0, bottom - top)))
+
+func _visible_history_count(h: float) -> int:
+    # Old log lines stop before the illustration instead of overlapping it.
+    var first_line: float = h - 185.0
+    var free_space: float = first_line - _system_visual_bounds(size.x, h).end.y - 23.0
+    return mini(9, maxi(0, int(floor(free_space / 39.0)) + 1))
+
+func _draw_system_visual(w: float, h: float) -> void:
+    if w < 330.0 or h < 620.0:
+        return
+    var bounds: Rect2 = _system_visual_bounds(w, h)
+    var center := Vector2(w * 0.5, bounds.position.y + bounds.size.y * 0.52)
+    var radius: float = minf(125.0, minf(w * 0.17, bounds.size.y * 0.23))
+    _draw_text("CORE // SYSTEM INTEGRITY", Vector2(43.0, bounds.position.y + 17.0),
+        14 if w >= 510.0 else 12, Color("#7fb6cf", 0.86))
+    _draw_system_nodes(center, radius, true)
+    _draw_core_visual(center, radius)
+    _draw_system_nodes(center, radius, false)
+    _draw_diagnostics(w, bounds)
+
+func _draw_core_visual(center: Vector2, radius: float) -> void:
+    var pulse: float = 1.0 + 0.055 * sin(anim_time * 2.6)
+    var core_r: float = radius * 0.225 * pulse
+    for layer in range(5, 0, -1):
+        draw_circle(center, core_r + float(layer) * 8.0,
+            Color("#41bbff", 0.018 + float(6 - layer) * 0.015))
+    var hexagon := PackedVector2Array()
+    for point in range(7):
+        var angle: float = TAU * float(point) / 6.0 - PI / 6.0
+        hexagon.append(center + Vector2(cos(angle), sin(angle)) * core_r * 1.47)
+    draw_polyline(hexagon, Color("#9aebff", 0.73), 1.6, true)
+    draw_circle(center, core_r, Color("#85defa", 0.42))
+    draw_circle(center, core_r * 0.72, Color("#d5f9ff", 0.91))
+    draw_circle(center, core_r * 0.40, Color("#ffffff", 0.98))
+    # Broken rings, separate angular velocities, no horizontal sweep lines.
+    for ring in range(3):
+        var ring_r: float = radius * (0.53 + float(ring) * 0.235)
+        var segments: int = 5 + ring * 3
+        var speed: float = 0.66 if ring == 0 else (-0.43 if ring == 1 else 0.27)
+        var stroke: float = 3.5 if ring == 0 else (2.7 if ring == 1 else 1.9)
+        var tint: Color = Color("#b9f3ff", 0.93) if ring == 0 else (
+            Color("#6fdcff", 0.70) if ring == 1 else Color("#55798a", 0.79))
+        for piece in range(segments):
+            var start: float = TAU * float(piece) / float(segments) + anim_time * speed
+            draw_arc(center, ring_r, start,
+                start + TAU / float(segments) * 0.64, 12, tint, stroke, true)
+
+func _system_node_positions(center: Vector2, r: float) -> Array[Vector2]:
+    var span: float = r + 36.0
+    return [
+        center + Vector2(0.0, -r - 47.0),
+        center + Vector2(-span, -r * 0.47),
+        center + Vector2(span, -r * 0.47),
+        center + Vector2(-span, r * 0.27),
+        center + Vector2(span, r * 0.27),
+        center + Vector2(-r * 0.77, r + 52.0),
+        center + Vector2(0.0, r + 57.0),
+        center + Vector2(r * 0.77, r + 52.0),
+    ]
+
+func _draw_system_nodes(center: Vector2, radius: float, wires_only: bool) -> void:
+    var positions: Array[Vector2] = _system_node_positions(center, radius)
+    for i in range(SYSTEM_NODE_ORDER.size()):
+        var label: String = str(SYSTEM_NODE_ORDER[i])
+        var point: Vector2 = positions[i]
+        var active: bool = _system_node_online(label)
+        if wires_only:
+            draw_line(center, point,
+                Color("#6bd9f5", 0.48) if active else Color("#55798a", 0.25), 1.2)
+            continue
+        draw_circle(point, 8.0, Color("#152c3b", 0.97))
+        draw_circle(point, 5.0, Color("#b9f2ff") if active else Color("#446475"))
+        if active:
+            draw_arc(point, 11.0, 0.0, TAU, 16, Color("#74dfff", 0.36), 1.7, true)
+        var font_size: int = 12 if size.x >= 510.0 else 10
+        var width_estimate: float = float(label.length()) * float(font_size) * 0.56
+        _draw_text(label, point + Vector2(-width_estimate * 0.5, 22.0),
+            font_size, Color("#d5f7ff") if active else Color("#698ea0", 0.75))
+
+func _draw_diagnostics(w: float, bounds: Rect2) -> void:
+    var panel_w: float = minf(128.0, maxf(64.0, w * 0.20 - 20.0))
+    var panel_h: float = minf(222.0, maxf(138.0, bounds.size.y * 0.43))
+    var y: float = bounds.position.y + minf(88.0, bounds.size.y * 0.23)
+    _draw_diag_panel(Rect2(35.0, y, panel_w, panel_h), 0)
+    _draw_diag_panel(Rect2(w - panel_w - 35.0, y, panel_w, panel_h), 1)
+
+func _draw_diag_panel(rect: Rect2, mode: int) -> void:
+    draw_rect(rect, Color("#0b1f2c", 0.68))
+    draw_rect(rect, Color("#55798a", 0.62), false, 1.0)
+    var short_title: bool = rect.size.x < 85.0
+    var title: String = "CORE" if mode == 0 else "BUS"
+    if not short_title:
+        title += " / DIAG"
+    _draw_text(title, rect.position + Vector2(8.0, 19.0),
+        10 if short_title else 12, Color("#b4eeff", 0.88))
+    var x: float = rect.position.x + 9.0
+    var chart_w: float = rect.size.x - 18.0
+    var row_step: float = maxf(13.0, (rect.size.y - 105.0) / 6.0)
+    for i in range(6):
+        var value: float = 0.23 + 0.72 * absf(sin(
+            anim_time * (0.92 + float(i) * 0.15) + float(i) * 0.81 + float(mode) * 1.2))
+        var y: float = rect.position.y + 43.0 + float(i) * row_step
+        draw_rect(Rect2(x, y, chart_w, 5.0), Color("#284454", 0.48))
+        draw_rect(Rect2(x, y, chart_w * value, 5.0),
+            Color("#82dcfa", 0.43 + 0.25 * value))
+    var wave := PackedVector2Array()
+    for point in range(24):
+        var t: float = float(point)
+        var fx: float = x + chart_w * t / 23.0
+        var fy: float = rect.end.y - 35.0 + 7.0 * sin(anim_time * 1.8 + t * 0.37 + float(mode))
+        fy += 3.0 * cos(anim_time * 1.13 + t * 0.18)
+        wave.append(Vector2(fx, fy))
+    draw_polyline(wave, Color("#a6ebff", 0.67), 1.25, true)
+    _draw_text("SIGNAL", Vector2(x, rect.end.y - 8.0), 9,
+        Color("#608ba0", 0.82))
+
 func _draw_text(message: String, at: Vector2, font_size: int,
         color: Color, glow: bool = false) -> void:
     if screen_font == null:
@@ -193,7 +336,7 @@ func _draw_readout(w: float, h: float) -> void:
         13 if compact else 16, Color("#6e9db2"))
     var latest_y: float = h - 122.0
     var first_x: float = 42.0
-    var count: int = mini(history.size() - 1, 9)
+    var count: int = mini(history.size() - 1, _visible_history_count(h))
     for i in range(count):
         var index: int = history.size() - 2 - i
         var alpha: float = maxf(0.17, 0.62 - float(i) * 0.052)

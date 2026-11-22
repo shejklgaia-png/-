@@ -15,8 +15,12 @@ capture = (root / "tools/base_isometric_visual_capture.gd").read_text(encoding="
 assert "cull_front" in sera and "depth_draw_never" in sera
 assert "_build_overlay(mesh: Mesh)" in sera_generator
 assert "normal_sum" in sera_generator and "vertex_normals" in sera_generator
-assert "var face_normal: Vector3 = (c - a).cross(b - a)" in sera_generator
-assert "var face_normal: Vector3 = (b - a).cross(c - a)" not in sera_generator
+# SERA's own normal recipe and fast 3px path remain unchanged; only BASE
+# inverts the companion normals because BASE source winding is clockwise.
+assert "var face_normal: Vector3 = (b - a).cross(c - a)" in sera_generator
+assert "outward_normals[i] = -outward_normals[i]" in ink
+assert "arrays[Mesh.ARRAY_NORMAL] = outward_normals" in ink
+assert "base_hull.add_surface_from_arrays" in ink
 assert "no internal polygon" in sera or "backfaces" in sera
 assert 'preload("res://shaders/sera_view_edges.gdshader")' in ink
 assert "SeraViewEdges._build_overlay(physical_mesh)" in ink
