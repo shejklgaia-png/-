@@ -263,7 +263,11 @@ static func _smelter(g: Variant) -> void:
     # Orange fire body with smaller hot slots; avoid all-white blown-out
     # vertical bars visible in the first actual gameplay image.
     g.box("FreshSmelterCombustionCore",
-        Vector3(0.0, 1.21, 1.25), Vector3(1.15, 1.13, 0.14), "amber")
+        Vector3(0.0, 1.21, 1.25), Vector3(1.15, 1.13, 0.14), "rust")
+    for flame in range(3):
+        g.box("FreshSmelterFlameTongue",
+            Vector3(-0.39 + flame * 0.39, 1.10, 1.38),
+            Vector3(0.17, 0.84, 0.07), "amber")
     g.box("FreshSmelterLowFire",
         Vector3(0.0, 0.77, 1.40), Vector3(0.91, 0.22, 0.06), "amber_light")
     for j in range(4):
