@@ -1,5 +1,6 @@
 extends RefCounted
-## Shared bright blue-grey backdrop, lighter than SERA/NEXUS shader ink,\n## for equipment portraits, editor single-part view
+## Shared bright blue-grey backdrop, lighter than SERA/NEXUS shader ink,
+## for equipment portraits, editor single-part view
 ## and the LABO craft confirmation. No shader, per-frame draw or 3D per card.
 const SOLID_COLOR := Color("#A9BBC7")
 const GRID_COLOR := Color("#8299A8")
