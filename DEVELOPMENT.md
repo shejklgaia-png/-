@@ -1,3 +1,10 @@
+## 2026-11-22 — BASEは映像30Hz・入力60Hz、GRID編集ズームのみ60Hz
+
+- `scripts/sera_base_frame_budget.gd`を新設。BASEシーン中のメインループ上限を60FPS、物理固定更新を60Hz、入力蓄積を無効化し、`_input()`で受ける施設/GRIDタップを描画キャップへ束縛しない。root viewportの更新モードを`VIEWPORT_UPDATE_ONCE`/`DISABLED`で間引き、通常BASE/GRID俯瞰は描画30Hzとする。
+- GRID盤面タップで真上編集ビューへズーム開始した瞬間に`VIEWPORT_UPDATE_ALWAYS`へ切り替え、戻りアニメーションの終了まで60FPSを保持。その後30Hz描画へ戻す。NEXUS移動・BASEシーン終了では従来のEngine・Input・Viewport設定を復元し、戦闘/NEXUSには変更を残さない。
+- 拠点の既存タップ判定・タッチ離し・UIヒット領域・カメラ座標計算を変更しない。60Hzとは60FPSメインループおよび60Hz物理処理の基準であり、端末が物理タッチを正確に毎秒60回報告する保証ではない。実際の入力遅延・描画パターンはAndroid実機で計測する。
+- 仕様を独立した受入期待値とする`tools/base_frame_budget_self_check.py`および`tools/base_frame_budget_runtime_check.gd`を本体変更より先に作成しmanifest登録。手動CI前提のためGithub Actionsは起動しない。Godot/Android実機でのGPU更新モード・タップ応答性・復帰時のフレーム間隔確認は別途必要。ゲーム版は据え置き。
+
 ## 2026-11-22 — ロードコンソールの3段階ドット文字描画（50%・37.5%・25%）
 
 - 専用`sera_terminal_pixel_font.gd`で53種の英数字・記号を5×7ドットから小型Atlas化。通常のフォントの縮小ラスタライズを使わず、`sera_loading_console.gd`内の全文字を整数ピクセル格子へスナップして描画する。50%は大きい進捗率を3pxセル、37.5%では進捗率と短縮見出しを2pxセル、25%では進捗率を原則2pxセルに変更し、その他は小さくても1pxセルを保持する。
