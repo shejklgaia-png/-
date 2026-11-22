@@ -7,6 +7,8 @@ const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
 const HullGeometry = preload("res://scripts/sera_nexus_smooth_hull_geometry.gd")
 const STENCIL_MASK_SHADER = preload("res://shaders/sera_nexus_stencil_mask.gdshader")
 const STENCIL_HULL_SHADER = preload("res://shaders/sera_nexus_stencil_hull.gdshader")
+const STENCIL_HULL_BLOCKBENCH_SHADER = preload("res://shaders/sera_nexus_stencil_hull_blockbench.gdshader")
+const STENCIL_HULL_OPEN_SHADER = preload("res://shaders/sera_nexus_stencil_hull_open.gdshader")
 const CANDIDATE_SHADER = preload("res://shaders/sera_nexus_candidate_debug.gdshader")
 const MASK_VISIBLE_SHADER = preload("res://shaders/sera_nexus_stencil_mask_debug.gdshader")
 const HULL_UNMASKED_SHADER = preload("res://shaders/sera_nexus_hull_unmasked_debug.gdshader")
@@ -18,6 +20,8 @@ const RESCAN_SECONDS: float = 0.35
 var _root: Node3D
 var _mask_material: ShaderMaterial
 var _hull_material: ShaderMaterial
+var _hull_blockbench_material: ShaderMaterial
+var _hull_open_material: ShaderMaterial
 var _candidate_material: ShaderMaterial
 var _visible_mask_material: ShaderMaterial
 var _unmasked_hull_material: ShaderMaterial
@@ -47,6 +51,18 @@ func _ready() -> void:
     _hull_material.render_priority = -21
     _hull_material.set_shader_parameter("outline_color", Color("#0b1118"))
     _hull_material.set_shader_parameter("outline_px", 3.0)
+    _hull_blockbench_material = ShaderMaterial.new()
+    _hull_blockbench_material.shader = STENCIL_HULL_BLOCKBENCH_SHADER
+    _hull_blockbench_material.render_priority = -21
+    _hull_blockbench_material.set_shader_parameter(
+        "outline_color", Color("#0b1118"))
+    _hull_blockbench_material.set_shader_parameter("outline_px", 3.0)
+    _hull_open_material = ShaderMaterial.new()
+    _hull_open_material.shader = STENCIL_HULL_OPEN_SHADER
+    _hull_open_material.render_priority = -21
+    _hull_open_material.set_shader_parameter(
+        "outline_color", Color("#0b1118"))
+    _hull_open_material.set_shader_parameter("outline_px", 3.0)
     _candidate_material = ShaderMaterial.new()
     _candidate_material.shader = CANDIDATE_SHADER
     _candidate_material.render_priority = -22
@@ -120,7 +136,9 @@ func _apply_mode() -> void:
     var outline_color: Color = (
         Color("#29f4f7") if _mode == 1 or _mode == 9
         else Color("#0b1118"))
-    _hull_material.set_shader_parameter("outline_color", outline_color)
+    for mat in [_hull_material, _hull_blockbench_material,
+            _hull_open_material]:
+        mat.set_shader_parameter("outline_color", outline_color)
     for item in _links.values():
         var record: Dictionary = item
         var mask: MeshInstance3D = record.get("mask") as MeshInstance3D
@@ -129,7 +147,17 @@ func _apply_mode() -> void:
             mask.material_override = mask_shader
             mask.visible = enable_stencil or (_enabled and _mode == 6)
         if is_instance_valid(hull):
-            hull.material_override = hull_shader
+            var chosen_hull: ShaderMaterial = hull_shader
+            # SeraRig intentionally uses CULL_FRONT for closed Blockbench
+            # geometry. Its *back* surfaces therefore require CULL_BACK,
+            # not the default Godot inverted-hull CULL_FRONT.
+            if _mode == 0 or _mode == 1 or _mode == 9:
+                var face_kind: String = str(record.get("face_kind", "default"))
+                if face_kind == "blockbench":
+                    chosen_hull = _hull_blockbench_material
+                elif face_kind == "open":
+                    chosen_hull = _hull_open_material
+            hull.material_override = chosen_hull
             hull.visible = enable_hull
     if is_instance_valid(_calibration_probe):
         _calibration_probe.call("set_probe_mode",
@@ -244,8 +272,12 @@ func _rebuild_links() -> void:
             _mask_material, "Mask")
         var hull: MeshInstance3D = _prepare_draw(part, baked_mesh,
             _hull_material, "Hull")
+        var face_kind: String = "default"
+        if part.has_meta("sera_single_sided"):
+            face_kind = ("blockbench" if bool(part.get_meta(
+                "sera_single_sided")) else "open")
         _links[id] = {"source_mesh": part.mesh,
-            "mask": mask, "hull": hull}
+            "mask": mask, "hull": hull, "face_kind": face_kind}
         created = true
     if created:
         _apply_mode()
