@@ -49,6 +49,7 @@ jobs:
           python3 tools/base_facility_motion_self_check.py
           python3 tools/base_facility_fx_outline_self_check.py
           python3 tools/base_facility_mesh_edge_shader_self_check.py
+          python3 tools/base_facility_latest_sera_silhouette_self_check.py
           python3 tools/base_gameplay_angle_visibility_self_check.py
           python3 tools/base_night_facility_self_check.py
           python3 tools/base_structural_mass_self_check.py
