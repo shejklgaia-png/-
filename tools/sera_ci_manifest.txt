@@ -1,3 +1,6 @@
+# BASE 8 machine motion channels: real indexed MultiMesh transforms and archived NEXUS.
+py tools/base_facility_motion_self_check.py
+gd tools/base_facility_motion_runtime_check.gd
 # BASE two-version NEXUS restoration + angular-only seven facilities.
 py tools/base_angular_archive_nexus_self_check.py
 gd tools/base_angular_archive_nexus_runtime_check.gd
