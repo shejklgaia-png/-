@@ -1,5 +1,5 @@
 extends SceneTree
-## Four-leg end-to-end STOMP check: invisible x1.5 toe volume starts
+## Four-leg end-to-end STOMP check: front x1.8/rear x1.5 toe volume starts
 ## ONLY after the real apex, damages once, then releases ground dust.
 const DT: float = 1.0 / 60.0
 const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
@@ -58,9 +58,11 @@ func _run() -> void:
             if not raw.has_volume() or not box.has_volume():
                 _fail("toe bounds missing " + leg_id)
                 return
-            if absf(box.size.x - raw.size.x * 1.5) > 0.005 \
-                    or absf(box.size.z - raw.size.z * 1.5) > 0.005:
-                _fail("not exactly 1.5x toe mesh width " + leg_id)
+            var expected_width: float = (
+                1.80 if leg_id.begins_with("leg_f") else 1.50)
+            if absf(box.size.x - raw.size.x * expected_width) > 0.005 \
+                    or absf(box.size.z - raw.size.z * expected_width) > 0.005:
+                _fail("incorrect front/rear toe mesh width " + leg_id)
                 return
             if battle.get("bittaran_stomp_follow_fx") != null \
                     or battle.get("bittaran_shockwave") != null:
