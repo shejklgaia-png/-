@@ -27,6 +27,9 @@ const COLORS = {
     "gold": "#a98448", "caution": "#c4a35f", "cloth": "#68685f",
     "rust": "#785644", "blue": "#357d95", "blue_light": "#81d6ed",
     "amber": "#dd8647", "amber_light": "#ffc18b", "glass": "#276076",
+    # Separate emissive materials for the generator cavity and terminal LCD.
+    # Their opacity and correct depth test preserve the physical vent masks.
+    "generator_emitter": "#66cfff", "terminal_monitor": "#449fc9",
     "white": "#b3c1c8"
 }
 
@@ -83,7 +86,9 @@ class Batch:
         var pose := Transform3D(
             spin * basis.scaled_local(Vector3.ONE * detail_scale), moved)
         (entries[key] as Array).append(pose)
-        if outline_enabled and tint not in ["blue_light", "amber_light", "amber", "glass"]:
+        if outline_enabled and tint not in [
+                "blue_light", "amber_light", "amber", "glass",
+                "generator_emitter", "terminal_monitor"]:
             outline_entries.append({
                 "feature": feature, "tint": tint, "pose": pose,
                 "bucket": key, "index": (entries[key] as Array).size() - 1})
@@ -271,7 +276,9 @@ class Batch:
                 surface.roughness = 0.82
             if tint == "cloth":
                 surface.albedo_texture = canvas_texture
-            elif tint not in ["glass", "blue_light", "amber_light", "amber"]:
+            elif tint not in [
+                    "glass", "blue_light", "amber_light", "amber",
+                    "generator_emitter", "terminal_monitor"]:
                 # Preserve the legacy weathered steel fallback during fresh
                 # editor / Android imports; all surface variants share batches.
                 surface.albedo_texture = steel_texture
@@ -289,10 +296,17 @@ class Batch:
                     surface.uv1_offset = Vector3(
                         float(variation % 4) * 0.18,
                         float(variation / 4) * 0.27, 0.0)
-            if tint in ["blue_light", "amber_light", "amber"]:
+            if tint in ["blue_light", "amber_light", "amber",
+                    "generator_emitter", "terminal_monitor"]:
                 surface.emission_enabled = true
                 surface.emission = Color(COLORS[tint])
-                surface.emission_energy_multiplier = 1.75 if tint == "amber" else 2.30
+                if tint == "generator_emitter":
+                    surface.emission_energy_multiplier = 3.7
+                elif tint == "terminal_monitor":
+                    surface.emission_energy_multiplier = 2.85
+                else:
+                    surface.emission_energy_multiplier = (
+                        1.75 if tint == "amber" else 2.30)
             var draw := MultiMeshInstance3D.new()
             draw.name = "Architectural_" + geometry + "_" + tint
             draw.multimesh = multi
@@ -312,7 +326,8 @@ class Batch:
                 # Per-material bright-face floor without touching SERA,
                 # boss, GRID or other BASE facility shading.
                 draw.set_meta("sera_scene_min_brightness", 0.82)
-            if tint in ["blue_light", "amber_light", "amber"]:
+            if tint in ["blue_light", "amber_light", "amber",
+                    "generator_emitter", "terminal_monitor"]:
                 # Emissive visual details can occlude opaque contours, but
                 # must never receive ink themselves.
                 draw.set_meta("sera_outline_occluder_only", true)

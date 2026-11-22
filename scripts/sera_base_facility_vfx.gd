@@ -234,6 +234,29 @@ func _slot_lamp(label: String, at: Vector3, size: Vector3,
         size, tint, true)
 
 
+# Generator cabinet vents: the glowing source stays BEHIND dark metal lips.
+# Unlike the earlier _slot_lamp, the whole slit is not mounted as a luminous
+# sticker over the steel wall. Only the open gap is visibly bright.
+func _generator_vent_slit(label: String, at: Vector3, size: Vector3,
+        tint: Color) -> void:
+    var fixture := Node3D.new()
+    fixture.name = label
+    fixture.set_meta("FX_NO_OUTLINE", true)
+    fixture.position = at
+    add_child(fixture)
+    _box(fixture, "RecessedBlueEmitter",
+        Vector3(0.0, 0.0, -0.012),
+        size, tint, true)
+    var steel := Color("#223541")
+    for side in [-1.0, 1.0]:
+        _box(fixture, "ShadowedVentLip",
+            Vector3(0.0, side * size.y * 0.75, 0.035),
+            Vector3(size.x + 0.10, 0.031, 0.080), steel)
+        _box(fixture, "VentFramePost",
+            Vector3(side * (size.x * 0.53 + 0.035), 0.0, 0.038),
+            Vector3(0.055, size.y * 2.0, 0.086), steel)
+
+
 func _spot(label: String, at: Vector3, target: Vector3,
         tint: Color, energy: float, reach: float, cone: float) -> void:
     # One shadow-free local spotlight replaces an entire broad facade shaft.
@@ -348,15 +371,22 @@ func _add_practical_lighting(key: String) -> void:
             # The luminous backing sits BEHIND the real rotating fan.
             # Opaque blades still depth-occlude it; it only shines through
             # the spaces between fan spokes.
+            # Core halo is physically behind the shadow louvers and moving
+            # rotor blades. Opaque material passes depth-occlude its edges.
             _make_surface("RotorRearBlueGlow",
-                Vector3(-0.27, 1.43, 1.055), Vector2(1.02, 1.02),
-                Vector3.ZERO, POOL_SHADER, Color(0.38, 0.80, 1.0, 0.95))
+                Vector3(-0.27, 1.43, 1.085), Vector2(1.34, 0.66),
+                Vector3.ZERO, POOL_SHADER, Color(0.38, 0.80, 1.0, 0.72))
             for row in range(4):
-                _slot_lamp("PowerCabinetWallSlit",
-                    # Power cabinet center x=1.22, visible front z=0.365.
-                    # Previous x=0.86/z=0.36 was buried inside its shell.
-                    Vector3(1.22, 1.70 + row * 0.125, 0.52),
-                    Vector3(0.34, 0.030, 0.036), Color("#9cecff"))
+                _generator_vent_slit("PowerCabinetWallSlit",
+                    # Cabinet opaque surface ends near z=0.455;
+                    # a light source at 0.505 is behind the louvers at +0.04.
+                    Vector3(1.22, 1.70 + row * 0.125, 0.505),
+                    Vector3(0.34, 0.032, 0.026), Color("#a5ecff"))
+            # A small, depth-tested spill is visible through the real vent
+            # slots, while the steel lips remain opaque in front.
+            _make_surface("CabinetVentInnerBloom",
+                Vector3(1.22, 1.89, 0.511), Vector2(0.50, 0.66),
+                Vector3.ZERO, POOL_SHADER, Color(0.42, 0.78, 1.0, 0.21))
             _work_lamp("RotorGuardWorklamp", Vector3(-0.61, 1.90, 1.06),
                 Vector3(0.30, 0.13, 0.22), Color("#9cdeff"))
             _spot("RotorVentLight", Vector3(-0.54, 1.84, 1.10),

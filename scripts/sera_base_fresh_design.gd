@@ -431,6 +431,16 @@ static func _generator(g: Variant) -> void:
     g.box("FreshGeneratorBlueCoreFace",
         Vector3(-0.25, 1.36, 0.98),
         Vector3(1.90, 0.70, 0.10), "glass")
+    # Bright core is INSIDE the rotor. Opaque narrow grilles sit in FRONT
+    # of it, so the light is revealed only through real physical slots,
+    # rather than being an unmasked blue decal on the exterior.
+    g.box("FreshGeneratorCoreRearEmitter",
+        Vector3(-0.27, 1.43, 1.065),
+        Vector3(1.52, 0.66, 0.028), "generator_emitter")
+    for i in range(5):
+        g.box("FreshGeneratorFanShadowLouver",
+            Vector3(-0.27, 1.15 + float(i) * 0.14, 1.114),
+            Vector3(1.62, 0.067, 0.060), "edge")
     # Horizontal energy rails emphasize the cylindrical blue core,
     # rather than allowing the front circular corona to read as a white logo.
     for y in [1.00, 1.81]:
@@ -559,9 +569,11 @@ static func _terminal(g: Variant) -> void:
     g.box("FreshTerminalWideScreen",
         Vector3(0, 1.94, 0.37),
         Vector3(1.64, 1.13, 0.10), "void")
+    # This is the screen itself, not just the bright blueprint strokes:
+    # emissive RGB material is preserved on the opaque front glass.
     g.box("FreshTerminalLiveDisplay",
         Vector3(0, 1.94, 0.46),
-        Vector3(1.49, 0.99, 0.09), "glass")
+        Vector3(1.49, 0.99, 0.09), "terminal_monitor")
     for i in range(4):
         g.box("FreshTerminalBlueprintRows",
             Vector3(0, 1.60 + i * 0.23, 0.53),
