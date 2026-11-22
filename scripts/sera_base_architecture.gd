@@ -182,6 +182,7 @@ class Batch:
                 selected_by_bucket[bucket] = []
             (selected_by_bucket[bucket] as Array).append(selected)
         var outline_meshes_by_bucket: Dictionary = {}
+        var crease_meshes_by_bucket: Dictionary = {}
         var outline_links_by_bucket: Dictionary = {}
         for key_variant in keys:
             var key: String = str(key_variant)
@@ -287,6 +288,29 @@ class Batch:
                     host.add_child(edge_draw)
                     outline_meshes_by_bucket[key] = edge_multi
                     outline_links_by_bucket[key] = edge_indices
+                    # A separate batched hard-corner ribbon pass preserves
+                    # the existing 2px foreground angles without reintroducing
+                    # interior polygon lines into SERA's 6px silhouette.
+                    var corner_mesh: ArrayMesh = BaseFacilityInk.crease_overlay_for(
+                        geometry, mesh)
+                    if corner_mesh != null:
+                        var corner_multi := MultiMesh.new()
+                        corner_multi.transform_format = MultiMesh.TRANSFORM_3D
+                        corner_multi.mesh = corner_mesh
+                        corner_multi.instance_count = selected_instances.size()
+                        for k in range(selected_instances.size()):
+                            var corner_record: Dictionary = selected_instances[k]
+                            corner_multi.set_instance_transform(k, corner_record["pose"])
+                        var corner_draw := MultiMeshInstance3D.new()
+                        corner_draw.name = "ArchitecturalCreaseInk_" + geometry + "_" + tint
+                        corner_draw.multimesh = corner_multi
+                        corner_draw.material_override = BaseFacilityInk.crease_material()
+                        corner_draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+                        corner_draw.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+                        corner_draw.extra_cull_margin = 0.30
+                        corner_draw.set_meta("FX_NO_OUTLINE", true)
+                        host.add_child(corner_draw)
+                        crease_meshes_by_bucket[key] = corner_multi
         host.set_meta("unique_model_features", features.duplicate())
         if not outline_entries.is_empty():
             host.set_meta("outline_solid_entries", outline_entries.duplicate())
@@ -312,6 +336,10 @@ class Batch:
                         animated_record["ink_mesh"] = outline_meshes_by_bucket[
                             bucket_name]
                         animated_record["ink_index"] = int(linked[instance_index])
+                        if crease_meshes_by_bucket.has(bucket_name):
+                            animated_record["crease_mesh"] = crease_meshes_by_bucket[
+                                bucket_name]
+                            animated_record["crease_index"] = int(linked[instance_index])
                     recorded.append(animated_record)
                 motion_entries[feature] = recorded
             host.set_meta("motion_entries", motion_entries)
