@@ -418,6 +418,8 @@ func _make_viewport() -> void:
     preview_host.add_child(render_viewport)
     preview_scene = EquipmentPreview.new()
     preview_scene.name = "RealEquipmentRigPreview"
+    # Opt-in applies ONLY to the NEXUS single-part and full-screen viewer.
+    preview_scene.nexus_brighter_backdrop = enable_nexus_iris_id_contour
     render_viewport.add_child(preview_scene)
     # SubViewportContainer stretches to the available square without
     # allocating additional render targets when a modal resizes.
