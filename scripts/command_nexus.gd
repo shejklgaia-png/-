@@ -5,7 +5,7 @@ const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
 const ID_DEBUG_SHADER = preload("res://shaders/sera_scene_id_debug.gdshader")
-const ID_INK_SHADER = preload("res://shaders/sera_scene_mesh_id_outline_safe.gdshader")
+const ID_INK_SHADER = preload("res://shaders/sera_iris_mesh_id_outline.gdshader")
 const ID_SOLID_SHADER = preload("res://shaders/sera_scene_id_solid_probe.gdshader")
 const ID_BASIC_SHADER = preload("res://shaders/sera_scene_id_basic_probe.gdshader")
 const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
@@ -2899,6 +2899,7 @@ func _create_outline_debug() -> void:
         Vector2(1.0 / 384.0, 1.0 / 384.0))
     probe_material.set_shader_parameter("ink_color", Color("#17212f"))
     probe_material.set_shader_parameter("stroke_px", 3.0)
+    # Display exactly the same IRIS fragment shader as the shared compositor.
     outline_debug_shared_material = probe_material
     outline_debug_solid_material = ShaderMaterial.new()
     outline_debug_solid_material.shader = ID_SOLID_SHADER
