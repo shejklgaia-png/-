@@ -17,7 +17,7 @@ assert "BaseFacilityCreaseGeometry._build_overlay(physical_mesh)" in edge
 assert "ShaderMaterial.new()" in edge
 assert '"stroke_px", 4.0' in edge
 assert 'preload("res://shaders/base_facility_silhouette_edges.gdshader")' in edge
-assert '"crease_px", 1.0' in edge
+assert '"crease_px", 2.0' in edge
 assert 'Color("#000000")' in edge
 assert 'Color("#202020")' in edge
 assert 'Color("#55798A")' not in edge
@@ -39,7 +39,7 @@ assert "POSITION = clip;" in silhouette and "ALPHA = 1.0;" in silhouette
 assert "depth_test_disabled" not in silhouette
 assert "vec3 normal_a = -normalize" in shader
 assert "vec3 n_b = -normalize" in shader
-assert "uniform float crease_px : hint_range(0.5, 6.0) = 1.0" in shader
+assert "uniform float crease_px : hint_range(0.5, 6.0) = 2.0" in shader
 assert "CUSTOM0.xyz" in shader and "COLOR.a" in shader
 assert "a_facing > 0.02 && b_facing > 0.02" in shader
 assert "bool visible = foreground_crease;" in shader

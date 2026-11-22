@@ -13,7 +13,7 @@ assert "BaseFacilityCreaseGeometry._build_overlay(physical_mesh)" in s
 assert 'preload("res://shaders/base_facility_silhouette_edges.gdshader")' in s
 assert "SeraViewEdges._build_overlay(physical_mesh)" not in s
 assert 'Color("#000000")' in s and '"stroke_px", 4.0' in s
-assert 'Color("#000000")' in s and '"crease_px", 2.0' in s
+assert 'Color("#202020")' in s and '"crease_px", 2.0' in s
 assert "crease_for(geometry:" in s and "overlay_for(geometry:" in s
 assert "CUSTOM_RGBA_FLOAT" in creases and "_extract_edges(mesh: Mesh)" in creases
 assert "float stroke_px : hint_range(0.5, 9.0) = 4.0;" in shader
