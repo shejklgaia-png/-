@@ -5,7 +5,8 @@ const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
 const LiveMeshEdges = preload("res://scripts/sera_nexus_live_mesh_edges.gd")
-const EightWayOutline = preload("res://scripts/sera_nexus_eightway_outline.gd")
+const NexusCanvasSilhouette = preload(
+    "res://scripts/sera_nexus_canvas_silhouette.gd")
 const StencilHull = preload("res://scripts/sera_nexus_stencil_hull.gd")
 const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
@@ -86,8 +87,8 @@ const OUTLINE_DIAGNOSTIC_MODES: Array[String] = [
     "17一致", "書込停止≠17"
 ]
 const OUTLINE_DIAGNOSTIC_EXPLAINS: Array[String] = [
-    "全身メッシュを8方向へ各3px移動。共通マスクの外側だけ黒く表示。",
-    "青緑: 新8方向＋共通マスクの外周のみを強調表示。",
+    "同一カメラで全身装甲を2D投影・結合。外周のみ黒3px。",
+    "青緑: 2D投影した全身形状の外周を強調表示。",
     "黄: 生成済みの全エッジ。視点による非表示を解除。",
     "橙: 開放境界のみ。閉じた装甲には通常ありません。",
     "紫: メッシュ同士の交差から生成した接合線のみ。",
@@ -95,7 +96,7 @@ const OUTLINE_DIAGNOSTIC_EXPLAINS: Array[String] = [
     "緑: 輪郭へ登録した表示中のメッシュを着色。",
     "橙: ステンシル書込みパスを着色。描画確認用。",
     "紫: マスクなしの反転ハル。面の破綻を確認。",
-    "青緑: 新8方向全身オフセット＋ステンシル17の合成。",
+    "青緑: 全装備の2D投影領域の結合シルエットを表示。",
     "立方体: 書込29に一致する部分が緑なら成功候補。",
     "立方体: 29と異なる外周が紫、中心は抜けるはず。",
     "全身: ステンシル17と一致する領域を緑で表示。",
@@ -106,6 +107,7 @@ const OUTLINE_DIAGNOSTIC_EXPLAINS: Array[String] = [
     "緑: 旧ステンシル診断。書込みONで参照17一致画素を表示。",
     "紫: 旧ステンシル診断。書込みOFFで参照17不一致画素を表示。"
 ]
+var nexus_canvas_silhouette: Control
 var outline_debug_button: Panel
 var outline_debug_button_text: Label
 var outline_debug_panel: Panel
@@ -323,6 +325,16 @@ func _ready() -> void:
     _create_customization_glow()
     _wall_mark()
     _hud()
+    # Render NEXUS SERA's outline on the SAME viewport canvas. Compute
+    # projected mesh-box unions at draw time after the real camera pose
+    # has updated, with zero stencil/transparent-pass dependencies.
+    # Keep this behind HUD panels and above the 3D scene.
+    nexus_canvas_silhouette = NexusCanvasSilhouette.new()
+    nexus_canvas_silhouette.name = "NexusCanvasSilhouette"
+    nexus_canvas_silhouette.call(
+        "configure", sera_display_rig, cam, self)
+    hud.add_child(nexus_canvas_silhouette)
+    hud.move_child(nexus_canvas_silhouette, 0)
     SeraSave.mark_location("NEXUS")
     var route: String = SeraSave.requested_nexus_target
     SeraSave.requested_nexus_target = ""
@@ -578,11 +590,9 @@ func _sera_display() -> void:
     _remember_nexus_arm_rest_pose(rig)
     _fit_nexus_arms_to_lower_body()
     _capture_sera_silhouette(rig)
-    # New production path: eight shifts of the ORIGINAL filled meshes and
-    # one shared full-body stencil. No extra camera/viewport, no face normals.
-    var eight_way: Node3D = EightWayOutline.new()
-    eight_way.call("configure", rig)
-    rig.add_child(eight_way)
+    # GPU stencil/8-way silhouette was invisible on Android Compatibility.
+    # Do NOT instantiate it in production: the HUD canvas now draws the
+    # silhouette after projecting the real source meshes through cam.
     # Keep the previous GPU edges and inverted-hull tools for diagnostics,
     # but do not draw or build them in the normal NEXUS preview.
     var live_edges: Node3D = LiveMeshEdges.new()
@@ -3081,10 +3091,9 @@ func _set_gpu_outline_debug_mode(mode: int) -> void:
             "SeraStencilHull")
         if stencil != null:
             stencil.call("set_diagnostic_mode", outline_debug_mode)
-        var eightway: Node = sera_display_rig.get_node_or_null(
-            "SeraEightWayOutline")
-        if eightway != null:
-            eightway.call("set_diagnostic_mode", outline_debug_mode)
+    if is_instance_valid(nexus_canvas_silhouette):
+        nexus_canvas_silhouette.call(
+            "set_diagnostic_mode", outline_debug_mode)
     for i in range(outline_debug_mode_buttons.size()):
         var button: Panel = outline_debug_mode_buttons[i]
         button.add_theme_stylebox_override(
@@ -3164,13 +3173,12 @@ func _refresh_outline_debug(delta: float) -> void:
         var stencil: Node = sera_display_rig.get_node_or_null("SeraStencilHull")
         if stencil != null:
             stencil_data = stencil.call("get_stencil_snapshot")
-        var eightway: Node = sera_display_rig.get_node_or_null(
-            "SeraEightWayOutline")
-        if eightway != null:
-            eightway_data = eightway.call("get_outline_snapshot")
+    if is_instance_valid(nexus_canvas_silhouette):
+        eightway_data = nexus_canvas_silhouette.call(
+            "get_outline_snapshot")
     outline_debug_stats.text = (
-        "8方向対象: %d / 候補: %d  非表示: %d\n"
-        + "8方向複製: %d  マスク: %d  旧ハル: %d\n"
+        "2D対象: %d / 候補: %d  非表示: %d\n"
+        + "合成外周: %d  ステンシル: %d  旧ハル: %d\n"
         + "旧エッジ(診断): %d / %d  欠落: %d\n"
         + "候補エッジ: %d  交差線: %d\n"
         + "カメラ: %s  枠線設定: %s\n"
@@ -3181,15 +3189,15 @@ func _refresh_outline_debug(delta: float) -> void:
         int(eightway_data.get("parts", 0)),
         int(eightway_data.get("candidates", 0)),
         int(eightway_data.get("hidden", 0)),
-        int(eightway_data.get("direction_instances", 0)),
-        int(eightway_data.get("mask_draws", 0)),
+        int(eightway_data.get("contours", 0)),
+        0,
         int(stencil_data.get("hulls", 0)),
         count, draws, missing,
         int(data.get("edge_segments", 0)),
         int(data.get("contact_segments", 0)),
         "OK" if bool(data.get("camera_present", false)) else "なし",
         "ON" if bool(data.get("enabled", false)) else "OFF",
-        "8方向マスク" if bool(eightway_data.get("active", false)) else (
+        "2D投影合成" if bool(eightway_data.get("active", false)) else (
             "無視" if bool(data.get("depth_disabled", false))
             else "診断モード"),
         "済" if bool(data.get("contacts_cached", false)) else "なし",
