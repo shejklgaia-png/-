@@ -154,8 +154,14 @@ func set_nexus_sera_contact_mode(enabled: bool) -> void:
         return
     _nexus_sera_contact_mode = enabled
     if is_instance_valid(ink):
-        (ink.material as ShaderMaterial).shader = (
-            NEXUS_CONTACT_INK if enabled else INK)
+        var material: ShaderMaterial = ink.material as ShaderMaterial
+        material.shader = NEXUS_CONTACT_INK if enabled else INK
+        # Rebind all shared uniforms when replacing a shader resource.
+        material.set_shader_parameter("mesh_id_texture", id_viewport.get_texture())
+        material.set_shader_parameter("mesh_id_texel", Vector2(
+            1.0 / float(id_viewport.size.x), 1.0 / float(id_viewport.size.y)))
+        material.set_shader_parameter("ink_color", Color("#17212f"))
+        material.set_shader_parameter("stroke_px", _ink_stroke)
     _clear_copies()
     _scan_elapsed = 0.0
 
