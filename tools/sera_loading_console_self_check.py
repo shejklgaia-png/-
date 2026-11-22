@@ -33,6 +33,8 @@ assert "const LOADING_FPS: int = 10" in console
 assert "Engine.max_fps = LOADING_FPS" in console
 assert "Engine.max_fps = _previous_max_fps" in console
 assert "RenderingServer.frame_post_draw.connect(_on_completion_frame_presented)" in console
+assert "if not RenderingServer.render_loop_enabled:" in console
+assert "func _finish_headless_cut(generation: int) -> void:" in console
 assert "RenderingServer.frame_post_draw.disconnect(_on_completion_frame_presented)" in console
 assert "completion_frames_remaining -= 1" in console
 assert 'pixel_source.set("completion_cut_active", completion_cut_active)' in console
