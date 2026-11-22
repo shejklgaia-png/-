@@ -1,16 +1,17 @@
 extends Control
 ## One shared visible-mesh-ID outline compositor PER rendering Viewport.
-## Reuses the HEAD D idea: depth-tested colored IDs + a 3px canvas mask.
+## Uses the HEAD D / IRIS shaders directly: red-only IDs + 3px canvas mask.
 ## No source mesh, material, hitbox, authored motion or render texture changes.
-const ID_FRONT = preload("res://shaders/sera_scene_mesh_id_front.gdshader")
-const ID_BACK = preload("res://shaders/sera_scene_mesh_id_back.gdshader")
-const ID_DOUBLE = preload("res://shaders/sera_scene_mesh_id_double.gdshader")
-const MULTI_ID_FRONT = preload("res://shaders/sera_scene_multimesh_id_front.gdshader")
-const MULTI_ID_BACK = preload("res://shaders/sera_scene_multimesh_id_back.gdshader")
-const MULTI_ID_DOUBLE = preload("res://shaders/sera_scene_multimesh_id_double.gdshader")
-const INK = preload("res://shaders/sera_scene_mesh_id_outline_safe.gdshader")
+# Reuse the proven IRIS resources, with no reimplementation of their code.
+const ID_CLOSED = preload("res://shaders/sera_iris_mesh_id_closed.gdshader")
+const ID_OPEN = preload("res://shaders/sera_iris_mesh_id_open.gdshader")
+const MULTI_ID_CLOSED = preload("res://shaders/sera_scene_multimesh_iris_id_closed.gdshader")
+const MULTI_ID_OPEN = preload("res://shaders/sera_scene_multimesh_iris_id_open.gdshader")
+const INK = preload("res://shaders/sera_iris_mesh_id_outline.gdshader")
+# The IRIS shader compares red IDs spaced by 1/8. In one pass it
+# distinguishes up to seven values; larger scenes necessarily reuse them.
+const IRIS_PALETTE_COUNT: int = 7
 const MAX_IDENTIFIED_MESHES: int = 4095
-const MAX_TARGET_PIXELS: int = 921600 # 720 x 1280; avoid high-res Android spikes.
 const SCAN_INTERVAL: float = 0.65
 
 var source_viewport: Viewport
@@ -33,7 +34,6 @@ var _last_camera_far: float = -1.0
 var _last_camera_aspect: int = -1
 var _last_camera_mask: int = -1
 var _ink_stroke: float = 3.0
-var _target_scale: float = 1.0
 var _redraw_requests: int = 0
 
 
@@ -52,6 +52,8 @@ func get_outline_metrics() -> Dictionary:
             ink.material is ShaderMaterial and
             (ink.material as ShaderMaterial).shader == INK),
         "ink_draw_source": "transparent_1px",
+        "id_encoding": "IRIS_RED_1_OF_7",
+        "palette_collision_possible": _id_allocations.size() > IRIS_PALETTE_COUNT,
         "canvas_layer": (get_parent() as CanvasLayer).layer if (
             get_parent() is CanvasLayer) else -1,
         "redraw_requests": _redraw_requests
@@ -173,18 +175,15 @@ func _sync_camera(source_camera: Camera3D) -> bool:
     if target_size.x < 32.0 or target_size.y < 32.0:
         return false
     # Keep one ID target per rendering viewport, rather than one per actor.
-    var scale: float = minf(1.0, sqrt(
-        float(MAX_TARGET_PIXELS) / maxf(1.0, target_size.x * target_size.y)))
-    var desired := Vector2i(maxi(32, roundi(target_size.x * scale)),
-        maxi(32, roundi(target_size.y * scale)))
+    # Mirror IRIS: sample one ID texel per final displayed viewport pixel.
+    # The previous 921600-pixel cap produced a different sampling footprint.
+    var desired := Vector2i(maxi(32, roundi(target_size.x)),
+        maxi(32, roundi(target_size.y)))
     var dirty: bool = false
     if id_viewport.size != desired:
         id_viewport.size = desired
-        _target_scale = scale
         (ink.material as ShaderMaterial).set_shader_parameter("mesh_id_texel",
             Vector2(1.0 / float(desired.x), 1.0 / float(desired.y)))
-        (ink.material as ShaderMaterial).set_shader_parameter("stroke_px",
-            minf(3.0, _ink_stroke * scale))
         dirty = true
     if _last_camera != source_camera.global_transform or (
             _last_camera_fov != source_camera.fov) or (
@@ -384,9 +383,10 @@ func _rescan() -> bool:
         if source is MultiMeshInstance3D:
             var mesh_batch: MultiMesh = (source as MultiMeshInstance3D).multimesh
             instance_count = mesh_batch.instance_count if mesh_batch != null else 1
-        # For combined geometry, unique ID per instance preserves seams.
-        # If the 4095-ID budget is exceeded, keep the batch's one draw call
-        # with one ID instead of dropping the geometry.
+        # Preserve one ID draw call per MultiMesh with per-instance red
+        # palette indices where possible. Seven repeating IRIS IDs do NOT
+        # guarantee contact seams between every neighboring instance.
+        # On logical allocation exhaustion, retain the batch as one ID.
         var per_instance_id: bool = false
         var identification: int = 0
         var allocation_count: int = 0
@@ -417,36 +417,22 @@ func _rescan() -> bool:
             _id_allocations[key] = {
                 "first": identification, "count": allocation_count
             }
-        # RGB444 IDs permit many equipment pieces while keeping per-channel
-        # jumps robust at nearest-neighbor sample resolution.
-        var color_id := Vector3(float((identification >> 8) & 15) / 15.0,
-            float((identification >> 4) & 15) / 15.0,
-            float(identification & 15) / 15.0)
-        var original: GeometryInstance3D = source as GeometryInstance3D
-        var hint: bool = bool(original.get_meta("sera_single_sided", false))
-        var native: Material = original.material_override
+        # EXACT IRIS per-mesh encoding: (index + 1) / 8 in the red
+        # channel, with green/blue zero. Background occluders use zero.
+        # Repeating the seven-value palette makes every scene mesh visible
+        # but can omit seams when adjacent objects share the same red ID.
+        var red_id: float = 0.0
+        if not is_occluder:
+            red_id = float(((identification - 1) % IRIS_PALETTE_COUNT) + 1) / 8.0
+        var closed: bool = bool((source as GeometryInstance3D).get_meta(
+            "sera_single_sided", false))
         var mat := ShaderMaterial.new()
-        var shader: Shader = ID_DOUBLE
-        if hint:
-            shader = ID_FRONT
-        elif native is BaseMaterial3D:
-            var culling: int = (native as BaseMaterial3D).cull_mode
-            if culling == BaseMaterial3D.CULL_FRONT:
-                shader = ID_FRONT
-            elif culling == BaseMaterial3D.CULL_BACK:
-                shader = ID_BACK
         if per_instance_id:
-            if shader == ID_FRONT:
-                shader = MULTI_ID_FRONT
-            elif shader == ID_BACK:
-                shader = MULTI_ID_BACK
-            else:
-                shader = MULTI_ID_DOUBLE
-        mat.shader = shader
-        if per_instance_id:
+            mat.shader = MULTI_ID_CLOSED if closed else MULTI_ID_OPEN
             mat.set_shader_parameter("mesh_id_base", identification)
         else:
-            mat.set_shader_parameter("mesh_id_rgb", color_id)
+            mat.shader = ID_CLOSED if closed else ID_OPEN
+            mat.set_shader_parameter("mesh_id", red_id)
         clone.material_override = mat
         clone.name = "VisibleID_%d" % identification
         clone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
