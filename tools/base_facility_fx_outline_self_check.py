@@ -25,7 +25,9 @@ assert "ShaderMaterial.new()" in vfx
 assert "FX_NO_OUTLINE" in vfx
 assert "extends RefCounted" in edges
 assert "SeraViewEdges._build_overlay" in edges
-assert 'set_shader_parameter("silhouette_px", 6.0)' in edges
+assert 'set_shader_parameter("stroke_px", 6.0)' in edges
+assert "BaseFacilityCreaseGeometry._build_overlay" in edges
+assert "ArchitecturalCreaseInk_" in arch
 assert 'set_shader_parameter("crease_px", 2.0)' in edges
 assert 'Color("#55798A")' in edges
 assert "Geometry2D.convex_hull" not in edges
