@@ -3,7 +3,7 @@ shader_type spatial;
 // Unlike CanvasLayer ink, foreground alpha smoke, sparks and light shafts
 // naturally paint over these lines without an extra effect-mask viewport.
 // Opaque objects and hidden parts were resolved in the ID depth pass.
-render_mode unshaded, blend_mix, cull_disabled, depth_test_disabled, depth_draw_never;
+render_mode unshaded, fog_disabled, blend_mix, cull_disabled, depth_test_disabled, depth_draw_never;
 
 uniform sampler2D mesh_id_texture : filter_nearest, repeat_disable;
 uniform vec2 mesh_id_texel = vec2(0.0026041667);
@@ -17,8 +17,11 @@ uniform float clutter_outside_px = 1.0;
 uniform float clutter_seam_px = 2.0;
 
 void vertex() {
-    // The camera-owned quad is a clip-space fullscreen triangle pair.
-    POSITION = vec4(UV.x * 2.0 - 1.0, 1.0 - UV.y * 2.0, 0.0, 1.0);
+    // QuadMesh defaults to a 1x1 rectangle; VERTEX.xy is -0.5..0.5.
+    // POSITION bypasses camera transforms. Godot 4.3+ uses reversed Z:
+    // a fullscreen near-plane quad is z=1.0, never the former z=0.0.
+    // A source mesh UV is not an authoritative screen coordinate.
+    POSITION = vec4(VERTEX.xy * 2.0, 1.0, 1.0);
 }
 
 vec3 sample_id(vec2 pixel_uv) {
@@ -70,7 +73,9 @@ float fill_px(float distance_px, float stroke) {
 }
 
 void fragment() {
-    vec3 center = sample_id(UV);
+    // Pixel coordinates must match the depth-resolved ID camera exactly.
+    vec2 pixel_uv = SCREEN_UV;
+    vec3 center = sample_id(pixel_uv);
     int center_role = role_of(center);
     float coverage = 0.0;
     if (center_role != 0) {
@@ -90,7 +95,7 @@ void fragment() {
                     break;
                 }
                 vec2 off = neighbor_offset(r, d);
-                vec3 neighbor = sample_id(UV + off * mesh_id_texel);
+                vec3 neighbor = sample_id(pixel_uv + off * mesh_id_texel);
                 int next_role = role_of(neighbor);
                 float distance_px = length(off);
                 if (next_role == 0) {
@@ -109,15 +114,17 @@ void fragment() {
     } else {
         // Empty ID: draw outside ink ONLY near visible marked geometry.
         // The screen bounds are conservatively projected from source AABBs.
-        if (UV.x >= ink_screen_bounds.x && UV.x <= ink_screen_bounds.z &&
-                UV.y >= ink_screen_bounds.y && UV.y <= ink_screen_bounds.w) {
+        if (pixel_uv.x >= ink_screen_bounds.x &&
+                pixel_uv.x <= ink_screen_bounds.z &&
+                pixel_uv.y >= ink_screen_bounds.y &&
+                pixel_uv.y <= ink_screen_bounds.w) {
             for (int r = 1; r <= 3; r++) {
                 for (int d = 0; d < 8; d++) {
                     if (d >= 4 && r == 3) {
                         break;
                     }
                     vec2 off = neighbor_offset(r, d);
-                    vec3 neighbor = sample_id(UV + off * mesh_id_texel);
+                    vec3 neighbor = sample_id(pixel_uv + off * mesh_id_texel);
                     int next_role = role_of(neighbor);
                     if (next_role == 0) {
                         continue;
