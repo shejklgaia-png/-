@@ -621,6 +621,7 @@ func _panel(parent: Node, title: String) -> Panel:
 func _create_hud() -> void:
     var layer := CanvasLayer.new()
     layer.name = "BaseHUDLayer"
+    layer.layer = 2 # Shared mesh-ID contour at layer 1, HUD above it.
     add_child(layer)
     hud = Control.new()
     hud.name = "BaseHUD"
