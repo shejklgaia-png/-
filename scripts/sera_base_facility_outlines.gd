@@ -2,7 +2,7 @@ extends RefCounted
 ## BASE uses physical mesh contour ribbons to avoid inverted-hull full-face
 ## overdraw and depth-mask disappearance on Android GL Compatibility.
 ## Facility outer edges and contacts now come from the visible-ID pass.
-## Only a 1px foreground hard crease ribbon remains visible, before VFX.
+## Only a 2px foreground hard crease ribbon remains visible, before VFX.
 const BaseFacilityCreaseGeometry = preload(
     "res://scripts/sera_base_facility_crease_geometry.gd")
 const BASE_SILHOUETTE_SHADER = preload("res://shaders/base_facility_silhouette_edges.gdshader")
@@ -30,7 +30,7 @@ static func crease_for(geometry: String, physical_mesh: Mesh) -> ArrayMesh:
     if _crease_cache.has(geometry):
         return _crease_cache[geometry] as ArrayMesh
     # Reuse the exact same edge mesh as the camera-dependent silhouette.
-    # The 2px shader selects only front/front >=80 degree hard creases.
+    # Only front/front >=80 degree hard creases are emitted.
     var ink: ArrayMesh = overlay_for(geometry, physical_mesh)
     _crease_cache[geometry] = ink
     return ink
@@ -49,9 +49,9 @@ static func crease_material() -> ShaderMaterial:
     if _shared_crease_material == null:
         _shared_crease_material = ShaderMaterial.new()
         _shared_crease_material.shader = BASE_CREASE_SHADER
-        # Draw the 1px corners before smoke, fire, laser and light shafts.
+        # Draw the 2px corners before smoke, fire, laser and light shafts.
         _shared_crease_material.render_priority = -29
         _shared_crease_material.set_shader_parameter(
             "ink_color", Color("#202020"))
-        _shared_crease_material.set_shader_parameter("crease_px", 1.0)
+        _shared_crease_material.set_shader_parameter("crease_px", 2.0)
     return _shared_crease_material
