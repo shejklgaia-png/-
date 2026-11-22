@@ -89,7 +89,11 @@ func sample_at(seconds: float) -> void:
                         var tilt := Basis(_axis(Vector3.FORWARD), sweep)
                         pose.basis = tilt * rest.basis
                     elif feature == "NexusAntennasBeacon":
+                        # Animated telescopic beacon on the existing antenna:
+                        # explicit vertical travel survives 720p overview scale.
+                        var beacon_stroke: float = 0.19 * sin(time * 3.2)
                         var pulse: float = 1.0 + 0.28 * sin(time * 3.2)
+                        pose.origin += _at(Vector3(0.0, beacon_stroke, 0.0))
                         pose.basis = rest.basis.scaled_local(
                             Vector3(pulse, pulse, pulse))
                 "LABO":
