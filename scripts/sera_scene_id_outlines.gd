@@ -16,7 +16,7 @@ const SCAN_INTERVAL: float = 0.65
 var source_viewport: Viewport
 var id_viewport: SubViewport
 var id_camera: Camera3D
-var ink: ColorRect
+var ink: TextureRect
 var _root_refs: Dictionary = {} # owner id -> WeakRef to scene/actor root
 var _copies: Dictionary = {} # source instance id -> ID MeshInstance/MultiMeshInstance
 var _source_refs: Dictionary = {}
@@ -47,6 +47,11 @@ func get_outline_metrics() -> Dictionary:
         "source_camera": is_instance_valid(source_viewport) and (
             is_instance_valid(source_viewport.get_camera_3d())),
         "overlay_visible": visible and is_instance_valid(ink) and ink.visible,
+        "ink_rect_size": ink.size if is_instance_valid(ink) else Vector2.ZERO,
+        "ink_shader_bound": is_instance_valid(ink) and (
+            ink.material is ShaderMaterial and
+            (ink.material as ShaderMaterial).shader == INK),
+        "ink_draw_source": "transparent_1px",
         "canvas_layer": (get_parent() as CanvasLayer).layer if (
             get_parent() is CanvasLayer) else -1,
         "redraw_requests": _redraw_requests
@@ -77,16 +82,21 @@ func _ready() -> void:
     id_camera.name = "SeraIDCamera"
     id_viewport.add_child(id_camera)
     id_camera.current = true
-    # The global overlay must submit a real, fully opaque canvas quad.
-    # A transparent 1x1 TextureRect (and the earlier alpha=0.004 ColorRect)
-    # can be suppressed by GL Compatibility before the fragment shader runs.
-    # This ColorRect supplies coverage only: the shader explicitly writes
-    # alpha=0 off the visible ID edges, leaving the underlying 3D untouched.
-    ink = ColorRect.new()
+    # Fail closed when the shared canvas shader cannot draw on a device.
+    # A WHITE ColorRect covered both BASE and NEXUS in Android: never use
+    # opaque fallback pixels in the viewport-wide shared compositor.
+    # Preserve HEAD D's safe source texture instead of raw ID colors.
+    ink = TextureRect.new()
     ink.name = "SeraVisibleMeshIDInk"
     ink.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    ink.color = Color.WHITE
+    ink.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+    ink.stretch_mode = TextureRect.STRETCH_SCALE
+    ink.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+    ink.texture_repeat = CanvasItem.TEXTURE_REPEAT_DISABLED
     ink.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    var safe_image := Image.create(1, 1, false, Image.FORMAT_RGBA8)
+    safe_image.fill(Color.TRANSPARENT)
+    ink.texture = ImageTexture.create_from_image(safe_image)
     var material := ShaderMaterial.new()
     material.shader = INK
     material.set_shader_parameter("mesh_id_texture", id_viewport.get_texture())
