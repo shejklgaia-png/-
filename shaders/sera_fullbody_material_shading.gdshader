@@ -16,6 +16,9 @@ uniform int lens_levels : hint_range(0, 8) = 3;
 uniform float lens_threshold : hint_range(0.0, 1.0) = 0.10;
 uniform bool lens_emissive = false;
 uniform vec3 fx_emission : source_color = vec3(0.0);
+uniform vec2 texture_uv_scale = vec2(1.0);
+uniform vec2 texture_uv_offset = vec2(0.0);
+uniform bool use_vertex_color = false;
 
 float sera_band_brightness(int levels, float threshold, float lighting) {
     if (levels < 2) {
@@ -28,8 +31,12 @@ float sera_band_brightness(int levels, float threshold, float lighting) {
 }
 
 void fragment() {
-    vec3 pixel_color = texture(source_texture, UV).rgb;
+    vec3 pixel_color = texture(source_texture,
+        UV * texture_uv_scale + texture_uv_offset).rgb;
     vec3 original = pixel_color * source_tint.rgb;
+    if (use_vertex_color) {
+        original *= COLOR.rgb;
+    }
     // Provisional visual material selection from authored palette plus part
     // location/name hint. Compare BEFORE red-tint, preserving authored B paint.
     float high = max(pixel_color.r, max(pixel_color.g, pixel_color.b));
