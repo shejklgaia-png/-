@@ -7,6 +7,7 @@ const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
 const RenderOrder = preload("res://scripts/render_order_policy.gd")
 const EDGE_SHADER = preload("res://shaders/sera_live_mesh_edges.gdshader")
 const ContactSeams = preload("res://scripts/sera_nexus_contact_seams.gd")
+const RibbonGeometry = preload("res://scripts/sera_base_facility_crease_geometry.gd")
 const RESCAN_SECONDS: float = 0.35
 const WELD_GRID: float = 10000.0
 const MAX_TRIANGLES_PER_MESH: int = 12000
@@ -129,177 +130,44 @@ func _refresh_meshes() -> void:
         }
     _refresh_contact_lines(found)
 
-func _position_id(point: Vector3, ids: Dictionary) -> int:
-    var quantized := Vector3i(roundi(point.x * WELD_GRID),
-        roundi(point.y * WELD_GRID), roundi(point.z * WELD_GRID))
-    if not ids.has(quantized):
-        ids[quantized] = ids.size()
-    return int(ids[quantized])
-
-func _register_edge(edges: Dictionary, position_ids: Dictionary,
-        start: Vector3, finish: Vector3, face_normal: Vector3) -> void:
-    if start.distance_squared_to(finish) < 0.0000000001:
-        return
-    var a: int = _position_id(start, position_ids)
-    var b: int = _position_id(finish, position_ids)
-    if a == b:
-        return
-    var key: String = ("%d:%d" % [a, b]) if a < b else (
-        "%d:%d" % [b, a])
-    if not edges.has(key):
-        edges[key] = {
-            "a": start, "b": finish,
-            "n0": face_normal, "n1": Vector3.ZERO, "faces": 1
-        }
-        return
-    var entry: Dictionary = edges[key]
-    if int(entry["faces"]) == 1:
-        entry["n1"] = face_normal
-    entry["faces"] = int(entry["faces"]) + 1
-    edges[key] = entry
-
+# Reuse the proven GPU edge extractor used by BASE facilities.
+# Its SurfaceTool format is consumed identically by SERA's new 3D shader,
+# preventing UV, COLOR, NORMAL and TANGENT semantic mismatches on Android.
 func _edge_geometry(source_mesh: Mesh) -> ArrayMesh:
     var cache_key: int = source_mesh.get_instance_id()
     if _geometry_cache.has(cache_key):
         return _geometry_cache[cache_key] as ArrayMesh
-    var edges: Dictionary = {}
-    var position_ids: Dictionary = {}
-    var triangle_total: int = 0
-    for surface in range(source_mesh.get_surface_count()):
-        if source_mesh.surface_get_primitive_type(surface) != Mesh.PRIMITIVE_TRIANGLES:
-            continue
-        var data: Array = source_mesh.surface_get_arrays(surface)
-        var points: PackedVector3Array = data[Mesh.ARRAY_VERTEX]
-        if points.is_empty():
-            continue
-        var normals := PackedVector3Array()
-        if data[Mesh.ARRAY_NORMAL] is PackedVector3Array:
-            normals = data[Mesh.ARRAY_NORMAL]
-        var indices := PackedInt32Array()
-        if data[Mesh.ARRAY_INDEX] is PackedInt32Array:
-            indices = data[Mesh.ARRAY_INDEX]
-        var vertex_count: int = (indices.size()
-            if not indices.is_empty() else points.size())
-        var triangles: int = int(vertex_count / 3)
-        triangle_total += triangles
-        if triangle_total > MAX_TRIANGLES_PER_MESH:
-            _geometry_cache[cache_key] = null
-            return null
-        for i in range(triangles):
-            var ia: int = indices[i * 3] if not indices.is_empty() else i * 3
-            var ib: int = indices[i * 3 + 1] if not indices.is_empty() else i * 3 + 1
-            var ic: int = indices[i * 3 + 2] if not indices.is_empty() else i * 3 + 2
-            if ia < 0 or ib < 0 or ic < 0 or (
-                    ia >= points.size() or ib >= points.size() or ic >= points.size()):
-                continue
-            var a: Vector3 = points[ia]
-            var b: Vector3 = points[ib]
-            var c: Vector3 = points[ic]
-            var face_normal: Vector3 = (b - a).cross(c - a)
-            if face_normal.length_squared() < 0.0000000001:
-                continue
-            if normals.size() == points.size():
-                var authored: Vector3 = normals[ia] + normals[ib] + normals[ic]
-                if authored.length_squared() > 0.0000000001:
-                    face_normal = authored
-            face_normal = face_normal.normalized()
-            _register_edge(edges, position_ids, a, b, face_normal)
-            _register_edge(edges, position_ids, b, c, face_normal)
-            _register_edge(edges, position_ids, c, a, face_normal)
-
-    var out_points := PackedVector3Array()
-    var out_normals := PackedVector3Array()
-    var out_tangents := PackedFloat32Array()
-    var out_colors := PackedColorArray()
-    var out_uv := PackedVector2Array()
-    var out_indices := PackedInt32Array()
-    var emitted: int = 0
-    for edge in edges.values():
-        var record: Dictionary = edge
-        var faces: int = int(record["faces"])
-        # Non-manifold edges have ambiguous facing; avoid solid black
-        # seams from piled-up duplicate triangles.
-        if faces > 2:
-            continue
-        var n0: Vector3 = record["n0"]
-        var n1: Vector3 = record["n1"]
-        if faces == 2 and n0.dot(n1) >= COPLANAR_DOT:
-            continue
-        var a: Vector3 = record["a"]
-        var b: Vector3 = record["b"]
-        var direction: Vector3 = (b - a).normalized()
-        var encoded: Color = Color(
-            (n1.x + 1.0) * 0.5, (n1.y + 1.0) * 0.5,
-            (n1.z + 1.0) * 0.5, 1.0 if faces == 2 else 0.0)
-        var begin: int = out_points.size()
-        for corner in range(4):
-            out_points.append(a if corner < 2 else b)
-            out_normals.append(n0)
-            out_tangents.append_array(PackedFloat32Array([
-                direction.x, direction.y, direction.z, 1.0]))
-            out_colors.append(encoded)
-            out_uv.append(Vector2(-1.0 if corner % 2 == 0 else 1.0, 0.0))
-        for index in [0, 1, 2, 1, 3, 2]:
-            out_indices.append(begin + index)
-        emitted += 1
-        if emitted >= MAX_EDGES_PER_MESH:
-            break
-    if out_points.is_empty():
-        _geometry_cache[cache_key] = null
-        return null
-    var result := ArrayMesh.new()
-    var arrays: Array = []
-    arrays.resize(Mesh.ARRAY_MAX)
-    arrays[Mesh.ARRAY_VERTEX] = out_points
-    arrays[Mesh.ARRAY_NORMAL] = out_normals
-    arrays[Mesh.ARRAY_TANGENT] = out_tangents
-    arrays[Mesh.ARRAY_COLOR] = out_colors
-    arrays[Mesh.ARRAY_TEX_UV] = out_uv
-    arrays[Mesh.ARRAY_INDEX] = out_indices
-    result.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+    var result: ArrayMesh = RibbonGeometry._build_overlay(source_mesh)
     _geometry_cache[cache_key] = result
     return result
 
 func _contact_ribbon_mesh(segments: PackedVector3Array) -> ArrayMesh:
     if segments.size() < 2:
         return null
-    var vertices := PackedVector3Array()
-    var normals := PackedVector3Array()
-    var tangents := PackedFloat32Array()
-    var colors := PackedColorArray()
-    var uvs := PackedVector2Array()
-    var indices := PackedInt32Array()
-    for i in range(int(segments.size() / 2)):
-        var a: Vector3 = segments[i * 2]
-        var b: Vector3 = segments[i * 2 + 1]
-        if a.distance_squared_to(b) < 0.0000000001:
+    var surface := SurfaceTool.new()
+    surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+    surface.set_custom_format(0, SurfaceTool.CUSTOM_RGBA_FLOAT)
+    var emitted: int = 0
+    for index in range(int(segments.size() / 2)):
+        var a: Vector3 = segments[index * 2]
+        var b: Vector3 = segments[index * 2 + 1]
+        var edge: Vector3 = b - a
+        if edge.length_squared() < 0.0000000001:
             continue
-        var direction: Vector3 = (b - a).normalized()
-        var begin: int = vertices.size()
-        for corner in range(4):
-            vertices.append(a if corner < 2 else b)
-            normals.append(Vector3.UP)
-            tangents.append_array(PackedFloat32Array([
-                direction.x, direction.y, direction.z, 1.0]))
-            # An actual intersection curve is a boundary (no adjacent-face
-            # visibility decision); regular scene depth still masks it.
-            colors.append(Color(0.5, 0.5, 0.5, 0.0))
-            uvs.append(Vector2(-1.0 if corner % 2 == 0 else 1.0, 0.0))
-        for idx in [0, 1, 2, 1, 3, 2]:
-            indices.append(begin + idx)
-    if vertices.is_empty():
+        var tangent: Vector3 = edge.normalized()
+        # The outline shader recognizes CUSTOM0.w=2 as an explicit
+        # contact: normal A/B tests do not suppress its visible segments.
+        for endpoint in [[a, -1.0], [b, -1.0], [b, 1.0],
+                [a, -1.0], [b, 1.0], [a, 1.0]]:
+            surface.set_normal(tangent)
+            surface.set_color(Color(0.5, 1.0, 0.5, 0.0))
+            surface.set_custom(0, Color(0.0, 0.0, 0.0, 2.0))
+            surface.set_uv(Vector2(float(endpoint[1]), 0.0))
+            surface.add_vertex(endpoint[0])
+        emitted += 1
+    if emitted == 0:
         return null
-    var mesh := ArrayMesh.new()
-    var arrays: Array = []
-    arrays.resize(Mesh.ARRAY_MAX)
-    arrays[Mesh.ARRAY_VERTEX] = vertices
-    arrays[Mesh.ARRAY_NORMAL] = normals
-    arrays[Mesh.ARRAY_TANGENT] = tangents
-    arrays[Mesh.ARRAY_COLOR] = colors
-    arrays[Mesh.ARRAY_TEX_UV] = uvs
-    arrays[Mesh.ARRAY_INDEX] = indices
-    mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    return mesh
+    return surface.commit()
 
 func _relative_pose_signature(pose: Transform3D) -> String:
     # Quantization cancels float roundoff from rotating the complete rig:
