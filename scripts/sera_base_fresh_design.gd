@@ -508,7 +508,7 @@ static func _terminal(g: Variant) -> void:
     g.poly("FreshTerminalConsoleBase", "bevel",
         Vector3(0, 0.66, -0.20),
         Vector3(1.81, 0.75, 1.54), "slate")
-    g.poly("FreshTerminalMonitorShell", "bevel",
+    g.poly("FreshTerminalSignalBody", "bevel",
         Vector3(0, 1.79, -0.47),
         Vector3(1.97, 1.62, 0.71), "armor")
     for side in [-1.0, 1.0]:
