@@ -165,7 +165,7 @@ func set_nexus_sera_contact_mode(enabled: bool) -> void:
         if enabled:
             # NEXUS SERA only. Retain the room/building 2px ID ink.
             material.set_shader_parameter("sera_stroke_px", 3.0)
-            material.set_shader_parameter("sera_seam_px", 1.0)
+            material.set_shader_parameter("sera_seam_px", 2.0)
             material.set_shader_parameter("sera_screen_bounds", Vector4.ZERO)
     _clear_copies()
     _scan_elapsed = 0.0
