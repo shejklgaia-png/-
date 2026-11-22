@@ -16,7 +16,7 @@ const SCAN_INTERVAL: float = 0.65
 var source_viewport: Viewport
 var id_viewport: SubViewport
 var id_camera: Camera3D
-var ink: TextureRect
+var ink: ColorRect
 var _root_refs: Dictionary = {} # owner id -> WeakRef to scene/actor root
 var _copies: Dictionary = {} # source instance id -> ID MeshInstance/MultiMeshInstance
 var _source_refs: Dictionary = {}
@@ -77,22 +77,16 @@ func _ready() -> void:
     id_camera.name = "SeraIDCamera"
     id_viewport.add_child(id_camera)
     id_camera.current = true
-    # Match the proven HEAD D compositor exactly. A transparent TextureRect
-    # with an independent mesh_id_texture uniform is the working Android
-    # canvas path; ColorRect's low source alpha can suppress output.
-    ink = TextureRect.new()
+    # The global overlay must submit a real, fully opaque canvas quad.
+    # A transparent 1x1 TextureRect (and the earlier alpha=0.004 ColorRect)
+    # can be suppressed by GL Compatibility before the fragment shader runs.
+    # This ColorRect supplies coverage only: the shader explicitly writes
+    # alpha=0 off the visible ID edges, leaving the underlying 3D untouched.
+    ink = ColorRect.new()
     ink.name = "SeraVisibleMeshIDInk"
     ink.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    ink.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-    ink.stretch_mode = TextureRect.STRETCH_SCALE
-    ink.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
-    ink.texture_repeat = CanvasItem.TEXTURE_REPEAT_DISABLED
+    ink.color = Color.WHITE
     ink.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    # The source texture is deliberately transparent; never show raw ID RGB
-    # in case the final contour shader fails.
-    var transparent_image := Image.create(1, 1, false, Image.FORMAT_RGBA8)
-    transparent_image.fill(Color.TRANSPARENT)
-    ink.texture = ImageTexture.create_from_image(transparent_image)
     var material := ShaderMaterial.new()
     material.shader = INK
     material.set_shader_parameter("mesh_id_texture", id_viewport.get_texture())
@@ -142,7 +136,11 @@ func _process(delta: float) -> void:
         return
     if size != desired_rect_size:
         size = desired_rect_size
+    # A CanvasLayer has no Control layout parent. Always keep the actual
+    # drawable rectangle at the source viewport's pixel dimensions.
+    if ink.position != Vector2.ZERO:
         ink.position = Vector2.ZERO
+    if ink.size != desired_rect_size:
         ink.size = desired_rect_size
     var source_camera: Camera3D = source_viewport.get_camera_3d()
     if not is_instance_valid(source_camera):
