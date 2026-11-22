@@ -25,15 +25,18 @@ assert "ShaderMaterial.new()" in vfx
 assert "FX_NO_OUTLINE" in vfx
 assert "extends RefCounted" in edges
 assert "SeraViewEdges._build_overlay" in edges
-assert 'set_shader_parameter("silhouette_px", 6.0)' in edges
+assert 'set_shader_parameter("stroke_px", 6.0)' in edges
+assert 'preload("res://shaders/sera_view_edges.gdshader")' in edges
 assert 'set_shader_parameter("crease_px", 2.0)' in edges
 assert 'Color("#55798A")' in edges
 assert "Geometry2D.convex_hull" not in edges
 assert "draw_polyline" not in edges
 assert "get_node_or_null" not in edges
 assert "SeraBaseFacilityOutlines" not in hub
-assert "BaseFacilityInk.overlay_for" in arch
+assert "BaseFacilityInk.silhouette_overlay_for" in arch
+assert "BaseFacilityInk.crease_overlay_for" in arch
 assert "ArchitecturalEdgeInk_" in arch
+assert "ArchitecturalCreaseInk_" in arch
 for key in ("NEXUS","LABO","SCRAP_COLLECTOR","SMELTER","RECYCLER",
             "GENERATOR","STORAGE","BUILD_TERMINAL"):
     # GPU physical mesh outlines are shared by every facility, not special-
