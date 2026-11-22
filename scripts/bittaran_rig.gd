@@ -300,7 +300,7 @@ func _make_mesh(element: Dictionary) -> MeshInstance3D:
     mat.albedo_color = PALETTE[index]
     mat.metallic = 0.43
     mat.roughness = 0.67
-    mat.cull_mode = (BaseMaterial3D.CULL_BACK if safe_closed else
+    mat.cull_mode = (BaseMaterial3D.CULL_FRONT if safe_closed else
         BaseMaterial3D.CULL_DISABLED)
     piece.set_meta("sera_single_sided", safe_closed)
     piece.material_override = mat
