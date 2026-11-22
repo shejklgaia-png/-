@@ -5,7 +5,7 @@ render_mode unshaded, cull_front, depth_draw_opaque;
 
 uniform sampler2D source_texture : source_color, filter_nearest, repeat_disable;
 uniform vec4 source_tint : source_color = vec4(1.0);
-uniform int shade_levels : hint_range(2, 4) = 4;
+uniform int shade_levels : hint_range(2, 8) = 4;
 uniform float panel_bias : hint_range(-0.1, 0.1) = 0.0;
 
 void fragment() {
@@ -28,10 +28,17 @@ void fragment() {
     } else if (shade_levels == 3) {
         brightness = illumination < 0.38 ? 0.60 :
             (illumination < 0.72 ? 0.82 : 1.05);
-    } else {
+    } else if (shade_levels == 4) {
+        // Keep the original four-band preview exactly unchanged.
         brightness = illumination < 0.30 ? 0.55 :
             (illumination < 0.52 ? 0.70 :
             (illumination < 0.77 ? 0.88 : 1.05));
+    } else {
+        // Additional 5-8 bands divide the same 55%-105% lighting envelope
+        // into equal-width plateaus without adding extra render passes.
+        float bands = float(shade_levels);
+        float band_index = min(floor(illumination * bands), bands - 1.0);
+        brightness = mix(0.55, 1.05, band_index / (bands - 1.0));
     }
     ALBEDO = eye_pixel ? base : clamp(base *
         brightness * (1.0 + panel_bias), vec3(0.0), vec3(1.0));
