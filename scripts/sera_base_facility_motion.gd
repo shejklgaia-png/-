@@ -167,3 +167,8 @@ func sample_at(seconds: float) -> void:
                             Vector3(blink, blink, blink))
             var multi: MultiMesh = record["mesh"] as MultiMesh
             multi.set_instance_transform(int(record["index"]), pose)
+            # Same indexed transform as its real opaque part: no trailing or
+            # detached lines while the printer / cutter / crane animates.
+            if record.has("ink_mesh"):
+                var ink_mesh: MultiMesh = record["ink_mesh"] as MultiMesh
+                ink_mesh.set_instance_transform(int(record["ink_index"]), pose)
