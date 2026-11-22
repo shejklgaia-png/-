@@ -2192,10 +2192,12 @@ func _layout_system_controls() -> void:
         return
     var width: float = focus_panel.size.x
     var margin: float = 12.0
-    var gap: float = 8.0
+    var compact: bool = focus_panel.size.y < 575.0
+    var gap: float = 5.0 if compact else 8.0
     var row_height: float = clampf(
-        (focus_panel.size.y - focus_header.size.y - 365.0) / 3.0,
-        50.0, 73.0)
+        (focus_panel.size.y - focus_header.size.y -
+            (312.0 if compact else 365.0)) / 3.0,
+        39.0 if compact else 50.0, 73.0)
     var top: float = focus_header.size.y + 12.0
     for i in range(system_slot_rows.size()):
         var panel: Panel = system_slot_rows[i]["panel"]
@@ -2204,29 +2206,36 @@ func _layout_system_controls() -> void:
         var label: Label = system_slot_rows[i]["label"]
         label.position = Vector2(12.0, 0.0)
         label.size = panel.size - Vector2(24.0, 0.0)
-    var actions_top: float = top + system_slot_rows.size() * (row_height + gap) + 9.0
+    var actions_top: float = top + system_slot_rows.size() * (row_height + gap) + (6.0 if compact else 9.0)
+    var action_step: float = 46.0 if compact else 58.0
+    var action_height: float = 42.0 if compact else 54.0
+    var setting_height: float = 38.0 if compact else 44.0
     var action_width: float = (width - margin * 2.0 - gap) * 0.5
     for i in range(system_action_rows.size()):
         var button: Panel = system_action_rows[i]["panel"]
         button.position = Vector2(margin + (i % 2) * (action_width + gap),
-            actions_top + (i / 2) * 58.0)
-        button.size = Vector2(action_width, 54.0)
+            actions_top + (i / 2) * action_step)
+        button.size = Vector2(action_width, action_height)
         var label: Label = system_action_rows[i]["label"]
         label.position = Vector2.ZERO
         label.size = button.size
-    system_lock_mode_row.position = Vector2(margin, actions_top + 123.0)
-    system_lock_mode_row.size = Vector2(width - margin * 2.0, 44.0)
+    system_lock_mode_row.position = Vector2(margin,
+        actions_top + (94.0 if compact else 123.0))
+    system_lock_mode_row.size = Vector2(width - margin * 2.0, setting_height)
     system_lock_mode_label.position = Vector2(12.0, 0.0)
     system_lock_mode_label.size = system_lock_mode_row.size - Vector2(24.0, 0.0)
-    system_handedness_row.position = Vector2(margin, actions_top + 174.0)
-    system_handedness_row.size = Vector2(width - margin * 2.0, 44.0)
+    system_handedness_row.position = Vector2(margin,
+        actions_top + (136.0 if compact else 174.0))
+    system_handedness_row.size = Vector2(width - margin * 2.0, setting_height)
     system_handedness_label.position = Vector2(12.0, 0.0)
     system_handedness_label.size = system_handedness_row.size - Vector2(24.0, 0.0)
-    system_fps_button.position = Vector2(margin, actions_top + 225.0)
-    system_fps_button.size = Vector2(width - margin * 2.0, 44.0)
+    system_fps_button.position = Vector2(margin,
+        actions_top + (178.0 if compact else 225.0))
+    system_fps_button.size = Vector2(width - margin * 2.0, setting_height)
     system_fps_button_label.position = Vector2(12.0, 0.0)
     system_fps_button_label.size = system_fps_button.size - Vector2(24.0, 0.0)
-    system_status.position = Vector2(margin, actions_top + 276.0)
+    system_status.position = Vector2(margin,
+        actions_top + (224.0 if compact else 276.0))
     system_status.size = Vector2(width - margin * 2.0,
         maxf(24.0, focus_panel.size.y - system_status.position.y - 10.0))
     _layout_fps_option_controls()
