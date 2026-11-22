@@ -30,6 +30,12 @@ func _run() -> void:
         if player.stream.get_length() < 0.8:
             _fail("creator audio truncated " + key)
             return
+    # Retain the previously approved quiet walking sound through BASE merges.
+    var footsteps: AudioStreamPlayer = players["footstep"]
+    if absf(footsteps.volume_db - (-13.0)) > 0.001 or (
+            footsteps.max_polyphony != 2):
+        _fail("walk volume must remain -13dB with max 2 voices")
+        return
     # An attack includes a stance phase; only actual animation entry emits.
     battle.set("bittaran_attack_frame", {"stance_prepare": true})
     battle.call("_tick_bittaran_attack_sfx")
