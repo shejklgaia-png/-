@@ -3,7 +3,6 @@ extends Node3D
 # Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
-const FullBodyMaterialPreview = preload("res://scripts/sera_fullbody_material_preview.gd")
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const TrainingDefaults = preload("res://scripts/training_defaults.gd")
 const IconAtlas = preload("res://scripts/sera_item_icons.gd")
@@ -507,12 +506,6 @@ func _sera_display() -> void:
                     Vector3.BACK, deg_to_rad(float(arm_angles[bone.name])))
     _remember_nexus_arm_rest_pose(rig)
     _fit_nexus_arms_to_lower_body()
-    # First rollout: shade EVERY equipment set/slot visible in NEXUS full-body
-    # SERA, not just HEAD D. Do not change battle/LAB/warehouse materials.
-    # SeraRig already attaches its 3px silhouette to every eligible mesh.
-    var material_coverage: Dictionary = FullBodyMaterialPreview.apply_to_rig(rig)
-    if int(material_coverage.get("total", 0)) == 0:
-        push_warning("NEXUS: no full-body equipment mesh accepted polygon shade")
     _capture_sera_silhouette(rig)
 
 func _remember_nexus_arm_rest_pose(rig: Node3D) -> void:
