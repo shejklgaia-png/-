@@ -13,15 +13,16 @@ const FRAME_HIGHLIGHT := Color("#9FD7E6")
 const FRAME_SUB_OPACITY: float = 0.36
 static var _backdrops: Dictionary = {}
 
-static func make_image(side: int, mode: String = DEFAULT_MODE) -> Image:
+static func make_image(side: int, mode: String = DEFAULT_MODE,
+        base_color: Color = SOLID_COLOR, grid_color: Color = GRID_COLOR) -> Image:
     var size: int = clampi(side, 16, 1024)
     var pixels := Image.create(size, size, false, Image.FORMAT_RGBA8)
-    pixels.fill(SOLID_COLOR)
+    pixels.fill(base_color)
     if mode == "solid":
         return pixels
     var step: int = maxi(8, int(round(float(size) / float(GRID_DIVISIONS))))
-    var line_color: Color = SOLID_COLOR.lerp(GRID_COLOR, GRID_OPACITY)
-    var center_color: Color = SOLID_COLOR.lerp(GRID_COLOR, GRID_OPACITY * 1.4)
+    var line_color: Color = base_color.lerp(grid_color, GRID_OPACITY)
+    var center_color: Color = base_color.lerp(grid_color, GRID_OPACITY * 1.4)
     for x in range(0, size, step):
         var ink: Color = center_color if x == step * 4 else line_color
         for y in range(size):
@@ -37,6 +38,16 @@ static func texture(side: int, mode: String = DEFAULT_MODE) -> Texture2D:
     if not _backdrops.has(key):
         _backdrops[key] = ImageTexture.create_from_image(make_image(side, mode))
     return _backdrops[key] as Texture2D
+
+# The brighter NEXUS viewer palette is separate from icon and LABO assets.
+# Generate once per size/mode, then reuse the cached GPU texture.
+static func nexus_preview_texture(side: int, mode: String = DEFAULT_MODE) -> Texture2D:
+    var key: String = "%d:%s:nexus_preview" % [side, mode]
+    if not _backdrops.has(key):
+        _backdrops[key] = ImageTexture.create_from_image(make_image(
+            side, mode, Color("#bfd0db"), Color("#91aabd")))
+    return _backdrops[key] as Texture2D
+
 
 static func _stroke_frame_segment(image: Image, a: Vector2i, b: Vector2i,
         thickness: int, tint: Color) -> void:

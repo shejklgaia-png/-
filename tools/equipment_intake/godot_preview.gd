@@ -39,6 +39,7 @@ var _touches: Dictionary = {}
 var _gesture_anchor: Dictionary = {}
 var _mouse_drag: bool = false
 var background_mode: String = "grid"
+var nexus_brighter_backdrop: bool = false
 var background_quad: MeshInstance3D
 var _js_callback: JavaScriptObject
 var _last_request_seq: int = -1
@@ -47,7 +48,8 @@ func _ready() -> void:
     # Reuse the gameplay rig lighting while applying the brighter preview-only backdrop.
     var env := Environment.new()
     env.background_mode = Environment.BG_COLOR
-    env.background_color = IconBackdrop.SOLID_COLOR
+    env.background_color = (
+        Color("#bfd0db") if nexus_brighter_backdrop else IconBackdrop.SOLID_COLOR)
     env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
     env.ambient_light_color = Color("#bbc9e1")
     env.ambient_light_energy = 0.60
@@ -77,7 +79,9 @@ func _ready() -> void:
     background_quad.mesh = quad
     var backdrop_material := StandardMaterial3D.new()
     backdrop_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-    backdrop_material.albedo_texture = IconBackdrop.texture(512, "grid")
+    backdrop_material.albedo_texture = (
+        IconBackdrop.nexus_preview_texture(512, "grid")
+        if nexus_brighter_backdrop else IconBackdrop.texture(512, "grid"))
     backdrop_material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
     backdrop_material.cull_mode = BaseMaterial3D.CULL_DISABLED
     background_quad.material_override = backdrop_material
