@@ -10,6 +10,7 @@ const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
 const PowerBoard = preload("res://scripts/sera_base_power_board.gd")
 const GridUi = preload("res://scripts/sera_base_grid_ui.gd")
 const BaseFrameBudget = preload("res://scripts/sera_base_frame_budget.gd")
+const DisplayProfile = preload("res://scripts/sera_display_profile.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
 const BaseFacilityInk = preload("res://scripts/sera_base_facility_outlines.gd")
 const OUTLINE_TEST_SAFE_SHADER = preload("res://shaders/base_facility_silhouette_edges.gdshader")
@@ -115,6 +116,7 @@ var grid_touch_start: Vector2 = Vector2.ZERO
 var _frame_budget: RefCounted
 
 func _ready() -> void:
+    DisplayProfile.apply(get_window())
     _frame_budget = BaseFrameBudget.new()
     _frame_budget.start(get_viewport())
     BaseClutter.clear_preview()
@@ -592,7 +594,9 @@ func _create_camera() -> void:
     # zero-perspective equivalent is this orthographic oblique overhead view.
     cam.projection = Camera3D.PROJECTION_ORTHOGONAL
     cam.keep_aspect = Camera3D.KEEP_HEIGHT
-    cam.size = BASE_ORTHO_SIZE
+    # Preserve the 9:16 horizontal footprint and add world above/below.
+    cam.size = BASE_ORTHO_SIZE * DisplayProfile.height_factor(
+        get_viewport().get_visible_rect().size)
     cam.near = 0.1
     cam.position = BASE_CAMERA_POSITION
     add_child(cam)
