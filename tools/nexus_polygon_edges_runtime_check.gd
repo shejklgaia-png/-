@@ -61,7 +61,9 @@ func _run() -> void:
         _fail("NEXUS maintenance platform missing")
         return
     var pad_material := pad.material_override as StandardMaterial3D
-    var pad_edge := pad_material.next_pass as ShaderMaterial if pad_material != null else null
+    var pad_edge: ShaderMaterial = null
+    if pad_material != null:
+        pad_edge = pad_material.next_pass as ShaderMaterial
     if pad_edge == null or pad_edge.shader != EDGES or int(pad_edge.get_shader_parameter("geometry_mode")) != 1:
         _fail("12-sided maintenance pad must receive its geometry-specific outline")
         return
