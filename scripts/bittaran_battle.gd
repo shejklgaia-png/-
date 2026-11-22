@@ -229,8 +229,6 @@ func _build_debug_leg_buttons() -> void:
     debug_leg_panel = Panel.new()
     debug_leg_panel.name = "BittaranLegBreakDebug"
     debug_leg_panel.theme = LaboTypography.common_theme()
-    debug_leg_panel.position = Vector2(14.0, 322.0)
-    debug_leg_panel.size = Vector2(334.0, 158.0)
     debug_leg_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
     var background := StyleBoxFlat.new()
     background.bg_color = Color(0.06, 0.13, 0.18, 0.88)
@@ -239,12 +237,19 @@ func _build_debug_leg_buttons() -> void:
     background.set_corner_radius_all(3)
     debug_leg_panel.add_theme_stylebox_override("panel", background)
     layer.add_child(debug_leg_panel)
+    # Full-width strip beneath the boss title / victory label, instead of
+    # the previous 2x2 grid covering the middle of the play field.
+    debug_leg_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+    debug_leg_panel.offset_left = 14.0
+    debug_leg_panel.offset_right = -14.0
+    debug_leg_panel.offset_top = 276.0
+    debug_leg_panel.offset_bottom = 368.0
 
     var caption := Label.new()
     caption.name = "LegBreakDebugTitle"
     caption.text = "DEBUG  /  LEG BREAK"
-    caption.position = Vector2(12.0, 8.0)
-    caption.size = Vector2(310.0, 29.0)
+    caption.position = Vector2(12.0, 5.0)
+    caption.size = Vector2(570.0, 27.0)
     caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
     caption.add_theme_font_override(
         "font", LaboTypography.tracked_data_font())
@@ -252,14 +257,26 @@ func _build_debug_leg_buttons() -> void:
     caption.add_theme_color_override("font_color", Color("#9eb6c3"))
     debug_leg_panel.add_child(caption)
 
+    # One responsive horizontal row. Expand-fill keeps four equally sized
+    # touch targets aligned on the 720px portrait design viewport.
+    var row := HBoxContainer.new()
+    row.name = "LegBreakDebugRow"
+    row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    row.add_theme_constant_override("separation", 8)
+    debug_leg_panel.add_child(row)
+    row.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+    row.offset_left = 10.0
+    row.offset_right = -10.0
+    row.offset_top = 38.0
+    row.offset_bottom = 82.0
+
     for i in range(DEBUG_LEG_ORDER.size()):
         var id: String = DEBUG_LEG_ORDER[i]
         var button := Button.new()
         button.name = "Break_" + id
         button.text = str(DEBUG_LEG_LABELS[id])
-        button.position = Vector2(10.0 + float(i % 2) * 160.0,
-            44.0 + float(floori(float(i) / 2.0)) * 50.0)
-        button.size = Vector2(154.0, 44.0)
+        button.custom_minimum_size = Vector2(128.0, 44.0)
+        button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
         button.mouse_filter = Control.MOUSE_FILTER_IGNORE
         button.focus_mode = Control.FOCUS_NONE
         button.add_theme_font_override("font", LaboTypography.control_font())
@@ -275,7 +292,7 @@ func _build_debug_leg_buttons() -> void:
         button.add_theme_color_override("font_color", Color("#d4e5ed"))
         button.add_theme_color_override(
             "font_disabled_color", Color("#6c8592"))
-        debug_leg_panel.add_child(button)
+        row.add_child(button)
         debug_leg_buttons[id] = button
     _sync_debug_leg_buttons()
 
