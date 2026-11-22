@@ -1,3 +1,6 @@
+# BASE 30 Hz visual schedule; 60 Hz input/physics; GRID edit camera zoom 60 Hz.
+py tools/base_frame_budget_self_check.py
+gd tools/base_frame_budget_runtime_check.gd
 # Manual-only test Actions and retained delivery workflows.
 py tools/sera_manual_workflow_policy_self_check.py
 # BASE 6px camera-contour ribbons (replaces black-full-face inverted hull).
