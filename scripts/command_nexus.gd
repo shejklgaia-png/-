@@ -470,7 +470,7 @@ func _pad_center() -> void:
     surface.mesh = cylinder
     surface.position = Vector3(0.0, 0.33, -4.75)
     var pad_material: StandardMaterial3D = _mat(2)
-    pad_material.next_pass = _nexus_edge_material(1)
+    # The shared ID pass draws the pad silhouette without a second edge pass.
     surface.material_override = pad_material
     add_child(surface)
 
