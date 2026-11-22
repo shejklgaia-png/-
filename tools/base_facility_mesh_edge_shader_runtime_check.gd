@@ -73,7 +73,7 @@ func _run() -> void:
                         float(ink_mat.get_shader_parameter("stroke_px")), 6.0):
                     _fail(key + " silhouette no longer 6 screen pixels")
                     return
-                if (ink_mat.get_shader_parameter("ink_color") as Color) != Color("#000000"):
+                if ink_mat.get_shader_parameter("ink_color") != Color("#000000"):
                     _fail(key + " silhouette must be black")
                     return
                 if inst.has_meta("FX_NO_OUTLINE") == false:
@@ -89,7 +89,7 @@ func _run() -> void:
                         float(crease_mat.get_shader_parameter("crease_px")), 2.0):
                     _fail(key + " foreground crease no longer 2 pixels")
                     return
-                if (crease_mat.get_shader_parameter("ink_color") as Color) != Color("#353535"):
+                if crease_mat.get_shader_parameter("ink_color") != Color("#353535"):
                     _fail(key + " corner line must be dark gray")
                     return
                 if not inst.has_meta("FX_NO_OUTLINE"):
