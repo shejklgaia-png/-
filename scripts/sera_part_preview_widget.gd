@@ -5,6 +5,11 @@ const EquipmentPreview = preload("res://tools/equipment_intake/godot_preview.gd"
 const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
 const RotateMark = preload("res://scripts/sera_rotatable_mark.gd")
 const IrisIDContour = preload("res://scripts/sera_iris_id_silhouette_preview.gd")
+const IrisPolygonLight = preload("res://shaders/sera_iris_polygon_light.gdshader")
+const IrisPolygonLightClosed = preload("res://shaders/sera_iris_polygon_light_closed.gdshader")
+const SHADING_MODES = [0, 2, 3, 4]
+const double_tap_window_msec: int = 330
+signal preview_fullscreen_requested(enabled: bool)
 # The live part preview starts at the same angle as the approved 19 PNGs.
 const DEFAULT_YAW: float = 156.900744628906
 const DEFAULT_PITCH: float = 11.8749389648438
@@ -22,6 +27,18 @@ var selected_parts: Dictionary = {}
 var _request_serial: int = 0
 var _pressed_mouse: bool = false
 var _last_mouse: Vector2 = Vector2.ZERO
+var shade_levels: int = 4
+var fullscreen: bool = false
+var _shade_column: VBoxContainer
+var _shade_buttons: Dictionary = {}
+var _fullscreen_close: Button
+var _original_materials: Dictionary = {}
+var _light_materials: Dictionary = {}
+var _white_texture: ImageTexture
+var _touch_starts: Dictionary = {}
+var _ui_mode_touches: Dictionary = {}
+var _last_tap_time: int = 0
+var _last_tap_position: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
     mouse_filter = Control.MOUSE_FILTER_STOP
@@ -38,8 +55,146 @@ func _ready() -> void:
     cue.size = Vector2(28, 28)
     cue.mouse_filter = Control.MOUSE_FILTER_IGNORE
     add_child(cue)
+    _create_iris_controls()
+    resized.connect(_layout_iris_controls)
     # With SubViewportContainer.stretch=true, Godot controls its size.
     # Do not fight it by assigning SubViewport.size after parenting.
+
+func _create_iris_controls() -> void:
+    _shade_column = VBoxContainer.new()
+    _shade_column.name = "IrisShadeModeColumn"
+    _shade_column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _shade_column.add_theme_constant_override("separation", 3)
+    _shade_column.visible = false
+    add_child(_shade_column)
+    for mode in SHADING_MODES:
+        var button := Button.new()
+        button.name = "IrisShade_%d" % mode
+        button.text = "OFF" if mode == 0 else "%d段" % mode
+        button.custom_minimum_size = Vector2(52, 42)
+        button.focus_mode = Control.FOCUS_NONE
+        button.add_theme_font_size_override("font_size", 15)
+        button.pressed.connect(set_shading_mode.bind(mode))
+        _shade_column.add_child(button)
+        _shade_buttons[mode] = button
+    _fullscreen_close = Button.new()
+    _fullscreen_close.name = "IrisFullscreenClose"
+    _fullscreen_close.text = "縮小"
+    _fullscreen_close.focus_mode = Control.FOCUS_NONE
+    _fullscreen_close.custom_minimum_size = Vector2(76, 48)
+    _fullscreen_close.pressed.connect(_request_close_fullscreen)
+    _fullscreen_close.visible = false
+    add_child(_fullscreen_close)
+    _style_shading_buttons()
+    _layout_iris_controls()
+
+
+func _layout_iris_controls() -> void:
+    if _shade_column == null:
+        return
+    _shade_column.position = Vector2(maxf(4.0, size.x - 62.0), 10.0)
+    _shade_column.size = Vector2(52.0, 177.0)
+    if _fullscreen_close != null:
+        _fullscreen_close.position = Vector2(12.0, 12.0)
+        _fullscreen_close.size = Vector2(76.0, 48.0)
+
+
+func _style_shading_buttons() -> void:
+    for mode in SHADING_MODES:
+        var button: Button = _shade_buttons.get(mode) as Button
+        if not is_instance_valid(button):
+            continue
+        var active: bool = shade_levels == mode
+        var box := StyleBoxFlat.new()
+        box.bg_color = Color("#325f72") if active else Color("#17303d")
+        box.border_color = Color("#a7e9f6") if active else Color("#5c8190")
+        box.set_border_width_all(2 if active else 1)
+        box.set_corner_radius_all(3)
+        button.add_theme_stylebox_override("normal", box)
+        button.add_theme_stylebox_override("hover", box)
+        button.add_theme_stylebox_override("pressed", box)
+        button.add_theme_color_override("font_color", Color("#e7f6fa"))
+
+
+func _is_iris_preview() -> bool:
+    return enable_nexus_iris_id_contour and current_blueprint == "H02"
+
+
+func set_fullscreen_state(enabled: bool) -> void:
+    fullscreen = enabled
+    _last_tap_time = 0
+    _touch_starts.clear()
+    _ui_mode_touches.clear()
+    if is_instance_valid(_fullscreen_close):
+        _fullscreen_close.visible = enabled
+    _layout_iris_controls()
+
+
+func _request_close_fullscreen() -> void:
+    if fullscreen:
+        preview_fullscreen_requested.emit(false)
+
+
+func set_shading_mode(levels: int) -> void:
+    if not SHADING_MODES.has(levels):
+        return
+    shade_levels = levels
+    _style_shading_buttons()
+    _apply_iris_shading()
+
+
+func _restore_original_materials() -> void:
+    for item in _original_materials.values():
+        var source: MeshInstance3D = item.get("mesh") as MeshInstance3D
+        if is_instance_valid(source):
+            source.material_override = item.get("original_material_override") as Material
+    _original_materials.clear()
+    _light_materials.clear()
+
+
+func _apply_iris_shading() -> void:
+    if not active_preview or not ready_for_commands or not _is_iris_preview() or (
+            shade_levels == 0) or not is_instance_valid(preview_scene):
+        _restore_original_materials()
+        return
+    if not is_instance_valid(_white_texture):
+        var white := Image.create(1, 1, false, Image.FORMAT_RGBA8)
+        white.fill(Color.WHITE)
+        _white_texture = ImageTexture.create_from_image(white)
+    var pieces: Array = preview_scene.call("_mesh_in_slot", "head", "D")
+    for index in range(pieces.size()):
+        var source: MeshInstance3D = pieces[index] as MeshInstance3D
+        if not is_instance_valid(source) or source.mesh == null:
+            continue
+        var key: int = source.get_instance_id()
+        if not _original_materials.has(key):
+            _original_materials[key] = {
+                "mesh": source,
+                "original_material_override": source.material_override
+            }
+        var original: Material = _original_materials[key]["original_material_override"] as Material
+        if original == null and source.mesh.get_surface_count() > 0:
+            original = source.get_active_material(0)
+        var texture: Texture2D = _white_texture
+        var tint: Color = Color.WHITE
+        if original is StandardMaterial3D:
+            var standard: StandardMaterial3D = original as StandardMaterial3D
+            if standard.albedo_texture != null:
+                texture = standard.albedo_texture
+            tint = standard.albedo_color
+        var light_material: ShaderMaterial = _light_materials.get(key) as ShaderMaterial
+        if not is_instance_valid(light_material):
+            light_material = ShaderMaterial.new()
+            light_material.shader = IrisPolygonLightClosed if bool(source.get_meta(
+                "sera_single_sided", false)) else IrisPolygonLight
+            light_material.set_shader_parameter("source_texture", texture)
+            light_material.set_shader_parameter("source_tint", tint)
+            light_material.set_shader_parameter("panel_bias",
+                float(index % 3 - 1) * 0.035)
+            _light_materials[key] = light_material
+        light_material.set_shader_parameter("shade_levels", shade_levels)
+        source.material_override = light_material
+
 
 func _make_viewport() -> void:
     if render_viewport != null:
@@ -60,7 +215,13 @@ func show_part(blueprint: String, selections: Dictionary = {}) -> void:
     var spec: Dictionary = Catalog.spec(blueprint)
     if spec.is_empty():
         return
+    _restore_original_materials()
+    _touch_starts.clear()
+    _ui_mode_touches.clear()
+    _last_tap_time = 0
     current_blueprint = blueprint
+    if is_instance_valid(_shade_column):
+        _shade_column.visible = _is_iris_preview()
     if is_instance_valid(_iris_contour):
         _iris_contour.call("set_active", false)
     selected_parts = selections.duplicate(true)
@@ -106,8 +267,9 @@ func _load_part(request: int) -> void:
             _iris_contour = IrisIDContour.new()
             add_child(_iris_contour)
             # Keep the rotation cue above this non-interactive ink layer.
-            move_child(_iris_contour, get_child_count() - 2)
+            move_child(_iris_contour, 1)
         _iris_contour.call("set_active", true, preview_scene, render_viewport)
+    _apply_iris_shading()
 
 func set_preview_active(enabled: bool) -> void:
     active_preview = enabled
@@ -115,6 +277,10 @@ func set_preview_active(enabled: bool) -> void:
         render_viewport.render_target_update_mode = (
             SubViewport.UPDATE_ALWAYS if enabled else SubViewport.UPDATE_DISABLED)
     if not enabled:
+        _restore_original_materials()
+        _touch_starts.clear()
+        _ui_mode_touches.clear()
+        _last_tap_time = 0
         if is_instance_valid(_iris_contour):
             _iris_contour.call("set_active", false)
         _request_serial += 1
@@ -122,11 +288,83 @@ func set_preview_active(enabled: bool) -> void:
         if is_instance_valid(preview_scene):
             preview_scene.call("_on_preview_touch", 0, false, Vector2.ZERO)
 
+func _mode_at_local_point(point: Vector2) -> int:
+    if not is_instance_valid(_shade_column) or not _shade_column.visible:
+        return -1
+    var global_point: Vector2 = get_global_rect().position + point
+    for mode in SHADING_MODES:
+        var button: Button = _shade_buttons[mode] as Button
+        if button.get_global_rect().has_point(global_point):
+            return mode
+    return -1
+
+
+func _hit_fullscreen_close(point: Vector2) -> bool:
+    return fullscreen and _fullscreen_close != null and (
+        _fullscreen_close.get_global_rect().has_point(
+            get_global_rect().position + point))
+
+
+func _track_preview_tap(point: Vector2, started: Dictionary) -> void:
+    var now: int = Time.get_ticks_msec()
+    if now - int(started.get("time", 0)) > 300 or (
+            bool(started.get("moved", false))) or (
+            point.distance_to(started.get("point", point)) > 18.0):
+        _last_tap_time = 0
+        return
+    if _last_tap_time > 0 and now - _last_tap_time <= double_tap_window_msec and (
+            point.distance_to(_last_tap_position) <= 30.0):
+        _last_tap_time = 0
+        preview_fullscreen_requested.emit(not fullscreen)
+    else:
+        _last_tap_time = now
+        _last_tap_position = point
+
+
 func feed_touch(index: int, pressed: bool, point: Vector2) -> void:
-    if ready_for_commands and active_preview and is_instance_valid(preview_scene):
-        preview_scene.call("_on_preview_touch", index, pressed, point)
+    if not ready_for_commands or not active_preview or not is_instance_valid(preview_scene):
+        return
+    if pressed:
+        var mode: int = _mode_at_local_point(point)
+        if mode >= 0:
+            _ui_mode_touches[index] = mode
+            _last_tap_time = 0
+            return
+        if _hit_fullscreen_close(point):
+            _ui_mode_touches[index] = -2
+            _last_tap_time = 0
+            return
+        _touch_starts[index] = {
+            "point": point, "time": Time.get_ticks_msec(), "moved": false}
+        if _touch_starts.size() > 1:
+            for key in _touch_starts.keys():
+                _touch_starts[key]["moved"] = true
+        preview_scene.call("_on_preview_touch", index, true, point)
+        return
+    if _ui_mode_touches.has(index):
+        var captured_mode: int = int(_ui_mode_touches[index])
+        _ui_mode_touches.erase(index)
+        if captured_mode == -2:
+            if _hit_fullscreen_close(point):
+                _request_close_fullscreen()
+        elif _mode_at_local_point(point) == captured_mode:
+            set_shading_mode(captured_mode)
+        return
+    var started: Dictionary = _touch_starts.get(index, {})
+    _touch_starts.erase(index)
+    preview_scene.call("_on_preview_touch", index, false, point)
+    if not started.is_empty():
+        _track_preview_tap(point, started)
+
 
 func feed_drag(index: int, point: Vector2) -> void:
+    if _ui_mode_touches.has(index):
+        return
+    if _touch_starts.has(index):
+        var state: Dictionary = _touch_starts[index]
+        if point.distance_to(state.get("point", point)) > 18.0:
+            state["moved"] = true
+            _touch_starts[index] = state
     if ready_for_commands and active_preview and is_instance_valid(preview_scene):
         preview_scene.call("_on_preview_drag", index, point)
 

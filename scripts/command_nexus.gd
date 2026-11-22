@@ -65,6 +65,8 @@ var customize_total_accents: Array[ColorRect] = []
 var customize_part_accents: Array[ColorRect] = []
 var customize_part_preview_frame: Control
 var customize_single_part_preview: Control
+var customize_part_preview_fullscreen_layer: Panel
+var customize_part_preview_fullscreen_active: bool = false
 var customize_body_rotate_cue: Control
 var customize_part_preview_slot: String = "head"
 # One shared, depth-tested glow for only the visible mesh of the inspected slot.
@@ -1607,6 +1609,20 @@ func _create_single_part_preview() -> void:
     customize_single_part_preview.name = "CustomizeSinglePartPreview"
     customize_single_part_preview.visible = false
     focus_panel.add_child(customize_single_part_preview)
+    customize_single_part_preview.connect("preview_fullscreen_requested",
+        _set_single_part_preview_fullscreen)
+    customize_part_preview_fullscreen_layer = Panel.new()
+    customize_part_preview_fullscreen_layer.name = "IrisPreviewFullscreenLayer"
+    customize_part_preview_fullscreen_layer.set_anchors_and_offsets_preset(
+        Control.PRESET_FULL_RECT)
+    customize_part_preview_fullscreen_layer.mouse_filter = Control.MOUSE_FILTER_STOP
+    customize_part_preview_fullscreen_layer.z_index = 90
+    var fullscreen_style := StyleBoxFlat.new()
+    fullscreen_style.bg_color = Color("#172d3a")
+    customize_part_preview_fullscreen_layer.add_theme_stylebox_override(
+        "panel", fullscreen_style)
+    customize_part_preview_fullscreen_layer.visible = false
+    hud.add_child(customize_part_preview_fullscreen_layer)
     customize_part_preview_frame = PreviewRim.new()
     customize_part_preview_frame.name = "CustomizePartPreviewTechFrame"
     customize_part_preview_frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -1620,6 +1636,78 @@ func _create_single_part_preview() -> void:
     hud.add_child(customize_body_rotate_cue)
 
 
+func _set_single_part_preview_fullscreen(enabled: bool) -> void:
+    if customize_single_part_preview == null or (
+            customize_part_preview_fullscreen_layer == null):
+        return
+    if enabled and (focused_target != "CUSTOMIZE" or
+            not customize_single_part_preview.visible):
+        return
+    if enabled == customize_part_preview_fullscreen_active:
+        return
+    customize_part_preview_fullscreen_active = enabled
+    customize_part_touch_id = -1
+    customize_part_mouse_drag = false
+    if enabled:
+        customize_part_preview_fullscreen_layer.visible = true
+        customize_single_part_preview.reparent(
+            customize_part_preview_fullscreen_layer, false)
+        customize_single_part_preview.set_anchors_and_offsets_preset(
+            Control.PRESET_FULL_RECT)
+        customize_single_part_preview.position = Vector2.ZERO
+        customize_single_part_preview.size = customize_part_preview_fullscreen_layer.size
+    else:
+        customize_single_part_preview.reparent(focus_panel, false)
+        customize_single_part_preview.set_anchors_and_offsets_preset(
+            Control.PRESET_TOP_LEFT)
+        customize_part_preview_fullscreen_layer.visible = false
+    customize_single_part_preview.call("set_fullscreen_state", enabled)
+    _layout_single_part_preview()
+
+
+func _route_fullscreen_preview_input(event: InputEvent) -> bool:
+    if not customize_part_preview_fullscreen_active:
+        return false
+    if event.is_action_pressed("ui_cancel") or (
+            event is InputEventKey and event.pressed and not event.echo and
+            event.keycode in [KEY_BACK, KEY_ESCAPE]):
+        _set_single_part_preview_fullscreen(false)
+        return true
+    var part_rect: Rect2 = customize_single_part_preview.get_global_rect()
+    if event is InputEventScreenTouch:
+        if event.pressed and part_rect.has_point(event.position):
+            customize_part_touch_id = event.index
+            customize_single_part_preview.feed_touch(event.index, true,
+                event.position - part_rect.position)
+        elif not event.pressed and event.index == customize_part_touch_id:
+            customize_single_part_preview.feed_touch(event.index, false,
+                event.position - part_rect.position)
+            customize_part_touch_id = -1
+        return true
+    if event is InputEventScreenDrag:
+        if event.index == customize_part_touch_id:
+            customize_single_part_preview.feed_drag(event.index,
+                event.position - part_rect.position)
+        return true
+    if event is InputEventMouseButton:
+        if event.button_index == MOUSE_BUTTON_LEFT:
+            if event.pressed and part_rect.has_point(event.position):
+                customize_part_mouse_drag = true
+                customize_single_part_preview.feed_touch(-10, true,
+                    event.position - part_rect.position)
+            elif not event.pressed and customize_part_mouse_drag:
+                customize_single_part_preview.feed_touch(-10, false,
+                    event.position - part_rect.position)
+                customize_part_mouse_drag = false
+        return true
+    if event is InputEventMouseMotion:
+        if customize_part_mouse_drag:
+            customize_single_part_preview.feed_drag(-10,
+                event.position - part_rect.position)
+        return true
+    return false
+
+
 func _layout_single_part_preview() -> void:
     if customize_single_part_preview == null:
         return
@@ -1627,6 +1715,12 @@ func _layout_single_part_preview() -> void:
     # The SubViewportContainer owns the rectangular frame; stretching it
     # across this window keeps the grid backdrop aligned to the chamfer rim.
     # Its native viewport receives the actual aspect ratio automatically.
+    if customize_part_preview_fullscreen_active:
+        customize_single_part_preview.position = Vector2.ZERO
+        customize_single_part_preview.size = customize_part_preview_fullscreen_layer.size
+        customize_body_rotate_cue.visible = false
+        customize_part_preview_frame.visible = false
+        return
     customize_single_part_preview.position = Vector2.ZERO
     customize_single_part_preview.size = focus_panel.size
     var area: Rect2 = _customize_model_area(view)
@@ -3373,6 +3467,9 @@ func _on_android_back() -> void:
     _navigate_back()
 
 func _navigate_back() -> void:
+    if customize_part_preview_fullscreen_active:
+        _set_single_part_preview_fullscreen(false)
+        return
     if customize_part_picker != null and customize_part_picker.visible:
         _close_customization_part_picker()
         return
@@ -3387,6 +3484,9 @@ func _navigate_back() -> void:
         _return_to_overview()
 
 func _input(event: InputEvent) -> void:
+    if _route_fullscreen_preview_input(event):
+        get_viewport().set_input_as_handled()
+        return
     # Aggregate stats are read-only and can scroll without rotating the
     # character or treating the upper strip as a dismiss tap.
     if focused_target == "CUSTOMIZE" and (
@@ -3451,9 +3551,7 @@ func _input(event: InputEvent) -> void:
     # Dedicated bottom-left part preview never rotates the full SERA body.
     if focused_target == "CUSTOMIZE" and customize_single_part_preview != null and (
             customize_single_part_preview.visible):
-        var part_rect := Rect2(
-            focus_panel.position + customize_single_part_preview.position,
-            customize_single_part_preview.size)
+        var part_rect: Rect2 = customize_single_part_preview.get_global_rect()
         if event is InputEventScreenTouch:
             if event.pressed and part_rect.has_point(event.position):
                 customize_part_touch_id = event.index
@@ -3701,6 +3799,7 @@ func _focus_arrived(target_name: String) -> void:
 func _return_to_overview() -> void:
     if in_transition or focused_target.is_empty():
         return
+    _set_single_part_preview_fullscreen(false)
     _clear_customization_part_glow()
     # Back immediately ends the bright selection, before camera return.
     outline.set("active_target", "")
