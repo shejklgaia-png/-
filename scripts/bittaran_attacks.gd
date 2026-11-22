@@ -3,6 +3,8 @@ extends RefCounted
 ## Timings are in physics seconds, independent of the authored locomotion clip.
 const LEG_IDS: Array[String] = ["leg_fl", "leg_fr", "leg_rl", "leg_rr"]
 const ATTACK_KINDS: Array[String] = ["stomp", "kick", "sweep"]
+# Three confirmed SERA hits against Bittaran reserve the NEXT boss attack.
+const RECEIVED_HITS_FOR_STOMP: int = 3
 # v450: preserve authored front and rear Blockbench source clips and let only
 # a real-time attack director control entry, clip-speed warp, holding,
 # and post-attack return. No procedural attack aiming/rewriting.
@@ -165,6 +167,8 @@ var elapsed: float = 0.0
 var cooldown: float = 0.0 if TIMING_TEST_ENABLED else 1.0
 var next_kind_index: int = 0
 var last_kind: String = ""
+var received_hit_count: int = 0
+var guaranteed_stomp_pending: bool = false
 var next_leg_index: int = 0
 var hit_consumed: bool = false
 var preparing_stance: bool = false
@@ -182,6 +186,8 @@ func reset() -> void:
         if TIMING_TEST_ENABLED else 1.0)
     next_kind_index = 0
     last_kind = ""
+    received_hit_count = 0
+    guaranteed_stomp_pending = false
     next_leg_index = 0
     hit_consumed = false
     preparing_stance = false
@@ -198,6 +204,25 @@ func cancel() -> void:
     preparing_stance = false
     stomp_aim_valid = false
     selected_foot_world = Vector3.INF
+
+## A contact is counted by the battle's *actual* applied-damage route,
+## not by input taps or a multi-frame hit effect. Once armed, further
+## contacts keep the guarantee intact until a legal stomp is selected.
+func register_received_hit() -> void:
+    if guaranteed_stomp_pending:
+        return
+    received_hit_count += 1
+    if received_hit_count >= RECEIVED_HITS_FOR_STOMP:
+        received_hit_count = RECEIVED_HITS_FOR_STOMP
+        guaranteed_stomp_pending = true
+
+
+func _consume_guaranteed_stomp() -> void:
+    if not guaranteed_stomp_pending:
+        return
+    guaranteed_stomp_pending = false
+    received_hit_count = 0
+
 
 func is_active() -> bool:
     return not kind.is_empty()
@@ -356,6 +381,15 @@ func repeat_kind_blocked(_player_position: Vector3,
 
 func _choose_nonrepeating_kind(player_position: Vector3,
         feet: Dictionary, boss_yaw: float) -> String:
+    if guaranteed_stomp_pending:
+        # Do not launch a fake long-range STOMP. Walk/turn until at least
+        # one real physical sole has a legal STOMP (front 3.7m/rear 3.0m).
+        # This overrides both the normal KICK/SWEEP selection and the
+        # previous-kind alternation, without changing attack hitboxes.
+        if not _choose_leg(player_position, feet, "stomp",
+                Vector3.ZERO, boss_yaw).is_empty():
+            return "stomp"
+        return ""
     var fallback: String = ""
     for candidate in ATTACK_KINDS:
         if _choose_leg(player_position, feet, candidate,
@@ -548,6 +582,8 @@ func _advance_original_only(delta: float, player_position: Vector3,
         if selected.is_empty():
             return {}
         _start(selected, selected_kind, false)
+        if selected_kind == "stomp":
+            _consume_guaranteed_stomp()
         selected_foot_world = authored_feet[selected]
         last_kind = selected_kind
         next_kind_index = (ATTACK_KINDS.find(selected_kind) + 1) % ATTACK_KINDS.size()
@@ -660,6 +696,8 @@ func advance(delta: float, player_position: Vector3,
         if selected.is_empty():
             return {}
         _start(selected, selected_kind, true)
+        if selected_kind == "stomp":
+            _consume_guaranteed_stomp()
         selected_foot_world = available_feet[selected]
         last_kind = selected_kind
         next_kind_index = (ATTACK_KINDS.find(selected_kind) + 1) % ATTACK_KINDS.size()

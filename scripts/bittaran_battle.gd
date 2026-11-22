@@ -437,7 +437,8 @@ func _start_neural_flow_bgm() -> void:
     bittaran_bgm = AudioStreamPlayer.new()
     bittaran_bgm.name = "NeuralFlowBGM"
     bittaran_bgm.bus = "Master"
-    bittaran_bgm.volume_db = -5.0
+    # Give the boss's attack warning a clear spectral/dynamic lead.
+    bittaran_bgm.volume_db = -8.0
     bittaran_bgm.stream = music
     add_child(bittaran_bgm)
     bittaran_bgm.play()
@@ -606,7 +607,7 @@ func _initialize_bittaran_sfx() -> void:
         "punch": BittaranSoundData.PUNCH
     }
     var gain_db: Dictionary = {
-        "footstep": -5.0, "arm": -7.0,
+        "footstep": -5.0, "arm": 4.0,
         "collapse": -4.0, "punch": -4.0
     }
     for cue in encoded:
@@ -995,7 +996,7 @@ func _emit_bittaran_shockwave(point: Vector3, half_size: Vector2,
     # The actual foot contacting ground causes one large, quickly
     # converging shake whether or not SERA was hit.
     _add_bittaran_attack_shake("stomp", point)
-    _play_bittaran_thud(point, 1.0, -5.0)
+    _play_bittaran_thud(point, 1.0, -3.0)
 
 
 func _tick_bittaran_shockwave(_delta: float) -> void:
@@ -1097,10 +1098,10 @@ func _check_bittaran_attack_hit() -> void:
         direction = Vector3.FORWARD
     if kind == "kick":
         _add_bittaran_attack_shake("kick", contact)
-        _play_bittaran_thud(player.global_position, 1.5, -10.0)
+        _play_bittaran_thud(player.global_position, 1.5, -4.0)
     elif kind == "sweep":
         _add_bittaran_attack_shake("sweep", contact)
-        _play_bittaran_thud(player.global_position, 1.25, -9.0)
+        _play_bittaran_thud(player.global_position, 1.25, -4.0)
     # SERA's existing guard/HP/knockback and KO logic remains authoritative.
     var damage_index: int = 1 if kind == "kick" else 3
     _on_enemy_projectile_hit(
@@ -2486,6 +2487,12 @@ func _apply_target_part_damage(kind: String, raw_attack: int, raw_break: float,
     var alive_before: bool = target_hp > 0
     var result: Dictionary = super._apply_target_part_damage(
         kind, raw_attack, raw_break, weak_stagger, extension)
+    # Each confirmed boss hit counts ONCE. Hits from a combo are
+    # separate actual contacts; idle taps, zero damage and dead targets
+    # never count. This does not count Bittaran hitting the player.
+    if alive_before and int(result.get("applied_damage", 0)) > 0 and (
+            bittaran_attacks != null):
+        bittaran_attacks.call("register_received_hit")
     _handle_bittaran_leg_break(
         hit_id, result, active_at_hit, attacking_leg_at_hit)
     _sync_debug_leg_buttons()
