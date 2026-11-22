@@ -6,6 +6,7 @@ const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
 const RotateMark = preload("res://scripts/sera_rotatable_mark.gd")
 const IrisIDContour = preload("res://scripts/sera_iris_id_silhouette_preview.gd")
 const IrisPolygonLight = preload("res://shaders/sera_iris_polygon_light.gdshader")
+const IrisPolygonLightClosed = preload("res://shaders/sera_iris_polygon_light_closed.gdshader")
 const SHADING_MODES = [0, 2, 3, 4]
 const double_tap_window_msec: int = 330
 signal preview_fullscreen_requested(enabled: bool)
@@ -184,7 +185,8 @@ func _apply_iris_shading() -> void:
         var light_material: ShaderMaterial = _light_materials.get(key) as ShaderMaterial
         if not is_instance_valid(light_material):
             light_material = ShaderMaterial.new()
-            light_material.shader = IrisPolygonLight
+            light_material.shader = IrisPolygonLightClosed if bool(source.get_meta(
+                "sera_single_sided", false)) else IrisPolygonLight
             light_material.set_shader_parameter("source_texture", texture)
             light_material.set_shader_parameter("source_tint", tint)
             light_material.set_shader_parameter("panel_bias",
