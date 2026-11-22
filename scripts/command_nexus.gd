@@ -5,7 +5,8 @@ const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
 const ID_DEBUG_SHADER = preload("res://shaders/sera_scene_id_debug.gdshader")
-const ID_INK_SHADER = preload("res://shaders/sera_scene_mesh_id_outline.gdshader")
+const ID_INK_SHADER = preload("res://shaders/sera_scene_mesh_id_outline_safe.gdshader")
+const ID_SOLID_SHADER = preload("res://shaders/sera_scene_id_solid_probe.gdshader")
 const ID_BASIC_SHADER = preload("res://shaders/sera_scene_id_basic_probe.gdshader")
 const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
@@ -82,6 +83,7 @@ var outline_debug_shader_probe: ColorRect
 var outline_debug_probe_title: Label
 var outline_debug_probe_mode: int = 0 # 0: shared MASK; 1: shared SOLID; 2: standalone BASIC
 var outline_debug_shared_material: ShaderMaterial
+var outline_debug_solid_material: ShaderMaterial
 var outline_debug_basic_material: ShaderMaterial
 var outline_debug_stats: Label
 var outline_debug_enabled: bool = false
@@ -2897,8 +2899,9 @@ func _create_outline_debug() -> void:
         Vector2(1.0 / 384.0, 1.0 / 384.0))
     probe_material.set_shader_parameter("ink_color", Color("#17212f"))
     probe_material.set_shader_parameter("stroke_px", 3.0)
-    probe_material.set_shader_parameter("diagnostic_mode", 0)
     outline_debug_shared_material = probe_material
+    outline_debug_solid_material = ShaderMaterial.new()
+    outline_debug_solid_material.shader = ID_SOLID_SHADER
     outline_debug_basic_material = ShaderMaterial.new()
     outline_debug_basic_material.shader = ID_BASIC_SHADER
     outline_debug_shader_probe.material = outline_debug_shared_material
@@ -2941,7 +2944,6 @@ func _hide_outline_debug() -> void:
     outline_debug_probe_mode = 0
     if is_instance_valid(outline_debug_shader_probe):
         outline_debug_shader_probe.material = outline_debug_shared_material
-        outline_debug_shared_material.set_shader_parameter("diagnostic_mode", 0)
     if is_instance_valid(outline_debug_probe_title):
         outline_debug_probe_title.text = "MASK (tap: SOLID)"
     if outline_debug_panel != null:
@@ -2977,11 +2979,13 @@ func _handle_outline_debug_input(event: InputEvent) -> bool:
             outline_debug_panel.size).has_point(at):
         if not released and is_instance_valid(outline_debug_shader_probe):
             outline_debug_probe_mode = (outline_debug_probe_mode + 1) % 3
-            outline_debug_shader_probe.material = (
-                outline_debug_basic_material if outline_debug_probe_mode == 2
-                else outline_debug_shared_material)
-            outline_debug_shared_material.set_shader_parameter(
-                "diagnostic_mode", 1 if outline_debug_probe_mode == 1 else 0)
+            match outline_debug_probe_mode:
+                0:
+                    outline_debug_shader_probe.material = outline_debug_shared_material
+                1:
+                    outline_debug_shader_probe.material = outline_debug_solid_material
+                2:
+                    outline_debug_shader_probe.material = outline_debug_basic_material
             match outline_debug_probe_mode:
                 0:
                     outline_debug_probe_title.text = "MASK (tap: SOLID)"
@@ -3027,11 +3031,11 @@ func _refresh_outline_debug(delta: float) -> void:
     if is_instance_valid(offscreen):
         outline_debug_raw_id.texture = offscreen.get_texture()
         if is_instance_valid(outline_debug_shader_probe):
-            var probe_mat: ShaderMaterial = outline_debug_shared_material
-            probe_mat.set_shader_parameter("mesh_id_texture", offscreen.get_texture())
-            if id_target is Vector2i and id_target.x > 0 and id_target.y > 0:
-                probe_mat.set_shader_parameter("mesh_id_texel", Vector2(
-                    1.0 / float(id_target.x), 1.0 / float(id_target.y)))
+            for probe_mat in [outline_debug_shared_material, outline_debug_solid_material]:
+                probe_mat.set_shader_parameter("mesh_id_texture", offscreen.get_texture())
+                if id_target is Vector2i and id_target.x > 0 and id_target.y > 0:
+                    probe_mat.set_shader_parameter("mesh_id_texel", Vector2(
+                        1.0 / float(id_target.x), 1.0 / float(id_target.y)))
     else:
         outline_debug_raw_id.texture = null
 

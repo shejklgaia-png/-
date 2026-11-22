@@ -17,7 +17,7 @@
 2. `scripts/sera_scene_id_outlines.gd` は1個のID用 `SubViewport` と1個の `TextureRect` を描画用CanvasLayer(1)に配置する。3Dの既定Canvas(0)より後、HUDのCanvasLayer(2+)より前に合成する（ビットタラン固有のHUDは既存レイヤー30）。単体プレビューの独立SubViewportでも同じ順序を使う。操作イベントは受け取らない。
 3. MeshInstance3DとMultiMeshInstance3Dの不透明な実モデルのみを別ワールドへ低負荷の識別色で複製描画する。元メッシュ、UV、原本テクスチャ、アニメーション・ヒット判定、元の材質には触れない。元のRGB材質が表示されたままで輪郭だけを合成する。
 4. `sera_scene_mesh_id_*.gdshader` は可視メッシュ単位のRGB444識別色。 `sera_scene_multimesh_id_*.gdshader` は `INSTANCE_ID` からバッチ内の個々のインスタンスを区別する（新しいdraw callを一部品ごとに追加しない）。
-5. `sera_scene_mesh_id_outline.gdshader` はアイリスと同じ3px円形近傍、片側だけ線を置く内部境界、外周のピクセル比較を使用する。ID同士のRGBを直接比較し、CompatibilityでのsRGB変換による整数化ズレを回避。
+5. 現行の `sera_scene_mesh_id_outline_safe.gdshader` はアイリス専用版と同じ3px円形近傍、片側だけ線を置く内部境界と外周比較を使用する。RGB444の画面表示値から大小比較用の単一floatへ変換し、ID整数化は行わない。旧 `sera_scene_mesh_id_outline.gdshader` は復旧検討用の参考として残す。
 6. RGB444で各Viewport最大4095個の番号を使う。番号は装備変更・再生成時に解放して再使用し、連続する複数番号が確保できない大型MultiMeshバッチは1バッチ単位へフォールバックする（この場合バッチ内部の個々の境界は線にならない）。
 7. 原則、姿勢／可視状態／カメラ／モデル差替え等の変化があるときだけIDサブビューポートを更新する。新しいジオメトリの探索は約0.65秒ごと。外部リソースのMultiMeshインスタンス変換値だけがその場で変更された場合は、親の座標が変わらない限り更新通知を受け取れない制限が残る。
 8. ID描画用最大画素数は720×1280=921600を目安に制限し、より大きな端末解像度では縦横比を維持してIDを縮小する。低解像度表示時は3px×縮小率で計算し、最終表示に拡大される線幅の差を抑える。
