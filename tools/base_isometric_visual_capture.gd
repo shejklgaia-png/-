@@ -52,6 +52,18 @@ func _run() -> void:
             _fail("base preview JPEG encode failed")
             return
         print("SERA_BASE_PREVIEW_JPEG_B64=" + Marshalls.raw_to_base64(jpeg))
+    # Optional second true-gameplay frame: same camera / scene after real
+    # _process-driven machine animation advances for about a second.
+    if OS.get_environment("SERA_BASE_ANIMATION_CAPTURE") == "1":
+        for _frame in range(48):
+            await process_frame
+        await RenderingServer.frame_post_draw
+        var animated: Image = root.get_texture().get_image()
+        if animated == null or animated.is_empty() or (
+                animated.save_png(dir.path_join("sera_base_animated.png")) != OK):
+            _fail("real animated BASE frame capture failed")
+            return
+        print("SERA_BASE_ANIMATED_SCREENSHOT_PASS true gameplay frame")
     print("SERA_BASE_ORTHO_SCREENSHOT_PASS true gameplay angle: " +
         str(image.get_size()))
     quit(0)

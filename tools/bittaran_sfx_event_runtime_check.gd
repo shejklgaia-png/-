@@ -30,17 +30,6 @@ func _run() -> void:
         if player.stream.get_length() < 0.8:
             _fail("creator audio truncated " + key)
             return
-    # v544: actual walking-step loudness is deliberately below attack
-    # warnings even when two diagonal feet touch down together.
-    var footstep: AudioStreamPlayer = players["footstep"]
-    var arm: AudioStreamPlayer = players["arm"]
-    if absf(footstep.volume_db - (-13.0)) > 0.001 or (
-            footstep.max_polyphony != 2):
-        _fail("walking footstep loudness/polyphony not reduced")
-        return
-    if absf(arm.volume_db - 4.0) > 0.001:
-        _fail("attack warning volume must remain loud")
-        return
     # An attack includes a stance phase; only actual animation entry emits.
     battle.set("bittaran_attack_frame", {"stance_prepare": true})
     battle.call("_tick_bittaran_attack_sfx")

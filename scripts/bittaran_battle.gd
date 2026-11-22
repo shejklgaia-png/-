@@ -607,8 +607,7 @@ func _initialize_bittaran_sfx() -> void:
         "punch": BittaranSoundData.PUNCH
     }
     var gain_db: Dictionary = {
-        # Walk-only SFX is softened; do not lower the attack telegraph.
-        "footstep": -13.0, "arm": 4.0,
+        "footstep": -5.0, "arm": 4.0,
         "collapse": -4.0, "punch": -4.0
     }
     for cue in encoded:
@@ -623,8 +622,7 @@ func _initialize_bittaran_sfx() -> void:
         channel.name = "BittaranSFX_" + str(cue)
         channel.stream = stream
         channel.volume_db = float(gain_db[cue])
-        # Two diagonal soles can land together; prevent 4 overlapping tails.
-        channel.max_polyphony = 2
+        channel.max_polyphony = 4 if cue == "footstep" else 2
         add_child(channel)
         bittaran_sfx_players[cue] = channel
         bittaran_sfx_event_counts[cue] = 0

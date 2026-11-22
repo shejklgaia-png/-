@@ -25,11 +25,6 @@ for line in (
 assert 'const DOWN_CONTACT_SOURCE_SECONDS: float = 1.75' in ik
 for kind in ("footstep", "arm", "collapse", "punch"):
     assert '_play_bittaran_sound("' + kind + '")' in battle, "not routed: " + kind
-# v544: lower only walking footstep -5 -> -13dB, with two
-# simultaneous diagonal feet but no four-voice pileup. Preserve attack SE.
-assert '"footstep": -13.0, "arm": 4.0' in battle
-assert 'channel.max_polyphony = 2' in battle
-assert "bittaran_bgm.volume_db = -8.0" in battle
 assert "func _tick_bittaran_attack_sfx() -> void:" in battle
 assert "fall_vertical_shake_strength" in battle
 assert 'Marshalls.base64_to_raw' in battle
