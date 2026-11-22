@@ -18,6 +18,7 @@ const MOTION_FEATURES: Dictionary = {
 }
 const TICK_SECONDS: float = 1.0 / 30.0
 
+var _model: Node3D
 var facility_key: String = ""
 var _parts: Dictionary = {}
 var _body_yaw: float = 0.0
@@ -33,6 +34,7 @@ func bind_to(model: Node3D, key: String) -> void:
             push_error("SERA_BASE_MOTION_MISSING: " + key + "/" + str(feature))
             return
     name = "FacilityMotion"
+    _model = model
     facility_key = key
     _parts = source
     _body_yaw = float(model.get_meta("body_yaw", 0.0))
@@ -178,3 +180,8 @@ func sample_at(seconds: float) -> void:
                 var crease_mesh: MultiMesh = record["crease_mesh"] as MultiMesh
                 crease_mesh.set_instance_transform(
                     int(record["crease_index"]), pose)
+    # Explicit 30 Hz marker for the shared ID viewport. In-place MultiMesh
+    # updates do not change resource identity or node transforms.
+    if is_instance_valid(_model):
+        _model.set_meta("sera_outline_pose_stamp",
+            int(_model.get_meta("sera_outline_pose_stamp", 0)) + 1)
