@@ -54,10 +54,20 @@ func _run() -> void:
         if fixed_draws < 3 or player.get_child_count() > 0:
             _fail(key + " adds per-part meshes or damages fixed 3D batching")
             return
+        # Read the actual MultiMesh instance written by the sampler, not a
+        # wrapper accessor. This independently verifies the rendered part.
+        var channels: Dictionary = model.get_meta("motion_entries", {})
+        var channel: Array = channels.get(str(MOTORS[key]), [])
+        if channel.is_empty():
+            _fail(key + " tracked geometry not present on real 3D mesh")
+            return
+        var record: Dictionary = channel[0]
+        var geometry: MultiMesh = record["mesh"] as MultiMesh
+        var index: int = int(record["index"])
         var poses: Array[Transform3D] = []
         for moment in CLOCK_SAMPLES:
             player.call("sample_at", moment)
-            var pose: Transform3D = player.call("part_pose", MOTORS[key], 0)
+            var pose: Transform3D = geometry.get_instance_transform(index)
             if not pose.origin.is_finite():
                 _fail(key + " part transform became invalid")
                 return
@@ -90,13 +100,25 @@ func _run() -> void:
             _fail(key + " touch changed")
             return
     # Counter-rotating cutters must turn in *opposite* directions.
-    var recycler: Node = hub.get_node("BaseFacilities/RECYCLER/IndustrialModel/FacilityMotion")
+    var recycler_model: Node3D = hub.get_node("BaseFacilities/RECYCLER/IndustrialModel")
+    var recycler: Node = recycler_model.get_node("FacilityMotion")
+    var shafts: Array = (recycler_model.get_meta("motion_entries", {}) as Dictionary).get(
+        "FreshRecyclerRoller", [])
+    if shafts.size() != 2:
+        _fail("both cutter shafts must remain separately animated")
+        return
+    var shaft_left: Dictionary = shafts[0]
+    var shaft_right: Dictionary = shafts[1]
+    var left_mesh: MultiMesh = shaft_left["mesh"] as MultiMesh
+    var right_mesh: MultiMesh = shaft_right["mesh"] as MultiMesh
+    var left_index: int = int(shaft_left["index"])
+    var right_index: int = int(shaft_right["index"])
     recycler.call("sample_at", 0.25)
-    var before_left: Transform3D = recycler.call("part_pose", "FreshRecyclerRoller", 0)
-    var before_right: Transform3D = recycler.call("part_pose", "FreshRecyclerRoller", 1)
+    var before_left: Transform3D = left_mesh.get_instance_transform(left_index)
+    var before_right: Transform3D = right_mesh.get_instance_transform(right_index)
     recycler.call("sample_at", 0.55)
-    var after_left: Transform3D = recycler.call("part_pose", "FreshRecyclerRoller", 0)
-    var after_right: Transform3D = recycler.call("part_pose", "FreshRecyclerRoller", 1)
+    var after_left: Transform3D = left_mesh.get_instance_transform(left_index)
+    var after_right: Transform3D = right_mesh.get_instance_transform(right_index)
     if before_left.basis.y.distance_to(after_left.basis.y) < 0.02 or (
             before_right.basis.y.distance_to(after_right.basis.y) < 0.02):
         _fail("cutter shaft rotation does not move both rollers")
