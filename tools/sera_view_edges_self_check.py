@@ -60,6 +60,8 @@ assert 'hint_depth_texture' in shader
 assert 'filter_nearest' in shader and 'repeat_disable' in shader
 assert 'INV_PROJECTION_MATRIX' in shader
 assert 'return -view.z / view.w;' in shader
+# Shader code must contain actual line breaks, never serialized literal \\n tokens.
+assert (chr(92) + "n") not in shader
 assert 'CURRENT_RENDERER == RENDERER_COMPATIBILITY' in shader
 assert 'opaque_depth_at' in shader
 assert 'source_depth' in shader and 'SCREEN_UV' in shader

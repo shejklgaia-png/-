@@ -66,6 +66,9 @@ func _run() -> void:
                         mat.get_shader_parameter("stroke_px")), 6.0)):
                     _fail(key + " not using SERA's latest exact hull at 6px")
                     return
+                if mat.get_shader_parameter("ink_color") != Color("#000000"):
+                    _fail(key + " 6px facility silhouette must be black")
+                    return
             elif title.begins_with("ArchitecturalCreaseInk_"):
                 crease_parts[title.substr("ArchitecturalCreaseInk_".length())] = node
                 var mat2: ShaderMaterial = node.material_override as ShaderMaterial
@@ -73,6 +76,9 @@ func _run() -> void:
                         not is_equal_approx(float(
                         mat2.get_shader_parameter("crease_px")), 2.0)):
                     _fail(key + " foreground crease not preserved at 2px")
+                    return
+                if mat2.get_shader_parameter("ink_color") != Color("#353535"):
+                    _fail(key + " retained 2px polygon corners must be dark gray")
                     return
         if hull_parts.is_empty() or crease_parts.is_empty() or (
                 hull_parts.size() != crease_parts.size()):

@@ -17,7 +17,9 @@ assert "ShaderMaterial.new()" in edge
 assert '"stroke_px", 6.0' in edge
 assert 'preload("res://shaders/sera_view_edges.gdshader")' in edge
 assert '"crease_px", 2.0' in edge
-assert 'Color("#55798A")' in edge
+assert 'Color("#000000")' in edge
+assert 'Color("#353535")' in edge
+assert 'Color("#55798A")' not in edge
 assert "RENDER_ORDER.DEPTH_TESTED_EMISSIVE" in edge
 assert "Geometry2D.convex_hull" not in edge
 assert "draw_polyline" not in edge

@@ -18,7 +18,9 @@ assert "no internal polygon" in sera or "backfaces" in sera
 assert 'preload("res://shaders/sera_view_edges.gdshader")' in ink
 assert "SeraViewEdges._build_overlay(physical_mesh)" in ink
 assert '"stroke_px", 6.0' in ink
-assert 'Color("#55798A")' in ink
+assert 'Color("#000000")' in ink
+assert 'Color("#353535")' in ink
+assert 'Color("#55798A")' not in ink
 assert 'preload("res://shaders/base_facility_view_edges.gdshader")' in ink
 assert "BaseFacilityCreaseGeometry._build_overlay" in ink
 assert '"crease_px", 2.0' in ink

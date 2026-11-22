@@ -63,6 +63,10 @@ func _run() -> void:
                         float(ink_mat.get_shader_parameter("stroke_px")), 6.0):
                     _fail(key + " latest SERA hull no longer 6 screen pixels")
                     return
+
+                if ink_mat.get_shader_parameter("ink_color") != Color("#000000"):
+                    _fail(key + " 6px SERA hull must be pure black")
+                    return
                 if inst.has_meta("FX_NO_OUTLINE") == false:
                     _fail(key + " ink instance not marked as non-FX")
                     return
@@ -73,6 +77,10 @@ func _run() -> void:
                         not is_equal_approx(float(
                         crease_mat.get_shader_parameter("crease_px")), 2.0)):
                     _fail(key + " foreground crease changed from approved 2px")
+                    return
+
+                if crease_mat.get_shader_parameter("ink_color") != Color("#353535"):
+                    _fail(key + " 2px corner ink must be dark gray")
                     return
             elif str(inst.name).begins_with("Architectural_"):
                 base_total += inst.multimesh.instance_count

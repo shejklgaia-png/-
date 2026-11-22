@@ -39,7 +39,7 @@ static func material() -> ShaderMaterial:
         _shared_silhouette_material.shader = SERA_INVERTED_HULL_SHADER
         _shared_silhouette_material.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
         _shared_silhouette_material.set_shader_parameter(
-            "ink_color", Color("#55798A"))
+            "ink_color", Color("#000000"))
         _shared_silhouette_material.set_shader_parameter("stroke_px", 6.0)
     return _shared_silhouette_material
 
@@ -49,6 +49,6 @@ static func crease_material() -> ShaderMaterial:
         _shared_crease_material.shader = BASE_CREASE_SHADER
         _shared_crease_material.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
         _shared_crease_material.set_shader_parameter(
-            "ink_color", Color("#55798A"))
+            "ink_color", Color("#353535"))
         _shared_crease_material.set_shader_parameter("crease_px", 2.0)
     return _shared_crease_material

@@ -58,6 +58,9 @@ func _run() -> void:
                         corner_mat.get_shader_parameter("crease_px")), 2.0)):
                     _fail(key + " old 2px corner line changed")
                     return
+                if corner_mat.get_shader_parameter("ink_color") != Color("#353535"):
+                    _fail(key + " 2px polygon corners must be dark gray")
+                    return
                 continue
             if not str(piece.name).begins_with("ArchitecturalEdgeInk_"):
                 continue
@@ -68,6 +71,9 @@ func _run() -> void:
                     not is_equal_approx(float(
                     shaded.get_shader_parameter("stroke_px")), 6.0)):
                 _fail(key + " not using latest SERA inverted hull at 6px")
+                return
+            if shaded.get_shader_parameter("ink_color") != Color("#000000"):
+                _fail(key + " 6px SERA silhouette must be black")
                 return
         if ink_count < 18 or crease_count != ink_count:
             _fail(key + " 6px hull or original 2px crease missing")

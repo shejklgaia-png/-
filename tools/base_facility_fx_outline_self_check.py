@@ -29,7 +29,9 @@ assert 'set_shader_parameter("stroke_px", 6.0)' in edges
 assert "BaseFacilityCreaseGeometry._build_overlay" in edges
 assert "ArchitecturalCreaseInk_" in arch
 assert 'set_shader_parameter("crease_px", 2.0)' in edges
-assert 'Color("#55798A")' in edges
+assert 'Color("#000000")' in edges
+assert 'Color("#353535")' in edges
+assert 'Color("#55798A")' not in edges
 assert "Geometry2D.convex_hull" not in edges
 assert "draw_polyline" not in edges
 assert "get_node_or_null" not in edges
