@@ -63,7 +63,10 @@ func _ready() -> void:
     ink = ColorRect.new()
     ink.name = "SeraVisibleMeshIDInk"
     ink.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    ink.color = Color.TRANSPARENT
+    # Keep the 2D quad renderable without an opaque fallback image.
+    # A 0.4% opaque base is imperceptible if the shader fails, while the
+    # fragment shader replaces the output with the exact ID edge alpha.
+    ink.color = Color(1.0, 1.0, 1.0, 0.004)
     ink.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     # Draw an actual full-viewport CanvasItem quad. A TextureRect backed by
     # a 1x1 fully transparent placeholder can be culled by the renderer
