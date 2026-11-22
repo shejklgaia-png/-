@@ -243,9 +243,8 @@ func _spot(label: String, at: Vector3, target: Vector3,
     spot.position = at
     spot.look_at(to_global(target), Vector3.UP)
     spot.light_color = tint
-    # Small, unshadowed spots were nearly absent on the dim BASE materials.
-    # Concentrate their energy into a readable pool instead of increasing
-    # the number of lights, meshes or full-screen passes.
+    # BASE equipment now retains original lit StandardMaterial3D so these
+    # shadowless spots illuminate real work surfaces, not unshaded copies.
     spot.light_energy = energy * 2.5
     spot.spot_range = reach
     spot.spot_angle = cone
@@ -334,11 +333,12 @@ func _add_practical_lighting(key: String) -> void:
         "RECYCLER":
             for side in [-1.0, 1.0]:
                 _work_lamp("ProtectedCrusherWorklamp",
-                    Vector3(side * 0.75, 2.05, 0.97),
+                    # Real jaw roof ~y=2.315; front ~z=1.27.
+                    Vector3(side * 0.90, 2.47, 1.34),
                     Vector3(0.32, 0.14, 0.32), Color("#ffcc9a"))
             _spot("CrusherBiteSpot",
-                Vector3(0.0, 2.05, 1.01),
-                Vector3(0.0, 1.11, 0.18),
+                Vector3(0.0, 2.38, 1.38),
+                Vector3(0.0, 1.41, 0.32),
                 Color("#ffd5ab"), 1.34, 2.9, 49.0)
             _round_floor_pool("CrusherMouthWarmAccent",
                 Vector3(0.0, 0.35, 1.12), Vector2(1.45, 0.90),
@@ -352,8 +352,10 @@ func _add_practical_lighting(key: String) -> void:
                 Vector3.ZERO, POOL_SHADER, Color(0.38, 0.80, 1.0, 0.75))
             for row in range(4):
                 _slot_lamp("PowerCabinetWallSlit",
-                    Vector3(0.86, 1.35 + row * 0.125, 0.36),
-                    Vector3(0.24, 0.021, 0.025), Color("#8de4ff"))
+                    # Power cabinet center x=1.22, visible front z=0.365.
+                    # Previous x=0.86/z=0.36 was buried inside its shell.
+                    Vector3(1.22, 1.70 + row * 0.125, 0.52),
+                    Vector3(0.30, 0.027, 0.032), Color("#8de4ff"))
             _work_lamp("RotorGuardWorklamp", Vector3(-0.61, 1.90, 1.06),
                 Vector3(0.30, 0.13, 0.22), Color("#9cdeff"))
             _spot("RotorVentLight", Vector3(-0.54, 1.84, 1.10),
@@ -364,11 +366,12 @@ func _add_practical_lighting(key: String) -> void:
             # warm landing pools in front of the loading opening.
             for side in [-1.0, 1.0]:
                 _work_lamp("WarehouseLoadingBayLamp",
-                    Vector3(side * 0.72, 2.16, 1.08),
+                    # Rack post height 2.65; position lamps above top boxes.
+                    Vector3(side * 0.72, 2.82, 1.31),
                     Vector3(0.45, 0.15, 0.32), Color("#ffdda6"))
                 _spot("WarehouseDoorSpot",
-                    Vector3(side * 0.72, 2.10, 1.12),
-                    Vector3(side * 0.70, 0.36, 1.78),
+                    Vector3(side * 0.72, 2.75, 1.34),
+                    Vector3(side * 0.70, 0.45, 1.78),
                     Color("#ffdda6"), 1.10, 3.4, 39.0)
                 _round_floor_pool("WarehouseRoundFloorGlow",
                     Vector3(side * 0.70, 0.33, 1.74),
@@ -377,17 +380,17 @@ func _add_practical_lighting(key: String) -> void:
             # Scrap recognition pad and loaded collection bin have SEPARATE
             # spotlights, making the machine's two purposes readable.
             _work_lamp("CollectorPickupSpotHousing",
-                Vector3(-0.70, 2.37, 0.71),
+                Vector3(-0.70, 3.17, 0.92),
                 Vector3(0.36, 0.17, 0.31), Color("#c1e9ff"))
             _spot("CollectorPickupSpot",
-                Vector3(-0.70, 2.30, 0.71),
+                Vector3(-0.70, 3.10, 0.95),
                 Vector3(0.23, 1.05, 0.23),
                 Color("#a6dfff"), 1.16, 3.0, 36.0)
             _work_lamp("CollectorBinSpotHousing",
-                Vector3(0.80, 2.31, 0.92),
+                Vector3(0.90, 2.89, 1.41),
                 Vector3(0.33, 0.16, 0.29), Color("#d2eafa"))
-            _spot("CollectorBinSpot", Vector3(0.80, 2.28, 0.92),
-                Vector3(0.35, 0.55, 1.10),
+            _spot("CollectorBinSpot", Vector3(0.90, 2.82, 1.44),
+                Vector3(0.35, 0.77, 1.10),
                 Color("#c2ebff"), 1.0, 2.8, 36.0)
             _round_floor_pool("CollectorPickupPatch",
                 Vector3(0.20, 0.36, 1.23), Vector2(1.10, 0.85),
