@@ -42,8 +42,29 @@ func _run() -> void:
     var solid_count: int = 0
     var double_count: int = 0
     var pieces: Array[MeshInstance3D] = []
+    var texture_src: String = str((payload["textures"][0] as Dictionary).get("source", ""))
+    if not texture_src.begins_with("data:image/png;base64,"):
+        _fail("original HEAD D texture missing")
+        return
+    var original_png := Image.new()
+    var png_bytes: PackedByteArray = Marshalls.base64_to_raw(
+        texture_src.substr("data:image/png;base64,".length()))
+    if original_png.load_png_from_buffer(png_bytes) != OK:
+        _fail("original HEAD D PNG cannot decode")
+        return
+    var original_tex: ImageTexture = ImageTexture.create_from_image(original_png)
+    var uv_x: float = 96.0 / float(original_png.get_width())
+    var uv_y: float = 32.0 / float(original_png.get_height())
     for element_value in payload.get("elements", []):
-        var element: Dictionary = element_value
+        var element: Dictionary = (element_value as Dictionary).duplicate(true)
+        # Use the EXACT production IRIS 16x16 -> 96x32 UV conversion.
+        for face_value in (element["faces"] as Dictionary).values():
+            var face: Dictionary = face_value
+            var uv: Dictionary = face.get("uv", {})
+            for key in uv.keys():
+                var uv_point: Array = uv[key]
+                uv[key] = [float(uv_point[0]) * uv_x,
+                    float(uv_point[1]) * uv_y]
         var piece: MeshInstance3D = rig.call("_make_mesh", element)
         if piece == null:
             _fail("IRIS mesh creation failed")
@@ -113,6 +134,28 @@ func _run() -> void:
         _fail("failed to save actual Godot screenshots")
         return
 
+    # Perimeter contract: catch silhouettes that are almost entirely absent
+    # even though the old black-fill test reports success.
+    var perimeter_pixels: int = 0
+    var expanded_ink_pixels: int = 0
+    var internal_seam_pixels: int = 0
+    for y in range(1, DIM - 1):
+        for x in range(1, DIM - 1):
+            var original_pixel: Color = base.get_pixel(x, y)
+            var with_ink: Color = outlined.get_pixel(x, y)
+            if original_pixel.a > 0.90:
+                var boundary: bool = (
+                    base.get_pixel(x - 1, y).a < 0.5 or
+                    base.get_pixel(x + 1, y).a < 0.5 or
+                    base.get_pixel(x, y - 1).a < 0.5 or
+                    base.get_pixel(x, y + 1).a < 0.5)
+                if boundary:
+                    perimeter_pixels += 1
+                if with_ink.r < 0.20 and with_ink.g < 0.22 and (
+                        with_ink.b < 0.25):
+                    internal_seam_pixels += 1
+            elif original_pixel.a < 0.15 and with_ink.a > 0.75:
+                expanded_ink_pixels += 1
     var base_covered: int = 0
     var black_fill: int = 0
     for y in range(DIM):
@@ -133,10 +176,42 @@ func _run() -> void:
     print("SERA_ARMOUR_REAL_PIXEL_METRICS " + JSON.stringify({
         "model": "HEAD D / IRIS", "source_pixels": base_covered,
         "blackened_interior_pixels": black_fill,
-        "blackened_ratio": ratio, "render_method": ProjectSettings.get_setting(
+        "blackened_ratio": ratio,
+        "outer_perimeter_pixels": perimeter_pixels,
+        "external_ink_pixels": expanded_ink_pixels,
+        "internal_seam_pixels": internal_seam_pixels,
+        "outer_ink_width_proxy": float(expanded_ink_pixels) /
+            float(maxi(perimeter_pixels, 1)),
+        "render_method": ProjectSettings.get_setting(
             "rendering/renderer/rendering_method")}))
     if ratio > 0.16:
         _fail("ink covered more than 16% of originally visible armour: " + str(ratio))
+        return
+    # A 3px silhouette should occupy noticeably more than one pixel outside
+    # the original object mask. Threshold is conservative and stable across
+    # minor MSAA/raster differences.
+    var ink_width_proxy: float = float(expanded_ink_pixels) / (
+        float(maxi(perimeter_pixels, 1)))
+    if perimeter_pixels < 180 or ink_width_proxy < 1.3:
+        _fail("3px external contour absent/too thin: " + str(ink_width_proxy))
+        return
+    if internal_seam_pixels < 60:
+        _fail("independent IRIS mesh boundaries are missing: " +
+            str(internal_seam_pixels))
+        return
+
+    # Do not confuse a synthetic gray material with the real IRIS palette.
+    # Also upload the six meshes with their original 16x16 authored colors.
+    for piece in pieces:
+        var material: StandardMaterial3D = piece.material_override as StandardMaterial3D
+        var authored: StandardMaterial3D = material.duplicate() as StandardMaterial3D
+        authored.albedo_color = Color.WHITE
+        authored.albedo_texture = original_tex
+        authored.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+        piece.material_override = authored
+    var original_color: Image = await _capture(viewport)
+    if original_color.save_png(output.path_join("IRIS_authored_texture_with_ink.png")) != OK:
+        _fail("failed to save original-texture IRIS")
         return
     print("SERA_ARMOUR_VISIBLE_INK_PASS")
     quit(0)
