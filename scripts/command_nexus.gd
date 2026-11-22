@@ -23,6 +23,7 @@ const PartViewer = preload("res://scripts/sera_part_preview_widget.gd")
 const RotateMark = preload("res://scripts/sera_rotatable_mark.gd")
 const CONTROL_SETTINGS_FILE: String = "user://sera_settings.cfg"
 const FrameRateSettings = preload("res://scripts/sera_frame_rate_settings.gd")
+const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
 const DisplayProfile = preload("res://scripts/sera_display_profile.gd")
 const NexusSelectionOutline = preload("res://scripts/nexus_selection_outline.gd")
 const CUSTOMIZE_BACKDROP_SHADER = preload("res://shaders/nexus_customize_radial_glow.gdshader")
@@ -265,6 +266,7 @@ const PANEL_LAYOUTS: Dictionary = {
 }
 
 func _ready() -> void:
+    set_meta("sera_graphics_outline_category", "base")
     DisplayProfile.apply(get_window())
     FrameRateSettings.apply("base_nexus")
     # Godot 4 Android Back is a Window go-back request when auto-quit is off.
@@ -510,6 +512,7 @@ func _sera_display() -> void:
     add_child(stand)
     var rig: Node3D = SeraRig.new()
     rig.name = "SeraDisplay"
+    rig.set_meta("sera_graphics_outline_category", "character")
     rig.scale = Vector3.ONE * 1.35
     rig.rotation.y = PI
     stand.add_child(rig)
@@ -2204,6 +2207,10 @@ func _create_fps_option_controls() -> void:
         {"scope": "grid", "title": "GRID 操作"},
         {"scope": "combat", "title": "戦闘中"},
         {"scope": "display", "title": "画面表示"},
+        {"scope": "base_outline", "title": "拠点の枠線"},
+        {"scope": "character_outline", "title": "全身キャラ枠線"},
+        {"scope": "part_outline", "title": "単体パーツ枠線"},
+        {"scope": "motion_blur", "title": "モーションブラー"},
     ]:
         var panel := Panel.new()
         panel.name = "FPSRow_" + str(spec["scope"])
@@ -2216,12 +2223,14 @@ func _create_fps_option_controls() -> void:
         label.name = "FPSValue_" + str(spec["scope"])
         label.mouse_filter = Control.MOUSE_FILTER_IGNORE
         label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        label.add_theme_font_size_override("font_size", 14)
         panel.add_child(label)
         var value := Label.new()
         value.name = "FPSSelected_" + str(spec["scope"])
         value.mouse_filter = Control.MOUSE_FILTER_IGNORE
         value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
         value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        value.add_theme_font_size_override("font_size", 14)
         panel.add_child(value)
         system_fps_rows.append({
             "scope": str(spec["scope"]),
@@ -2292,13 +2301,14 @@ func _refresh_fps_option_controls() -> void:
         if scope == "display":
             value.text = ("上下拡張  >" if DisplayProfile.get_mode() ==
                 DisplayProfile.MODE_EXPANDED else "従来 9:16  >")
+        elif GraphicsSettings.OPTIONS.has(scope):
+            value.text = "ON  >" if GraphicsSettings.get_enabled(scope) else "OFF  >"
         else:
             value.text = "%d FPS  >" % FrameRateSettings.get_limit(scope)
     if system_fps_note != null:
         system_fps_note.text = (
-            "FPS: 60 → 40 → 30 → 20\n"
-            + "上下拡張: 横幅を維持して上下を追加 / 従来: 9:16\n"
-            + "設定は端末に保存されます。")
+            "各行をタップして切り替えます。\n"
+            + "グラフィック設定はこの端末に保存されます。")
 
 
 func _open_fps_option_controls() -> void:
@@ -2333,6 +2343,18 @@ func _tap_fps_option_control(point: Vector2) -> void:
         if not Rect2(panel.position, panel.size).has_point(local):
             continue
         var scope: String = str(entry["scope"])
+        if GraphicsSettings.OPTIONS.has(scope):
+            var next_enabled: bool = not GraphicsSettings.get_enabled(scope)
+            if GraphicsSettings.set_enabled(scope, next_enabled):
+                # NEXUS can preview BASE and character ink changes immediately.
+                var compositor: Node = get_viewport().get_node_or_null(
+                    "SeraIDOutlineLayer/SeraIDOutlineControl")
+                if is_instance_valid(compositor):
+                    compositor.call("refresh_graphics_preferences")
+                _refresh_fps_option_controls()
+            else:
+                system_fps_note.text = "グラフィック設定の保存に失敗しました。"
+            return
         if scope == "display":
             var next_mode: String = (DisplayProfile.MODE_CLASSIC if
                 DisplayProfile.get_mode() == DisplayProfile.MODE_EXPANDED

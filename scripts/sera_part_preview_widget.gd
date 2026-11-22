@@ -5,6 +5,7 @@ const EquipmentPreview = preload("res://tools/equipment_intake/godot_preview.gd"
 const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
 const RotateMark = preload("res://scripts/sera_rotatable_mark.gd")
 const IrisIDContour = preload("res://scripts/sera_iris_id_silhouette_preview.gd")
+const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
 const IrisPolygonLight = preload("res://shaders/sera_iris_polygon_light.gdshader")
 const IrisPolygonLightClosed = preload("res://shaders/sera_iris_polygon_light_closed.gdshader")
 const IrisFaceNormals = preload("res://scripts/sera_iris_face_normal_preview.gd")
@@ -418,6 +419,7 @@ func _make_viewport() -> void:
     preview_host.add_child(render_viewport)
     preview_scene = EquipmentPreview.new()
     preview_scene.name = "RealEquipmentRigPreview"
+    preview_scene.set_meta("sera_graphics_outline_category", "part")
     # Opt-in applies ONLY to the NEXUS single-part and full-screen viewer.
     preview_scene.set("nexus_brighter_backdrop", enable_nexus_iris_id_contour)
     render_viewport.add_child(preview_scene)
@@ -450,7 +452,7 @@ func show_part(blueprint: String, selections: Dictionary = {}) -> void:
         _material_panel.visible = fullscreen and _material_editor_open and _is_iris_preview()
     if is_instance_valid(_iris_contour):
         _iris_contour.call("set_active", false)
-    _set_shared_outline_enabled(true)
+    _set_shared_outline_enabled(GraphicsSettings.get_enabled("part_outline"))
     selected_parts = selections.duplicate(true)
     active_preview = true
     show()
@@ -489,7 +491,7 @@ func _load_part(request: int) -> void:
         "seq": request
     })
     if enable_nexus_iris_id_contour and current_blueprint == "H02" and (
-            request == _request_serial):
+            request == _request_serial) and GraphicsSettings.get_enabled("part_outline"):
         # Preserve the exact proven HEAD D ID contour; don't draw the
         # shared ID mask over the same six meshes a second time.
         _set_shared_outline_enabled(false)
@@ -500,7 +502,7 @@ func _load_part(request: int) -> void:
             move_child(_iris_contour, 1)
         _iris_contour.call("set_active", true, preview_scene, render_viewport)
     else:
-        _set_shared_outline_enabled(true)
+        _set_shared_outline_enabled(GraphicsSettings.get_enabled("part_outline"))
     _apply_iris_shading()
 
 func set_preview_active(enabled: bool) -> void:

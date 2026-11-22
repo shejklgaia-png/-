@@ -27,6 +27,7 @@ const COMBAT_HUD_TEXT = preload("res://scripts/sera_combat_hud_text.gd")
 const NUMERIC_HUD = preload("res://scripts/sera_numeric_hud.gd")
 const HUD_LAYOUT = preload("res://scripts/sera_hud_layout.gd")
 const DisplayProfile = preload("res://scripts/sera_display_profile.gd")
+const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
 const CLEAN_TRAINING_HUD = preload("res://scripts/sera_clean_training_hud.gd")
 const FACING_ANGLE_DEBUG = preload("res://scripts/sera_facing_angle_debug.gd")
 const DEV_DIAGNOSTICS = preload("res://scripts/dev_diagnostics.gd")
@@ -592,6 +593,7 @@ var blur_last_player_position: Vector3 = Vector3.ZERO
 var blur_velocity: Vector3 = Vector3.ZERO
 var blur_active_this_physics_frame: bool = false
 var blur_step_this_physics_frame: bool = false
+var _motion_blur_option_enabled: bool = true
 # v216: one acceleration flare for each STEP or new melee homing action,
 # not a continuous flicker while the action remains active.
 var thruster_accel_previous_step: bool = false
@@ -658,6 +660,8 @@ var strike_prev_time: float = 0.0
 var strike_prev_blade: PackedVector3Array = PackedVector3Array()
 
 func _ready() -> void:
+    set_meta("sera_graphics_outline_category", "character")
+    _motion_blur_option_enabled = GraphicsSettings.get_enabled("motion_blur")
     DisplayProfile.apply(get_window())
     FrameRateSettings.apply("combat")
     # Enable interpolation only in training. Animated joints and menus must
@@ -1021,7 +1025,9 @@ func _update_motion_blur(delta: float) -> void:
         return
     # Actual BOOST input (or STEP) alone emits afterimages. The heavy-leg
     # SLIDE animation reuses Boost_* poses without enabling boost effects.
-    var active: bool = blur_active_this_physics_frame and blur_velocity.length_squared() > 0.16
+    var active: bool = (_motion_blur_option_enabled
+        and blur_active_this_physics_frame
+        and blur_velocity.length_squared() > 0.16)
     # Always tick the temporal pool: no new snapshots while inactive, but
     # previously captured poses continue fading for their remaining lifetime.
     rig.call("update_motion_afterimages", delta, active, blur_step_this_physics_frame)
@@ -3631,7 +3637,8 @@ func _start_omni_step(flick: Vector2) -> bool:
         rig.call("start_omni_step", pose_direction)
         # Snapshot both effects BEFORE the player moves, independent of the
         # next physics tick's nozzle animation / afterimage emission.
-        rig.call("capture_step_launch_afterimage", STEP_LAUNCH_FX_SECONDS)
+        if _motion_blur_option_enabled:
+            rig.call("capture_step_launch_afterimage", STEP_LAUNCH_FX_SECONDS)
         rig.call("spawn_step_launch_flare", world_step, STEP_LAUNCH_FX_SECONDS)
         # A 'warp' is visually immediate, but its physical relocation is
         # collision-swept. An obstructed launch cannot tunnel through a wall.

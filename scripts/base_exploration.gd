@@ -13,6 +13,7 @@ const BaseFrameBudget = preload("res://scripts/sera_base_frame_budget.gd")
 const DisplayProfile = preload("res://scripts/sera_display_profile.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
 const BaseFacilityInk = preload("res://scripts/sera_base_facility_outlines.gd")
+const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
 const OUTLINE_TEST_SAFE_SHADER = preload("res://shaders/base_facility_silhouette_edges.gdshader")
 const OUTLINE_TEST_RIBBON_SHADER = preload("res://shaders/base_facility_silhouette_edges.gdshader")
 const BaseClutter = preload("res://scripts/sera_base_clutter.gd")
@@ -116,6 +117,9 @@ var grid_touch_start: Vector2 = Vector2.ZERO
 var _frame_budget: RefCounted
 
 func _ready() -> void:
+    set_meta("sera_graphics_outline_category", "base")
+    BaseFacilityInk.set_outlines_enabled(
+        GraphicsSettings.get_enabled("base_outline"))
     DisplayProfile.apply(get_window())
     _frame_budget = BaseFrameBudget.new()
     _frame_budget.start(get_viewport())
@@ -505,6 +509,7 @@ func _create_salvage(replacement: Array[Dictionary] = []) -> void:
 func _create_player() -> void:
     player = Node3D.new()
     player.name = "SERA"
+    player.set_meta("sera_graphics_outline_category", "character")
     player.position = Vector3(0.0, PLAYER_Y, 5.6)
     add_child(player)
     player.visible = HUB_SERA_CONTROLS_ENABLED
@@ -537,6 +542,7 @@ func _create_crate() -> void:
     # Canonical robot: same geometry, proportions and materials as the LABO
     # close-up. Keep the outdoor path-following motion independent.
     crate = CrateModel.create_model()
+    crate.set_meta("sera_graphics_outline_category", "character")
     crate.position = Vector3(3.30, 0.06, 2.40)
     crate.rotation.y = -0.5
     add_child(crate)

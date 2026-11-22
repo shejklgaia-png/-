@@ -3,6 +3,7 @@ extends Control
 ## All 3D scenes use one per-viewport RGB visible-ID pass with 3D ink before
 ## foreground VFX. One shared ID viewport, no CPU pixel reads or source edits.
 # Reuse the proven IRIS resources, with no reimplementation of their code.
+const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
 const ID_CLOSED = preload("res://shaders/sera_iris_mesh_id_closed.gdshader")
 const ID_OPEN = preload("res://shaders/sera_iris_mesh_id_open.gdshader")
 const MULTI_ID_CLOSED = preload("res://shaders/sera_scene_multimesh_iris_id_closed.gdshader")
@@ -56,6 +57,31 @@ var _screen_material: ShaderMaterial
 var _screen_camera: Camera3D
 var _styled_sources: Dictionary = {} # Visible IDs, excludes background depth masks.
 var _pose_stamps: Dictionary = {}
+var _base_outline_enabled: bool = true
+var _character_outline_enabled: bool = true
+var _part_outline_enabled: bool = true
+
+# Refresh on page changes instead of loading config for every mesh/frame.
+func refresh_graphics_preferences() -> void:
+    _base_outline_enabled = GraphicsSettings.get_enabled("base_outline")
+    _character_outline_enabled = GraphicsSettings.get_enabled("character_outline")
+    _part_outline_enabled = GraphicsSettings.get_enabled("part_outline")
+    _scan_elapsed = 0.0
+
+func _graphics_outline_allowed(part: Node3D) -> bool:
+    var cursor: Node = part
+    while cursor != null:
+        match str(cursor.get_meta("sera_graphics_outline_category", "")):
+            "base":
+                return _base_outline_enabled
+            "character":
+                return _character_outline_enabled
+            "part":
+                return _part_outline_enabled
+        cursor = cursor.get_parent()
+    # Training/boss actors and ordinary full-body models use this default.
+    return _character_outline_enabled
+
 
 
 func get_outline_metrics() -> Dictionary:
@@ -97,6 +123,7 @@ func get_outline_metrics() -> Dictionary:
 
 
 func _ready() -> void:
+    refresh_graphics_preferences()
     name = "SeraIDOutlineControl"
     mouse_filter = Control.MOUSE_FILTER_IGNORE
     set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -689,7 +716,8 @@ func _rescan() -> bool:
                 var part: Node3D = node as Node3D
                 var skip_ink: bool = bool(
                     part.get_meta("sera_outline_occluder_only", false))
-                var eligible: bool = _eligible(part) and not skip_ink
+                var eligible: bool = (_eligible(part) and not skip_ink
+                    and _graphics_outline_allowed(part))
                 var occluding: bool = (not eligible and
                     _background_occluder(part))
                 if eligible or occluding:
