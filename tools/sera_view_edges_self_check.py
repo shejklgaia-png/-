@@ -13,7 +13,9 @@ manifest = (root / "tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 # Approved: keep the original 3px dark outline, on SERA + training target + boss,
 # but render per-MeshInstance visible silhouettes only (like the IRIS comparison).
 assert '_ink_material.set_shader_parameter("stroke_px", 3.0)' in script
-assert 'uniform float stroke_px : hint_range(0.5, 4.0) = 3.0;' in shader
+assert 'uniform float stroke_px : hint_range(0.5, 8.0) = 3.0;' in shader
+# The 6px BASE material must not be limited by the inspector hint.
+assert 'float depth_probe_px = stroke_px > 4.0 ? stroke_px * 1.5 : stroke_px;' in shader
 assert 'Color("#17212f")' in script
 assert '"SeraEdgeInk"' in script
 assert 'OUTLINE_SCRIPT.new()' in rig and 'OUTLINE_SCRIPT.new()' in boss
@@ -24,6 +26,10 @@ assert 'Mesh.ARRAY_VERTEX' in script and 'Mesh.ARRAY_NORMAL' in script
 assert 'func _build_overlay(mesh: Mesh) -> ArrayMesh:' in script
 assert 'func _position_key(' in script
 assert 'normal_sum' in script and 'vertex_normals' in script
+# For Godot clockwise visible faces, the source right-hand cross points
+# inward. Preserve the SERA silhouette by using outward CPU normals.
+assert 'var face_normal: Vector3 = (c - a).cross(b - a)' in script
+assert 'var face_normal: Vector3 = (b - a).cross(c - a)' not in script
 assert '_mesh_cache' in script and 'SCAN_INTERVAL' in script
 assert 'MAX_TRIANGLES_PER_MESH' in script
 assert 'source.add_child(instance)' in script

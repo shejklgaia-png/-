@@ -6,7 +6,7 @@ shader_type spatial;
 render_mode unshaded, cull_front, depth_draw_never;
 
 uniform vec4 ink_color : source_color = vec4(0.09, 0.13, 0.18, 1.0);
-uniform float stroke_px : hint_range(0.5, 4.0) = 3.0;
+uniform float stroke_px : hint_range(0.5, 8.0) = 3.0;
 uniform sampler2D opaque_depth : hint_depth_texture, filter_nearest, repeat_disable;
 varying float source_depth;
 
@@ -55,7 +55,11 @@ void fragment() {
     // An incorrectly wound/recessed rear polygon can cover a large area,
     // but it has no opaque surface at the same depth in this 3px vicinity.
     // Four depth fetches are only evaluated after the center depth reject.
-    vec2 pixel_step = vec2(stroke_px) / VIEWPORT_SIZE;
+    // A 6px contour diagonal projects only 4.24px onto each axis.
+    // A 6px axial probe therefore misses the source completely; use
+    // a 1.5x offset for BASE strokes, without changing SERA's 3px mask.
+    float depth_probe_px = stroke_px > 4.0 ? stroke_px * 1.5 : stroke_px;
+    vec2 pixel_step = vec2(depth_probe_px) / VIEWPORT_SIZE;
     float neighbor_epsilon = max(near_epsilon * 1.2, 0.055);
     bool near_surface =
         abs(opaque_depth_at(SCREEN_UV + vec2(pixel_step.x, 0.0)) - source_depth) <= neighbor_epsilon ||

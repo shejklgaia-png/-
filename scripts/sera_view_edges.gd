@@ -178,7 +178,11 @@ static func _build_overlay(mesh: Mesh) -> ArrayMesh:
             var a: Vector3 = vertices[i0]
             var b: Vector3 = vertices[i1]
             var c: Vector3 = vertices[i2]
-            var face_normal: Vector3 = (b - a).cross(c - a)
+            # Godot 4 uses CLOCKWISE vertices for its visible front face.
+            # The usual (b-a)x(c-a) normal points INTO BoxMesh and
+            # polygon architecture; screen-space expansion then collapses
+            # the outline inside the opaque building instead of outside.
+            var face_normal: Vector3 = (c - a).cross(b - a)
             if face_normal.length_squared() < 0.000000001:
                 continue
             # Do not return a partly inked mesh (a broken silhouette).

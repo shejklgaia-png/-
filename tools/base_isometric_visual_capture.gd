@@ -52,6 +52,71 @@ func _run() -> void:
             _fail("base preview JPEG encode failed")
             return
         print("SERA_BASE_PREVIEW_JPEG_B64=" + Marshalls.raw_to_base64(jpeg))
+    # Compare real rendered pixels with only the 6px inverted hull removed.
+    # Node presence and shader uniforms cannot prove an Android-visible line.
+    # Never alter the actual 720x1280 BASE camera, materials or timestamps.
+    if OS.get_environment("SERA_BASE_ASSERT_OUTLINES") == "1":
+        var outline_batches: Array[MultiMeshInstance3D] = []
+        var facility_paths: Array[String] = [
+            "NEXUSBuilding/NexusArchitecture",
+            "BaseFacilities/LABO/IndustrialModel",
+            "BaseFacilities/SCRAP_COLLECTOR/IndustrialModel",
+            "BaseFacilities/SMELTER/IndustrialModel",
+            "BaseFacilities/RECYCLER/IndustrialModel",
+            "BaseFacilities/GENERATOR/IndustrialModel",
+            "BaseFacilities/STORAGE/IndustrialModel",
+            "BaseFacilities/BUILD_TERMINAL/IndustrialModel",
+        ]
+        for facility_path in facility_paths:
+            var facility: Node3D = hub.get_node_or_null(facility_path) as Node3D
+            if facility == null:
+                _fail("missing facility for visible-outline comparison")
+                return
+            var facility_ink_count: int = 0
+            for piece in facility.get_children():
+                if piece is MultiMeshInstance3D and (
+                        str(piece.name).begins_with("ArchitecturalEdgeInk_")):
+                    outline_batches.append(piece as MultiMeshInstance3D)
+                    facility_ink_count += 1
+            if facility_ink_count == 0:
+                _fail("facility without 6px silhouette batches: " + facility_path)
+                return
+        for batch in outline_batches:
+            batch.visible = false
+        await process_frame
+        await RenderingServer.frame_post_draw
+        var no_outline: Image = root.get_texture().get_image()
+        for batch in outline_batches:
+            batch.visible = true
+        if no_outline == null or no_outline.is_empty() or (
+                no_outline.get_size() != image.get_size()):
+            _fail("reference screenshot without silhouettes unavailable")
+            return
+        if no_outline.save_png(dir.path_join("sera_base_without_6px.png")) != OK:
+            _fail("could not save before/after visual comparison")
+            return
+        var visible_stroke_pixels: int = 0
+        # Subsample the genuine GL Compatibility framebuffer, excluding
+        # navigation HUD and Android letterboxing. Compare only strong
+        # darkening from a black line, not changes in a moving smoke plume.
+        for py in range(130, mini(image.get_height() - 90, 1190), 2):
+            for px in range(10, image.get_width() - 10, 2):
+                var with_ink: Color = image.get_pixel(px, py)
+                var without_ink: Color = no_outline.get_pixel(px, py)
+                var darkening: float = (
+                    without_ink.r - with_ink.r +
+                    without_ink.g - with_ink.g +
+                    without_ink.b - with_ink.b)
+                if (with_ink.r < 0.13 and with_ink.g < 0.13 and
+                        with_ink.b < 0.13 and darkening > 0.16):
+                    visible_stroke_pixels += 1
+        if visible_stroke_pixels < 50:
+            _fail("black 6px outlines are present in nodes but invisible on screen: " +
+                str(visible_stroke_pixels) + " darkened pixels")
+            return
+        print("SERA_BASE_VISIBLE_6PX_PIXELS_PASS count=" +
+            str(visible_stroke_pixels))
+        await process_frame
     # Optional second true-gameplay frame: same camera / scene after real
     # _process-driven machine animation advances for about a second.
     if OS.get_environment("SERA_BASE_ANIMATION_CAPTURE") == "1":

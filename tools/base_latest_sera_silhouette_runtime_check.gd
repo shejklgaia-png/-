@@ -41,6 +41,11 @@ func _run() -> void:
     if hull_normals.is_empty() or crease.surface_get_arrays(0)[Mesh.ARRAY_CUSTOM0] == null:
         _fail("wrong geometry encoding for SERA hull or old creases")
         return
+    var hull_vertices: PackedVector3Array = hull.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+    for i in range(hull_vertices.size()):
+        if hull_vertices[i].dot(hull_normals[i]) <= 0.25:
+            _fail("BASE inverted-hull normals collapse inward, hiding black 6px ink")
+            return
 
     for key in FACILITIES:
         var path: String = "NEXUSBuilding/NexusArchitecture" if key == "NEXUS" else (
