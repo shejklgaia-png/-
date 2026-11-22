@@ -55,9 +55,16 @@ func _ready() -> void:
     ink_rect.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
     ink_rect.texture_repeat = CanvasItem.TEXTURE_REPEAT_DISABLED
     ink_rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    ink_rect.texture = id_viewport.get_texture()
+    # Never expose the red/black debug ID buffer as a TextureRect texture.
+    # If the fragment shader fails, a transparent placeholder is rendered
+    # instead of painting the whole preview black and red.
+    var safe_image := Image.create(1, 1, false, Image.FORMAT_RGBA8)
+    safe_image.fill(Color.TRANSPARENT)
+    ink_rect.texture = ImageTexture.create_from_image(safe_image)
     var material := ShaderMaterial.new()
     material.shader = INK
+    material.set_shader_parameter("mesh_id_texture", id_viewport.get_texture())
+    material.set_shader_parameter("mesh_id_texel", Vector2(1.0 / 384.0, 1.0 / 384.0))
     material.set_shader_parameter("ink_color", Color("#17212f"))
     material.set_shader_parameter("stroke_px", 3.0)
     ink_rect.material = material
@@ -110,6 +117,11 @@ func _sync_id_pass() -> void:
     var dirty: bool = false
     if id_viewport.size != new_size:
         id_viewport.size = new_size
+        # 3px means 3 ID-buffer texels (not 3 pixels of the 1x1 fallback).
+        # The visible TextureRect itself keeps stretching with the host.
+        (ink_rect.material as ShaderMaterial).set_shader_parameter(
+            "mesh_id_texel",
+            Vector2(1.0 / float(new_size.x), 1.0 / float(new_size.y)))
         dirty = true
     var src_camera: Camera3D = source_preview.get("camera") as Camera3D
     if not is_instance_valid(src_camera):
