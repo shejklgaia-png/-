@@ -49,8 +49,8 @@ func _register() -> void:
         _compositor.name = COMPOSITOR_NAME
         layer.add_child(_compositor)
     _compositor.call("register_root", actor, self)
-    # The NEXUS full-body preview retains its proven RGB contact and
-    # silhouette Canvas ink. The 3D overlay hides its exterior contour.
+    # NEXUS full-body uses the dedicated RGB-ID canvas, while other
+    # scenes retain the shared pre-VFX spatial compositor.
     if _nexus_sera_contact_mode:
         _compositor.call("set_nexus_sera_contact_mode", true)
     else:
