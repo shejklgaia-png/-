@@ -1,10 +1,9 @@
 extends Node3D
-## Low-cost, camera-dependent hard-edge and silhouette ink for GL Compatibility.
-## Topology is computed only when a Mesh resource is first encountered.
-## The shader decides edge visibility and pixel width on the GPU every frame.
-const CREASE_DEGREES: float = 80.0
+## Lightweight per-MeshInstance visible-silhouette ink (inverted hull).
+## The original triangles and averaged outward normals are cached per Mesh.
+## GPU expansion is a constant screen-space 3px; no interior polygon edges.
 const SCAN_INTERVAL: float = 0.75
-const MAX_EDGES_PER_MESH: int = 8000
+const MAX_TRIANGLES_PER_MESH: int = 30000
 const INK_SHADER = preload("res://shaders/sera_view_edges.gdshader")
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const INK_NAME: String = "SeraEdgeInk"
@@ -16,7 +15,7 @@ var _ink_material: ShaderMaterial
 func _ready() -> void:
     _ink_material = ShaderMaterial.new()
     _ink_material.shader = INK_SHADER
-    # Transparent pass runs after opaque armor; depth testing remains enabled.
+    # Inverted rear hull runs after opaque armor; depth testing stays enabled.
     _ink_material.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
     _ink_material.set_shader_parameter("ink_color", Color("#17212f"))
     _ink_material.set_shader_parameter("stroke_px", 3.0)
@@ -25,7 +24,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
     # Equipment may install/swap MeshInstances after the actor's _ready.
-    # No per-frame CPU traversal, vertex projection, edge reconstruction,
+    # No per-frame CPU mesh projection, edge extraction or silhouette rebuild,
     # or material mutation occurs between these infrequent topology scans.
     _scan_remaining -= delta
     if _scan_remaining <= 0.0:
@@ -77,8 +76,8 @@ func _attach(source: MeshInstance3D) -> void:
     instance.extra_cull_margin = 0.10
     instance.set_meta("edge_source_mesh_id", mesh_id)
     source.add_child(instance)
-    # Same local geometry and ancestor transforms: joint rotations, IK and
-    # equipment visibility are inherited without copying or repainting data.
+    # Inherits animation, joint transforms, equipment swaps, and visibility.
+    # Face interiors are occluded by their own opaque source geometry.
 
 func _remove_overlay(source: MeshInstance3D) -> void:
     var old: MeshInstance3D = source.get_node_or_null(INK_NAME) as MeshInstance3D
@@ -147,19 +146,24 @@ static func _position_key(p: Vector3) -> String:
     return "%d:%d:%d" % [roundi(p.x * 10000.0),
         roundi(p.y * 10000.0), roundi(p.z * 10000.0)]
 
-static func _extract_edges(mesh: Mesh) -> Array:
-    var by_key: Dictionary = {}
-    var triangle_seen: Dictionary = {}
+static func _build_overlay(mesh: Mesh) -> ArrayMesh:
+    # The previous edge ribbons selected front/back polygon transitions even
+    # inside steeply angled visible surfaces. Draw no edge primitives at all.
+    # Instead, the shader draws the enlarged BACK faces of each source mesh.
+    # Opaque front faces cover their interior; only the visible mesh contour
+    # can survive the depth test. Independent MeshInstances retain their seams.
+    var triangle_vertices := PackedVector3Array()
+    var triangle_normals := PackedVector3Array()
+    var normal_sum: Dictionary = {}
+    var triangle_count: int = 0
     for surface in range(mesh.get_surface_count()):
-        # PrimitiveMesh (BoxMesh, SphereMesh, etc.) already uses triangles
-        # but does not implement ArrayMesh.surface_get_primitive_type().
         if mesh is ArrayMesh and (
                 (mesh as ArrayMesh).surface_get_primitive_type(surface) != Mesh.PRIMITIVE_TRIANGLES):
             continue
         var arrays: Array = mesh.surface_get_arrays(surface)
         var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-        # Non-indexed mesh surfaces return null for ARRAY_INDEX, not an empty
-        # PackedInt32Array. Avoid typed Nil assignment and use vertex order.
+        if vertices.is_empty():
+            continue
         var indices := PackedInt32Array()
         if arrays[Mesh.ARRAY_INDEX] is PackedInt32Array:
             indices = arrays[Mesh.ARRAY_INDEX]
@@ -174,88 +178,36 @@ static func _extract_edges(mesh: Mesh) -> Array:
             var a: Vector3 = vertices[i0]
             var b: Vector3 = vertices[i1]
             var c: Vector3 = vertices[i2]
-            var normal: Vector3 = (b - a).cross(c - a)
-            if normal.length_squared() < 0.000000001:
+            var face_normal: Vector3 = (b - a).cross(c - a)
+            if face_normal.length_squared() < 0.000000001:
                 continue
-            normal = normal.normalized()
-            var triangle_points := PackedStringArray([
-                _position_key(a), _position_key(b), _position_key(c)])
-            triangle_points.sort()
-            var triangle_id: String = "|".join(triangle_points)
-            var duplicate_triangle: bool = triangle_seen.has(triangle_id)
-            triangle_seen[triangle_id] = true
-            for endpoints in [[a, b], [b, c], [c, a]]:
-                var start: Vector3 = endpoints[0]
-                var finish: Vector3 = endpoints[1]
-                var ka: String = _position_key(start)
-                var kb: String = _position_key(finish)
-                if ka == kb:
-                    continue
-                var key: String = ka + "|" + kb if ka < kb else kb + "|" + ka
-                if not by_key.has(key):
-                    by_key[key] = {"a": start, "b": finish, "face_a": normal,
-                        "count": 1, "duplicate_triangle": duplicate_triangle}
-                else:
-                    var edge: Dictionary = by_key[key]
-                    edge["count"] = int(edge.get("count", 1)) + 1
-                    if duplicate_triangle:
-                        edge["duplicate_triangle"] = true
-                    if not edge.has("face_b"):
-                        edge["face_b"] = normal
-                    elif edge["face_a"].dot(normal) < edge["face_a"].dot(edge["face_b"]):
-                        # Non-manifold mesh: retain the most distinct neighboring face.
-                        edge["face_b"] = normal
-    var result: Array = []
-    var crease_cosine: float = cos(deg_to_rad(CREASE_DEGREES))
-    for entry in by_key.values():
-        var edge: Dictionary = entry
-        if edge.has("face_b"):
-            var cosine: float = clampf(edge["face_a"].dot(edge["face_b"]), -1.0, 1.0)
-            # Internal triangulation seams and near-coplanar faces are never inked.
-            if cosine >= 0.99999:
-                # An exactly duplicated triangle has the same three edges
-                # twice. Its perimeter remains a silhouette, unlike a
-                # coplanar triangulation seam between distinct triangles.
-                # Three or more coincident edge uses remain an internal seam.
-                if (not bool(edge.get("duplicate_triangle", false)) or
-                        int(edge.get("count", 0)) != 2):
-                    continue
-            edge["crease"] = cosine <= crease_cosine + 0.000001
-        else:
-            edge["crease"] = false
-        result.append(edge)
-    return result
+            # Do not return a partly inked mesh (a broken silhouette).
+            if triangle_count >= MAX_TRIANGLES_PER_MESH:
+                return null
+            triangle_count += 1
+            var unit_normal: Vector3 = face_normal.normalized()
+            for p in [a, b, c]:
+                triangle_vertices.append(p)
+                triangle_normals.append(unit_normal)
+                var key: String = _position_key(p)
+                normal_sum[key] = normal_sum.get(key, Vector3.ZERO) + face_normal
 
-static func _build_overlay(mesh: Mesh) -> ArrayMesh:
-    var st := SurfaceTool.new()
-    st.begin(Mesh.PRIMITIVE_TRIANGLES)
-    st.set_custom_format(0, SurfaceTool.CUSTOM_RGBA_FLOAT)
-    var added: int = 0
-    for edge in _extract_edges(mesh):
-        if added >= MAX_EDGES_PER_MESH:
-            break
-        var a: Vector3 = edge["a"]
-        var b: Vector3 = edge["b"]
-        var tangent: Vector3 = b - a
-        if tangent.length_squared() < 0.000000001:
-            continue
-        tangent = tangent.normalized()
-        var face_a: Vector3 = edge["face_a"]
-        var face_b: Vector3 = edge.get("face_b", Vector3.ZERO)
-        var ink_flag: float = 1.0 if bool(edge["crease"]) else 0.0
-        var color := Color(face_a.x * 0.5 + 0.5, face_a.y * 0.5 + 0.5,
-            face_a.z * 0.5 + 0.5, ink_flag)
-        var adjacent := Color(face_b.x, face_b.y, face_b.z,
-            1.0 if edge.has("face_b") else 0.0)
-        for vertex in [[a, -1.0], [b, -1.0], [b, 1.0],
-                [a, -1.0], [b, 1.0], [a, 1.0]]:
-            st.set_color(color)
-            st.set_custom(0, adjacent)
-            # NORMAL carries the edge direction; this is an unshaded overlay.
-            st.set_normal(tangent)
-            st.set_uv(Vector2(float(vertex[1]), 0.0))
-            st.add_vertex(vertex[0])
-        added += 1
-    if added == 0:
+    if triangle_count == 0:
         return null
-    return st.commit()
+    # Weld only the normals at coincident positions; do not change the source
+    # geometry, UVs, hard/flat shading or actual opaque material.
+    # Area weighting prevents triangulation diagonals becoming false ridges.
+    var vertex_normals := PackedVector3Array()
+    for i in range(triangle_vertices.size()):
+        var key: String = _position_key(triangle_vertices[i])
+        var smooth: Vector3 = normal_sum.get(key, triangle_normals[i])
+        if smooth.length_squared() < 0.000000001:
+            smooth = triangle_normals[i]
+        vertex_normals.append(smooth.normalized())
+    var surface_arrays: Array = []
+    surface_arrays.resize(Mesh.ARRAY_MAX)
+    surface_arrays[Mesh.ARRAY_VERTEX] = triangle_vertices
+    surface_arrays[Mesh.ARRAY_NORMAL] = vertex_normals
+    var inverted_hull := ArrayMesh.new()
+    inverted_hull.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, surface_arrays)
+    return inverted_hull
