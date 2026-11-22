@@ -7,8 +7,8 @@ const INK_SHADER = preload("res://shaders/nexus_sera_gpu_convex_silhouette.gdsha
 const EDGE_NAME: String = "NexusSeraConvexInk"
 const SCAN_SECONDS: float = 0.65
 const MAX_EDGES_PER_MESH: int = 8000
-# The ribbon is 6px total, with hardware depth revealing the visible ~3px.
-const PREVIEW_MATCHED_STROKE_PX: float = 3.0
+# A 4px-wide ribbon yields a visible ~2px silhouette after depth occlusion.
+const PREVIEW_MATCHED_STROKE_PX: float = 2.0
 
 var _elapsed: float = 0.0
 var _overlays: Dictionary = {} # source instance ID -> {source, overlay, mesh, closed}
