@@ -126,9 +126,10 @@ func set_diagnostic_mode(mode: int) -> void:
     _apply_mode()
 
 func _apply_mode() -> void:
-    # 0 = normal, 1 = cyan combined silhouette, 2-5 = existing GPU edges
+    # 0/1/9: exterior GPU edge ribbons + shared mask; NO inverted hull.
+    # 2-5 = original edge diagnostics (unchanged)
     # 6 = visibly eligible mesh, 7 = tinted stencil writer
-    # 8 = unmasked hull, 9 = real stencil mask + bright combined hull.
+    # 8 = unmasked legacy hull. 9 = bright new mask+edge union.
     # 10/11 = calibration cube stencil equal/not equal, ref 29.
     # 12 = body ref17 EQUAL, 13 = body hull reverse culling.
     # 14/15 = stencil-free +8px/-8px projected normal comparison.
@@ -136,9 +137,10 @@ func _apply_mode() -> void:
     var enable_stencil: bool = _enabled and (
         _mode == 0 or _mode == 1 or _mode == 7 or _mode == 9
         or _mode == 12)
+    # Keep old inverted hull ONLY for isolation diagnostics. Its normal
+    # projection was not robust across Blockbench armor shapes.
     var enable_hull: bool = _enabled and (
-        _mode == 0 or _mode == 1 or _mode == 8 or _mode == 9
-        or _mode == 12 or _mode == 13
+        _mode == 8 or _mode == 12 or _mode == 13
         or _mode == 14 or _mode == 15)
     var mask_shader: ShaderMaterial = _mask_material
     if _mode == 6:
@@ -318,6 +320,7 @@ func get_stencil_snapshot() -> Dictionary:
     if is_instance_valid(_calibration_probe):
         probe_snapshot = _calibration_probe.call("get_probe_snapshot")
     return {"parts": _links.size(), "hulls": hulls,
+        "production_hull_disabled": true,
         "probe_camera": bool(probe_snapshot.get("camera", false)),
         "probe_ref": int(probe_snapshot.get("write_ref", 0)),
         "unsupported": missing, "enabled": _enabled,

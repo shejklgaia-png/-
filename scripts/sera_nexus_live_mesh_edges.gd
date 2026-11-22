@@ -7,6 +7,8 @@ const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
 const RenderOrder = preload("res://scripts/render_order_policy.gd")
 const EDGE_SHADER = preload("res://shaders/sera_live_mesh_edges.gdshader")
 const XRAY_SHADER = preload("res://shaders/sera_live_mesh_edges_xray.gdshader")
+const EXTERIOR_SHADER = preload(
+    "res://shaders/sera_nexus_stencil_edge_outline.gdshader")
 const ContactSeams = preload("res://scripts/sera_nexus_contact_seams.gd")
 const RibbonGeometry = preload("res://scripts/sera_nexus_outline_geometry.gd")
 const RESCAN_SECONDS: float = 0.35
@@ -18,6 +20,7 @@ const COPLANAR_DOT: float = 0.995
 var _source_root: Node3D
 var _edge_material: ShaderMaterial
 var _xray_material: ShaderMaterial
+var _exterior_material: ShaderMaterial
 var _diagnostic_mode: int = 0
 var _edge_links: Dictionary = {} # source ID -> {source, mesh, draw}
 var _geometry_cache: Dictionary = {} # Mesh resource instance ID -> ArrayMesh/null
@@ -25,6 +28,23 @@ var _contact_links: Dictionary = {} # mesh ID -> depth-tested contact ribbons
 var _last_contact_signature: String = ""
 var _visible_sources: Dictionary = {}
 var _rescan_elapsed: float = 0.0
+
+func _uses_exterior_union() -> bool:
+    return _diagnostic_mode == 0 or _diagnostic_mode == 1 or (
+        _diagnostic_mode == 9)
+
+func _wants_edge_draw() -> bool:
+    return _uses_exterior_union() or (
+        _diagnostic_mode >= 2 and _diagnostic_mode <= 5) or (
+        _diagnostic_mode == 14 or _diagnostic_mode == 15)
+
+func _chosen_edge_material() -> ShaderMaterial:
+    if _uses_exterior_union():
+        return _exterior_material
+    if _diagnostic_mode == 5:
+        return _xray_material
+    return _edge_material
+
 
 func configure(rig: Node3D) -> void:
     _source_root = rig
@@ -42,6 +62,13 @@ func _ready() -> void:
     _edge_material.set_shader_parameter("diagnostic_mode", 0)
     _xray_material = _edge_material.duplicate() as ShaderMaterial
     _xray_material.shader = XRAY_SHADER
+    _exterior_material = ShaderMaterial.new()
+    _exterior_material.shader = EXTERIOR_SHADER
+    # Mask writers are priority -22; outside-only stroke must draw AFTER.
+    _exterior_material.render_priority = -21
+    _exterior_material.set_shader_parameter(
+        "outline_color", Color("#0b1118"))
+    _exterior_material.set_shader_parameter("exterior_px", 3.0)
     visible = GraphicsSettings.get_enabled("character_outline")
     if visible:
         _refresh_meshes()
@@ -61,8 +88,7 @@ func _process(delta: float) -> void:
         for record in _edge_links.values():
             var draw: MeshInstance3D = record.get("draw") as MeshInstance3D
             if is_instance_valid(draw):
-                draw.visible = enabled and ((_diagnostic_mode >= 2 and _diagnostic_mode <= 5)
-                    or _diagnostic_mode == 14 or _diagnostic_mode == 15)
+                draw.visible = enabled and _wants_edge_draw()
         for contact in _contact_links.values():
             if is_instance_valid(contact):
                 (contact as MeshInstance3D).visible = enabled and (
@@ -90,7 +116,8 @@ func _refresh_meshes() -> void:
             continue
         if node is MeshInstance3D:
             var part: MeshInstance3D = node as MeshInstance3D
-            if part.mesh != null and not (part.mesh is QuadMesh) and (
+            if part.is_visible_in_tree() and part.mesh != null and (
+                    not (part.mesh is QuadMesh)) and (
                     not (part.mesh is PlaneMesh)):
                 found[part.get_instance_id()] = part
         for child in node.get_children():
@@ -126,9 +153,8 @@ func _refresh_meshes() -> void:
             draw.set_meta("sera_generated_live_edge", true)
             draw.set_meta("FX_NO_OUTLINE", true)
             draw.mesh = ribbons
-            draw.material_override = _edge_material
-            draw.visible = ((_diagnostic_mode >= 2 and _diagnostic_mode <= 5)
-                    or _diagnostic_mode == 14 or _diagnostic_mode == 15)
+            draw.material_override = _chosen_edge_material()
+            draw.visible = _wants_edge_draw()
             draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
             draw.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
             draw.layers = source.layers
@@ -147,14 +173,12 @@ func _refresh_meshes() -> void:
     # A new equipment mesh inherits the selected debug material without
     # re-entering the expensive contact extraction on every rescan.
     if _diagnostic_mode != 0:
-        var current_material: ShaderMaterial = (
-            _xray_material if _diagnostic_mode == 5 else _edge_material)
+        var current_material: ShaderMaterial = _chosen_edge_material()
         for record in _edge_links.values():
             var draw: MeshInstance3D = record.get("draw") as MeshInstance3D
             if is_instance_valid(draw):
                 draw.material_override = current_material
-                draw.visible = ((_diagnostic_mode >= 2 and _diagnostic_mode <= 5)
-                    or _diagnostic_mode == 14 or _diagnostic_mode == 15)
+                draw.visible = _wants_edge_draw()
         for value in _contact_links.values():
             var contact: MeshInstance3D = value as MeshInstance3D
             if is_instance_valid(contact):
@@ -256,7 +280,8 @@ func _refresh_contact_lines(found: Dictionary) -> void:
 ## GRAPHICS SETTINGS switch; all modes return to production on exit.
 func set_diagnostic_mode(mode: int) -> void:
     _diagnostic_mode = clampi(mode, 0, 15)
-    if _edge_material == null or _xray_material == null:
+    if _edge_material == null or _xray_material == null or (
+            _exterior_material == null):
         return
     if _diagnostic_mode == 4 or _diagnostic_mode == 5:
         # On-demand extraction, not a continuous background contact scan.
@@ -268,15 +293,16 @@ func set_diagnostic_mode(mode: int) -> void:
     ) else _diagnostic_mode
     _edge_material.set_shader_parameter("diagnostic_mode", shader_mode)
     _xray_material.set_shader_parameter("diagnostic_mode", shader_mode)
-    var chosen: ShaderMaterial = (
-        _xray_material if _diagnostic_mode == 5 else _edge_material)
+    _exterior_material.set_shader_parameter("outline_color",
+        Color("#29f4f7") if _diagnostic_mode == 1 or (
+            _diagnostic_mode == 9) else Color("#0b1118"))
+    var chosen: ShaderMaterial = _chosen_edge_material()
     for record in _edge_links.values():
         var draw: MeshInstance3D = record.get("draw") as MeshInstance3D
         if is_instance_valid(draw):
             draw.material_override = chosen
-            draw.visible = (((_diagnostic_mode >= 2 and _diagnostic_mode <= 5)
-                    or _diagnostic_mode == 14 or _diagnostic_mode == 15)
-                and GraphicsSettings.get_enabled("character_outline"))
+            draw.visible = (_wants_edge_draw() and
+                GraphicsSettings.get_enabled("character_outline"))
     for value in _contact_links.values():
         var contact: MeshInstance3D = value as MeshInstance3D
         if is_instance_valid(contact):
@@ -326,5 +352,7 @@ func get_diagnostic_snapshot() -> Dictionary:
         "camera_present": is_instance_valid(camera),
         "enabled": GraphicsSettings.get_enabled("character_outline"),
         "depth_disabled": _diagnostic_mode == 5,
-        "contacts_cached": not _last_contact_signature.is_empty()
+        "contacts_cached": not _last_contact_signature.is_empty(),
+        "outline_pipeline": "screen_edge_stencil_union",
+        "exterior_pixels": 3.0
     }
