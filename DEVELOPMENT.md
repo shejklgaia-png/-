@@ -1,3 +1,12 @@
+## 2026-11-22 — BASE施設8棟の完全新造（旧デザイン保存）
+
+- ユーザー指示：「一から作り直してみて欲しい。現在のモデルは保存しておいて」。
+- **元モデル保存先**：GitHub永続ブランチ `archive/base-models-20261122-before-rebuild` / SHA `3ef30727c20c450991bb534b96548764703c4bbb`。既存のBASE全モデル（旧建築・屋根・機械の材質・シーン）、床、小物、操作系、背景と全コードが作業前状態で復元可能。
+- **本体**：新規独立ファイル `scripts/sera_base_fresh_design.gd` に8施設を完全新規モデリング。`scripts/sera_base_architecture.gd` の `ACTIVE_BASE_MODEL = "FRESH_20261122"` により実際の施設構築で使用し、旧形状生成モジュール6種を重ねない。バックアップの元関数は引き続き保持し、切替・復元可能。
+- **形状方針**：NEXUSは司令バンカー／分割クラウンとゲート、LABOはテント式開放工房と独立巨大プリンター、回収機は大型油圧単脚クレーンと吊り爪、精製装置は双煙突の露出炉、分解装置はV型二枚の破砕ジョーとローラー、発電は回転翼付き大タービンと冷却タンク、資材保管庫は非対称に積み上げた大型コンテナ＋揚重機、建設端末は大画面＋操作台＋送信アンテナ。
+- **維持するもの**：機能とUI、基本配置・回転・モデル倍率、各敷地パネル、タップ判定、レールグリッド・GRID遷移、CRATEルート、全既存素材とGL CompatibilityのMultiMesh描画バッチ、施設ごとの元の3D照明とGENERATOR/EnergyRotorアニメーション。
+- **検証順**：旧仕様の原本コードを事前確認し、新規期待値を `tools/base_fresh_rebuild_self_check.py`/`tools/base_fresh_rebuild_runtime_check.gd` で本体に先行定義して登録。GLの実ゲーム画面を撮影・目視で改善し、局所CIとmain統合後のフルCIを実施。旧造形固有のテストは新造形へ更新し、影響しない機能・入力・素材のテストは維持する。
+
 ## 2026-11-22 — BASE actual-screen visual hierarchy redesign and mandatory screenshot review
 
 - Reviewed the real 720×1280 full-game screen (unchanged 27° orthographic BASE camera). The problem was **layers of overlapping girders, covers, duplicate crane arms, and warehouse cage rails**, not a shortage of detail. From gameplay scale LABO lacked a single obvious printer, the collector looked like an indistinct crossed-boom rig, and warehouse cargo was blocked by overhead lines.
