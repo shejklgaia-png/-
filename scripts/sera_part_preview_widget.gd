@@ -32,10 +32,7 @@ var selected_parts: Dictionary = {}
 var _request_serial: int = 0
 var _pressed_mouse: bool = false
 var _last_mouse: Vector2 = Vector2.ZERO
-var shade_levels: int = 4
 var fullscreen: bool = false
-var _shade_column: VBoxContainer
-var _shade_buttons: Dictionary = {}
 var _material_toggle: Button
 var _material_panel: Panel
 var _material_editor_open: bool = false
@@ -82,22 +79,6 @@ func _ready() -> void:
     # Do not fight it by assigning SubViewport.size after parenting.
 
 func _create_iris_controls() -> void:
-    _shade_column = VBoxContainer.new()
-    _shade_column.name = "IrisShadeModeColumn"
-    _shade_column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    _shade_column.add_theme_constant_override("separation", 3)
-    _shade_column.visible = false
-    add_child(_shade_column)
-    for mode in SHADING_MODES:
-        var button := Button.new()
-        button.name = "IrisShade_%d" % mode
-        button.text = "OFF" if mode == 0 else "%d段" % mode
-        button.custom_minimum_size = Vector2(52, 22)
-        button.focus_mode = Control.FOCUS_NONE
-        button.add_theme_font_size_override("font_size", 15)
-        button.pressed.connect(set_shading_mode.bind(mode))
-        _shade_column.add_child(button)
-        _shade_buttons[mode] = button
     _fullscreen_close = Button.new()
     _fullscreen_close.name = "IrisFullscreenClose"
     _fullscreen_close.text = "縮小"
@@ -127,22 +108,10 @@ func _create_iris_controls() -> void:
     _material_panel.connect("import_requested", _import_iris_material_settings)
     _material_panel.connect("reset_requested", _reset_iris_material_settings)
     _sync_iris_editor_values()
-    _style_shading_buttons()
     _layout_iris_controls()
 
 
 func _layout_iris_controls() -> void:
-    if _shade_column == null:
-        return
-    _shade_column.position = Vector2(maxf(4.0, size.x - 62.0), 10.0)
-    # Keep all eight mode buttons in the small 3D part preview as well as
-    # fullscreen. Grow each button when the available vertical space allows.
-    var min_column_height: float = 8 * 22.0 + 7 * 3.0
-    var preferred_column_height: float = float(SHADING_MODES.size()) * 38.0 + (
-        float(SHADING_MODES.size() - 1) * 3.0)
-    var available_height: float = maxf(0.0, size.y - 20.0)
-    _shade_column.size = Vector2(52.0,
-        maxf(min_column_height, minf(preferred_column_height, available_height)))
     if _fullscreen_close != null:
         _fullscreen_close.position = Vector2(12.0, 12.0)
         _fullscreen_close.size = Vector2(76.0, 48.0)
@@ -154,23 +123,6 @@ func _layout_iris_controls() -> void:
             minf(390.0, maxf(280.0, size.y - 95.0)))
         _material_panel.position = Vector2(12.0,
             maxf(80.0, size.y - _material_panel.size.y - 14.0))
-
-
-func _style_shading_buttons() -> void:
-    for mode in SHADING_MODES:
-        var button: Button = _shade_buttons.get(mode) as Button
-        if not is_instance_valid(button):
-            continue
-        var active: bool = shade_levels == mode
-        var box := StyleBoxFlat.new()
-        box.bg_color = Color("#325f72") if active else Color("#17303d")
-        box.border_color = Color("#a7e9f6") if active else Color("#5c8190")
-        box.set_border_width_all(2 if active else 1)
-        box.set_corner_radius_all(3)
-        button.add_theme_stylebox_override("normal", box)
-        button.add_theme_stylebox_override("hover", box)
-        button.add_theme_stylebox_override("pressed", box)
-        button.add_theme_color_override("font_color", Color("#e7f6fa"))
 
 
 func _is_iris_preview() -> bool:
@@ -201,22 +153,6 @@ func dismiss_iris_material_keyboard() -> bool:
 func _request_close_fullscreen() -> void:
     if fullscreen:
         preview_fullscreen_requested.emit(false)
-
-
-func set_shading_mode(levels: int) -> void:
-    if not SHADING_MODES.has(levels):
-        return
-    shade_levels = levels
-    # Legacy top-right buttons remain the quick ALL-material control.
-    # Lens and armor may then be independently overridden in the editor.
-    for material_id in range(3):
-        var values: Dictionary = _iris_material_values[material_id]
-        values["steps"] = levels
-        _iris_material_values[material_id] = values
-    _style_shading_buttons()
-    _sync_iris_editor_values()
-    _apply_iris_shading()
-    _persist_iris_material_settings()
 
 
 func _toggle_material_editor() -> void:
@@ -280,11 +216,6 @@ func _set_iris_material_payload(payload: Dictionary, persist: bool = true) -> bo
     for index in range(IRIS_MATERIAL_KEYS.size()):
         _iris_material_values[index] = material_data[IRIS_MATERIAL_KEYS[index]].duplicate()
     _lens_lit = bool(checked["lens_lit"])
-    var first_level: int = int(_iris_material_values[0]["steps"])
-    shade_levels = first_level if (
-        int(_iris_material_values[1]["steps"]) == first_level and
-        int(_iris_material_values[2]["steps"]) == first_level) else -1
-    _style_shading_buttons()
     _sync_iris_editor_values()
     _apply_iris_shading()
     if persist:
@@ -489,8 +420,6 @@ func show_part(blueprint: String, selections: Dictionary = {}) -> void:
     _ui_mode_touches.clear()
     _last_tap_time = 0
     current_blueprint = blueprint
-    if is_instance_valid(_shade_column):
-        _shade_column.visible = _is_iris_preview()
     if is_instance_valid(_material_toggle):
         _material_toggle.visible = fullscreen and _is_iris_preview()
     if is_instance_valid(_material_panel):
@@ -578,17 +507,6 @@ func _point_over_material_panel(point: Vector2) -> bool:
         _material_panel.get_global_rect().has_point(get_global_rect().position + point))
 
 
-func _mode_at_local_point(point: Vector2) -> int:
-    if not is_instance_valid(_shade_column) or not _shade_column.visible:
-        return -1
-    var global_point: Vector2 = get_global_rect().position + point
-    for mode in SHADING_MODES:
-        var button: Button = _shade_buttons[mode] as Button
-        if button.get_global_rect().has_point(global_point):
-            return mode
-    return -1
-
-
 func _hit_fullscreen_close(point: Vector2) -> bool:
     return fullscreen and _fullscreen_close != null and (
         _fullscreen_close.get_global_rect().has_point(
@@ -624,11 +542,6 @@ func feed_touch(index: int, pressed: bool, point: Vector2) -> void:
             _ui_mode_touches[index] = -3
             _last_tap_time = 0
             return
-        var mode: int = _mode_at_local_point(point)
-        if mode >= 0:
-            _ui_mode_touches[index] = mode
-            _last_tap_time = 0
-            return
         if _hit_fullscreen_close(point):
             _ui_mode_touches[index] = -2
             _last_tap_time = 0
@@ -661,8 +574,6 @@ func feed_touch(index: int, pressed: bool, point: Vector2) -> void:
         elif int(captured) == -2:
             if _hit_fullscreen_close(point):
                 _request_close_fullscreen()
-        elif int(captured) >= 0 and _mode_at_local_point(point) == int(captured):
-            set_shading_mode(int(captured))
         return
     var started: Dictionary = _touch_starts.get(index, {})
     _touch_starts.erase(index)
