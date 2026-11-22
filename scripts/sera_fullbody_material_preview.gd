@@ -94,10 +94,13 @@ static func apply_to_rig(rig: Node3D) -> Dictionary:
                 if original_texture == null:
                     original_texture = white_texture
                 var hint: int = _part_material_hint(mesh, slot)
+                var iris_atlas: bool = (original_texture.get_width() == 16
+                    and original_texture.get_height() == 16)
                 var closed: bool = bool(mesh.get_meta("sera_single_sided", false))
-                var key: String = "%d:%s:%d:%d" % [
+                var key: String = "%d:%s:%d:%d:%d" % [
                     original_texture.get_instance_id(),
-                    source.albedo_color.to_html(true), hint, int(closed)
+                    source.albedo_color.to_html(true), hint, int(closed),
+                    int(iris_atlas)
                 ]
                 var shaded: ShaderMaterial = material_cache.get(key) as ShaderMaterial
                 if shaded == null:
@@ -106,6 +109,7 @@ static func apply_to_rig(rig: Node3D) -> Dictionary:
                     shaded.set_shader_parameter("source_texture", original_texture)
                     shaded.set_shader_parameter("source_tint", source.albedo_color)
                     shaded.set_shader_parameter("material_hint", hint)
+                    shaded.set_shader_parameter("iris_palette", iris_atlas)
                     shaded.set_shader_parameter("armor_levels", ARMOR_STEPS)
                     shaded.set_shader_parameter("armor_threshold", ARMOR_THRESHOLD)
                     shaded.set_shader_parameter("dark_levels", MECHANISM_STEPS)
