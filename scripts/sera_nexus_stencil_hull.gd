@@ -122,7 +122,7 @@ func _process(delta: float) -> void:
         _rebuild_links()
 
 func set_diagnostic_mode(mode: int) -> void:
-    _mode = clampi(mode, 0, 15)
+    _mode = clampi(mode, 0, 16)
     _apply_mode()
 
 func _apply_mode() -> void:
@@ -133,6 +133,7 @@ func _apply_mode() -> void:
     # 10/11 = calibration cube stencil equal/not equal, ref 29.
     # 12 = body ref17 EQUAL, 13 = body hull reverse culling.
     # 14/15 = stencil-free +8px/-8px projected normal comparison.
+    # 16 = production screen-space ribbons WITHOUT any stencil writes/reads.
     # Diagnostic-only passes NEVER alter the source mesh material.
     var enable_stencil: bool = _enabled and (
         _mode == 0 or _mode == 1 or _mode == 7 or _mode == 9

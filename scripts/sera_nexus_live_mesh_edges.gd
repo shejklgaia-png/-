@@ -9,6 +9,8 @@ const EDGE_SHADER = preload("res://shaders/sera_live_mesh_edges.gdshader")
 const XRAY_SHADER = preload("res://shaders/sera_live_mesh_edges_xray.gdshader")
 const EXTERIOR_SHADER = preload(
     "res://shaders/sera_nexus_stencil_edge_outline.gdshader")
+const EXTERIOR_NO_MASK_SHADER = preload(
+    "res://shaders/sera_nexus_stencil_edge_outline_no_mask.gdshader")
 const ContactSeams = preload("res://scripts/sera_nexus_contact_seams.gd")
 const RibbonGeometry = preload("res://scripts/sera_nexus_outline_geometry.gd")
 const RESCAN_SECONDS: float = 0.35
@@ -21,6 +23,7 @@ var _source_root: Node3D
 var _edge_material: ShaderMaterial
 var _xray_material: ShaderMaterial
 var _exterior_material: ShaderMaterial
+var _exterior_no_mask_material: ShaderMaterial
 var _diagnostic_mode: int = 0
 var _edge_links: Dictionary = {} # source ID -> {source, mesh, draw}
 var _geometry_cache: Dictionary = {} # Mesh resource instance ID -> ArrayMesh/null
@@ -34,11 +37,13 @@ func _uses_exterior_union() -> bool:
         _diagnostic_mode == 9)
 
 func _wants_edge_draw() -> bool:
-    return _uses_exterior_union() or (
+    return _uses_exterior_union() or _diagnostic_mode == 16 or (
         _diagnostic_mode >= 2 and _diagnostic_mode <= 5) or (
         _diagnostic_mode == 14 or _diagnostic_mode == 15)
 
 func _chosen_edge_material() -> ShaderMaterial:
+    if _diagnostic_mode == 16:
+        return _exterior_no_mask_material
     if _uses_exterior_union():
         return _exterior_material
     if _diagnostic_mode == 5:
@@ -69,6 +74,13 @@ func _ready() -> void:
     _exterior_material.set_shader_parameter(
         "outline_color", Color("#0b1118"))
     _exterior_material.set_shader_parameter("exterior_px", 3.0)
+    # Same projected-ribbon math, only the stencil compare is removed.
+    _exterior_no_mask_material = ShaderMaterial.new()
+    _exterior_no_mask_material.shader = EXTERIOR_NO_MASK_SHADER
+    _exterior_no_mask_material.render_priority = -21
+    _exterior_no_mask_material.set_shader_parameter(
+        "outline_color", Color("#29f4f7"))
+    _exterior_no_mask_material.set_shader_parameter("exterior_px", 3.0)
     visible = GraphicsSettings.get_enabled("character_outline")
     if visible:
         _refresh_meshes()
@@ -279,9 +291,10 @@ func _refresh_contact_lines(found: Dictionary) -> void:
 ## Diagnostic controls are intentionally separate from the persistent
 ## GRAPHICS SETTINGS switch; all modes return to production on exit.
 func set_diagnostic_mode(mode: int) -> void:
-    _diagnostic_mode = clampi(mode, 0, 15)
+    _diagnostic_mode = clampi(mode, 0, 16)
     if _edge_material == null or _xray_material == null or (
-            _exterior_material == null):
+            _exterior_material == null) or (
+            _exterior_no_mask_material == null):
         return
     if _diagnostic_mode == 4 or _diagnostic_mode == 5:
         # On-demand extraction, not a continuous background contact scan.
@@ -354,5 +367,6 @@ func get_diagnostic_snapshot() -> Dictionary:
         "depth_disabled": _diagnostic_mode == 5,
         "contacts_cached": not _last_contact_signature.is_empty(),
         "outline_pipeline": "screen_edge_stencil_union",
-        "exterior_pixels": 3.0
+        "exterior_pixels": 3.0,
+        "stencil_bypass": _diagnostic_mode == 16
     }
