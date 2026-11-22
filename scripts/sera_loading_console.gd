@@ -9,7 +9,7 @@ const TerminalPixelFont = preload("res://scripts/sera_terminal_pixel_font.gd")
 
 const PREVIEW_SECONDS: float = 5.0
 const PREVIEW_STEPS: int = 100
-const COMPLETE_CUT_FRAMES: int = 2
+const COMPLETE_CUT_FRAMES: int = 3
 const LOADING_FPS: int = 10
 const MAX_HISTORY: int = 120
 # Loading terminal only: live loading remains at 50%; BASE previews may use
