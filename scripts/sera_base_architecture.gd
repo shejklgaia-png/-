@@ -446,8 +446,8 @@ static func build_nexus(parent: Node3D) -> void:
         g.flush()
         var fresh_motion := BaseFacilityMotion.new()
         fresh_motion.bind_to(node, "NEXUS")
-        _light(node, "NexusAmberGateLight", Vector3(0, 2.55, 2.89),
-            "#ffc491", 1.05, 4.0)
+        # Shutter-gap fixture and local light are now built by VFX, not
+        # by a broad amber lamp washing the whole NEXUS side.
         var fresh_vfx := BaseFacilityVfx.new()
         fresh_vfx.setup(node, "NEXUS")
         return
@@ -514,12 +514,14 @@ static func build_nexus(parent: Node3D) -> void:
         g.rod("NexusAntennas", Vector3(2.42, 4.63 + float(level) * 0.48, -1.78),
             Vector3(2.42, 5.08 + float(level) * 0.48, -1.78),
             0.08 if level == 0 else 0.045, "edge")
-    g.box("NexusAntennasBeacon", Vector3(2.42, 6.18, -1.78),
-        Vector3(0.13, 0.19, 0.13), "amber_light")
+    # The static mast remains in the architectural batch. A separately
+    # addressable beacon lens/fixture is built by BaseFacilityVFX so its
+    # emission can blink without scaling the mast or the amber-light batch.
     g.poly("GatePortal", "bevel", Vector3(0, 1.50, 2.51), Vector3(2.65, 2.85, 0.38), "dark")
     g.box("SealedGate", Vector3(0, 1.25, 2.77), Vector3(1.94, 2.35, 0.10), "slate")
     g.box("GatePortalLintel", Vector3(0, 2.97, 2.68), Vector3(2.42, 0.25, 0.27), "edge")
-    g.box("GatePortalGlow", Vector3(0, 2.83, 2.86), Vector3(2.05, 0.13, 0.07), "amber_light")
+    # No luminous bar above the sealed gate: the new physical lamp emits
+    # exclusively through the low shutter gap at the floor.
     for side in [-1.0, 1.0]:
         g.box("GateBlueWayfinder", Vector3(side * 1.07, 1.39, 2.89),
             Vector3(0.065, 0.76, 0.045), "blue_light")
@@ -567,8 +569,7 @@ static func build_nexus(parent: Node3D) -> void:
     g.flush()
     var archived_motion := BaseFacilityMotion.new()
     archived_motion.bind_to(node, "NEXUS")
-    _light(node, "NexusAmberGateLight", Vector3(0, 2.55, 2.89),
-        "#ffc491", 1.05, 4.0)
+    # A narrow shutter-gap fixture replaces the old exterior floodlight.
     var archived_vfx := BaseFacilityVfx.new()
     archived_vfx.setup(node, "NEXUS")
 
@@ -899,18 +900,9 @@ static func _add_facility_lights(node: Node3D, key: String) -> void:
         "SMELTER":
             _light(node, "FurnaceHeatLight", Vector3(0, 1.10, 1.14),
                 "#ff904d", 2.05, 3.40)
-        "GENERATOR":
-            _light(node, "GeneratorCoreLight", Vector3(-0.45, 1.25, 0.72),
-                "#71c9f5", 1.04, 3.15)
-        "SCRAP_COLLECTOR":
-            _light(node, "CollectorTaskLight", Vector3(0.28, 2.20, 0.38),
-                "#90daf6", 1.12, 3.10)
-        "RECYCLER":
-            _light(node, "RecyclerWorkLight", Vector3(0.0, 1.75, 1.10),
-                "#ffc18b", 1.40, 3.15)
-        "STORAGE":
-            _light(node, "StorageLoadingLight", Vector3(0.10, 1.86, 1.24),
-                "#ffc58d", 1.22, 3.20)
+        # Collector, crusher, power generator and storage use dedicated
+        # hooded lamps / slit emitters with local spots in BaseFacilityVFX.
+        # Do not add the old broad unmodelled omni lights in parallel.
         "BUILD_TERMINAL":
             _light(node, "TerminalWorkLight", Vector3(0.0, 2.23, 0.54),
                 "#8ccefa", 1.00, 3.10)

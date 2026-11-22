@@ -9,14 +9,16 @@ uniform sampler2D mesh_id_texture : filter_nearest, repeat_disable;
 uniform vec2 mesh_id_texel = vec2(0.0026041667);
 uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
 uniform vec4 ink_screen_bounds = vec4(0.0);
+// Enlarged 4px outside scan applies ONLY to projected facility meshes.
+uniform vec4 facility_screen_bounds = vec4(0.0);
 uniform float main_inside_px = 1.0;
 uniform float main_outside_px = 3.0;
 uniform float main_seam_px = 3.0;
 // Dense BASE machinery used to flood small faces with 3px ID seams.
-// Retain its 1px inside contour, but move only 2px outside, and keep
-// same-screen visible component contacts to 1px.
+// Facility contour: 1px inside and 4px outside with 1px contacts.
+// Clutter keeps its dedicated 1px inside/1px outside style.
 uniform float facility_inside_px = 1.0;
-uniform float facility_outside_px = 2.0;
+uniform float facility_outside_px = 4.0;
 uniform float facility_seam_px = 1.0;
 uniform float clutter_inside_px = 1.0;
 uniform float clutter_outside_px = 1.0;
@@ -127,9 +129,18 @@ void fragment() {
                 pixel_uv.x <= ink_screen_bounds.z &&
                 pixel_uv.y >= ink_screen_bounds.y &&
                 pixel_uv.y <= ink_screen_bounds.w) {
-            for (int r = 1; r <= 3; r++) {
+            bool near_facility = pixel_uv.x >= facility_screen_bounds.x &&
+                pixel_uv.x <= facility_screen_bounds.z &&
+                pixel_uv.y >= facility_screen_bounds.y &&
+                pixel_uv.y <= facility_screen_bounds.w;
+            for (int r = 1; r <= 4; r++) {
+                if (r == 4 && !near_facility) {
+                    break;
+                }
                 for (int d = 0; d < 8; d++) {
-                    if (d >= 4 && r == 3) {
+                    // Fourth-ring diagonals are 5.66px away; only the
+                    // four axis samples are needed for a 4px outside rim.
+                    if (d >= 4 && r == 4) {
                         break;
                     }
                     vec2 off = neighbor_offset(r, d);
