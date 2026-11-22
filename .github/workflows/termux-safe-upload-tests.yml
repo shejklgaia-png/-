@@ -1,11 +1,7 @@
 name: Termux safe upload regressions
 
+# Manual-only: focused local checks are the default; retain opt-in Actions diagnostics.
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - "tools/termux/**"
   workflow_dispatch:
 
 permissions:
