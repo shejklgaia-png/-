@@ -47,6 +47,16 @@ func _process(delta: float) -> void:
     var enabled: bool = GraphicsSettings.get_enabled("character_outline")
     if visible != enabled:
         visible = enabled
+        # The draw nodes live under the original meshes, NOT under this
+        # controller, so changing this controller's visibility alone would
+        # not hide any ribbons.
+        for record in _edge_links.values():
+            var draw: MeshInstance3D = record.get("draw") as MeshInstance3D
+            if is_instance_valid(draw):
+                draw.visible = enabled
+        for contact in _contact_links.values():
+            if is_instance_valid(contact):
+                (contact as MeshInstance3D).visible = enabled
     if enabled:
         _refresh_meshes()
 
