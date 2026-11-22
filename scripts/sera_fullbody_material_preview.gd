@@ -72,6 +72,12 @@ static func apply_to_rig(rig: Node3D) -> Dictionary:
     # ShaderMaterial. No per-mesh duplicate shader resources or extra pass.
     var material_cache: Dictionary = {}
     var applied_mesh_ids: Dictionary = {}
+    # Several authored solid details have only an albedo tint. A 1x1 white
+    # texture passes that base color into the common sampler without skipping
+    # those meshes or changing their original Godot material resources.
+    var white_image := Image.create(1, 1, false, Image.FORMAT_RGBA8)
+    white_image.fill(Color.WHITE)
+    var white_texture: ImageTexture = ImageTexture.create_from_image(white_image)
     for set_key in available.keys():
         var selection: Dictionary = available[set_key]
         for slot in BODY_SLOTS:
@@ -86,9 +92,7 @@ static func apply_to_rig(rig: Node3D) -> Dictionary:
                 var source: StandardMaterial3D = mesh.material_override as StandardMaterial3D
                 var original_texture: Texture2D = source.albedo_texture
                 if original_texture == null:
-                    # The base SERA rig explicitly authors a texture per body
-                    # panel. Do not guess for unmapped non-textured geometry.
-                    continue
+                    original_texture = white_texture
                 var hint: int = _part_material_hint(mesh, slot)
                 var closed: bool = bool(mesh.get_meta("sera_single_sided", false))
                 var key: String = "%d:%s:%d:%d" % [
