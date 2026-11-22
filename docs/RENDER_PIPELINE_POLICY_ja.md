@@ -156,3 +156,11 @@ CIは、共通優先度の参照、既存描画順、主要シェーダーの深
 - 線色 `#17212F`、`RENDER_ORDER.DEPTH_TESTED_EMISSIVE=127`、通常の深度テスト、光やヒット・斬撃等のFX除外、キャッシュと0.75秒装備交換スキャンは維持。透明エフェクトやNEXUS室内グレーエッジ、BASE施設の独立描画には本処理を適用しない。
 - これはAndroid GL Compatibility用の**軽量な反転ハル近似**であり、比較用CPUレンダラーで実施した厳密な画面ピクセルIDマスク抽出とは異なる。独立メッシュ間の極端な密着・薄い開放面・面向きの不整合では輪郭に差が生じ得る。実Androidカメラ／装備交換／ボス視点での外観・隠れ線と3px幅を確認する。
 - `tools/sera_view_edges_self_check.py` と `tools/sera_view_edges_runtime_check.gd` の角度依存期待値を、実装より先に新しい輪郭専用の検証条件へ更新した。既存のFX遮蔽・SERA/ターゲット/ボス適用・描画優先度は不変条件として保持する。
+
+
+## 2026-11-22：アイリス・SERA の反転ハル内部塗り潰し回帰修正
+
+- AndroidのNEXUSカスタマイズで、HEAD D アイリスの単体プレビューおよび全身SERA装甲に黒い不規則な塗り潰しが発生。SERA原本は一部の三角形で面向きが不統一であり、元材質は両面描画 `CULL_DISABLED` で見えるようにしていた。新しい `cull_front` の拡大背面ハルはその前提が異なるため、表面に不自然な濃色面が残り得る。
+- `shaders/sera_view_edges.gdshader` で `hint_depth_texture` と `INV_PROJECTION_MATRIX` を使用し、**GL Compatibilityの深度座標系（OpenGL NDC -1..1）** で不透明シーンの深度を再構築。ハル候補が実メッシュ面と同じ深度で重なる場合は `discard`。残りの候補は周辺上下左右の3px距離に同深度の実際の不透明メッシュがある場合だけ線として表示し、孤立した背面ハルの黒い面を除外する。
+- 通常の深度テスト・元モデルの不透明描画・3px `#17212F`・独立メッシュ境界・アニメーション追従・VFX除外は維持。BASE施設の6px外周も同じSERA共通シェーダーを参照するため、深度安全処理が反映される。NEXUS室内の独立した2pxグレー角線とBASE施設2px角線は維持。
+- `tools/sera_view_edges_self_check.py` と `tools/sera_view_edges_runtime_check.gd` の新仕様期待値を先行追加。複数深度サンプル、自己表面の遮蔽、OpenGL互換深度再構築、角度しきい値廃止を検証。**Android実機での視認性・パフォーマンスは必ず別途確認し、CIの文字列検査のみで成功とは判断しない。**
