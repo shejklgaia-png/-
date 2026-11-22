@@ -66,14 +66,14 @@ func _run() -> void:
         _fail("actual six-batch deck is not polygonal")
         return
     var expected := {
-        "NEXUSBuilding/NexusArchitecture": "NexusCutCornerShell",
-        "BaseFacilities/LABO/IndustrialModel": "LabDrapedCanopy",
-        "BaseFacilities/SCRAP_COLLECTOR/IndustrialModel": "CollectorFunnel",
-        "BaseFacilities/SMELTER/IndustrialModel": "FurnaceOctagonalBody",
-        "BaseFacilities/RECYCLER/IndustrialModel": "CrusherCutterDrum",
-        "BaseFacilities/GENERATOR/IndustrialModel": "GeneratorRadialRotor",
-        "BaseFacilities/STORAGE/IndustrialModel": "CargoChamferedContainer",
-        "BaseFacilities/BUILD_TERMINAL/IndustrialModel": "BlueprintAngledHood",
+        "NEXUSBuilding/NexusArchitecture": "FreshNexusCommandHull",
+        "BaseFacilities/LABO/IndustrialModel": "FreshLabFabricationBed",
+        "BaseFacilities/SCRAP_COLLECTOR/IndustrialModel": "FreshCollectorSortPan",
+        "BaseFacilities/SMELTER/IndustrialModel": "FreshSmelterFurnaceBase",
+        "BaseFacilities/RECYCLER/IndustrialModel": "FreshRecyclerRoller",
+        "BaseFacilities/GENERATOR/IndustrialModel": "FreshGeneratorFrontRotor",
+        "BaseFacilities/STORAGE/IndustrialModel": "FreshStorageOffsetStacks",
+        "BaseFacilities/BUILD_TERMINAL/IndustrialModel": "FreshTerminalDisplayFrame",
     }
     for path in expected:
         var group: Node3D = hub.get_node_or_null(path) as Node3D
