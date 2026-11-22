@@ -79,11 +79,12 @@ var customize_body_rotate_cue: Control
 # Unlike the removed ID-mask probe, this operates on the actual SERA mesh.
 const OUTLINE_DIAGNOSTIC_MODES: Array[String] = [
     "通常", "外周候補", "全エッジ", "開放境界", "接合線", "深度無視",
-    "対象メッシュ", "マスク表示", "ハル単独", "合成確認"
+    "対象メッシュ", "マスク表示", "ハル単独", "合成確認",
+    "立方体＝", "立方体≠", "全身＝", "面反転"
 ]
 const OUTLINE_DIAGNOSTIC_EXPLAINS: Array[String] = [
     "通常の線幅と色。診断は終了時に自動解除します。",
-    "青緑: 視点の表裏で切り替わる外周候補のみ。",
+    "青緑: 現行の全身ステンシル外周を強調表示。" ,
     "黄: 生成済みの全エッジ。視点による非表示を解除。",
     "橙: 開放境界のみ。閉じた装甲には通常ありません。",
     "紫: メッシュ同士の交差から生成した接合線のみ。",
@@ -91,7 +92,11 @@ const OUTLINE_DIAGNOSTIC_EXPLAINS: Array[String] = [
     "緑: 輪郭へ登録した表示中のメッシュを着色。",
     "橙: ステンシル書込みパスを着色。描画確認用。",
     "紫: マスクなしの反転ハル。面の破綻を確認。",
-    "青緑: 実際のステンシル＋反転ハルの合成。"
+    "青緑: 実際のステンシル＋反転ハルの合成。",
+    "立方体: 書込29に一致する部分が緑なら成功候補。",
+    "立方体: 29と異なる外周が紫、中心は抜けるはず。",
+    "全身: ステンシル17と一致する領域を緑で表示。",
+    "橙: カリングを逆転。紫のハル単独と比較。"
 ]
 var outline_debug_button: Panel
 var outline_debug_button_text: Label
@@ -3013,8 +3018,8 @@ func _create_outline_debug() -> void:
 
     outline_debug_stats = Label.new()
     outline_debug_stats.name = "GPUEdgeGeometryCounts"
-    outline_debug_stats.position = Vector2(10.0, 219.0)
-    outline_debug_stats.size = Vector2(286.0, 128.0)
+    outline_debug_stats.position = Vector2(10.0, 261.0)
+    outline_debug_stats.size = Vector2(286.0, 139.0)
     outline_debug_stats.text = "GPU 輪郭メッシュの準備状態を確認中"
     outline_debug_stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
     outline_debug_stats.add_theme_font_size_override("font_size", 13)
@@ -3024,8 +3029,8 @@ func _create_outline_debug() -> void:
 
     outline_debug_hint = Label.new()
     outline_debug_hint.name = "GPUEdgeDiagnosticsHelp"
-    outline_debug_hint.position = Vector2(10.0, 350.0)
-    outline_debug_hint.size = Vector2(286.0, 57.0)
+    outline_debug_hint.position = Vector2(10.0, 405.0)
+    outline_debug_hint.size = Vector2(286.0, 58.0)
     outline_debug_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     outline_debug_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
     outline_debug_hint.add_theme_font_size_override("font_size", 11)
@@ -3048,10 +3053,10 @@ func _layout_outline_debug(view: Vector2) -> void:
     # top of SERA at left. The model stays visible for rotation/screenshots.
     var panel_width: float = minf(307.0, view.x - 2.0 * x)
     var panel_x: float = view.x - x - panel_width
-    var panel_y: float = minf(view.y - 414.0,
-        maxf(295.0, view.y * 0.34))
+    var panel_y: float = minf(view.y - 474.0,
+        maxf(255.0, view.y * 0.25))
     outline_debug_panel.position = Vector2(panel_x, panel_y)
-    outline_debug_panel.size = Vector2(panel_width, 411.0)
+    outline_debug_panel.size = Vector2(panel_width, 470.0)
 
 
 func _set_gpu_outline_debug_mode(mode: int) -> void:
@@ -3149,7 +3154,8 @@ func _refresh_outline_debug(delta: float) -> void:
         + "描画元: %d  エッジ生成: %d  欠落: %d\n"
         + "候補エッジ: %d  交差線: %d\n"
         + "カメラ: %s  枠線設定: %s\n"
-        + "深度: %s  接合線キャッシュ: %s"
+        + "深度: %s  接合線キャッシュ: %s\n"
+        + "立方体: 値%d / カメラ%s"
     ) % [
         int(stencil_data.get("candidates_visible", 0)),
         int(stencil_data.get("candidates_total", 0)),
@@ -3163,7 +3169,9 @@ func _refresh_outline_debug(delta: float) -> void:
         "OK" if bool(data.get("camera_present", false)) else "なし",
         "ON" if bool(data.get("enabled", false)) else "OFF",
         "無視" if bool(data.get("depth_disabled", false)) else "有効",
-        "済" if bool(data.get("contacts_cached", false)) else "なし"
+        "済" if bool(data.get("contacts_cached", false)) else "なし",
+        int(stencil_data.get("probe_ref", 0)),
+        "OK" if bool(stencil_data.get("probe_camera", false)) else "未確認"
     ]
 
 func _layout_hud() -> void:

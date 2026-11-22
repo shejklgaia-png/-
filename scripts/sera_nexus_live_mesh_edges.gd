@@ -252,7 +252,7 @@ func _refresh_contact_lines(found: Dictionary) -> void:
 ## Diagnostic controls are intentionally separate from the persistent
 ## GRAPHICS SETTINGS switch; all modes return to production on exit.
 func set_diagnostic_mode(mode: int) -> void:
-    _diagnostic_mode = clampi(mode, 0, 9)
+    _diagnostic_mode = clampi(mode, 0, 13)
     if _edge_material == null or _xray_material == null:
         return
     if _diagnostic_mode == 4 or _diagnostic_mode == 5:

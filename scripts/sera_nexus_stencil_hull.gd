@@ -10,6 +10,9 @@ const STENCIL_HULL_SHADER = preload("res://shaders/sera_nexus_stencil_hull.gdsha
 const CANDIDATE_SHADER = preload("res://shaders/sera_nexus_candidate_debug.gdshader")
 const MASK_VISIBLE_SHADER = preload("res://shaders/sera_nexus_stencil_mask_debug.gdshader")
 const HULL_UNMASKED_SHADER = preload("res://shaders/sera_nexus_hull_unmasked_debug.gdshader")
+const HULL_EQUAL_SHADER = preload("res://shaders/sera_nexus_stencil_hull_equal_debug.gdshader")
+const HULL_REVERSE_SHADER = preload("res://shaders/sera_nexus_hull_reverse_cull_debug.gdshader")
+const StencilProbe = preload("res://scripts/sera_nexus_stencil_probe.gd")
 const RESCAN_SECONDS: float = 0.35
 
 var _root: Node3D
@@ -18,6 +21,9 @@ var _hull_material: ShaderMaterial
 var _candidate_material: ShaderMaterial
 var _visible_mask_material: ShaderMaterial
 var _unmasked_hull_material: ShaderMaterial
+var _equal_hull_material: ShaderMaterial
+var _reverse_hull_material: ShaderMaterial
+var _calibration_probe: Node3D
 var _links: Dictionary = {}
 var _baked_cache: Dictionary = {}
 var _elapsed: float = 0.0
@@ -52,6 +58,19 @@ func _ready() -> void:
     _unmasked_hull_material.render_priority = -21
     _unmasked_hull_material.set_shader_parameter("outline_color", Color("#ec35f3"))
     _unmasked_hull_material.set_shader_parameter("outline_px", 3.0)
+    _equal_hull_material = ShaderMaterial.new()
+    _equal_hull_material.shader = HULL_EQUAL_SHADER
+    _equal_hull_material.render_priority = -21
+    _equal_hull_material.set_shader_parameter("outline_color", Color("#26f070"))
+    _equal_hull_material.set_shader_parameter("outline_px", 3.0)
+    _reverse_hull_material = ShaderMaterial.new()
+    _reverse_hull_material.shader = HULL_REVERSE_SHADER
+    _reverse_hull_material.render_priority = -21
+    _reverse_hull_material.set_shader_parameter("outline_color", Color("#fa942f"))
+    _reverse_hull_material.set_shader_parameter("outline_px", 3.0)
+    _calibration_probe = StencilProbe.new()
+    _calibration_probe.call("configure", _root)
+    add_child(_calibration_probe)
     _enabled = GraphicsSettings.get_enabled("character_outline")
     _rebuild_links()
     _apply_mode()
@@ -70,25 +89,34 @@ func _process(delta: float) -> void:
         _rebuild_links()
 
 func set_diagnostic_mode(mode: int) -> void:
-    _mode = clampi(mode, 0, 9)
+    _mode = clampi(mode, 0, 13)
     _apply_mode()
 
 func _apply_mode() -> void:
     # 0 = normal, 1 = cyan combined silhouette, 2-5 = existing GPU edges
     # 6 = visibly eligible mesh, 7 = tinted stencil writer
     # 8 = unmasked hull, 9 = real stencil mask + bright combined hull.
+    # 10/11 = calibration cube stencil equal/not equal, ref 29.
+    # 12 = body ref17 EQUAL, 13 = body hull reverse culling.
     # Diagnostic-only passes NEVER alter the source mesh material.
     var enable_stencil: bool = _enabled and (
-        _mode == 0 or _mode == 1 or _mode == 7 or _mode == 9)
+        _mode == 0 or _mode == 1 or _mode == 7 or _mode == 9
+        or _mode == 12)
     var enable_hull: bool = _enabled and (
-        _mode == 0 or _mode == 1 or _mode == 8 or _mode == 9)
+        _mode == 0 or _mode == 1 or _mode == 8 or _mode == 9
+        or _mode == 12 or _mode == 13)
     var mask_shader: ShaderMaterial = _mask_material
     if _mode == 6:
         mask_shader = _candidate_material
     elif _mode == 7:
         mask_shader = _visible_mask_material
-    var hull_shader: ShaderMaterial = (
-        _unmasked_hull_material if _mode == 8 else _hull_material)
+    var hull_shader: ShaderMaterial = _hull_material
+    if _mode == 8:
+        hull_shader = _unmasked_hull_material
+    elif _mode == 12:
+        hull_shader = _equal_hull_material
+    elif _mode == 13:
+        hull_shader = _reverse_hull_material
     var outline_color: Color = (
         Color("#29f4f7") if _mode == 1 or _mode == 9
         else Color("#0b1118"))
@@ -103,6 +131,9 @@ func _apply_mode() -> void:
         if is_instance_valid(hull):
             hull.material_override = hull_shader
             hull.visible = enable_hull
+    if is_instance_valid(_calibration_probe):
+        _calibration_probe.call("set_probe_mode",
+            _mode if _enabled else 0)
 
 
 func _source_allowed(node: Node) -> bool:
@@ -228,7 +259,12 @@ func get_stencil_snapshot() -> Dictionary:
             hulls += 1
         else:
             missing += 1
+    var probe_snapshot: Dictionary = {}
+    if is_instance_valid(_calibration_probe):
+        probe_snapshot = _calibration_probe.call("get_probe_snapshot")
     return {"parts": _links.size(), "hulls": hulls,
+        "probe_camera": bool(probe_snapshot.get("camera", false)),
+        "probe_ref": int(probe_snapshot.get("write_ref", 0)),
         "unsupported": missing, "enabled": _enabled,
         "mode": _mode, "shared_stencil": 17,
         "candidates_total": _last_candidate_count,
