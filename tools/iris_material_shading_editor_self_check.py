@@ -31,12 +31,12 @@ assert "func _flash_iris_material(" in widget
 assert "sin(" in widget and "flash_power" in widget
 assert "set_shader_parameter(\"flash_material\"" in widget
 assert "set_shader_parameter(\"flash_power\"" in widget
-assert "_material_panel.button_at(" in widget
+assert '_material_panel.call("button_at"' in widget
 assert "pressed.emit()" in widget
-assert "material_selected.connect(" in widget
-assert "value_changed.connect(" in widget
-assert "emission_toggled.connect(" in widget
-assert "copy_requested.connect(" in widget
+assert '_material_panel.connect("material_selected"' in widget
+assert '_material_panel.connect("value_changed"' in widget
+assert '_material_panel.connect("emission_toggled"' in widget
+assert '_material_panel.connect("copy_requested"' in widget
 assert '["装甲", "暗色機構", "レンズ", "発光"]' in ui
 assert "陰影段階" in ui and "しきい値" in ui
 assert "水色 点灯" in ui
