@@ -192,13 +192,21 @@ func _check() -> void:
     if not other_restored:
         _fail("Body mode did not restore companion meshes")
         return
-    # Canonical background must have a solid #111e28 base and blue-grey
-    # grid lines; SOLID mode must contain no lines.
+    # Shared preview backdrops are lighter than shader ink, in grid and solid modes.
     var grid: Image = PortraitBackground.make_image(128, "grid")
     var solid: Image = PortraitBackground.make_image(128, "solid")
-    if not solid.get_pixel(2, 2).is_equal_approx(Color("#111e28")) or (
+    if not solid.get_pixel(2, 2).is_equal_approx(PortraitBackground.SOLID_COLOR) or (
             grid.get_pixel(16, 6).is_equal_approx(solid.get_pixel(16, 6))):
         _fail("Shared icon background lost grid/solid distinction")
+        return
+    if solid.get_pixel(2, 2).get_luminance() <= Color("#7e858e").get_luminance() or (
+            grid.get_pixel(16, 6).get_luminance() <= Color("#7e858e").get_luminance()):
+        _fail("Preview background and grid must be lighter than shader ink")
+        return
+    var viewer_world: WorldEnvironment = preview.get_node_or_null("WorldEnvironment") as WorldEnvironment
+    if viewer_world == null or not viewer_world.environment.background_color.is_equal_approx(
+            PortraitBackground.SOLID_COLOR):
+        _fail("Body/solid preview environment has mismatched background")
         return
     preview.call("_apply_command", {"mode":"icon","editing_slot":"head",
         "selected":{"head":"D","torso":"A","arms":"A","legs":"A",
@@ -264,7 +272,7 @@ func _check() -> void:
         "selected":{"head":"D"},"size":1.0,"background_mode":"solid","seq":16})
     await process_frame
     if backdrop.visible:
-        _fail("Solid mode should remove the grid while keeping the navy background")
+        _fail("Solid mode should remove the grid while keeping the bright background")
         return
     print("SERA_ICON_BACKGROUND_AND_TOUCH_RUNTIME_OK")
     print("SERA_GODOT_INTAKE_RUNTIME_OK real_rig=true material=game outline=game nexus_pose=true shared_arm_clearance=true icon_restored=true")

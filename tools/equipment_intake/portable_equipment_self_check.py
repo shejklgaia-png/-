@@ -31,7 +31,7 @@ for item in ["_reanchor_gesture()", "_on_preview_drag", "next_center", "last_cen
 assert "function reanchor()" in html
 assert "pinch.d>24&&d>24" in html
 assert "touch-action:none" in html
-for item in ["#111e28", "#55798A", "GRID_DIVISIONS", "GRID_OPACITY", "make_image",
+for item in ["#A9BBC7", "#8299A8", "GRID_DIVISIONS", "GRID_OPACITY", "make_image",
              "composite", "Image.INTERPOLATE_NEAREST"]:
     assert item in bg, item
 assert "IconBackground.composite(source)" in icons
