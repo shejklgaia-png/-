@@ -47,7 +47,7 @@ func _ready() -> void:
     # Identical to main.gd:_build_world(), also used by the native icon capture.
     var env := Environment.new()
     env.background_mode = Environment.BG_COLOR
-    env.background_color = Color("#111e28")
+    env.background_color = IconBackdrop.SOLID_COLOR
     env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
     env.ambient_light_color = Color("#bbc9e1")
     env.ambient_light_energy = 0.60
@@ -88,7 +88,7 @@ func _ready() -> void:
     # a wide chamfer frame rather than the square native icon capture.
     get_viewport().size_changed.connect(_sync_preview_backdrop_aspect)
     _sync_preview_backdrop_aspect()
-    # GRID is an optional overlay on the current solid #111e28 backdrop.
+    # GRID is an optional overlay on the shared light blue-grey backdrop.
     background_quad.visible = false
 
     orbit = Node3D.new()
