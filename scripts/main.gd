@@ -1322,6 +1322,7 @@ func _build_camera() -> void:
 func _build_overlay() -> void:
     var layer := CanvasLayer.new()
     layer.name = "HUD"
+    layer.layer = 2 # Shared visible-mesh ID ink is CanvasLayer 1.
     add_child(layer)
     touch_ui = UI_SCRIPT.new()
     touch_ui.name = "DragGuide"

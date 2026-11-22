@@ -14,7 +14,7 @@
 
 ## 内部構成
 1. `scripts/sera_view_edges.gd` は従来の反転ハル生成を廃止し、Viewport単位の輪郭コンポジタへシーンルートを登録する薄いノードになる。
-2. `scripts/sera_scene_id_outlines.gd` は1個のID用 `SubViewport` と1個の `TextureRect` をCanvasLayer(0)に配置する。既存のCanvasLayer(1+)のHUDの背後にインクを重ね、操作イベントは受け取らない。
+2. `scripts/sera_scene_id_outlines.gd` は1個のID用 `SubViewport` と1個の `TextureRect` を描画用CanvasLayer(1)に配置する。3Dの既定Canvas(0)より後、HUDのCanvasLayer(2+)より前に合成する（ビットタラン固有のHUDは既存レイヤー30）。単体プレビューの独立SubViewportでも同じ順序を使う。操作イベントは受け取らない。
 3. MeshInstance3DとMultiMeshInstance3Dの不透明な実モデルのみを別ワールドへ低負荷の識別色で複製描画する。元メッシュ、UV、原本テクスチャ、アニメーション・ヒット判定、元の材質には触れない。元のRGB材質が表示されたままで輪郭だけを合成する。
 4. `sera_scene_mesh_id_*.gdshader` は可視メッシュ単位のRGB444識別色。 `sera_scene_multimesh_id_*.gdshader` は `INSTANCE_ID` からバッチ内の個々のインスタンスを区別する（新しいdraw callを一部品ごとに追加しない）。
 5. `sera_scene_mesh_id_outline.gdshader` はアイリスと同じ3px円形近傍、片側だけ線を置く内部境界、外周のピクセル比較を使用する。ID同士のRGBを直接比較し、CompatibilityでのsRGB変換による整数化ズレを回避。
@@ -33,3 +33,9 @@
 
 ## 運用
 ユーザーの運用ルールに従い、CI項目・期待値・設定の確認／変更、およびCI／Godot／Android／手動テストの実行は行わず、指定に従ってmainへ直接マージする。画像生成なし。
+
+## 2026-11-22：共通輪郭の描画順修正
+- Androidの診断画面でID画像（Roots 2／Meshes 101／Camera ON／ID 636×1449／Redraw約55）が生成済みと確認できるのに、全身SERAと通常単体の輪郭が描画されないことを確認。
+- PR #751のColorRectおよびPR #753のTextureRectでも症状が変わらないことから、コンポジタの矩形形式ではなく**描画CanvasLayerの順序**を修正対象とする。Godotのレイヤー0は既定のCanvasと重なるため、共通輪郭を専用CanvasLayer 1に、NEXUS/BASE/通常戦闘HUDをCanvasLayer 2に明示的に分離する。ビットタランのレイヤー30は変更しない。
+- 元のID画像、3px境界抽出シェーダー、モデル・材質・輪郭色・アイリス専用ID処理は保持。輪郭がHUD文字やメニューの上へ重ならない順序を維持。
+- CI項目やテストコードは確認・変更せず、CI/Godot/Androidのテスト実行なし。描画復旧は実機未確認。
