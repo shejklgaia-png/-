@@ -1,29 +1,37 @@
 shader_type spatial;
 // RENDER_POLICY: DEPTH_TESTED_EMISSIVE; depth_test=on
-// Fast 3px silhouette for CCW outward-authored shells (Godot uses CW front).
-// NO depth-texture fetch: the original opaque source mesh and the hardware
-// depth buffer occlude enlarged inward faces automatically.
-// The source surface uses CULL_FRONT, so this ink must use CULL_BACK.
+// Closed SERA / boss shells use opposite face winding from open meshes.
+// CULL_BACK must be preserved. The old "fast" path painted any visible
+// enlarged rear polygon, including steep inward faces; now both paths check
+// that ink belongs to the visible contour using the opaque depth texture.
 render_mode unshaded, cull_back, depth_draw_never;
 
 uniform vec4 ink_color : source_color = vec4(0.09, 0.13, 0.18, 1.0);
-uniform float stroke_px : hint_range(0.5, 6.0) = 3.0;
+uniform float stroke_px : hint_range(0.5, 8.0) = 3.0;
+uniform sampler2D opaque_depth : hint_depth_texture, filter_nearest, repeat_disable;
+varying float source_depth;
 
-
- // The HEAD D single-part ID contour is 3px on a 384px reference.
- // Scale the 3D inverted-hull contour by the shorter rendering viewport
- // dimension, keeping the same fraction of the screen across full-size
- // 720x1280 and square single-part views. Never shrink small previews.
-float effective_stroke_px(vec2 viewport_size, float base_stroke_px) {
-    // Built-ins such as VIEWPORT_SIZE are scoped to vertex()/fragment().
-    // Custom functions only receive their values as explicit arguments.
-    float short_side_px = min(viewport_size.x, viewport_size.y);
-    return base_stroke_px * max(1.0, short_side_px / 384.0);
+float opaque_depth_at(vec2 uv, mat4 inv_projection) {
+    float z = textureLod(opaque_depth, clamp(uv, vec2(0.0), vec2(1.0)), 0.0).r;
+    #if CURRENT_RENDERER == RENDERER_COMPATIBILITY
+    vec3 ndc = vec3(uv, z) * 2.0 - vec3(1.0);
+    #else
+    vec3 ndc = vec3(uv * 2.0 - vec2(1.0), z);
+    #endif
+    vec4 view = inv_projection * vec4(ndc, 1.0);
+    if (abs(view.w) < 0.000001) {
+        return 1e12;
+    }
+    return -view.z / view.w;
 }
 
+
+// 3px means three pixels of this draw viewport, not a 384px-normalized
+// scale. The previously enlarged (~5.6px at 720 wide) contour filled
+// narrow folds and exposed slanted back faces.
 void vertex() {
-    float scaled_stroke_px = effective_stroke_px(VIEWPORT_SIZE, stroke_px);
     vec3 view_position = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
+    source_depth = -view_position.z;
     vec3 view_normal = normalize(
         transpose(inverse(mat3(MODELVIEW_MATRIX))) * NORMAL);
     vec4 clip = PROJECTION_MATRIX * vec4(view_position, 1.0);
@@ -34,12 +42,36 @@ void vertex() {
     if (dot(normal_px, normal_px) > 0.0000001) {
         vec2 pixel_direction = normalize(normal_px);
         clip.xy += pixel_direction
-            * (vec2(2.0 * scaled_stroke_px) / VIEWPORT_SIZE) * clip.w;
+            * (vec2(2.0 * stroke_px) / VIEWPORT_SIZE) * clip.w;
     }
     POSITION = clip;
 }
 
 void fragment() {
+    // The center depth is from the actual opaque scene, not the ink pass.
+    // Suppress any hull fragment overlying its own real surface.
+    float opaque_center = opaque_depth_at(SCREEN_UV, INV_PROJECTION_MATRIX);
+    float near_epsilon = max(0.03, 3.5 * fwidth(source_depth));
+    if (abs(opaque_center - source_depth) <= near_epsilon) {
+        discard;
+    }
+
+    // Only keep the narrow strip touching visible source geometry.
+    // An incorrectly wound/recessed rear polygon can cover a large area,
+    // but it has no opaque surface at the same depth in this 3px vicinity.
+    // Test a small ring around the source mesh, not an expanded interior.
+    // Diagonals are reached by the equivalent 1.4x axial probe.
+    float depth_probe_px = stroke_px * 1.4;
+    vec2 pixel_step = vec2(depth_probe_px) / VIEWPORT_SIZE;
+    float neighbor_epsilon = max(near_epsilon * 1.2, 0.055);
+    bool near_surface =
+        abs(opaque_depth_at(SCREEN_UV + vec2(pixel_step.x, 0.0), INV_PROJECTION_MATRIX) - source_depth) <= neighbor_epsilon ||
+        abs(opaque_depth_at(SCREEN_UV - vec2(pixel_step.x, 0.0), INV_PROJECTION_MATRIX) - source_depth) <= neighbor_epsilon ||
+        abs(opaque_depth_at(SCREEN_UV + vec2(0.0, pixel_step.y), INV_PROJECTION_MATRIX) - source_depth) <= neighbor_epsilon ||
+        abs(opaque_depth_at(SCREEN_UV - vec2(0.0, pixel_step.y), INV_PROJECTION_MATRIX) - source_depth) <= neighbor_epsilon;
+    if (!near_surface) {
+        discard;
+    }
     ALBEDO = ink_color.rgb;
     ALPHA = 1.0;
 }
