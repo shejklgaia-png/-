@@ -5,7 +5,9 @@ const FACILITIES: Array[String] = [
     "NEXUS", "LABO", "SCRAP_COLLECTOR", "SMELTER",
     "RECYCLER", "GENERATOR", "STORAGE", "BUILD_TERMINAL",
 ]
-const INK = preload("res://shaders/base_facility_view_edges.gdshader")
+const INK = preload("res://shaders/sera_view_edges.gdshader")
+const CREASE = preload("res://shaders/base_facility_view_edges.gdshader")
+const BUILDER = preload("res://scripts/sera_base_facility_outlines.gd")
 const SERA = preload("res://scripts/sera_view_edges.gd")
 
 func _initialize() -> void:
@@ -33,8 +35,17 @@ func _run() -> void:
     if hub.get_node_or_null("BaseHUDLayer/BaseHUD/FacilityOutlines") != null:
         _fail("obsolete wire-cage screen overlay is still running")
         return
-    if SERA._build_overlay(BoxMesh.new()) == null:
-        _fail("SERA baseline edge topology builder unavailable")
+    var hull: ArrayMesh = SERA._build_overlay(BoxMesh.new())
+    var corners: ArrayMesh = BUILDER.crease_overlay_for("cube", BoxMesh.new())
+    if hull == null or corners == null:
+        _fail("both SERA hull and 80deg BASE corner geometry required")
+        return
+    if (hull.surface_get_arrays(0)[Mesh.ARRAY_VERTEX] as PackedVector3Array).size() != 36:
+        _fail("silhouette must consist of SERA full mesh faces")
+        return
+    var corner_colors: PackedColorArray = corners.surface_get_arrays(0)[Mesh.ARRAY_COLOR]
+    if corner_colors.is_empty() or corner_colors[0].a < 0.5:
+        _fail("2px corner topology must encode actual hard edges")
         return
     for key in FACILITIES:
         var path: String = "NEXUSBuilding/NexusArchitecture" if (
@@ -44,6 +55,7 @@ func _run() -> void:
             _fail(key + " actual facility missing")
             return
         var ink_total: int = 0
+        var crease_total: int = 0
         var base_total: int = 0
         for child in model.get_children():
             if not child is MultiMeshInstance3D:
@@ -58,34 +70,53 @@ func _run() -> void:
                     _fail(key + " does not use real SERA-derived shader")
                     return
                 if not is_equal_approx(
-                        float(ink_mat.get_shader_parameter("silhouette_px")), 6.0):
+                        float(ink_mat.get_shader_parameter("stroke_px")), 6.0):
                     _fail(key + " silhouette no longer 6 screen pixels")
                     return
-                if not is_equal_approx(
-                        float(ink_mat.get_shader_parameter("crease_px")), 2.0):
-                    _fail(key + " foreground corner no longer 2 pixels")
+                if (ink_mat.get_shader_parameter("ink_color") as Color) != Color("#000000"):
+                    _fail(key + " silhouette must be black")
                     return
                 if inst.has_meta("FX_NO_OUTLINE") == false:
                     _fail(key + " ink instance not marked as non-FX")
                     return
+            elif str(inst.name).begins_with("ArchitecturalCreaseInk_"):
+                crease_total += inst.multimesh.instance_count
+                var crease_mat: ShaderMaterial = inst.material_override as ShaderMaterial
+                if crease_mat == null or crease_mat.shader != CREASE:
+                    _fail(key + " 2px crease uses wrong shader")
+                    return
+                if not is_equal_approx(
+                        float(crease_mat.get_shader_parameter("crease_px")), 2.0):
+                    _fail(key + " foreground crease no longer 2 pixels")
+                    return
+                if (crease_mat.get_shader_parameter("ink_color") as Color) != Color("#353535"):
+                    _fail(key + " corner line must be dark gray")
+                    return
+                if not inst.has_meta("FX_NO_OUTLINE"):
+                    _fail(key + " corner ink not tagged as non-FX")
+                    return
             elif str(inst.name).begins_with("Architectural_"):
                 base_total += inst.multimesh.instance_count
         if ink_total < 18 or ink_total > base_total:
-            _fail(key + " wrong number of real mesh edges: " +
+            _fail(key + " wrong number of real mesh hulls: " +
                 str(ink_total) + "/" + str(base_total))
+            return
+        if crease_total < 18 or crease_total > ink_total:
+            _fail(key + " missing independent 2px dark corners")
             return
         if not model.has_node("BaseFacilityVFX"):
             _fail(key + " entrance effect missing")
             return
         var fx: Node3D = model.get_node("BaseFacilityVFX") as Node3D
         for child in fx.get_children():
-            if str(child.name).begins_with("ArchitecturalEdgeInk_"):
+            if str(child.name).begins_with("ArchitecturalEdgeInk_") or (
+                    str(child.name).begins_with("ArchitecturalCreaseInk_")):
                 _fail(key + " effect incorrectly received facility outline")
                 return
             if child is MeshInstance3D:
                 var material: ShaderMaterial = (
                     child as MeshInstance3D).material_override as ShaderMaterial
-                if material != null and material.shader == INK:
+                if material != null and material.shader in [INK, CREASE]:
                     _fail(key + " effect is using the physical edge ink shader")
                     return
     # Verify indexed animated part and its ink remain in the *same pose*.
@@ -105,6 +136,14 @@ func _run() -> void:
         int(slot["ink_index"]))
     if visible_pose.origin.distance_to(ink_pose.origin) > 0.0001:
         _fail("outline fails to follow moving mechanical claw")
+        return
+    if not slot.has("crease_mesh"):
+        _fail("moving mechanical claw missing separate corner line")
+        return
+    var crease_pose: Transform3D = (slot["crease_mesh"] as MultiMesh).get_instance_transform(
+        int(slot["crease_index"]))
+    if visible_pose.origin.distance_to(crease_pose.origin) > 0.0001:
+        _fail("2px corners fail to follow moving mechanical claw")
         return
     if str(hub.get_node("NEXUSBuilding/NexusArchitecture").get_meta(
             "base_design", "")) != "ARCHIVED_20261122":
