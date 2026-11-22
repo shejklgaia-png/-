@@ -29,6 +29,7 @@ priorities = {
 }
 expected = {
     "AFTERIMAGE": -20,
+    "NEXUS_SURFACE_EDGES": -10,
     "SLASH_VOLUME": 100,
     "SLASH_SURFACE": 105,
     "SLASH_PARTICLES": 110,
@@ -148,7 +149,7 @@ if base and head:
                 f"{rel_path}: new transparent shader lacks RENDER_POLICY contract"
             )
 
-print("PASS v510: eight transparent layer roles centrally defined and ordered")
+print("PASS: nine transparent layer roles centrally defined and ordered")
 print(f"PASS: {all_assignments} runtime priority assignments use the contract")
 print("PASS: declared shader depth contracts and new transparent shader guard")
 print("Godot parsing, Android depth/sorting, and actual motion visibility remain unverified")

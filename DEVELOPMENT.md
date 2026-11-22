@@ -6,6 +6,12 @@
 - 全エフェクトの根本・メッシュ・粒子に`FX_NO_OUTLINE`を付与、アーキテクチャ描画バッチとは分離。新規3Dアニメーション・施設タップ/UI/CRATE/GRID/戦闘とは独立。既存の暗い照明設計を残す。
 - 先行受け入れテスト（static＋本物のGodot BASEシーン）をCIに登録し、光漏れ8つ、煙2本、炉の光量揺らぎ、全施設のsolid-onlyラインマスクと投影多角形を調査。自動実画面PNGを撮影して確認。最終Android実機での見え方は別判定。
 
+## 2026-11-22 — NEXUS室内3Dポリゴン角に2pxグレーラインを追加
+
+- Blockbench由来の室内構造物・端末・扉・柱・壁・床を既存のMultiMeshのまま`nexus_polygon_edges.gdshader`の深度付き`next_pass`で描画。画面上で約2pxのグレー（#7E858E）を頂点ローカル座標と`fwidth`でエッジ抽出。中央の12角形整備パッドも専用モードで輪郭と側面ファセットを描画。
+- レンダリング順序は新規`RENDER_ORDER.NEXUS_SURFACE_EDGES=-10`。既存の青白い`CanvasLayer`選択シルエットより下で、深度遮蔽を維持。発光パレット5/6/7、入口照明Quad、セラ本体・装備・カスタマイズ時の選択発光は変更しない。元のメタリック/ラフネス、バッチ数、拠点屋外、戦闘は維持。
+- 事前に`nexus_polygon_edges_self_check.py`/`nexus_polygon_edges_runtime_check.gd`をCI登録し、`render_policy_self_check.py`の登録優先度期待値を更新。既存の`nexus_material_contrast_self_check.py`と選択発光/描画契約は維持。headless CIは視覚的な実機保証をしない。
+
 ## 2026-11-22 — v545 なぎ払いの当たり判定連動ループSEと3秒フェード
 
 - 音源のピーク振幅は元音源で約0.97のため、+2dBでのクリップを防ぐ目的で埋込Oggの元PCMを約0.77倍（約-2.3dB）に調整。ゲームの再生音量+2dBとフェード時間は維持し、最終ピークは約0.94になるようにした。
