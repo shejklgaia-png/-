@@ -37,6 +37,20 @@ assert "scan_y" not in console, "remove the traveling full-width horizontal nois
 assert "for y in range(0, int(h), 7):" in console, "retain static scanlines"
 assert "noise_phase += 1" in console, "retain flickering electronic noise"
 assert "for step in range(PREVIEW_STEPS):" in console, "retain real progress rail"
+# Core/Shell/OS visual is supplementary; the underlying percent is authoritative.
+assert "const SYSTEM_PHASE_THRESHOLDS = {" in console
+for label, threshold in [("CORE", 18), ("NEXUS", 33), ("LAB", 49),
+                         ("GRID", 67), ("ARCHIVE", 79), ("SHELL", 86),
+                         ("CRATE", 92), ("OS", 99)]:
+    assert f'"{label}": {threshold}' in console, "node must match actual load milestone"
+assert "func _system_node_online(" in console, "online nodes derive from actual milestones"
+assert "func _draw_core_visual(" in console, "rotating CORE rings and pulse"
+assert "func _draw_system_nodes(" in console, "visible linked system nodes"
+assert "func _draw_diagnostics(" in console, "left/right animated diagnostic panels"
+assert "func _visible_history_count(" in console, "preserve readable terminal history"
+assert "anim_time += dt" in console, "independent decorative animation clock"
+assert "_draw_system_visual(w, h)" in console, "render system visual in shared screen"
+assert "preview_elapsed = minf(PREVIEW_SECONDS" in console, "retain exact preview rate"
 assert '"#55798a"' in console.lower(), "shared UI blueprint color"
 assert "py tools/sera_loading_console_self_check.py" in manifest
 assert "gd tools/sera_loading_console_runtime_check.gd" in manifest
