@@ -3033,9 +3033,14 @@ func _layout_outline_debug(view: Vector2) -> void:
     outline_debug_button.size = Vector2(100.0, 34.0)
     outline_debug_button_text.position = Vector2.ZERO
     outline_debug_button_text.size = outline_debug_button.size
-    outline_debug_panel.position = Vector2(x, y + 42.0)
-    outline_debug_panel.size = Vector2(
-        minf(307.0, view.x - 2.0 * x), 306.0)
+    # Put the opaque diagnostics above the RIGHT equipment menu, not on
+    # top of SERA at left. The model stays visible for rotation/screenshots.
+    var panel_width: float = minf(307.0, view.x - 2.0 * x)
+    var panel_x: float = view.x - x - panel_width
+    var panel_y: float = minf(view.y - 310.0,
+        maxf(340.0, view.y * 0.39))
+    outline_debug_panel.position = Vector2(panel_x, panel_y)
+    outline_debug_panel.size = Vector2(panel_width, 306.0)
 
 
 func _set_gpu_outline_debug_mode(mode: int) -> void:
