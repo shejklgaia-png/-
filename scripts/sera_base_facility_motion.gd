@@ -172,3 +172,6 @@ func sample_at(seconds: float) -> void:
             if record.has("ink_mesh"):
                 var ink_mesh: MultiMesh = record["ink_mesh"] as MultiMesh
                 ink_mesh.set_instance_transform(int(record["ink_index"]), pose)
+            if record.has("crease_mesh"):
+                var crease_mesh: MultiMesh = record["crease_mesh"] as MultiMesh
+                crease_mesh.set_instance_transform(int(record["crease_index"]), pose)
