@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""BASE: same SERA 2026-11-22 inverted hull for 6px, previous 2px crease."""
+"""BASE: same SERA 2026-11-22 inverted hull for 4px, previous 2px crease."""
 from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 sera = (root / "shaders/sera_view_edges.gdshader").read_text(encoding="utf-8")
@@ -26,14 +26,14 @@ assert "no internal polygon" in sera or "backfaces" in sera
 assert "bool visible = contour || force_all_edges;" in silhouette
 assert "both_front" not in silhouette
 assert "hint_depth_texture" not in silhouette
-assert "float stroke_px : hint_range(0.5, 9.0) = 6.0" in silhouette
+assert "float stroke_px : hint_range(0.5, 9.0) = 4.0" in silhouette
 assert 'preload("res://shaders/base_facility_silhouette_edges.gdshader")' in ink
 assert "SeraViewEdges._build_overlay(physical_mesh)" not in ink
-assert '"stroke_px", 6.0' in ink
+assert '"stroke_px", 4.0' in ink
 assert 'hint_range(0.5, 8.0)' in sera
 assert 'depth_probe_px = stroke_px > 4.0 ? stroke_px * 1.5 : stroke_px;' in sera
 assert 'Color("#000000")' in ink
-assert 'Color("#353535")' in ink
+assert 'Color("#000000")' in ink
 assert 'Color("#55798A")' not in ink
 assert 'preload("res://shaders/base_facility_view_edges.gdshader")' in ink
 assert "BaseFacilityCreaseGeometry._build_overlay" in ink
@@ -57,7 +57,7 @@ assert 'py tools/base_latest_sera_silhouette_self_check.py' in manifest
 assert 'gd tools/base_latest_sera_silhouette_runtime_check.gd' in manifest
 assert "base_latest_sera_silhouette_runtime_check.gd" in workflow
 # Detect a visible output regression in an actual 720x1280 framebuffer:
-# hiding only the 6px pass must remove a measurable number of black pixels.
+# hiding only the 4px pass must remove a measurable number of black pixels.
 assert "SERA_BASE_ASSERT_OUTLINES" in capture
 assert "ArchitecturalEdgeInk_" in capture
 assert "visible_stroke_pixels" in capture

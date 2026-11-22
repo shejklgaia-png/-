@@ -15,7 +15,7 @@ assert 'func _cycle_outline_probe() -> void:' in hub
 assert 'BaseFacilityInk.material()' in hub
 assert 'Color("#ff00ff")' in hub
 assert 'Color("#000000")' in hub
-assert '"stroke_px", 6.0' in hub
+assert '"stroke_px", 4.0' in hub
 assert 'outline_probe_mode = (outline_probe_mode + 1) % 3' in hub
 assert 'mat.shader = OUTLINE_TEST_RIBBON_SHADER' in hub
 assert 'mat.set_shader_parameter("force_all_edges", true)' in hub

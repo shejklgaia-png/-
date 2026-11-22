@@ -14,7 +14,7 @@ func _fail(message: String) -> void:
 func _run() -> void:
     var shape: ArrayMesh = BASE.overlay_for("ribbon_box", BoxMesh.new())
     if shape == null:
-        _fail("no 6px contour ribbon mesh")
+        _fail("no 4px contour ribbon mesh")
         return
     var arrays: Array = shape.surface_get_arrays(0)
     var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
@@ -31,10 +31,10 @@ func _run() -> void:
     var gray: ShaderMaterial = BASE.crease_material()
     if black.shader != SILHOUETTE or gray.shader != CREASE or (
             black.get_shader_parameter("ink_color") != Color("#000000")) or (
-            gray.get_shader_parameter("ink_color") != Color("#353535")) or (
-            not is_equal_approx(float(black.get_shader_parameter("stroke_px")), 6.0)) or (
+            gray.get_shader_parameter("ink_color") != Color("#000000")) or (
+            not is_equal_approx(float(black.get_shader_parameter("stroke_px")), 4.0)) or (
             not is_equal_approx(float(gray.get_shader_parameter("crease_px")), 2.0)):
-        _fail("approved 6px black contour / 2px gray corner passes changed")
+        _fail("approved 4px black contour / 2px gray corner passes changed")
         return
     var hub: Node3D = load("res://scenes/base_exploration.tscn").instantiate()
     root.add_child(hub)

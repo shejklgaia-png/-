@@ -1,12 +1,12 @@
 shader_type spatial;
 // BASE physical mesh contour ink. Only silhouette edge ribbons (one face
 // camera-facing and its adjacent face facing away) survive. Both visible
-// faces are NEVER outlined with 6px; those are handled by the 2px pass.
+// faces are NEVER outlined with 4px; those are handled by the 2px pass.
 // No opaque surface polygons, no depth-texture probe, no FX/smoke/light.
 render_mode unshaded, cull_disabled, depth_draw_never;
 
 uniform vec4 ink_color : source_color = vec4(0.0, 0.0, 0.0, 1.0);
-uniform float stroke_px : hint_range(0.5, 9.0) = 6.0;
+uniform float stroke_px : hint_range(0.5, 9.0) = 4.0;
 uniform bool force_all_edges = false; // diagnostic only, reset on exit
 varying float edge_visible;
 

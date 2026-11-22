@@ -1,5 +1,5 @@
 extends SceneTree
-## Runtime inspection of actual BASE scene: separate 6px BASE silhouette and 2px ink.
+## Runtime inspection of actual BASE scene: separate 4px BASE silhouette and 2px ink.
 const FACILITIES: Array[String] = [
     "NEXUS", "LABO", "SCRAP_COLLECTOR", "SMELTER",
     "RECYCLER", "GENERATOR", "STORAGE", "BUILD_TERMINAL"
@@ -44,7 +44,7 @@ func _run() -> void:
             hull_tangents.size() != hull_vertices.size()) or (
             hull_arrays[Mesh.ARRAY_CUSTOM0] == null) or (
             crease.surface_get_arrays(0)[Mesh.ARRAY_CUSTOM0] == null):
-        _fail("6px contour needs paired-face ribbons, not entire surface triangles")
+        _fail("4px contour needs paired-face ribbons, not entire surface triangles")
         return
 
     for key in FACILITIES:
@@ -68,11 +68,11 @@ func _run() -> void:
                 var mat: ShaderMaterial = node.material_override as ShaderMaterial
                 if mat == null or mat.shader != HULL_SHADER or (
                         not is_equal_approx(float(
-                        mat.get_shader_parameter("stroke_px")), 6.0)):
-                    _fail(key + " not using screen-space silhouette ribbon at 6px")
+                        mat.get_shader_parameter("stroke_px")), 4.0)):
+                    _fail(key + " not using screen-space silhouette ribbon at 4px")
                     return
                 if mat.get_shader_parameter("ink_color") != Color("#000000"):
-                    _fail(key + " 6px facility silhouette must be black")
+                    _fail(key + " 4px facility silhouette must be black")
                     return
             elif title.begins_with("ArchitecturalCreaseInk_"):
                 crease_parts[title.substr("ArchitecturalCreaseInk_".length())] = node
@@ -82,8 +82,8 @@ func _run() -> void:
                         mat2.get_shader_parameter("crease_px")), 2.0)):
                     _fail(key + " foreground crease not preserved at 2px")
                     return
-                if mat2.get_shader_parameter("ink_color") != Color("#353535"):
-                    _fail(key + " retained 2px polygon corners must be dark gray")
+                if mat2.get_shader_parameter("ink_color") != Color("#000000"):
+                    _fail(key + " retained 2px polygon corners must be black")
                     return
         if hull_parts.is_empty() or crease_parts.is_empty() or (
                 hull_parts.size() != crease_parts.size()):

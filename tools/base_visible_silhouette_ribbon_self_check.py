@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regression: BASE 6px must draw only true camera contours, never entire faces."""
+"""Regression: BASE 4px must draw only true camera contours, never entire faces."""
 from pathlib import Path
 r = Path(__file__).resolve().parents[1]
 s = (r/"scripts/sera_base_facility_outlines.gd").read_text(encoding="utf-8")
@@ -12,11 +12,11 @@ manifest = (r/"tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 assert "BaseFacilityCreaseGeometry._build_overlay(physical_mesh)" in s
 assert 'preload("res://shaders/base_facility_silhouette_edges.gdshader")' in s
 assert "SeraViewEdges._build_overlay(physical_mesh)" not in s
-assert 'Color("#000000")' in s and '"stroke_px", 6.0' in s
-assert 'Color("#353535")' in s and '"crease_px", 2.0' in s
+assert 'Color("#000000")' in s and '"stroke_px", 4.0' in s
+assert 'Color("#000000")' in s and '"crease_px", 2.0' in s
 assert "crease_for(geometry:" in s and "overlay_for(geometry:" in s
 assert "CUSTOM_RGBA_FLOAT" in creases and "_extract_edges(mesh: Mesh)" in creases
-assert "float stroke_px : hint_range(0.5, 9.0) = 6.0;" in shader
+assert "float stroke_px : hint_range(0.5, 9.0) = 4.0;" in shader
 assert "bool contour = boundary && a_facing > 0.02;" in shader
 assert "a_facing > 0.02 && b_facing < -0.02" in shader
 assert "b_facing > 0.02 && a_facing < -0.02" in shader

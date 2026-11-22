@@ -25,12 +25,12 @@ assert "ShaderMaterial.new()" in vfx
 assert "FX_NO_OUTLINE" in vfx
 assert "extends RefCounted" in edges
 assert "BaseFacilityCreaseGeometry._build_overlay(physical_mesh)" in edges
-assert 'set_shader_parameter("stroke_px", 6.0)' in edges
+assert 'set_shader_parameter("stroke_px", 4.0)' in edges
 assert "BaseFacilityCreaseGeometry._build_overlay" in edges
 assert "ArchitecturalCreaseInk_" in arch
 assert 'set_shader_parameter("crease_px", 2.0)' in edges
 assert 'Color("#000000")' in edges
-assert 'Color("#353535")' in edges
+assert 'Color("#000000")' in edges
 assert 'Color("#55798A")' not in edges
 assert "Geometry2D.convex_hull" not in edges
 assert "draw_polyline" not in edges
