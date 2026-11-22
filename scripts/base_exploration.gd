@@ -154,8 +154,8 @@ func _ready() -> void:
     # One material pass across constructed BASE solids: buildings, crate,
     # clutter and batch geometry. Existing 4px/2px facility ink is untouched.
     SharedMaterialShading.apply_to_subtree(self)
-    # Group the NEXUS building, outdoor facilities and moving CRATE in
-    # one visible-ID depth pass. Do not outline transparent VFX or floor grid.
+    # Share one depth-resolved RGB-ID pass across BASE and GRID.
+    # The 3D ink is drawn before VFX; FX/particle/ground remain unoutlined.
     var id_outline := SeraViewEdges.new()
     id_outline.name = "ViewEdges"
     add_child(id_outline)
@@ -368,6 +368,7 @@ func _build_hangar() -> void:
             multi.set_instance_transform(index, poses[index])
         var draw := MultiMeshInstance3D.new()
         draw.name = "BaseBlockbenchBatch_%02d" % int(palette_index)
+        draw.set_meta("sera_outline_role", "clutter")
         draw.multimesh = multi
         draw.material_override = _material(int(palette_index))
         draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -451,6 +452,7 @@ func _create_salvage(replacement: Array[Dictionary] = []) -> void:
     ]
     var salvage := Node3D.new()
     salvage.name = "SalvageMeshes"
+    salvage.set_meta("sera_outline_role", "clutter")
     add_child(salvage)
     var g := BaseArchitecture.Batch.new(salvage)
     for i in range(lots.size()):
