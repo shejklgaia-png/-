@@ -997,7 +997,9 @@ func _make_mesh(element: Dictionary) -> MeshInstance3D:
             authored_normal += (points[i] - points[0]).cross(
                 points[i + 1] - points[0])
         if authored_normal.length_squared() < 0.000000001:
-            continue
+            # Nearly twisted/opposing triangles: preserve the authored
+            # polygon rather than dropping it from the mesh entirely.
+            authored_normal = facing
         authored_normal = authored_normal.normalized()
         for i in range(1, points.size() - 1):
             var p0: Vector3 = points[0]
