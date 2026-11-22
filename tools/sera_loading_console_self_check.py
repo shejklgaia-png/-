@@ -25,7 +25,7 @@ assert "const CONSOLE_RENDER_SCALE: float = 0.5" in console
 assert "SubViewport.new()" in console, "dedicated reduced-size render target"
 assert "pixel_viewport.size = Vector2i(" in console, "offscreen viewport follows console dimensions"
 assert "pixel_source.scale = Vector2(CONSOLE_RENDER_SCALE, CONSOLE_RENDER_SCALE)" in console
-assert "get_script() as Script" in console, "same terminal renderer re-used offscreen"
+assert "get_script() as GDScript" in console, "typed GDScript constructor is available for the offscreen replica"
 assert "TextureRect.new()" in console
 assert "CanvasItem.TEXTURE_FILTER_NEAREST" in console, "no bilinear blur"
 assert "pixel_output.texture = pixel_viewport.get_texture()" in console
