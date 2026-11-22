@@ -1,4 +1,5 @@
 extends Node
+class_name SeraBaseFacilityMotion
 ## BASE equipment: eight deterministic production-loop motions of actual existing
 ## authored MultiMesh instances. No additional 3D draw nodes, colliders or lights.
 ## Animated positions are in the same local coordinates as the authored model.
@@ -32,7 +33,7 @@ static func attach(model: Node3D, key: String) -> void:
         if not source.has(feature) or (source[feature] as Array).is_empty():
             push_error("SERA_BASE_MOTION_MISSING: " + key + "/" + str(feature))
             return
-    var controller := new()
+    var controller := SeraBaseFacilityMotion.new()
     controller.name = "FacilityMotion"
     controller.facility_key = key
     controller._parts = source
