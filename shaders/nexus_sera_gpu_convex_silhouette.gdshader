@@ -75,7 +75,13 @@ void fragment() {
     // The clear depth contains no opaque occluder. Geometry offscreen and
     // camera-facing mesh edges remain eligible; only real opaque foreground
     // objects can reject an edge.
-    if (scene_depth < 0.99999) {
+#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
+    bool has_opaque_surface = scene_depth < 0.99999;
+#else
+    // Forward+/Mobile use reversed-Z (0 means far-plane clear).
+    bool has_opaque_surface = scene_depth > 0.00001;
+#endif
+    if (has_opaque_surface) {
         float visible_surface = view_distance_from_depth(scene_depth);
         float ribbon_surface = view_distance_from_depth(FRAGCOORD.z);
         if (ribbon_surface > visible_surface + contact_depth_allowance) {
