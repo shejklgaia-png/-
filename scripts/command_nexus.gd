@@ -5,6 +5,7 @@ const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
 const LiveMeshEdges = preload("res://scripts/sera_nexus_live_mesh_edges.gd")
+const StencilHull = preload("res://scripts/sera_nexus_stencil_hull.gd")
 const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const TrainingDefaults = preload("res://scripts/training_defaults.gd")
@@ -564,6 +565,11 @@ func _sera_display() -> void:
     var live_edges: Node3D = LiveMeshEdges.new()
     live_edges.call("configure", rig)
     rig.add_child(live_edges)
+    # Group all current/future opaque equipment meshes into one stencil
+    # value, then draw seamless smoothed-backface exterior hulls.
+    var stencil_hull: Node3D = StencilHull.new()
+    stencil_hull.call("configure", rig)
+    rig.add_child(stencil_hull)
 
 func _remember_nexus_arm_rest_pose(rig: Node3D) -> void:
     # Called only once, immediately AFTER applying the authored NEXUSpose.
@@ -3049,6 +3055,11 @@ func _set_gpu_outline_debug_mode(mode: int) -> void:
     var live: Node = _gpu_outline_diagnostics()
     if live != null:
         live.call("set_diagnostic_mode", outline_debug_mode)
+    if is_instance_valid(sera_display_rig):
+        var stencil: Node = sera_display_rig.get_node_or_null(
+            "SeraStencilHull")
+        if stencil != null:
+            stencil.call("set_diagnostic_mode", outline_debug_mode)
     for i in range(outline_debug_mode_buttons.size()):
         var button: Panel = outline_debug_mode_buttons[i]
         button.add_theme_stylebox_override(
@@ -3122,13 +3133,21 @@ func _refresh_outline_debug(delta: float) -> void:
     var count: int = int(data.get("active_sources", 0))
     var draws: int = int(data.get("edge_draws", 0))
     var missing: int = int(data.get("missing_draws", 0))
+    var stencil_data: Dictionary = {}
+    if is_instance_valid(sera_display_rig):
+        var stencil: Node = sera_display_rig.get_node_or_null("SeraStencilHull")
+        if stencil != null:
+            stencil_data = stencil.call("get_stencil_snapshot")
     outline_debug_stats.text = (
-        "描画元: %d  輪郭生成: %d  欠落: %d\n"
+        "全身マスク: %d/%d  非対応: %d\n"
+        + "描画元: %d  輪郭生成: %d  欠落: %d\n"
         + "候補エッジ: %d  交差線: %d\n"
         + "カメラ: %s  枠線設定: %s\n"
-        + "深度: %s  接合線キャッシュ: %s\n"
-        + "※数値は生成ジオメトリ数です。画素数ではありません。"
+        + "深度: %s  接合線キャッシュ: %s"
     ) % [
+        int(stencil_data.get("hulls", 0)),
+        int(stencil_data.get("parts", 0)),
+        int(stencil_data.get("unsupported", 0)),
         count, draws, missing,
         int(data.get("edge_segments", 0)),
         int(data.get("contact_segments", 0)),
