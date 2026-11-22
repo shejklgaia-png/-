@@ -35,6 +35,9 @@ func _run() -> void:
     root.add_child(battle)
     battle.set_process(false)
     battle.set_physics_process(false)
+    # Containers solve child rects on the next idle frame; geometry
+    # assertions before that frame inspect placeholder pre-layout rects.
+    await process_frame
     var legs: Node3D = battle.get("target_parts") as Node3D
     var ik: RefCounted = battle.get("bittaran_foot_ik") as RefCounted
     var panel: Panel = battle.get("debug_leg_panel") as Panel
@@ -83,7 +86,9 @@ func _run() -> void:
         if i > 0:
             var previous: Button = buttons.get(IDS[i - 1]) as Button
             if previous.get_global_rect().end.x + 5.0 > rect.position.x:
-                _fail("buttons not horizontally ordered with a usable gap")
+                _fail("buttons not horizontally ordered with a usable gap: prev="
+                    + str(previous.get_global_rect()) + " current="
+                    + str(rect) + " panel=" + str(panel.get_global_rect()))
                 return
         for j in range(i):
             var other: Button = buttons.get(IDS[j]) as Button
