@@ -7,7 +7,9 @@ render_mode unshaded, cull_back, depth_draw_opaque;
 uniform sampler2D source_texture : source_color, filter_nearest, repeat_disable;
 uniform vec4 source_tint : source_color = vec4(1.0);
 uniform int material_hint = 0; // 1 external shell, 2 joint/mechanism
-uniform bool iris_palette = false; // 16x16 HEAD D, otherwise 96x32 atlas
+uniform bool iris_palette = false; // HEAD D's authored 16x16 multicolor atlas
+uniform bool force_armor = false; // any single-color source is armor ONLY
+uniform bool baked_palette = false; // dampen secondary shade on baked 96x32
 uniform int armor_levels : hint_range(0, 8) = 8;
 uniform float armor_threshold : hint_range(0.0, 1.0) = 0.65;
 uniform int dark_levels : hint_range(0, 8) = 2;
@@ -47,28 +49,39 @@ void fragment() {
     float grayness = high - low;
     bool iris_cyan = iris_palette && distance(pixel_color,
         vec3(43.0, 141.0, 173.0) / 255.0) < 0.075;
-    bool cyan = iris_cyan || (classify_color.b > classify_color.r * 1.38
-        && classify_color.g > classify_color.r * 1.26
-        && classify_color.g > 0.18 && classify_color.b > 0.23);
+    // Do not call blue/grey SOLID armor a lens based on its hue. The lens
+    // preset applies only to the authored multi-color iris or tagged optics.
+    bool cyan = iris_cyan || (material_hint == 3 &&
+        classify_color.b > classify_color.r * 1.38 &&
+        classify_color.g > classify_color.r * 1.26 &&
+        classify_color.g > 0.18 && classify_color.b > 0.23);
     // UV colors are baked directional tones; mid/dark atlas pixels may be
     // shadow-facing ARMOR, not separate mechanism. Prefer authored position
     // or mesh naming for standard 96x32 equipment. On IRIS' standalone
     // 16x16 atlas, light-grey shell vs two dark-grey frame tones are distinct.
     // This works with both sRGB and linear GL color sampling.
     bool dark_pixel = iris_palette ? (high < 0.45 && !cyan) :
-        ((material_hint == 2 && high < 0.70 && grayness < 0.24) ||
-        (high < 0.05 && grayness < 0.06));
-    int kind = cyan ? 2 : (dark_pixel ? 1 : 0);
+        (material_hint == 2 && high < 0.70 && grayness < 0.24);
+    int kind = force_armor ? 0 : (cyan ? 2 : (dark_pixel ? 1 : 0));
     int levels = kind == 2 ? lens_levels : (
         kind == 1 ? dark_levels : armor_levels);
     float threshold = kind == 2 ? lens_threshold : (
         kind == 1 ? dark_threshold : armor_threshold);
-    // Face normals have been unified across each authored Blockbench polygon,
-    // not across the separate face boundaries or diagonal triangles.
+    // In fragment(), NORMAL is in VIEW space. Convert to WORLD space before
+    // comparing against the fixed world light, so orbiting the preview
+    // camera cannot change which authored side is in shadow.
+    vec3 world_normal = normalize((INV_VIEW_MATRIX *
+        vec4(normalize(NORMAL), 0.0)).xyz);
     float illumination = clamp(
-        dot(normalize(NORMAL), normalize(vec3(-0.45, 0.65, 0.70)))
+        dot(world_normal, normalize(vec3(-0.45, 0.65, 0.70)))
         * 0.5 + 0.5, 0.0, 1.0);
     float multiplier = sera_band_brightness(levels, threshold, illumination);
+    // The 96x32 atlas already has a direction-based three-tone paint job;
+    // apply only half the additional shadow difference to avoid double
+    // darkening while keeping the requested 8/2/3-step threshold positions.
+    if (baked_palette) {
+        multiplier = mix(1.0, multiplier, 0.50);
+    }
     vec3 shaded = original * multiplier;
     EMISSION = fx_emission;
     if (kind == 2 && lens_emissive) {
