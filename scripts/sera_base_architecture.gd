@@ -300,7 +300,8 @@ static func build_nexus(parent: Node3D) -> void:
         g.detail_scale = 1.0
         BaseClutter.decorate(g, "NEXUS")
         g.flush()
-        BaseFacilityMotion.attach(node, "NEXUS")
+        var fresh_motion := BaseFacilityMotion.new()
+        fresh_motion.bind_to(node, "NEXUS")
         _light(node, "NexusAmberGateLight", Vector3(0, 2.55, 2.89),
             "#ffc491", 1.05, 4.0)
         return
@@ -417,7 +418,8 @@ static func build_nexus(parent: Node3D) -> void:
     g.detail_scale = 1.0
     BaseClutter.decorate(g, "NEXUS")
     g.flush()
-    BaseFacilityMotion.attach(node, "NEXUS")
+    var archived_motion := BaseFacilityMotion.new()
+    archived_motion.bind_to(node, "NEXUS")
     _light(node, "NexusAmberGateLight", Vector3(0, 2.55, 2.89),
         "#ffc491", 1.05, 4.0)
 
@@ -696,7 +698,8 @@ static func build_facility(parent: Node3D, key: String) -> void:
     g.detail_scale = 1.0
     BaseClutter.decorate(g, key)
     g.flush()
-    BaseFacilityMotion.attach(node, key)
+    var device_motion := BaseFacilityMotion.new()
+    device_motion.bind_to(node, key)
     _add_facility_lights(node, key)
 
 
