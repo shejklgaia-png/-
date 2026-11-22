@@ -14,6 +14,7 @@ const MASK_VISIBLE_SHADER = preload("res://shaders/sera_nexus_stencil_mask_debug
 const HULL_UNMASKED_SHADER = preload("res://shaders/sera_nexus_hull_unmasked_debug.gdshader")
 const HULL_EQUAL_SHADER = preload("res://shaders/sera_nexus_stencil_hull_equal_debug.gdshader")
 const HULL_REVERSE_SHADER = preload("res://shaders/sera_nexus_hull_reverse_cull_debug.gdshader")
+const HULL_OFFSET_PROBE_SHADER = preload("res://shaders/sera_nexus_hull_offset_probe.gdshader")
 const StencilProbe = preload("res://scripts/sera_nexus_stencil_probe.gd")
 const RESCAN_SECONDS: float = 0.35
 
@@ -27,6 +28,8 @@ var _visible_mask_material: ShaderMaterial
 var _unmasked_hull_material: ShaderMaterial
 var _equal_hull_material: ShaderMaterial
 var _reverse_hull_material: ShaderMaterial
+var _plus_offset_material: ShaderMaterial
+var _minus_offset_material: ShaderMaterial
 var _calibration_probe: Node3D
 var _links: Dictionary = {}
 var _baked_cache: Dictionary = {}
@@ -84,6 +87,20 @@ func _ready() -> void:
     _reverse_hull_material.render_priority = -21
     _reverse_hull_material.set_shader_parameter("outline_color", Color("#fa942f"))
     _reverse_hull_material.set_shader_parameter("outline_px", 3.0)
+    # Diagnostic-only transparent surfaces. Keep separate materials for the
+    # two signs so neither can affect the normal 3px stencil hull.
+    _plus_offset_material = ShaderMaterial.new()
+    _plus_offset_material.shader = HULL_OFFSET_PROBE_SHADER
+    _plus_offset_material.render_priority = -21
+    _plus_offset_material.set_shader_parameter("signed_offset_px", 8.0)
+    _plus_offset_material.set_shader_parameter(
+        "probe_color", Color(0.98, 0.22, 0.80, 0.30))
+    _minus_offset_material = ShaderMaterial.new()
+    _minus_offset_material.shader = HULL_OFFSET_PROBE_SHADER
+    _minus_offset_material.render_priority = -21
+    _minus_offset_material.set_shader_parameter("signed_offset_px", -8.0)
+    _minus_offset_material.set_shader_parameter(
+        "probe_color", Color(0.15, 0.85, 1.0, 0.30))
     _calibration_probe = StencilProbe.new()
     _calibration_probe.call("configure", _root)
     add_child(_calibration_probe)
@@ -105,7 +122,7 @@ func _process(delta: float) -> void:
         _rebuild_links()
 
 func set_diagnostic_mode(mode: int) -> void:
-    _mode = clampi(mode, 0, 13)
+    _mode = clampi(mode, 0, 15)
     _apply_mode()
 
 func _apply_mode() -> void:
@@ -114,13 +131,15 @@ func _apply_mode() -> void:
     # 8 = unmasked hull, 9 = real stencil mask + bright combined hull.
     # 10/11 = calibration cube stencil equal/not equal, ref 29.
     # 12 = body ref17 EQUAL, 13 = body hull reverse culling.
+    # 14/15 = stencil-free +8px/-8px projected normal comparison.
     # Diagnostic-only passes NEVER alter the source mesh material.
     var enable_stencil: bool = _enabled and (
         _mode == 0 or _mode == 1 or _mode == 7 or _mode == 9
         or _mode == 12)
     var enable_hull: bool = _enabled and (
         _mode == 0 or _mode == 1 or _mode == 8 or _mode == 9
-        or _mode == 12 or _mode == 13)
+        or _mode == 12 or _mode == 13
+        or _mode == 14 or _mode == 15)
     var mask_shader: ShaderMaterial = _mask_material
     if _mode == 6:
         mask_shader = _candidate_material
@@ -133,6 +152,10 @@ func _apply_mode() -> void:
         hull_shader = _equal_hull_material
     elif _mode == 13:
         hull_shader = _reverse_hull_material
+    elif _mode == 14:
+        hull_shader = _plus_offset_material
+    elif _mode == 15:
+        hull_shader = _minus_offset_material
     var outline_color: Color = (
         Color("#29f4f7") if _mode == 1 or _mode == 9
         else Color("#0b1118"))
@@ -302,4 +325,7 @@ func get_stencil_snapshot() -> Dictionary:
         "candidates_total": _last_candidate_count,
         "candidates_hidden": _last_hidden_count,
         "candidates_visible": _links.size(),
-        "visible_mask_draws": hulls}
+        "visible_mask_draws": hulls,
+        "signed_offset_px": 8 if _mode == 14 else (
+            -8 if _mode == 15 else 0),
+        "probe_no_stencil": _mode == 14 or _mode == 15}
