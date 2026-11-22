@@ -80,8 +80,8 @@ func _ready() -> void:
     _xray_material.shader = XRAY_SHADER
     _exterior_material = ShaderMaterial.new()
     _exterior_material.shader = EXTERIOR_SHADER
-    # The production ribbon samples the opaque depth texture; it does not
-    # depend on transparent stencil passes or their render order.
+    # The production ribbon uses native GPU depth testing and camera-facing
+    # face-pair selection. No screen-depth sampling or stencil passes.
     _exterior_material.render_priority = -21
     _exterior_material.set_shader_parameter(
         "outline_color", Color("#0b1118"))
@@ -393,9 +393,9 @@ func get_diagnostic_snapshot() -> Dictionary:
         "enabled": GraphicsSettings.get_enabled("character_outline"),
         "depth_disabled": _diagnostic_mode == 5,
         "contacts_cached": not _last_contact_signature.is_empty(),
-        "outline_pipeline": "screen_edge_opaque_depth",
+        "outline_pipeline": "visible_contour_hardware_depth",
         "exterior_pixels": 3.0,
-        "depth_sampled": _uses_exterior_union(),
+        "hardware_depth_test": _uses_exterior_union(),
         "stencil_bypass": _diagnostic_mode == 16,
         "stencil_equal_probe": _diagnostic_mode == 17,
         "stencil_no_writer_probe": _diagnostic_mode == 18
