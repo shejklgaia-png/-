@@ -179,7 +179,7 @@ func _startup_step(message: String, completed_percent: int) -> void:
         console_screen.set_stage(message, completed_percent)
 
 
-func _play_loading_preview() -> void:
+func _play_loading_preview(render_scale: float = LoadingConsole.CONSOLE_RENDER_SCALE) -> void:
     if preview_layer != null or scene_changing or power_view_active:
         return
     if facility_system != null and bool(facility_system.call("is_menu_open")):
@@ -192,6 +192,7 @@ func _play_loading_preview() -> void:
     screen.name = "SeraLoadingConsolePreview"
     preview_layer.add_child(screen)
     screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    screen.set_render_scale(render_scale)
     screen.set_cyber_font(LaboSkin.display_font())
     screen.preview_finished.connect(_loading_preview_complete)
     screen.start_preview()
@@ -636,7 +637,7 @@ func _layout_hud() -> void:
     hint.add_theme_font_size_override("font_size", 16 if view.x < 600.0 else 19)
     if layout_tools != null:
         layout_tools.position = Vector2(view.x - 168.0, 14.0)
-        layout_tools.size = Vector2(156.0, 240.0)
+        layout_tools.size = Vector2(156.0, 340.0)
     if grid_ui != null:
         grid_ui.call("reflow", view)
     if power_back_button != null:
@@ -685,7 +686,11 @@ func _create_layout_tools() -> void:
         "小物を再配置", "LayoutShuffleButton", _shuffle_layout)
     layout_copy_button = _layout_tool_button(
         "配置データコピー", "LayoutCopyButton", _copy_layout_data)
-    _layout_tool_button("ロード演出", "LoadingPreviewButton", _play_loading_preview)
+    _layout_tool_button("ロード演出 50%", "LoadingPreviewButton", _play_loading_preview)
+    _layout_tool_button("ロード演出 37.5%", "LoadingPreviewMediumButton",
+        _play_loading_preview.bind(LoadingConsole.PREVIEW_RENDER_SCALE_1))
+    _layout_tool_button("ロード演出 25%", "LoadingPreviewLowButton",
+        _play_loading_preview.bind(LoadingConsole.PREVIEW_RENDER_SCALE_2))
     outline_probe_button = _layout_tool_button(
         "輪郭検査 v1", "OutlineProbeButton", _cycle_outline_probe)
     layout_status = Label.new()

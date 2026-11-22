@@ -7,8 +7,11 @@ signal preview_finished
 const PREVIEW_SECONDS: float = 5.0
 const PREVIEW_STEPS: int = 100
 const MAX_HISTORY: int = 120
-# Loading terminal alone renders at 50%; the game's 720x1280 viewport is intact.
+# Loading terminal only: live loading remains at 50%; BASE previews may use
+# two lower internal raster resolutions without changing gameplay or UI sizes.
 const CONSOLE_RENDER_SCALE: float = 0.5
+const PREVIEW_RENDER_SCALE_1: float = 0.375
+const PREVIEW_RENDER_SCALE_2: float = 0.25
 # Every activation is keyed to a completed BASE loading milestone.
 const SYSTEM_PHASE_THRESHOLDS = {
     "CORE": 18, "NEXUS": 33, "LAB": 49, "GRID": 67,
@@ -44,6 +47,7 @@ var visual_elapsed: float = 0.0
 var electronic_texture: Texture2D
 var screen_font: Font
 var pixel_source_mode: bool = false
+var console_render_scale: float = CONSOLE_RENDER_SCALE
 var pixel_viewport: SubViewport
 var pixel_source: Control
 var pixel_output: TextureRect
@@ -63,9 +67,17 @@ func _ready() -> void:
     # The offscreen CanvasItem never runs another timer or preview.
     set_process(not pixel_source_mode)
 
+func set_render_scale(scale_value: float) -> void:
+    # Preview-only quality selection. Real loading keeps CONSOLE_RENDER_SCALE.
+    # The offscreen replica never changes the controller's render scale.
+    if pixel_source_mode:
+        return
+    console_render_scale = clampf(scale_value, PREVIEW_RENDER_SCALE_2, CONSOLE_RENDER_SCALE)
+    _resize_pixel_renderer()
+
 func _setup_pixel_renderer() -> void:
-    # An offscreen SubViewport rasterizes the unchanged 720x1280 layout at half
-    # resolution. Only this loading overlay is sampled back; gameplay is not.
+    # An offscreen SubViewport rasterizes the unchanged 720x1280 layout at the
+    # selected scale. Only this loading overlay is sampled; gameplay is not.
     pixel_viewport = SubViewport.new()
     pixel_viewport.name = "TerminalLowResViewport"
     pixel_viewport.disable_3d = true
@@ -78,7 +90,7 @@ func _setup_pixel_renderer() -> void:
     pixel_source.name = "TerminalLowResCanvas"
     pixel_source.set("pixel_source_mode", true)
     pixel_viewport.add_child(pixel_source)
-    pixel_source.scale = Vector2(CONSOLE_RENDER_SCALE, CONSOLE_RENDER_SCALE)
+    pixel_source.scale = Vector2(console_render_scale, console_render_scale)
 
     pixel_output = TextureRect.new()
     pixel_output.name = "TerminalLowResOutput"
@@ -94,13 +106,13 @@ func _setup_pixel_renderer() -> void:
 func _resize_pixel_renderer() -> void:
     if pixel_source_mode or pixel_viewport == null or pixel_source == null:
         return
-    var render_width: int = maxi(1, int(ceilf(size.x * CONSOLE_RENDER_SCALE)))
-    var render_height: int = maxi(1, int(ceilf(size.y * CONSOLE_RENDER_SCALE)))
+    var render_width: int = maxi(1, int(ceilf(size.x * console_render_scale)))
+    var render_height: int = maxi(1, int(ceilf(size.y * console_render_scale)))
     pixel_viewport.size = Vector2i(render_width, render_height)
     # Keep existing absolute UI coordinates and font sizes; scale only when
     # rasterizing into the viewport. This is not a gameplay viewport resize.
     pixel_source.size = size
-    pixel_source.scale = Vector2(CONSOLE_RENDER_SCALE, CONSOLE_RENDER_SCALE)
+    pixel_source.scale = Vector2(console_render_scale, console_render_scale)
     _queue_console_redraw()
 
 func _queue_console_redraw() -> void:

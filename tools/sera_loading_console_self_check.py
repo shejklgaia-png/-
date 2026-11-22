@@ -18,13 +18,24 @@ assert base.index('_create_hud()') < base.index('_startup_step("SYSTEM / BOOT CO
 assert "startup_layer.queue_free()" in base
 assert 'button.name = identifier' in base
 assert '"LoadingPreviewButton", _play_loading_preview' in base
+assert '"LoadingPreviewMediumButton"' in base
+assert '"LoadingPreviewLowButton"' in base
+assert "_play_loading_preview.bind(LoadingConsole.PREVIEW_RENDER_SCALE_1)" in base
+assert "_play_loading_preview.bind(LoadingConsole.PREVIEW_RENDER_SCALE_2)" in base
+assert "screen.set_render_scale(render_scale)" in base
 assert "screen.start_preview()" in base
 assert "extends Control" in console
 # Render only this prompt at half raster resolution. Do not touch the game viewport.
 assert "const CONSOLE_RENDER_SCALE: float = 0.5" in console
+assert "const PREVIEW_RENDER_SCALE_1: float = 0.375" in console
+assert "const PREVIEW_RENDER_SCALE_2: float = 0.25" in console
+assert "func set_render_scale(scale_value: float) -> void:" in console
+assert "var console_render_scale: float = CONSOLE_RENDER_SCALE" in console
 assert "SubViewport.new()" in console, "dedicated reduced-size render target"
 assert "pixel_viewport.size = Vector2i(" in console, "offscreen viewport follows console dimensions"
-assert "pixel_source.scale = Vector2(CONSOLE_RENDER_SCALE, CONSOLE_RENDER_SCALE)" in console
+assert "pixel_source.scale = Vector2(console_render_scale, console_render_scale)" in console
+assert "int(ceilf(size.x * console_render_scale))" in console
+assert "int(ceilf(size.y * console_render_scale))" in console
 assert "get_script() as GDScript" in console, "typed GDScript constructor is available for the offscreen replica"
 assert "TextureRect.new()" in console
 assert "CanvasItem.TEXTURE_FILTER_NEAREST" in console, "no bilinear blur"
