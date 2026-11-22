@@ -5,6 +5,7 @@ const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
 const ID_DEBUG_SHADER = preload("res://shaders/sera_scene_id_debug.gdshader")
+const ID_INK_SHADER = preload("res://shaders/sera_scene_mesh_id_outline.gdshader")
 const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const TrainingDefaults = preload("res://scripts/training_defaults.gd")
@@ -76,6 +77,9 @@ var outline_debug_button: Panel
 var outline_debug_button_text: Label
 var outline_debug_panel: Panel
 var outline_debug_raw_id: TextureRect
+var outline_debug_shader_probe: ColorRect
+var outline_debug_probe_title: Label
+var outline_debug_probe_mode: int = 0 # 0: ID contour mask; 1: force magenta
 var outline_debug_stats: Label
 var outline_debug_enabled: bool = false
 var outline_debug_elapsed: float = 0.0
@@ -2855,7 +2859,7 @@ func _create_outline_debug() -> void:
     outline_debug_panel.add_theme_stylebox_override("panel", debug_style)
     hud.add_child(outline_debug_panel)
     var heading := Label.new()
-    heading.text = "RAW MESH ID  (brightened)"
+    heading.text = "RAW ID (left) / INK (right)"
     heading.position = Vector2(8, 5)
     heading.size = Vector2(285, 24)
     heading.add_theme_font_size_override("font_size", 14)
@@ -2864,8 +2868,8 @@ func _create_outline_debug() -> void:
     outline_debug_panel.add_child(heading)
 
     outline_debug_raw_id = TextureRect.new()
-    outline_debug_raw_id.position = Vector2(9, 32)
-    outline_debug_raw_id.size = Vector2(155, 165)
+    outline_debug_raw_id.position = Vector2(9, 35)
+    outline_debug_raw_id.size = Vector2(134, 151)
     outline_debug_raw_id.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
     outline_debug_raw_id.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
     outline_debug_raw_id.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
@@ -2875,9 +2879,36 @@ func _create_outline_debug() -> void:
     outline_debug_raw_id.material = preview_shader
     outline_debug_panel.add_child(outline_debug_raw_id)
 
+    # On-screen shader probe is CLIPPED to this small diagnostics panel.
+    # Its base is white on purpose: if the shared ink shader fails to run,
+    # the failure is obvious HERE without blanking the whole 3D screen.
+    outline_debug_shader_probe = ColorRect.new()
+    outline_debug_shader_probe.name = "SharedInkFragmentProbe"
+    outline_debug_shader_probe.position = Vector2(157, 35)
+    outline_debug_shader_probe.size = Vector2(140, 151)
+    outline_debug_shader_probe.color = Color.WHITE
+    outline_debug_shader_probe.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    var probe_material := ShaderMaterial.new()
+    probe_material.shader = ID_INK_SHADER
+    probe_material.set_shader_parameter("mesh_id_texel",
+        Vector2(1.0 / 384.0, 1.0 / 384.0))
+    probe_material.set_shader_parameter("ink_color", Color("#17212f"))
+    probe_material.set_shader_parameter("stroke_px", 3.0)
+    probe_material.set_shader_parameter("diagnostic_mode", 0)
+    outline_debug_shader_probe.material = probe_material
+    outline_debug_panel.add_child(outline_debug_shader_probe)
+    outline_debug_probe_title = Label.new()
+    outline_debug_probe_title.position = Vector2(155, 187)
+    outline_debug_probe_title.size = Vector2(150, 20)
+    outline_debug_probe_title.text = "MASK (tap: SOLID)"
+    outline_debug_probe_title.add_theme_font_size_override("font_size", 12)
+    outline_debug_probe_title.add_theme_color_override("font_color", Color("#c5e7f0"))
+    outline_debug_probe_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    outline_debug_panel.add_child(outline_debug_probe_title)
+
     outline_debug_stats = Label.new()
-    outline_debug_stats.position = Vector2(175, 32)
-    outline_debug_stats.size = Vector2(125, 167)
+    outline_debug_stats.position = Vector2(9, 211)
+    outline_debug_stats.size = Vector2(289, 90)
     outline_debug_stats.text = "ID WAIT"
     outline_debug_stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
     outline_debug_stats.add_theme_font_size_override("font_size", 12)
@@ -2895,12 +2926,18 @@ func _layout_outline_debug(view: Vector2) -> void:
     outline_debug_button_text.position = Vector2.ZERO
     outline_debug_button_text.size = outline_debug_button.size
     outline_debug_panel.position = Vector2(x, y + 42)
-    outline_debug_panel.size = Vector2(minf(307.0, view.x - 2.0 * x), 206.0)
+    outline_debug_panel.size = Vector2(minf(307.0, view.x - 2.0 * x), 306.0)
 
 
 func _hide_outline_debug() -> void:
     outline_debug_enabled = false
     outline_debug_elapsed = 0.0
+    outline_debug_probe_mode = 0
+    if is_instance_valid(outline_debug_shader_probe):
+        (outline_debug_shader_probe.material as ShaderMaterial).set_shader_parameter(
+            "diagnostic_mode", 0)
+    if is_instance_valid(outline_debug_probe_title):
+        outline_debug_probe_title.text = "MASK (tap: SOLID)"
     if outline_debug_panel != null:
         outline_debug_panel.visible = false
     if outline_debug_raw_id != null:
@@ -2932,6 +2969,13 @@ func _handle_outline_debug_input(event: InputEvent) -> bool:
         return true
     if outline_debug_enabled and Rect2(outline_debug_panel.position,
             outline_debug_panel.size).has_point(at):
+        if not released and is_instance_valid(outline_debug_shader_probe):
+            outline_debug_probe_mode = 1 - outline_debug_probe_mode
+            (outline_debug_shader_probe.material as ShaderMaterial).set_shader_parameter(
+                "diagnostic_mode", outline_debug_probe_mode)
+            outline_debug_probe_title.text = (
+                "SOLID = MAGENTA" if outline_debug_probe_mode == 1
+                else "MASK (tap: SOLID)")
         return true
     return false
 
@@ -2955,18 +2999,27 @@ func _refresh_outline_debug(delta: float) -> void:
     var showing: bool = bool(metrics.get("overlay_visible", false))
     var id_target: Variant = metrics.get("id_target_size", Vector2i.ZERO)
     outline_debug_stats.text = (
-        "Roots %d\nMeshes %d\nCamera %s\nOverlay %s\nLayer %d\nID %s\nRedraw %d" % [
+        "Roots %d  Meshes %d  Cam %s  Overlay %s\nLayer %d  ID %s  Redraw %d\nInkShader %s  Quad %s" % [
             int(metrics.get("roots", 0)),
             count,
             "ON" if camera_ok else "OFF",
             "ON" if showing else "OFF",
             int(metrics.get("canvas_layer", -1)),
             str(id_target),
-            int(metrics.get("redraw_requests", 0))
+            int(metrics.get("redraw_requests", 0)),
+            "BOUND" if bool(metrics.get("ink_shader_bound", false)) else "MISSING",
+            str(metrics.get("ink_rect_size", Vector2.ZERO))
         ])
     var offscreen: SubViewport = layer.get("id_viewport") as SubViewport
     if is_instance_valid(offscreen):
         outline_debug_raw_id.texture = offscreen.get_texture()
+        if is_instance_valid(outline_debug_shader_probe):
+            var probe_mat: ShaderMaterial = (
+                outline_debug_shader_probe.material as ShaderMaterial)
+            probe_mat.set_shader_parameter("mesh_id_texture", offscreen.get_texture())
+            if id_target is Vector2i and id_target.x > 0 and id_target.y > 0:
+                probe_mat.set_shader_parameter("mesh_id_texel", Vector2(
+                    1.0 / float(id_target.x), 1.0 / float(id_target.y)))
     else:
         outline_debug_raw_id.texture = null
 
