@@ -219,7 +219,11 @@ func _sync_camera(source_camera: Camera3D) -> bool:
 static func _is_visual_part(node: Node) -> bool:
     var cursor: Node = node
     while cursor != null:
-        if bool(cursor.get_meta("sera_no_view_edges", false)) or (
+        # NEXUS-only GPU SERA silhouette: omit tagged display meshes from
+        # the shared ID pass, but continue drawing the room and all other
+        # Viewports. Do not use sera_no_view_edges, which also affects shading.
+        if bool(cursor.get_meta("sera_skip_common_id_outline", false)) or (
+                bool(cursor.get_meta("sera_no_view_edges", false))) or (
                 bool(cursor.get_meta("FX_NO_OUTLINE", false))):
             return false
         var label: String = str(cursor.name).to_lower()
