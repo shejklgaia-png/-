@@ -142,6 +142,12 @@ void fragment() {
             }
         }
     }
+    // Do not send a fullscreen mesh to alpha blending for zero-ink
+    // pixels. Some mobile Compatibility paths otherwise show dark fills
+    // where the intended outline has no coverage at all.
+    if (coverage <= 0.0) {
+        discard;
+    }
     ALBEDO = ink_color.rgb;
     ALPHA = coverage * ink_color.a;
 }
