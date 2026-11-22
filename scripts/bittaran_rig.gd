@@ -293,7 +293,8 @@ func _make_mesh(element: Dictionary) -> MeshInstance3D:
             authored_normal += (points[i] - points[0]).cross(
                 points[i + 1] - points[0])
         if authored_normal.length_squared() < 0.00000001:
-            continue
+            # Do not remove an irregular authored boss polygon on cancellation.
+            authored_normal = normal
         authored_normal = authored_normal.normalized()
         for i in range(1, points.size() - 1):
             if (points[i] - points[0]).cross(
