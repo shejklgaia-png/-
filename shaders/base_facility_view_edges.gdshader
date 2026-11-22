@@ -1,12 +1,12 @@
 shader_type spatial;
-// BASE's previous front/front 2px crease shader is intentionally retained.
+// BASE's original front/front crease shader uses 1px near-black ink.
 // OUTER SILHOUETTES NOW USE THE LATEST SERA INVERTED HULL IN A SEPARATE PASS.
 // This pass renders only the original 80-degree foreground corner lines.
 // Solid building geometry only: FX/smoke/lamps never receive ink batches.
 render_mode unshaded, cull_disabled, depth_draw_never;
 
-uniform vec4 ink_color : source_color = vec4(0.0, 0.0, 0.0, 1.0);
-uniform float crease_px : hint_range(0.5, 6.0) = 2.0;
+uniform vec4 ink_color : source_color = vec4(0.12549, 0.12549, 0.12549, 1.0);
+uniform float crease_px : hint_range(0.5, 6.0) = 1.0;
 varying float edge_visible;
 
 void vertex() {
