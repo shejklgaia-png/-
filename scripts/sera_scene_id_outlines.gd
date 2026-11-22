@@ -9,7 +9,6 @@ const MULTI_ID_CLOSED = preload("res://shaders/sera_scene_multimesh_iris_id_clos
 const MULTI_ID_OPEN = preload("res://shaders/sera_scene_multimesh_iris_id_open.gdshader")
 const INK = preload("res://shaders/sera_iris_mesh_id_outline.gdshader")
 const NEXUS_CONTACT_INK = preload("res://shaders/sera_nexus_mesh_contact_ink.gdshader")
-const NEXUS_CONTACT_INK_3D = preload("res://shaders/sera_nexus_mesh_contact_ink_3d.gdshader")
 const NEXUS_CONTACT_CLOSED = preload("res://shaders/sera_nexus_mesh_contact_closed.gdshader")
 const NEXUS_CONTACT_OPEN = preload("res://shaders/sera_nexus_mesh_contact_open.gdshader")
 const SHARED_INK = preload("res://shaders/sera_scene_visible_ink_3d.gdshader")
@@ -88,7 +87,9 @@ func get_outline_metrics() -> Dictionary:
             "NEXUS_RGB_7x7x7" if _nexus_sera_contact_mode else
             "IRIS_RED_1_OF_7"),
         "palette_collision_possible": _id_allocations.size() > (
-            MAX_IDENTIFIED_MESHES if _shared_scene_mode else IRIS_PALETTE_COUNT),
+            MAX_IDENTIFIED_MESHES if _shared_scene_mode else (
+            NEXUS_CONTACT_PALETTE_COUNT if _nexus_sera_contact_mode
+            else IRIS_PALETTE_COUNT)),
         "canvas_layer": (get_parent() as CanvasLayer).layer if (
             get_parent() is CanvasLayer) else -1,
         "redraw_requests": _redraw_requests
@@ -321,8 +322,6 @@ func _set_nexus_screen_bounds(bounds: Vector4) -> void:
     if is_instance_valid(ink) and ink.material is ShaderMaterial:
         (ink.material as ShaderMaterial).set_shader_parameter(
             "sera_screen_bounds", bounds)
-    if _screen_material != null and _nexus_sera_contact_mode:
-        _screen_material.set_shader_parameter("sera_screen_bounds", bounds)
 
 
 func _update_nexus_sera_screen_bounds(camera: Camera3D) -> void:
