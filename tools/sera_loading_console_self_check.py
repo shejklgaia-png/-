@@ -26,6 +26,24 @@ assert "_play_loading_preview.bind(LoadingConsole.PREVIEW_RENDER_SCALE_2)" in ba
 assert "screen.set_render_scale(render_scale)" in base
 assert "screen.start_preview()" in base
 assert "extends Control" in console
+# Explicit contract: the user wants EXACTLY two actually presented frames.
+assert "signal completion_cut_finished" in console
+assert "const COMPLETE_CUT_FRAMES: int = 2" in console
+assert "const LOADING_FPS: int = 10" in console
+assert "Engine.max_fps = LOADING_FPS" in console
+assert "Engine.max_fps = _previous_max_fps" in console
+assert "RenderingServer.frame_post_draw.connect(_on_completion_frame_presented)" in console
+assert "RenderingServer.frame_post_draw.disconnect(_on_completion_frame_presented)" in console
+assert "completion_frames_remaining -= 1" in console
+assert 'pixel_source.set("completion_cut_active", completion_cut_active)' in console
+assert 'var latest: String = ("COMPLETE" if completion_cut_active' in console
+assert '"ALL SYSTEMS ONLINE" if completion_cut_active' in console
+assert 'if completion_cut_active:' in console
+assert 'value = 1.0 if completion_cut_active' in console
+assert "1.0 / float(LOADING_FPS)" in console
+assert "await console_screen.completion_cut_finished" in base
+assert '_startup_step("SYSTEM / BOOT COMPLETE", 100)' in base
+assert base.index('_startup_step("SYSTEM / BOOT COMPLETE", 100)') < base.index("await console_screen.completion_cut_finished") < base.index("startup_layer.queue_free()")
 # Render only this prompt at half raster resolution. Do not touch the game viewport.
 assert "const CONSOLE_RENDER_SCALE: float = 0.5" in console
 assert "const PREVIEW_RENDER_SCALE_1: float = 0.375" in console
