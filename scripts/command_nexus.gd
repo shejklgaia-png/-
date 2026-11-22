@@ -23,6 +23,7 @@ const PartViewer = preload("res://scripts/sera_part_preview_widget.gd")
 const RotateMark = preload("res://scripts/sera_rotatable_mark.gd")
 const CONTROL_SETTINGS_FILE: String = "user://sera_settings.cfg"
 const FrameRateSettings = preload("res://scripts/sera_frame_rate_settings.gd")
+const DisplayProfile = preload("res://scripts/sera_display_profile.gd")
 const NexusSelectionOutline = preload("res://scripts/nexus_selection_outline.gd")
 const CUSTOMIZE_BACKDROP_SHADER = preload("res://shaders/nexus_customize_radial_glow.gdshader")
 const NEXUS_EDGE_SHADER = preload("res://shaders/nexus_polygon_edges.gdshader")
@@ -38,6 +39,7 @@ var cam: Camera3D
 var outline: Control
 var overview_pose: Transform3D
 var overview_fov: float = 63.0
+var _display_height_factor: float = 1.0
 var focus_tween: Tween
 var focused_target: String = ""
 var in_transition: bool = false
@@ -263,6 +265,7 @@ const PANEL_LAYOUTS: Dictionary = {
 }
 
 func _ready() -> void:
+    DisplayProfile.apply(get_window())
     FrameRateSettings.apply("base_nexus")
     # Godot 4 Android Back is a Window go-back request when auto-quit is off.
     get_window().go_back_requested.connect(_on_android_back)
@@ -645,12 +648,31 @@ func _camera() -> void:
     cam.name = "NexusPortraitCamera"
     cam.position = Vector3(0.0, 4.10, 10.20)
     cam.near = 0.05
-    cam.fov = 63.0
+    cam.keep_aspect = Camera3D.KEEP_HEIGHT
+    cam.fov = DisplayProfile.vertical_fov(63.0,
+        get_viewport().get_visible_rect().size)
     add_child(cam)
     cam.look_at(Vector3(0.0, 3.00, -5.50), Vector3.UP)
     cam.current = true
     overview_pose = cam.transform
     overview_fov = cam.fov
+    _display_height_factor = DisplayProfile.height_factor(
+        get_viewport().get_visible_rect().size)
+    get_viewport().size_changed.connect(_on_display_size_changed)
+
+# Restore reference horizontal framing during a live display-mode switch.
+func _on_display_size_changed() -> void:
+    var next_factor: float = DisplayProfile.height_factor(
+        get_viewport().get_visible_rect().size)
+    if cam != null and not is_equal_approx(next_factor, _display_height_factor):
+        cam.fov = DisplayProfile.reframe_vertical_fov(
+            cam.fov, _display_height_factor, next_factor)
+        overview_fov = DisplayProfile.reframe_vertical_fov(
+            overview_fov, _display_height_factor, next_factor)
+        if cam.projection == Camera3D.PROJECTION_ORTHOGONAL:
+            cam.size *= next_factor / _display_height_factor
+        _display_height_factor = next_factor
+    call_deferred("_layout_hud")
 
 func _wall_mark() -> void:
     var logo := Label3D.new()
@@ -2172,7 +2194,7 @@ func _create_fps_option_controls() -> void:
     focus_panel.add_child(system_fps_button)
     system_fps_button_label = Label.new()
     system_fps_button_label.name = "SystemFPSSettingsLabel"
-    system_fps_button_label.text = "FPS SETTINGS   >"
+    system_fps_button_label.text = "GRAPHICS SETTINGS   >"
     system_fps_button_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
     system_fps_button_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
     system_fps_button.add_child(system_fps_button_label)
@@ -2181,6 +2203,7 @@ func _create_fps_option_controls() -> void:
         {"scope": "base_nexus", "title": "BASE / NEXUS"},
         {"scope": "grid", "title": "GRID 操作"},
         {"scope": "combat", "title": "戦闘中"},
+        {"scope": "display", "title": "画面表示"},
     ]:
         var panel := Panel.new()
         panel.name = "FPSRow_" + str(spec["scope"])
@@ -2235,19 +2258,24 @@ func _layout_fps_option_controls() -> void:
     var margin: float = 12.0
     var width: float = focus_panel.size.x - margin * 2.0
     var top: float = focus_header.size.y + 20.0
+    var available: float = maxf(185.0, focus_panel.size.y - top - 143.0)
+    var row_height: float = clampf(
+        available / float(system_fps_rows.size()) - 8.0, 42.0, 70.0)
+    var row_step: float = row_height + 8.0
     for i in range(system_fps_rows.size()):
         var row: Panel = system_fps_rows[i]["panel"]
-        row.position = Vector2(margin, top + i * 81.0)
-        row.size = Vector2(width, 70.0)
+        row.position = Vector2(margin, top + i * row_step)
+        row.size = Vector2(width, row_height)
         var label: Label = system_fps_rows[i]["label"]
         label.position = Vector2(12.0, 0.0)
         label.size = Vector2(row.size.x * 0.60 - 12.0, row.size.y)
         var value: Label = system_fps_rows[i]["value"]
         value.position = Vector2(row.size.x * 0.60, 0.0)
         value.size = Vector2(row.size.x * 0.40 - 12.0, row.size.y)
-    system_fps_note.position = Vector2(margin, top + 275.0)
-    system_fps_note.size = Vector2(width,
-        maxf(60.0, focus_panel.size.y - top - 370.0))
+    system_fps_note.position = Vector2(
+        margin, top + system_fps_rows.size() * row_step + 7.0)
+    system_fps_note.size = Vector2(width, maxf(40.0,
+        focus_panel.size.y - system_fps_note.position.y - 79.0))
     system_fps_back_button.position = Vector2(
         margin, focus_panel.size.y - 69.0)
     system_fps_back_button.size = Vector2(width, 52.0)
@@ -2257,22 +2285,27 @@ func _layout_fps_option_controls() -> void:
 
 func _refresh_fps_option_controls() -> void:
     for entry in system_fps_rows:
-        var fps: int = FrameRateSettings.get_limit(str(entry["scope"]))
+        var scope: String = str(entry["scope"])
         var label: Label = entry["label"]
         label.text = str(entry["title"])
         var value: Label = entry["value"]
-        value.text = "%d FPS  >" % fps
+        if scope == "display":
+            value.text = ("上下拡張  >" if DisplayProfile.get_mode() ==
+                DisplayProfile.MODE_EXPANDED else "従来 9:16  >")
+        else:
+            value.text = "%d FPS  >" % FrameRateSettings.get_limit(scope)
     if system_fps_note != null:
         system_fps_note.text = (
-            "タップで 60 → 40 → 30 → 20 FPS を切替\n"
-            + "各設定はこの端末に自動保存されます。")
+            "FPS: 60 → 40 → 30 → 20\n"
+            + "上下拡張: 横幅を維持して上下を追加 / 従来: 9:16\n"
+            + "設定は端末に保存されます。")
 
 
 func _open_fps_option_controls() -> void:
     if focused_target != "SYSTEM" or system_fps_options_open:
         return
     system_fps_options_open = true
-    focus_title.text = "FRAME RATE"
+    focus_title.text = "GRAPHICS"
     LaboSkin.refresh_name_underline(focus_title)
     _refresh_fps_option_controls()
     _set_system_visible(true)
@@ -2300,6 +2333,18 @@ func _tap_fps_option_control(point: Vector2) -> void:
         if not Rect2(panel.position, panel.size).has_point(local):
             continue
         var scope: String = str(entry["scope"])
+        if scope == "display":
+            var next_mode: String = (DisplayProfile.MODE_CLASSIC if
+                DisplayProfile.get_mode() == DisplayProfile.MODE_EXPANDED
+                else DisplayProfile.MODE_EXPANDED)
+            if DisplayProfile.set_mode(next_mode):
+                DisplayProfile.apply(get_window())
+                _refresh_fps_option_controls()
+                # Apply new viewport geometry after anchors have resized.
+                call_deferred("_on_display_size_changed")
+            else:
+                system_fps_note.text = "画面表示設定の保存に失敗しました。"
+            return
         var old_fps: int = FrameRateSettings.get_limit(scope)
         var next_fps: int = FrameRateSettings.next_limit(old_fps)
         if FrameRateSettings.set_limit(scope, next_fps):
@@ -4003,12 +4048,14 @@ func _select_target(target_name: String) -> void:
         customize_transition_start_camera_pose = cam.global_transform
         customize_transition_start_camera_fov = previous_camera_fov
         cam.transform = aim_pose
-        cam.fov = float(view["fov"])
+        cam.fov = DisplayProfile.vertical_fov(float(view["fov"]),
+            get_viewport().get_visible_rect().size)
         _show_customization_preview()
         cam.transform = previous_camera_pose
         cam.fov = previous_camera_fov
         _update_projected_silhouettes()
-    _move_camera(aim_pose, float(view["fov"]), _focus_arrived.bind(target_name))
+    _move_camera(aim_pose, DisplayProfile.vertical_fov(float(view["fov"]),
+        get_viewport().get_visible_rect().size), _focus_arrived.bind(target_name))
 
 func _focus_arrived(target_name: String) -> void:
     if focused_target != target_name:

@@ -26,6 +26,7 @@ const THRUSTER_AUDIO = preload("res://scripts/sera_thruster_audio.gd")
 const COMBAT_HUD_TEXT = preload("res://scripts/sera_combat_hud_text.gd")
 const NUMERIC_HUD = preload("res://scripts/sera_numeric_hud.gd")
 const HUD_LAYOUT = preload("res://scripts/sera_hud_layout.gd")
+const DisplayProfile = preload("res://scripts/sera_display_profile.gd")
 const CLEAN_TRAINING_HUD = preload("res://scripts/sera_clean_training_hud.gd")
 const FACING_ANGLE_DEBUG = preload("res://scripts/sera_facing_angle_debug.gd")
 const DEV_DIAGNOSTICS = preload("res://scripts/dev_diagnostics.gd")
@@ -657,6 +658,7 @@ var strike_prev_time: float = 0.0
 var strike_prev_blade: PackedVector3Array = PackedVector3Array()
 
 func _ready() -> void:
+    DisplayProfile.apply(get_window())
     FrameRateSettings.apply("combat")
     # Enable interpolation only in training. Animated joints and menus must
     # retain render-frequency evaluation; opt-in physics-driven actors below.
@@ -1297,7 +1299,9 @@ func _build_camera() -> void:
     camera_player_render_position = player.global_position
     camera_target_render_position = target.global_position
     camera_focus_follow_xz = _desired_camera_follow_focus_xz()
-    camera.fov = 61.0  # Vertical FOV; keeps player visible in tall portrait
+    camera.keep_aspect = Camera3D.KEEP_HEIGHT
+    camera.fov = DisplayProfile.vertical_fov(61.0,
+        get_viewport().get_visible_rect().size)  # Original horizontal framing
     camera.near = 0.08
     camera.far = 200.0
     add_child(camera)
