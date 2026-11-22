@@ -34,6 +34,21 @@ var _last_camera_aspect: int = -1
 var _last_camera_mask: int = -1
 var _ink_stroke: float = 3.0
 var _target_scale: float = 1.0
+var _redraw_requests: int = 0
+
+
+func get_outline_metrics() -> Dictionary:
+    # Runtime inspection only; does not invoke tests or read GPU pixels.
+    return {
+        "roots": _root_refs.size(),
+        "source_viewport_size": size,
+        "id_target_size": id_viewport.size if is_instance_valid(id_viewport) else Vector2i.ZERO,
+        "id_copies": _copies.size(),
+        "source_camera": is_instance_valid(source_viewport) and (
+            is_instance_valid(source_viewport.get_camera_3d())),
+        "overlay_visible": visible and is_instance_valid(ink) and ink.visible,
+        "redraw_requests": _redraw_requests
+    }
 
 
 func _ready() -> void:
@@ -137,6 +152,7 @@ func _process(delta: float) -> void:
     dirty = _sync_copies() or dirty
     if dirty:
         id_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+        _redraw_requests += 1
 
 
 func _sync_camera(source_camera: Camera3D) -> bool:
