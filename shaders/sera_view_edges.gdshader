@@ -25,19 +25,10 @@ float opaque_depth_at(vec2 uv, mat4 inv_projection) {
 }
 
 
- // The HEAD D single-part ID contour is 3px on a 384px reference.
- // Scale the 3D inverted-hull contour by the shorter rendering viewport
- // dimension, keeping the same fraction of the screen across full-size
- // 720x1280 and square single-part views. Never shrink small previews.
-float effective_stroke_px(vec2 viewport_size, float base_stroke_px) {
-    // Built-ins such as VIEWPORT_SIZE are scoped to vertex()/fragment().
-    // Custom functions only receive their values as explicit arguments.
-    float short_side_px = min(viewport_size.x, viewport_size.y);
-    return base_stroke_px * max(1.0, short_side_px / 384.0);
-}
-
+// 3px means three pixels of this draw viewport, not a 384px-normalized
+// scale. The previously enlarged (~5.6px at 720 wide) contour filled
+// narrow folds and exposed slanted back faces.
 void vertex() {
-    float scaled_stroke_px = effective_stroke_px(VIEWPORT_SIZE, stroke_px);
     vec3 view_position = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
     source_depth = -view_position.z;
     vec3 view_normal = normalize(
@@ -50,7 +41,7 @@ void vertex() {
     if (dot(normal_px, normal_px) > 0.0000001) {
         vec2 pixel_direction = normalize(normal_px);
         clip.xy += pixel_direction
-            * (vec2(2.0 * scaled_stroke_px) / VIEWPORT_SIZE) * clip.w;
+            * (vec2(2.0 * stroke_px) / VIEWPORT_SIZE) * clip.w;
     }
     POSITION = clip;
 }
@@ -67,13 +58,9 @@ void fragment() {
     // Only keep the narrow strip touching visible source geometry.
     // An incorrectly wound/recessed rear polygon can cover a large area,
     // but it has no opaque surface at the same depth in this 3px vicinity.
-    // Four depth fetches are only evaluated after the center depth reject.
-    // A 6px contour diagonal projects only 4.24px onto each axis.
-    // A 6px axial probe therefore misses the source completely; use
-    // a 1.5x offset for BASE strokes, without changing SERA's 3px mask.
-    float scaled_stroke_px = effective_stroke_px(VIEWPORT_SIZE, stroke_px);
-    float depth_probe_px = scaled_stroke_px > 4.0 ?
-        scaled_stroke_px * 1.5 : scaled_stroke_px;
+    // Test a small ring around the source mesh, not an expanded interior.
+    // Diagonals are reached by the equivalent 1.4x axial probe.
+    float depth_probe_px = stroke_px * 1.4;
     vec2 pixel_step = vec2(depth_probe_px) / VIEWPORT_SIZE;
     float neighbor_epsilon = max(near_epsilon * 1.2, 0.055);
     bool near_surface =
