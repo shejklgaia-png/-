@@ -1,3 +1,11 @@
+## 2026-11-22 — SERA/IRIS装甲の面方向修正・片面カリング・可視輪郭軽量化（PRのみ）
+
+- 8正本165メッシュの面方向を監査。155閉メッシュの原本向きは一致。10件（IRIS左右の開放装甲、Chest_Mesh、開放Thruster等）は両面表示を維持。従来の面中心対モデル中心補正は凹形状・管・アイリスで224三角形を誤反転していたため、`sera_face_culling.gd`の共有辺・連結成分・有向体積検査へ置換。
+- `sera_rig.gd`と`bittaran_rig.gd`は閉シェルだけ `BaseMaterial3D.CULL_BACK`、例外は`CULL_DISABLED`。自動判定を`sera_single_sided`メタに保存。モデルの原本、UV、骨・IK・モーション、装備・セーブデータは不変。
+- `sera_view_edges.gd`から閉シェルを`sera_view_edges_fast.gdshader`へ切り替え、ピクセル法線拡張・深度テスト・3px線を維持して深度テクスチャ参照0回へ削減。開放形状には既存の深度サンプル型を維持。BASE施設専用6/2px・NEXUS室内2pxは変更しない。
+- 先行CI: `sera_face_culling_self_check.py`、`sera_face_culling_runtime_check.gd`、旧新を交互に計測する`sera_render_performance_benchmark.gd`を登録。理論枚数・描画負荷の構造比較、実測用手順は`docs/SERA_FACE_CULLING_AUDIT_20261122_ja.md`。
+- ユーザー指定により**mainマージは禁止**。PRでCI・外観・性能を確認する段階で停止。Android実機FPSと輪郭の実描画品質は未検証。
+
 ## 2026-11-22 — IRIS/SERAカスタマイズ時の黒塗り潰し回帰を修正
 
 - Android実機スクリーンショットでアイリス単体・全身機体の内部に濃い塗り潰しが見える不具合を確認。原本は両面描画、枠線は裏面ハル描画であり、面向きの不統一に弱かった。

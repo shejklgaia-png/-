@@ -5,12 +5,14 @@ extends Node3D
 const SCAN_INTERVAL: float = 0.75
 const MAX_TRIANGLES_PER_MESH: int = 30000
 const INK_SHADER = preload("res://shaders/sera_view_edges.gdshader")
+const FAST_INK_SHADER = preload("res://shaders/sera_view_edges_fast.gdshader")
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const INK_NAME: String = "SeraEdgeInk"
 
 var _scan_remaining: float = 0.0
 var _mesh_cache: Dictionary = {}
 var _ink_material: ShaderMaterial
+var _fast_ink_material: ShaderMaterial
 
 func _ready() -> void:
     _ink_material = ShaderMaterial.new()
@@ -19,6 +21,11 @@ func _ready() -> void:
     _ink_material.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
     _ink_material.set_shader_parameter("ink_color", Color("#17212f"))
     _ink_material.set_shader_parameter("stroke_px", 3.0)
+    _fast_ink_material = ShaderMaterial.new()
+    _fast_ink_material.shader = FAST_INK_SHADER
+    _fast_ink_material.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
+    _fast_ink_material.set_shader_parameter("ink_color", Color("#17212f"))
+    _fast_ink_material.set_shader_parameter("stroke_px", 3.0)
     _sync_meshes()
     set_process(true)
 
@@ -56,7 +63,11 @@ func _attach(source: MeshInstance3D) -> void:
         return
     var old: MeshInstance3D = source.get_node_or_null(INK_NAME) as MeshInstance3D
     var mesh_id: int = source.mesh.get_instance_id()
-    if old != null and int(old.get_meta("edge_source_mesh_id", -1)) == mesh_id:
+    # Authored closed parts are guaranteed back-face culled. Open meshes
+    # retain the depth-sampled shader to avoid black internal polygons.
+    var use_fast: bool = bool(source.get_meta("sera_single_sided", false))
+    if old != null and int(old.get_meta("edge_source_mesh_id", -1)) == mesh_id and (
+            bool(old.get_meta("edge_fast_path", false)) == use_fast):
         return
     if old != null:
         source.remove_child(old)
@@ -70,11 +81,12 @@ func _attach(source: MeshInstance3D) -> void:
     var instance := MeshInstance3D.new()
     instance.name = INK_NAME
     instance.mesh = ink
-    instance.material_override = _ink_material
+    instance.material_override = _fast_ink_material if use_fast else _ink_material
     instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     instance.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
     instance.extra_cull_margin = 0.10
     instance.set_meta("edge_source_mesh_id", mesh_id)
+    instance.set_meta("edge_fast_path", use_fast)
     source.add_child(instance)
     # Inherits animation, joint transforms, equipment swaps, and visibility.
     # Face interiors are occluded by their own opaque source geometry.

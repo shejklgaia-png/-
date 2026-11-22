@@ -5,6 +5,7 @@ const SOURCE_PATH: String = "res://models/bosses/Bittaran.bbmodel"
 const EMBEDDED = preload("res://assets/bittaran_data.gd")
 const GROUND_CONTACTS = preload("res://assets/bittaran_ground_contacts.gd")
 const OUTLINE_SCRIPT = preload("res://scripts/sera_view_edges.gd")
+const FACE_CULLING = preload("res://scripts/sera_face_culling.gd")
 # Shared source timing toggle; restoring the v461 preset also restores
 # the Wait->Idle handoff duration without a separate file edit.
 const BittaranAttackTimings = preload("res://scripts/bittaran_attacks.gd")
@@ -262,29 +263,24 @@ func _make_mesh(element: Dictionary) -> MeshInstance3D:
     var faces: Dictionary = element.get("faces", {})
     if verts.is_empty() or faces.is_empty():
         return null
-    var centroid := Vector3.ZERO
-    for raw in verts.values():
-        centroid += _v3(raw) * UNIT
-    centroid /= float(verts.size())
+    var winding: Dictionary = FACE_CULLING.inspect_element(element)
+    var reverse_faces: Dictionary = winding["reverse_faces"]
+    var safe_closed: bool = bool(winding["cull_back"])
     var tool := SurfaceTool.new()
     tool.begin(Mesh.PRIMITIVE_TRIANGLES)
     var triangles: int = 0
-    for raw_face in faces.values():
-        var face: Dictionary = raw_face
+    for face_id in faces.keys():
+        var face: Dictionary = faces[face_id]
         var points: Array[Vector3] = []
         for key in face.get("vertices", []):
             if verts.has(key):
                 points.append(_v3(verts[key]) * UNIT)
         if points.size() < 3:
             continue
-        var face_center := Vector3.ZERO
-        for point in points:
-            face_center += point
-        face_center /= float(points.size())
         var normal: Vector3 = (points[1] - points[0]).cross(points[2] - points[0])
         if normal.length_squared() < 0.00000001:
             continue
-        if normal.dot(face_center - centroid) < 0.0:
+        if bool(reverse_faces.get(face_id, false)):
             points.reverse()
         for i in range(1, points.size() - 1):
             var n: Vector3 = (points[i] - points[0]).cross(
@@ -304,7 +300,9 @@ func _make_mesh(element: Dictionary) -> MeshInstance3D:
     mat.albedo_color = PALETTE[index]
     mat.metallic = 0.43
     mat.roughness = 0.67
-    mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+    mat.cull_mode = (BaseMaterial3D.CULL_BACK if safe_closed else
+        BaseMaterial3D.CULL_DISABLED)
+    piece.set_meta("sera_single_sided", safe_closed)
     piece.material_override = mat
     piece.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     return piece
