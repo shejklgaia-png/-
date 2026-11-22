@@ -262,7 +262,8 @@ func get_outline_snapshot() -> Dictionary:
     var skinned_count: int = 0
     for record in _links.values():
         var entry: Dictionary = record
-        if (entry.get("fallback", []) as Array).size() > 0:
+        var fallback: Array = entry.get("fallback", [])
+        if not fallback.is_empty():
             skinned_count += 1
     return {"parts": _links.size(),
         "direction_instances": _links.size() * DIRECTION_COUNT,
