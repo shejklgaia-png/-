@@ -208,6 +208,15 @@ func _close_presets() -> void:
 func show_material_editor() -> void:
     _close_presets()
 
+func dismiss_keyboard() -> bool:
+    for editor in _preset_names:
+        if editor.has_focus():
+            editor.release_focus()
+            if OS.has_feature("mobile"):
+                DisplayServer.virtual_keyboard_hide()
+            return true
+    return false
+
 func _request_save(slot: int) -> void:
     preset_save_requested.emit(slot, _preset_names[slot - 1].text)
 
