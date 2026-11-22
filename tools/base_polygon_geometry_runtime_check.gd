@@ -66,7 +66,7 @@ func _run() -> void:
         _fail("actual six-batch deck is not polygonal")
         return
     var expected := {
-        "NEXUSBuilding/NexusArchitecture": "FreshNexusCommandHull",
+        "NEXUSBuilding/NexusArchitecture": "NexusCutCornerShell",
         "BaseFacilities/LABO/IndustrialModel": "FreshLabFabricationBed",
         "BaseFacilities/SCRAP_COLLECTOR/IndustrialModel": "FreshCollectorSortPan",
         "BaseFacilities/SMELTER/IndustrialModel": "FreshSmelterFurnaceBase",
