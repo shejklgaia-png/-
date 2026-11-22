@@ -41,27 +41,25 @@ assert "IrisFaceNormals.make_face_uniform_mesh(" in widget
 assert '"original_mesh"' in widget
 assert 'source.mesh = preview_mesh' in widget
 assert 'source.mesh = item.get("original_mesh")' in widget
-assert "uniform int shade_levels" in shader
-assert "shade_levels == 2" in shader and "shade_levels == 3" in shader
-assert "shade_levels == 4" in shader  # Preserve existing legacy 4-band thresholds
+assert "uniform int armor_levels" in shader and "uniform int lens_levels" in shader
 for material in (shader, closed_shader):
-    assert "hint_range(2, 8)" in material
-    assert "float bands = float(shade_levels);" in material
-    assert "floor(illumination * bands)" in material
-    assert "mix(0.55, 1.05" in material
-    assert "eye_pixel ? base" in material
+    assert "uniform int armor_levels" in material
+    assert "uniform int dark_levels" in material
+    assert "uniform int lens_levels" in material
+    assert "uniform float armor_threshold" in material
+    assert "uniform float dark_threshold" in material
+    assert "uniform float lens_threshold" in material
+    assert "uniform bool lens_emissive" in material
+    assert "floor(shifted * float(levels))" in material
+    assert "normalize(NORMAL)" in material
 assert shader.replace("cull_disabled", "cull_front") == closed_shader
-# Every new level produces exactly the requested number of distinct brightness
-# plateaus, strictly ordered, in the original 55%-to-105% envelope.
+# For each of 2-8 bands the uniform quantizer gives exactly N plateaus.
 from math import floor
-for levels in range(5, 9):
-    steps = [0.55 + 0.50 * min(floor(i + 0.5), levels - 1) / (levels - 1)
+for levels in range(2, 9):
+    steps = [min(floor((i + 0.5) / levels * levels), levels - 1)
              for i in range(levels)]
-    assert len({round(v, 9) for v in steps}) == levels
-    assert all(a < b for a, b in zip(steps, steps[1:]))
-    assert abs(steps[0] - 0.55) < 1e-9
-    assert abs(steps[-1] - 1.05) < 1e-9
-assert "source_texture" in shader and "eye_pixel" in shader
+    assert len(set(steps)) == levels
+assert "source_texture" in shader and "is_cyan" in shader
 assert "render_mode unshaded" in shader
 assert "cull_disabled" in shader and "cull_front" in closed_shader
 assert "IrisPolygonLightClosed" in widget and 'source.get_meta("sera_single_sided", false)' in widget
