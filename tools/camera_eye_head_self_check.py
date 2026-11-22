@@ -30,7 +30,7 @@ assert model["textures"][0]["source"].startswith("data:image/png;base64,")
 # HEAD D authored light-grey armour is baked into the 16x16 PNG, not tinted
 # by a NEXUS-only override. Check every source pixel using stdlib only.
 def png_rgba_pixels(data: bytes) -> list[tuple[int, int, int, int]]:
-    assert data[:8] == b"\\x89PNG\\r\\n\\x1a\\n"
+    assert data[:8] == b"\x89PNG\r\n\x1a\n"
     offset = 8
     idat = bytearray()
     width = height = None
