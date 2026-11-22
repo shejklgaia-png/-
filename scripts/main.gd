@@ -274,6 +274,7 @@ const HIT_FLASH_SECONDS: float = 0.145
 const TARGET_RESPAWN_SECONDS: float = 1.35
 enum CombatState { IDLE, MELEE_APPROACH, DASH, STRIKE, BASH, BASH_TRACK, STRIKE_TRACK, BACK_KICK_TRACK }
 # v112: Persistent handedness changes RUN animation selection only.
+const FrameRateSettings = preload("res://scripts/sera_frame_rate_settings.gd")
 const HANDEDNESS_SETTINGS_FILE: String = "user://sera_settings.cfg"
 const NEXUS_SCENE: String = "res://scenes/command_nexus.tscn"
 const DRAG_RADIUS: float = 157.5  # v248: 150% of v247; same BOOST entry/exit ratios.
@@ -656,6 +657,7 @@ var strike_prev_time: float = 0.0
 var strike_prev_blade: PackedVector3Array = PackedVector3Array()
 
 func _ready() -> void:
+    FrameRateSettings.apply("combat")
     # Enable interpolation only in training. Animated joints and menus must
     # retain render-frequency evaluation; opt-in physics-driven actors below.
     _previous_physics_interpolation = get_tree().physics_interpolation

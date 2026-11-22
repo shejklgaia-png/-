@@ -16,6 +16,7 @@ const CraftAffixes = preload("res://scripts/sera_craft_affixes.gd")
 const PartViewer = preload("res://scripts/sera_part_preview_widget.gd")
 const RotateMark = preload("res://scripts/sera_rotatable_mark.gd")
 const CONTROL_SETTINGS_FILE: String = "user://sera_settings.cfg"
+const FrameRateSettings = preload("res://scripts/sera_frame_rate_settings.gd")
 const NexusSelectionOutline = preload("res://scripts/nexus_selection_outline.gd")
 const CUSTOMIZE_BACKDROP_SHADER = preload("res://shaders/nexus_customize_radial_glow.gdshader")
 const NEXUS_EDGE_SHADER = preload("res://shaders/nexus_polygon_edges.gdshader")
@@ -117,6 +118,13 @@ var system_auto_lock_enabled: bool = true
 var system_left_handed: bool = false
 var system_handedness_row: Panel
 var system_handedness_label: Label
+var system_fps_options_open: bool = false
+var system_fps_button: Panel
+var system_fps_button_label: Label
+var system_fps_rows: Array[Dictionary] = []
+var system_fps_back_button: Panel
+var system_fps_back_label: Label
+var system_fps_note: Label
 var system_selected_slot: int = 1
 var system_pending_action: String = ""
 var system_pending_slot: int = 0
@@ -233,6 +241,7 @@ const PANEL_LAYOUTS: Dictionary = {
 }
 
 func _ready() -> void:
+    FrameRateSettings.apply("base_nexus")
     # Godot 4 Android Back is a Window go-back request when auto-quit is off.
     get_window().go_back_requested.connect(_on_android_back)
     _environment()
@@ -2009,25 +2018,186 @@ func _create_system_controls() -> void:
     system_status.add_theme_color_override("font_color", Color("#a5e4ff"))
     system_status.visible = false
     focus_panel.add_child(system_status)
+    _create_fps_option_controls()
     _refresh_system_controls()
 
+func _create_fps_option_controls() -> void:
+    # A separate SYSTEM subpage avoids shrinking SAVE/LOAD and touch targets.
+    system_fps_button = Panel.new()
+    system_fps_button.name = "SystemFPSSettings"
+    system_fps_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    system_fps_button.add_theme_stylebox_override(
+        "panel", LaboSkin.card_style("normal"))
+    system_fps_button.visible = false
+    focus_panel.add_child(system_fps_button)
+    system_fps_button_label = Label.new()
+    system_fps_button_label.name = "SystemFPSSettingsLabel"
+    system_fps_button_label.text = "FPS SETTINGS   >"
+    system_fps_button_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    system_fps_button_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    system_fps_button.add_child(system_fps_button_label)
+
+    for spec in [
+        {"scope": "base_nexus", "title": "BASE / NEXUS"},
+        {"scope": "grid", "title": "GRID 操作"},
+        {"scope": "combat", "title": "戦闘中"},
+    ]:
+        var panel := Panel.new()
+        panel.name = "FPSRow_" + str(spec["scope"])
+        panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        panel.add_theme_stylebox_override(
+            "panel", LaboSkin.card_style("normal"))
+        panel.visible = false
+        focus_panel.add_child(panel)
+        var label := Label.new()
+        label.name = "FPSValue_" + str(spec["scope"])
+        label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        panel.add_child(label)
+        var value := Label.new()
+        value.name = "FPSSelected_" + str(spec["scope"])
+        value.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+        value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        panel.add_child(value)
+        system_fps_rows.append({
+            "scope": str(spec["scope"]),
+            "title": str(spec["title"]),
+            "panel": panel, "label": label, "value": value,
+        })
+    system_fps_back_button = Panel.new()
+    system_fps_back_button.name = "FPSOptionsBack"
+    system_fps_back_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    system_fps_back_button.add_theme_stylebox_override(
+        "panel", LaboSkin.card_style("normal"))
+    system_fps_back_button.visible = false
+    focus_panel.add_child(system_fps_back_button)
+    system_fps_back_label = Label.new()
+    system_fps_back_label.name = "FPSOptionsBackLabel"
+    system_fps_back_label.text = "‹  BACK TO SYSTEM"
+    system_fps_back_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    system_fps_back_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    system_fps_back_button.add_child(system_fps_back_label)
+    system_fps_note = Label.new()
+    system_fps_note.name = "FPSOptionsNotice"
+    system_fps_note.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    system_fps_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    system_fps_note.add_theme_color_override(
+        "font_color", Color("#a5e4ff"))
+    system_fps_note.visible = false
+    focus_panel.add_child(system_fps_note)
+    _refresh_fps_option_controls()
+
+
+func _layout_fps_option_controls() -> void:
+    if system_fps_button == null:
+        return
+    var margin: float = 12.0
+    var width: float = focus_panel.size.x - margin * 2.0
+    var top: float = focus_header.size.y + 20.0
+    for i in range(system_fps_rows.size()):
+        var row: Panel = system_fps_rows[i]["panel"]
+        row.position = Vector2(margin, top + i * 81.0)
+        row.size = Vector2(width, 70.0)
+        var label: Label = system_fps_rows[i]["label"]
+        label.position = Vector2(12.0, 0.0)
+        label.size = Vector2(row.size.x * 0.60 - 12.0, row.size.y)
+        var value: Label = system_fps_rows[i]["value"]
+        value.position = Vector2(row.size.x * 0.60, 0.0)
+        value.size = Vector2(row.size.x * 0.40 - 12.0, row.size.y)
+    system_fps_note.position = Vector2(margin, top + 275.0)
+    system_fps_note.size = Vector2(width,
+        maxf(60.0, focus_panel.size.y - top - 370.0))
+    system_fps_back_button.position = Vector2(
+        margin, focus_panel.size.y - 69.0)
+    system_fps_back_button.size = Vector2(width, 52.0)
+    system_fps_back_label.position = Vector2(12.0, 0.0)
+    system_fps_back_label.size = system_fps_back_button.size - Vector2(24.0, 0.0)
+
+
+func _refresh_fps_option_controls() -> void:
+    for entry in system_fps_rows:
+        var fps: int = FrameRateSettings.get_limit(str(entry["scope"]))
+        var label: Label = entry["label"]
+        label.text = str(entry["title"])
+        var value: Label = entry["value"]
+        value.text = "%d FPS  >" % fps
+    if system_fps_note != null:
+        system_fps_note.text = (
+            "タップで 60 → 40 → 30 → 20 FPS を切替\n"
+            + "各設定はこの端末に自動保存されます。")
+
+
+func _open_fps_option_controls() -> void:
+    if focused_target != "SYSTEM" or system_fps_options_open:
+        return
+    system_fps_options_open = true
+    focus_title.text = "FRAME RATE"
+    LaboSkin.refresh_name_underline(focus_title)
+    _refresh_fps_option_controls()
+    _set_system_visible(true)
+    _layout_system_controls()
+
+
+func _close_fps_option_controls() -> void:
+    if not system_fps_options_open:
+        return
+    system_fps_options_open = false
+    focus_title.text = "SYSTEM"
+    LaboSkin.refresh_name_underline(focus_title)
+    _set_system_visible(true)
+    _refresh_system_controls()
+
+
+func _tap_fps_option_control(point: Vector2) -> void:
+    var local: Vector2 = point - focus_panel.position
+    if Rect2(system_fps_back_button.position,
+            system_fps_back_button.size).has_point(local):
+        _close_fps_option_controls()
+        return
+    for entry in system_fps_rows:
+        var panel: Panel = entry["panel"]
+        if not Rect2(panel.position, panel.size).has_point(local):
+            continue
+        var scope: String = str(entry["scope"])
+        var old_fps: int = FrameRateSettings.get_limit(scope)
+        var next_fps: int = FrameRateSettings.next_limit(old_fps)
+        if FrameRateSettings.set_limit(scope, next_fps):
+            if scope == "base_nexus":
+                # Apply immediately inside NEXUS; other scopes on entry.
+                FrameRateSettings.apply("base_nexus")
+            _refresh_fps_option_controls()
+        else:
+            system_fps_note.text = "FPS設定の保存に失敗しました。"
+        return
+
+
 func _set_system_visible(show: bool) -> void:
+    var regular: bool = show and not system_fps_options_open
     for entry in system_slot_rows:
-        (entry["panel"] as Panel).visible = show
+        (entry["panel"] as Panel).visible = regular
     for entry in system_action_rows:
-        (entry["panel"] as Panel).visible = show
-    system_status.visible = show
-    system_lock_mode_row.visible = show
-    system_handedness_row.visible = show
+        (entry["panel"] as Panel).visible = regular
+    system_status.visible = regular
+    system_lock_mode_row.visible = regular
+    system_handedness_row.visible = regular
+    system_fps_button.visible = regular
+    for entry in system_fps_rows:
+        (entry["panel"] as Panel).visible = show and system_fps_options_open
+    system_fps_note.visible = show and system_fps_options_open
+    system_fps_back_button.visible = show and system_fps_options_open
 
 func _layout_system_controls() -> void:
     if system_status == null:
         return
     var width: float = focus_panel.size.x
     var margin: float = 12.0
-    var gap: float = 8.0
-    var row_height: float = minf(84.0, maxf(62.0,
-        (focus_panel.size.y - focus_header.size.y - 224.0) / 3.0))
+    var compact: bool = focus_panel.size.y < 575.0
+    var gap: float = 5.0 if compact else 8.0
+    var row_height: float = clampf(
+        (focus_panel.size.y - focus_header.size.y -
+            (312.0 if compact else 365.0)) / 3.0,
+        39.0 if compact else 50.0, 73.0)
     var top: float = focus_header.size.y + 12.0
     for i in range(system_slot_rows.size()):
         var panel: Panel = system_slot_rows[i]["panel"]
@@ -2036,27 +2206,39 @@ func _layout_system_controls() -> void:
         var label: Label = system_slot_rows[i]["label"]
         label.position = Vector2(12.0, 0.0)
         label.size = panel.size - Vector2(24.0, 0.0)
-    var actions_top: float = top + system_slot_rows.size() * (row_height + gap) + 9.0
+    var actions_top: float = top + system_slot_rows.size() * (row_height + gap) + (6.0 if compact else 9.0)
+    var action_step: float = 46.0 if compact else 58.0
+    var action_height: float = 42.0 if compact else 54.0
+    var setting_height: float = 38.0 if compact else 44.0
     var action_width: float = (width - margin * 2.0 - gap) * 0.5
     for i in range(system_action_rows.size()):
         var button: Panel = system_action_rows[i]["panel"]
         button.position = Vector2(margin + (i % 2) * (action_width + gap),
-            actions_top + (i / 2) * 58.0)
-        button.size = Vector2(action_width, 54.0)
+            actions_top + (i / 2) * action_step)
+        button.size = Vector2(action_width, action_height)
         var label: Label = system_action_rows[i]["label"]
         label.position = Vector2.ZERO
         label.size = button.size
-    system_lock_mode_row.position = Vector2(margin, actions_top + 123.0)
-    system_lock_mode_row.size = Vector2(width - margin * 2.0, 44.0)
+    system_lock_mode_row.position = Vector2(margin,
+        actions_top + (94.0 if compact else 123.0))
+    system_lock_mode_row.size = Vector2(width - margin * 2.0, setting_height)
     system_lock_mode_label.position = Vector2(12.0, 0.0)
     system_lock_mode_label.size = system_lock_mode_row.size - Vector2(24.0, 0.0)
-    system_handedness_row.position = Vector2(margin, actions_top + 174.0)
-    system_handedness_row.size = Vector2(width - margin * 2.0, 44.0)
+    system_handedness_row.position = Vector2(margin,
+        actions_top + (136.0 if compact else 174.0))
+    system_handedness_row.size = Vector2(width - margin * 2.0, setting_height)
     system_handedness_label.position = Vector2(12.0, 0.0)
     system_handedness_label.size = system_handedness_row.size - Vector2(24.0, 0.0)
-    system_status.position = Vector2(margin, actions_top + 229.0)
+    system_fps_button.position = Vector2(margin,
+        actions_top + (178.0 if compact else 225.0))
+    system_fps_button.size = Vector2(width - margin * 2.0, setting_height)
+    system_fps_button_label.position = Vector2(12.0, 0.0)
+    system_fps_button_label.size = system_fps_button.size - Vector2(24.0, 0.0)
+    system_status.position = Vector2(margin,
+        actions_top + (224.0 if compact else 276.0))
     system_status.size = Vector2(width - margin * 2.0,
-        maxf(34.0, focus_panel.size.y - system_status.position.y - 10.0))
+        maxf(24.0, focus_panel.size.y - system_status.position.y - 10.0))
+    _layout_fps_option_controls()
 
 func _refresh_system_controls() -> void:
     if system_status == null:
@@ -2145,6 +2327,9 @@ func _cancel_system_confirmation() -> bool:
     return true
 
 func _tap_system_control(point: Vector2) -> void:
+    if system_fps_options_open:
+        _tap_fps_option_control(point)
+        return
     var local: Vector2 = point - focus_panel.position
     # A pending CONFIRM accepts only a tap inside that exact action button.
     # A tap on any other button, slot, label or empty space cancels and is
@@ -2160,6 +2345,11 @@ func _tap_system_control(point: Vector2) -> void:
         if not touched_confirm:
             _cancel_system_confirmation()
             return
+    # Frame-rate settings have a separate page so SAVE/LOAD stays readable.
+    if system_fps_button != null and Rect2(
+            system_fps_button.position, system_fps_button.size).has_point(local):
+        _open_fps_option_controls()
+        return
     # Mode is a global control preference, independent of save slots.
     if system_lock_mode_row != null and Rect2(
             system_lock_mode_row.position, system_lock_mode_row.size).has_point(local):
@@ -2463,6 +2653,12 @@ func _apply_labo_typography() -> void:
     _skin_label(system_lock_mode_label, stats, 17, accent)
     _skin_label(system_handedness_label, stats, 17, accent)
     _skin_label(system_status, ui, 15, secondary)
+    _skin_label(system_fps_button_label, stats, 17, accent)
+    for entry in system_fps_rows:
+        _skin_label(entry["label"] as Label, stats, 16, accent)
+        _skin_label(entry["value"] as Label, stats, 18, accent)
+    _skin_label(system_fps_back_label, display, 18, accent)
+    _skin_label(system_fps_note, ui, 15, secondary)
     for entry in archive_record_tabs:
         _skin_label(entry["label"] as Label, display, 14, accent)
     _skin_label(archive_record_body, stats, 17, accent)
@@ -2529,6 +2725,11 @@ func _layout_hud() -> void:
         view.y * (0.61 if focused_target == "DATA ARCHIVE" else 0.535))
     if focused_target == "DATA ARCHIVE":
         focus_panel.position.y = view.y * 0.17
+    if focused_target == "SYSTEM":
+        # Keep the FPS entry and save-slot controls visible on short phones.
+        focus_panel.position.y = minf(focus_panel.position.y, view.y * 0.115)
+        focus_panel.size.y = minf(view.y * 0.76,
+            maxf(610.0, view.y * 0.535))
     if focused_target == "CUSTOMIZE":
         var square: Rect2 = _customize_square_menu_rect(view)
         var tall: Rect2 = _customize_tall_menu_rect(view)
@@ -3175,6 +3376,9 @@ func _navigate_back() -> void:
     if customize_part_picker != null and customize_part_picker.visible:
         _close_customization_part_picker()
         return
+    if focused_target == "SYSTEM" and system_fps_options_open:
+        _close_fps_option_controls()
+        return
     if in_transition:
         return
     if focused_target.is_empty():
@@ -3462,6 +3666,7 @@ func _focus_arrived(target_name: String) -> void:
     focus_title.text = "" if target_name == "CUSTOMIZE" else target_name
     LaboSkin.refresh_name_underline(focus_title)
     # SYSTEM edits save files; DATA ARCHIVE displays read-only records.
+    system_fps_options_open = false
     _set_system_visible(target_name == "SYSTEM")
     _set_archive_records_visible(target_name == "DATA ARCHIVE")
     if target_name == "DATA ARCHIVE":
