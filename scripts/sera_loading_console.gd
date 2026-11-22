@@ -495,7 +495,8 @@ func _draw_readout(w: float, h: float) -> void:
     # The right-aligned percentage has a reserved, independently measured
     # width so neither it nor the most recent log can collide at 25%.
     var percent_x: float = w - 40.0 - _pixel_text_width(percentage, percent_size)
-    var latest_size: int = 20 if compact else 27
+    # Compact width needs the 1px glyph cell to keep enough log characters.
+    var latest_size: int = 19 if compact else 27
     var log_room: float = maxf(24.0, percent_x - first_x - 16.0)
     _draw_text(_fit_pixel_text("> " + latest, latest_size, log_room),
         Vector2(first_x, latest_y), latest_size, Color("#e5fbff"), true)
