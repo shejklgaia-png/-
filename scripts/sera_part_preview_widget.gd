@@ -7,6 +7,7 @@ const RotateMark = preload("res://scripts/sera_rotatable_mark.gd")
 const IrisIDContour = preload("res://scripts/sera_iris_id_silhouette_preview.gd")
 const IrisPolygonLight = preload("res://shaders/sera_iris_polygon_light.gdshader")
 const IrisPolygonLightClosed = preload("res://shaders/sera_iris_polygon_light_closed.gdshader")
+const IrisFaceNormals = preload("res://scripts/sera_iris_face_normal_preview.gd")
 const SHADING_MODES = [0, 2, 3, 4, 5, 6, 7, 8]
 const double_tap_window_msec: int = 330
 signal preview_fullscreen_requested(enabled: bool)
@@ -154,6 +155,9 @@ func _restore_original_materials() -> void:
     for item in _original_materials.values():
         var source: MeshInstance3D = item.get("mesh") as MeshInstance3D
         if is_instance_valid(source):
+            # Only this NEXUS preview used the rebuilt mesh. Restore the exact
+            # shared resource so other previews and gameplay are untouched.
+            source.mesh = item.get("original_mesh") as Mesh
             source.material_override = item.get("original_material_override") as Material
     _original_materials.clear()
     _light_materials.clear()
@@ -169,16 +173,33 @@ func _apply_iris_shading() -> void:
         white.fill(Color.WHITE)
         _white_texture = ImageTexture.create_from_image(white)
     var pieces: Array = preview_scene.call("_mesh_in_slot", "head", "D")
+    var authored_faces: Array = IrisFaceNormals.authored_elements()
+    if authored_faces.size() != pieces.size():
+        push_warning("NEXUS IRIS: authored face count does not match active meshes")
+        _restore_original_materials()
+        return
     for index in range(pieces.size()):
         var source: MeshInstance3D = pieces[index] as MeshInstance3D
         if not is_instance_valid(source) or source.mesh == null:
             continue
         var key: int = source.get_instance_id()
         if not _original_materials.has(key):
+            # The imported rig uses one flat normal PER TRIANGLE. A shader
+            # switch to NORMAL alone would leave diagonal seams unchanged.
+            # Rebuild only this preview's mesh normals by authored BB face,
+            # with the exact same triangles, positions and UV coordinates.
+            var authored_element: Dictionary = authored_faces[index]
+            var preview_mesh: ArrayMesh = IrisFaceNormals.make_face_uniform_mesh(
+                source.mesh, authored_element)
+            if preview_mesh == null:
+                push_warning("NEXUS IRIS: unsupported face topology at piece %d" % index)
+                continue
             _original_materials[key] = {
                 "mesh": source,
+                "original_mesh": source.mesh,
                 "original_material_override": source.material_override
             }
+            source.mesh = preview_mesh
         var original: Material = _original_materials[key]["original_material_override"] as Material
         if original == null and source.mesh.get_surface_count() > 0:
             original = source.get_active_material(0)

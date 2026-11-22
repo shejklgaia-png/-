@@ -34,7 +34,13 @@ assert "func _route_fullscreen_preview_input(" in nexus
 assert "_set_single_part_preview_fullscreen(false)" in nexus
 assert "customize_single_part_preview.get_global_rect()" in nexus
 assert "shader_type spatial;" in shader
-assert "dFdx(VERTEX)" in shader and "dFdy(VERTEX)" in shader
+assert "dFdx(VERTEX)" not in shader and "dFdy(VERTEX)" not in shader
+assert "normalize(NORMAL)" in shader and "normalize(NORMAL)" in closed_shader
+assert "const IrisFaceNormals = preload(" in widget
+assert "IrisFaceNormals.make_face_uniform_mesh(" in widget
+assert '"original_mesh"' in widget
+assert 'source.mesh = preview_mesh' in widget
+assert 'source.mesh = item.get("original_mesh")' in widget
 assert "uniform int shade_levels" in shader
 assert "shade_levels == 2" in shader and "shade_levels == 3" in shader
 assert "shade_levels == 4" in shader  # Preserve existing legacy 4-band thresholds

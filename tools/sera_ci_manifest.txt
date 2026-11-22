@@ -1,3 +1,5 @@
+# NEXUS IRIS authored quad face normals: no triangle-diagonal shading.
+py tools/iris_face_normal_preview_self_check.py
 # NEXUS IRIS OFF / 2-8-step polygon shading and double-tap fullscreen.
 py tools/iris_polygon_shading_fullscreen_self_check.py
 # Separate BASE/NEXUS, GRID editing, and COMBAT frame rate user options (60/40/30/20).

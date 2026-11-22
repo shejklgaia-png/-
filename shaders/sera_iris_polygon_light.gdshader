@@ -14,12 +14,10 @@ void fragment() {
     // by the armor face shading. Dark blue-grey frame pixels are not excluded.
     bool eye_pixel = base.b > 0.17 && base.g > base.r * 1.25
         && base.b > base.r * 1.6 && base.g > base.b * 0.45;
-    // Reconstruct the true screen-space geometric face normal. This avoids
-    // smooth interpolated vertex normals hiding individual polygon planes.
-    vec3 face = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
-    if (dot(face, NORMAL) < 0.0) {
-        face = -face;
-    }
+    // Mesh normals are baked identically over BOTH triangles of each
+    // authored quad in the NEXUS-only preview mesh. Never derive lighting
+    // from per-triangle dFdx/dFdy: it exposes diagonal triangulation seams.
+    vec3 face = normalize(NORMAL);
     float illumination = clamp(dot(face, normalize(vec3(-0.45, 0.65, 0.70)))
         * 0.5 + 0.5, 0.0, 1.0);
     float brightness = 1.0;
