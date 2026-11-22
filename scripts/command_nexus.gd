@@ -81,7 +81,7 @@ const OUTLINE_DIAGNOSTIC_MODES: Array[String] = [
     "通常", "外周候補", "全エッジ", "開放境界", "接合線", "深度無視",
     "対象メッシュ", "マスク表示", "ハル単独", "合成確認",
     "立方体＝", "立方体≠", "全身＝", "面反転",
-    "法線＋8px", "法線－8px"
+    "法線＋8px", "法線－8px", "マスクなし外周"
 ]
 const OUTLINE_DIAGNOSTIC_EXPLAINS: Array[String] = [
     "全身マスク＋GPUエッジで外周3px。診断終了時は通常へ戻ります。",
@@ -99,7 +99,8 @@ const OUTLINE_DIAGNOSTIC_EXPLAINS: Array[String] = [
     "全身: ステンシル17と一致する領域を緑で表示。",
     "橙: カリングを逆転。紫のハル単独と比較。",
     "桃: 法線＋8px。青緑の元輪郭より外に出るか確認。",
-    "黄: 法線－8px。青緑の元輪郭より外に出るか確認。"
+    "黄: 法線－8px。青緑の元輪郭より外に出るか確認。",
+    "青緑: 新GPU外周を同じ3px・同じ投影で描き、ステンシルのみ無効。合成確認と比較。"
 ]
 var outline_debug_button: Panel
 var outline_debug_button_text: Label
