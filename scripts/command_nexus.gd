@@ -18,6 +18,8 @@ const RotateMark = preload("res://scripts/sera_rotatable_mark.gd")
 const CONTROL_SETTINGS_FILE: String = "user://sera_settings.cfg"
 const NexusSelectionOutline = preload("res://scripts/nexus_selection_outline.gd")
 const CUSTOMIZE_BACKDROP_SHADER = preload("res://shaders/nexus_customize_radial_glow.gdshader")
+const NEXUS_EDGE_SHADER = preload("res://shaders/nexus_polygon_edges.gdshader")
+const NEXUS_EDGE_WIDTH_PIXELS: float = 2.0
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 
 const GATE_ORIGIN: Vector3 = Vector3(4.00, 0.02, -10.48)
@@ -401,6 +403,18 @@ func _mat(index: int) -> StandardMaterial3D:
         mat.emission_energy_multiplier = 1.05 if index == 7 else 1.75
     return mat
 
+# The 2px gray edges belong to static NEXUS architecture only.
+# A depth-tested next pass is composited BEFORE CanvasLayer selection glows.
+# No SeraRig material, mesh or animation is ever passed to this helper.
+func _nexus_edge_material(geometry_mode: int = 0) -> ShaderMaterial:
+    var edge := ShaderMaterial.new()
+    edge.shader = NEXUS_EDGE_SHADER
+    edge.render_priority = RENDER_ORDER.NEXUS_SURFACE_EDGES
+    edge.set_shader_parameter("edge_tint", Color("#7e858e"))
+    edge.set_shader_parameter("width_px", NEXUS_EDGE_WIDTH_PIXELS)
+    edge.set_shader_parameter("geometry_mode", geometry_mode)
+    return edge
+
 func _render_batches() -> void:
     var cube := BoxMesh.new()
     cube.size = Vector3.ONE
@@ -416,7 +430,11 @@ func _render_batches() -> void:
         var draw := MultiMeshInstance3D.new()
         draw.name = "BlockbenchBatch_%02d" % index
         draw.multimesh = multi
-        draw.material_override = _mat(index)
+        var material: StandardMaterial3D = _mat(index)
+        # The cyan, amber and blue emissive accents remain untouched.
+        if index not in [5, 6, 7]:
+            material.next_pass = _nexus_edge_material()
+        draw.material_override = material
         draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         add_child(draw)
 
@@ -427,9 +445,12 @@ func _pad_center() -> void:
     cylinder.bottom_radius = 1.37
     cylinder.height = 0.16
     cylinder.radial_segments = 12
+    surface.name = "NexusMaintenancePadCenter"
     surface.mesh = cylinder
     surface.position = Vector3(0.0, 0.33, -4.75)
-    surface.material_override = _mat(2)
+    var pad_material: StandardMaterial3D = _mat(2)
+    pad_material.next_pass = _nexus_edge_material(1)
+    surface.material_override = pad_material
     add_child(surface)
 
 func _sera_display() -> void:
