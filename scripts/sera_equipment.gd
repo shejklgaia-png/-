@@ -1123,6 +1123,10 @@ func _apply_equipment_tint(piece: MeshInstance3D, set_id: String, color_index: i
         var original_c: StandardMaterial3D = piece.material_override as StandardMaterial3D
         if original_c != null:
             var material_c: StandardMaterial3D = original_c.duplicate() as StandardMaterial3D
+            # HEAD C has no authored texture. Sampling the shared 96x32
+            # character atlas created artificial face tones and made it look
+            # like several different materials. Treat this as solid ARMOR.
+            material_c.albedo_texture = null
             material_c.albedo_color = Color(0.60, 0.65, 0.72, 1.0)
             piece.material_override = material_c
         return

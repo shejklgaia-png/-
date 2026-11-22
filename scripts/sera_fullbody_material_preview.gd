@@ -8,6 +8,7 @@ const CLOSED_SHADER = preload("res://shaders/sera_fullbody_material_shading_clos
 const BACK_SHADER = preload("res://shaders/sera_fullbody_material_shading_back.gdshader")
 static var _white_texture: Texture2D
 static var _shared_materials: Dictionary = {}
+static var _monochrome_texture_cache: Dictionary = {}
 const BODY_SLOTS: Array[String] = [
     "head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"
 ]
@@ -21,8 +22,50 @@ const LENS_THRESHOLD: float = 0.10
 const LENS_LIT: bool = false
 
 
+static func _is_monochrome_source(source: StandardMaterial3D) -> bool:
+    # A solid-colored piece is ARMOR regardless of its tint, location or name.
+    # Vertex-colored meshes are not considered monochrome by texture alone.
+    if source.vertex_color_use_as_albedo:
+        return false
+    var texture: Texture2D = source.albedo_texture
+    if texture == null:
+        return true
+    var texture_id: int = texture.get_instance_id()
+    if _monochrome_texture_cache.has(texture_id):
+        return bool(_monochrome_texture_cache[texture_id])
+    # Current character palettes are 96x32 / 16x16. Do not read back large
+    # environment atlases solely to infer their material family.
+    if texture.get_width() * texture.get_height() > 65536:
+        _monochrome_texture_cache[texture_id] = false
+        return false
+    var image: Image = texture.get_image()
+    if image == null or image.is_empty():
+        _monochrome_texture_cache[texture_id] = false
+        return false
+    if image.is_compressed() and image.decompress() != OK:
+        _monochrome_texture_cache[texture_id] = false
+        return false
+    var first: Color = image.get_pixel(0, 0)
+    var same: bool = true
+    for y in range(image.get_height()):
+        for x in range(image.get_width()):
+            var color: Color = image.get_pixel(x, y)
+            if absf(color.r - first.r) > 0.008 or (
+                    absf(color.g - first.g) > 0.008) or (
+                    absf(color.b - first.b) > 0.008):
+                same = false
+                break
+        if not same:
+            break
+    _monochrome_texture_cache[texture_id] = same
+    return same
+
+
 static func _part_material_hint(mesh: MeshInstance3D, slot: String) -> int:
-    # Visual/location-based provisional assignments (not an authored master).
+    var source: StandardMaterial3D = mesh.material_override as StandardMaterial3D
+    if source != null and _is_monochrome_source(source):
+        return 1
+    # Visual/location-based provisional assignments for MULTICOLOR pieces.
     # A single mesh may contain both body armor and mechanisms; per-pixel
     # palette classification in the shader has the final say.
     var labels: String = slot + " " + str(mesh.name)
@@ -33,6 +76,10 @@ static func _part_material_hint(mesh: MeshInstance3D, slot: String) -> int:
         labels += " " + str(parent.name)
         parent = parent.get_parent()
     labels = labels.to_lower()
+    for word in ["lens", "optic", "cameraeye", "camera_eye", "eyepiece",
+            "visor", "glass", "レンズ", "光学", "カメラアイ"]:
+        if labels.contains(word):
+            return 3
     for keyword in ["joint", "hinge", "piston", "shaft", "gear", "servo",
             "inner", "mechanism", "cable", "motor", "axle", "rubber",
             "connector", "elbow", "knee", "neck",
@@ -134,12 +181,15 @@ static func _make_shaded_material(geometry: GeometryInstance3D,
     if texture == null:
         texture = _white()
     var iris_atlas: bool = texture.get_width() == 16 and texture.get_height() == 16
+    var armor_only: bool = _is_monochrome_source(source)
+    var baked_palette: bool = (not armor_only and
+        texture.get_width() == 96 and texture.get_height() == 32)
     var cull: int = source.cull_mode
     var next_id: int = (source.next_pass.get_instance_id()
         if source.next_pass != null else 0)
     var key: String = str([
         texture.get_instance_id(), source.albedo_color.to_html(true),
-        hint, cull, int(iris_atlas), next_id,
+        hint, cull, int(iris_atlas), int(armor_only), int(baked_palette), next_id,
         source.emission.to_html(true) if source.emission_enabled else "none",
         source.emission_energy_multiplier if source.emission_enabled else 0.0,
         source.vertex_color_use_as_albedo, source.uv1_scale, source.uv1_offset
@@ -152,6 +202,8 @@ static func _make_shaded_material(geometry: GeometryInstance3D,
         shaded.set_shader_parameter("source_texture", texture)
         shaded.set_shader_parameter("source_tint", source.albedo_color)
         shaded.set_shader_parameter("iris_palette", iris_atlas)
+        shaded.set_shader_parameter("force_armor", armor_only)
+        shaded.set_shader_parameter("baked_palette", baked_palette)
         shaded.set_shader_parameter("material_hint", hint)
         shaded.set_shader_parameter("armor_levels", ARMOR_STEPS)
         shaded.set_shader_parameter("armor_threshold", ARMOR_THRESHOLD)
@@ -216,6 +268,9 @@ static func apply_to_subtree(root: Node3D,
 
 
 static func _part_material_hint_batch(mesh: MultiMeshInstance3D) -> int:
+    var native: StandardMaterial3D = mesh.material_override as StandardMaterial3D
+    if native != null and _is_monochrome_source(native):
+        return 1
     var label: String = str(mesh.name).to_lower()
     for word in ["hinge", "shaft", "joint", "piston", "mechanism",
             "motor", "cable", "gear", "drive", "servo", "軸", "内部"]:

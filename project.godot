@@ -28,6 +28,9 @@ SeraSave="*res://scripts/sera_save.gd"
 window/size/viewport_width=720
 window/size/viewport_height=1280
 window/stretch/mode="canvas_items"
+; Expand to tall/wide Android aspect ratios instead of letterboxing the 9:16
+; design viewport. 3D outlines continue to use their rendering viewport px.
+window/stretch/aspect="expand"
 window/handheld/orientation=1
 window/size/window/width_override=450
 window/size/window/height_override=800
