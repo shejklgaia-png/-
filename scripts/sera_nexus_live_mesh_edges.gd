@@ -1,8 +1,7 @@
 extends Node3D
-## NEXUS full-body SERA outline: camera-facing GPU edge ribbons in the SAME
-## 3D viewport as the source meshes. Every ribbon is a child of its original
-## MeshInstance3D, so bone animation, preview rotation and scale use the same
-## scene transforms and rendering frame without any ID-camera synchronization.
+## Legacy NEXUS GPU edge diagnostic. Production outline now uses the
+## eight-direction full-mesh/stencil controller in the SAME 3D viewport.
+## GPU edge ribbons are only built when their diagnostic is selected.
 const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
 const RenderOrder = preload("res://scripts/render_order_policy.gd")
 const EDGE_SHADER = preload("res://shaders/sera_live_mesh_edges.gdshader")
@@ -43,8 +42,8 @@ func _uses_exterior_union() -> bool:
         _diagnostic_mode == 9)
 
 func _wants_edge_draw() -> bool:
-    return _uses_exterior_union() or (
-        _diagnostic_mode >= 16 and _diagnostic_mode <= 18) or (
+    # Mode 0/1/9 belongs exclusively to the new 8-way silhouette path.
+    return (_diagnostic_mode >= 16 and _diagnostic_mode <= 18) or (
         _diagnostic_mode >= 2 and _diagnostic_mode <= 5) or (
         _diagnostic_mode == 14 or _diagnostic_mode == 15)
 
@@ -107,7 +106,7 @@ func _ready() -> void:
         "outline_color", Color("#f05bff"))
     _unwritten_probe_material.set_shader_parameter("exterior_px", 3.0)
     visible = GraphicsSettings.get_enabled("character_outline")
-    if visible:
+    if visible and _wants_edge_draw():
         _refresh_meshes()
     set_process(true)
 
@@ -130,8 +129,27 @@ func _process(delta: float) -> void:
             if is_instance_valid(contact):
                 (contact as MeshInstance3D).visible = enabled and (
                     _diagnostic_mode == 4 or _diagnostic_mode == 5)
-    if enabled:
+    if enabled and _wants_edge_draw():
         _refresh_meshes()
+    elif not _edge_links.is_empty() or not _contact_links.is_empty():
+        _release_diagnostic_geometry()
+
+func _release_diagnostic_geometry() -> void:
+    for record in _edge_links.values():
+        var draw: MeshInstance3D = record.get("draw") as MeshInstance3D
+        if is_instance_valid(draw):
+            draw.visible = false
+            draw.queue_free()
+    for value in _contact_links.values():
+        var contact: MeshInstance3D = value as MeshInstance3D
+        if is_instance_valid(contact):
+            contact.visible = false
+            contact.queue_free()
+    _edge_links.clear()
+    _contact_links.clear()
+    _visible_sources.clear()
+    _geometry_cache.clear()
+    _last_contact_signature = ""
 
 func _refresh_meshes() -> void:
     if not is_instance_valid(_source_root):
@@ -323,8 +341,14 @@ func set_diagnostic_mode(mode: int) -> void:
             _equal_probe_material == null) or (
             _unwritten_probe_material == null):
         return
+    if _wants_edge_draw() and GraphicsSettings.get_enabled(
+            "character_outline"):
+        # Diagnostic geometry is generated only when someone opens a
+        # diagnostic. The normal 8-way mode never builds old edge ribbons.
+        _refresh_meshes()
+    else:
+        _release_diagnostic_geometry()
     if _diagnostic_mode == 4 or _diagnostic_mode == 5:
-        # On-demand extraction, not a continuous background contact scan.
         _refresh_contact_lines(_visible_sources)
     # The extrusion probes keep the real source silhouette in bright cyan
     # as an on-screen position reference. Their hull material uses no mask.
@@ -393,9 +417,9 @@ func get_diagnostic_snapshot() -> Dictionary:
         "enabled": GraphicsSettings.get_enabled("character_outline"),
         "depth_disabled": _diagnostic_mode == 5,
         "contacts_cached": not _last_contact_signature.is_empty(),
-        "outline_pipeline": "visible_contour_hardware_depth",
+        "outline_pipeline": "legacy_edge_diagnostics_only",
         "exterior_pixels": 3.0,
-        "hardware_depth_test": _uses_exterior_union(),
+        "hardware_depth_test": false,
         "stencil_bypass": _diagnostic_mode == 16,
         "stencil_equal_probe": _diagnostic_mode == 17,
         "stencil_no_writer_probe": _diagnostic_mode == 18
