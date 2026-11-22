@@ -16,7 +16,7 @@ const SCAN_INTERVAL: float = 0.65
 var source_viewport: Viewport
 var id_viewport: SubViewport
 var id_camera: Camera3D
-var ink: ColorRect
+var ink: TextureRect
 var _root_refs: Dictionary = {} # owner id -> WeakRef to scene/actor root
 var _copies: Dictionary = {} # source instance id -> ID MeshInstance/MultiMeshInstance
 var _source_refs: Dictionary = {}
@@ -75,19 +75,22 @@ func _ready() -> void:
     id_camera.name = "SeraIDCamera"
     id_viewport.add_child(id_camera)
     id_camera.current = true
-    ink = ColorRect.new()
+    # Match the proven HEAD D compositor exactly. A transparent TextureRect
+    # with an independent mesh_id_texture uniform is the working Android
+    # canvas path; ColorRect's low source alpha can suppress output.
+    ink = TextureRect.new()
     ink.name = "SeraVisibleMeshIDInk"
     ink.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    # Keep the 2D quad renderable without an opaque fallback image.
-    # A 0.4% opaque base is imperceptible if the shader fails, while the
-    # fragment shader replaces the output with the exact ID edge alpha.
-    ink.color = Color(1.0, 1.0, 1.0, 0.004)
+    ink.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+    ink.stretch_mode = TextureRect.STRETCH_SCALE
+    ink.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+    ink.texture_repeat = CanvasItem.TEXTURE_REPEAT_DISABLED
     ink.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    # Draw an actual full-viewport CanvasItem quad. A TextureRect backed by
-    # a 1x1 fully transparent placeholder can be culled by the renderer
-    # before our shader writes a nonzero alpha; HEAD D's preview overlay
-    # does not reliably reproduce when mounted under a global CanvasLayer.
-    # A ColorRect retains a drawable quad with a transparent failure state.
+    # The source texture is deliberately transparent; never show raw ID RGB
+    # in case the final contour shader fails.
+    var transparent_image := Image.create(1, 1, false, Image.FORMAT_RGBA8)
+    transparent_image.fill(Color.TRANSPARENT)
+    ink.texture = ImageTexture.create_from_image(transparent_image)
     var material := ShaderMaterial.new()
     material.shader = INK
     material.set_shader_parameter("mesh_id_texture", id_viewport.get_texture())
