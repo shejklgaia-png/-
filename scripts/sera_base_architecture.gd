@@ -254,8 +254,12 @@ class Batch:
             # paint; disable that extra darkening only on this building.
             var has_vertex_colors: bool = (
                 geometry != "cube" and geometry != "tube")
+            # All authored BASE buildings must receive their real local lamps.
+            # Their procedural vertex tones can otherwise multiply near-black.
+            var authored_facility: bool = host.name in [
+                "NexusArchitecture", "IndustrialModel"]
             surface.vertex_color_use_as_albedo = (
-                has_vertex_colors and host.name != "NexusArchitecture")
+                has_vertex_colors and not authored_facility)
             surface.metallic = 0.31 if tint != "cloth" else 0.0
             surface.roughness = 0.75 if tint != "glass" else 0.46
             # Damp oxidized mechanics and aged painted plates read as rough,
@@ -295,15 +299,15 @@ class Batch:
             draw.material_override = surface
             draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
             draw.set_meta("sera_outline_instanced_roles", true)
-            if host.name == "NexusArchitecture":
-                # Preserve the actual authored StandardMaterial3D rather than
-                # replacing it later with the global character preview shader.
-                draw.set_meta("sera_base_authored_material", surface)
+            if host.name in ["NexusArchitecture", "IndustrialModel"]:
+                # The common character shader uses render_mode unshaded and
+                # ignores SpotLight3D. Retain built-in physically lit material
+                # for all outdoor equipment to show the actual work lamps.
                 draw.set_meta("sera_preserve_authored_material", true)
-                draw.set_meta("sera_base_material_tint", tint)
-                # Keep the source mesh's actual vertex-color capability for
-                # the diagnostic, independently of the displayed material.
-                draw.set_meta("sera_base_has_vertex_color", has_vertex_colors)
+                if host.name == "NexusArchitecture":
+                    draw.set_meta("sera_base_authored_material", surface)
+                    draw.set_meta("sera_base_material_tint", tint)
+                    draw.set_meta("sera_base_has_vertex_color", has_vertex_colors)
             if host.name == "NexusArchitecture":
                 # Per-material bright-face floor without touching SERA,
                 # boss, GRID or other BASE facility shading.
