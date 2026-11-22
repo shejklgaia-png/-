@@ -8,6 +8,7 @@ const TerminalPixelFont = preload("res://scripts/sera_terminal_pixel_font.gd")
 
 const PREVIEW_SECONDS: float = 5.0
 const PREVIEW_STEPS: int = 100
+const LOADING_FPS: int = 10  # Actual engine frame limit, only while console is visible.
 const MAX_HISTORY: int = 120
 # Loading terminal only: live loading remains at 50%; BASE previews may use
 # two lower internal raster resolutions without changing gameplay or UI sizes.
@@ -46,6 +47,8 @@ var noise_elapsed: float = 0.0
 var noise_phase: int = 0
 var anim_time: float = 0.0
 var visual_elapsed: float = 0.0
+var _previous_max_fps: int = 0
+var _fps_limit_active: bool = false
 var electronic_texture: Texture2D
 var screen_font: Font
 var pixel_font_atlas: Texture2D
@@ -66,12 +69,24 @@ func _ready() -> void:
         _create_electronic_texture()
         resized.connect(queue_redraw)
     else:
+        # Save the active BASE/NEXUS setting; the offscreen draw replica must
+        # never change the global engine limit or create another FPS owner.
+        _previous_max_fps = Engine.max_fps
+        Engine.max_fps = LOADING_FPS
+        _fps_limit_active = true
         _setup_pixel_renderer()
         resized.connect(_resize_pixel_renderer)
     if history.is_empty():
         set_stage("BOOT / SYSTEM LINK OPEN", 0)
     # The offscreen CanvasItem never runs another timer or preview.
     set_process(not pixel_source_mode)
+
+func _exit_tree() -> void:
+    # Applies to live loading and all BASE previews; no 10 FPS cap leaks into
+    # the normal BASE/NEXUS/GRID/combat settings after the overlay is removed.
+    if _fps_limit_active:
+        Engine.max_fps = _previous_max_fps
+        _fps_limit_active = false
 
 func set_render_scale(scale_value: float) -> void:
     # Preview-only quality selection. Real loading keeps CONSOLE_RENDER_SCALE.
@@ -177,8 +192,8 @@ func _process(delta: float) -> void:
     # Cosmetic animation may run independently, but never advances progress.
     anim_time += dt
     visual_elapsed += dt
-    if visual_elapsed >= 1.0 / 30.0:
-        visual_elapsed = fposmod(visual_elapsed, 1.0 / 30.0)
+    if visual_elapsed >= 1.0 / float(LOADING_FPS):
+        visual_elapsed = fposmod(visual_elapsed, 1.0 / float(LOADING_FPS))
         _queue_console_redraw()
     noise_elapsed += dt
     if noise_elapsed >= 0.055:
