@@ -354,9 +354,8 @@ const PARTS = [
     "project\":\"\",\"file_format\":\"png\",\"render_mode\":\"default\",\"render_sides\":\"auto\",\"wrap_mode\":\"limited\",\"pbr_channel\":\"color",
     "\",\"fps\":7,\"force_translucent\":false,\"frame_time\":1,\"frame_order_type\":\"loop\",\"frame_order\":\"\",\"frame_interpolate\":false,",
     "\"visible\":true,\"internal\":true,\"saved\":true,\"uuid\":\"311a9877-1abe-ea70-caf3-e2c5c52561b8\",\"source\":\"data:image/png;base6",
-    "4,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAZ0lEQVR4AeyR0QmAMAxEj/tUB7EU/HMMV3IUR3Il/QsU0mug0K8WHoTmekkTnjl/PRCdZx",
-    "oAg2awbkAF1hLFvVi1/MKeElpQCURhS7kdvMeFKPSEZh8I3A4C70wiDZbnRgsqgZURwQ8AAP//WqPvdgAAAAZJREFUAwC0OkjB2U3lzgAAAABJRU5ErkJggg",
-    "==\"}]}",
+    "4,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAASElEQVR42mPcse/IfwYKABMDhWDUACoYwEKMotqKYpxyjKZm5v9p5gINTU3CBhCjiGQXnN",
+    "PzJd4AUhTTPxp7DcUJG0CMInwAAI3GC5+gpW6wAAAAAElFTkSuQmCC\"}]}",
 ]
 static func get_json() -> String:
     return "".join(PackedStringArray(PARTS))

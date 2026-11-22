@@ -2,7 +2,10 @@
 """Camera-eye HEAD D: source, Android snapshot, topology and selectable rig."""
 from __future__ import annotations
 
+import base64
 import json
+import struct
+import zlib
 from collections import Counter
 from pathlib import Path
 
@@ -23,6 +26,65 @@ assert len(model["textures"]) == 1
 assert model["textures"][0]["width"] == 16
 assert model["textures"][0]["height"] == 16
 assert model["textures"][0]["source"].startswith("data:image/png;base64,")
+
+# HEAD D authored light-grey armour is baked into the 16x16 PNG, not tinted
+# by a NEXUS-only override. Check every source pixel using stdlib only.
+def png_rgba_pixels(data: bytes) -> list[tuple[int, int, int, int]]:
+    assert data[:8] == b"\x89PNG\r\n\x1a\n"
+    offset = 8
+    idat = bytearray()
+    width = height = None
+    while offset < len(data):
+        count = struct.unpack_from(">I", data, offset)[0]
+        kind = data[offset + 4:offset + 8]
+        payload = data[offset + 8:offset + 8 + count]
+        offset += count + 12
+        if kind == b"IHDR":
+            width, height, depth, mode = struct.unpack_from(">IIBB", payload)
+            assert (width, height, depth, mode) == (16, 16, 8, 6)
+        elif kind == b"IDAT":
+            idat.extend(payload)
+        elif kind == b"IEND":
+            break
+    stride = 16 * 4
+    unpacked = zlib.decompress(idat)
+    pixels = []
+    prior = bytearray(stride)
+    for row_index in range(16):
+        pos = row_index * (stride + 1)
+        filtering = unpacked[pos]
+        scan = bytearray(unpacked[pos + 1:pos + 1 + stride])
+        assert filtering in (0, 1, 2, 3, 4)
+        for i in range(stride):
+            a = scan[i - 4] if i >= 4 else 0
+            b = prior[i]
+            c = prior[i - 4] if i >= 4 else 0
+            if filtering == 1:
+                predict = a
+            elif filtering == 2:
+                predict = b
+            elif filtering == 3:
+                predict = (a + b) // 2
+            elif filtering == 4:
+                p = a + b - c
+                distances = (abs(p - a), abs(p - b), abs(p - c))
+                predict = (a, b, c)[distances.index(min(distances))]
+            else:
+                predict = 0
+            scan[i] = (scan[i] + predict) & 255
+        pixels.extend(tuple(scan[i:i + 4]) for i in range(0, stride, 4))
+        prior = scan
+    return pixels
+
+
+author_png = base64.b64decode(model["textures"][0]["source"].split(",", 1)[1])
+assert Counter(png_rgba_pixels(author_png)) == {
+    (184, 190, 196, 255): 146,  # #B8BEC4 light grey armour (was brown)
+    (53, 54, 55, 255): 30,     # dark frame, unchanged
+    (93, 95, 96, 255): 30,     # medium grey metal, unchanged
+    (43, 141, 173, 255): 50,   # cyan lens, unchanged
+}
+
 
 ids = [mesh["uuid"] for mesh in model["elements"]]
 assert len(set(ids)) == len(ids)
