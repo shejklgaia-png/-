@@ -1,13 +1,14 @@
 shader_type canvas_item;
-// NEXUS only: preserve the IRIS red-only architectural outlines but draw
-// SERA ink ONLY between different front-most RGB mesh IDs (not empty space).
-// The shared ID viewport performs hardware depth resolution before this pass.
+// NEXUS only: one depth-resolved RGB-ID pass for SERA contours and room ink.
+// The SERA outline draws INSIDE the front-most visible mesh, never X-ray.
+// At a SERA-to-SERA contact only the higher RGB ID side owns the 2px stroke.
+// Pixels with ID 0 are rejected after one lookup; max 12 neighbor reads.
 render_mode blend_mix;
 
 uniform sampler2D mesh_id_texture : filter_nearest, repeat_disable;
 uniform vec2 mesh_id_texel = vec2(0.0026041667, 0.0026041667);
 uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
-uniform float stroke_px : hint_range(1.0, 3.0) = 3.0;
+uniform float stroke_px : hint_range(1.0, 2.0) = 2.0;
 
 vec3 id_at(vec2 uv) {
     if (uv.x < 0.0 || uv.x >= 1.0 || uv.y < 0.0 || uv.y >= 1.0) {
@@ -17,16 +18,28 @@ vec3 id_at(vec2 uv) {
 }
 
 bool mismatch_for_center(vec3 center_id, vec3 neighbor_id, bool sera_contact) {
+    bool neighbor_sera = neighbor_id.g >= 0.06;
     if (sera_contact) {
-        // Discard hidden edges: both pixels must be actual visible SERA meshes.
-        if (neighbor_id.g < 0.06) {
-            return false;
+        if (!neighbor_sera) {
+            // ID zero or an architectural surface is outside this visible
+            // SERA mesh, so this pixel contributes its missing outer contour.
+            return true;
         }
-        vec3 diff = abs(center_id - neighbor_id);
-        // 1/8 spaced IDs tolerate low-precision Compatibility color targets.
-        return max(diff.r, max(diff.g, diff.b)) > 0.06;
+        // RGB digits are spaced 1/8 apart. Lexicographic ordering makes a
+        // seam one-sided, avoiding the previous 2px+2px double stroke.
+        if (abs(center_id.b - neighbor_id.b) > 0.06) {
+            return center_id.b > neighbor_id.b;
+        }
+        if (abs(center_id.g - neighbor_id.g) > 0.06) {
+            return center_id.g > neighbor_id.g;
+        }
+        return center_id.r > neighbor_id.r + 0.06;
     }
-    // Preserve the working HEAD D / IRIS red-only architecture ink.
+    // Keep the IRIS red-only architectural behavior while preventing room
+    // ink from doubling the SERA-owned contact/outer stroke.
+    if (neighbor_sera) {
+        return false;
+    }
     if (neighbor_id.r < 0.06) {
         return true;
     }
@@ -38,20 +51,44 @@ void fragment() {
     bool sera_contact = center_id.g >= 0.06;
     float coverage = 0.0;
     if (sera_contact || center_id.r >= 0.06) {
+        // Ordered by distance for early exit: 4 axial neighbors at 1px,
+        // 4 diagonals at sqrt(2)px, then 4 axial neighbors at 2px.
+        // The previous shader visited up to 36 neighbors per visible pixel.
         float nearest_dist = 99.0;
-        for (int dy = -3; dy <= 3; dy++) {
-            for (int dx = -3; dx <= 3; dx++) {
-                int distance_sq = dx * dx + dy * dy;
-                if (distance_sq == 0 || distance_sq > 10) {
-                    continue;
-                }
-                vec2 offset = mesh_id_texel * vec2(float(dx), float(dy));
-                if (mismatch_for_center(
-                        center_id, id_at(UV + offset), sera_contact)) {
-                    nearest_dist = min(nearest_dist, sqrt(float(distance_sq)));
-                    if (nearest_dist <= stroke_px) {
-                        break;
+        for (int group = 0; group < 3; group++) {
+            float dist = group == 0 ? 1.0 : (group == 1 ? 1.41421356 : 2.0);
+            if (dist > stroke_px + 0.5) {
+                break;
+            }
+            for (int direction = 0; direction < 4; direction++) {
+                vec2 offset = vec2(0.0);
+                if (group == 1) {
+                    if (direction == 0) {
+                        offset = vec2(1.0, 1.0);
+                    } else if (direction == 1) {
+                        offset = vec2(-1.0, 1.0);
+                    } else if (direction == 2) {
+                        offset = vec2(1.0, -1.0);
+                    } else {
+                        offset = vec2(-1.0, -1.0);
                     }
+                } else {
+                    float step_px = group == 0 ? 1.0 : 2.0;
+                    if (direction == 0) {
+                        offset = vec2(step_px, 0.0);
+                    } else if (direction == 1) {
+                        offset = vec2(-step_px, 0.0);
+                    } else if (direction == 2) {
+                        offset = vec2(0.0, step_px);
+                    } else {
+                        offset = vec2(0.0, -step_px);
+                    }
+                }
+                if (mismatch_for_center(
+                        center_id, id_at(UV + mesh_id_texel * offset),
+                        sera_contact)) {
+                    nearest_dist = dist;
+                    break;
                 }
             }
             if (nearest_dist <= stroke_px) {
