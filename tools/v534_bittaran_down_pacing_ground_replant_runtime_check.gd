@@ -1,6 +1,6 @@
 extends SceneTree
 ## SERA v534: source-time velocity, four real grounded toe meshes,
-## 1.75s contact gate and full two-pair replant BEFORE the chest rises.
+## Rear fall FX at source 0.75, front FX at 1.75; both DOWN timers at 1.75.
 const IK = preload("res://scripts/bittaran_foot_ik.gd")
 const DT: float = 1.0 / 60.0
 const CONTACT: float = 1.75
@@ -67,6 +67,13 @@ func _check_case(battle: Node3D, id: String,
             _fail("source clock rewound or overshot 1.75: " + str(t))
             return false
         previous = t
+        var fx_time: float = (IK.DOWN_REAR_FX_SOURCE_SECONDS
+            if id.begins_with("leg_r") else IK.DOWN_FRONT_FX_SOURCE_SECONDS)
+        var expected_bursts: int = 1 if t + 0.000001 >= fx_time else 0
+        if int(fx.get("body_fall_burst_count")) != expected_bursts:
+            _fail("wrong source-key dust time for " + id
+                + " at " + str(t) + " expected " + str(fx_time))
+            return false
         if bool(ik.call("windup_active")):
             fell_frames += 1
             if bool(ik.call("down_pose_active")):
@@ -98,7 +105,7 @@ func _check_case(battle: Node3D, id: String,
         _fail("1.75 source was not played at slowed speeds")
         return false
     if int(fx.get("body_fall_burst_count")) != 1:
-        _fail("body impact dust must emit once at the source contact")
+        _fail("body impact dust must emit once at its front/rear source FX key")
         return false
     var hold: float = IK.ALL_LEGS_BREAK_REACTION_SECONDS if full_break         else IK.LEG_BREAK_REACTION_SECONDS
     if absf(float(ik.get("break_recover_start")) - hold) > 0.00001:
