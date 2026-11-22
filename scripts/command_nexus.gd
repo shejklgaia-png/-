@@ -2607,8 +2607,18 @@ func _apply_customization_preview_transform() -> void:
     var basis := Basis(Vector3.UP, customize_preview_yaw) * (
         Basis(Vector3.RIGHT, customize_preview_pitch))
     basis = basis.scaled(Vector3.ONE * customize_preview_scale)
+    # Hold Chest/Torso/Waist in a constant camera-local position while the
+    # model rotates. The authored root sits at the feet, so its transform
+    # origin MUST move around this pivot; this is not a screen-space correction.
+    # In the neutral front pose, the pivot term cancels exactly, preserving
+    # the initial fit/scale and entrance tween endpoint from earlier builds.
+    var front_basis := Basis(Vector3.UP, PI).scaled(
+        Vector3.ONE * customize_preview_scale)
+    var pivot_camera: Vector3 = (
+        customize_preview_position + front_basis * customize_motion_torso_local)
+    var pivot_origin: Vector3 = pivot_camera - basis * customize_motion_torso_local
     sera_display_rig.global_transform = cam.global_transform * Transform3D(
-        basis, customize_preview_position)
+        basis, pivot_origin)
 
 # The root is at the feet; the visible torso must serve as the path anchor.
 # Cache its local offset before any preview transform is applied.
