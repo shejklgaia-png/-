@@ -7,8 +7,8 @@ const INK_SHADER = preload("res://shaders/nexus_sera_gpu_convex_silhouette.gdsha
 const EDGE_NAME: String = "NexusSeraConvexInk"
 const SCAN_SECONDS: float = 0.65
 const MAX_EDGES_PER_MESH: int = 8000
-# Only internal convex ridges use this width; visible-ID owns the outer 2px.
-const PREVIEW_MATCHED_STROKE_PX: float = 2.0
+# Only internal convex ridges use this width; visible-ID owns the outer 4px.
+const PREVIEW_MATCHED_STROKE_PX: float = 4.0
 
 var _elapsed: float = 0.0
 var _overlays: Dictionary = {} # source instance ID -> {source, overlay, mesh, closed}
