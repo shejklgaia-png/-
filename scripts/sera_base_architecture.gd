@@ -9,6 +9,7 @@ const BaseRoofIdentity = preload("res://scripts/sera_base_roof_identity.gd")
 const BaseFreshDesign = preload("res://scripts/sera_base_fresh_design.gd")
 const BaseFacilityMotion = preload("res://scripts/sera_base_facility_motion.gd")
 const BaseFacilityVfx = preload("res://scripts/sera_base_facility_vfx.gd")
+const BaseFacilityInk = preload("res://scripts/sera_base_facility_outlines.gd")
 const ACTIVE_BASE_MODEL: String = "FRESH_20261122"
 # User reverted the NEXUS two versions: the pre-FRESH archived geometry is intact.
 const ARCHIVED_NEXUS_MODEL: bool = true
@@ -84,7 +85,8 @@ class Batch:
         (entries[key] as Array).append(pose)
         if outline_enabled and tint not in ["blue_light", "amber_light", "amber", "glass"]:
             outline_entries.append({
-                "feature": feature, "tint": tint, "pose": pose})
+                "feature": feature, "tint": tint, "pose": pose,
+                "bucket": key, "index": (entries[key] as Array).size() - 1})
         if motion_names.has(feature):
             if not motion_indices.has(feature):
                 motion_indices[feature] = []
@@ -169,6 +171,18 @@ class Batch:
         keys.sort()
         var polygon_meshes: Dictionary = {}
         var motion_multimeshes: Dictionary = {}
+        # Selected solid instances can share a material batch with unoutlined
+        # clutter. Their companion edge MultiMesh therefore has its own
+        # subset indices, never a projected building-wide convex hull.
+        var selected_by_bucket: Dictionary = {}
+        for raw_entry in outline_entries:
+            var selected: Dictionary = raw_entry
+            var bucket: String = str(selected["bucket"])
+            if not selected_by_bucket.has(bucket):
+                selected_by_bucket[bucket] = []
+            (selected_by_bucket[bucket] as Array).append(selected)
+        var outline_meshes_by_bucket: Dictionary = {}
+        var outline_links_by_bucket: Dictionary = {}
         for key_variant in keys:
             var key: String = str(key_variant)
             var names: PackedStringArray = key.split("|")
@@ -248,6 +262,31 @@ class Batch:
             draw.material_override = surface
             draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
             host.add_child(draw)
+            if selected_by_bucket.has(key):
+                var edge_mesh: ArrayMesh = BaseFacilityInk.overlay_for(
+                    geometry, mesh)
+                if edge_mesh != null:
+                    var selected_instances: Array = selected_by_bucket[key]
+                    var edge_multi := MultiMesh.new()
+                    edge_multi.transform_format = MultiMesh.TRANSFORM_3D
+                    edge_multi.mesh = edge_mesh
+                    edge_multi.instance_count = selected_instances.size()
+                    var edge_indices: Dictionary = {}
+                    for k in range(selected_instances.size()):
+                        var solid_record: Dictionary = selected_instances[k]
+                        edge_multi.set_instance_transform(k, solid_record["pose"])
+                        edge_indices[int(solid_record["index"])] = k
+                    var edge_draw := MultiMeshInstance3D.new()
+                    edge_draw.name = "ArchitecturalEdgeInk_" + geometry + "_" + tint
+                    edge_draw.multimesh = edge_multi
+                    edge_draw.material_override = BaseFacilityInk.material()
+                    edge_draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+                    edge_draw.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+                    edge_draw.extra_cull_margin = 0.30
+                    edge_draw.set_meta("FX_NO_OUTLINE", true)
+                    host.add_child(edge_draw)
+                    outline_meshes_by_bucket[key] = edge_multi
+                    outline_links_by_bucket[key] = edge_indices
         host.set_meta("unique_model_features", features.duplicate())
         if not outline_entries.is_empty():
             host.set_meta("outline_solid_entries", outline_entries.duplicate())
@@ -263,9 +302,17 @@ class Batch:
                     if mesh == null:
                         continue
                     var instance_index: int = int(slot["index"])
-                    recorded.append({
+                    var animated_record: Dictionary = {
                         "mesh": mesh, "index": instance_index,
-                        "bind": mesh.get_instance_transform(instance_index)})
+                        "bind": mesh.get_instance_transform(instance_index)}
+                    var bucket_name: String = str(slot["bucket"])
+                    var linked: Dictionary = outline_links_by_bucket.get(
+                        bucket_name, {})
+                    if linked.has(instance_index):
+                        animated_record["ink_mesh"] = outline_meshes_by_bucket[
+                            bucket_name]
+                        animated_record["ink_index"] = int(linked[instance_index])
+                    recorded.append(animated_record)
                 motion_entries[feature] = recorded
             host.set_meta("motion_entries", motion_entries)
 
