@@ -15,8 +15,9 @@ void vertex() {
 }
 
 void fragment() {
-    // Output no visible color. Stencil write still occurs per surviving
-    // fragment; do not discard or use alpha scissors.
+    // Keep the mask in the transparent queue; a tiny nonzero alpha avoids
+    // drivers optimizing away exactly-zero fragments and their stencil
+    // writes. This has negligible impact on visible source shading.
     ALBEDO = vec3(0.0);
-    ALPHA = 0.0;
+    ALPHA = 0.00001;
 }
