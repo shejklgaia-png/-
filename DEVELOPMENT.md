@@ -1,3 +1,10 @@
+## 2026-11-22 — v545 なぎ払いの当たり判定連動ループSEと3秒フェード
+
+- 添付「ダウンロード.mp3」は20.06秒ステレオ44100Hzで約4秒周期の繰り返し。約4.0秒を取り出してループ境界を補正し、16kHzモノラルOgg Vorbisに変換して`assets/bittaran_sweep_loop_data.gd`に埋め込み。Androidの初回インポート有無に依存せず再生可能な`AudioStreamOggVorbis.load_from_buffer`を採用。
+- `bittaran_battle.gd::_sweep_hit_window_active`は従来どおり、前足ソース0.67–1.38秒／後足0.17–0.63秒・左右4脚、ダメージの1回ラッチから独立。当たり判定中は+2dB/1.0倍/ループ、終了で3秒線形振幅フェード、次のなぎ払い時は減衰解除して同じプレイヤーで音量復帰。リスポーン時プレイヤー停止。判定メッシュ・原本速度・ダメージ・揺れ・土埃は変更しない。
+- 既存v544の足音減音設定がmainのBASE並行統合で戻っていたため、同時に歩行のみ-13dBと最大2重再生を維持。攻撃SE+4dB、BGM-8dB、既存4本の効果音データを維持。
+- **検査先行**：`tools/bittaran_sweep_audio_v545_self_check.py`・`tools/bittaran_sweep_audio_v545_runtime_check.gd`を先に追加してCI登録。元の`bittaran_sfx_event_runtime_check.gd`には既承認の静音歩行の確認を追加。4脚境界・判定途中ヒット済み継続・3秒フェード・再入・リスポーン・元音源ロードを確認し、旧検査を削除/スキップしない。CIのGodot headlessとAndroid実音の質感は区別して報告。
+
 ## 2026-11-22 — BASE 8施設の機械動作を実体3Dパーツで追加
 
 - 拠点8施設に、それぞれ用途に即した周期動作を実装。保存済みのNEXUS旧モデルと、他7施設の角張ったフラットな形状は維持。個別のMeshInstance3Dを複製せず、既存 `Batch` の物理パーツ名と材質別`MultiMesh`上のインスタンス番号を追跡し、`set_instance_transform`で実際の3Dパーツを更新する。
