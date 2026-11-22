@@ -154,9 +154,10 @@ func _ready() -> void:
     _startup_step("OS / INTERFACE ONLINE", 99)
     SeraSave.mark_location("BASE")
     _startup_step("SYSTEM / BOOT COMPLETE", 100)
-    # Display the *completed* real result at least once before uncovering BASE.
-    await get_tree().process_frame
-    await get_tree().process_frame
+    # process_frame fires before render: await exactly two actual presented
+    # frames of the fully online COMPLETE slate before uncovering BASE.
+    if console_screen != null:
+        await Signal(console_screen, &"completion_cut_finished")
     startup_layer.queue_free()
     startup_layer = null
     console_screen = null
