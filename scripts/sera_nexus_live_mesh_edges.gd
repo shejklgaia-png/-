@@ -11,6 +11,10 @@ const EXTERIOR_SHADER = preload(
     "res://shaders/sera_nexus_stencil_edge_outline.gdshader")
 const EXTERIOR_NO_MASK_SHADER = preload(
     "res://shaders/sera_nexus_stencil_edge_outline_no_mask.gdshader")
+const EDGE_EQUAL_SHADER = preload(
+    "res://shaders/sera_nexus_stencil_edge_equal_probe.gdshader")
+const EDGE_UNWRITTEN_SHADER = preload(
+    "res://shaders/sera_nexus_stencil_edge_unwritten_probe.gdshader")
 const ContactSeams = preload("res://scripts/sera_nexus_contact_seams.gd")
 const RibbonGeometry = preload("res://scripts/sera_nexus_outline_geometry.gd")
 const RESCAN_SECONDS: float = 0.35
@@ -24,6 +28,8 @@ var _edge_material: ShaderMaterial
 var _xray_material: ShaderMaterial
 var _exterior_material: ShaderMaterial
 var _exterior_no_mask_material: ShaderMaterial
+var _equal_probe_material: ShaderMaterial
+var _unwritten_probe_material: ShaderMaterial
 var _diagnostic_mode: int = 0
 var _edge_links: Dictionary = {} # source ID -> {source, mesh, draw}
 var _geometry_cache: Dictionary = {} # Mesh resource instance ID -> ArrayMesh/null
@@ -37,11 +43,16 @@ func _uses_exterior_union() -> bool:
         _diagnostic_mode == 9)
 
 func _wants_edge_draw() -> bool:
-    return _uses_exterior_union() or _diagnostic_mode == 16 or (
+    return _uses_exterior_union() or (
+        _diagnostic_mode >= 16 and _diagnostic_mode <= 18) or (
         _diagnostic_mode >= 2 and _diagnostic_mode <= 5) or (
         _diagnostic_mode == 14 or _diagnostic_mode == 15)
 
 func _chosen_edge_material() -> ShaderMaterial:
+    if _diagnostic_mode == 17:
+        return _equal_probe_material
+    if _diagnostic_mode == 18:
+        return _unwritten_probe_material
     if _diagnostic_mode == 16:
         return _exterior_no_mask_material
     if _uses_exterior_union():
@@ -81,6 +92,19 @@ func _ready() -> void:
     _exterior_no_mask_material.set_shader_parameter(
         "outline_color", Color("#29f4f7"))
     _exterior_no_mask_material.set_shader_parameter("exterior_px", 3.0)
+    # Identical projected-edge math across all diagnostic passes.
+    _equal_probe_material = ShaderMaterial.new()
+    _equal_probe_material.shader = EDGE_EQUAL_SHADER
+    _equal_probe_material.render_priority = -21
+    _equal_probe_material.set_shader_parameter(
+        "outline_color", Color("#35ef73"))
+    _equal_probe_material.set_shader_parameter("exterior_px", 3.0)
+    _unwritten_probe_material = ShaderMaterial.new()
+    _unwritten_probe_material.shader = EDGE_UNWRITTEN_SHADER
+    _unwritten_probe_material.render_priority = -21
+    _unwritten_probe_material.set_shader_parameter(
+        "outline_color", Color("#f05bff"))
+    _unwritten_probe_material.set_shader_parameter("exterior_px", 3.0)
     visible = GraphicsSettings.get_enabled("character_outline")
     if visible:
         _refresh_meshes()
@@ -291,10 +315,12 @@ func _refresh_contact_lines(found: Dictionary) -> void:
 ## Diagnostic controls are intentionally separate from the persistent
 ## GRAPHICS SETTINGS switch; all modes return to production on exit.
 func set_diagnostic_mode(mode: int) -> void:
-    _diagnostic_mode = clampi(mode, 0, 16)
+    _diagnostic_mode = clampi(mode, 0, 18)
     if _edge_material == null or _xray_material == null or (
             _exterior_material == null) or (
-            _exterior_no_mask_material == null):
+            _exterior_no_mask_material == null) or (
+            _equal_probe_material == null) or (
+            _unwritten_probe_material == null):
         return
     if _diagnostic_mode == 4 or _diagnostic_mode == 5:
         # On-demand extraction, not a continuous background contact scan.
@@ -368,5 +394,7 @@ func get_diagnostic_snapshot() -> Dictionary:
         "contacts_cached": not _last_contact_signature.is_empty(),
         "outline_pipeline": "screen_edge_stencil_union",
         "exterior_pixels": 3.0,
-        "stencil_bypass": _diagnostic_mode == 16
+        "stencil_bypass": _diagnostic_mode == 16,
+        "stencil_equal_probe": _diagnostic_mode == 17,
+        "stencil_no_writer_probe": _diagnostic_mode == 18
     }
