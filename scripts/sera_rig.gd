@@ -25,6 +25,7 @@ const KATANA_EMBEDDED = preload("res://assets/sera_katana_data.gd")
 const KICK_PACK = preload("res://assets/sera_kick_clips.gd")
 const EQUIPMENT_SCRIPT = preload("res://scripts/sera_equipment.gd")
 const OUTLINE_SCRIPT = preload("res://scripts/sera_view_edges.gd")
+const MaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
 const FACE_CULLING = preload("res://scripts/sera_face_culling.gd")
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const BIRD_EMBEDDED = preload("res://assets/sera_bird_data.gd")
@@ -267,6 +268,9 @@ func _ready() -> void:
     # Mesh alternatives reuse the original animated pivots/UUIDs unchanged.
     equipment_handler = EQUIPMENT_SCRIPT.new()
     equipment_handler.call("setup", self)
+    # The SAME material classification is used in combat, NEXUS, LAB and
+    # equipment/warehouse viewers. All selectable sets are shaded on build.
+    MaterialShading.apply_to_rig(self)
     loading_ok = (bones.size() > 0 and animations.has(WAIT_CLIP)
         and animations.has(RUN_CLIP) and animations.has(RUN_BACK_CLIP)
         and animations.has(RUN_RIGHT_CLIP) and animations.has(RUN_LEFT_CLIP)
