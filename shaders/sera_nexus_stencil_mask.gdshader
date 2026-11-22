@@ -1,23 +1,16 @@
 shader_type spatial;
-// NEXUS: write one shared character stencil value for ALL opaque parts.
-// Separate geometry means the authored material/UV/shading is untouched.
-// Transparent pass is mandatory for stencil interactions in Godot 4.7.
-render_mode unshaded, cull_disabled, depth_draw_never, fog_disabled;
+// NEXUS silhouette union: all visible opaque equipment shares stencil 17.
+// Do not apply the scene's opaque depth test to the union mask. Otherwise a
+// previously drawn source face can reject the stencil write at the same
+// pixel, leaving gaps in the whole-body mask in GL Compatibility.
+// The invisible transparent writer runs before the hull (priority -22).
+render_mode unshaded, cull_disabled, depth_draw_never,
+    depth_test_disabled, fog_disabled;
 stencil_mode write, compare_always, 17;
 
-void vertex() {
-    // Position is unchanged in screen X/Y: register the real physical
-    // footprint. Tiny view-space offset avoids equality precision failures
-    // against the opaque source itself on Compatibility/OpenGL.
-    vec3 eye = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
-    eye += normalize(-eye) * max(0.001, length(eye) * 0.00010);
-    POSITION = PROJECTION_MATRIX * vec4(eye, 1.0);
-}
-
 void fragment() {
-    // Keep the mask in the transparent queue; a tiny nonzero alpha avoids
-    // drivers optimizing away exactly-zero fragments and their stencil
-    // writes. This has negligible impact on visible source shading.
+    // Writing ALPHA explicitly routes the pass through transparency.
+    // Use a tiny alpha rather than discard so stencil fragments survive.
     ALBEDO = vec3(0.0);
     ALPHA = 0.00001;
 }
