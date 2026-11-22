@@ -5,6 +5,7 @@ const SOURCE_PATH: String = "res://models/bosses/Bittaran.bbmodel"
 const EMBEDDED = preload("res://assets/bittaran_data.gd")
 const GROUND_CONTACTS = preload("res://assets/bittaran_ground_contacts.gd")
 const OUTLINE_SCRIPT = preload("res://scripts/sera_view_edges.gd")
+const MaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
 const FACE_CULLING = preload("res://scripts/sera_face_culling.gd")
 # Shared source timing toggle; restoring the v461 preset also restores
 # the Wait->Idle handoff duration without a separate file edit.
@@ -204,6 +205,9 @@ func _ready() -> void:
     if bones.has(head_uid):
         (bones[head_uid] as Node3D).quaternion = _authored_key_rotation(
             "Wait", "Head", 0.0)
+    # Boss visual solids use the same material steps/thresholds as SERA.
+    # Preserve per-mesh ShaderMaterial instances for damage/break FX.
+    MaterialShading.apply_to_subtree(self, true)
     # Mesh-local ink inherits each articulated leg/head transform and visibility.
     var ink := OUTLINE_SCRIPT.new()
     ink.name = "ViewEdges"
@@ -282,13 +286,21 @@ func _make_mesh(element: Dictionary) -> MeshInstance3D:
             continue
         if bool(reverse_faces.get(face_id, false)):
             points.reverse()
+        # Authored quads keep one normal across both triangles: no
+        # unintended triangular step shading inside a polygon.
+        var authored_normal: Vector3 = Vector3.ZERO
         for i in range(1, points.size() - 1):
-            var n: Vector3 = (points[i] - points[0]).cross(
-                points[i + 1] - points[0]).normalized()
-            if n.length_squared() < 0.00000001:
+            authored_normal += (points[i] - points[0]).cross(
+                points[i + 1] - points[0])
+        if authored_normal.length_squared() < 0.00000001:
+            continue
+        authored_normal = authored_normal.normalized()
+        for i in range(1, points.size() - 1):
+            if (points[i] - points[0]).cross(
+                    points[i + 1] - points[0]).length_squared() < 0.00000001:
                 continue
             for p in [points[0], points[i], points[i + 1]]:
-                tool.set_normal(n)
+                tool.set_normal(authored_normal)
                 tool.add_vertex(p)
             triangles += 1
     if triangles == 0:
