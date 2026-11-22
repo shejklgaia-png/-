@@ -42,11 +42,32 @@ func _run() -> void:
         _fail("offscreen terminal retains an incorrect source scale")
         return
     screen.size = Vector2(450.0, 800.0)
+    if int(source_canvas.call("_pixel_cell_pixels", 19)) != 1:
+        _fail("50 percent compact logs must retain at least 1-pixel cells")
+        return
     if reduced_view.size != Vector2i(225, 400):
         _fail("offscreen viewport did not follow small-screen resize")
         return
+    if source_canvas.get("pixel_font_atlas") == null:
+        _fail("loading terminal glyph atlas was not created")
+        return
+    if int(source_canvas.call("_pixel_cell_pixels", 50)) != 3:
+        _fail("50 percent large readout must use 3x bitmap pixels")
+        return
+    if float(source_canvas.call("_pixel_text_width", "100%", 50)) <= 0.0:
+        _fail("bitmap glyph measurement is invalid")
+        return
     # Preview variants rasterize the same original layout at real lower sizes.
     screen.call("set_render_scale", 0.375)
+    if not is_equal_approx(float(source_canvas.get("console_render_scale")), 0.375):
+        _fail("bitmap glyph source did not receive 37.5 percent raster scale")
+        return
+    if int(source_canvas.call("_pixel_cell_pixels", 50)) != 2:
+        _fail("37.5 percent large readout must use 2x bitmap pixels")
+        return
+    if int(source_canvas.call("_pixel_cell_pixels", 29)) != 2:
+        _fail("37.5 percent heading must retain a 2x pixel stroke")
+        return
     if reduced_view.size != Vector2i(169, 300):
         _fail("37.5 percent narrow terminal is not 169x300 (ceil)")
         return
@@ -58,6 +79,15 @@ func _run() -> void:
         _fail("37.5 percent portrait terminal is not 270x480")
         return
     screen.call("set_render_scale", 0.25)
+    if not is_equal_approx(float(source_canvas.get("console_render_scale")), 0.25):
+        _fail("bitmap glyph source did not receive 25 percent raster scale")
+        return
+    if int(source_canvas.call("_pixel_cell_pixels", 50)) != 2:
+        _fail("25 percent large readout must use 2x bitmap pixels")
+        return
+    if int(source_canvas.call("_pixel_cell_pixels", 29)) != 1:
+        _fail("25 percent heading must be 1x to stay within 180 pixels")
+        return
     if reduced_view.size != Vector2i(180, 320):
         _fail("25 percent portrait terminal is not 180x320")
         return

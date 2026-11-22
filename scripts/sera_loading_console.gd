@@ -4,6 +4,8 @@ extends Control
 ## explicitly opt-in from BASE; it never replaces a real loading metric.
 signal preview_finished
 
+const TerminalPixelFont = preload("res://scripts/sera_terminal_pixel_font.gd")
+
 const PREVIEW_SECONDS: float = 5.0
 const PREVIEW_STEPS: int = 100
 const MAX_HISTORY: int = 120
@@ -46,6 +48,7 @@ var anim_time: float = 0.0
 var visual_elapsed: float = 0.0
 var electronic_texture: Texture2D
 var screen_font: Font
+var pixel_font_atlas: Texture2D
 var pixel_source_mode: bool = false
 var console_render_scale: float = CONSOLE_RENDER_SCALE
 var pixel_viewport: SubViewport
@@ -56,7 +59,10 @@ func _ready() -> void:
     mouse_filter = Control.MOUSE_FILTER_IGNORE if pixel_source_mode else Control.MOUSE_FILTER_STOP
     screen_font = ThemeDB.fallback_font
     if pixel_source_mode:
+        # Font and procedural noise stay inside this overlay, never in gameplay.
+        texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
         texture_repeat = CanvasItem.TEXTURE_REPEAT_ENABLED
+        pixel_font_atlas = TerminalPixelFont.make_atlas()
         _create_electronic_texture()
         resized.connect(queue_redraw)
     else:
@@ -112,6 +118,7 @@ func _resize_pixel_renderer() -> void:
     # Keep existing absolute UI coordinates and font sizes; scale only when
     # rasterizing into the viewport. This is not a gameplay viewport resize.
     pixel_source.size = size
+    pixel_source.set("console_render_scale", console_render_scale)
     pixel_source.scale = Vector2(console_render_scale, console_render_scale)
     _queue_console_redraw()
 
@@ -291,7 +298,8 @@ func _draw_system_visual(w: float, h: float) -> void:
     var bounds: Rect2 = _system_visual_bounds(w, h)
     var center := Vector2(w * 0.5, bounds.position.y + bounds.size.y * 0.52)
     var radius: float = minf(125.0, minf(w * 0.17, bounds.size.y * 0.23))
-    _draw_text("CORE // SYSTEM INTEGRITY", Vector2(43.0, bounds.position.y + 17.0),
+    var diagram_title: String = "CORE // SYSTEM INTEGRITY" if w >= 510.0 else "CORE // STATUS"
+    _draw_text(diagram_title, Vector2(43.0, bounds.position.y + 17.0),
         14 if w >= 510.0 else 12, Color("#7fb6cf", 0.86))
     _draw_system_nodes(center, radius, true)
     _draw_core_visual(center, radius)
@@ -353,8 +361,14 @@ func _draw_system_nodes(center: Vector2, radius: float, wires_only: bool) -> voi
         if active:
             draw_arc(point, 11.0, 0.0, TAU, 16, Color("#74dfff", 0.36), 1.7, true)
         var font_size: int = 12 if size.x >= 510.0 else 10
-        var width_estimate: float = float(label.length()) * float(font_size) * 0.56
-        _draw_text(label, point + Vector2(-width_estimate * 0.5, 22.0),
+        # At extremely narrow 25%-raster previews, abbreviate only the
+        # decorative node captions; the underlying system IDs never change.
+        var caption: String = label
+        if size.x < 510.0 and console_render_scale < 0.4:
+            caption = {"SHELL": "SHL", "NEXUS": "NXS",
+                "ARCHIVE": "ARC", "CRATE": "CRT"}.get(label, label)
+        var text_w: float = _pixel_text_width(caption, font_size)
+        _draw_text(caption, point + Vector2(-text_w * 0.5, 22.0),
             font_size, Color("#d5f7ff") if active else Color("#698ea0", 0.75))
 
 func _draw_diagnostics(w: float, bounds: Rect2) -> void:
@@ -367,12 +381,13 @@ func _draw_diagnostics(w: float, bounds: Rect2) -> void:
 func _draw_diag_panel(rect: Rect2, mode: int) -> void:
     draw_rect(rect, Color("#0b1f2c", 0.68))
     draw_rect(rect, Color("#55798a", 0.62), false, 1.0)
-    var short_title: bool = rect.size.x < 85.0
-    var title: String = "CORE" if mode == 0 else "BUS"
-    if not short_title:
-        title += " / DIAG"
+    var title: String = "CORE / DIAG" if mode == 0 else "BUS / DIAG"
+    if _pixel_text_width(title, 12) > rect.size.x - 16.0:
+        title = "CORE" if mode == 0 else "BUS"
+    if _pixel_text_width(title, 10) > rect.size.x - 16.0:
+        title = "C" if mode == 0 else "B"
     _draw_text(title, rect.position + Vector2(8.0, 19.0),
-        10 if short_title else 12, Color("#b4eeff", 0.88))
+        10 if title.length() <= 4 else 12, Color("#b4eeff", 0.88))
     var x: float = rect.position.x + 9.0
     var chart_w: float = rect.size.x - 18.0
     var row_step: float = maxf(13.0, (rect.size.y - 105.0) / 6.0)
@@ -394,25 +409,74 @@ func _draw_diag_panel(rect: Rect2, mode: int) -> void:
     _draw_text("SIGNAL", Vector2(x, rect.end.y - 8.0), 9,
         Color("#608ba0", 0.82))
 
+# Text sizes are quantized to *integer internal pixels*. Unlike shrinking
+# a vector font, every 5x7 glyph remains a complete, crisp pixel pattern.
+func _pixel_cell_pixels(font_size: int) -> int:
+    if console_render_scale >= 0.49:
+        if font_size >= 36:
+            return 3
+        if font_size >= 20:
+            return 2
+    elif console_render_scale >= 0.35:
+        # A bold but shortened heading remains visible at 37.5%.
+        if font_size >= 29:
+            return 2
+    elif font_size >= 36 and size.x >= 510.0:
+        # At 25%, the percentage still receives a 2px dot stroke.
+        return 2
+    return 1
+
+func _pixel_text_width(message: String, font_size: int) -> float:
+    var cell: int = _pixel_cell_pixels(font_size)
+    return float(message.length() * 6 * cell) / console_render_scale
+
+func _fit_pixel_text(message: String, font_size: int, max_width: float) -> String:
+    var cell: int = _pixel_cell_pixels(font_size)
+    var max_chars: int = maxi(1, int(floorf(
+        maxf(max_width, 0.0) * console_render_scale / float(6 * cell))))
+    if message.length() <= max_chars:
+        return message
+    if max_chars <= 2:
+        return message.substr(0, max_chars)
+    return message.substr(0, max_chars - 2) + ".."
+
 func _draw_text(message: String, at: Vector2, font_size: int,
         color: Color, glow: bool = false) -> void:
-    if screen_font == null:
+    if pixel_font_atlas == null:
         return
-    if glow:
-        draw_string(screen_font, at + Vector2(1.0, 0.0), message,
-            HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size,
-            Color("#47c9ff", 0.40))
-        draw_string(screen_font, at + Vector2(-1.0, 0.0), message,
-            HORIZONTAL_ALIGNMENT_LEFT, -1.0, font_size,
-            Color("#47c9ff", 0.28))
-    draw_string(screen_font, at, message, HORIZONTAL_ALIGNMENT_LEFT,
-        -1.0, font_size, color)
+    var cell: int = _pixel_cell_pixels(font_size)
+    # Snap the complete baseline and all advances in internal raster pixels.
+    var physical_x: int = roundi(at.x * console_render_scale)
+    var physical_y: int = roundi(at.y * console_render_scale) - 7 * cell
+    var physical_size: Vector2 = Vector2(float(5 * cell), float(7 * cell))
+    var inv_scale: float = 1.0 / console_render_scale
+    for i in range(message.length()):
+        var glyph: int = TerminalPixelFont.glyph_index(message.substr(i, 1))
+        var src_rect := Rect2(float(glyph * 6), 0.0, 5.0, 7.0)
+        var destination := Rect2(
+            Vector2(float(physical_x + i * 6 * cell), float(physical_y)) * inv_scale,
+            physical_size * inv_scale)
+        if glow:
+            var halo := Rect2(destination.position + Vector2(inv_scale, 0.0),
+                destination.size)
+            draw_texture_rect_region(pixel_font_atlas, halo, src_rect,
+                Color("#47c9ff", color.a * 0.22))
+        draw_texture_rect_region(pixel_font_atlas, destination, src_rect, color)
 
 func _draw_readout(w: float, h: float) -> void:
     var compact: bool = w < 510.0
-    _draw_text("SERA // OMNI SYNCHRONIZER", Vector2(42.0, 68.0),
-        22 if compact else 29, Color("#d3f4ff"), true)
-    _draw_text("CORE LINK  /  SHELL BUS  /  OS", Vector2(43.0, 94.0),
+    var heading: String = "SERA // OMNI SYNCHRONIZER"
+    if compact:
+        heading = "SERA // OS"
+    elif console_render_scale >= 0.35 and console_render_scale < 0.49:
+        heading = "SERA // OMNI SYNC"
+    var heading_size: int = 22
+    if not compact or (console_render_scale >= 0.35 and console_render_scale < 0.49):
+        heading_size = 29
+    _draw_text(heading, Vector2(42.0, 68.0),
+        heading_size, Color("#d3f4ff"), true)
+    _draw_text("CORE / OS" if compact else "CORE / SHELL / OS",
+        Vector2(43.0, 94.0),
         13 if compact else 16, Color("#6e9db2"))
     var latest_y: float = h - 122.0
     var first_x: float = 42.0
@@ -422,20 +486,26 @@ func _draw_readout(w: float, h: float) -> void:
         var alpha: float = maxf(0.17, 0.62 - float(i) * 0.052)
         var previous: String = history[index]
         var previous_y: float = latest_y - 63.0 - float(i) * 39.0
-        _draw_text("> " + previous, Vector2(first_x, previous_y),
-            15 if compact else 19, Color(0.48, 0.73, 0.83, alpha))
+        var previous_size: int = 15 if compact else 19
+        _draw_text(_fit_pixel_text("> " + previous, previous_size, w - first_x - 42.0),
+            Vector2(first_x, previous_y),
+            previous_size, Color(0.48, 0.73, 0.83, alpha))
     var latest: String = history.back() if not history.is_empty() else "BOOT"
-    # Reserve the right-hand corner for the 0–100 numerical readout.
-    var available: float = maxf(120.0, w - 205.0)
-    var fitted: String = latest
-    var max_chars: int = maxi(10, int(available / (14.7 if compact else 16.6)))
-    if fitted.length() > max_chars:
-        fitted = fitted.substr(0, max_chars - 2) + ".."
-    _draw_text("> " + fitted, Vector2(first_x, latest_y),
-        20 if compact else 27, Color("#e5fbff"), true)
-    _draw_text("%03d%%" % percent, Vector2(w - (142.0 if compact else 172.0),
-        latest_y + 4.0), 39 if compact else 50, Color("#efffff"), true)
+    var percent_size: int = 39 if compact else 50
+    var percentage: String = "%03d%%" % percent
+    # The right-aligned percentage has a reserved, independently measured
+    # width so neither it nor the most recent log can collide at 25%.
+    var percent_x: float = w - 40.0 - _pixel_text_width(percentage, percent_size)
+    # Compact width needs the 1px glyph cell to keep enough log characters.
+    var latest_size: int = 19 if compact else 27
+    var log_room: float = maxf(24.0, percent_x - first_x - 16.0)
+    _draw_text(_fit_pixel_text("> " + latest, latest_size, log_room),
+        Vector2(first_x, latest_y), latest_size, Color("#e5fbff"), true)
+    _draw_text(percentage, Vector2(percent_x, latest_y + 4.0),
+        percent_size, Color("#efffff"), true)
     draw_line(Vector2(first_x, latest_y + 19.0),
         Vector2(w - 45.0, latest_y + 19.0), Color("#55798a", 0.62), 1.0)
-    _draw_text("LINK %s   /   STREAM ACTIVE" % ("OK" if percent == 100 else "SYNC"),
+    var status: String = "LINK %s / STREAM ACTIVE" % (
+        "OK" if percent == 100 else "SYNC")
+    _draw_text(_fit_pixel_text(status, 13 if compact else 16, w - 86.0),
         Vector2(43.0, h - 37.0), 13 if compact else 16, Color("#85bfd7"))

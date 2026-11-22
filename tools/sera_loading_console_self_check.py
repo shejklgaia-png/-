@@ -6,6 +6,7 @@ root = Path(__file__).resolve().parents[1]
 base = (root / "scripts/base_exploration.gd").read_text("utf-8")
 console = (root / "scripts/sera_loading_console.gd").read_text("utf-8")
 manifest = (root / "tools/sera_ci_manifest.txt").read_text("utf-8")
+pixel_font = (root / "scripts/sera_terminal_pixel_font.gd").read_text("utf-8")
 
 assert 'const LoadingConsole = preload("res://scripts/sera_loading_console.gd")' in base
 assert 'screen.name = "SeraLoadingConsole"' in base
@@ -52,7 +53,61 @@ assert "set_stage(_preview_message(point), point)" in console
 assert "history.push_back(message)" in console
 assert "draw_texture_rect(" in console, "procedural repeating electronic-screen texture"
 assert "draw_line(" in console, "scanlines, frame, progress divisions"
-assert "draw_string(" in console, "terminal log drawn in canvas"
+# Pixel glyphs are generated as a compact atlas, never scaled TTFs.
+assert 'preload("res://scripts/sera_terminal_pixel_font.gd")' in console
+assert 'pixel_font_atlas = TerminalPixelFont.make_atlas()' in console
+assert 'draw_texture_rect_region(pixel_font_atlas' in console
+assert 'roundi(at.x * console_render_scale)' in console
+assert 'roundi(at.y * console_render_scale)' in console
+assert 'func _pixel_cell_pixels(font_size: int) -> int:' in console
+assert 'console_render_scale >= 0.35' in console, "37.5 percent title must have a distinct 2px mode"
+assert 'SERA // OMNI SYNC' in console, "medium title fits the screen at 2x pixels"
+assert 'func _pixel_text_width(message: String, font_size: int) -> float:' in console
+assert '_fit_pixel_text(' in console, "truncate long logs by actual glyph width"
+assert 'pixel_source.set("console_render_scale", console_render_scale)' in console
+assert 'var percent_x: float =' in console
+assert 'Image.create(' in pixel_font
+assert 'ImageTexture.create_from_image(' in pixel_font
+assert 'GLYPH_ROWS' in pixel_font
+assert 'GLYPH_ORDER' in pixel_font
+# Verify all symbols are authored as complete non-antialiased 5x7 cells.
+import re
+glyph_rows = re.findall(r'^    "[^"]": (\\[[^\\n]+\\]),
+assert "draw_string(" not in console, "no scaled vector glyphs in the terminal"
+# No animated horizontal line across the screen or progress rail.
+# Fixed scanlines and granular electronic noise remain part of the UI design.
+assert "sweep_phase" not in console, "remove left-to-right scanner motion"
+assert "head_x" not in console, "remove the progress-rail sweep stroke"
+assert "scan_y" not in console, "remove the traveling full-width horizontal noise band"
+assert "for y in range(0, int(h), 7):" in console, "retain static scanlines"
+assert "noise_phase += 1" in console, "retain flickering electronic noise"
+assert "for step in range(PREVIEW_STEPS):" in console, "retain real progress rail"
+# Core/Shell/OS visual is supplementary; the underlying percent is authoritative.
+assert "const SYSTEM_PHASE_THRESHOLDS = {" in console
+for label, threshold in [("CORE", 18), ("NEXUS", 33), ("LAB", 49),
+                         ("GRID", 67), ("ARCHIVE", 79), ("SHELL", 86),
+                         ("CRATE", 92), ("OS", 99)]:
+    assert f'"{label}": {threshold}' in console, "node must match actual load milestone"
+assert "func _system_node_online(" in console, "online nodes derive from actual milestones"
+assert "func _draw_core_visual(" in console, "rotating CORE rings and pulse"
+assert "func _draw_system_nodes(" in console, "visible linked system nodes"
+assert "func _draw_diagnostics(" in console, "left/right animated diagnostic panels"
+assert "func _visible_history_count(" in console, "preserve readable terminal history"
+assert "anim_time += dt" in console, "independent decorative animation clock"
+assert "_draw_system_visual(w, h)" in console, "render system visual in shared screen"
+assert "preview_elapsed = minf(PREVIEW_SECONDS" in console, "retain exact preview rate"
+assert '"#55798a"' in console.lower(), "shared UI blueprint color"
+assert "py tools/sera_loading_console_self_check.py" in manifest
+assert "gd tools/sera_loading_console_runtime_check.gd" in manifest
+print("SERA_LOADING_CONSOLE_STATIC_PASS")
+, pixel_font, re.M)
+assert len(glyph_rows) >= 50, f"bitmap atlas has only {len(glyph_rows)} symbols"
+for line in glyph_rows:
+    cells = re.findall(r'"([01]{5})"', line)
+    assert len(cells) == 7, "each glyph must have seven full 5-bit rows"
+for label in ("CORE", "SHELL", "NEXUS", "GRID", "OS", "100%", ">", "/"):
+    assert all(f'"{character}"' in pixel_font for character in label)
+assert "draw_string(" not in console, "no scaled vector glyphs in the terminal"
 # No animated horizontal line across the screen or progress rail.
 # Fixed scanlines and granular electronic noise remain part of the UI design.
 assert "sweep_phase" not in console, "remove left-to-right scanner motion"
