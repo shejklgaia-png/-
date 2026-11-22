@@ -650,6 +650,9 @@ gd tools/base_night_facility_runtime_check.gd
 # Equipment one-finger pitch inversion: game + Godot form + offline HTML.
 py tools/equipment_intake/vertical_drag_self_check.py
 
+# BASE full architectural replacement: all eight freshly authored silhouettes; old models archived.
+py tools/base_fresh_rebuild_self_check.py
+gd tools/base_fresh_rebuild_runtime_check.gd
 # BASE: eight function-specific roofs (not a repeated gable), actual installed geometry.
 py tools/base_roof_identity_self_check.py
 gd tools/base_roof_identity_runtime_check.gd

@@ -6,7 +6,7 @@ def get(name: str) -> str:
     return (ROOT / name).read_text(encoding="utf-8")
 
 hub = get("scripts/base_exploration.gd")
-roof = get("scripts/sera_base_roof_identity.gd")
+roof = get("scripts/sera_base_fresh_design.gd")
 arch = get("scripts/sera_base_architecture.gd")
 capture = get("tools/base_isometric_visual_capture.gd")
 manifest = get("tools/sera_ci_manifest.txt")
@@ -24,28 +24,16 @@ for spec in (
 # A full, unoccluded opening and a distinct foreground feature are required,
 # rather than counting details positioned behind upper roof plates.
 for feature in (
-    '"LabPrinterFrontHousing"', '"LabPrinterWorkSurface"',
-    '"CollectorForwardCable"', '"CollectorOpenClawJaw"',
-    '"CollectorVisibleJawCheek"',
-    '"GeneratorCoreBackdrop"', '"GeneratorVisibleRotorSpoke"',
-    '"StorageContainerRoof"', '"StorageRoofRidge"',
-    '"StorageVisibleCargoCase"',
-    '"LabFocalPrintBed"', '"CollectorClawSignalCheek"',
+    '"FreshLabOpenPrinterBridge"', '"FreshLabFabricationBed"',
+    '"FreshCollectorTallBoom"', '"FreshCollectorOpenGrip"',
+    '"FreshGeneratorFrontRotor"', '"FreshGeneratorBlueCorona"',
+    '"FreshStorageOffsetStacks"', '"FreshStorageShortRearTarp"',
 ):
-    assert feature in roof, "missing camera-facing detail " + feature
-assert '"CargoStorageTarp"' in arch
-assert '"StorageExposedUpperCargo"' in arch
-assert '"StorageVisibleCargoCase"' in roof
-# Rework must simplify actual workshop, crane and warehouse geometry rather than stacking.
-assert 'LabOpenWorkshopGantry' in arch
-assert 'CargoStoragePalletRail' in arch
-assert 'CollectorRaisedJib' in roof
-field = get("scripts/base_facility_system.gd")
-assert 'FacilityNamePlate' in field
-assert 'tag.size = Vector2(label_width, 28.0)' in field
-assert 'point.y - 46.0' in field
-assert 'Vector3(2.30, 0.14, 0.96)' in roof, "storage roof still hides the cargo"
-assert "BaseRoofIdentity.add_details(g, key)" in arch
+    assert feature in roof, "missing camera-facing fresh part " + feature
+assert '"FreshStorageLoadingLift"' in roof
+assert "Vector3(2.13, 0.12, 0.63)" in roof, "storage canopy hides cargo"
+assert 'BaseFreshDesign.add_details(g, key)' in arch
+assert 'const ACTIVE_BASE_MODEL: String = "FRESH_20261122"' in arch
 # Real viewport screenshot, AFTER fully constructing eight facilities.
 assert 'BaseStartupOverlay' in capture
 assert 'for _attempt in range(90):' in capture
