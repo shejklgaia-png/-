@@ -16,7 +16,16 @@ func _run() -> void:
     if screen == null:
         _fail("not a Control")
         return
+    var previous_fps: int = Engine.max_fps
+    var previous_time_scale: float = Engine.time_scale
+    Engine.max_fps = 40
     root.add_child(screen)
+    if Engine.max_fps != 10:
+        _fail("loading overlay should cap real FPS at 10")
+        return
+    if Engine.time_scale != previous_time_scale:
+        _fail("loading overlay must not alter the game clock")
+        return
     screen.size = Vector2(720.0, 1280.0)
     screen.set_process(false)
     # Only the terminal's offscreen target is half resolution.
@@ -151,8 +160,41 @@ func _run() -> void:
     if float(screen.get("anim_time")) < 0.49 or int(screen.get("percent")) != live_percent:
         _fail("decorative animation must advance without faking real load progress")
         return
+    # Real completion only appears after the real 100% milestone.
+    if bool(screen.get("completion_cut_active")):
+        _fail("completion cut activated before 100 percent")
+        return
+    screen.call("set_stage", "SYSTEM / BOOT COMPLETE", 100)
+    if not bool(screen.get("completion_cut_active")):
+        _fail("completion mode did not activate at the real 100 percent")
+        return
+    if not bool(source_canvas.get("completion_cut_active")):
+        _fail("pixel renderer did not receive full-activation state")
+        return
+    if int(screen.get("completion_frames_remaining")) != 2:
+        _fail("completion must begin with exactly two frames")
+        return
+    if not bool(screen.call("_system_node_online", "OS")):
+        _fail("all eight system nodes must be online")
+        return
+    if not is_equal_approx(float(screen.call("_diagnostic_value", 2, 0)), 1.0):
+        _fail("completion diagnostics must show maximum bars")
+        return
+    var completed: Array[int] = []
+    screen.connect("completion_cut_finished", func() -> void: completed.append(1))
+    screen.call("_on_completion_frame_presented")
+    if int(screen.get("completion_frames_remaining")) != 1 or not completed.is_empty():
+        _fail("completion ended before the second presented frame")
+        return
+    screen.call("_on_completion_frame_presented")
+    if int(screen.get("completion_frames_remaining")) != 0 or completed.size() != 1:
+        _fail("completion did not finish after precisely two presented frames")
+        return
     screen.call("start_preview")
     screen.set_process(false)
+    if bool(screen.get("completion_cut_active")):
+        _fail("preview restart retained previous completion cut")
+        return
     screen.call("_process", 2.5)
     if int(screen.get("percent")) != 50:
         _fail("2.5 sec did not produce exactly 50 steps")
@@ -168,6 +210,27 @@ func _run() -> void:
     if bool(screen.get("preview_running")):
         _fail("completed demo is still advancing")
         return
+    if not bool(screen.get("completion_cut_active")):
+        _fail("preview completion did not activate the final cut")
+        return
+    if int(screen.get("completion_frames_remaining")) != 2:
+        _fail("preview final cut should also last two frames")
+        return
+    var previews_finished: Array[int] = []
+    screen.connect("preview_finished", func() -> void: previews_finished.append(1))
+    screen.call("_on_completion_frame_presented")
+    if not previews_finished.is_empty():
+        _fail("preview finished before two completed draws")
+        return
+    screen.call("_on_completion_frame_presented")
+    if previews_finished.size() != 1:
+        _fail("preview did not close after exactly two draws")
+        return
+    screen.free()
+    if Engine.max_fps != 40 or Engine.time_scale != previous_time_scale:
+        _fail("loading overlay did not restore the user's previous FPS and time scale")
+        return
+    Engine.max_fps = previous_fps
     await process_frame
     print("SERA_LOADING_CONSOLE_RUNTIME_PASS")
     quit(0)
