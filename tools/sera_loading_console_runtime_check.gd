@@ -62,6 +62,9 @@ func _run() -> void:
     if int(source_canvas.call("_pixel_cell_pixels", 50)) != 2:
         _fail("37.5 percent large readout must use 2x bitmap pixels")
         return
+    if int(source_canvas.call("_pixel_cell_pixels", 29)) != 2:
+        _fail("37.5 percent heading must retain a 2x pixel stroke")
+        return
     if reduced_view.size != Vector2i(169, 300):
         _fail("37.5 percent narrow terminal is not 169x300 (ceil)")
         return
@@ -78,6 +81,9 @@ func _run() -> void:
         return
     if int(source_canvas.call("_pixel_cell_pixels", 50)) != 2:
         _fail("25 percent large readout must use 2x bitmap pixels")
+        return
+    if int(source_canvas.call("_pixel_cell_pixels", 29)) != 1:
+        _fail("25 percent heading must be 1x to stay within 180 pixels")
         return
     if reduced_view.size != Vector2i(180, 320):
         _fail("25 percent portrait terminal is not 180x320")
