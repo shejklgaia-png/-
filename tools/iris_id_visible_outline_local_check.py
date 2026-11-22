@@ -45,11 +45,22 @@ assert 'Color("#17212f")' in layer
 assert 'render_mode unshaded, cull_front, depth_draw_opaque;' in closed
 assert 'render_mode unshaded, cull_disabled, depth_draw_opaque;' in opened
 assert 'render_mode' not in canvas or 'shader_type canvas_item' in canvas
-assert 'TEXTURE_PIXEL_SIZE' in canvas
+assert 'uniform sampler2D mesh_id_texture' in canvas
+assert 'uniform vec2 mesh_id_texel' in canvas
+assert 'texture(mesh_id_texture, uv).r' in canvas
+assert 'if (id >= 0.06)' in canvas
+assert 'return;' not in canvas   # No undefined fragment() early return
+assert 'COLOR = vec4(ink_color.rgb, edge ? ink_color.a : 0.0);' in canvas
+# Raw ID texture MUST NOT be assigned to the displayed TextureRect.
+assert 'ink_rect.texture = id_viewport.get_texture()' not in layer
+assert 'safe_image.fill(Color.TRANSPARENT)' in layer
+assert 'ink_rect.texture = ImageTexture.create_from_image(safe_image)' in layer
+assert 'material.set_shader_parameter("mesh_id_texture", id_viewport.get_texture())' in layer
+assert '"mesh_id_texel"' in layer
 assert 'mismatched_id' in canvas
 assert 'neighbor_id + 0.05 < center_id' in canvas
-assert 'if (id < 0.06)' in canvas
-assert 'COLOR = edge ? ink_color : vec4(0.0);' in canvas
+assert 'if (id >= 0.06)' in canvas
+assert 'COLOR = vec4(ink_color.rgb, edge ? ink_color.a : 0.0);' in canvas
 assert 'for (int r = 1; r <= 3; r++)' in canvas
 # Other systems untouched: no new blanket replacement of SeraViewEdges.
 assert 'const INK_SHADER = preload("res://shaders/sera_view_edges.gdshader")' in read(
