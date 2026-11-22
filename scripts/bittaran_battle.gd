@@ -2,6 +2,8 @@ extends "res://scripts/main.gd"
 ## Dedicated Bittaran battle. Reuse proven SERA controls/combat/camera/HP,
 ## but replace the red training dummy with the authored quadruped.
 const BittaranRig = preload("res://scripts/bittaran_rig.gd")
+const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
+const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
 const BittaranAI = preload("res://scripts/bittaran_ai.gd")
 const BittaranFootIK = preload("res://scripts/bittaran_foot_ik.gd")
 const BittaranParts = preload("res://scripts/bittaran_parts.gd")
