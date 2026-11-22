@@ -78,7 +78,8 @@ var customize_body_rotate_cue: Control
 # NEXUS-only, opt-in diagnostic for the active same-frame GPU contours.
 # Unlike the removed ID-mask probe, this operates on the actual SERA mesh.
 const OUTLINE_DIAGNOSTIC_MODES: Array[String] = [
-    "通常", "外周候補", "全エッジ", "開放境界", "接合線", "深度無視"
+    "通常", "外周候補", "全エッジ", "開放境界", "接合線", "深度無視",
+    "対象メッシュ", "マスク表示", "ハル単独", "合成確認"
 ]
 const OUTLINE_DIAGNOSTIC_EXPLAINS: Array[String] = [
     "通常の線幅と色。診断は終了時に自動解除します。",
@@ -86,7 +87,11 @@ const OUTLINE_DIAGNOSTIC_EXPLAINS: Array[String] = [
     "黄: 生成済みの全エッジ。視点による非表示を解除。",
     "橙: 開放境界のみ。閉じた装甲には通常ありません。",
     "紫: メッシュ同士の交差から生成した接合線のみ。",
-    "青緑/橙/紫: 深度判定を外し、遮蔽を切り分けます。"
+    "青緑/橙/紫: 深度判定を外し、遮蔽を切り分けます。",
+    "緑: 輪郭へ登録した表示中のメッシュを着色。",
+    "橙: ステンシル書込みパスを着色。描画確認用。",
+    "紫: マスクなしの反転ハル。面の破綻を確認。",
+    "青緑: 実際のステンシル＋反転ハルの合成。"
 ]
 var outline_debug_button: Panel
 var outline_debug_button_text: Label
@@ -2981,7 +2986,7 @@ func _create_outline_debug() -> void:
     heading.add_theme_font_size_override("font_size", 14)
     heading.add_theme_color_override("font_color", Color("#d8f2f9"))
     outline_debug_panel.add_child(heading)
-    # Six manual-tap diagnostic cells, avoiding Android mouse emulation.
+    # Ten manual-tap diagnostic cells, avoiding Android mouse emulation.
     # The cells never intercept drags outside the diagnostic panel.
     for i in range(OUTLINE_DIAGNOSTIC_MODES.size()):
         var item := Panel.new()
@@ -3008,8 +3013,8 @@ func _create_outline_debug() -> void:
 
     outline_debug_stats = Label.new()
     outline_debug_stats.name = "GPUEdgeGeometryCounts"
-    outline_debug_stats.position = Vector2(10.0, 131.0)
-    outline_debug_stats.size = Vector2(286.0, 111.0)
+    outline_debug_stats.position = Vector2(10.0, 219.0)
+    outline_debug_stats.size = Vector2(286.0, 128.0)
     outline_debug_stats.text = "GPU 輪郭メッシュの準備状態を確認中"
     outline_debug_stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
     outline_debug_stats.add_theme_font_size_override("font_size", 13)
@@ -3019,8 +3024,8 @@ func _create_outline_debug() -> void:
 
     outline_debug_hint = Label.new()
     outline_debug_hint.name = "GPUEdgeDiagnosticsHelp"
-    outline_debug_hint.position = Vector2(10.0, 244.0)
-    outline_debug_hint.size = Vector2(286.0, 54.0)
+    outline_debug_hint.position = Vector2(10.0, 350.0)
+    outline_debug_hint.size = Vector2(286.0, 57.0)
     outline_debug_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     outline_debug_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
     outline_debug_hint.add_theme_font_size_override("font_size", 11)
@@ -3043,10 +3048,10 @@ func _layout_outline_debug(view: Vector2) -> void:
     # top of SERA at left. The model stays visible for rotation/screenshots.
     var panel_width: float = minf(307.0, view.x - 2.0 * x)
     var panel_x: float = view.x - x - panel_width
-    var panel_y: float = minf(view.y - 310.0,
-        maxf(340.0, view.y * 0.39))
+    var panel_y: float = minf(view.y - 414.0,
+        maxf(295.0, view.y * 0.34))
     outline_debug_panel.position = Vector2(panel_x, panel_y)
-    outline_debug_panel.size = Vector2(panel_width, 306.0)
+    outline_debug_panel.size = Vector2(panel_width, 411.0)
 
 
 func _set_gpu_outline_debug_mode(mode: int) -> void:
@@ -3139,12 +3144,16 @@ func _refresh_outline_debug(delta: float) -> void:
         if stencil != null:
             stencil_data = stencil.call("get_stencil_snapshot")
     outline_debug_stats.text = (
-        "全身マスク: %d/%d  非対応: %d\n"
-        + "描画元: %d  輪郭生成: %d  欠落: %d\n"
+        "表示対象: %d / 候補総数: %d  非表示: %d\n"
+        + "全身マスク: %d/%d  非対応: %d\n"
+        + "描画元: %d  エッジ生成: %d  欠落: %d\n"
         + "候補エッジ: %d  交差線: %d\n"
         + "カメラ: %s  枠線設定: %s\n"
         + "深度: %s  接合線キャッシュ: %s"
     ) % [
+        int(stencil_data.get("candidates_visible", 0)),
+        int(stencil_data.get("candidates_total", 0)),
+        int(stencil_data.get("candidates_hidden", 0)),
         int(stencil_data.get("hulls", 0)),
         int(stencil_data.get("parts", 0)),
         int(stencil_data.get("unsupported", 0)),

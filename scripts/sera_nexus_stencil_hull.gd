@@ -7,14 +7,22 @@ const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
 const HullGeometry = preload("res://scripts/sera_nexus_smooth_hull_geometry.gd")
 const STENCIL_MASK_SHADER = preload("res://shaders/sera_nexus_stencil_mask.gdshader")
 const STENCIL_HULL_SHADER = preload("res://shaders/sera_nexus_stencil_hull.gdshader")
+const CANDIDATE_SHADER = preload("res://shaders/sera_nexus_candidate_debug.gdshader")
+const MASK_VISIBLE_SHADER = preload("res://shaders/sera_nexus_stencil_mask_debug.gdshader")
+const HULL_UNMASKED_SHADER = preload("res://shaders/sera_nexus_hull_unmasked_debug.gdshader")
 const RESCAN_SECONDS: float = 0.35
 
 var _root: Node3D
 var _mask_material: ShaderMaterial
 var _hull_material: ShaderMaterial
+var _candidate_material: ShaderMaterial
+var _visible_mask_material: ShaderMaterial
+var _unmasked_hull_material: ShaderMaterial
 var _links: Dictionary = {}
 var _baked_cache: Dictionary = {}
 var _elapsed: float = 0.0
+var _last_candidate_count: int = 0
+var _last_hidden_count: int = 0
 var _mode: int = 0
 var _enabled: bool = true
 
@@ -33,6 +41,17 @@ func _ready() -> void:
     _hull_material.render_priority = -21
     _hull_material.set_shader_parameter("outline_color", Color("#0b1118"))
     _hull_material.set_shader_parameter("outline_px", 3.0)
+    _candidate_material = ShaderMaterial.new()
+    _candidate_material.shader = CANDIDATE_SHADER
+    _candidate_material.render_priority = -22
+    _visible_mask_material = ShaderMaterial.new()
+    _visible_mask_material.shader = MASK_VISIBLE_SHADER
+    _visible_mask_material.render_priority = -22
+    _unmasked_hull_material = ShaderMaterial.new()
+    _unmasked_hull_material.shader = HULL_UNMASKED_SHADER
+    _unmasked_hull_material.render_priority = -21
+    _unmasked_hull_material.set_shader_parameter("outline_color", Color("#ec35f3"))
+    _unmasked_hull_material.set_shader_parameter("outline_px", 3.0)
     _enabled = GraphicsSettings.get_enabled("character_outline")
     _rebuild_links()
     _apply_mode()
@@ -51,21 +70,40 @@ func _process(delta: float) -> void:
         _rebuild_links()
 
 func set_diagnostic_mode(mode: int) -> void:
-    _mode = clampi(mode, 0, 5)
+    _mode = clampi(mode, 0, 9)
     _apply_mode()
 
 func _apply_mode() -> void:
-    var draw_hull: bool = _enabled and (_mode == 0 or _mode == 1)
-    var color: Color = (
-        Color("#29f4f7") if _mode == 1 else Color("#0b1118"))
-    if is_instance_valid(_hull_material):
-        _hull_material.set_shader_parameter("outline_color", color)
-    for entry in _links.values():
-        var item: Dictionary = entry
-        for role in ["mask", "hull"]:
-            var draw: MeshInstance3D = item.get(role) as MeshInstance3D
-            if is_instance_valid(draw):
-                draw.visible = draw_hull
+    # 0 = normal, 1 = cyan combined silhouette, 2-5 = existing GPU edges
+    # 6 = visibly eligible mesh, 7 = tinted stencil writer
+    # 8 = unmasked hull, 9 = real stencil mask + bright combined hull.
+    # Diagnostic-only passes NEVER alter the source mesh material.
+    var enable_stencil: bool = _enabled and (
+        _mode == 0 or _mode == 1 or _mode == 7 or _mode == 9)
+    var enable_hull: bool = _enabled and (
+        _mode == 0 or _mode == 1 or _mode == 8 or _mode == 9)
+    var mask_shader: ShaderMaterial = _mask_material
+    if _mode == 6:
+        mask_shader = _candidate_material
+    elif _mode == 7:
+        mask_shader = _visible_mask_material
+    var hull_shader: ShaderMaterial = (
+        _unmasked_hull_material if _mode == 8 else _hull_material)
+    var outline_color: Color = (
+        Color("#29f4f7") if _mode == 1 or _mode == 9
+        else Color("#0b1118"))
+    _hull_material.set_shader_parameter("outline_color", outline_color)
+    for item in _links.values():
+        var record: Dictionary = item
+        var mask: MeshInstance3D = record.get("mask") as MeshInstance3D
+        var hull: MeshInstance3D = record.get("hull") as MeshInstance3D
+        if is_instance_valid(mask):
+            mask.material_override = mask_shader
+            mask.visible = enable_stencil or (_enabled and _mode == 6)
+        if is_instance_valid(hull):
+            hull.material_override = hull_shader
+            hull.visible = enable_hull
+
 
 func _source_allowed(node: Node) -> bool:
     if bool(node.get_meta("sera_generated_live_edge", false)):
@@ -115,6 +153,8 @@ func _rebuild_links() -> void:
     if not is_instance_valid(_root):
         return
     var found: Dictionary = {}
+    var total_candidates: int = 0
+    var hidden_candidates: int = 0
     var pending: Array[Node] = [_root]
     while not pending.is_empty():
         var node: Node = pending.pop_back()
@@ -124,10 +164,16 @@ func _rebuild_links() -> void:
             var part: MeshInstance3D = node as MeshInstance3D
             if part.mesh != null and not (part.mesh is QuadMesh) and (
                     not (part.mesh is PlaneMesh)):
-                found[part.get_instance_id()] = part
+                total_candidates += 1
+                if part.is_visible_in_tree():
+                    found[part.get_instance_id()] = part
+                else:
+                    hidden_candidates += 1
         for child in node.get_children():
             if child is Node3D:
                 pending.append(child)
+    _last_candidate_count = total_candidates
+    _last_hidden_count = hidden_candidates
     for id in _links.keys():
         if found.has(id):
             continue
@@ -184,4 +230,8 @@ func get_stencil_snapshot() -> Dictionary:
             missing += 1
     return {"parts": _links.size(), "hulls": hulls,
         "unsupported": missing, "enabled": _enabled,
-        "mode": _mode, "shared_stencil": 17}
+        "mode": _mode, "shared_stencil": 17,
+        "candidates_total": _last_candidate_count,
+        "candidates_hidden": _last_hidden_count,
+        "candidates_visible": _links.size(),
+        "visible_mask_draws": hulls}
