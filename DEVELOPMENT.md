@@ -1,3 +1,9 @@
+## 2026-11-22 — 共通輪郭のMASK/SOLID不発をIRIS実績の単一float ID比較方式で修正
+- 実機診断：RAW IDは101メッシュの識別色を描画、共通MASKと共通SOLIDはいずれも白。一方、完全独立BASICシェーダーはマゼンタを表示。CanvasItem自体は動作しており、問題は共通輪郭シェーダー固有のパース・コンパイル・描画経路に絞られたが、端末ログ未取得のため詳細なGPUエラーは未確定。
+- 共通輪郭 `shaders/sera_scene_mesh_id_outline.gdshader` の色ベクトル3成分を関数で逐次比較する独自方式を撤去し、実機で動くH02 IRIS専用の単一float ID取得・比較・3px円盤近傍ループと同じコード経路へ統一。共通SubViewportのRGB444を高重みの3チャネルでひとつの大小比較用floatへ写像し、8bit/sRGB変換後もRGB各チャネルの階層順を維持。最大4095識別子の入力方式と深度遮蔽・片側3px接触線を保持。
+- `diagnostic_mode=1` はNEXUS内小窓でのみ強制マゼンタを出す仕様を維持。失敗時も全画面に白ColorRectを置かず、透明1pxの安全なTextureRectを保持。モデル原本・材質、ID書込み専用シェーダー、3Dカメラ、HUD/レイヤー、アイリス専用描画には触れない。
+- 原因コード候補を取り除いた修正であり、GL CompatibilityのGPU実機描画の復旧はまだ未確認。ユーザー指示どおりCIテスト項目・テスト用ファイル・設定を確認変更せず、CI/Godot/Android・テストは実行しないままmainへマージ。
+
 ## 2026-11-22 — 追加実機画像に基づく共通輪郭シェーダー最小プローブ
 - NEXUSの実機画像でRAW IDはメッシュ色と形状を描画、Roots 2／Meshes 101／Camera ON／Overlay ON／Layer 1／ID 636×1449／InkShader BOUND／Quad 720×1640。一方、共通シェーダーによるMASKは白、共通シェーダー自身の強制マゼンタSOLIDでも白を維持。BOUNDは材質参照の設定状態であり、Godot/GL Compatibilityでのshader成功を保証しない。
 - 原因候補は共通shaderのパース/コンパイル不成立・GPU側のシェーダー適用不良・描画先のCanvasItem/Material不良。現在の画像だけでは区別不能。
