@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Developer plan/selection invariants: focused tests cannot hide full CI."""
+"""Developer plan/selection invariants: scoped tests and opt-in full suites remain available."""
 from pathlib import Path
 
 from sera_ci_suite import focused_selection, load_tests
@@ -86,4 +86,4 @@ joined = "\\n".join((ROOT / "docs/agent" / name).read_text(encoding="utf-8")
 for phrase in ("SERA_MODEL_PARTS_V1", "999個", "HEAD D", "main.gd", "Icon Studio",
                "CI失敗時", "DEVELOPMENT.md", "GitSync", "DIAG: OFF"):
     assert phrase in joined, phrase
-print("SERA_WORKPLAN_PASS: bounded source hints, registered focused tests, full CI unchanged")
+print("SERA_WORKPLAN_PASS: bounded hints, registered focused tests, opt-in full suite preserved")
