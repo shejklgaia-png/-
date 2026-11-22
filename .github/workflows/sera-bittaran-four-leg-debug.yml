@@ -1,12 +1,8 @@
 name: SERA Bittaran four-leg debug buttons
+# Manual-only: focused local checks are the default; retain opt-in Actions diagnostics.
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'scripts/bittaran_battle.gd'
-      - 'tools/bittaran_four_leg_debug_*'
-      - '.github/workflows/sera-bittaran-four-leg-debug.yml'
   workflow_dispatch:
+
 jobs:
   debug-leg-buttons:
     runs-on: ubuntu-latest
