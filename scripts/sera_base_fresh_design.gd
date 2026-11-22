@@ -71,6 +71,20 @@ static func _nexus(g: Variant) -> void:
         Vector3(0, 1.64, 1.79), Vector3(2.63, 2.73, 0.60), "armor_light")
     g.poly("FreshNexusGateCore", "bevel",
         Vector3(0, 1.52, 2.17), Vector3(1.94, 2.30, 0.27), "void")
+    # Actual split armored entry door: the first capture showed a large
+    # black hole, not a command facility. Make each panel a real metal slab.
+    for side in [-1.0, 1.0]:
+        g.poly_tilt("FreshNexusBlastDoorPanel", "bevel",
+            Vector3(side * 0.48, 1.46, 2.39),
+            Vector3(0.91, 1.90, 0.17), "slate",
+            Vector3(0, side * -0.065, 0))
+        g.box("FreshNexusBlastDoorJoint",
+            Vector3(side * 0.50, 1.42, 2.52),
+            Vector3(0.58, 0.09, 0.10), "armor_light")
+    g.box("FreshNexusGateSeam",
+        Vector3(0, 1.45, 2.53), Vector3(0.11, 1.95, 0.07), "void")
+    g.box("FreshNexusAccessBeacon",
+        Vector3(0, 2.41, 2.55), Vector3(0.40, 0.12, 0.07), "blue_light")
     g.box("FreshNexusGateDarkFloor",
         Vector3(0, 0.55, 2.38), Vector3(2.12, 0.12, 0.57), "dark")
     for side in [-1.0, 1.0]:
@@ -170,7 +184,7 @@ static func _labo(g: Variant) -> void:
             Vector3(-1.38, 0.93 + j * 0.53, -0.81),
             Vector3(0.58, 0.42, 0.60), "crate" if j % 2 else "rust")
     g.box("FreshLabWorkLamp",
-        Vector3(0, 3.08, 0.02), Vector3(1.18, 0.10, 0.13), "amber_light")
+        Vector3(0, 3.08, 0.02), Vector3(1.18, 0.10, 0.13), "amber")
     g.poly("FreshLabRearVent", "hood",
         Vector3(0.00, 3.34, -1.27), Vector3(0.86, 0.42, 0.74), "armor_light")
 
@@ -245,8 +259,12 @@ static func _smelter(g: Variant) -> void:
         Vector3(0.0, 1.85, -0.38), Vector3(2.07, 1.18, 1.47), "slate")
     g.poly("FreshSmelterHotThroat", "bevel",
         Vector3(0.0, 1.16, 1.02), Vector3(1.52, 1.47, 0.30), "void")
+    # Orange fire body with smaller hot slots; avoid all-white blown-out
+    # vertical bars visible in the first actual gameplay image.
     g.box("FreshSmelterCombustionCore",
-        Vector3(0.0, 1.21, 1.25), Vector3(1.20, 1.23, 0.14), "amber_light")
+        Vector3(0.0, 1.21, 1.25), Vector3(1.15, 1.13, 0.14), "amber")
+    g.box("FreshSmelterLowFire",
+        Vector3(0.0, 0.77, 1.40), Vector3(0.91, 0.22, 0.06), "amber_light")
     for j in range(4):
         g.box("FreshSmelterFurnaceGrate",
             Vector3(-0.48 + j * 0.32, 1.21, 1.38),
@@ -350,7 +368,7 @@ static func _generator(g: Variant) -> void:
     g.box("FreshGeneratorBlackRotorWell",
         Vector3(0, 1.41, 1.14), Vector3(1.53, 1.55, 0.14), "void")
     g.ring("FreshGeneratorBlueCorona",
-        Vector3(0, 1.41, 1.30), 0.76, "blue_light", "z")
+        Vector3(0, 1.41, 1.30), 0.76, "blue", "z")
     g.ring("FreshGeneratorRotorInnerRim",
         Vector3(0, 1.41, 1.32), 0.57, "blue", "z")
     for j in range(5):
@@ -380,14 +398,21 @@ static func _storage(g: Variant) -> void:
         Vector3(0.49, 0.85, 0.43),
         Vector3(-0.55, 1.61, 0.28),
         Vector3(0.49, 1.50, 0.10),
-        Vector3(-0.55, 2.28, -0.14),
+        Vector3(-0.55, 2.48, -0.14),
     ]
     for i in range(stacks.size()):
         var at: Vector3 = stacks[i]
         g.poly("FreshStorageOffsetStacks", "bevel", at,
             Vector3(0.93 if i % 2 == 0 else 0.86,
                 0.58 if i != 4 else 0.49, 0.79),
-            "crate" if i % 3 else "rust")
+            "armor_light" if i == 4 else ("crate" if i % 3 else "rust"))
+        g.box("FreshStorageColoredCargoLabel",
+            at + Vector3(0.02, -0.04, 0.44),
+            Vector3(0.51, 0.13, 0.08),
+            "caution" if i % 2 else "blue")
+        g.box("FreshStorageFrontContainerSeam",
+            at + Vector3(0.0, 0.18, 0.44),
+            Vector3(0.74, 0.07, 0.085), "dark")
         g.box("FreshStorageContainerLid",
             at + Vector3(0, 0.32, 0),
             Vector3(0.95, 0.08, 0.82), "armor_light")
