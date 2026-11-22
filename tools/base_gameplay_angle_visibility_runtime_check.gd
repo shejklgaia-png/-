@@ -3,20 +3,20 @@ extends SceneTree
 ## Physical equipment cues are measured in SCREEN pixels below UI labels.
 const HERO_CUES = {
     "LABO": {
-        "point": Vector3(0.18, 0.94, 1.79), "half_width": 0.70,
-        "min_width_px": 24.0, "feature": "LabFocalPrintBed",
+        "point": Vector3(0.0, 1.06, 1.11), "half_width": 0.87,
+        "min_width_px": 24.0, "feature": "FreshLabFabricationBed",
     },
     "SCRAP_COLLECTOR": {
-        "point": Vector3(0.46, 1.64, 1.72), "half_width": 0.63,
-        "min_width_px": 28.0, "feature": "CollectorClawSignalCheek",
+        "point": Vector3(0.43, 1.52, 1.43), "half_width": 0.73,
+        "min_width_px": 28.0, "feature": "FreshCollectorOpenGrip",
     },
     "GENERATOR": {
-        "point": Vector3(-0.08, 1.18, 1.29), "half_width": 0.63,
-        "min_width_px": 32.0, "feature": "GeneratorCoreCorona",
+        "point": Vector3(0.0, 1.41, 1.30), "half_width": 0.76,
+        "min_width_px": 32.0, "feature": "FreshGeneratorBlueCorona",
     },
     "STORAGE": {
-        "point": Vector3(-0.53, 1.21, 1.16), "half_width": 0.65,
-        "min_width_px": 32.0, "feature": "StorageVisibleCargoCase",
+        "point": Vector3(-0.55, 1.61, 0.28), "half_width": 0.50,
+        "min_width_px": 22.0, "feature": "FreshStorageOffsetStacks",
     },
 }
 
@@ -105,9 +105,9 @@ func _run() -> void:
     var store: Node3D = station.get_node("STORAGE") as Node3D
     var store_model: Node3D = store.get_node("IndustrialModel") as Node3D
     var cover_edge: Vector2 = camera.unproject_position(_to_world(
-        store, store_model, Vector3(0.0, 2.76, -0.47)))
+        store, store_model, Vector3(0.0, 2.63, -1.03)))
     var exposed: Vector2 = camera.unproject_position(_to_world(
-        store, store_model, Vector3(0.0, 1.35, 0.43)))
+        store, store_model, Vector3(-0.55, 1.61, 0.28)))
     if exposed.y <= cover_edge.y + 18.0 * s:
         _fail("cargo silhouette still sits behind the forward roof edge")
         return
