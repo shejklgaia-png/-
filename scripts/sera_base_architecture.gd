@@ -284,6 +284,10 @@ class Batch:
                     edge_draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
                     edge_draw.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
                     edge_draw.extra_cull_margin = 0.30
+                    # Replaced by the viewport-shared ID contour. Retain the
+                    # authored ribbon data for reversible previews, but never
+                    # show a second outline over the new pixel mask.
+                    edge_draw.visible = false
                     edge_draw.set_meta("FX_NO_OUTLINE", true)
                     host.add_child(edge_draw)
                     outline_meshes_by_bucket[key] = edge_multi
