@@ -36,8 +36,11 @@ func _register() -> void:
     if layer == null:
         layer = CanvasLayer.new()
         layer.name = LAYER_NAME
-        # World mesh ink above 3D, beneath existing HUD CanvasLayer(1+).
-        layer.layer = 0
+        # Use a dedicated foreground CanvasLayer. Layer 0 shares the
+        # default world canvas and may be composited before the 3D image
+        # in GL Compatibility. The overlay must be strictly above 3D.
+        # Scene HUDs use layer 2+ and remain above the ID ink.
+        layer.layer = 1
         viewport.add_child(layer)
     _compositor = layer.get_node_or_null(COMPOSITOR_NAME) as Control
     if _compositor == null:
