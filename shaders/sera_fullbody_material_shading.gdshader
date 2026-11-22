@@ -15,6 +15,7 @@ uniform float dark_threshold : hint_range(0.0, 1.0) = 0.70;
 uniform int lens_levels : hint_range(0, 8) = 3;
 uniform float lens_threshold : hint_range(0.0, 1.0) = 0.10;
 uniform bool lens_emissive = false;
+uniform vec3 fx_emission : source_color = vec3(0.0);
 
 float sera_band_brightness(int levels, float threshold, float lighting) {
     if (levels < 2) {
@@ -59,10 +60,11 @@ void fragment() {
         * 0.5 + 0.5, 0.0, 1.0);
     float multiplier = sera_band_brightness(levels, threshold, illumination);
     vec3 shaded = original * multiplier;
+    EMISSION = fx_emission;
     if (kind == 2 && lens_emissive) {
         // Not active for the user-supplied preset (lens_lit=false).
         shaded = mix(original, vec3(0.30, 0.82, 1.0), 0.67);
-        EMISSION = vec3(0.09, 0.29, 0.43);
+        EMISSION += vec3(0.09, 0.29, 0.43);
     }
     ALBEDO = clamp(shaded, vec3(0.0), vec3(1.0));
 }
