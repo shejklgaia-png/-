@@ -165,6 +165,8 @@ func set_nexus_sera_contact_mode(enabled: bool) -> void:
         if enabled:
             # NEXUS SERA only. Retain the room/building 2px ID ink.
             material.set_shader_parameter("sera_stroke_px", 3.0)
+            material.set_shader_parameter("sera_seam_px", 1.0)
+            material.set_shader_parameter("sera_screen_bounds", Vector4.ZERO)
     _clear_copies()
     _scan_elapsed = 0.0
 
@@ -198,9 +200,66 @@ func _process(delta: float) -> void:
         dirty = _rescan() or dirty
     dirty = _sync_copies() or dirty
     if dirty:
+        if _nexus_sera_contact_mode:
+            _update_nexus_sera_screen_bounds(source_camera)
         id_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
         _redraw_requests += 1
 
+
+
+
+# Restrict the one-pixel OUTSIDE silhouette search to the screen-space region
+# covered by the displayed SERA. This avoids a full-screen neighbor scan.
+# Only calculate when ID rendering is dirty (camera/motion/equipment changes).
+func _update_nexus_sera_screen_bounds(camera: Camera3D) -> void:
+    if not is_instance_valid(ink) or not is_instance_valid(camera):
+        return
+    var material: ShaderMaterial = ink.material as ShaderMaterial
+    if material == null:
+        return
+    var viewport_size: Vector2 = source_viewport.get_visible_rect().size
+    if viewport_size.x <= 1.0 or viewport_size.y <= 1.0:
+        material.set_shader_parameter("sera_screen_bounds", Vector4.ZERO)
+        return
+    var low: Vector2 = Vector2(1000000.0, 1000000.0)
+    var high: Vector2 = Vector2(-1000000.0, -1000000.0)
+    var found: bool = false
+    var crosses_camera: bool = false
+    for key in _contact_ids.keys():
+        var weak: WeakRef = _source_refs.get(key) as WeakRef
+        var source: MeshInstance3D = (
+            weak.get_ref() as MeshInstance3D if weak != null else null)
+        if not is_instance_valid(source) or not source.is_visible_in_tree() or (
+                source.mesh == null):
+            continue
+        var bounds: AABB = source.get_aabb()
+        for x in [0.0, 1.0]:
+            for y in [0.0, 1.0]:
+                for z in [0.0, 1.0]:
+                    var local: Vector3 = bounds.position + (
+                        bounds.size * Vector3(x, y, z))
+                    var world_point: Vector3 = source.global_transform * local
+                    if camera.is_position_behind(world_point):
+                        crosses_camera = true
+                        continue
+                    var point: Vector2 = camera.unproject_position(world_point)
+                    low = low.min(point)
+                    high = high.max(point)
+                    found = true
+    if crosses_camera:
+        # Conservative: never crop an edge that might enter the near plane.
+        material.set_shader_parameter("sera_screen_bounds",
+            Vector4(0.0, 0.0, 1.0, 1.0))
+    elif found:
+        var margin: Vector2 = Vector2(5.0, 5.0)
+        var uv_min: Vector2 = ((low - margin) / viewport_size).clamp(
+            Vector2.ZERO, Vector2.ONE)
+        var uv_max: Vector2 = ((high + margin) / viewport_size).clamp(
+            Vector2.ZERO, Vector2.ONE)
+        material.set_shader_parameter("sera_screen_bounds", Vector4(
+            uv_min.x, uv_min.y, uv_max.x, uv_max.y))
+    else:
+        material.set_shader_parameter("sera_screen_bounds", Vector4.ZERO)
 
 func _sync_camera(source_camera: Camera3D) -> bool:
     var target_size: Vector2 = size
