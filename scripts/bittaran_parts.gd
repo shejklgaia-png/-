@@ -403,6 +403,18 @@ func _material_records(root: Node3D, descend: bool) -> Array[Dictionary]:
                     "emission": material.emission,
                     "energy": material.emission_energy_multiplier
                 })
+            elif old is ShaderMaterial:
+                # Shared polygon shader is cloned PER hit part: a damaged
+                # shin must never recolor another part or the full SERA rig.
+                var shader_mat: ShaderMaterial = old.duplicate() as ShaderMaterial
+                mesh_node.material_override = shader_mat
+                var original_tint: Variant = shader_mat.get_shader_parameter("source_tint")
+                var original_color: Color = (
+                    original_tint if original_tint is Color else Color.WHITE)
+                records.append({
+                    "material": shader_mat, "albedo": original_color,
+                    "emission_on": false, "emission": Color.BLACK, "energy": 0.0
+                })
         elif descend and child is Node3D and not child is Area3D:
             records.append_array(_material_records(child, true))
     return records
@@ -960,6 +972,22 @@ func trigger_part_hit_fx(id: String, duration: float) -> void:
     fx_timers[id] = maxf(0.001, duration)
     fx_durations[id] = maxf(0.001, duration)
 
+func _apply_boss_part_color(record: Dictionary, color: Color,
+        emission_on: bool, glow: Color, strength: float) -> void:
+    var material: Material = record["material"] as Material
+    if material is ShaderMaterial:
+        var styled: ShaderMaterial = material as ShaderMaterial
+        styled.set_shader_parameter("source_tint", color)
+        styled.set_shader_parameter("fx_emission",
+            Vector3(glow.r, glow.g, glow.b) * (strength if emission_on else 0.0))
+    elif material is StandardMaterial3D:
+        var standard: StandardMaterial3D = material as StandardMaterial3D
+        standard.albedo_color = color
+        standard.emission_enabled = emission_on
+        standard.emission = glow
+        standard.emission_energy_multiplier = strength
+
+
 func advance_part_hit_fx(delta: float) -> void:
     super.advance_part_hit_fx(delta)
     for id in fx_meshes:
@@ -969,31 +997,45 @@ func advance_part_hit_fx(delta: float) -> void:
         var destroyed: bool = (not id.is_empty() and parts.has(id)
             and bool(parts[id]["broken"]))
         for record in fx_meshes[id]:
-            var material: StandardMaterial3D = record["material"]
             var intact: Color = record["albedo"]
             var base: Color = intact.lerp(BROKEN_STEEL, 0.78) if destroyed else intact
-            material.albedo_color = base.lerp(HIT_COLOR, power * 0.8)
-            material.emission_enabled = (destroyed or power > 0.0
+            var tint: Color = base.lerp(HIT_COLOR, power * 0.8)
+            var emission_on: bool = (destroyed or power > 0.0
                 or bool(record["emission_on"]))
             var glow: Color = BROKEN_GLOW if destroyed else record["emission"]
-            material.emission = glow.lerp(HIT_EMISSION, power)
-            material.emission_energy_multiplier = lerpf(
+            var glow_color: Color = glow.lerp(HIT_EMISSION, power)
+            var energy: float = lerpf(
                 0.18 if destroyed else float(record["energy"]), 0.52, power)
+            _apply_boss_part_color(record, tint, emission_on, glow_color, energy)
+
 
 func set_death_visual(power: float) -> void:
-    # Opaque materials only; no transparent clone or lost depth testing.
+    # Preserve authored armor and shadows while switching to death tones.
     death_visual_power = clampf(power, 0.0, 1.0)
     for id in fx_meshes:
         for record in fx_meshes[id]:
-            var material: StandardMaterial3D = record["material"]
-            material.albedo_color = material.albedo_color.lerp(
+            var material: Material = record["material"] as Material
+            var current: Color = record["albedo"]
+            var old_glow: Color = record["emission"]
+            var old_energy: float = float(record["energy"])
+            if material is ShaderMaterial:
+                var shader_mat: ShaderMaterial = material as ShaderMaterial
+                var current_uniform: Variant = shader_mat.get_shader_parameter(
+                    "source_tint")
+                if current_uniform is Color:
+                    current = current_uniform
+            elif material is StandardMaterial3D:
+                var native: StandardMaterial3D = material as StandardMaterial3D
+                current = native.albedo_color
+                old_glow = native.emission
+                old_energy = native.emission_energy_multiplier
+            var tint: Color = current.lerp(
                 DEATH_STEEL, death_visual_power * 0.88)
-            if death_visual_power > 0.0:
-                material.emission_enabled = true
-                material.emission = material.emission.lerp(
-                    BROKEN_GLOW, death_visual_power)
-                material.emission_energy_multiplier = lerpf(
-                    material.emission_energy_multiplier, 0.24, death_visual_power)
+            var glow: Color = old_glow.lerp(BROKEN_GLOW, death_visual_power)
+            var strength: float = lerpf(old_energy, 0.24, death_visual_power)
+            _apply_boss_part_color(record, tint,
+                death_visual_power > 0.0 or bool(record["emission_on"]),
+                glow, strength)
 
 func reset_parts() -> void:
     down_lock_enabled = false
