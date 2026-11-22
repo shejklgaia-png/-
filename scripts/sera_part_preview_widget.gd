@@ -9,6 +9,7 @@ const IrisPolygonLight = preload("res://shaders/sera_iris_polygon_light.gdshader
 const IrisPolygonLightClosed = preload("res://shaders/sera_iris_polygon_light_closed.gdshader")
 const IrisFaceNormals = preload("res://scripts/sera_iris_face_normal_preview.gd")
 const IrisMaterialControls = preload("res://scripts/sera_iris_material_controls.gd")
+const IrisMaterialPresets = preload("res://scripts/sera_iris_material_presets.gd")
 const IRIS_MATERIAL_KEYS: Array[String] = ["armor", "dark_mechanism", "lens", "emission"]
 const IRIS_FLASH_SECONDS: float = 0.65
 const SHADING_MODES = [0, 2, 3, 4, 5, 6, 7, 8]
@@ -72,6 +73,9 @@ func _ready() -> void:
     cue.mouse_filter = Control.MOUSE_FILTER_IGNORE
     add_child(cue)
     _create_iris_controls()
+    var restored: Dictionary = IrisMaterialPresets.load_last()
+    if not restored.is_empty():
+        _set_iris_material_payload(restored, false)
     set_process(false)
     resized.connect(_layout_iris_controls)
     # With SubViewportContainer.stretch=true, Godot controls its size.
@@ -118,6 +122,10 @@ func _create_iris_controls() -> void:
     _material_panel.connect("value_changed", _adjust_iris_material)
     _material_panel.connect("emission_toggled", _toggle_iris_emission)
     _material_panel.connect("copy_requested", _copy_iris_material_settings)
+    _material_panel.connect("preset_save_requested", _save_iris_preset)
+    _material_panel.connect("preset_load_requested", _load_iris_preset)
+    _material_panel.connect("import_requested", _import_iris_material_settings)
+    _material_panel.connect("reset_requested", _reset_iris_material_settings)
     _sync_iris_editor_values()
     _style_shading_buttons()
     _layout_iris_controls()
@@ -142,7 +150,8 @@ func _layout_iris_controls() -> void:
         _material_toggle.position = Vector2(100.0, 12.0)
         _material_toggle.size = Vector2(112.0, 48.0)
     if _material_panel != null:
-        _material_panel.size = Vector2(maxf(1.0, minf(620.0, size.x - 24.0)), 300.0)
+        _material_panel.size = Vector2(maxf(1.0, minf(620.0, size.x - 24.0)),
+            minf(390.0, maxf(280.0, size.y - 95.0)))
         _material_panel.position = Vector2(12.0,
             maxf(80.0, size.y - _material_panel.size.y - 14.0))
 
@@ -203,6 +212,7 @@ func set_shading_mode(levels: int) -> void:
     _style_shading_buttons()
     _sync_iris_editor_values()
     _apply_iris_shading()
+    _persist_iris_material_settings()
 
 
 func _toggle_material_editor() -> void:
@@ -210,6 +220,9 @@ func _toggle_material_editor() -> void:
         return
     _material_editor_open = not _material_editor_open
     _material_panel.visible = _material_editor_open
+    if _material_editor_open:
+        _material_panel.call("show_material_editor")
+        _refresh_iris_preset_rows()
     _sync_iris_editor_values()
 
 
@@ -236,6 +249,7 @@ func _adjust_iris_material(material_id: int, field: String, direction: int) -> v
     _iris_material_values[material_id] = values
     _sync_iris_editor_values()
     _apply_iris_shading()
+    _persist_iris_material_settings()
 
 
 func _toggle_iris_emission() -> void:
@@ -244,25 +258,82 @@ func _toggle_iris_emission() -> void:
     _lens_lit = not _lens_lit
     _sync_iris_editor_values()
     _apply_iris_shading()
+    _persist_iris_material_settings()
 
+
+func _current_iris_material_payload() -> Dictionary:
+    return IrisMaterialPresets.make_payload(_iris_material_values, _lens_lit)
+
+func _persist_iris_material_settings() -> void:
+    if not IrisMaterialPresets.save_last(_current_iris_material_payload()):
+        push_warning("NEXUS IRIS: could not persist material settings")
+
+func _set_iris_material_payload(payload: Dictionary, persist: bool = true) -> bool:
+    var checked: Dictionary = IrisMaterialPresets.normalize(payload)
+    if checked.is_empty():
+        return false
+    var material_data: Dictionary = checked["materials"]
+    for index in range(IRIS_MATERIAL_KEYS.size()):
+        _iris_material_values[index] = material_data[IRIS_MATERIAL_KEYS[index]].duplicate()
+    _lens_lit = bool(checked["lens_lit"])
+    var first_level: int = int(_iris_material_values[0]["steps"])
+    shade_levels = first_level if (
+        int(_iris_material_values[1]["steps"]) == first_level and
+        int(_iris_material_values[2]["steps"]) == first_level) else -1
+    _style_shading_buttons()
+    _sync_iris_editor_values()
+    _apply_iris_shading()
+    if persist:
+        _persist_iris_material_settings()
+    return true
+
+func _refresh_iris_preset_rows() -> void:
+    if is_instance_valid(_material_panel):
+        _material_panel.call("set_preset_rows", IrisMaterialPresets.list_presets())
+
+func _save_iris_preset(slot: int, preset_name: String) -> void:
+    if not fullscreen or not _is_iris_preview():
+        return
+    var success: bool = IrisMaterialPresets.save_preset(
+        slot, preset_name, _current_iris_material_payload())
+    _refresh_iris_preset_rows()
+    _material_panel.call("set_feedback",
+        "%d番に保存しました" % slot if success else "保存に失敗しました")
+
+func _load_iris_preset(slot: int) -> void:
+    if not fullscreen or not _is_iris_preview():
+        return
+    var saved: Dictionary = IrisMaterialPresets.read_preset(slot)
+    if saved.is_empty():
+        _material_panel.call("set_feedback", "%d番は未保存です" % slot)
+        return
+    var success: bool = _set_iris_material_payload(saved["payload"])
+    _material_panel.call("set_feedback",
+        "%d番を読み込みました" % slot if success else "読込に失敗しました")
+
+func _reset_iris_material_settings() -> void:
+    if not fullscreen or not _is_iris_preview():
+        return
+    if _set_iris_material_payload(IrisMaterialPresets.default_payload()):
+        _material_panel.call("set_feedback", "標準設定を適用しました")
+
+func _import_iris_material_settings() -> void:
+    if not fullscreen or not _is_iris_preview():
+        return
+    var payload: Dictionary = IrisMaterialPresets.parse_text(
+        DisplayServer.clipboard_get())
+    if payload.is_empty():
+        _material_panel.call("set_feedback", "コピーした設定が無効です")
+        return
+    if _set_iris_material_payload(payload):
+        _material_panel.call("set_feedback", "貼り付けた設定を復元しました")
 
 func _copy_iris_material_settings() -> void:
     if not fullscreen or not _is_iris_preview():
         return
-    var materials: Dictionary = {}
-    for material_id in range(IRIS_MATERIAL_KEYS.size()):
-        var item: Dictionary = _iris_material_values[material_id]
-        materials[IRIS_MATERIAL_KEYS[material_id]] = {
-            "steps": int(item["steps"]), "threshold": float(item["threshold"])
-        }
-    var payload: Dictionary = {
-        "format": "SERA_IRIS_MATERIAL_SHADING_V1",
-        "model": "H02/アイリス", "scope": "NEXUS_SINGLE_PREVIEW",
-        "lens_lit": _lens_lit, "materials": materials
-    }
-    DisplayServer.clipboard_set(JSON.stringify(payload, "\t"))
+    DisplayServer.clipboard_set(JSON.stringify(
+        _current_iris_material_payload(), "\\t"))
     _material_panel.call("set_copied", true)
-
 
 func _flash_iris_material(material_id: int) -> void:
     if not fullscreen or not _is_iris_preview() or material_id < 0 or material_id >= 4:
@@ -486,7 +557,7 @@ func set_preview_active(enabled: bool) -> void:
         if is_instance_valid(preview_scene):
             preview_scene.call("_on_preview_touch", 0, false, Vector2.ZERO)
 
-func _material_button_at(point: Vector2) -> Button:
+func _material_control_at(point: Vector2) -> Control:
     if not fullscreen or not _is_iris_preview():
         return null
     var global_point: Vector2 = get_global_rect().position + point
@@ -494,7 +565,7 @@ func _material_button_at(point: Vector2) -> Button:
             _material_toggle.get_global_rect().has_point(global_point)):
         return _material_toggle
     if is_instance_valid(_material_panel) and _material_panel.visible:
-        return _material_panel.call("button_at", global_point) as Button
+        return _material_panel.call("control_at", global_point) as Control
     return null
 
 
@@ -540,9 +611,9 @@ func feed_touch(index: int, pressed: bool, point: Vector2) -> void:
     if not ready_for_commands or not active_preview or not is_instance_valid(preview_scene):
         return
     if pressed:
-        var material_button: Button = _material_button_at(point)
-        if material_button != null:
-            _ui_mode_touches[index] = material_button
+        var material_control: Control = _material_control_at(point)
+        if material_control != null:
+            _ui_mode_touches[index] = material_control
             _last_tap_time = 0
             return
         if _point_over_material_panel(point):
@@ -574,6 +645,15 @@ func feed_touch(index: int, pressed: bool, point: Vector2) -> void:
                     captured_button.get_global_rect().has_point(
                     get_global_rect().position + point)):
                 captured_button.pressed.emit()
+        elif captured is LineEdit:
+            var text_editor: LineEdit = captured as LineEdit
+            if is_instance_valid(text_editor) and text_editor.is_visible_in_tree() and (
+                    text_editor.get_global_rect().has_point(
+                    get_global_rect().position + point)):
+                text_editor.grab_focus()
+                if OS.has_feature("mobile"):
+                    DisplayServer.virtual_keyboard_show(
+                        text_editor.text, text_editor.get_global_rect())
         elif int(captured) == -2:
             if _hit_fullscreen_close(point):
                 _request_close_fullscreen()
