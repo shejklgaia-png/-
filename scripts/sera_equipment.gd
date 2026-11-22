@@ -123,6 +123,21 @@ func two_handed_blocker(slot: String) -> Dictionary:
     return {}
 
 
+# Live visible geometry for a single equipped slot. The NEXUS overlay never
+# touches cached or reserved two-handed offhand parts.
+func visible_meshes_for(slot: String) -> Array:
+    var pieces: Array = []
+    if not SLOTS.has(slot) or not two_handed_blocker(slot).is_empty():
+        return pieces
+    var set_parts: Dictionary = available.get(str(selected.get(slot, "A")), {})
+    for candidate in set_parts.get(slot, []):
+        if candidate is MeshInstance3D:
+            var piece: MeshInstance3D = candidate as MeshInstance3D
+            if piece.visible:
+                pieces.append(piece)
+    return pieces
+
+
 func select_part(slot: String, set_id: String, persist: bool = true) -> bool:
     if not options_for(slot).has(set_id):
         return false

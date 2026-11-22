@@ -18,6 +18,7 @@ const RotateMark = preload("res://scripts/sera_rotatable_mark.gd")
 const CONTROL_SETTINGS_FILE: String = "user://sera_settings.cfg"
 const NexusSelectionOutline = preload("res://scripts/nexus_selection_outline.gd")
 const CUSTOMIZE_BACKDROP_SHADER = preload("res://shaders/nexus_customize_radial_glow.gdshader")
+const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 
 const GATE_ORIGIN: Vector3 = Vector3(4.00, 0.02, -10.48)
 const SERA_STAGE_ORIGIN: Vector3 = Vector3(0.0, 0.0, -4.75)
@@ -63,6 +64,10 @@ var customize_part_preview_frame: Control
 var customize_single_part_preview: Control
 var customize_body_rotate_cue: Control
 var customize_part_preview_slot: String = "head"
+# One shared, depth-tested glow for only the visible mesh of the inspected slot.
+# Never modify the source mesh/material or the training SeraRig.
+var customize_selection_material: StandardMaterial3D
+var customize_highlighted_meshes: Array[MeshInstance3D] = []
 var customize_part_picker: Control
 var customize_part_picker_window: Panel
 var customize_part_picker_title: Label
@@ -1493,6 +1498,7 @@ func _choose_customization_part(choice: String) -> void:
     _close_customization_part_picker()
     _refresh_equipment_controls()
     _refresh_single_part_preview(slot)
+    _sync_customization_part_glow()
     if slot == "legs" or slot == "arms":
         _fit_nexus_arms_to_lower_body()
     _capture_sera_silhouette(sera_display_rig)
@@ -1776,12 +1782,50 @@ func _equipped_part_blueprint(slot: String) -> String:
     return ""
 
 
+func _clear_customization_part_glow() -> void:
+    for part in customize_highlighted_meshes:
+        if is_instance_valid(part) and (
+                part.material_overlay == customize_selection_material):
+            part.material_overlay = null
+    customize_highlighted_meshes.clear()
+
+
+func _sync_customization_part_glow() -> void:
+    _clear_customization_part_glow()
+    if not customize_preview_active or focused_target != "CUSTOMIZE" or (
+            sera_display_rig == null or not bool(sera_display_rig.get("loading_ok"))):
+        return
+    if customize_selection_material == null:
+        var material := StandardMaterial3D.new()
+        # NEXUS-only translucent emission: the authored base texture remains
+        # opaque; no see-through equipment, additional meshes or glow viewport.
+        material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+        material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+        material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+        material.cull_mode = BaseMaterial3D.CULL_DISABLED
+        material.no_depth_test = false
+        material.albedo_color = Color(0.18, 0.56, 0.69, 0.24)
+        material.emission_enabled = true
+        material.emission = Color("#89d9f5")
+        material.emission_energy_multiplier = 0.82
+        material.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
+        customize_selection_material = material
+    for raw_part in sera_display_rig.call(
+            "get_equipment_visible_meshes", customize_part_preview_slot):
+        var part: MeshInstance3D = raw_part as MeshInstance3D
+        if part == null or not part.visible or part.material_overlay != null:
+            continue
+        part.material_overlay = customize_selection_material
+        customize_highlighted_meshes.append(part)
+
+
 func _inspect_customization_part(slot: String) -> void:
     if focused_target != "CUSTOMIZE":
         return
     customize_part_preview_slot = slot
     _refresh_single_part_preview(slot)
     _refresh_customization_part_stats(slot)
+    _sync_customization_part_glow()
 
 
 func _load_system_lock_preference() -> void:
@@ -2720,6 +2764,7 @@ func _customization_entrance_arrived(final_world: Transform3D) -> void:
         _update_customization_glow()
         customize_glow_quad.visible = true
     in_transition = false
+    _sync_customization_part_glow()
 
 # On Back, retract the *currently rotated* model while the camera is also
 # returning to the overview. The grid does not follow the model and is hidden
@@ -2762,6 +2807,7 @@ func _customization_retraction_arrived() -> void:
         _overview_arrived()
 
 func _restore_customization_preview() -> void:
+    _clear_customization_part_glow()
     customize_motion_active = false
     customize_touch_id = -1
     customize_mouse_drag = false
@@ -3407,6 +3453,7 @@ func _focus_arrived(target_name: String) -> void:
 func _return_to_overview() -> void:
     if in_transition or focused_target.is_empty():
         return
+    _clear_customization_part_glow()
     # Back immediately ends the bright selection, before camera return.
     outline.set("active_target", "")
     outline.queue_redraw()

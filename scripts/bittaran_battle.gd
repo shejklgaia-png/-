@@ -27,6 +27,8 @@ const DEBUG_LEG_LABELS: Dictionary = {
 # Bittaran-only railgun pulse; both player HP and guard depletion scale.
 const LASER_DAMAGE_MULTIPLIER: float = BALANCE.RAILGUN_DAMAGE_MULTIPLIER
 const BOSS_WORLD_SCALE: float = 2.0
+# Boss-only opening range: training's -8m start stays unchanged.
+const BOSS_START_DISTANCE_METERS: float = 12.0
 # Live 3D stomp volume: 1.5x both horizontal dimensions of the rendered toe.
 const STOMP_FOLLOW_WIDTH_MULTIPLIER: float = 1.50
 const STOMP_FOLLOW_MIN_HEIGHT_METERS: float = 0.18
@@ -206,8 +208,9 @@ func _ready() -> void:
     layer.name = "BittaranBattleLabels"
     layer.layer = 30
     add_child(layer)
-    boss_name_label = _make_boss_label(layer, NAME_TEXT, 115.0, 22)
-    victory_label = _make_boss_label(layer, "BITTARAN DEFEATED", 176.0, 26)
+    # Below the locked-part meter (151 + 8 + 7), with room for both titles.
+    boss_name_label = _make_boss_label(layer, NAME_TEXT, 186.0, 20)
+    victory_label = _make_boss_label(layer, "BITTARAN DEFEATED", 230.0, 26)
     victory_label.visible = false
     _build_debug_leg_buttons()
     _update_bittaran_lock_permissions()
@@ -433,7 +436,7 @@ func _verify_neural_flow_bgm() -> void:
 func _make_boss_label(parent: CanvasLayer, caption: String,
         y: float, font_size: int) -> Label:
     var label := Label.new()
-    label.name = "BittaranName" if y < 150.0 else "BittaranVictory"
+    label.name = "BittaranName" if caption == NAME_TEXT else "BittaranVictory"
     label.text = caption
     label.set_anchors_preset(Control.PRESET_TOP_WIDE)
     label.offset_top = y
@@ -455,6 +458,9 @@ func _build_target() -> void:
     # Preserve the combat HP and part-break code but replace all training
     # lock geometry with Bittaran BODY/HEAD/real articulated SHIN volumes.
     super._build_target()
+    target.position.z = -BOSS_START_DISTANCE_METERS
+    if target_floor_mark != null:
+        target_floor_mark.position.z = -BOSS_START_DISTANCE_METERS
     # Scale the full target root (model, lock positions and collision shapes)
     # as one object; scaling the mesh alone would leave combat hits behind.
     target.scale = Vector3.ONE * BOSS_WORLD_SCALE
@@ -2462,6 +2468,12 @@ func _tick_target_respawn(delta: float) -> void:
 func _reset_target_after_respawn() -> void:
     # A player KO or boss revival starts a full-health encounter.
     super._reset_target_after_respawn()
+    # Main's KO path moves the training dummy to -8m before this callback;
+    # restore the Bittaran-only distance on every fresh encounter.
+    if target != null:
+        target.position.z = -BOSS_START_DISTANCE_METERS
+    if target_floor_mark != null:
+        target_floor_mark.position.z = -BOSS_START_DISTANCE_METERS
     boss_death_elapsed = -1.0
     boss_far_side_screen_axis = false
     boss_last_controller_axis = Vector2.UP
@@ -2518,5 +2530,7 @@ func _process(delta: float) -> void:
         boss_death_elapsed += maxf(0.0, delta)
         target_parts.call("set_death_visual",
             clampf(boss_death_elapsed / 0.70, 0.0, 1.0))
+    if boss_name_label != null:
+        boss_name_label.visible = target_hp > 0
     if victory_label != null:
         victory_label.visible = target_hp <= 0
