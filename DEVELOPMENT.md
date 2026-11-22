@@ -1,3 +1,10 @@
+## 2026-11-22 — BASE描画の疑似間引きによる倍速に見える動作を修正
+
+- PR #731で加えた「60FPSで動作させ、Root Viewportを`VIEWPORT_UPDATE_ONCE`/`VIEWPORT_UPDATE_DISABLED`で隔フレーム更新」方式を撤回。1コマに2回分の変化が現れて倍速に見える問題を避けるため、Godot標準の`Engine.max_fps = 30`へ変更し、BASEとGRID俯瞰で30FPSの実フレーム上限制御を使う。
+- GRID編集の真上ズーム開始時だけ`Engine.max_fps = 60`、ズームアウトTween完了後に30FPSへ復帰する。物理更新60Hz・入力蓄積無効・直接のタッチイベント処理は保持。NEXUS遷移では元の上限、物理設定、入力設定へ復帰する。
+- `_process(delta)`、クレートの移動速度、施設の時計、Tween時間、シェーダーのTIME、`Engine.time_scale`は変更しない。なお30FPS時のGodotイベント配送は毎秒60回と保証できず、物理固定更新60Hzと実際のタッチ取得頻度は別物である。60Hzタップ応答および映像速度の実測はAndroid実機確認が必要。
+- 更新前に既存`base_frame_budget_self_check.py`/`base_frame_budget_runtime_check.gd`の期待値を、実30FPSキャップ、Grid編集中60FPS、Viewportモード不変、ゲーム時間不変の契約へ更新。ユーザー要望に従い自動CIを起動せず、GodotとAndroidの動作・操作感は未確認。ゲーム版据え置き。
+
 ## 2026-11-22 — BASEは映像30Hz・入力60Hz、GRID編集ズームのみ60Hz
 
 - `scripts/sera_base_frame_budget.gd`を新設。BASEシーン中のメインループ上限を60FPS、物理固定更新を60Hz、入力蓄積を無効化し、`_input()`で受ける施設/GRIDタップを描画キャップへ束縛しない。root viewportの更新モードを`VIEWPORT_UPDATE_ONCE`/`DISABLED`で間引き、通常BASE/GRID俯瞰は描画30Hzとする。

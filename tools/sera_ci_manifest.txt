@@ -1,4 +1,4 @@
-# BASE 30 Hz visual schedule; 60 Hz input/physics; GRID edit camera zoom 60 Hz.
+# BASE native 30 FPS cap (no dropped viewport frames), physics 60 Hz; GRID edit zoom 60 FPS.
 py tools/base_frame_budget_self_check.py
 gd tools/base_frame_budget_runtime_check.gd
 # Manual-only test Actions and retained delivery workflows.
