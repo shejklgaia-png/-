@@ -13,8 +13,9 @@ assert "g.hard_edges = true" in arch
 assert "outline_solid_entries" in arch
 assert "outline_enabled" in arch
 assert 'tint not in ["blue_light", "amber_light", "amber", "glass"]' in arch
-assert "BaseFacilityVfx.attach(node, \"NEXUS\")" in arch
-assert "BaseFacilityVfx.attach(node, key)" in arch
+assert 'fresh_vfx.setup(node, "NEXUS")' in arch
+assert 'archived_vfx.setup(node, "NEXUS")' in arch
+assert 'device_vfx.setup(node, key)' in arch
 assert "CPUParticles3D.new()" in vfx
 assert 'part.name = "SmelterChimneySmoke"' in vfx
 assert "DoorLightLeak" in vfx
@@ -27,7 +28,7 @@ assert 'draw_polyline(loop, Color("#55798A"), 6.0' in edges
 assert 'draw_line(a, b, Color("#55798A"), 2.0' in edges
 assert 'get_meta("outline_solid_entries"' in edges
 assert 'get_node_or_null("SmelterChimneySmoke")' not in edges
-assert 'not hub.get("power_view_active")' in edges
+assert 'not _hub.get("power_view_active")' in edges
 assert "SeraBaseFacilityOutlines" in hub
 for key in ("NEXUS","LABO","SCRAP_COLLECTOR","SMELTER","RECYCLER",
             "GENERATOR","STORAGE","BUILD_TERMINAL"):
