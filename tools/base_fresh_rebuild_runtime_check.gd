@@ -2,14 +2,14 @@ extends SceneTree
 ## Godot 4.7 live scene: original models remain archived, but none render.
 ## Enforces actual batch geometry, 8 independent identities, touch and camera.
 const FEATURES = {
-    "NEXUS": ["FreshNexusSplitCrown", "FreshNexusGateCore"],
-    "LABO": ["FreshLabOpenPrinterBridge", "FreshLabFabricationBed"],
-    "SCRAP_COLLECTOR": ["FreshCollectorTallBoom", "FreshCollectorOpenGrip"],
-    "SMELTER": ["FreshSmelterTwinStacks", "FreshSmelterHotThroat"],
-    "RECYCLER": ["FreshRecyclerOpenVJaws", "FreshRecyclerRoller"],
-    "GENERATOR": ["FreshGeneratorFrontRotor", "FreshGeneratorBlueCorona"],
-    "STORAGE": ["FreshStorageOffsetStacks", "FreshStorageLoadingLift"],
-    "BUILD_TERMINAL": ["FreshTerminalWideScreen", "FreshTerminalSignalMast"],
+    "NEXUS": ["FreshNexusSplitCrown", "FreshNexusGateCore", "FreshNexusCanvasAwning", "FreshNexusCommandAntenna"],
+    "LABO": ["FreshLabOpenPrinterBridge", "FreshLabFabricationBed", "FreshLabPrinterHotHead"],
+    "SCRAP_COLLECTOR": ["FreshCollectorTallBoom", "FreshCollectorOpenGrip", "FreshCollectorClawHead"],
+    "SMELTER": ["FreshSmelterTwinStacks", "FreshSmelterHotThroat", "FreshSmelterFlameTongue"],
+    "RECYCLER": ["FreshRecyclerOpenVJaws", "FreshRecyclerRoller", "FreshRecyclerTooth"],
+    "GENERATOR": ["FreshGeneratorFrontRotor", "FreshGeneratorBlueCorona", "FreshGeneratorCoreRib"],
+    "STORAGE": ["FreshStorageOffsetStacks", "FreshStorageLoadingLift", "FreshStorageCaseLid"],
+    "BUILD_TERMINAL": ["FreshTerminalWideScreen", "FreshTerminalSignalMast", "FreshTerminalBlueprintRows"],
 }
 const OLD_ONLY = [
     "NexusRoofCommandStripe", "LabSingleSlopeCanopy",
