@@ -100,7 +100,7 @@ func _ready() -> void:
     _minus_offset_material.render_priority = -21
     _minus_offset_material.set_shader_parameter("signed_offset_px", -8.0)
     _minus_offset_material.set_shader_parameter(
-        "probe_color", Color(0.15, 0.85, 1.0, 0.30))
+        "probe_color", Color(1.0, 0.74, 0.15, 0.30))
     _calibration_probe = StencilProbe.new()
     _calibration_probe.call("configure", _root)
     add_child(_calibration_probe)
