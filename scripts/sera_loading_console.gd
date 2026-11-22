@@ -470,8 +470,9 @@ func _draw_readout(w: float, h: float) -> void:
         heading = "SERA // OS"
     elif console_render_scale >= 0.35 and console_render_scale < 0.49:
         heading = "SERA // OMNI SYNC"
-    var heading_size: int = 29 if not compact or (
-        console_render_scale >= 0.35 and console_render_scale < 0.49) else 22
+    var heading_size: int = 22
+    if not compact or (console_render_scale >= 0.35 and console_render_scale < 0.49):
+        heading_size = 29
     _draw_text(heading, Vector2(42.0, 68.0),
         heading_size, Color("#d3f4ff"), true)
     _draw_text("CORE / OS" if compact else "CORE / SHELL / OS",
