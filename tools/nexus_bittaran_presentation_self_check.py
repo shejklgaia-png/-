@@ -41,6 +41,17 @@ assert "_constrain_customization_preview_to_safe_area()" not in drag
 assert "customize_preview_position.x +=" not in drag
 assert "customize_preview_position.y -=" not in drag
 assert "customize_preview_scale *=" not in drag
+# v538: fixed torso-center 3D pivot, not the model's feet/root origin.
+placement = nexus.split("func _apply_customization_preview_transform() -> void:")[1].split("\nfunc ")[0]
+assert "var front_basis := Basis(Vector3.UP, PI)" in placement
+assert "var pivot_camera: Vector3 = " in placement
+assert "var pivot_origin: Vector3 = pivot_camera - basis * customize_motion_torso_local" in placement
+assert "Transform3D(basis, pivot_origin)" in placement
+start = nexus.split("func _show_customization_preview() -> void:")[1].split("\nfunc ")[0]
+assert "customize_motion_torso_local = _customize_torso_anchor_local()" in start
+assert start.index("customize_motion_torso_local = _customize_torso_anchor_local()") < (
+    start.index("_apply_customization_preview_transform()"))
+assert "_constrain_customization_preview_to_safe_area()" not in nexus
 # v537: explicitly visible ON/OFF blinking, not continuous material breathing.
 assert "const CUSTOMIZE_SELECTION_BLINK_PERIOD_SECONDS: float = 1.0" in nexus
 assert "func _update_customization_part_blink(delta: float) -> void:" in nexus
