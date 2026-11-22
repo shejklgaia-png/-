@@ -37,9 +37,9 @@ var _material_toggle: Button
 var _material_panel: Panel
 var _material_editor_open: bool = false
 var _iris_material_values: Array[Dictionary] = [
-    {"steps": 4, "threshold": 0.55}, # Light-grey armor.
-    {"steps": 4, "threshold": 0.60}, # Both dark-grey mechanism tones.
-    {"steps": 0, "threshold": 0.25}, # Cyan lens, unchanged by default.
+    {"steps": 8, "threshold": 0.65}, # Light-grey armor.
+    {"steps": 2, "threshold": 0.70}, # Both dark-grey mechanism tones.
+    {"steps": 3, "threshold": 0.10}, # Cyan lens, unlit by default.
     {"steps": 0, "threshold": 0.00}  # Cyan when lit: emissive, no shadows.
 ]
 var _lens_lit: bool = false
@@ -369,6 +369,17 @@ func _apply_iris_shading() -> void:
             if standard.albedo_texture != null:
                 texture = standard.albedo_texture
             tint = standard.albedo_color
+        elif original is ShaderMaterial:
+            # Every EquipmentPreview now has shared material shading. The
+            # fullscreen HEAD D editor temporarily overrides that material
+            # but must use its ORIGINAL UV texture and tint, not a white fill.
+            var shared: ShaderMaterial = original as ShaderMaterial
+            var original_texture: Variant = shared.get_shader_parameter("source_texture")
+            var original_tint: Variant = shared.get_shader_parameter("source_tint")
+            if original_texture is Texture2D:
+                texture = original_texture
+            if original_tint is Color:
+                tint = original_tint
         var light_material: ShaderMaterial = _light_materials.get(key) as ShaderMaterial
         if not is_instance_valid(light_material):
             light_material = ShaderMaterial.new()

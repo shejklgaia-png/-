@@ -25,6 +25,7 @@ const KATANA_EMBEDDED = preload("res://assets/sera_katana_data.gd")
 const KICK_PACK = preload("res://assets/sera_kick_clips.gd")
 const EQUIPMENT_SCRIPT = preload("res://scripts/sera_equipment.gd")
 const OUTLINE_SCRIPT = preload("res://scripts/sera_view_edges.gd")
+const MaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
 const FACE_CULLING = preload("res://scripts/sera_face_culling.gd")
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const BIRD_EMBEDDED = preload("res://assets/sera_bird_data.gd")
@@ -267,6 +268,9 @@ func _ready() -> void:
     # Mesh alternatives reuse the original animated pivots/UUIDs unchanged.
     equipment_handler = EQUIPMENT_SCRIPT.new()
     equipment_handler.call("setup", self)
+    # The SAME material classification is used in combat, NEXUS, LAB and
+    # equipment/warehouse viewers. All selectable sets are shaded on build.
+    MaterialShading.apply_to_rig(self)
     loading_ok = (bones.size() > 0 and animations.has(WAIT_CLIP)
         and animations.has(RUN_CLIP) and animations.has(RUN_BACK_CLIP)
         and animations.has(RUN_RIGHT_CLIP) and animations.has(RUN_LEFT_CLIP)
@@ -984,15 +988,27 @@ func _make_mesh(element: Dictionary) -> MeshInstance3D:
         if bool(reverse_faces.get(face_id, false)):
             points.reverse()
             face_uvs.reverse()
+        # Each Blockbench-authored polygon (often one quad) must retain ONE
+        # flat face normal across its triangulation. Otherwise non-planar quads
+        # acquire artificial dark diagonals under polygon-step shading.
+        # Do not smooth distinct authored faces or move any geometry/UVs.
+        var authored_normal: Vector3 = Vector3.ZERO
+        for i in range(1, points.size() - 1):
+            authored_normal += (points[i] - points[0]).cross(
+                points[i + 1] - points[0])
+        if authored_normal.length_squared() < 0.000000001:
+            # Nearly twisted/opposing triangles: preserve the authored
+            # polygon rather than dropping it from the mesh entirely.
+            authored_normal = facing
+        authored_normal = authored_normal.normalized()
         for i in range(1, points.size() - 1):
             var p0: Vector3 = points[0]
             var p1: Vector3 = points[i]
             var p2: Vector3 = points[i + 1]
-            var normal: Vector3 = (p1 - p0).cross(p2 - p0).normalized()
-            if normal.length_squared() < 0.000000001:
+            if (p1 - p0).cross(p2 - p0).length_squared() < 0.000000001:
                 continue
             for index in [0, i, i + 1]:
-                tool.set_normal(normal)
+                tool.set_normal(authored_normal)
                 tool.set_uv(face_uvs[index])
                 tool.add_vertex(points[index])
             triangle_count += 1

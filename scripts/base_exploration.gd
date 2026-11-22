@@ -5,6 +5,8 @@ const SERA_RIG_PATH: String = "res://scripts/sera_rig.gd"
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const LoadingConsole = preload("res://scripts/sera_loading_console.gd")
 const BaseFacilities = preload("res://scripts/base_facility_system.gd")
+const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
+const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
 const PowerBoard = preload("res://scripts/sera_base_power_board.gd")
 const GridUi = preload("res://scripts/sera_base_grid_ui.gd")
 const BaseFrameBudget = preload("res://scripts/sera_base_frame_budget.gd")
@@ -149,6 +151,9 @@ func _ready() -> void:
     _create_player()
     _startup_step("SHELL / RIG STANDBY", 86)
     _create_crate()
+    # One material pass across constructed BASE solids: buildings, crate,
+    # clutter and batch geometry. Existing 4px/2px facility ink is untouched.
+    SharedMaterialShading.apply_to_subtree(self)
     _startup_step("CRATE / SIGNAL CONFIRMED", 92)
     _create_hud()
     _startup_step("OS / INTERFACE ONLINE", 99)
@@ -524,6 +529,10 @@ func _create_crate() -> void:
     crate.position = Vector3(3.30, 0.06, 2.40)
     crate.rotation.y = -0.5
     add_child(crate)
+    # CRATE is also a moving opaque model and gets the same 3px silhouette.
+    var ink := SeraViewEdges.new()
+    ink.name = "ViewEdges"
+    crate.add_child(ink)
 
 func _update_crate(delta: float) -> void:
     if crate == null or delta <= 0.0:
@@ -820,6 +829,8 @@ func _apply_layout_preview(selected: Dictionary) -> void:
         if pile != null:
             pile.free()
     _create_salvage(scrap)
+    # Rerolled facility geometry is newly instantiated after initial shading.
+    SharedMaterialShading.apply_to_subtree(self)
     layout_seed = int(selected["seed"])
     layout_rerolls += 1
     facility_system.call("update_tags", cam)

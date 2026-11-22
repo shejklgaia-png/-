@@ -16,9 +16,9 @@ static func default_payload() -> Dictionary:
         "scope": "NEXUS_SINGLE_PREVIEW",
         "lens_lit": false,
         "materials": {
-            "armor": {"steps": 4, "threshold": 0.55},
-            "dark_mechanism": {"steps": 4, "threshold": 0.60},
-            "lens": {"steps": 0, "threshold": 0.25},
+            "armor": {"steps": 8, "threshold": 0.65},
+            "dark_mechanism": {"steps": 2, "threshold": 0.70},
+            "lens": {"steps": 3, "threshold": 0.10},
             "emission": {"steps": 0, "threshold": 0.0}
         }
     }

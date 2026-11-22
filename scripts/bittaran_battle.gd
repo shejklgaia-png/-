@@ -2,6 +2,8 @@ extends "res://scripts/main.gd"
 ## Dedicated Bittaran battle. Reuse proven SERA controls/combat/camera/HP,
 ## but replace the red training dummy with the authored quadruped.
 const BittaranRig = preload("res://scripts/bittaran_rig.gd")
+const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
+const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
 const BittaranAI = preload("res://scripts/bittaran_ai.gd")
 const BittaranFootIK = preload("res://scripts/bittaran_foot_ik.gd")
 const BittaranParts = preload("res://scripts/bittaran_parts.gd")
@@ -589,6 +591,15 @@ func _build_target() -> void:
     add_child(bittaran_leg_turrets)
     if not bool(bittaran_leg_turrets.call("setup", bittaran_rig)):
         push_error("Bittaran: four leg cannon setup failed")
+    # The rig shell was shaded in BittaranRig._ready; these independent
+    # weapons need the same material classification after construction.
+    # Animated charge bars, muzzle emission and projectiles remain native.
+    if bittaran_railgun != null:
+        SharedMaterialShading.apply_to_subtree(bittaran_railgun)
+    SharedMaterialShading.apply_to_subtree(bittaran_leg_turrets)
+    var turret_edges := SeraViewEdges.new()
+    turret_edges.name = "ViewEdges"
+    bittaran_leg_turrets.add_child(turret_edges)
     _build_bittaran_shockwave()
     _build_boss_death_particles()
 

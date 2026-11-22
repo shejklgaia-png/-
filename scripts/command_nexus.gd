@@ -3,6 +3,7 @@ extends Node3D
 # Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
+const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const TrainingDefaults = preload("res://scripts/training_defaults.gd")
 const IconAtlas = preload("res://scripts/sera_item_icons.gd")
@@ -258,6 +259,9 @@ func _ready() -> void:
     _render_batches()
     _deployment_gate_lightspill()
     _pad_center()
+    # Preserve the NEXUS architecture's authored 2px corners and light
+    # silhouette passes while shading the actual opaque mesh surfaces.
+    SharedMaterialShading.apply_to_subtree(self)
     _sera_display()
     _camera()
     _create_customization_glow()
