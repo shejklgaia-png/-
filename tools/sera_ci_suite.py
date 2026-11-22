@@ -55,7 +55,7 @@ def load_tests(kind: str) -> list[str]:
 
 
 def focused_selection(kind: str, requested: list[str] | None) -> list[str]:
-    """Validate a local focused subset; full PR CI never supplies --tests."""
+    """Validate a local focused subset; omit --tests for an opt-in full suite."""
     registered = load_tests(kind)
     if requested is None:
         return registered
@@ -177,7 +177,7 @@ def main() -> int:
     parser.add_argument("suite", choices=["static", "godot"])
     parser.add_argument("--workers", type=int, default=None)
     parser.add_argument("--tests", nargs="+", default=None,
-                        help="LOCAL FOCUSED checks only; full PR CI must omit this flag")
+                        help="LOCAL focused checks; omit this option for a manually chosen full suite")
     parser.add_argument("--godot", default=os.environ.get("SERA_GODOT_BIN", ""))
     parser.add_argument("--report-json", default="", help="write per-test duration/status for CI profiling")
     args = parser.parse_args()
@@ -194,7 +194,7 @@ def main() -> int:
     if kind == "gd" and (not args.godot or not Path(args.godot).is_file()):
         print(f"Godot executable not found: {args.godot}", file=sys.stderr)
         return 1
-    mode = "FOCUSED (NOT FULL CI)" if args.tests is not None else "FULL"
+    mode = "FOCUSED (SCOPED)" if args.tests is not None else "FULL"
     print(f"SERA {args.suite}: {mode} - executing {len(tests)} registered tests with "
           f"{workers} worker(s); per-test process isolation retained", flush=True)
     start = time.monotonic()
