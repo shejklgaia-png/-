@@ -1,3 +1,11 @@
+## 2026-11-22 — NEXUS全身SERAだけGPU凸シルエット描画へ切り替え
+- ユーザー要望：アクション向けの軽量な「カメラ方向から見えなくなる切り替わりの凸角のみ」を、まずNEXUSの全身プレビューに適用。実機で復旧したアイリス赤ID方式は比較基準としてほかの画面に維持。
+- `scripts/nexus_sera_gpu_convex_silhouette.gd` を作成。既存のBASE位相エッジ抽出器から実メッシュの隣接面と頂点位置を受け、閉じたメッシュは符号付き体積を基に凸エッジだけ生成。UV分離重複頂点を位置で共有、同一平面の三角線は非表示。細いリボンは元`MeshInstance3D`の子にしアニメ・可視状態に自然追従。0.65秒スキャンと装備選択直後の即時更新、メッシュごとの形状キャッシュを使用。
+- `shaders/nexus_sera_gpu_convex_silhouette.gdshader` を追加。GPU頂点シェーダーで隣接面の表裏切り替わり／開放エッジを判定し、3pxの画面ピクセル幅へ拡張。既存暗色 `#17212F`、通常の深度テストを使用。全画面マスクや追加ID用SubViewportはこの展示SERAに不要。
+- `command_nexus.gd` の展示SERAだけに専用除外タグを設け、Rig内の共有ID登録を停止。共通IDレンダラはタグを尊重して全身SERAを除外する一方、NEXUS室内建物・BASE・LAB・戦闘・単体装備プレビューはすべて現状維持。材質シェーダーや原本メッシュ、SeraRig汎用実装、UIに変更なし。
+- 既存のID版と見た目が完全一致する保証はない。特に独立メッシュの遮蔽境界、開いた/不均一な巻き方向の形状では差異があり得る。GPU/CPU負荷の改善量も実測できていない。今回の目的は局所的な実装比較。
+- CI／テスト項目・テストファイルを調べたり更新したりせず、CI／Godot／Androidなどのテストを実施せずmainへマージ。
+
 ## 2026-11-22 — 共通可視ID輪郭をH02アイリスの実装そのものへ移植
 - Android実機ではRGB444共通シェーダーのMASK/SOLIDが白（独立BASICのみマゼンタ）。アイリス単体は赤1チャンネルの専用シェーダーで正常。ユーザーの指示により共通版の独自RGBA比較方式を撤去し、**アイリス専用の3つの実コード資源** `sera_iris_mesh_id_closed.gdshader`／`sera_iris_mesh_id_open.gdshader`／`sera_iris_mesh_id_outline.gdshader` を共通版から直接preloadして使用。これら原本は編集しない。
 - 共通のMeshInstance3Dにはアイリス同様、赤ID `(index+1)/8`、緑青0、原本の `sera_single_sided` タグに応じたclosed/openを使用。背景床等は赤0の深度遮蔽のみ。MultiMeshは既存のdraw callを維持するため、同じ赤ID式を `INSTANCE_ID` に適用する2つの薄い専用spatialシェーダーを追加。元のモデル・モーション・材質は不変。
