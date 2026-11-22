@@ -26,9 +26,9 @@ assert "_play_loading_preview.bind(LoadingConsole.PREVIEW_RENDER_SCALE_2)" in ba
 assert "screen.set_render_scale(render_scale)" in base
 assert "screen.start_preview()" in base
 assert "extends Control" in console
-# Explicit contract: the user wants EXACTLY two actually presented frames.
+# Explicit contract: the user wants EXACTLY three actually presented frames.
 assert "signal completion_cut_finished" in console
-assert "const COMPLETE_CUT_FRAMES: int = 2" in console
+assert "const COMPLETE_CUT_FRAMES: int = 3" in console
 assert "const LOADING_FPS: int = 10" in console
 assert "Engine.max_fps = LOADING_FPS" in console
 assert "Engine.max_fps = _previous_max_fps" in console

@@ -53,11 +53,11 @@
 - 内部ラスタサイズは50%=360×640、37.5%=270×480、25%=180×320（720×1280表示基準）を維持。通常起動は50%のみ、BASEのプレビューで3段階比較できる。動き、ロード進捗、5秒・100目盛プレビューには変更しない。
 - 既存の`tools/sera_loading_console_self_check.py`と`tools/sera_loading_console_runtime_check.gd`でアトラス、整数ドット太さ、縮小倍率同期、既存進捗の保護を確認。Androidでの実際のコントラスト・可読性と表示欠けは別途確認する。
 
-## 完了時の2フレーム専用カット（2026-11-22）
+## 完了時の3フレーム専用カット（2026-11-22）
 
-- 実ロードで最後の保存・構築工程が確定して100%になった時点で、一度だけ完成カットを開始する。`RenderingServer.frame_post_draw` で**描画完了を正確に2回**数え、2回目の終了後にBASE画面へ切り替える。`process_frame` は描画前の通知なので、完了カットのカウントに使わない。
-- 表示文は最新コマンド行 `> COMPLETE`、右下 `100%`、下部 `ALL SYSTEMS ONLINE`。履歴ログは内部に残し、最後の2フレームだけ表示を切り替える。
+- 実ロードで最後の保存・構築工程が確定して100%になった時点で、一度だけ完成カットを開始する。`RenderingServer.frame_post_draw` で**描画完了を正確に3回**数え、3回目の終了後にBASE画面へ切り替える。`process_frame` は描画前の通知なので、完了カットのカウントに使わない。
+- 表示文は最新コマンド行 `> COMPLETE`、右下 `100%`、下部 `ALL SYSTEMS ONLINE`。履歴ログは内部に残し、最後の3フレームだけ表示を切り替える。
 - 100目盛は全点灯。中央COREは最大パルスと白い発光コアに切り替え、通常は欠けている3層リングを完全な発光円環へ変化させる。CORE/SHELL/OS/NEXUS/GRID/LAB/ARCHIVE/CRATEの8ノード・接続線を全点灯。左右の診断パネルは6本×2枚のゲージを100%まで充填し、波形を高輝度にする。
-- BASEの3解像度プレビューも5秒/100段階を完走後、同じカットを描画2フレーム保持して自動終了する（プレビューの総表示時間は5秒＋約2/10秒）。
+- BASEの3解像度プレビューも5秒/100段階を完走後、同じカットを描画3フレーム保持して自動終了する（プレビューの総表示時間は5秒＋約3/10秒）。
 - 完了カットは実ロードの100%・プレビューの100%到達以外では表示しない。保存データ、実ロード工程、進捗の意味、ゲーム側の設定値、`Engine.time_scale`を変更しない。
-- 静的テストは`sera_loading_console_self_check.py`と`base_startup_first_frame_self_check.py`、Godot検査は`sera_loading_console_runtime_check.gd`に追加。Godot・Android上での視認性、実ロード時間および2フレームの見え方は別途実機確認。
+- 静的テストは`sera_loading_console_self_check.py`と`base_startup_first_frame_self_check.py`、Godot検査は`sera_loading_console_runtime_check.gd`に追加。Godot・Android上での視認性、実ロード時間および3フレームの見え方は別途実機確認。
