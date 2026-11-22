@@ -1,9 +1,10 @@
 shader_type spatial;
 // RENDER_POLICY: DEPTH_TESTED_EMISSIVE; depth_test=on
-// Fast 3px visible outline for guaranteed outward-wound closed opaque shells.
+// Fast 3px silhouette for CCW outward-authored shells (Godot uses CW front).
 // NO depth-texture fetch: the original opaque source mesh and the hardware
-// depth buffer occlude enlarged rear faces automatically.
-render_mode unshaded, cull_front, depth_draw_never;
+// depth buffer occlude enlarged inward faces automatically.
+// The source surface uses CULL_FRONT, so this ink must use CULL_BACK.
+render_mode unshaded, cull_back, depth_draw_never;
 
 uniform vec4 ink_color : source_color = vec4(0.09, 0.13, 0.18, 1.0);
 uniform float stroke_px : hint_range(0.5, 6.0) = 3.0;

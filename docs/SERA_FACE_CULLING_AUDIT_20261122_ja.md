@@ -59,3 +59,14 @@
 ## 6. 差分スコープ
 
 `scripts/sera_face_culling.gd`、`scripts/sera_rig.gd`、`scripts/bittaran_rig.gd`、`scripts/sera_view_edges.gd`、`shaders/sera_view_edges_fast.gdshader`、対応テストとドキュメントのみ変更。正本 `.bbmodel`、生成埋め込み、`project.godot`、NEXUS/BASE UIやゲームの戦闘設定は変更しません。
+
+
+## 2026-11-22追加：カリング方向の逆転不具合
+
+Androidカスタマイズ画面の全身がほぼ真っ黒になったため、カリング面の条件を修正した。原本の符号付き体積が正であることは法線が幾何学上外向きであることを示すが、Godot `SurfaceTool` の三角形表面は**時計回り**であり、単純に `CULL_BACK` を指定すると、正本の外側の装甲面がカリングされてしまう。そこへ `cull_front` の黒い反転ハルが描画され、装甲表面が黒く見える回帰が起きた。
+
+- 正の有向体積を持つ、現行のBlockbench正本を変換した閉メッシュは、`BaseMaterial3D.CULL_FRONT` に変更して外側の実装甲面を残す。
+- 高速枠線は`cull_back`へ変更して、実装甲と**反対の**面だけを画面上で拡張する。
+- 開放・非多様体メッシュは`CULL_DISABLED`を保持し、旧深度付きの枠線シェーダーを使用。
+- `_make_mesh`の頂点・UV・法線・面方向・装備カラー・ゲーム物理は変更せず、材質のカリングと高速枠線シェーダーだけを対で修正。
+- `tools/sera_face_culling_self_check.py` / `tools/sera_face_culling_runtime_check.gd` の期待値を先に更新した。実機でアイリスを回転し、通常装甲・背面・全身・武器が黒くならないことを要確認。自動テスト合格は画面品質の保証ではない。
