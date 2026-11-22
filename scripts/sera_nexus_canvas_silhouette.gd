@@ -125,7 +125,13 @@ func _projected_bounds(part: MeshInstance3D,
                 if not is_finite(projected.x) or not is_finite(projected.y):
                     return PackedVector2Array()
                 points.append(screen_to_local * projected)
-    return Geometry2D.convex_hull(points)
+    var hull: PackedVector2Array = Geometry2D.convex_hull(points)
+    # Godot convex_hull returns the initial point again at the end.
+    # Clipper expects an open list of polygon vertices.
+    if hull.size() > 3 and hull[0].distance_squared_to(
+            hull[hull.size() - 1]) < 0.001:
+        hull.remove_at(hull.size() - 1)
+    return hull
 
 func _merge_footprints(polygons: Array[PackedVector2Array]
         ) -> Array[PackedVector2Array]:
@@ -181,16 +187,23 @@ func _draw() -> void:
     _last_merged_count = outlines.size()
     var color: Color = INSPECT_INK if (_mode == 1 or _mode == 9) else (
         OUTLINE_INK)
+    var exterior_count: int = 0
     for polygon in outlines:
-        if polygon.size() < 3:
-            continue
-        if Geometry2D.is_polygon_clockwise(polygon):
-            # Boolean union can contain a hole in rare articulated poses.
-            # Holes are *not* external silhouette boundaries.
+        if polygon.size() < 3 or Geometry2D.is_polygon_clockwise(polygon):
             continue
         var closed := PackedVector2Array(polygon)
         closed.append(polygon[0])
         draw_polyline(closed, color, STROKE_PX, false)
+        exterior_count += 1
+    # Fail visible rather than rendering nothing if a particular Clipper
+    # orientation convention changes between renderer/platform releases.
+    if exterior_count == 0:
+        for polygon in outlines:
+            if polygon.size() < 3:
+                continue
+            var closed := PackedVector2Array(polygon)
+            closed.append(polygon[0])
+            draw_polyline(closed, color, STROKE_PX, false)
 
 func get_outline_snapshot() -> Dictionary:
     return {
