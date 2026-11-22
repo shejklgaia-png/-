@@ -1,5 +1,5 @@
 extends SceneTree
-## The only approved 6px diagnostic is explicit and reversible.
+## The only approved 4px diagnostic is explicit and reversible.
 const BASE_INK = preload("res://scripts/sera_base_facility_outlines.gd")
 const SAFE = preload("res://shaders/base_facility_silhouette_edges.gdshader")
 const FAST = preload("res://shaders/base_facility_silhouette_edges.gdshader")
@@ -27,7 +27,7 @@ func _run() -> void:
     var mat: ShaderMaterial = BASE_INK.material()
     if mat.shader != SAFE or mat.get_shader_parameter("ink_color") != Color("#000000") or (
             bool(mat.get_shader_parameter("force_all_edges"))):
-        _fail("normal black 6px facility silhouette was changed")
+        _fail("normal black 4px facility silhouette was changed")
         return
     hub.call("_cycle_outline_probe")
     if mat.shader != SAFE or mat.get_shader_parameter("ink_color") != Color("#ff00ff"):
@@ -42,7 +42,7 @@ func _run() -> void:
     if mat.shader != SAFE or mat.get_shader_parameter("ink_color") != Color("#000000"):
         _fail("diagnostic did not restore production black shader")
         return
-    if not is_equal_approx(float(mat.get_shader_parameter("stroke_px")), 6.0):
+    if not is_equal_approx(float(mat.get_shader_parameter("stroke_px")), 4.0):
         _fail("reversible probe changed approved six-pixel stroke")
         return
     print("SERA_BASE_OUTLINE_PROBE_RUNTIME_PASS safe/masked and fast/no-depth switching")

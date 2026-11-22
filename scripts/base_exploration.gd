@@ -728,7 +728,7 @@ func _cycle_outline_probe() -> void:
         mat.set_shader_parameter("force_all_edges", true)
         outline_probe_button.text = "輪郭：紫/全辺"
         layout_status.text = "ALL EDGES / PINK"
-    mat.set_shader_parameter("stroke_px", 6.0)
+    mat.set_shader_parameter("stroke_px", 4.0)
     print("SERA_BASE_OUTLINE_DIAG mode=%d shader=%s" % [
         outline_probe_mode, mat.shader.resource_path])
 

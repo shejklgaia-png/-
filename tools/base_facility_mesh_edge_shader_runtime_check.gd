@@ -60,12 +60,12 @@ func _run() -> void:
                     _fail(key + " does not use real SERA-derived shader")
                     return
                 if not is_equal_approx(
-                        float(ink_mat.get_shader_parameter("stroke_px")), 6.0):
-                    _fail(key + " 6px visible-contour ribbon no longer 6 screen pixels")
+                        float(ink_mat.get_shader_parameter("stroke_px")), 4.0):
+                    _fail(key + " 4px visible-contour ribbon no longer 4 screen pixels")
                     return
 
                 if ink_mat.get_shader_parameter("ink_color") != Color("#000000"):
-                    _fail(key + " 6px SERA hull must be pure black")
+                    _fail(key + " 4px SERA hull must be pure black")
                     return
                 if inst.has_meta("FX_NO_OUTLINE") == false:
                     _fail(key + " ink instance not marked as non-FX")
@@ -79,8 +79,8 @@ func _run() -> void:
                     _fail(key + " foreground crease changed from approved 2px")
                     return
 
-                if crease_mat.get_shader_parameter("ink_color") != Color("#353535"):
-                    _fail(key + " 2px corner ink must be dark gray")
+                if crease_mat.get_shader_parameter("ink_color") != Color("#000000"):
+                    _fail(key + " 2px corner ink must be black")
                     return
             elif str(inst.name).begins_with("Architectural_"):
                 base_total += inst.multimesh.instance_count
@@ -123,7 +123,7 @@ func _run() -> void:
         int(slot["crease_index"]))
     if visible_pose.origin.distance_to(ink_pose.origin) > 0.0001 or (
             visible_pose.origin.distance_to(crease_pose.origin) > 0.0001):
-        _fail("6px hull or preserved 2px corner fails to follow moving claw")
+        _fail("4px hull or preserved 2px corner fails to follow moving claw")
         return
     if str(hub.get_node("NEXUSBuilding/NexusArchitecture").get_meta(
             "base_design", "")) != "ARCHIVED_20261122":

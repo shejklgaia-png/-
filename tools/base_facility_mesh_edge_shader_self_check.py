@@ -15,11 +15,11 @@ workflow = (root / ".github/workflows/base-roof-visual-preview.yml").read_text(e
 assert "extends RefCounted" in edge
 assert "BaseFacilityCreaseGeometry._build_overlay(physical_mesh)" in edge
 assert "ShaderMaterial.new()" in edge
-assert '"stroke_px", 6.0' in edge
+assert '"stroke_px", 4.0' in edge
 assert 'preload("res://shaders/base_facility_silhouette_edges.gdshader")' in edge
 assert '"crease_px", 2.0' in edge
 assert 'Color("#000000")' in edge
-assert 'Color("#353535")' in edge
+assert 'Color("#000000")' in edge
 assert 'Color("#55798A")' not in edge
 assert "RENDER_ORDER.DEPTH_TESTED_EMISSIVE" in edge
 assert "Geometry2D.convex_hull" not in edge
@@ -28,7 +28,7 @@ assert "draw_line(" not in edge
 
 assert "uniform float silhouette_px" not in shader
 assert "render_mode unshaded, cull_disabled, depth_draw_never;" in silhouette
-assert "float stroke_px : hint_range(0.5, 9.0) = 6.0" in silhouette
+assert "float stroke_px : hint_range(0.5, 9.0) = 4.0" in silhouette
 assert "bool contour = boundary && a_facing > 0.02;" in silhouette
 assert "a_facing > 0.02 && b_facing < -0.02" in silhouette
 assert "b_facing > 0.02 && a_facing < -0.02" in silhouette
