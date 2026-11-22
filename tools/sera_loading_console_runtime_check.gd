@@ -171,8 +171,8 @@ func _run() -> void:
     if not bool(source_canvas.get("completion_cut_active")):
         _fail("pixel renderer did not receive full-activation state")
         return
-    if int(screen.get("completion_frames_remaining")) != 2:
-        _fail("completion must begin with exactly two frames")
+    if int(screen.get("completion_frames_remaining")) != 3:
+        _fail("completion must begin with exactly three frames")
         return
     if not bool(screen.call("_system_node_online", "OS")):
         _fail("all eight system nodes must be online")
@@ -183,12 +183,16 @@ func _run() -> void:
     var completed: Array[int] = []
     screen.connect("completion_cut_finished", func() -> void: completed.append(1))
     screen.call("_on_completion_frame_presented")
-    if int(screen.get("completion_frames_remaining")) != 1 or not completed.is_empty():
+    if int(screen.get("completion_frames_remaining")) != 2 or not completed.is_empty():
         _fail("completion ended before the second presented frame")
         return
     screen.call("_on_completion_frame_presented")
+    if int(screen.get("completion_frames_remaining")) != 1 or not completed.is_empty():
+        _fail("completion ended before the third presented frame")
+        return
+    screen.call("_on_completion_frame_presented")
     if int(screen.get("completion_frames_remaining")) != 0 or completed.size() != 1:
-        _fail("completion did not finish after precisely two presented frames")
+        _fail("completion did not finish after precisely three presented frames")
         return
     screen.call("start_preview")
     screen.set_process(false)
@@ -213,18 +217,22 @@ func _run() -> void:
     if not bool(screen.get("completion_cut_active")):
         _fail("preview completion did not activate the final cut")
         return
-    if int(screen.get("completion_frames_remaining")) != 2:
-        _fail("preview final cut should also last two frames")
+    if int(screen.get("completion_frames_remaining")) != 3:
+        _fail("preview final cut should also last three frames")
         return
     var previews_finished: Array[int] = []
     screen.connect("preview_finished", func() -> void: previews_finished.append(1))
     screen.call("_on_completion_frame_presented")
     if not previews_finished.is_empty():
-        _fail("preview finished before two completed draws")
+        _fail("preview finished after only one completed draw")
+        return
+    screen.call("_on_completion_frame_presented")
+    if not previews_finished.is_empty():
+        _fail("preview finished after only two completed draws")
         return
     screen.call("_on_completion_frame_presented")
     if previews_finished.size() != 1:
-        _fail("preview did not close after exactly two draws")
+        _fail("preview did not close after exactly three draws")
         return
     screen.free()
     if Engine.max_fps != 40 or Engine.time_scale != previous_time_scale:
