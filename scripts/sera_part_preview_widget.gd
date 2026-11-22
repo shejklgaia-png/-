@@ -37,9 +37,9 @@ var _material_toggle: Button
 var _material_panel: Panel
 var _material_editor_open: bool = false
 var _iris_material_values: Array[Dictionary] = [
-    {"steps": 4, "threshold": 0.55}, # Light-grey armor.
-    {"steps": 4, "threshold": 0.60}, # Both dark-grey mechanism tones.
-    {"steps": 0, "threshold": 0.25}, # Cyan lens, unchanged by default.
+    {"steps": 8, "threshold": 0.65}, # Light-grey armor.
+    {"steps": 2, "threshold": 0.70}, # Both dark-grey mechanism tones.
+    {"steps": 3, "threshold": 0.10}, # Cyan lens, unlit by default.
     {"steps": 0, "threshold": 0.00}  # Cyan when lit: emissive, no shadows.
 ]
 var _lens_lit: bool = false
