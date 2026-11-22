@@ -67,7 +67,9 @@ func _run() -> void:
         if material == null:
             _fail("rig's original opaque material was lost")
             return
-        var wanted := BaseMaterial3D.CULL_DISABLED if description == "open" else BaseMaterial3D.CULL_BACK
+        var wanted := BaseMaterial3D.CULL_DISABLED if description == "open" else BaseMaterial3D.CULL_FRONT
+        # Canonical positive signed volume means Godot front-face winding is
+        # reversed relative to outward polygon normals.
         if material.cull_mode != wanted:
             _fail(description + " wrong GPU culling policy")
             return
@@ -78,6 +80,12 @@ func _run() -> void:
         rig.free()
     # Real canonical camera-eye has two open pieces. Preserve their material,
     # but allow its four closed pieces to use the zero-depth-tap shader.
+    # The fast outline renders the opposite side of the solid surface,
+    # rather than painting its outward-authored front polygons black.
+    if FAST_SHADER.code.contains("cull_front") or (
+            not FAST_SHADER.code.contains("cull_back")):
+        _fail("fast ink must cull the opposite Godot winding from the source")
+        return
     var text: String = FileAccess.get_file_as_string(
         "res://models/storage/カメラアイ頭部.bbmodel")
     var data: Variant = JSON.parse_string(text)
@@ -101,7 +109,7 @@ func _run() -> void:
     var block := MeshInstance3D.new()
     block.mesh = BoxMesh.new()
     var opaque := StandardMaterial3D.new()
-    opaque.cull_mode = BaseMaterial3D.CULL_BACK
+    opaque.cull_mode = BaseMaterial3D.CULL_FRONT
     block.material_override = opaque
     block.set_meta("sera_single_sided", true)
     actor.add_child(block)
