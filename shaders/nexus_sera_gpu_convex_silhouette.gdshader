@@ -1,7 +1,7 @@
 shader_type spatial;
-// NEXUS display SERA ONLY. Camera-dependent convex outline from one
+// NEXUS display SERA ONLY. Camera-dependent visible convex creases from one
 // static topological edge ribbon per source MeshInstance3D.
-// The original face materials are never replaced; no ID SubViewport.
+// Outer silhouette and mesh contacts use the shared depth-resolved ID pass.
 // COLOR.rgb: outward normal A encoded 0..1. COLOR.a: convex/usable flag.
 // CUSTOM0.xyz: outward normal B. CUSTOM0.w: paired-face flag.
 // NORMAL: original edge tangent. UV.x: ribbon side (-1 / +1).
@@ -18,15 +18,17 @@ void vertex() {
     vec3 view_ray = PROJECTION_MATRIX[3][3] > 0.5
         ? vec3(0.0, 0.0, 1.0) : normalize(-eye_point);
     float facing_a = dot(normal_a, view_ray);
-    bool boundary = CUSTOM0.w < 0.5;
-    bool silhouette = boundary && abs(facing_a) > 0.02;
-    if (!boundary) {
+    bool paired_faces = CUSTOM0.w >= 0.5;
+    // The ID image now owns the full outer silhouette AND separate-mesh seams.
+    // Only render convex creases whose two source faces are both camera-facing.
+    // This avoids a second ribbon over the same outer silhouette (thick ink).
+    bool visible_crease = false;
+    if (paired_faces) {
         vec3 normal_b = normalize(normal_transform * CUSTOM0.xyz);
         float facing_b = dot(normal_b, view_ray);
-        silhouette = (facing_a > 0.02 && facing_b < -0.02)
-            || (facing_b > 0.02 && facing_a < -0.02);
+        visible_crease = facing_a > 0.02 && facing_b > 0.02;
     }
-    edge_visible = (silhouette && COLOR.a > 0.5) ? 1.0 : 0.0;
+    edge_visible = (visible_crease && COLOR.a > 0.5) ? 1.0 : 0.0;
 
     // Pixel-constant ribbon width on perspective AND orthographic cameras.
     // A tiny bias avoids z-fighting while hardware depth rejects hidden
