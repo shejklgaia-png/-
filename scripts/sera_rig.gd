@@ -416,6 +416,11 @@ func get_equipment_two_handed_blocker(slot: String) -> Dictionary:
         if equipment_handler != null else {})
 
 
+func get_equipment_visible_meshes(slot: String) -> Array:
+    return (equipment_handler.call("visible_meshes_for", slot)
+        if equipment_handler != null else [])
+
+
 func set_equipment_selection(slot: String, set_id: String) -> bool:
     if equipment_handler == null:
         return false
