@@ -17,12 +17,13 @@ varying float projected_edge_valid;
 void vertex() {
     vec3 eye = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
 
-    // Existing GPU ribbons encode the normals of the two incident faces.
-    // Face winding was inverted when Blockbench surfaces were built, so
-    // match the conversion used by sera_live_mesh_edges.gdshader.
+    // The first face normal now comes from CUSTOM2.xyz (float32), NOT
+    // from the 8-bit COLOR channel. The second stays in CUSTOM0.xyz.
+    // Both use the same precision for a stable grazing-angle decision.
+    // SeraRig's authored geometry is opposite Godot's clockwise front.
     mat3 normal_matrix = transpose(inverse(mat3(MODELVIEW_MATRIX)));
     vec3 n_a = normalize(normal_matrix *
-        (-normalize(COLOR.rgb * 2.0 - vec3(1.0))));
+        (-normalize(CUSTOM2.xyz)));
     // All 6 ribbon vertices use ONE camera-facing classification, sampled
     // at the topology edge midpoint stored in CUSTOM1. This avoids partial
     // line disappearance along long or tilted Blockbench edges.
@@ -54,13 +55,25 @@ void vertex() {
         float face_similarity = dot(n_a, n_b);
         bool grazing = most_grazing < 0.12
             && strongest_face > 0.40
+            && min(a_facing, b_facing) < -0.10
             && face_similarity < 0.55;
-        silhouette = front_back || grazing;
-        if (grazing && !front_back) {
-            ribbon_width_scale = 0.62;
+        // Do not confuse a visible sharp convex armor joint with the
+        // *outer* silhouette: the former gets a much thinner detail ink.
+        // The signed convex flag is calculated from directed face normals
+        // and the original topology edge, not from screen direction.
+        bool visible_convex = CUSTOM2.w > 0.5
+            && a_facing < -0.07
+            && b_facing < -0.07;
+        silhouette = front_back || grazing || visible_convex;
+        if (visible_convex && !front_back) {
+            // The ribbon spans +/- exterior_px. 0.25 gives 1.5 px total
+            // for these interior visible corners, versus 3 px outside.
+            ribbon_width_scale = 0.25;
+        } else if (grazing && !front_back) {
+            ribbon_width_scale = 0.32;
         }
     }
-    // Contact/interior and both-front edges are not the full-body outline.
+    // Hide deep contact edges; retain thin *visible convex* seams only.
     projected_edge_valid = (silhouette && !contact) ? 1.0 : 0.0;
 
     // The mesh NORMAL stores the *edge tangent*, not a surface normal.
