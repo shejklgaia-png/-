@@ -20,7 +20,7 @@ assert "CPUParticles3D.new()" in vfx
 assert 'part.name = "SmelterChimneySmoke"' in vfx
 assert "DoorLightLeak" in vfx
 assert "SmelterFireFloorReflection" in vfx
-assert "FireFlickerLight" in vfx
+assert "sample_fire" in vfx and "FurnaceHeatLight" in vfx
 assert "ShaderMaterial.new()" in vfx
 assert "FX_NO_OUTLINE" in vfx
 assert "Geometry2D.convex_hull" in edges
