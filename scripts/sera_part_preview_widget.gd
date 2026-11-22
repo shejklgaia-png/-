@@ -194,6 +194,10 @@ func set_fullscreen_state(enabled: bool) -> void:
     _layout_iris_controls()
 
 
+func dismiss_iris_material_keyboard() -> bool:
+    return fullscreen and is_instance_valid(_material_panel) and bool(
+        _material_panel.call("dismiss_keyboard"))
+
 func _request_close_fullscreen() -> void:
     if fullscreen:
         preview_fullscreen_requested.emit(false)
