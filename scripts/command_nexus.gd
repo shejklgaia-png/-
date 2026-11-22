@@ -2054,10 +2054,16 @@ func _create_fps_option_controls() -> void:
         label.mouse_filter = Control.MOUSE_FILTER_IGNORE
         label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
         panel.add_child(label)
+        var value := Label.new()
+        value.name = "FPSSelected_" + str(spec["scope"])
+        value.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+        value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        panel.add_child(value)
         system_fps_rows.append({
             "scope": str(spec["scope"]),
             "title": str(spec["title"]),
-            "panel": panel, "label": label,
+            "panel": panel, "label": label, "value": value,
         })
     system_fps_back_button = Panel.new()
     system_fps_back_button.name = "FPSOptionsBack"
@@ -2095,7 +2101,10 @@ func _layout_fps_option_controls() -> void:
         row.size = Vector2(width, 70.0)
         var label: Label = system_fps_rows[i]["label"]
         label.position = Vector2(12.0, 0.0)
-        label.size = row.size - Vector2(24.0, 0.0)
+        label.size = Vector2(row.size.x * 0.60 - 12.0, row.size.y)
+        var value: Label = system_fps_rows[i]["value"]
+        value.position = Vector2(row.size.x * 0.60, 0.0)
+        value.size = Vector2(row.size.x * 0.40 - 12.0, row.size.y)
     system_fps_note.position = Vector2(margin, top + 275.0)
     system_fps_note.size = Vector2(width,
         maxf(60.0, focus_panel.size.y - top - 370.0))
@@ -2110,7 +2119,9 @@ func _refresh_fps_option_controls() -> void:
     for entry in system_fps_rows:
         var fps: int = FrameRateSettings.get_limit(str(entry["scope"]))
         var label: Label = entry["label"]
-        label.text = "%s  /  %d FPS   >" % [str(entry["title"]), fps]
+        label.text = str(entry["title"])
+        var value: Label = entry["value"]
+        value.text = "%d FPS  >" % fps
     if system_fps_note != null:
         system_fps_note.text = (
             "タップで 60 → 40 → 30 → 20 FPS を切替\n"
@@ -2635,7 +2646,8 @@ func _apply_labo_typography() -> void:
     _skin_label(system_status, ui, 15, secondary)
     _skin_label(system_fps_button_label, stats, 17, accent)
     for entry in system_fps_rows:
-        _skin_label(entry["label"] as Label, stats, 17, accent)
+        _skin_label(entry["label"] as Label, stats, 16, accent)
+        _skin_label(entry["value"] as Label, stats, 18, accent)
     _skin_label(system_fps_back_label, display, 18, accent)
     _skin_label(system_fps_note, ui, 15, secondary)
     for entry in archive_record_tabs:
