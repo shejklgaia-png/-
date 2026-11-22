@@ -1244,8 +1244,6 @@ func _move_player(direction: Vector2, delta: float) -> void:
             player.position = slide_z
 
 func _process(delta: float) -> void:
-    if _frame_budget != null:
-        _frame_budget.advance(delta)
     if scene_changing or player == null:
         return
     elapsed += delta
