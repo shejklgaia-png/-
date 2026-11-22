@@ -8,6 +8,9 @@ render_mode unshaded, cull_disabled, depth_draw_never;
 uniform vec4 ink_color : source_color = vec4(0.3333, 0.4745, 0.5412, 1.0);
 uniform float silhouette_px : hint_range(1.0, 12.0) = 6.0;
 uniform float crease_px : hint_range(0.5, 6.0) = 2.0;
+// SERA now renders the complete 6px contour in its separate inverted hull.
+// This BASE pass must retain ONLY the original 2px front-facing corner ink.
+uniform bool crease_only = false;
 varying float edge_visible;
 
 void vertex() {
@@ -33,7 +36,7 @@ void vertex() {
     // A contour is always 6px. An actual >=80deg front/front edge is 2px;
     // coplanar triangle seams and all hidden back/back edges stay invisible.
     bool foreground_crease = both_front && COLOR.a > 0.5;
-    bool visible = contour || foreground_crease;
+    bool visible = (contour && !crease_only) || foreground_crease;
     edge_visible = visible ? 1.0 : 0.0;
     float width = contour ? silhouette_px : crease_px;
 
