@@ -4,7 +4,6 @@ extends Node3D
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
-const LiveMeshEdges = preload("res://scripts/sera_nexus_live_mesh_edges.gd")
 const ID_DEBUG_SHADER = preload("res://shaders/sera_scene_id_debug.gdshader")
 const ID_INK_SHADER = preload("res://shaders/sera_iris_mesh_id_outline.gdshader")
 const ID_SOLID_SHADER = preload("res://shaders/sera_scene_id_solid_probe.gdshader")
@@ -517,9 +516,10 @@ func _sera_display() -> void:
     rig.scale = Vector3.ONE * 1.35
     rig.rotation.y = PI
     stand.add_child(rig)
-    # Character contours now share the exact source render frame; the room
-    # still uses its existing viewport-level ID outlines independently.
-    rig.set_meta("sera_skip_common_id_outline", true)
+    # Recover the known-visible mesh contact and silhouette ID pass.
+    # Do not exclude the character from this renderer until a replacement
+    # has been visibly verified on the target Android Compatibility device.
+    rig.set_meta("sera_nexus_id_contact_only", true)
     var rig_id_outline: Node = rig.get_node_or_null("ViewEdges")
     if is_instance_valid(rig_id_outline):
         rig_id_outline.call("set_contour_enabled", false)
@@ -554,11 +554,6 @@ func _sera_display() -> void:
     _remember_nexus_arm_rest_pose(rig)
     _fit_nexus_arms_to_lower_body()
     _capture_sera_silhouette(rig)
-    # Each generated GPU ribbon is a child of the real SERA mesh; there is
-    # no delayed ID-mask copy when the player drags the preview or swaps gear.
-    var live_edges: Node3D = LiveMeshEdges.new()
-    live_edges.call("configure", rig)
-    rig.add_child(live_edges)
 
 func _remember_nexus_arm_rest_pose(rig: Node3D) -> void:
     # Called only once, immediately AFTER applying the authored NEXUSpose.
