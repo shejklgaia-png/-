@@ -23,6 +23,7 @@ const PartViewer = preload("res://scripts/sera_part_preview_widget.gd")
 const RotateMark = preload("res://scripts/sera_rotatable_mark.gd")
 const CONTROL_SETTINGS_FILE: String = "user://sera_settings.cfg"
 const FrameRateSettings = preload("res://scripts/sera_frame_rate_settings.gd")
+const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
 const DisplayProfile = preload("res://scripts/sera_display_profile.gd")
 const NexusSelectionOutline = preload("res://scripts/nexus_selection_outline.gd")
 const CUSTOMIZE_BACKDROP_SHADER = preload("res://shaders/nexus_customize_radial_glow.gdshader")
@@ -265,6 +266,7 @@ const PANEL_LAYOUTS: Dictionary = {
 }
 
 func _ready() -> void:
+    set_meta("sera_graphics_outline_category", "base")
     DisplayProfile.apply(get_window())
     FrameRateSettings.apply("base_nexus")
     # Godot 4 Android Back is a Window go-back request when auto-quit is off.
@@ -510,6 +512,7 @@ func _sera_display() -> void:
     add_child(stand)
     var rig: Node3D = SeraRig.new()
     rig.name = "SeraDisplay"
+    rig.set_meta("sera_graphics_outline_category", "character")
     rig.scale = Vector3.ONE * 1.35
     rig.rotation.y = PI
     stand.add_child(rig)
