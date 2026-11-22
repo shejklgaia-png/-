@@ -54,14 +54,17 @@ void fragment() {
 }
 """
 # NEXUS shutter: a narrow projected strip, bright at the airlock and
-# fading down the long axis. -90° on X maps UV.y=1 to the near entrance
-# and UV.y=0 to the far end of the projected floor quad.
+# fading down the long axis. Rotating the quad -90 degrees around X puts
+# local +Y at world -Z: the near (+Y) shutter edge is UV.y=0,
+# while the far (world +Z) edge is UV.y=1.
 const NEXUS_SHUTTER_BEAM_SHADER: String = """
 shader_type spatial;
 render_mode unshaded, blend_add, cull_disabled, depth_draw_never;
 uniform vec4 beam_tint : source_color = vec4(0.73, 0.92, 1.0, 0.72);
 void fragment() {
-    float longitudinal = clamp(1.0 - UV.y, 0.0, 1.0);
+    // 0 at the shutter, 1 at the distant tip. Prior UV inversion
+    // incorrectly illuminated the far tip and dimmed the entrance.
+    float longitudinal = clamp(UV.y, 0.0, 1.0);
     float side = abs(UV.x - 0.5) * 2.0;
     float transverse = 1.0 - smoothstep(0.61, 0.99, side);
     float reach = 1.0 - smoothstep(0.09, 1.0, longitudinal);
