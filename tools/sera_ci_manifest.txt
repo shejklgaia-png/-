@@ -21,6 +21,9 @@ gd tools/bittaran_body_fall_runtime_check.gd
 # Four uploaded Bittaran SE cues: walking contact, attack start, recoil, collapse.
 py tools/bittaran_sfx_event_self_check.py
 gd tools/bittaran_sfx_event_runtime_check.gd
+# v543: three real received SERA hits force next LEGAL stomp, attack SE gain audible above BGM.
+py tools/bittaran_three_hits_stomp_v543_self_check.py
+gd tools/bittaran_three_hits_stomp_v543_runtime_check.gd
 # NEXUS picker: matte tech cards, three-column touch grid and equipped-state emphasis.
 py tools/nexus_part_picker_design_self_check.py
 gd tools/nexus_part_picker_design_runtime_check.gd
