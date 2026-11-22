@@ -12,7 +12,7 @@ uniform vec4 outline_color : source_color =
     vec4(0.043137, 0.066667, 0.094118, 1.0);
 uniform float exterior_px : hint_range(0.5, 8.0) = 3.0;
 varying float projected_edge_valid;
-varying float ribbon_width_scale;
+// Ribbon width is a vertex-stage local; it never needs interpolation.
 
 void vertex() {
     vec3 eye = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -34,7 +34,7 @@ void vertex() {
     bool boundary = CUSTOM0.w < 0.5;
     bool contact = CUSTOM0.w > 1.5;
     bool silhouette = boundary;
-    ribbon_width_scale = 1.0;
+    float ribbon_width_scale = 1.0;
 
     if (!boundary && !contact) {
         vec3 n_b = normalize(normal_matrix *
