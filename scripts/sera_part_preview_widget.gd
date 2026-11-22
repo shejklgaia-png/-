@@ -422,6 +422,17 @@ func _make_viewport() -> void:
     # SubViewportContainer stretches to the available square without
     # allocating additional render targets when a modal resizes.
 
+func _set_shared_outline_enabled(enabled: bool) -> void:
+    if not is_instance_valid(preview_scene):
+        return
+    var model: Node3D = preview_scene.get("rig") as Node3D
+    if not is_instance_valid(model):
+        return
+    var edges: Node3D = model.get_node_or_null("ViewEdges") as Node3D
+    if edges != null:
+        edges.call("set_contour_enabled", enabled)
+
+
 func show_part(blueprint: String, selections: Dictionary = {}) -> void:
     var spec: Dictionary = Catalog.spec(blueprint)
     if spec.is_empty():
@@ -437,6 +448,7 @@ func show_part(blueprint: String, selections: Dictionary = {}) -> void:
         _material_panel.visible = fullscreen and _material_editor_open and _is_iris_preview()
     if is_instance_valid(_iris_contour):
         _iris_contour.call("set_active", false)
+    _set_shared_outline_enabled(true)
     selected_parts = selections.duplicate(true)
     active_preview = true
     show()
@@ -476,12 +488,17 @@ func _load_part(request: int) -> void:
     })
     if enable_nexus_iris_id_contour and current_blueprint == "H02" and (
             request == _request_serial):
+        # Preserve the exact proven HEAD D ID contour; don't draw the
+        # shared ID mask over the same six meshes a second time.
+        _set_shared_outline_enabled(false)
         if not is_instance_valid(_iris_contour):
             _iris_contour = IrisIDContour.new()
             add_child(_iris_contour)
             # Keep the rotation cue above this non-interactive ink layer.
             move_child(_iris_contour, 1)
         _iris_contour.call("set_active", true, preview_scene, render_viewport)
+    else:
+        _set_shared_outline_enabled(true)
     _apply_iris_shading()
 
 func set_preview_active(enabled: bool) -> void:
