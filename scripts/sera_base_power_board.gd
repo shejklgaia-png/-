@@ -120,6 +120,7 @@ static func _cells(parent: Node3D) -> void:
 static func build(parent: Node3D) -> Node3D:
     var stage := Node3D.new()
     stage.name = "PowerPuzzleZone"
+    stage.set_meta("sera_outline_role", "grid")
     parent.add_child(stage)
 
     var cable := Node3D.new()
