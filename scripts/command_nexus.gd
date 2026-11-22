@@ -286,10 +286,11 @@ func _ready() -> void:
     SharedMaterialShading.apply_to_subtree(self)
     _sera_display()
     _camera()
-    # Scene-wide IRIS-style ID pass: architecture and display SERA share
-    # ONE viewport compositor instead of duplicate inverted-hull passes.
+    # Reuse the NEXUS scene ID viewport for visible SERA-to-SERA contacts.
+    # The GPU ribbon remains responsible for the silhouette and convex edges.
     var id_outline := SeraViewEdges.new()
     id_outline.name = "ViewEdges"
+    id_outline.set_nexus_sera_contact_mode(true)
     add_child(id_outline)
     _create_customization_glow()
     _wall_mark()
@@ -508,9 +509,9 @@ func _sera_display() -> void:
     rig.scale = Vector3.ONE * 1.35
     rig.rotation.y = PI
     stand.add_child(rig)
-    # Exclude this display rig from the shared ID compositor without touching
-    # SERA's material shading, BASE, combat, or NEXUS architecture.
-    rig.set_meta("sera_skip_common_id_outline", true)
+    # Only visible transitions between different SERA meshes receive ID ink.
+    # The scene ID pass depth-resolves occlusion; hidden mesh edges stay hidden.
+    rig.set_meta("sera_nexus_id_contact_only", true)
     var rig_id_outline: Node = rig.get_node_or_null("ViewEdges")
     if is_instance_valid(rig_id_outline):
         rig_id_outline.call("set_contour_enabled", false)
