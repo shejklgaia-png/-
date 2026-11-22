@@ -23,8 +23,8 @@ assert 'const ACTIVE_BASE_MODEL: String = "FRESH_20261122"' in arch
 assert 'BaseFreshDesign.add_details(g, "NEXUS")' in arch
 assert "BaseFreshDesign.add_details(g, key)" in arch
 assert 'node.set_meta("base_design", ACTIVE_BASE_MODEL)' in arch
-# Existing code remains in archive; active path must *never* call legacy layers.
-assert "if ACTIVE_BASE_MODEL == \"FRESH_20261122\":" in arch
+# Only NEXUS selects archived legacy geometry; the seven facilities remain fresh.
+assert 'if ACTIVE_BASE_MODEL == "FRESH_20261122" and not ARCHIVED_NEXUS_MODEL:' in arch
 assert 'static func add_details(g: Variant, key: String) -> void:' in fresh
 for name in (
     "NEXUS", "LABO", "SCRAP_COLLECTOR", "SMELTER",
