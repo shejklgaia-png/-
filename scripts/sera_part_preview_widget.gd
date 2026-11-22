@@ -7,7 +7,7 @@ const RotateMark = preload("res://scripts/sera_rotatable_mark.gd")
 const IrisIDContour = preload("res://scripts/sera_iris_id_silhouette_preview.gd")
 const IrisPolygonLight = preload("res://shaders/sera_iris_polygon_light.gdshader")
 const IrisPolygonLightClosed = preload("res://shaders/sera_iris_polygon_light_closed.gdshader")
-const SHADING_MODES = [0, 2, 3, 4]
+const SHADING_MODES = [0, 2, 3, 4, 5, 6, 7, 8]
 const double_tap_window_msec: int = 330
 signal preview_fullscreen_requested(enabled: bool)
 # The live part preview starts at the same angle as the approved 19 PNGs.
@@ -71,7 +71,7 @@ func _create_iris_controls() -> void:
         var button := Button.new()
         button.name = "IrisShade_%d" % mode
         button.text = "OFF" if mode == 0 else "%d段" % mode
-        button.custom_minimum_size = Vector2(52, 42)
+        button.custom_minimum_size = Vector2(52, 22)
         button.focus_mode = Control.FOCUS_NONE
         button.add_theme_font_size_override("font_size", 15)
         button.pressed.connect(set_shading_mode.bind(mode))
@@ -93,7 +93,14 @@ func _layout_iris_controls() -> void:
     if _shade_column == null:
         return
     _shade_column.position = Vector2(maxf(4.0, size.x - 62.0), 10.0)
-    _shade_column.size = Vector2(52.0, 177.0)
+    # Keep all eight mode buttons in the small 3D part preview as well as
+    # fullscreen. Grow each button when the available vertical space allows.
+    var min_column_height: float = 8 * 22.0 + 7 * 3.0
+    var preferred_column_height: float = float(SHADING_MODES.size()) * 38.0 + (
+        float(SHADING_MODES.size() - 1) * 3.0)
+    var available_height: float = maxf(0.0, size.y - 20.0)
+    _shade_column.size = Vector2(52.0,
+        maxf(min_column_height, minf(preferred_column_height, available_height)))
     if _fullscreen_close != null:
         _fullscreen_close.position = Vector2(12.0, 12.0)
         _fullscreen_close.size = Vector2(76.0, 48.0)
