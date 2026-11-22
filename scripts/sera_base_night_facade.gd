@@ -37,8 +37,12 @@ static func _door(g: Variant, feature: String, at: Vector3,
             Vector3(width * 0.87, 0.045, 0.043), "dark")
     g.box(feature + "Handle", at + Vector3(width * 0.34,
         -height * 0.08, 0.255), Vector3(0.07, 0.31, 0.09), "gold")
-    g.box(feature + "DoorLamp", at + Vector3(0, height * 0.55, 0.20),
-        Vector3(width * 0.69, 0.105, 0.07), "amber_light")
+    # Door-side emissive bars were removed at all non-smelter machines:
+    # named work lamps with visible housings now own their actual spill.
+    if feature == "SmelterServiceDoor":
+        g.box(feature + "DoorLamp",
+            at + Vector3(0, height * 0.55, 0.20),
+            Vector3(width * 0.69, 0.105, 0.07), "amber_light")
 
 static func _nexus(g: Variant) -> void:
     # Keep the already approved 1.14x NEXUS scale, only improve silhouettes.
@@ -50,8 +54,8 @@ static func _nexus(g: Variant) -> void:
         g.rod("NexusAwningBrace",
             Vector3(-2.83 + side * 0.70, 2.83, 3.75),
             Vector3(-2.83 + side * 0.70, 3.22, 2.80), 0.10, "gold")
-    g.box("NexusDoorUplight", Vector3(0, 0.30, 2.90),
-        Vector3(1.74, 0.13, 0.10), "amber_light")
+    # Light now escapes only from the narrow shutter-floor gap emitter in
+    # BaseFacilityVFX; omit the broad old amber side/door light bar.
 
 static func _labo(g: Variant) -> void:
     # One sweeping pitch is readable from a high camera: stitched panels below.
@@ -126,8 +130,7 @@ static func _recycler(g: Variant) -> void:
         0.34, "blue")
     _door(g, "RecyclerServiceDoor", Vector3(1.07, 1.04, 0.80),
         0.50, 1.32)
-    g.box("RecyclerWorkLamp", Vector3(0.0, 1.85, 0.92),
-        Vector3(0.82, 0.13, 0.09), "amber_light")
+    # Purpose-built guarded crusher work lamps replace this bright strip.
 
 static func _generator(g: Variant) -> void:
     g.poly("GeneratorRoofShield", "hood", Vector3(0.88, 2.13, -0.55),
@@ -162,8 +165,7 @@ static func _storage(g: Variant) -> void:
         0.26, "blue")
     _door(g, "StorageLoadingDoor", Vector3(0.13, 0.94, 1.08),
         0.91, 1.37)
-    g.box("StorageLoadingFloodlight", Vector3(0.10, 1.89, 1.20),
-        Vector3(1.20, 0.15, 0.12), "amber_light")
+    # Dedicated industrial downlights with round pools now serve entry.
 
 static func _terminal(g: Variant) -> void:
     # Small station grows into a sheltered maintenance kiosk, not a monolith.
@@ -182,8 +184,7 @@ static func _terminal(g: Variant) -> void:
         0.20, "blue")
     _door(g, "TerminalMaintenanceHatch", Vector3(-0.76, 0.86, 0.49),
         0.40, 1.12)
-    g.box("TerminalRoofEdgeLight", Vector3(0, 2.42, 0.66),
-        Vector3(0.94, 0.12, 0.09), "amber_light")
+    # A physically modeled task lamp at the panel replaces roof-side glow.
 
 static func add_details(g: Variant, key: String) -> void:
     match key:
