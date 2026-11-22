@@ -12,7 +12,9 @@ var _compositor: Control
 
 
 func _ready() -> void:
-    _register()
+    # SeraRig may still be under construction when ViewEdges enters the tree.
+    # Add the viewport-owned CanvasLayer after the parent hierarchy settles.
+    _register.call_deferred()
 
 
 func _exit_tree() -> void:
