@@ -214,8 +214,8 @@ static func _eligible(node: Node3D) -> bool:
         return false
     if node is MeshInstance3D:
         var mesh: MeshInstance3D = node as MeshInstance3D
-        return mesh.mesh != null and not mesh.mesh is QuadMesh and (
-            not mesh.mesh is PlaneMesh) and _solid_material(mesh)
+        return mesh.mesh != null and not (mesh.mesh is QuadMesh) and (
+            not (mesh.mesh is PlaneMesh)) and _solid_material(mesh)
     if node is MultiMeshInstance3D:
         var batch: MultiMeshInstance3D = node as MultiMeshInstance3D
         return batch.multimesh != null and batch.multimesh.mesh != null and (
@@ -226,7 +226,7 @@ static func _eligible(node: Node3D) -> bool:
 static func _background_occluder(node: Node3D) -> bool:
     # Floor and ground should occlude IDs behind them, but should NOT have
     # a thick black border. They receive ID=0 (same as background).
-    if not node is MeshInstance3D and not node is MultiMeshInstance3D:
+    if not (node is MeshInstance3D) and not (node is MultiMeshInstance3D):
         return false
     if not _solid_material(node as GeometryInstance3D):
         return false
@@ -419,7 +419,9 @@ func _sync_copies() -> bool:
     var dirty: bool = false
     for key in _copies.keys():
         var ref: WeakRef = _source_refs.get(key) as WeakRef
-        var source: Node3D = (ref.get_ref() as Node3D if ref != null else null)
+        var source: Node3D = null
+        if ref != null:
+            source = ref.get_ref() as Node3D
         if not is_instance_valid(source):
             continue
         var clone: Node3D = _copies[key] as Node3D
