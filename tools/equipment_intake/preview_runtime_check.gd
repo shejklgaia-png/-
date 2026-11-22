@@ -196,7 +196,7 @@ func _check() -> void:
     # grid lines; SOLID mode must contain no lines.
     var grid: Image = PortraitBackground.make_image(128, "grid")
     var solid: Image = PortraitBackground.make_image(128, "solid")
-    if not solid.get_pixel(2, 2).is_equal_approx(Color("#111e28")) or (
+    if not solid.get_pixel(2, 2).is_equal_approx(PortraitBackground.SOLID_COLOR) or (
             grid.get_pixel(16, 6).is_equal_approx(solid.get_pixel(16, 6))):
         _fail("Shared icon background lost grid/solid distinction")
         return
@@ -264,7 +264,7 @@ func _check() -> void:
         "selected":{"head":"D"},"size":1.0,"background_mode":"solid","seq":16})
     await process_frame
     if backdrop.visible:
-        _fail("Solid mode should remove the grid while keeping the navy background")
+        _fail("Solid mode should remove the grid while keeping the bright background")
         return
     print("SERA_ICON_BACKGROUND_AND_TOUCH_RUNTIME_OK")
     print("SERA_GODOT_INTAKE_RUNTIME_OK real_rig=true material=game outline=game nexus_pose=true shared_arm_clearance=true icon_restored=true")
