@@ -88,16 +88,24 @@ func _ready() -> void:
     footer.add_theme_constant_override("separation", 9)
     root.add_child(footer)
     _light_button = _new_button("水色 点灯: OFF", 153)
-    _light_button.pressed.connect(func() -> void: emission_toggled.emit())
+    _light_button.pressed.connect(_on_emission_pressed)
     footer.add_child(_light_button)
     var copy_button: Button = _new_button("全材質をコピー", 173)
-    copy_button.pressed.connect(func() -> void: copy_requested.emit())
+    copy_button.pressed.connect(_on_copy_pressed)
     footer.add_child(copy_button)
     _copy_status = Label.new()
     _copy_status.text = ""
     _copy_status.add_theme_font_size_override("font_size", 16)
     _copy_status.add_theme_color_override("font_color", Color("#a9eafa"))
     footer.add_child(_copy_status)
+
+
+func _on_emission_pressed() -> void:
+    emission_toggled.emit()
+
+
+func _on_copy_pressed() -> void:
+    copy_requested.emit()
 
 
 func _new_button(caption: String, width: float) -> Button:
