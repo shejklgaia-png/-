@@ -37,6 +37,9 @@ assert "_sync_customization_part_glow()" in choose
 # v537: hand motion rotates the full-body preview but never pans/re-scales it.
 drag = nexus.split("func _rotate_customization_preview(delta: Vector2) -> void:")[1].split("\nfunc ")[0]
 assert "var pitch_delta: float = -delta.y" in drag
+# v539: touch and mouse share this helper, so only flip horizontal yaw once.
+assert "customize_preview_yaw = wrapf(customize_preview_yaw + yaw_delta, -PI, PI)" in drag
+assert "customize_preview_yaw - yaw_delta" not in drag
 assert "_constrain_customization_preview_to_safe_area()" not in drag
 assert "customize_preview_position.x +=" not in drag
 assert "customize_preview_position.y -=" not in drag
