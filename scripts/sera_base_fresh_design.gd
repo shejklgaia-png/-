@@ -199,9 +199,21 @@ static func _labo(g: Variant) -> void:
         g.box("FreshLabTelemetry",
             Vector3(1.46, 1.21 + i * 0.11, 1.70),
             Vector3(0.34, 0.035, 0.025), "blue_light")
+    # Rear utility fixtures glow through the front gap and visibly
+    # separate the fabrication opening from its canopy at gameplay scale.
     g.box("FreshLabWarmWorkLight",
         Vector3(0, 2.86, -1.35),
-        Vector3(1.11, 0.16, 0.10), "amber_light")
+        Vector3(1.56, 0.16, 0.11), "amber_light")
+    g.box("FreshLabInteriorLightRail",
+        Vector3(0, 2.26, -1.49),
+        Vector3(2.29, 0.12, 0.11), "amber_light")
+    for side in [-1.0, 1.0]:
+        g.box("FreshLabFrontMachinePylon",
+            Vector3(side * 1.13, 1.58, 1.38),
+            Vector3(0.18, 1.65, 0.17), "armor_light")
+        g.box("FreshLabFrontMachineGlow",
+            Vector3(side * 1.13, 1.55, 1.51),
+            Vector3(0.07, 1.11, 0.06), "blue_light")
     for side in [-1.0, 1.0]:
         g.poly("FreshLabPartsBin", "bevel",
             Vector3(side * 1.53, 0.70, 0.20),
@@ -419,14 +431,20 @@ static func _generator(g: Variant) -> void:
     g.box("FreshGeneratorBlueCoreFace",
         Vector3(-0.25, 1.36, 0.98),
         Vector3(1.90, 0.70, 0.10), "glass")
+    # Horizontal energy rails emphasize the cylindrical blue core,
+    # rather than allowing the front circular corona to read as a white logo.
+    for y in [1.00, 1.81]:
+        g.box("FreshGeneratorHorizontalGlow",
+            Vector3(-0.27, y, 1.07),
+            Vector3(2.06, 0.10, 0.10), "blue_light")
     for i in range(5):
         g.box("FreshGeneratorAxialLight",
             Vector3(-1.07 + i * 0.40, 1.37, 1.06),
             Vector3(0.12, 0.57, 0.08), "blue_light")
     g.ring("FreshGeneratorBlueCorona",
-        Vector3(-0.27, 1.43, 1.07), 0.74, "blue_light", "z")
+        Vector3(-0.27, 1.43, 1.07), 0.46, "blue_light", "z")
     g.ring("FreshGeneratorRotorInnerRim",
-        Vector3(-0.27, 1.43, 1.11), 0.51, "edge", "z")
+        Vector3(-0.27, 1.43, 1.11), 0.36, "edge", "z")
     # Four true spokes across the exposed turbine face (not a solid plate).
     for i in range(4):
         var phase: float = TAU * float(i) / 4.0
