@@ -5,7 +5,9 @@ extends Node
 ## The already-restored archived NEXUS geometry is never replaced or reauthored.
 
 const MOTION_FEATURES: Dictionary = {
-    "NEXUS": ["NexusAntennas", "NexusAntennasBeacon"],
+    # NEXUS antennas are now rigid. Only the beacon's emissive diode
+    # toggles on Morse-like timer events in BaseFacilityVFX.
+    "NEXUS": [],
     "LABO": ["FreshLabPrinterServo", "FreshLabPrinterHotHead",
         "FreshLabPrinterTip", "FreshLabPrintedShell"],
     "SCRAP_COLLECTOR": ["FreshCollectorSuspendedCable", "FreshCollectorClawHead",
@@ -40,7 +42,10 @@ func bind_to(model: Node3D, key: String) -> void:
     _body_yaw = float(model.get_meta("body_yaw", 0.0))
     _model_scale = float(model.get_meta("visual_model_scale", 1.0))
     model.add_child(self)
-    sample_at(0.0)
+    # Stop per-frame work (and GPU MultiMesh uploads) for static NEXUS.
+    set_process(not expected.is_empty())
+    if not expected.is_empty():
+        sample_at(0.0)
 
 func _process(delta: float) -> void:
     _clock += maxf(0.0, delta)
@@ -84,20 +89,6 @@ func sample_at(seconds: float) -> void:
             var rest: Transform3D = record["bind"]
             var pose: Transform3D = rest
             match facility_key:
-                "NEXUS":
-                    if feature == "NexusAntennas":
-                        # Slow antenna sweep; no change to the archived roof.
-                        var sweep: float = 0.14 * sin(time * 0.85)
-                        var tilt := Basis(_axis(Vector3.FORWARD), sweep)
-                        pose.basis = tilt * rest.basis
-                    elif feature == "NexusAntennasBeacon":
-                        # Animated telescopic beacon on the existing antenna:
-                        # explicit vertical travel survives 720p overview scale.
-                        var beacon_stroke: float = 0.19 * sin(time * 3.2)
-                        var pulse: float = 1.0 + 0.28 * sin(time * 3.2)
-                        pose.origin += _at(Vector3(0.0, beacon_stroke, 0.0))
-                        pose.basis = rest.basis.scaled_local(
-                            Vector3(pulse, pulse, pulse))
                 "LABO":
                     if feature in ["FreshLabPrinterServo",
                             "FreshLabPrinterHotHead", "FreshLabPrinterTip"]:
