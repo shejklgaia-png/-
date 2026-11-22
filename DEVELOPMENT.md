@@ -1,3 +1,11 @@
+## 2026-11-22 — SERA 自動CI依存を廃止、変更別ローカル検査へ移行
+
+- ユーザー指示に従い、テスト系10本のGitHub Actionsを `workflow_dispatch` 専用に変更。従来から手動専用の2本は維持し、ゲーム・ローダーAPK、GitSync、フォント資産配布、過去履歴整理の7本は既存トリガーを保持。
+- 既存の `tools/sera_ci_suite.py --tests`、`tools/sera_workplan.py`、`tools/sera_quick_check.py` を日常の変更別検査の基盤に採用。全件テストは重要な共通変更や明示的な手動実行で利用。テスト本体・期待値・manifestの旧登録は削除していない。
+- 新正本 `docs/SERA_MANUAL_TEST_WORKFLOW_ja.md` を追加し、`AGENTS.md`、`docs/agent/CI_WORKFLOW.md`、`docs/SERA_ACTIVE_CI_POLICY_ja.md`、開発ツールの旧「毎回フルCI必須」指示を更新。仕様変更時のテスト期待値の先行更新、既存回帰の保護、重大な未検証リスクでのマージ保留、Android実機確認の区別は維持。
+- `tools/sera_manual_workflow_policy_self_check.py` をテストmanifestに新規登録。テスト用Actions 12本の手動専用と、配布・通知7本の従来トリガーの保持を静的チェックする。
+- 実装対象は開発インフラ・文書のみ。ゲームコード、モデル、アニメーション、UI、保存形式、ゲーム版は変更しない。GitHubランナー／Android実機実行は本変更の確認には使用していない。既存の滞留Actionsはトリガー変更後も別途管理する。
+
 ## 2026-11-22 — SERA/IRIS全身が黒くなる回帰のカリング修正
 
 - Android提供スクリーンショット（SERA v545）で、カスタマイズの全身装甲がほぼ黒色になった。原因は閉メッシュの正の符号付き体積に対してGodotの表面が時計回りであることを考慮せず、元の装甲を`CULL_BACK`、黒い高速ハルを`cull_front`としていた表裏逆転。

@@ -1,25 +1,7 @@
 name: SERA Equipment Godot Web Preview
 
+# Manual-only: focused local checks are the default; retain opt-in Actions diagnostics.
 on:
-  pull_request:
-    paths:
-      - 'tools/equipment_intake/**'
-      - '.github/workflows/equipment-godot-web-preview.yml'
-      - 'scripts/sera_rig.gd'
-      - 'scripts/sera_equipment.gd'
-      - 'scripts/sera_view_edges.gd'
-      - 'shaders/**'
-      - 'assets/sera_*'
-  push:
-    branches: [main]
-    paths:
-      - 'tools/equipment_intake/**'
-      - '.github/workflows/equipment-godot-web-preview.yml'
-      - 'scripts/sera_rig.gd'
-      - 'scripts/sera_equipment.gd'
-      - 'scripts/sera_view_edges.gd'
-      - 'shaders/**'
-      - 'assets/sera_*'
   workflow_dispatch:
 
 permissions:

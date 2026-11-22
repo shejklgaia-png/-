@@ -5,9 +5,9 @@
 ## Required for every change
 1. Verify current `main` SHA, open PRs, `project.godot` version and real source before editing. Never infer the live state from memory or older README.
 2. **Read `docs/agent/CI_WORKFLOW.md` on every change**, and inspect `.github/workflows/`, `tools/sera_ci_manifest.txt`, `docs/SERA_ACTIVE_CI_POLICY_ja.md`, and related current tests **before** implementation. Classify new expectations, old expectations, invariants and unaffected tests. For intentional spec changes, update related CI tests first and keep them in the same PR. Never delete, skip or weaken tests to hide regressions.
-3. Generate a focused plan with `python3 tools/sera_workplan.py --query "<user request>" --json` (or `--changed <path>`), then read its `documentation.required` and `documentation.selected`. Inspect selected code/tests; routing is heuristic, not authority. For unmapped or mixed features, manually expand dependencies and run complete CI.
+3. Generate a focused plan with `python3 tools/sera_workplan.py --query "<user request>" --json` (or `--changed <path>`), then read its `documentation.required` and `documentation.selected`. Inspect selected code/tests; routing is heuristic, not authority. For unmapped or mixed features, manually expand dependencies and run sufficiently broad local tests. Follow `docs/SERA_MANUAL_TEST_WORKFLOW_ja.md`; automatic full CI is not required.
 4. Work in a short-lived branch. Keep unrelated behavior, model masters, existing save formats, Android compatibility and inputs intact. Use existing modules; avoid speculative rewrites.
-5. Run focused registered checks when appropriate. **Merge first; run the FULL registered Python and Godot CI on `main` afterward.** If CI fails, diagnose and fix the regression, rerun, and report accurate status and links. Headless checks do not establish Android visual, touch, motion or audio correctness.
+5. Run scoped registered local tests appropriate to the change, broadening coverage for shared or high-risk systems. **No automatic full CI is required.** Review tests, source diffs and unverified risks before merging. Do not merge known regressions; report failed and unexecuted checks separately. Headless checks do not establish Android visual, touch, motion or audio correctness. Follow `docs/SERA_MANUAL_TEST_WORKFLOW_ja.md`.
 6. Update `DEVELOPMENT.md` for meaningful changes. Increment SERA version only for requested gameplay changes.
 
 ## Routed rules (load when relevant)
@@ -25,5 +25,5 @@ python3 tools/sera_workplan.py --query "倉庫 UI" --json
 python3 tools/sera_workplan.py --query step --execute
 python3 tools/sera_quick_check.py
 python3 tools/sera_ci_suite.py static --workers 4
-# Full Godot checks: registered CI workflow on main after merge.
+# Full Godot tests are optional local/manual diagnostics; not automatic after merge.
 ```

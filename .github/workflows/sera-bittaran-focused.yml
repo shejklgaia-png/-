@@ -2,7 +2,7 @@ name: SERA Bittaran legacy IK-focused runtime (manual)
 
 # v434 deliberately disables IK while verifying Blockbench animation.
 # These historical IK-based tests are retained for opt-in manual runs.
-# Active source-replay CI on push/PR is sera-bittaran-original-replay.yml.
+# Current source-replay validation is an opt-in manual run in sera-bittaran-original-replay.yml.
 on:
   workflow_dispatch:
 

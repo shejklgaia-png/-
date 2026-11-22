@@ -12,7 +12,7 @@
 1. `project.godot` で現行バージョンを確認する。`python3 tools/sera_dev_index.py step --json`、`sera_code_map.py`、`sera_change_impact.py` を利用する。
 2. STEP・蹴りの仕様を明示変更した場合は `tools/sera_active_specs.json` を**同一PRで**更新する。関係しない仕様は変えない。
 3. 旧テストが落ちたら「保持する不変条件／意図して上書きされた旧数値／実装バグ」に分類する。バグをテスト側の変更で隠さない。
-4. 局所テスト → 共通CIの全件 → 差分レビューでマージする。Godot headlessとAndroid実機は分けて報告する。
+4. 変更に対応する局所テスト（重要な共通変更は範囲拡大）→ 差分レビュー → 必要な検査を満たしてマージする。自動GitHub Actions全件検証は通常必須ではない。Godot headlessとAndroid実機は分けて報告する。最新手順は `docs/SERA_MANUAL_TEST_WORKFLOW_ja.md` を参照。
 5. 新テストは `tools/sera_ci_manifest.txt` に登録する。未登録テストは共通CIでは実行されない。
 
 ## 高速化

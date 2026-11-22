@@ -14,8 +14,8 @@ import re
 from sera_code_map import ROOT, extract_symbols, version_from_text
 
 REF = re.compile(r"""(?:preload|load)\s*\(\s*["']res://([^"']+\.gd)["']\s*\)""")
-# Test hints are intentionally narrow: always run the existing full CI before
-# merge. A test must be present on disk and explicitly named by an audit hint.
+# Test hints are intentionally narrow: extend the selection manually for
+# shared or high-risk changes. A test must exist and be an auditable hint.
 TEST_HINTS = {
     "scripts/main.gd": ("v229_", "v230_", "v231_", "v232_", "v233_", "v234_",
                         "v237_", "v242_", "v243_", "v244_", "v245_", "v246_"),
@@ -79,7 +79,7 @@ def impact_report(paths: list[str], root: Path = ROOT) -> dict:
         "game_version": version,
         "changed_or_queried": result,
         "suggested_regression_tests": suggested_tests(paths, root),
-        "caution": "Dependency graph is incomplete for dynamic calls. Full existing CI and device acceptance remain required.",
+        "caution": "Dependency graph is incomplete for dynamic calls. Expand local test selection as needed; report device acceptance separately.",
     }
 
 
@@ -115,7 +115,7 @@ def main() -> None:
             if item["used_by"]:
                 print('  used by: ' + ', '.join(item["used_by"]))
         if result["suggested_regression_tests"]:
-            print("Suggested scoped regression tests (in addition to FULL CI):")
+            print("Suggested scoped regression tests (review and expand for dependency risk):")
             for path in result["suggested_regression_tests"]:
                 print("  python3 " + path)
         print(result["caution"])

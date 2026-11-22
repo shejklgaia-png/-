@@ -7,7 +7,7 @@ Examples:
   python3 tools/sera_workplan.py --query lock --execute
   python3 tools/sera_workplan.py --query bird --execute --godot /path/to/godot
 
-The focused run is never a substitute for the complete mandatory PR CI.
+Focused checks are the default. Inspect dependency risk and widen coverage as needed; full CI is opt-in.
 """
 from __future__ import annotations
 
@@ -291,13 +291,13 @@ def build_plan(query: str = "", changed: list[str] | None = None, limit: int = 1
     docs = select_documentation(features)
     notes = ["This is a conservative HEURISTIC. Dynamic calls, scene signals and shared files may have unlisted dependencies.",
              "Read documentation.required and documentation.selected; inspect actual source and tests.",
-             "Focused checks never replace full registered Python + Godot CI on main after merge."]
+             "Select relevant local checks; widen coverage for shared, unknown or high-risk changes. Full CI is opt-in."]
     if docs["missing"]:
         notes.append("Missing routed documentation: " + ", ".join(docs["missing"]))
     if not features:
         notes.append("No known feature matched; inspect manually and run the complete suites.")
     if "scripts/main.gd" in changed and not query:
-        notes.append("main.gd spans many features: specify --query to reduce the plan, then still run full PR CI.")
+        notes.append("main.gd spans many features: specify --query and manually extend test coverage beyond any narrow suggestion.")
     return {
         "game_version": version_from_text((ROOT / "project.godot").read_text(encoding="utf-8")),
         "query": query, "changed": changed, "features": features, "source_locations": scripts,
@@ -311,11 +311,11 @@ def build_plan(query: str = "", changed: list[str] | None = None, limit: int = 1
 def run_focused(plan: dict, godot: str = "") -> int:
     selected = plan["focused_tests"]
     if not plan["features"] or not any(selected.values()):
-        print("No trusted focused tests; use complete CI.", file=sys.stderr)
+        print("No trusted focused tests; inspect dependencies and select safe local checks manually.", file=sys.stderr)
         return 2
     for kind, runner in (("py", "static"), ("gd", "godot")):
         if kind == "gd" and not godot:
-            print("Godot focused suite skipped (no --godot). Full post-merge CI is still required.")
+            print("Godot focused suite NOT RUN (no --godot). Report this as unverified and assess merge risk.")
             continue
         tests = selected[kind]
         if not tests:
@@ -358,7 +358,7 @@ def main() -> int:
         print("Read for task:", ", ".join(docs["selected"]))
         if docs["missing"]:
             print("MISSING DOCS:", ", ".join(docs["missing"]))
-        print("Focused tests:", plan["test_counts"], "Full main CI:", plan["full_suite_counts"])
+        print("Focused tests:", plan["test_counts"], "Optional full suite:", plan["full_suite_counts"])
         for note in plan["notes"]:
             print("NOTE:", note)
     if opts.execute:
