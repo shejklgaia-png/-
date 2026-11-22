@@ -65,6 +65,10 @@ func _run() -> void:
     var cross: Vector2 = total.get_global_rect().get_center()
     var before_yaw: float = float(nexus.get("customize_preview_yaw"))
     var before_pitch: float = float(nexus.get("customize_preview_pitch"))
+    var before_position: Vector3 = nexus.get("customize_preview_position") as Vector3
+    var before_scale: float = float(nexus.get("customize_preview_scale"))
+    var display_rig: Node3D = nexus.get("sera_display_rig") as Node3D
+    var before_world_origin: Vector3 = display_rig.global_position
     nexus.call("_input", _touch(origin, true, 2))
     if int(nexus.get("customize_touch_id")) != 2:
         _fail("full-body touch was not captured in original model area")
@@ -73,6 +77,16 @@ func _run() -> void:
     if is_equal_approx(before_yaw, float(nexus.get("customize_preview_yaw"))) or (
             is_equal_approx(before_pitch, float(nexus.get("customize_preview_pitch")))):
         _fail("drag must rotate yaw and pitch even after crossing the top stats")
+        return
+    var dragged_pitch: float = float(nexus.get("customize_preview_pitch"))
+    if (dragged_pitch - before_pitch) * (cross.y - origin.y) >= 0.0:
+        _fail("vertical drag pitch must be reversed: dragging upward tilts positive")
+        return
+    if (nexus.get("customize_preview_position") as Vector3).distance_to(
+            before_position) > 0.000001 or (
+            absf(float(nexus.get("customize_preview_scale")) - before_scale) > 0.000001) or (
+            display_rig.global_position.distance_to(before_world_origin) > 0.000001):
+        _fail("touch rotation must never reposition or rescale the full-body model")
         return
     nexus.call("_input", _touch(cross, false, 2))
     if int(nexus.get("customize_touch_id")) != -1:
@@ -97,6 +111,11 @@ func _run() -> void:
     nexus.call("_input", mouse_motion)
     if is_equal_approx(yaw2, float(nexus.get("customize_preview_yaw"))):
         _fail("mouse rotation stopped across a different UI rectangle")
+        return
+    if (nexus.get("customize_preview_position") as Vector3).distance_to(
+            before_position) > 0.000001 or (
+            absf(float(nexus.get("customize_preview_scale")) - before_scale) > 0.000001):
+        _fail("mouse drag also must only change the model rotation")
         return
     left.pressed = false
     left.position = cross
