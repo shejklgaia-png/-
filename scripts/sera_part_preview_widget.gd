@@ -142,6 +142,58 @@ func set_shading_mode(levels: int) -> void:
     _apply_iris_shading()
 
 
+func _restore_original_materials() -> void:
+    for item in _original_materials.values():
+        var source: MeshInstance3D = item.get("mesh") as MeshInstance3D
+        if is_instance_valid(source):
+            source.material_override = item.get("original_material_override") as Material
+    _original_materials.clear()
+    _light_materials.clear()
+
+
+func _apply_iris_shading() -> void:
+    if not active_preview or not ready_for_commands or not _is_iris_preview() or (
+            shade_levels == 0) or not is_instance_valid(preview_scene):
+        _restore_original_materials()
+        return
+    if not is_instance_valid(_white_texture):
+        var white := Image.create(1, 1, false, Image.FORMAT_RGBA8)
+        white.fill(Color.WHITE)
+        _white_texture = ImageTexture.create_from_image(white)
+    var pieces: Array = preview_scene.call("_mesh_in_slot", "head", "D")
+    for index in range(pieces.size()):
+        var source: MeshInstance3D = pieces[index] as MeshInstance3D
+        if not is_instance_valid(source) or source.mesh == null:
+            continue
+        var key: int = source.get_instance_id()
+        if not _original_materials.has(key):
+            _original_materials[key] = {
+                "mesh": source,
+                "original_material_override": source.material_override
+            }
+        var original: Material = _original_materials[key]["original_material_override"] as Material
+        if original == null and source.mesh.get_surface_count() > 0:
+            original = source.get_active_material(0)
+        var texture: Texture2D = _white_texture
+        var tint: Color = Color.WHITE
+        if original is StandardMaterial3D:
+            var standard: StandardMaterial3D = original as StandardMaterial3D
+            if standard.albedo_texture != null:
+                texture = standard.albedo_texture
+            tint = standard.albedo_color
+        var light_material: ShaderMaterial = _light_materials.get(key) as ShaderMaterial
+        if not is_instance_valid(light_material):
+            light_material = ShaderMaterial.new()
+            light_material.shader = IrisPolygonLight
+            light_material.set_shader_parameter("source_texture", texture)
+            light_material.set_shader_parameter("source_tint", tint)
+            light_material.set_shader_parameter("panel_bias",
+                float(index % 3 - 1) * 0.035)
+            _light_materials[key] = light_material
+        light_material.set_shader_parameter("shade_levels", shade_levels)
+        source.material_override = light_material
+
+
 func _make_viewport() -> void:
     if render_viewport != null:
         return
