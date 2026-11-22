@@ -46,6 +46,7 @@ var preview_elapsed: float = 0.0
 var preview_running: bool = false
 var completion_cut_active: bool = false
 var completion_frames_remaining: int = 0
+var _completion_generation: int = 0
 var _previous_max_fps: int = 0
 var _fps_limit_active: bool = false
 var noise_elapsed: float = 0.0
@@ -85,6 +86,7 @@ func _ready() -> void:
     set_process(not pixel_source_mode)
 
 func _exit_tree() -> void:
+    _completion_generation += 1
     # Do not leave a callback to a freed loading screen on RenderingServer.
     if RenderingServer.frame_post_draw.is_connected(_on_completion_frame_presented):
         RenderingServer.frame_post_draw.disconnect(_on_completion_frame_presented)
@@ -179,16 +181,32 @@ func set_stage(message: String, completed_percent: int) -> void:
 func _begin_completion_cut() -> void:
     completion_cut_active = true
     completion_frames_remaining = COMPLETE_CUT_FRAMES
-    # Count only actually presented frames, never pre-render process_frame ticks.
+    _completion_generation += 1
+    # Headless tests have no actual visual frames: advance two main-loop ticks
+    # only there, never substitute pre-render ticks on a rendering device.
+    if not RenderingServer.render_loop_enabled:
+        _finish_headless_cut(_completion_generation)
+        return
     if not RenderingServer.frame_post_draw.is_connected(_on_completion_frame_presented):
         RenderingServer.frame_post_draw.connect(_on_completion_frame_presented)
+
+func _finish_headless_cut(generation: int) -> void:
+    for _frame in range(COMPLETE_CUT_FRAMES):
+        await get_tree().process_frame
+    if not is_inside_tree() or generation != _completion_generation:
+        return
+    if completion_frames_remaining > 0:
+        completion_frames_remaining = 0
+        _finish_completion_cut()
 
 func _on_completion_frame_presented() -> void:
     if completion_frames_remaining <= 0:
         return
     completion_frames_remaining -= 1
-    if completion_frames_remaining > 0:
-        return
+    if completion_frames_remaining == 0:
+        _finish_completion_cut()
+
+func _finish_completion_cut() -> void:
     if RenderingServer.frame_post_draw.is_connected(_on_completion_frame_presented):
         RenderingServer.frame_post_draw.disconnect(_on_completion_frame_presented)
     completion_cut_finished.emit()
@@ -198,6 +216,7 @@ func _on_completion_frame_presented() -> void:
 
 func start_preview() -> void:
     # Preview progress is fake by design; the live path never calls this.
+    _completion_generation += 1
     if RenderingServer.frame_post_draw.is_connected(_on_completion_frame_presented):
         RenderingServer.frame_post_draw.disconnect(_on_completion_frame_presented)
     preview_elapsed = 0.0
