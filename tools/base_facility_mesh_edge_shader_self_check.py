@@ -23,7 +23,7 @@ assert 'Color("#000000")' in edge
 assert 'Color("#353535")' in edge
 assert "crease_overlay_for" in edge
 assert "_extract_edges" in edge and "SurfaceTool.CUSTOM_RGBA_FLOAT" in edge
-assert "if not bool(edge.get(\"crease\", false)):" in edge
+assert "if not bool(edge.get(\"crease\", false)) or not edge.has(\"face_b\"):" in edge
 assert "RENDER_ORDER.DEPTH_TESTED_EMISSIVE" in edge
 assert "Geometry2D.convex_hull" not in edge
 assert "draw_polyline" not in edge
