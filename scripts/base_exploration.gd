@@ -8,6 +8,9 @@ const BaseFacilities = preload("res://scripts/base_facility_system.gd")
 const PowerBoard = preload("res://scripts/sera_base_power_board.gd")
 const GridUi = preload("res://scripts/sera_base_grid_ui.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
+const BaseFacilityInk = preload("res://scripts/sera_base_facility_outlines.gd")
+const OUTLINE_TEST_SAFE_SHADER = preload("res://shaders/sera_view_edges.gdshader")
+const OUTLINE_TEST_FAST_SHADER = preload("res://shaders/sera_view_edges_fast.gdshader")
 const BaseClutter = preload("res://scripts/sera_base_clutter.gd")
 const BaseLayoutPreview = preload("res://scripts/sera_base_layout_preview.gd")
 const JunkGeometry = preload("res://scripts/sera_base_junk_geometry.gd")
@@ -87,6 +90,8 @@ var preview_layer: CanvasLayer
 var layout_tools: VBoxContainer
 var layout_shuffle_button: Button
 var layout_copy_button: Button
+var outline_probe_button: Button
+var outline_probe_mode: int = 0
 var layout_status: Label
 var layout_seed: int = 0
 var layout_rerolls: int = 0
@@ -631,7 +636,7 @@ func _layout_hud() -> void:
     hint.add_theme_font_size_override("font_size", 16 if view.x < 600.0 else 19)
     if layout_tools != null:
         layout_tools.position = Vector2(view.x - 168.0, 14.0)
-        layout_tools.size = Vector2(156.0, 178.0)
+        layout_tools.size = Vector2(156.0, 240.0)
     if grid_ui != null:
         grid_ui.call("reflow", view)
     if power_back_button != null:
@@ -681,15 +686,49 @@ func _create_layout_tools() -> void:
     layout_copy_button = _layout_tool_button(
         "配置データコピー", "LayoutCopyButton", _copy_layout_data)
     _layout_tool_button("ロード演出", "LoadingPreviewButton", _play_loading_preview)
+    outline_probe_button = _layout_tool_button(
+        "輪郭検査 v1", "OutlineProbeButton", _cycle_outline_probe)
     layout_status = Label.new()
     layout_status.name = "LayoutStatus"
-    layout_status.text = "PREVIEW / 未確定"
+    layout_status.text = "OUTLINE-DIAG v1"
     layout_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
     layout_status.add_theme_font_override("font", LaboSkin.ui_font())
     layout_status.add_theme_font_size_override("font_size", 11)
     layout_status.add_theme_color_override("font_color", Color("#a7c4d3"))
     layout_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
     layout_tools.add_child(layout_status)
+
+
+func _cycle_outline_probe() -> void:
+    # Diagnostic only. Do not change models, animated MultiMesh batches,
+    # NEXUS 2px corner lines or the SERA/Bittaran 3px shader path.
+    if scene_changing or power_view_active or (
+            facility_system != null and bool(facility_system.call("is_menu_open"))):
+        return
+    outline_probe_mode = (outline_probe_mode + 1) % 3
+    var mat: ShaderMaterial = BaseFacilityInk.material()
+    if outline_probe_mode == 0:
+        mat.shader = OUTLINE_TEST_SAFE_SHADER
+        mat.set_shader_parameter("ink_color", Color("#000000"))
+        outline_probe_button.text = "輪郭検査 v1"
+        layout_status.text = "OUTLINE-DIAG v1"
+    elif outline_probe_mode == 1:
+        # Pink but SAME depth-checked production shader: only the
+        # black-vs-dark-background contrast has changed.
+        mat.shader = OUTLINE_TEST_SAFE_SHADER
+        mat.set_shader_parameter("ink_color", Color("#ff00ff"))
+        outline_probe_button.text = "輪郭：紫/深度ON"
+        layout_status.text = "INK SAFE / PINK"
+    else:
+        # Same physical 6px MultiMesh companion but no depth-texture
+        # neighborhood discard: distinguishes fully masked ink.
+        mat.shader = OUTLINE_TEST_FAST_SHADER
+        mat.set_shader_parameter("ink_color", Color("#ff00ff"))
+        outline_probe_button.text = "輪郭：紫/深度OFF"
+        layout_status.text = "INK FAST / PINK"
+    mat.set_shader_parameter("stroke_px", 6.0)
+    print("SERA_BASE_OUTLINE_DIAG mode=%d shader=%s" % [
+        outline_probe_mode, mat.shader.resource_path])
 
 
 func _layout_tool_button(caption: String, identifier: String,

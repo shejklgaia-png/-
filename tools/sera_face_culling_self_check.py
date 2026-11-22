@@ -76,8 +76,14 @@ assert "signed_volume" in cull and "reverse_faces" in cull
 assert '"cull_back": safe_closed' in cull
 assert "FACE_CULLING.inspect_element(element)" in rig
 assert "FACE_CULLING.inspect_element(element)" in boss
-assert "BaseMaterial3D.CULL_BACK" in rig and "BaseMaterial3D.CULL_DISABLED" in rig
-assert "BaseMaterial3D.CULL_BACK" in boss and "BaseMaterial3D.CULL_DISABLED" in boss
+# Signed volume validates an OUTWARD mathematical normal. Godot SurfaceTool's
+# 3D front-face convention is CLOCKWISE, so the canonical CCW source shells
+# must be drawn with CULL_FRONT; CULL_BACK was hiding armor and showing ink.
+assert 'BaseMaterial3D.CULL_FRONT if safe_closed else' in rig
+assert 'BaseMaterial3D.CULL_FRONT if safe_closed else' in boss
+assert "BaseMaterial3D.CULL_DISABLED" in rig and "BaseMaterial3D.CULL_DISABLED" in boss
+assert "BaseMaterial3D.CULL_BACK if safe_closed else" not in rig
+assert "BaseMaterial3D.CULL_BACK if safe_closed else" not in boss
 assert 'set_meta("sera_single_sided", safe_closed)' in rig
 assert 'set_meta("sera_single_sided", safe_closed)' in boss
 assert "face_center - centroid" not in rig[rig.index("func _make_mesh(element: Dictionary)"):rig.index("func _merge_authored_side_kick_clips")]
@@ -88,7 +94,9 @@ assert "SeraEdgeInk" in edges
 assert 'const FAST_INK_SHADER = preload("res://shaders/sera_view_edges_fast.gdshader")' in edges
 assert 'get_meta("sera_single_sided", false)' in edges
 assert "_fast_ink_material" in edges and "_ink_material" in edges
-assert "render_mode unshaded, cull_front, depth_draw_never;" in fast_shader
+assert "render_mode unshaded, cull_back, depth_draw_never;" in fast_shader
+assert "render_mode unshaded, cull_front, depth_draw_never;" not in fast_shader
+assert "FACE_CULLING" in rig and "FACE_CULLING" in boss
 assert "VIEWPORT_SIZE" in fast_shader and "stroke_px" in fast_shader
 assert "ALPHA = 1.0;" in fast_shader
 assert not any(key in fast_shader for key in ("hint_depth_texture", "textureLod", "opaque_depth_at"))

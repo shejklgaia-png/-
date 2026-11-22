@@ -1,3 +1,6 @@
+# BASE visual debug marker + reversible magenta masked/unmasked probe.
+py tools/base_outline_probe_self_check.py
+gd tools/base_outline_probe_runtime_check.gd
 # BASE 6px latest SERA inverted hull + separate unchanged 2px foreground creases.
 py tools/base_latest_sera_silhouette_self_check.py
 gd tools/base_latest_sera_silhouette_runtime_check.gd
