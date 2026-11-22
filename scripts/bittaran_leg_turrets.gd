@@ -427,6 +427,7 @@ func _fire_next(player_world: Vector3) -> void:
         muzzle_burst_light.visible = true
     var bolt := MeshInstance3D.new()
     bolt.name = "BellyCannonShot_" + id
+    bolt.set_meta("sera_no_view_edges", true)
     bolt.mesh = projectile_mesh
     bolt.material_override = projectile_material
     bolt.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
