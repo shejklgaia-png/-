@@ -80,12 +80,13 @@ func _ready() -> void:
     _xray_material.shader = XRAY_SHADER
     _exterior_material = ShaderMaterial.new()
     _exterior_material.shader = EXTERIOR_SHADER
-    # Mask writers are priority -22; outside-only stroke must draw AFTER.
+    # The production ribbon samples the opaque depth texture; it does not
+    # depend on transparent stencil passes or their render order.
     _exterior_material.render_priority = -21
     _exterior_material.set_shader_parameter(
         "outline_color", Color("#0b1118"))
     _exterior_material.set_shader_parameter("exterior_px", 3.0)
-    # Same projected-ribbon math, only the stencil compare is removed.
+    # Diagnostic-only: no depth validation or stencil; all source edges.
     _exterior_no_mask_material = ShaderMaterial.new()
     _exterior_no_mask_material.shader = EXTERIOR_NO_MASK_SHADER
     _exterior_no_mask_material.render_priority = -21
@@ -392,8 +393,9 @@ func get_diagnostic_snapshot() -> Dictionary:
         "enabled": GraphicsSettings.get_enabled("character_outline"),
         "depth_disabled": _diagnostic_mode == 5,
         "contacts_cached": not _last_contact_signature.is_empty(),
-        "outline_pipeline": "screen_edge_stencil_union",
+        "outline_pipeline": "screen_edge_opaque_depth",
         "exterior_pixels": 3.0,
+        "depth_sampled": _uses_exterior_union(),
         "stencil_bypass": _diagnostic_mode == 16,
         "stencil_equal_probe": _diagnostic_mode == 17,
         "stencil_no_writer_probe": _diagnostic_mode == 18

@@ -1,8 +1,9 @@
 extends Node3D
-## NEXUS auto-registration for grouped SERA silhouettes.
-## All ordinary opaque armor pieces write stencil value 17, then the baked
-## back-face hulls read the shared mask. Each copy is a SOURCE CHILD and
-## inherits its pose in the same frame. No secondary camera/readback.
+## Legacy NEXUS stencil/hull DIAGNOSTICS ONLY.
+## The production outline now uses the opaque scene-depth texture and does
+## not need an additional mask or smooth-hull mesh per equipment part.
+## These legacy copies are built only while a corresponding diagnostic mode
+## is open, then released to keep mobile memory and draw costs low.
 const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
 const HullGeometry = preload("res://scripts/sera_nexus_smooth_hull_geometry.gd")
 const STENCIL_MASK_SHADER = preload("res://shaders/sera_nexus_stencil_mask.gdshader")
@@ -38,6 +39,22 @@ var _last_candidate_count: int = 0
 var _last_hidden_count: int = 0
 var _mode: int = 0
 var _enabled: bool = true
+
+func _needs_legacy_meshes() -> bool:
+    return _mode == 6 or _mode == 7 or _mode == 8 or (
+        _mode >= 12 and _mode <= 15) or _mode == 17
+
+func _release_legacy_meshes() -> void:
+    for item in _links.values():
+        var entry: Dictionary = item
+        for role in ["mask", "hull"]:
+            var mesh_copy: MeshInstance3D = entry.get(role) as MeshInstance3D
+            if is_instance_valid(mesh_copy):
+                mesh_copy.visible = false
+                mesh_copy.queue_free()
+    _links.clear()
+    _baked_cache.clear()
+
 
 func configure(source_rig: Node3D) -> void:
     _root = source_rig
@@ -105,7 +122,9 @@ func _ready() -> void:
     _calibration_probe.call("configure", _root)
     add_child(_calibration_probe)
     _enabled = GraphicsSettings.get_enabled("character_outline")
-    _rebuild_links()
+    # Do not create or cache any legacy mask/hull meshes in normal NEXUS.
+    if _enabled and _needs_legacy_meshes():
+        _rebuild_links()
     _apply_mode()
     set_process(true)
 
@@ -118,15 +137,21 @@ func _process(delta: float) -> void:
     if enabled != _enabled:
         _enabled = enabled
         _apply_mode()
-    if _enabled:
+    if _enabled and _needs_legacy_meshes():
         _rebuild_links()
+    elif not _links.is_empty():
+        _release_legacy_meshes()
 
 func set_diagnostic_mode(mode: int) -> void:
     _mode = clampi(mode, 0, 18)
+    if _enabled and _needs_legacy_meshes():
+        _rebuild_links()
+    elif not _links.is_empty():
+        _release_legacy_meshes()
     _apply_mode()
 
 func _apply_mode() -> void:
-    # 0/1/9: exterior GPU edge ribbons + shared mask; NO inverted hull.
+    # 0/1/9: depth-validated exterior GPU edges; NO stencil/hull copies.
     # 2-5 = original edge diagnostics (unchanged)
     # 6 = visibly eligible mesh, 7 = tinted stencil writer
     # 8 = unmasked legacy hull. 9 = bright new mask+edge union.
@@ -138,8 +163,7 @@ func _apply_mode() -> void:
     # 18 = ref17 NOT-EQUAL on identical ribbon with stencil writer OFF.
     # Diagnostic-only passes NEVER alter the source mesh material.
     var enable_stencil: bool = _enabled and (
-        _mode == 0 or _mode == 1 or _mode == 7 or _mode == 9
-        or _mode == 12 or _mode == 17)
+        _mode == 7 or _mode == 12 or _mode == 17)
     # Keep old inverted hull ONLY for isolation diagnostics. Its normal
     # projection was not robust across Blockbench armor shapes.
     var enable_hull: bool = _enabled and (
@@ -324,6 +348,8 @@ func get_stencil_snapshot() -> Dictionary:
         probe_snapshot = _calibration_probe.call("get_probe_snapshot")
     return {"parts": _links.size(), "hulls": hulls,
         "production_hull_disabled": true,
+        "production_stencil_disabled": true,
+        "legacy_diagnostics_active": _needs_legacy_meshes(),
         "probe_camera": bool(probe_snapshot.get("camera", false)),
         "probe_ref": int(probe_snapshot.get("write_ref", 0)),
         "unsupported": missing, "enabled": _enabled,

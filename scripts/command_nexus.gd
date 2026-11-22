@@ -81,12 +81,12 @@ const OUTLINE_DIAGNOSTIC_MODES: Array[String] = [
     "通常", "外周候補", "全エッジ", "開放境界", "接合線", "深度無視",
     "対象メッシュ", "マスク表示", "ハル単独", "合成確認",
     "立方体＝", "立方体≠", "全身＝", "面反転",
-    "法線＋8px", "法線－8px", "マスクなし外周",
+    "法線＋8px", "法線－8px", "深度なし全エッジ",
     "17一致", "書込停止≠17"
 ]
 const OUTLINE_DIAGNOSTIC_EXPLAINS: Array[String] = [
-    "全身マスク＋GPUエッジで外周3px。診断終了時は通常へ戻ります。",
-    "青緑: 新しい全身マスク＋画面エッジの外周を表示。",
+    "不透明深度で内側を除外し、外周3pxを描画します。",
+    "青緑: 不透明深度で残った外周エッジを強調表示。",
     "黄: 生成済みの全エッジ。視点による非表示を解除。",
     "橙: 開放境界のみ。閉じた装甲には通常ありません。",
     "紫: メッシュ同士の交差から生成した接合線のみ。",
@@ -94,16 +94,16 @@ const OUTLINE_DIAGNOSTIC_EXPLAINS: Array[String] = [
     "緑: 輪郭へ登録した表示中のメッシュを着色。",
     "橙: ステンシル書込みパスを着色。描画確認用。",
     "紫: マスクなしの反転ハル。面の破綻を確認。",
-    "青緑: 現行の全身マスク＋エッジ外周の合成確認。",
+    "青緑: 現行の深度判定＋GPUエッジを確認。",
     "立方体: 書込29に一致する部分が緑なら成功候補。",
     "立方体: 29と異なる外周が紫、中心は抜けるはず。",
     "全身: ステンシル17と一致する領域を緑で表示。",
     "橙: カリングを逆転。紫のハル単独と比較。",
     "桃: 法線＋8px。青緑の元輪郭より外に出るか確認。",
     "黄: 法線－8px。青緑の元輪郭より外に出るか確認。",
-    "青緑: 新GPU外周を同じ3px・同じ投影で描き、ステンシルのみ無効。合成確認と比較。",
-    "緑: マスク書込みON、同じGPUエッジでステンシル17一致画素を表示。",
-    "紫: マスク書込みOFFで17不一致のGPUエッジを表示。残留値や比較の異常を切り分け。"
+    "青緑: 同じ3pxリボンを深度判定なしで描画。合成確認と比較。",
+    "緑: 旧ステンシル診断。書込みONで参照17一致画素を表示。",
+    "紫: 旧ステンシル診断。書込みOFFで参照17不一致画素を表示。"
 ]
 var outline_debug_button: Panel
 var outline_debug_button_text: Label
@@ -3157,11 +3157,11 @@ func _refresh_outline_debug(delta: float) -> void:
             stencil_data = stencil.call("get_stencil_snapshot")
     outline_debug_stats.text = (
         "表示対象: %d / 候補総数: %d  非表示: %d\n"
-        + "全身マスク: %d/%d  非対応: %d\n"
+        + "旧マスク(診断専用): %d/%d  非対応: %d\n"
         + "描画元: %d  エッジ生成: %d  欠落: %d\n"
         + "候補エッジ: %d  交差線: %d\n"
         + "カメラ: %s  枠線設定: %s\n"
-        + "深度: %s  接合線キャッシュ: %s\n"
+        + "画素判定: %s  接合線キャッシュ: %s\n"
         + "立方体: 値%d / カメラ%s\n"
         + "法線比較: %s"
     ) % [
@@ -3176,7 +3176,9 @@ func _refresh_outline_debug(delta: float) -> void:
         int(data.get("contact_segments", 0)),
         "OK" if bool(data.get("camera_present", false)) else "なし",
         "ON" if bool(data.get("enabled", false)) else "OFF",
-        "無視" if bool(data.get("depth_disabled", false)) else "有効",
+        "不透明深度" if bool(data.get("depth_sampled", false)) else (
+            "無視" if bool(data.get("depth_disabled", false))
+            else "診断モード"),
         "済" if bool(data.get("contacts_cached", false)) else "なし",
         int(stencil_data.get("probe_ref", 0)),
         "OK" if bool(stencil_data.get("probe_camera", false)) else "未確認",
