@@ -18,7 +18,7 @@ func _run() -> void:
         if hub.get_node_or_null("BaseFacilities/LABO/IndustrialModel") != null:
             break
     var expected := {
-        "NEXUSBuilding/NexusArchitecture": "FreshNexusGateCore",
+        "NEXUSBuilding/NexusArchitecture": "SealedGate",
         "BaseFacilities/LABO/IndustrialModel": "FreshLabFabricationBed",
         "BaseFacilities/SCRAP_COLLECTOR/IndustrialModel": "FreshCollectorTallBoom",
         "BaseFacilities/SMELTER/IndustrialModel": "FreshSmelterHotThroat",
