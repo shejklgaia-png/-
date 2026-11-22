@@ -104,8 +104,8 @@ func _draw_front_edges(model: Node3D, key: String) -> void:
         # Pick the *camera-side* 3D corner, then draw the three meeting edges.
         # This guarantees foreground corners even though a silhouette-only
         # post-process would miss them. Lines remain on screen over nearby faces.
-        var part: Transform3D = model.global_transform * (
-            record["pose"] as Transform3D)
+        var local_pose: Transform3D = record["pose"]
+        var part: Transform3D = model.global_transform * local_pose
         var cam_local: Vector3 = part.affine_inverse() * _camera.global_position
         var near: Vector3 = Vector3(
             0.5 if cam_local.x >= 0.0 else -0.5,
