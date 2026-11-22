@@ -1,3 +1,5 @@
+# NEXUS IRIS 2/3/4-step polygon shading and double-tap fullscreen.
+py tools/iris_polygon_shading_fullscreen_self_check.py
 # BASE native 30 FPS cap (no dropped viewport frames), physics 60 Hz; GRID edit zoom 60 FPS.
 py tools/base_frame_budget_self_check.py
 gd tools/base_frame_budget_runtime_check.gd
