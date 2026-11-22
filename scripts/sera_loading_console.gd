@@ -417,9 +417,12 @@ func _pixel_cell_pixels(font_size: int) -> int:
             return 3
         if font_size >= 20:
             return 2
-    elif font_size >= 36:
-        if size.x < 510.0 and console_render_scale <= 0.26:
-            return 1
+    elif console_render_scale >= 0.35:
+        # A bold but shortened heading remains visible at 37.5%.
+        if font_size >= 29:
+            return 2
+    elif font_size >= 36 and size.x >= 510.0:
+        # At 25%, the percentage still receives a 2px dot stroke.
         return 2
     return 1
 
@@ -462,9 +465,15 @@ func _draw_text(message: String, at: Vector2, font_size: int,
 
 func _draw_readout(w: float, h: float) -> void:
     var compact: bool = w < 510.0
-    var heading: String = "SERA // OS" if compact else "SERA // OMNI SYNCHRONIZER"
+    var heading: String = "SERA // OMNI SYNCHRONIZER"
+    if compact:
+        heading = "SERA // OS"
+    elif console_render_scale >= 0.35 and console_render_scale < 0.49:
+        heading = "SERA // OMNI SYNC"
+    var heading_size: int = 29 if not compact or (
+        console_render_scale >= 0.35 and console_render_scale < 0.49) else 22
     _draw_text(heading, Vector2(42.0, 68.0),
-        22 if compact else 29, Color("#d3f4ff"), true)
+        heading_size, Color("#d3f4ff"), true)
     _draw_text("CORE / OS" if compact else "CORE / SHELL / OS",
         Vector2(43.0, 94.0),
         13 if compact else 16, Color("#6e9db2"))
