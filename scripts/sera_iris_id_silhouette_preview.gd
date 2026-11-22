@@ -20,6 +20,21 @@ var _original_ink_visibility: Dictionary = {}
 var _last_camera_transform: Transform3D = Transform3D.IDENTITY
 var _last_camera_size: float = -1.0
 var _last_camera_projection: int = -1
+var _id_redraw_requests: int = 0
+var _last_cpu_sync_us: int = 0
+
+func get_outline_metrics() -> Dictionary:
+    # Diagnostic estimates for Android inspection; NOT measured GPU time/FPS.
+    return {
+        "active": _enabled,
+        "visible_mesh_id_draws_per_refresh": _copies.size(),
+        "id_target_pixels": id_viewport.size.x * id_viewport.size.y if (
+            is_instance_valid(id_viewport)) else 0,
+        "id_redraw_requests": _id_redraw_requests,
+        "estimated_max_id_samples_per_ink_pixel": 37,
+        "extra_canvas_passes_per_frame": 1 if _enabled else 0,
+        "last_cpu_sync_us": _last_cpu_sync_us,
+    }
 
 func _ready() -> void:
     name = "NexusIrisVisibleMeshContour"
@@ -94,6 +109,8 @@ func set_active(enabled: bool, preview: Node3D = null,
     # Only render the six ID solids if camera/pose/visibility changes.
     # Avoid a second 3D draw pass on idle frames.
     id_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+    _id_redraw_requests = 1
+    _last_cpu_sync_us = 0
     _last_camera_size = -1.0
     set_process(true)
     _sync_id_pass()
@@ -106,19 +123,33 @@ func _process(_delta: float) -> void:
     _sync_id_pass()
 
 func _sync_id_pass() -> void:
+    var sync_start: int = Time.get_ticks_usec()
     if not bool(source_preview.get("ready_for_commands")) or (
             str(source_preview.get("editing_slot")) != "head") or (
             str(source_preview.get("view_mode")) != "icon"):
         _clear_copies()
         return
-    var new_size: Vector2i = source_viewport.size
+    # The outline is composited in the displayed Control, not into the
+    # source SubViewport's texture. Match the displayed pixel footprint so
+    # 3 ID texels remain 3 visible preview pixels after a UI resize.
+    var source_size: Vector2i = source_viewport.size
+    var display_size := Vector2i(roundi(ink_rect.size.x), roundi(ink_rect.size.y))
+    var new_size: Vector2i = display_size
+    if display_size.x < 32 or display_size.y < 32:
+        new_size = source_size
     if new_size.x < 32 or new_size.y < 32:
         return
+    # If host and source have transiently different aspect ratios during
+    # layout, prefer correct model projection over a distorted outline.
+    if source_size.x >= 32 and source_size.y >= 32 and (
+            absf(float(source_size.x) / float(source_size.y) -
+            float(new_size.x) / float(new_size.y)) > 0.005):
+        new_size = source_size
     var dirty: bool = false
     if id_viewport.size != new_size:
         id_viewport.size = new_size
-        # 3px means 3 ID-buffer texels (not 3 pixels of the 1x1 fallback).
-        # The visible TextureRect itself keeps stretching with the host.
+        # 3px is measured in final preview pixels, never placeholder pixels.
+        # TextureRect and ID target have matching dimensions/aspect.
         (ink_rect.material as ShaderMaterial).set_shader_parameter(
             "mesh_id_texel",
             Vector2(1.0 / float(new_size.x), 1.0 / float(new_size.y)))
@@ -196,6 +227,8 @@ func _sync_id_pass() -> void:
         _source_refs.erase(key)
     if dirty:
         id_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+        _id_redraw_requests += 1
+    _last_cpu_sync_us = Time.get_ticks_usec() - sync_start
 
 func _restore_original_ink() -> void:
     for old in _original_ink_visibility.values():
@@ -205,6 +238,7 @@ func _restore_original_ink() -> void:
     _original_ink_visibility.clear()
 
 func _clear_copies() -> void:
+    var had_copies: bool = not _copies.is_empty()
     for copy in _copies.values():
         if is_instance_valid(copy):
             if copy.get_parent() != null:
@@ -212,3 +246,7 @@ func _clear_copies() -> void:
             copy.queue_free()
     _copies.clear()
     _source_refs.clear()
+    if had_copies and _enabled and is_instance_valid(id_viewport):
+        # Clear stale IDs on a loading/mode change before the next preview.
+        id_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+        _id_redraw_requests += 1
