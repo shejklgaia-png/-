@@ -124,6 +124,10 @@ static func _make_shaded_material(geometry: GeometryInstance3D,
         return null
     # Opaque material with a special rendering pass retains it as next_pass.
     # Transparent/high-energy visuals are filtered by caller name/metadata.
+    # Keep emission panels, CRTs and the lighting rigs free of hull ink.
+    # Their emissive shader input is still preserved below.
+    if source.emission_enabled:
+        geometry.set_meta("sera_no_view_edges", true)
     var texture: Texture2D = source.albedo_texture
     if texture == null:
         texture = _white()
