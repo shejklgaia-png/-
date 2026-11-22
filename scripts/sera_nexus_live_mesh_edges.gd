@@ -6,6 +6,7 @@ extends Node3D
 const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
 const RenderOrder = preload("res://scripts/render_order_policy.gd")
 const EDGE_SHADER = preload("res://shaders/sera_live_mesh_edges.gdshader")
+const ContactSeams = preload("res://scripts/sera_nexus_contact_seams.gd")
 const RESCAN_SECONDS: float = 0.35
 const WELD_GRID: float = 10000.0
 const MAX_TRIANGLES_PER_MESH: int = 12000
@@ -16,6 +17,8 @@ var _source_root: Node3D
 var _edge_material: ShaderMaterial
 var _edge_links: Dictionary = {} # source ID -> {source, mesh, draw}
 var _geometry_cache: Dictionary = {} # Mesh resource instance ID -> ArrayMesh/null
+var _contact_links: Dictionary = {} # mesh ID -> depth-tested contact ribbons
+var _last_contact_signature: String = ""
 var _rescan_elapsed: float = 0.0
 
 func configure(rig: Node3D) -> void:
@@ -114,6 +117,7 @@ func _refresh_meshes() -> void:
         _edge_links[key] = {
             "source": weakref(source), "mesh": source.mesh, "draw": draw
         }
+    _refresh_contact_lines(found)
 
 func _position_id(point: Vector3, ids: Dictionary) -> int:
     var quantized := Vector3i(roundi(point.x * WELD_GRID),
@@ -245,3 +249,85 @@ func _edge_geometry(source_mesh: Mesh) -> ArrayMesh:
     result.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
     _geometry_cache[cache_key] = result
     return result
+
+func _contact_ribbon_mesh(segments: PackedVector3Array) -> ArrayMesh:
+    if segments.size() < 2:
+        return null
+    var vertices := PackedVector3Array()
+    var normals := PackedVector3Array()
+    var tangents := PackedFloat32Array()
+    var colors := PackedColorArray()
+    var uvs := PackedVector2Array()
+    var indices := PackedInt32Array()
+    for i in range(int(segments.size() / 2)):
+        var a: Vector3 = segments[i * 2]
+        var b: Vector3 = segments[i * 2 + 1]
+        if a.distance_squared_to(b) < 0.0000000001:
+            continue
+        var direction: Vector3 = (b - a).normalized()
+        var begin: int = vertices.size()
+        for corner in range(4):
+            vertices.append(a if corner < 2 else b)
+            normals.append(Vector3.UP)
+            tangents.append_array(PackedFloat32Array([
+                direction.x, direction.y, direction.z, 1.0]))
+            # An actual intersection curve is a boundary (no adjacent-face
+            # visibility decision); regular scene depth still masks it.
+            colors.append(Color(0.5, 0.5, 0.5, 0.0))
+            uvs.append(Vector2(-1.0 if corner % 2 == 0 else 1.0, 0.0))
+        for idx in [0, 1, 2, 1, 3, 2]:
+            indices.append(begin + idx)
+    if vertices.is_empty():
+        return null
+    var mesh := ArrayMesh.new()
+    var arrays: Array = []
+    arrays.resize(Mesh.ARRAY_MAX)
+    arrays[Mesh.ARRAY_VERTEX] = vertices
+    arrays[Mesh.ARRAY_NORMAL] = normals
+    arrays[Mesh.ARRAY_TANGENT] = tangents
+    arrays[Mesh.ARRAY_COLOR] = colors
+    arrays[Mesh.ARRAY_TEX_UV] = uvs
+    arrays[Mesh.ARRAY_INDEX] = indices
+    mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+    return mesh
+
+func _refresh_contact_lines(found: Dictionary) -> void:
+    # Contact extraction only runs when the *relative assembly* changes.
+    # Dragging/rotating the complete preview does NOT rebuild any contacts.
+    var relative_root: Transform3D = _source_root.global_transform.affine_inverse()
+    var tokens: Array[String] = []
+    for key in found.keys():
+        var source: MeshInstance3D = found[key] as MeshInstance3D
+        var relative: Transform3D = relative_root * source.global_transform
+        tokens.append("%d:%d:%s:%s" % [
+            key, source.mesh.get_instance_id(), str(relative),
+            str(source.is_visible_in_tree())])
+    tokens.sort()
+    var signature: String = "|".join(tokens)
+    if signature == _last_contact_signature:
+        return
+    _last_contact_signature = signature
+    for old in _contact_links.values():
+        if is_instance_valid(old):
+            (old as Node).queue_free()
+    _contact_links.clear()
+    var segments: Dictionary = ContactSeams.build(_source_root, found)
+    for key in segments.keys():
+        var part: MeshInstance3D = found.get(key) as MeshInstance3D
+        if not is_instance_valid(part):
+            continue
+        var geometry: ArrayMesh = _contact_ribbon_mesh(segments[key])
+        if geometry == null:
+            continue
+        var contact := MeshInstance3D.new()
+        contact.name = "SeraGPUContact_%d" % key
+        contact.set_meta("sera_generated_live_edge", true)
+        contact.set_meta("FX_NO_OUTLINE", true)
+        contact.mesh = geometry
+        contact.material_override = _edge_material
+        contact.layers = part.layers
+        contact.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        contact.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+        contact.extra_cull_margin = 1.0
+        part.add_child(contact)
+        _contact_links[key] = contact
