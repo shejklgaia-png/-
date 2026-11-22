@@ -183,6 +183,8 @@ class Batch:
             (selected_by_bucket[bucket] as Array).append(selected)
         var outline_meshes_by_bucket: Dictionary = {}
         var outline_links_by_bucket: Dictionary = {}
+        var crease_meshes_by_bucket: Dictionary = {}
+        var crease_links_by_bucket: Dictionary = {}
         for key_variant in keys:
             var key: String = str(key_variant)
             var names: PackedStringArray = key.split("|")
@@ -263,30 +265,57 @@ class Batch:
             draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
             host.add_child(draw)
             if selected_by_bucket.has(key):
-                var edge_mesh: ArrayMesh = BaseFacilityInk.overlay_for(
+                var selected_instances: Array = selected_by_bucket[key]
+                # Layer A: latest SERA inverted hull, same shader and welded
+                # normals as the actor, 6px BASE material override.
+                var silhouette_mesh: ArrayMesh = BaseFacilityInk.silhouette_overlay_for(
                     geometry, mesh)
-                if edge_mesh != null:
-                    var selected_instances: Array = selected_by_bucket[key]
-                    var edge_multi := MultiMesh.new()
-                    edge_multi.transform_format = MultiMesh.TRANSFORM_3D
-                    edge_multi.mesh = edge_mesh
-                    edge_multi.instance_count = selected_instances.size()
-                    var edge_indices: Dictionary = {}
+                if silhouette_mesh != null:
+                    var silhouette_multi := MultiMesh.new()
+                    silhouette_multi.transform_format = MultiMesh.TRANSFORM_3D
+                    silhouette_multi.mesh = silhouette_mesh
+                    silhouette_multi.instance_count = selected_instances.size()
+                    var silhouette_indices: Dictionary = {}
                     for k in range(selected_instances.size()):
                         var solid_record: Dictionary = selected_instances[k]
-                        edge_multi.set_instance_transform(k, solid_record["pose"])
-                        edge_indices[int(solid_record["index"])] = k
-                    var edge_draw := MultiMeshInstance3D.new()
-                    edge_draw.name = "ArchitecturalEdgeInk_" + geometry + "_" + tint
-                    edge_draw.multimesh = edge_multi
-                    edge_draw.material_override = BaseFacilityInk.material()
-                    edge_draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-                    edge_draw.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
-                    edge_draw.extra_cull_margin = 0.30
-                    edge_draw.set_meta("FX_NO_OUTLINE", true)
-                    host.add_child(edge_draw)
-                    outline_meshes_by_bucket[key] = edge_multi
-                    outline_links_by_bucket[key] = edge_indices
+                        silhouette_multi.set_instance_transform(k, solid_record["pose"])
+                        silhouette_indices[int(solid_record["index"])] = k
+                    var silhouette_draw := MultiMeshInstance3D.new()
+                    silhouette_draw.name = "ArchitecturalEdgeInk_" + geometry + "_" + tint
+                    silhouette_draw.multimesh = silhouette_multi
+                    silhouette_draw.material_override = BaseFacilityInk.silhouette_material()
+                    silhouette_draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+                    silhouette_draw.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+                    silhouette_draw.extra_cull_margin = 0.30
+                    silhouette_draw.set_meta("FX_NO_OUTLINE", true)
+                    host.add_child(silhouette_draw)
+                    outline_meshes_by_bucket[key] = silhouette_multi
+                    outline_links_by_bucket[key] = silhouette_indices
+                # Layer B: preserve the original separate 2px visible creases;
+                # never derive them from SERA's new smooth inverted hull.
+                var crease_mesh: ArrayMesh = BaseFacilityInk.crease_overlay_for(
+                    geometry, mesh)
+                if crease_mesh != null:
+                    var crease_multi := MultiMesh.new()
+                    crease_multi.transform_format = MultiMesh.TRANSFORM_3D
+                    crease_multi.mesh = crease_mesh
+                    crease_multi.instance_count = selected_instances.size()
+                    var crease_indices: Dictionary = {}
+                    for k in range(selected_instances.size()):
+                        var solid_record: Dictionary = selected_instances[k]
+                        crease_multi.set_instance_transform(k, solid_record["pose"])
+                        crease_indices[int(solid_record["index"])] = k
+                    var crease_draw := MultiMeshInstance3D.new()
+                    crease_draw.name = "ArchitecturalCreaseInk_" + geometry + "_" + tint
+                    crease_draw.multimesh = crease_multi
+                    crease_draw.material_override = BaseFacilityInk.crease_material()
+                    crease_draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+                    crease_draw.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+                    crease_draw.extra_cull_margin = 0.30
+                    crease_draw.set_meta("FX_NO_OUTLINE", true)
+                    host.add_child(crease_draw)
+                    crease_meshes_by_bucket[key] = crease_multi
+                    crease_links_by_bucket[key] = crease_indices
         host.set_meta("unique_model_features", features.duplicate())
         if not outline_entries.is_empty():
             host.set_meta("outline_solid_entries", outline_entries.duplicate())
@@ -312,6 +341,13 @@ class Batch:
                         animated_record["ink_mesh"] = outline_meshes_by_bucket[
                             bucket_name]
                         animated_record["ink_index"] = int(linked[instance_index])
+                    var linked_creases: Dictionary = crease_links_by_bucket.get(
+                        bucket_name, {})
+                    if linked_creases.has(instance_index):
+                        animated_record["crease_mesh"] = crease_meshes_by_bucket[
+                            bucket_name]
+                        animated_record["crease_index"] = int(
+                            linked_creases[instance_index])
                     recorded.append(animated_record)
                 motion_entries[feature] = recorded
             host.set_meta("motion_entries", motion_entries)
