@@ -197,7 +197,9 @@ func set_shading_mode(levels: int) -> void:
     # Legacy top-right buttons remain the quick ALL-material control.
     # Lens and armor may then be independently overridden in the editor.
     for material_id in range(3):
-        _iris_material_values[material_id]["steps"] = levels
+        var values: Dictionary = _iris_material_values[material_id]
+        values["steps"] = levels
+        _iris_material_values[material_id] = values
     _style_shading_buttons()
     _sync_iris_editor_values()
     _apply_iris_shading()
@@ -263,7 +265,7 @@ func _copy_iris_material_settings() -> void:
 
 
 func _flash_iris_material(material_id: int) -> void:
-    if not fullscreen or not _is_iris_preview() or material_id not in range(4):
+    if not fullscreen or not _is_iris_preview() or material_id < 0 or material_id >= 4:
         return
     _flash_material = material_id
     _flash_elapsed = 0.0
