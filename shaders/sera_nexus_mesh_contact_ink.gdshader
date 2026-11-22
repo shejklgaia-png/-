@@ -1,17 +1,17 @@
 shader_type canvas_item;
 // NEXUS only: one depth-resolved RGB-ID pass for SERA contours and room ink.
 // The SERA outline draws INSIDE the front-most visible mesh, never X-ray.
-// At a SERA-to-SERA contact only the higher RGB ID side owns the 4px stroke.
-// SERA uses up to 28 ordered samples; room ink keeps the 2px/12-sample path.
+// At a SERA-to-SERA contact only the higher RGB ID side owns the 3px stroke.
+// SERA needs up to 20 sparse neighbor samples at 3px; room ink stays at 2px.
 // Background ID 0 is rejected after one lookup.
 render_mode blend_mix;
 
 uniform sampler2D mesh_id_texture : filter_nearest, repeat_disable;
 uniform vec2 mesh_id_texel = vec2(0.0026041667, 0.0026041667);
 uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
-// Legacy 2px room ink stays unchanged; only NEXUS display-SERA is 4px.
+// Legacy 2px room ink stays unchanged; only NEXUS display-SERA is 3px.
 uniform float stroke_px : hint_range(1.0, 3.0) = 2.0;
-uniform float sera_stroke_px : hint_range(1.0, 4.0) = 4.0;
+uniform float sera_stroke_px : hint_range(1.0, 3.0) = 3.0;
 
 vec3 id_at(vec2 uv) {
     if (uv.x < 0.0 || uv.x >= 1.0 || uv.y < 0.0 || uv.y >= 1.0) {
