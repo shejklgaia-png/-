@@ -8,6 +8,7 @@ const BaseStructuralMass = preload("res://scripts/sera_base_structural_mass.gd")
 const BaseRoofIdentity = preload("res://scripts/sera_base_roof_identity.gd")
 const BaseFreshDesign = preload("res://scripts/sera_base_fresh_design.gd")
 const BaseFacilityMotion = preload("res://scripts/sera_base_facility_motion.gd")
+const BaseFacilityVfx = preload("res://scripts/sera_base_facility_vfx.gd")
 const ACTIVE_BASE_MODEL: String = "FRESH_20261122"
 # User reverted the NEXUS two versions: the pre-FRESH archived geometry is intact.
 const ARCHIVED_NEXUS_MODEL: bool = true
@@ -59,6 +60,9 @@ class Batch:
     # Only selected machine features record their existing batched instance slots.
     var motion_names: Array = []
     var motion_indices: Dictionary = {}
+    # Architectural solid mask; FX is built later in separate nodes.
+    var outline_enabled: bool = false
+    var outline_entries: Array[Dictionary] = []
 
     func _init(node: Node3D) -> void:
         host = node
@@ -75,8 +79,12 @@ class Batch:
         # angled rods, rings and multilayer crates; batching remains intact.
         var spin := Basis(Vector3.UP, yaw)
         var moved: Vector3 = pivot + spin * ((at - pivot) * detail_scale)
-        (entries[key] as Array).append(Transform3D(
-            spin * basis.scaled_local(Vector3.ONE * detail_scale), moved))
+        var pose := Transform3D(
+            spin * basis.scaled_local(Vector3.ONE * detail_scale), moved)
+        (entries[key] as Array).append(pose)
+        if outline_enabled and tint not in ["blue_light", "amber_light", "amber", "glass"]:
+            outline_entries.append({
+                "feature": feature, "tint": tint, "pose": pose})
         if motion_names.has(feature):
             if not motion_indices.has(feature):
                 motion_indices[feature] = []
@@ -241,6 +249,8 @@ class Batch:
             draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
             host.add_child(draw)
         host.set_meta("unique_model_features", features.duplicate())
+        if not outline_entries.is_empty():
+            host.set_meta("outline_solid_entries", outline_entries.duplicate())
         if not motion_indices.is_empty():
             var motion_entries: Dictionary = {}
             for feature_variant in motion_indices.keys():
@@ -289,6 +299,7 @@ static func build_nexus(parent: Node3D) -> void:
     var g := Batch.new(node)
     g.yaw = facility_yaw_radians("NEXUS")
     g.motion_names = BaseFacilityMotion.MOTION_FEATURES["NEXUS"]
+    g.outline_enabled = true
     # Broaden the hub silhouette without enlarging the surrounding clutter.
     g.detail_scale = 1.14
     node.set_meta("visual_model_scale", g.detail_scale)
@@ -298,12 +309,15 @@ static func build_nexus(parent: Node3D) -> void:
         BaseFreshDesign.add_details(g, "NEXUS")
         # Retain existing site dressing only, not old building geometry.
         g.detail_scale = 1.0
+        g.outline_enabled = false
         BaseClutter.decorate(g, "NEXUS")
         g.flush()
         var fresh_motion := BaseFacilityMotion.new()
         fresh_motion.bind_to(node, "NEXUS")
         _light(node, "NexusAmberGateLight", Vector3(0, 2.55, 2.89),
             "#ffc491", 1.05, 4.0)
+        var fresh_vfx := BaseFacilityVfx.new()
+        fresh_vfx.setup(node, "NEXUS")
         return
     # Exact pre-FRESH archived NEXUS geometry. Its original shell, facade,
     # roof modules and mechanical service add-ons remain byte-for-byte intact.
@@ -416,12 +430,15 @@ static func build_nexus(parent: Node3D) -> void:
     BaseStructuralMass.add_details(g, "NEXUS")
     BaseRoofIdentity.add_details(g, "NEXUS")
     g.detail_scale = 1.0
+    g.outline_enabled = false
     BaseClutter.decorate(g, "NEXUS")
     g.flush()
     var archived_motion := BaseFacilityMotion.new()
     archived_motion.bind_to(node, "NEXUS")
     _light(node, "NexusAmberGateLight", Vector3(0, 2.55, 2.89),
         "#ffc491", 1.05, 4.0)
+    var archived_vfx := BaseFacilityVfx.new()
+    archived_vfx.setup(node, "NEXUS")
 
 static func _labo(g: Batch) -> void:
     # Smaller, busy semi-open workshop: tarpaulin canopy, worktables and consoles.
@@ -683,6 +700,7 @@ static func build_facility(parent: Node3D, key: String) -> void:
     var g := Batch.new(node)
     g.hard_edges = true
     g.motion_names = BaseFacilityMotion.MOTION_FEATURES.get(key, [])
+    g.outline_enabled = true
     g.yaw = facility_yaw_radians(key)
     # Seven work buildings grow into the unused portrait space; NEXUS retains
     # its own 1.14x size. Keep all pad, tap anchor and clutter placements.
@@ -696,11 +714,14 @@ static func build_facility(parent: Node3D, key: String) -> void:
         # Original geometry remains available and never draws in fresh mode.
         _build_original_facility_geometry(g, key)
     g.detail_scale = 1.0
+    g.outline_enabled = false
     BaseClutter.decorate(g, key)
     g.flush()
     var device_motion := BaseFacilityMotion.new()
     device_motion.bind_to(node, key)
     _add_facility_lights(node, key)
+    var device_vfx := BaseFacilityVfx.new()
+    device_vfx.setup(node, key)
 
 
 static func _build_original_facility_geometry(g: Batch, key: String) -> void:
