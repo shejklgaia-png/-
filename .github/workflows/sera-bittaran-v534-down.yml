@@ -1,15 +1,7 @@
 name: SERA Bittaran v534 Down Focused
 
+# Manual-only: focused local checks are the default; retain opt-in Actions diagnostics.
 on:
-  pull_request:
-    paths:
-      - 'scripts/bittaran_*.gd'
-      - 'tools/v534_bittaran_down_pacing_ground_replant_runtime_check.gd'
-      - 'tools/bittaran_authored_down_runtime_check.gd'
-      - 'tools/bittaran_body_fall_runtime_check.gd'
-      - 'tools/v36*_bittaran_*'
-      - 'tools/v371_bittaran_gentle_head_recovery_runtime_check.gd'
-      - '.github/workflows/sera-bittaran-v534-down.yml'
   workflow_dispatch:
 
 jobs:
