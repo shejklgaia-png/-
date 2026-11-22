@@ -148,7 +148,7 @@ func set_stroke_px(px: float) -> void:
 
 
 # Change this compositor only in the NEXUS viewport. The single ID target
-# keeps its depth buffer; the canvas ink suppresses SERA outer silhouettes.
+# keeps its depth buffer; the canvas ink owns the outer silhouette and contacts.
 func set_nexus_sera_contact_mode(enabled: bool) -> void:
     if _nexus_sera_contact_mode == enabled:
         return
@@ -164,7 +164,7 @@ func set_nexus_sera_contact_mode(enabled: bool) -> void:
         material.set_shader_parameter("stroke_px", _ink_stroke)
         if enabled:
             # NEXUS SERA only. Retain the room/building 2px ID ink.
-            material.set_shader_parameter("sera_stroke_px", 4.0)
+            material.set_shader_parameter("sera_stroke_px", 3.0)
     _clear_copies()
     _scan_elapsed = 0.0
 
