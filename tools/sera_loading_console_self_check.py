@@ -41,9 +41,9 @@ assert '"ALL SYSTEMS ONLINE" if completion_cut_active' in console
 assert 'if completion_cut_active:' in console
 assert 'value = 1.0 if completion_cut_active' in console
 assert "1.0 / float(LOADING_FPS)" in console
-assert "await console_screen.completion_cut_finished" in base
+assert "await Signal(console_screen, &"completion_cut_finished")" in base
 assert '_startup_step("SYSTEM / BOOT COMPLETE", 100)' in base
-assert base.index('_startup_step("SYSTEM / BOOT COMPLETE", 100)') < base.index("await console_screen.completion_cut_finished") < base.index("startup_layer.queue_free()")
+assert base.index('_startup_step("SYSTEM / BOOT COMPLETE", 100)') < base.index("await Signal(console_screen, &"completion_cut_finished")") < base.index("startup_layer.queue_free()")
 # Render only this prompt at half raster resolution. Do not touch the game viewport.
 assert "const CONSOLE_RENDER_SCALE: float = 0.5" in console
 assert "const PREVIEW_RENDER_SCALE_1: float = 0.375" in console
