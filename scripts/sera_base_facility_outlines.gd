@@ -13,6 +13,15 @@ static var _silhouette_cache: Dictionary = {}
 static var _crease_cache: Dictionary = {}
 static var _shared_silhouette_material: ShaderMaterial
 static var _shared_crease_material: ShaderMaterial
+static var _outlines_enabled: bool = true
+
+static func set_outlines_enabled(enabled: bool) -> void:
+    _outlines_enabled = enabled
+    if _shared_silhouette_material != null:
+        _shared_silhouette_material.set_shader_parameter("outlines_enabled", enabled)
+    if _shared_crease_material != null:
+        _shared_crease_material.set_shader_parameter("outlines_enabled", enabled)
+
 
 static func overlay_for(geometry: String, physical_mesh: Mesh) -> ArrayMesh:
     if _silhouette_cache.has(geometry):
@@ -43,6 +52,8 @@ static func material() -> ShaderMaterial:
         _shared_silhouette_material.set_shader_parameter(
             "ink_color", Color("#000000"))
         _shared_silhouette_material.set_shader_parameter("stroke_px", 4.0)
+        _shared_silhouette_material.set_shader_parameter(
+            "outlines_enabled", _outlines_enabled)
     return _shared_silhouette_material
 
 static func crease_material() -> ShaderMaterial:
@@ -54,4 +65,6 @@ static func crease_material() -> ShaderMaterial:
         _shared_crease_material.set_shader_parameter(
             "ink_color", Color("#202020"))
         _shared_crease_material.set_shader_parameter("crease_px", 2.0)
+        _shared_crease_material.set_shader_parameter(
+            "outlines_enabled", _outlines_enabled)
     return _shared_crease_material
