@@ -61,10 +61,11 @@ func _process(delta: float) -> void:
         for record in _edge_links.values():
             var draw: MeshInstance3D = record.get("draw") as MeshInstance3D
             if is_instance_valid(draw):
-                draw.visible = enabled
+                draw.visible = enabled and _diagnostic_mode >= 2
         for contact in _contact_links.values():
             if is_instance_valid(contact):
-                (contact as MeshInstance3D).visible = enabled
+                (contact as MeshInstance3D).visible = enabled and (
+                    _diagnostic_mode == 4 or _diagnostic_mode == 5)
     if enabled:
         _refresh_meshes()
 
@@ -125,6 +126,7 @@ func _refresh_meshes() -> void:
             draw.set_meta("FX_NO_OUTLINE", true)
             draw.mesh = ribbons
             draw.material_override = _edge_material
+            draw.visible = _diagnostic_mode >= 2
             draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
             draw.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
             draw.layers = source.layers
@@ -149,6 +151,7 @@ func _refresh_meshes() -> void:
             var draw: MeshInstance3D = record.get("draw") as MeshInstance3D
             if is_instance_valid(draw):
                 draw.material_override = current_material
+                draw.visible = _diagnostic_mode >= 2
         for value in _contact_links.values():
             var contact: MeshInstance3D = value as MeshInstance3D
             if is_instance_valid(contact):
@@ -238,6 +241,7 @@ func _refresh_contact_lines(found: Dictionary) -> void:
         contact.set_meta("FX_NO_OUTLINE", true)
         contact.mesh = geometry
         contact.material_override = _edge_material
+        contact.visible = _diagnostic_mode == 4 or _diagnostic_mode == 5
         contact.layers = part.layers
         contact.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         contact.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
@@ -262,11 +266,14 @@ func set_diagnostic_mode(mode: int) -> void:
         var draw: MeshInstance3D = record.get("draw") as MeshInstance3D
         if is_instance_valid(draw):
             draw.material_override = chosen
+            draw.visible = (_diagnostic_mode >= 2 and
+                GraphicsSettings.get_enabled("character_outline"))
     for value in _contact_links.values():
         var contact: MeshInstance3D = value as MeshInstance3D
         if is_instance_valid(contact):
             contact.material_override = chosen
-            contact.visible = _diagnostic_mode == 4 or _diagnostic_mode == 5
+            contact.visible = (_diagnostic_mode == 4 or _diagnostic_mode == 5) and (
+                GraphicsSettings.get_enabled("character_outline"))
 
 func get_diagnostic_snapshot() -> Dictionary:
     # No GPU readback: these are counts of prepared geometry, not claims
