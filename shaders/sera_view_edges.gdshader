@@ -18,7 +18,7 @@ float opaque_depth_at(vec2 uv) {
     vec3 ndc = vec3(uv * 2.0 - vec2(1.0), z);
     #endif
     vec4 view = INV_PROJECTION_MATRIX * vec4(ndc, 1.0);
-    return -view.z / max(abs(view.w), 0.000001);
+    if (abs(view.w) < 0.000001) {\n        return 1e12;\n    }\n    return -view.z / view.w;
 }
 
 void vertex() {
