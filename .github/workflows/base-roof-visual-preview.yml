@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/sera_base_fresh_design.gd'
+      - 'scripts/sera_base_facility_motion.gd'
       - 'scripts/sera_base_roof_identity.gd'
       - 'scripts/sera_base_architecture.gd'
       - 'scripts/sera_base_night_facade.gd'
@@ -22,6 +23,7 @@ on:
       - 'tools/base_roof_identity_*'
       - 'tools/base_gameplay_angle_visibility_*'
       - 'tools/base_isometric_visual_capture.gd'
+      - 'tools/base_facility_motion_*'
       - '.github/workflows/base-roof-visual-preview.yml'
   workflow_dispatch:
 
@@ -39,6 +41,7 @@ jobs:
           python3 tools/sera_workplan.py --query 'BASE 屋根 施設の視認性' --json > "$RUNNER_TEMP/base-roof-plan.json"
           python3 tools/base_fresh_rebuild_self_check.py
           python3 tools/base_roof_identity_self_check.py
+          python3 tools/base_facility_motion_self_check.py
           python3 tools/base_gameplay_angle_visibility_self_check.py
           python3 tools/base_night_facility_self_check.py
           python3 tools/base_structural_mass_self_check.py
@@ -62,6 +65,7 @@ jobs:
         env:
           SERA_UI_RENDER_DIR: ${{ runner.temp }}/base-roof-visual
           SERA_BASE_PREVIEW_LOG: "1"
+          SERA_BASE_ANIMATION_CAPTURE: "1"
         run: |
           set -euo pipefail
           mkdir -p "$SERA_UI_RENDER_DIR"
@@ -70,10 +74,12 @@ jobs:
             "$GODOT" --path . --rendering-method gl_compatibility \
             --script tools/base_isometric_visual_capture.gd
           test -s "$SERA_UI_RENDER_DIR/sera_base_orthographic.png"
+          test -s "$SERA_UI_RENDER_DIR/sera_base_animated.png"
       - name: Check actual eight BASE silhouettes and touch behavior
         run: |
           set -euo pipefail
           GODOT="$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+          "$GODOT" --headless --path . --script tools/base_facility_motion_runtime_check.gd
           "$GODOT" --headless --path . --script tools/base_roof_identity_runtime_check.gd
           "$GODOT" --headless --path . --script tools/base_fresh_rebuild_runtime_check.gd
           "$GODOT" --headless --path . --script tools/base_gameplay_angle_visibility_runtime_check.gd
@@ -83,6 +89,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sera-base-roof-rework-portrait
-          path: ${{ runner.temp }}/base-roof-visual/sera_base_orthographic.png
+          path: ${{ runner.temp }}/base-roof-visual/*.png
           if-no-files-found: warn
           retention-days: 14
