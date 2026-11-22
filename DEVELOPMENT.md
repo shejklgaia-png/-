@@ -1,3 +1,10 @@
+## 2026-11-22 — ビットタラン脚破壊デバッグUIの上部横一列化
+
+- ビットタラン戦の「DEBUG / LEG BREAK」を、従来の左側2列×2行（x14/y322、334×158）から、ボス名・勝利表示の下（y264）に位置する横幅いっぱいの薄いバーへ変更。
+- 前左 → 前右 → 後左 → 後右の4ボタンを均等な1行で配置。各ボタンの高さ44px、間隔8px、幅128px以上を確保し、標準720px縦画面でプレイフィールドを覆う面積を縮小。
+- ボス名（y186–220）、勝利表示（y230–264）、体力バー（y109/151）、NEXUS操作（右上）を隠さない。CanvasLayer、既存の入力排他処理・通常の部位破壊・デバッグ1回破壊・復活・10分バランスは変更なし。
+- `tools/bittaran_four_leg_debug_runtime_check.gd` のレイアウト期待値を本体変更前に更新し、上部配置、同じY座標、左→右の脚順、クリック領域、タイトル非重複、既存の4脚ダウン・再破壊防止を検証。Android実機での可視性は別途確認。
+
 ## 2026-11-22 — BASE actual-screen visual hierarchy redesign and mandatory screenshot review
 
 - Reviewed the real 720×1280 full-game screen (unchanged 27° orthographic BASE camera). The problem was **layers of overlapping girders, covers, duplicate crane arms, and warehouse cage rails**, not a shortage of detail. From gameplay scale LABO lacked a single obvious printer, the collector looked like an indistinct crossed-boom rig, and warehouse cargo was blocked by overhead lines.
