@@ -31,14 +31,15 @@ func _polar(distance: float, degrees: float) -> Vector3:
 func _run() -> void:
     var direct: RefCounted = ATTACKS.new()
     # v460: each kind is evaluated from its own LEG'S sole, not the
-    # boss center. Single-foot probes isolate the original 11 sector
+    # boss center. Single-foot probes isolate expanded v541 KICK sectors
     # boundaries without accidentally selecting another foot.
     for row in [
             [2.0, 0.0, "stomp", "leg_fr"],
             [2.0, 155.0, "stomp", "leg_rr"],
             [4.0, 0.0, "kick", "leg_fr"],
             [4.0, 35.0, "kick", "leg_fr"],
-            [4.0, 41.0, "sweep", "leg_fr"],
+            [4.0, 55.0, "kick", "leg_fr"],
+            [4.0, 61.0, "sweep", "leg_fr"],
             [4.0, 85.0, "sweep", "leg_fr"],
             [5.6, 0.0, "sweep", "leg_fr"],
             [6.8, 80.0, "sweep", "leg_fr"],
