@@ -7,7 +7,7 @@ const INK_SHADER = preload("res://shaders/nexus_sera_gpu_convex_silhouette.gdsha
 const EDGE_NAME: String = "NexusSeraConvexInk"
 const SCAN_SECONDS: float = 0.65
 const MAX_EDGES_PER_MESH: int = 8000
-# A 4px-wide ribbon yields a visible ~2px silhouette after depth occlusion.
+# Only internal convex ridges use this width; visible-ID owns the outer 2px.
 const PREVIEW_MATCHED_STROKE_PX: float = 2.0
 
 var _elapsed: float = 0.0
@@ -214,9 +214,11 @@ static func _make_edges(mesh: Mesh, closed: bool) -> ArrayMesh:
         var paired: bool = edge.has("face_b") and (
             int(edge.get("count", 0)) == 2) and (
             not bool(edge.get("duplicate_triangle", false)))
-        if closed and edge.has("face_b") and not paired:
+        # The shared visible-ID pass owns every open boundary and silhouette.
+        # Do not build GPU ribbons that can only duplicate those contours.
+        if not paired:
             continue
-        if closed and paired:
+        if closed:
             var convex_bend: float = tangent.dot(normal_a.cross(normal_b))
             if convex_bend * outward_sign <= 0.00001:
                 continue
