@@ -218,6 +218,27 @@ static func _eligible(node: Node3D) -> bool:
     return false
 
 
+static func _background_occluder(node: Node3D) -> bool:
+    # Floor and ground should occlude IDs behind them, but should NOT have
+    # a thick black border. They receive ID=0 (same as background).
+    if not node is MeshInstance3D and not node is MultiMeshInstance3D:
+        return false
+    if not _solid_material(node as GeometryInstance3D):
+        return false
+    var cursor: Node = node
+    while cursor != null:
+        var label: String = str(cursor.name).to_lower()
+        for blocked in ["particle", "smoke", "flame", "glow", "flash",
+                "laser", "beam", "trail", "effect", "projectile"]:
+            if label.contains(blocked):
+                return false
+        for background in ["gridplate", "backdrop", "ground", "floor"]:
+            if label.contains(background):
+                return true
+        cursor = cursor.get_parent()
+    return false
+
+
 func _rescan() -> bool:
     var desired: Dictionary = {}
     var expired: Array[int] = []
@@ -230,8 +251,14 @@ func _rescan() -> bool:
         var pending: Array[Node] = [root]
         while not pending.is_empty():
             var node: Node = pending.pop_back()
-            if node is Node3D and _eligible(node as Node3D):
-                desired[node.get_instance_id()] = node
+            if node is Node3D:
+                var part: Node3D = node as Node3D
+                var eligible: bool = _eligible(part)
+                var occluding: bool = not eligible and _background_occluder(part)
+                if eligible or occluding:
+                    desired[node.get_instance_id()] = {
+                        "node": part, "occluder": occluding
+                    }
             for child in node.get_children():
                 if child is Node3D and child.name != "ViewEdges" and (
                         child.name != "SeraEdgeInk"):
@@ -251,9 +278,11 @@ func _rescan() -> bool:
     for key in desired.keys():
         if _copies.has(key):
             continue
-        if _next_id > MAX_IDENTIFIED_MESHES:
-            break
-        var source: Node3D = desired[key] as Node3D
+        var entry: Dictionary = desired[key]
+        var is_occluder: bool = bool(entry["occluder"])
+        if not is_occluder and _next_id > MAX_IDENTIFIED_MESHES:
+            continue
+        var source: Node3D = entry["node"] as Node3D
         var clone: GeometryInstance3D = null
         if source is MeshInstance3D:
             var mesh_copy := MeshInstance3D.new()
@@ -265,8 +294,10 @@ func _rescan() -> bool:
             clone = batch_copy
         if clone == null:
             continue
-        var identification: int = _next_id
-        _next_id += 1
+        var identification: int = 0
+        if not is_occluder:
+            identification = _next_id
+            _next_id += 1
         # RGB444 IDs permit many equipment pieces while keeping per-channel
         # jumps robust at nearest-neighbor sample resolution.
         var color_id := Vector3(float((identification >> 8) & 15) / 15.0,
