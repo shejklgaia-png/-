@@ -213,7 +213,13 @@ func show_part(blueprint: String, selections: Dictionary = {}) -> void:
     var spec: Dictionary = Catalog.spec(blueprint)
     if spec.is_empty():
         return
+    _restore_original_materials()
+    _touch_starts.clear()
+    _ui_mode_touches.clear()
+    _last_tap_time = 0
     current_blueprint = blueprint
+    if is_instance_valid(_shade_column):
+        _shade_column.visible = _is_iris_preview()
     if is_instance_valid(_iris_contour):
         _iris_contour.call("set_active", false)
     selected_parts = selections.duplicate(true)
@@ -259,8 +265,9 @@ func _load_part(request: int) -> void:
             _iris_contour = IrisIDContour.new()
             add_child(_iris_contour)
             # Keep the rotation cue above this non-interactive ink layer.
-            move_child(_iris_contour, get_child_count() - 2)
+            move_child(_iris_contour, 1)
         _iris_contour.call("set_active", true, preview_scene, render_viewport)
+    _apply_iris_shading()
 
 func set_preview_active(enabled: bool) -> void:
     active_preview = enabled
@@ -268,6 +275,10 @@ func set_preview_active(enabled: bool) -> void:
         render_viewport.render_target_update_mode = (
             SubViewport.UPDATE_ALWAYS if enabled else SubViewport.UPDATE_DISABLED)
     if not enabled:
+        _restore_original_materials()
+        _touch_starts.clear()
+        _ui_mode_touches.clear()
+        _last_tap_time = 0
         if is_instance_valid(_iris_contour):
             _iris_contour.call("set_active", false)
         _request_serial += 1
