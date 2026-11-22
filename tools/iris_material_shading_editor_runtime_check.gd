@@ -26,6 +26,9 @@ func _run() -> void:
     if toggle == null or panel == null or toggle.visible or panel.visible:
         _fail("material controls must be hidden in normal-sized preview")
         return
+    if preview.find_child("IrisShadeModeColumn", true, false) != null:
+        _fail("global OFF/2-8-step column must not exist")
+        return
     preview.call("set_fullscreen_state", true)
     if not toggle.visible or panel.visible:
         _fail("fullscreen should expose the toggle but not auto-open controls")
