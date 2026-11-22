@@ -8,6 +8,9 @@ const IrisIDContour = preload("res://scripts/sera_iris_id_silhouette_preview.gd"
 const IrisPolygonLight = preload("res://shaders/sera_iris_polygon_light.gdshader")
 const IrisPolygonLightClosed = preload("res://shaders/sera_iris_polygon_light_closed.gdshader")
 const IrisFaceNormals = preload("res://scripts/sera_iris_face_normal_preview.gd")
+const IrisMaterialControls = preload("res://scripts/sera_iris_material_controls.gd")
+const IRIS_MATERIAL_KEYS: Array[String] = ["armor", "dark_mechanism", "lens", "emission"]
+const IRIS_FLASH_SECONDS: float = 0.65
 const SHADING_MODES = [0, 2, 3, 4, 5, 6, 7, 8]
 const double_tap_window_msec: int = 330
 signal preview_fullscreen_requested(enabled: bool)
@@ -32,6 +35,18 @@ var shade_levels: int = 4
 var fullscreen: bool = false
 var _shade_column: VBoxContainer
 var _shade_buttons: Dictionary = {}
+var _material_toggle: Button
+var _material_panel: Panel
+var _material_editor_open: bool = false
+var _iris_material_values: Array[Dictionary] = [
+    {"steps": 4, "threshold": 0.55}, # Light-grey armor.
+    {"steps": 4, "threshold": 0.60}, # Both dark-grey mechanism tones.
+    {"steps": 0, "threshold": 0.25}, # Cyan lens, unchanged by default.
+    {"steps": 0, "threshold": 0.00}  # Cyan when lit: emissive, no shadows.
+]
+var _lens_lit: bool = false
+var _flash_material: int = -1
+var _flash_elapsed: float = 0.0
 var _fullscreen_close: Button
 var _original_materials: Dictionary = {}
 var _light_materials: Dictionary = {}
@@ -57,6 +72,7 @@ func _ready() -> void:
     cue.mouse_filter = Control.MOUSE_FILTER_IGNORE
     add_child(cue)
     _create_iris_controls()
+    set_process(false)
     resized.connect(_layout_iris_controls)
     # With SubViewportContainer.stretch=true, Godot controls its size.
     # Do not fight it by assigning SubViewport.size after parenting.
@@ -86,6 +102,23 @@ func _create_iris_controls() -> void:
     _fullscreen_close.pressed.connect(_request_close_fullscreen)
     _fullscreen_close.visible = false
     add_child(_fullscreen_close)
+    _material_toggle = Button.new()
+    _material_toggle.name = "IrisMaterialAdjustmentToggle"
+    _material_toggle.text = "材質調整"
+    _material_toggle.focus_mode = Control.FOCUS_NONE
+    _material_toggle.custom_minimum_size = Vector2(112, 48)
+    _material_toggle.add_theme_font_size_override("font_size", 17)
+    _material_toggle.pressed.connect(_toggle_material_editor)
+    _material_toggle.visible = false
+    add_child(_material_toggle)
+    _material_panel = IrisMaterialControls.new()
+    _material_panel.visible = false
+    add_child(_material_panel)
+    _material_panel.connect("material_selected", _flash_iris_material)
+    _material_panel.connect("value_changed", _adjust_iris_material)
+    _material_panel.connect("emission_toggled", _toggle_iris_emission)
+    _material_panel.connect("copy_requested", _copy_iris_material_settings)
+    _sync_iris_editor_values()
     _style_shading_buttons()
     _layout_iris_controls()
 
@@ -105,6 +138,13 @@ func _layout_iris_controls() -> void:
     if _fullscreen_close != null:
         _fullscreen_close.position = Vector2(12.0, 12.0)
         _fullscreen_close.size = Vector2(76.0, 48.0)
+    if _material_toggle != null:
+        _material_toggle.position = Vector2(100.0, 12.0)
+        _material_toggle.size = Vector2(112.0, 48.0)
+    if _material_panel != null:
+        _material_panel.size = Vector2(maxf(1.0, minf(620.0, size.x - 24.0)), 300.0)
+        _material_panel.position = Vector2(12.0,
+            maxf(80.0, size.y - _material_panel.size.y - 14.0))
 
 
 func _style_shading_buttons() -> void:
@@ -135,6 +175,13 @@ func set_fullscreen_state(enabled: bool) -> void:
     _ui_mode_touches.clear()
     if is_instance_valid(_fullscreen_close):
         _fullscreen_close.visible = enabled
+    if not enabled:
+        _material_editor_open = false
+        _clear_iris_flash()
+    if is_instance_valid(_material_toggle):
+        _material_toggle.visible = enabled and _is_iris_preview()
+    if is_instance_valid(_material_panel):
+        _material_panel.visible = enabled and _material_editor_open and _is_iris_preview()
     _layout_iris_controls()
 
 
@@ -147,8 +194,113 @@ func set_shading_mode(levels: int) -> void:
     if not SHADING_MODES.has(levels):
         return
     shade_levels = levels
+    # Legacy top-right buttons remain the quick ALL-material control.
+    # Lens and armor may then be independently overridden in the editor.
+    for material_id in range(3):
+        var values: Dictionary = _iris_material_values[material_id]
+        values["steps"] = levels
+        _iris_material_values[material_id] = values
     _style_shading_buttons()
+    _sync_iris_editor_values()
     _apply_iris_shading()
+
+
+func _toggle_material_editor() -> void:
+    if not fullscreen or not _is_iris_preview():
+        return
+    _material_editor_open = not _material_editor_open
+    _material_panel.visible = _material_editor_open
+    _sync_iris_editor_values()
+
+
+func _sync_iris_editor_values() -> void:
+    if is_instance_valid(_material_panel):
+        _material_panel.call("set_values", _iris_material_values, _lens_lit)
+        _material_panel.call("set_copied", false)
+
+
+func _adjust_iris_material(material_id: int, field: String, direction: int) -> void:
+    if not fullscreen or not _is_iris_preview() or material_id < 0 or material_id >= 3:
+        return
+    var values: Dictionary = _iris_material_values[material_id]
+    if field == "steps":
+        var current: int = SHADING_MODES.find(int(values["steps"]))
+        values["steps"] = SHADING_MODES[clampi(current + direction, 0,
+            SHADING_MODES.size() - 1)]
+    elif field == "threshold":
+        values["threshold"] = clampf(roundf(
+            (float(values["threshold"]) + float(direction) * 0.05) * 100.0
+            ) / 100.0, 0.0, 1.0)
+    else:
+        return
+    _iris_material_values[material_id] = values
+    _sync_iris_editor_values()
+    _apply_iris_shading()
+
+
+func _toggle_iris_emission() -> void:
+    if not fullscreen or not _is_iris_preview():
+        return
+    _lens_lit = not _lens_lit
+    _sync_iris_editor_values()
+    _apply_iris_shading()
+
+
+func _copy_iris_material_settings() -> void:
+    if not fullscreen or not _is_iris_preview():
+        return
+    var materials: Dictionary = {}
+    for material_id in range(IRIS_MATERIAL_KEYS.size()):
+        var item: Dictionary = _iris_material_values[material_id]
+        materials[IRIS_MATERIAL_KEYS[material_id]] = {
+            "steps": int(item["steps"]), "threshold": float(item["threshold"])
+        }
+    var payload: Dictionary = {
+        "format": "SERA_IRIS_MATERIAL_SHADING_V1",
+        "model": "H02/アイリス", "scope": "NEXUS_SINGLE_PREVIEW",
+        "lens_lit": _lens_lit, "materials": materials
+    }
+    DisplayServer.clipboard_set(JSON.stringify(payload, "\t"))
+    _material_panel.call("set_copied", true)
+
+
+func _flash_iris_material(material_id: int) -> void:
+    if not fullscreen or not _is_iris_preview() or material_id < 0 or material_id >= 4:
+        return
+    _flash_material = material_id
+    _flash_elapsed = 0.0
+    for material in _light_materials.values():
+        var shader_material: ShaderMaterial = material as ShaderMaterial
+        shader_material.set_shader_parameter("flash_material", material_id)
+        shader_material.set_shader_parameter("flash_power", 0.0)
+    set_process(true)
+
+
+func _clear_iris_flash() -> void:
+    _flash_material = -1
+    _flash_elapsed = 0.0
+    for material in _light_materials.values():
+        var shader_material: ShaderMaterial = material as ShaderMaterial
+        if is_instance_valid(shader_material):
+            shader_material.set_shader_parameter("flash_material", -1)
+            shader_material.set_shader_parameter("flash_power", 0.0)
+    set_process(false)
+
+
+func _process(delta: float) -> void:
+    if _flash_material < 0 or not active_preview:
+        _clear_iris_flash()
+        return
+    _flash_elapsed += delta
+    var fraction: float = minf(_flash_elapsed / IRIS_FLASH_SECONDS, 1.0)
+    # Exactly one blue-white pulse; no periodic blinking.
+    var pulse: float = 0.92 * sin(fraction * PI)
+    for material in _light_materials.values():
+        var shader_material: ShaderMaterial = material as ShaderMaterial
+        shader_material.set_shader_parameter("flash_material", _flash_material)
+        shader_material.set_shader_parameter("flash_power", pulse)
+    if fraction >= 1.0:
+        _clear_iris_flash()
 
 
 func _restore_original_materials() -> void:
@@ -161,11 +313,12 @@ func _restore_original_materials() -> void:
             source.material_override = item.get("original_material_override") as Material
     _original_materials.clear()
     _light_materials.clear()
+    _clear_iris_flash()
 
 
 func _apply_iris_shading() -> void:
     if not active_preview or not ready_for_commands or not _is_iris_preview() or (
-            shade_levels == 0) or not is_instance_valid(preview_scene):
+            not is_instance_valid(preview_scene)):
         _restore_original_materials()
         return
     if not is_instance_valid(_white_texture):
@@ -220,7 +373,20 @@ func _apply_iris_shading() -> void:
             light_material.set_shader_parameter("panel_bias",
                 float(index % 3 - 1) * 0.035)
             _light_materials[key] = light_material
-        light_material.set_shader_parameter("shade_levels", shade_levels)
+        light_material.set_shader_parameter("armor_levels",
+            int(_iris_material_values[0]["steps"]))
+        light_material.set_shader_parameter("armor_threshold",
+            float(_iris_material_values[0]["threshold"]))
+        light_material.set_shader_parameter("dark_levels",
+            int(_iris_material_values[1]["steps"]))
+        light_material.set_shader_parameter("dark_threshold",
+            float(_iris_material_values[1]["threshold"]))
+        light_material.set_shader_parameter("lens_levels",
+            int(_iris_material_values[2]["steps"]))
+        light_material.set_shader_parameter("lens_threshold",
+            float(_iris_material_values[2]["threshold"]))
+        light_material.set_shader_parameter("lens_emissive", _lens_lit)
+        light_material.set_shader_parameter("flash_material", _flash_material)
         source.material_override = light_material
 
 
@@ -250,6 +416,10 @@ func show_part(blueprint: String, selections: Dictionary = {}) -> void:
     current_blueprint = blueprint
     if is_instance_valid(_shade_column):
         _shade_column.visible = _is_iris_preview()
+    if is_instance_valid(_material_toggle):
+        _material_toggle.visible = fullscreen and _is_iris_preview()
+    if is_instance_valid(_material_panel):
+        _material_panel.visible = fullscreen and _material_editor_open and _is_iris_preview()
     if is_instance_valid(_iris_contour):
         _iris_contour.call("set_active", false)
     selected_parts = selections.duplicate(true)
@@ -316,6 +486,23 @@ func set_preview_active(enabled: bool) -> void:
         if is_instance_valid(preview_scene):
             preview_scene.call("_on_preview_touch", 0, false, Vector2.ZERO)
 
+func _material_button_at(point: Vector2) -> Button:
+    if not fullscreen or not _is_iris_preview():
+        return null
+    var global_point: Vector2 = get_global_rect().position + point
+    if is_instance_valid(_material_toggle) and _material_toggle.visible and (
+            _material_toggle.get_global_rect().has_point(global_point)):
+        return _material_toggle
+    if is_instance_valid(_material_panel) and _material_panel.visible:
+        return _material_panel.call("button_at", global_point) as Button
+    return null
+
+
+func _point_over_material_panel(point: Vector2) -> bool:
+    return is_instance_valid(_material_panel) and _material_panel.visible and (
+        _material_panel.get_global_rect().has_point(get_global_rect().position + point))
+
+
 func _mode_at_local_point(point: Vector2) -> int:
     if not is_instance_valid(_shade_column) or not _shade_column.visible:
         return -1
@@ -353,6 +540,15 @@ func feed_touch(index: int, pressed: bool, point: Vector2) -> void:
     if not ready_for_commands or not active_preview or not is_instance_valid(preview_scene):
         return
     if pressed:
+        var material_button: Button = _material_button_at(point)
+        if material_button != null:
+            _ui_mode_touches[index] = material_button
+            _last_tap_time = 0
+            return
+        if _point_over_material_panel(point):
+            _ui_mode_touches[index] = -3
+            _last_tap_time = 0
+            return
         var mode: int = _mode_at_local_point(point)
         if mode >= 0:
             _ui_mode_touches[index] = mode
@@ -370,13 +566,19 @@ func feed_touch(index: int, pressed: bool, point: Vector2) -> void:
         preview_scene.call("_on_preview_touch", index, true, point)
         return
     if _ui_mode_touches.has(index):
-        var captured_mode: int = int(_ui_mode_touches[index])
+        var captured: Variant = _ui_mode_touches[index]
         _ui_mode_touches.erase(index)
-        if captured_mode == -2:
+        if captured is Button:
+            var captured_button: Button = captured as Button
+            if is_instance_valid(captured_button) and captured_button.is_visible_in_tree() and (
+                    captured_button.get_global_rect().has_point(
+                    get_global_rect().position + point)):
+                captured_button.pressed.emit()
+        elif int(captured) == -2:
             if _hit_fullscreen_close(point):
                 _request_close_fullscreen()
-        elif _mode_at_local_point(point) == captured_mode:
-            set_shading_mode(captured_mode)
+        elif int(captured) >= 0 and _mode_at_local_point(point) == int(captured):
+            set_shading_mode(int(captured))
         return
     var started: Dictionary = _touch_starts.get(index, {})
     _touch_starts.erase(index)
