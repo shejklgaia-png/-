@@ -452,9 +452,9 @@ func _render_batches() -> void:
         draw.name = "BlockbenchBatch_%02d" % index
         draw.multimesh = multi
         var material: StandardMaterial3D = _mat(index)
-        # The cyan, amber and blue emissive accents remain untouched.
-        if index not in [5, 6, 7]:
-            material.next_pass = _nexus_edge_material()
+        # Scene-wide visible-mesh-ID contours now own ALL opaque module
+        # boundaries. Do not draw the old polygon-edge next_pass on top.
+        # Cyan/amber/blue emissive accents remain untouched.
         draw.material_override = material
         draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         add_child(draw)
