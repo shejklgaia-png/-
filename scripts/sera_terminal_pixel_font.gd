@@ -65,7 +65,7 @@ static func make_atlas() -> Texture2D:
     image.fill(Color.TRANSPARENT)
     for glyph in range(GLYPH_ORDER.length()):
         var letter: String = GLYPH_ORDER.substr(glyph, 1)
-        var rows: Array = GLYPH_ROWS.get(letter, GLYPH_ROWS["?"])
+        var rows: Array = GLYPH_ROWS.get(letter, GLYPH_ROWS["?"]) as Array
         for y in range(7):
             var bits: String = str(rows[y])
             for x in range(5):
