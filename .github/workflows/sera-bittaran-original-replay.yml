@@ -1,4 +1,4 @@
-# Source replay CI is intentionally post-merge on main (or manual dispatch).
+# Source replay validation is opt-in/manual; it no longer runs on main push.
 name: SERA Bittaran source replay and skeletal IK
 
 # Manual-only: focused local checks are the default; retain opt-in Actions diagnostics.
