@@ -1,3 +1,9 @@
+## 2026-11-22 — FPS OPTIONS（拠点/NEXUS・GRID操作・戦闘の3系統）
+- NEXUS → SYSTEMにFPS SETTINGSのサブページを新設。3行それぞれタップで60/40/30/20FPSへ巡回、Android戻ると画面内BACKで元のSYSTEMへ。狭幅端末でも従来の3セーブスロット・4アクション・ロック・利き手設定と重ならないようSYSTEMレイアウトを調整。
+- `scripts/sera_frame_rate_settings.gd`は端末グローバル`user://sera_settings.cfg`の[fps]へ各値を保存し、[controls]・セーブスロットを保持。初期値はBASE/NEXUS=30、GRID編集=60、戦闘=60。無効な値は初期値にフォールバック。
+- BASEは既存`sera_base_frame_budget.gd`の開始/編集ズーム/復帰時に設定を取得し、NEXUSおよび`main.gd`の戦闘（ビットタラン継承を含む）は入場時にそれぞれの設定を適用。隔フレーム描画は再導入せず、物理60Hz・実時間のアニメーション/カメラTween速度を維持。
+- 新テスト`sera_fps_options_self_check.py`/`sera_fps_options_runtime_check.gd`を実装前に追加し、旧固定FPS仕様の`base_frame_budget_{self_check.py,runtime_check.gd}`を独立設定へ更新。設計正本は`docs/SERA_FPS_OPTIONS_20261122_ja.md`。CI自動起動なし。Godot・Android実機検証は未実施。
+
 ## 2026-11-22 — BASE描画の疑似間引きによる倍速に見える動作を修正
 
 - PR #731で加えた「60FPSで動作させ、Root Viewportを`VIEWPORT_UPDATE_ONCE`/`VIEWPORT_UPDATE_DISABLED`で隔フレーム更新」方式を撤回。1コマに2回分の変化が現れて倍速に見える問題を避けるため、Godot標準の`Engine.max_fps = 30`へ変更し、BASEとGRID俯瞰で30FPSの実フレーム上限制御を使う。
