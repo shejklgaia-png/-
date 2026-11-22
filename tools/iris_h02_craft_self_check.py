@@ -7,7 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 model_path = "models/storage/カメラアイ頭部.bbmodel"
 model_bytes = (ROOT/model_path).read_bytes()
-expected_sha256 = "e79a33f57e7873f313f1a803488202206d36b8785d4d5bf2951bec316ae90bff"
+expected_sha256 = "8c60f62b2ec3ee814a136884092fcee18ab2e06faab84fdca5598f3fa25609de"
 assert hashlib.sha256(model_bytes).hexdigest() == expected_sha256, "Edited model differs from user-confirmed preset"
 model = json.loads(model_bytes)
 assert len(model["elements"]) == 6
@@ -88,7 +88,12 @@ while offset < len(raw):
     elif typ == b"IEND":
         break
 assert palette_count and alpha and alpha[0]==0
-assert message and message["source"]["fingerprint"] == expected_sha256
+# The archived, user-approved H02 icon was captured before this source colour
+# change, so its provenance remains the previous model. Do not silently
+# relabel or recolour that baked image as a new Godot-rendered screenshot.
+historical_icon_fingerprint = "e79a33f57e7873f313f1a803488202206d36b8785d4d5bf2951bec316ae90bff"
+assert historical_icon_fingerprint != expected_sha256
+assert message and message["source"]["fingerprint"] == historical_icon_fingerprint
 assert message["equipment"] == {"blueprint_id":"H02","slot":"head","rig_set":"D"}
 # Legacy compressed H02 fallback retains its own historical WebGL capture.
 # The authoritative re-photographed H02 is now the native RGBA PNG loaded
