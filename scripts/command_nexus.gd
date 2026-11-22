@@ -2952,7 +2952,7 @@ func _refresh_outline_debug(delta: float) -> void:
     var showing: bool = bool(metrics.get("overlay_visible", false))
     var id_target: Variant = metrics.get("id_target_size", Vector2i.ZERO)
     outline_debug_stats.text = (
-        "Roots %d\\nMeshes %d\\nCamera %s\\nOverlay %s\\nID %s\\nRedraw %d" % [
+        "Roots %d\nMeshes %d\nCamera %s\nOverlay %s\nID %s\nRedraw %d" % [
             int(metrics.get("roots", 0)),
             count,
             "ON" if camera_ok else "OFF",
