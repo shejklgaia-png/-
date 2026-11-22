@@ -74,6 +74,8 @@ py tools/icon_studio/godot_native_capture_self_check.py
 # H02 アイリス LAB craft, save, NEXUS equipment and user-approved camera preset.
 py tools/iris_h02_craft_self_check.py
 gd tools/iris_h02_craft_runtime_check.gd
+# NEXUS-only IRIS ID contour, exact 3px and high-ID one-sided seam.
+py tools/iris_id_visible_outline_local_check.py
 py tools/camera_eye_head_self_check.py
 gd tools/camera_eye_head_runtime_check.gd
 # Each entry is mandatory: missing files and failing scripts fail the run.
