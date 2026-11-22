@@ -11,6 +11,7 @@ on:
       - 'scripts/sera_base_facility_crease_geometry.gd'
       - 'shaders/sera_view_edges.gdshader'
       - 'shaders/base_facility_view_edges.gdshader'
+      - 'shaders/base_facility_silhouette_edges.gdshader'
       - 'scripts/sera_base_roof_identity.gd'
       - 'scripts/sera_base_architecture.gd'
       - 'scripts/sera_base_night_facade.gd'
@@ -53,6 +54,7 @@ jobs:
           python3 tools/base_facility_fx_outline_self_check.py
           python3 tools/base_facility_mesh_edge_shader_self_check.py
           python3 tools/base_latest_sera_silhouette_self_check.py
+          python3 tools/base_visible_silhouette_ribbon_self_check.py
           python3 tools/base_outline_probe_self_check.py
           python3 tools/base_gameplay_angle_visibility_self_check.py
           python3 tools/base_night_facility_self_check.py
@@ -99,6 +101,7 @@ jobs:
           set -euo pipefail
           GODOT="$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
           "$GODOT" --headless --path . --script tools/base_latest_sera_silhouette_runtime_check.gd
+          "$GODOT" --headless --path . --script tools/base_visible_silhouette_ribbon_runtime_check.gd
           "$GODOT" --headless --path . --script tools/base_outline_probe_runtime_check.gd
           "$GODOT" --headless --path . --script tools/base_facility_mesh_edge_shader_runtime_check.gd
           "$GODOT" --headless --path . --script tools/base_facility_fx_outline_runtime_check.gd

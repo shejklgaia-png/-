@@ -6,16 +6,17 @@ hub = (root / "scripts/base_exploration.gd").read_text(encoding="utf-8")
 arch = (root / "scripts/sera_base_architecture.gd").read_text(encoding="utf-8")
 edge = (root / "scripts/sera_base_facility_outlines.gd").read_text(encoding="utf-8")
 shader = (root / "shaders/base_facility_view_edges.gdshader").read_text(encoding="utf-8")
+silhouette = (root / "shaders/base_facility_silhouette_edges.gdshader").read_text(encoding="utf-8")
 motion = (root / "scripts/sera_base_facility_motion.gd").read_text(encoding="utf-8")
 vfx = (root / "scripts/sera_base_facility_vfx.gd").read_text(encoding="utf-8")
 manifest = (root / "tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 workflow = (root / ".github/workflows/base-roof-visual-preview.yml").read_text(encoding="utf-8")
 
 assert "extends RefCounted" in edge
-assert "SeraViewEdges._build_overlay" in edge
+assert "BaseFacilityCreaseGeometry._build_overlay(physical_mesh)" in edge
 assert "ShaderMaterial.new()" in edge
 assert '"stroke_px", 6.0' in edge
-assert 'preload("res://shaders/sera_view_edges.gdshader")' in edge
+assert 'preload("res://shaders/base_facility_silhouette_edges.gdshader")' in edge
 assert '"crease_px", 2.0' in edge
 assert 'Color("#000000")' in edge
 assert 'Color("#353535")' in edge
@@ -26,6 +27,18 @@ assert "draw_polyline" not in edge
 assert "draw_line(" not in edge
 
 assert "uniform float silhouette_px" not in shader
+assert "render_mode unshaded, cull_disabled, depth_draw_never;" in silhouette
+assert "float stroke_px : hint_range(0.5, 9.0) = 6.0" in silhouette
+assert "bool contour = boundary && a_facing > 0.02;" in silhouette
+assert "a_facing > 0.02 && b_facing < -0.02" in silhouette
+assert "b_facing > 0.02 && a_facing < -0.02" in silhouette
+assert "bool visible = contour || force_all_edges;" in silhouette
+assert "hint_depth_texture" not in silhouette
+assert "CUSTOM0.xyz" in silhouette and "COLOR.rgb" in silhouette
+assert "POSITION = clip;" in silhouette and "ALPHA = 1.0;" in silhouette
+assert "depth_test_disabled" not in silhouette
+assert "vec3 normal_a = -normalize" in shader
+assert "vec3 n_b = -normalize" in shader
 assert "uniform float crease_px" in shader
 assert "CUSTOM0.xyz" in shader and "COLOR.a" in shader
 assert "a_facing > 0.02 && b_facing > 0.02" in shader

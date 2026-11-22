@@ -18,12 +18,17 @@ assert "normal_sum" in sera_generator and "vertex_normals" in sera_generator
 # SERA's own normal recipe and fast 3px path remain unchanged; only BASE
 # inverts the companion normals because BASE source winding is clockwise.
 assert "var face_normal: Vector3 = (b - a).cross(c - a)" in sera_generator
-assert "outward_normals[i] = -outward_normals[i]" in ink
-assert "arrays[Mesh.ARRAY_NORMAL] = outward_normals" in ink
-assert "base_hull.add_surface_from_arrays" in ink
+assert "BaseFacilityCreaseGeometry._build_overlay(physical_mesh)" in ink
+assert "SeraViewEdges._build_overlay(physical_mesh)" not in ink
+assert "_silhouette_cache" in ink and "_crease_cache" in ink
+silhouette = (root / "shaders/base_facility_silhouette_edges.gdshader").read_text(encoding="utf-8")
 assert "no internal polygon" in sera or "backfaces" in sera
-assert 'preload("res://shaders/sera_view_edges.gdshader")' in ink
-assert "SeraViewEdges._build_overlay(physical_mesh)" in ink
+assert "bool visible = contour || force_all_edges;" in silhouette
+assert "both_front" not in silhouette
+assert "hint_depth_texture" not in silhouette
+assert "float stroke_px : hint_range(0.5, 9.0) = 6.0" in silhouette
+assert 'preload("res://shaders/base_facility_silhouette_edges.gdshader")' in ink
+assert "SeraViewEdges._build_overlay(physical_mesh)" not in ink
 assert '"stroke_px", 6.0' in ink
 assert 'hint_range(0.5, 8.0)' in sera
 assert 'depth_probe_px = stroke_px > 4.0 ? stroke_px * 1.5 : stroke_px;' in sera

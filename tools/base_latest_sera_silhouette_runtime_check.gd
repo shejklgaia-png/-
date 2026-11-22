@@ -1,10 +1,10 @@
 extends SceneTree
-## Runtime inspection of actual BASE scene: separate 6px SERA hull and 2px ink.
+## Runtime inspection of actual BASE scene: separate 6px BASE silhouette and 2px ink.
 const FACILITIES: Array[String] = [
     "NEXUS", "LABO", "SCRAP_COLLECTOR", "SMELTER",
     "RECYCLER", "GENERATOR", "STORAGE", "BUILD_TERMINAL"
 ]
-const HULL_SHADER = preload("res://shaders/sera_view_edges.gdshader")
+const HULL_SHADER = preload("res://shaders/base_facility_silhouette_edges.gdshader")
 const CREASE_SHADER = preload("res://shaders/base_facility_view_edges.gdshader")
 const SERA_HULL = preload("res://scripts/sera_view_edges.gd")
 const BASE_EDGES = preload("res://scripts/sera_base_facility_outlines.gd")
@@ -35,17 +35,17 @@ func _run() -> void:
     var hull: ArrayMesh = BASE_EDGES.overlay_for("test_unit_hull", raw)
     var crease: ArrayMesh = BASE_EDGES.crease_for("test_unit", raw)
     if hull == null or crease == null:
-        _fail("SERA hull or 2px line geometry not generated")
+        _fail("BASE silhouette or 2px line geometry not generated")
         return
-    var hull_normals: PackedVector3Array = hull.surface_get_arrays(0)[Mesh.ARRAY_NORMAL]
-    if hull_normals.is_empty() or crease.surface_get_arrays(0)[Mesh.ARRAY_CUSTOM0] == null:
-        _fail("wrong geometry encoding for SERA hull or old creases")
+    var hull_arrays: Array = hull.surface_get_arrays(0)
+    var hull_vertices: PackedVector3Array = hull_arrays[Mesh.ARRAY_VERTEX]
+    var hull_tangents: PackedVector3Array = hull_arrays[Mesh.ARRAY_NORMAL]
+    if hull_vertices.size() < 48 or hull_vertices.size() % 6 != 0 or (
+            hull_tangents.size() != hull_vertices.size()) or (
+            hull_arrays[Mesh.ARRAY_CUSTOM0] == null) or (
+            crease.surface_get_arrays(0)[Mesh.ARRAY_CUSTOM0] == null):
+        _fail("6px contour needs paired-face ribbons, not entire surface triangles")
         return
-    var hull_vertices: PackedVector3Array = hull.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
-    for i in range(hull_vertices.size()):
-        if hull_vertices[i].dot(hull_normals[i]) <= 0.25:
-            _fail("BASE inverted-hull normals collapse inward, hiding black 6px ink")
-            return
 
     for key in FACILITIES:
         var path: String = "NEXUSBuilding/NexusArchitecture" if key == "NEXUS" else (
@@ -69,7 +69,7 @@ func _run() -> void:
                 if mat == null or mat.shader != HULL_SHADER or (
                         not is_equal_approx(float(
                         mat.get_shader_parameter("stroke_px")), 6.0)):
-                    _fail(key + " not using SERA's latest exact hull at 6px")
+                    _fail(key + " not using screen-space silhouette ribbon at 6px")
                     return
                 if mat.get_shader_parameter("ink_color") != Color("#000000"):
                     _fail(key + " 6px facility silhouette must be black")

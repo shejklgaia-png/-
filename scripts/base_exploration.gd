@@ -9,8 +9,8 @@ const PowerBoard = preload("res://scripts/sera_base_power_board.gd")
 const GridUi = preload("res://scripts/sera_base_grid_ui.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
 const BaseFacilityInk = preload("res://scripts/sera_base_facility_outlines.gd")
-const OUTLINE_TEST_SAFE_SHADER = preload("res://shaders/sera_view_edges.gdshader")
-const OUTLINE_TEST_FAST_SHADER = preload("res://shaders/sera_view_edges_fast.gdshader")
+const OUTLINE_TEST_SAFE_SHADER = preload("res://shaders/base_facility_silhouette_edges.gdshader")
+const OUTLINE_TEST_RIBBON_SHADER = preload("res://shaders/base_facility_silhouette_edges.gdshader")
 const BaseClutter = preload("res://scripts/sera_base_clutter.gd")
 const BaseLayoutPreview = preload("res://scripts/sera_base_layout_preview.gd")
 const JunkGeometry = preload("res://scripts/sera_base_junk_geometry.gd")
@@ -710,22 +710,24 @@ func _cycle_outline_probe() -> void:
     if outline_probe_mode == 0:
         mat.shader = OUTLINE_TEST_SAFE_SHADER
         mat.set_shader_parameter("ink_color", Color("#000000"))
+        mat.set_shader_parameter("force_all_edges", false)
         outline_probe_button.text = "輪郭検査 v1"
         layout_status.text = "OUTLINE-DIAG v1"
     elif outline_probe_mode == 1:
-        # Pink but SAME depth-checked production shader: only the
-        # black-vs-dark-background contrast has changed.
+        # Pink with the SAME contour selection; only line color changes.
         mat.shader = OUTLINE_TEST_SAFE_SHADER
         mat.set_shader_parameter("ink_color", Color("#ff00ff"))
-        outline_probe_button.text = "輪郭：紫/深度ON"
-        layout_status.text = "INK SAFE / PINK"
+        mat.set_shader_parameter("force_all_edges", false)
+        outline_probe_button.text = "輪郭：紫/輪郭"
+        layout_status.text = "CONTOUR / PINK"
     else:
-        # Same physical 6px MultiMesh companion but no depth-texture
-        # neighborhood discard: distinguishes fully masked ink.
-        mat.shader = OUTLINE_TEST_FAST_SHADER
+        # Diagnostic draws all topological edges with the SAME ribbon
+        # geometry. Never fill triangles; restored on the third tap.
+        mat.shader = OUTLINE_TEST_RIBBON_SHADER
         mat.set_shader_parameter("ink_color", Color("#ff00ff"))
-        outline_probe_button.text = "輪郭：紫/深度OFF"
-        layout_status.text = "INK FAST / PINK"
+        mat.set_shader_parameter("force_all_edges", true)
+        outline_probe_button.text = "輪郭：紫/全辺"
+        layout_status.text = "ALL EDGES / PINK"
     mat.set_shader_parameter("stroke_px", 6.0)
     print("SERA_BASE_OUTLINE_DIAG mode=%d shader=%s" % [
         outline_probe_mode, mat.shader.resource_path])

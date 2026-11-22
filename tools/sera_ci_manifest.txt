@@ -1,3 +1,6 @@
+# BASE 6px camera-contour ribbons (replaces black-full-face inverted hull).
+py tools/base_visible_silhouette_ribbon_self_check.py
+gd tools/base_visible_silhouette_ribbon_runtime_check.gd
 # BASE visual debug marker + reversible magenta masked/unmasked probe.
 py tools/base_outline_probe_self_check.py
 gd tools/base_outline_probe_runtime_check.gd

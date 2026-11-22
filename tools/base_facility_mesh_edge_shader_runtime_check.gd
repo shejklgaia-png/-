@@ -5,9 +5,9 @@ const FACILITIES: Array[String] = [
     "NEXUS", "LABO", "SCRAP_COLLECTOR", "SMELTER",
     "RECYCLER", "GENERATOR", "STORAGE", "BUILD_TERMINAL",
 ]
-const INK = preload("res://shaders/sera_view_edges.gdshader")
+const INK = preload("res://shaders/base_facility_silhouette_edges.gdshader")
 const CREASE = preload("res://shaders/base_facility_view_edges.gdshader")
-const SERA = preload("res://scripts/sera_view_edges.gd")
+const EDGES = preload("res://scripts/sera_base_facility_outlines.gd")
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -34,7 +34,7 @@ func _run() -> void:
     if hub.get_node_or_null("BaseHUDLayer/BaseHUD/FacilityOutlines") != null:
         _fail("obsolete wire-cage screen overlay is still running")
         return
-    if SERA._build_overlay(BoxMesh.new()) == null:
+    if EDGES.overlay_for("test_silhouette_cube", BoxMesh.new()) == null:
         _fail("SERA baseline edge topology builder unavailable")
         return
     for key in FACILITIES:
@@ -61,7 +61,7 @@ func _run() -> void:
                     return
                 if not is_equal_approx(
                         float(ink_mat.get_shader_parameter("stroke_px")), 6.0):
-                    _fail(key + " latest SERA hull no longer 6 screen pixels")
+                    _fail(key + " 6px visible-contour ribbon no longer 6 screen pixels")
                     return
 
                 if ink_mat.get_shader_parameter("ink_color") != Color("#000000"):

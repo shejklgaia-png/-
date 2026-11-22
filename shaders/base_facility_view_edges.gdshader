@@ -13,7 +13,7 @@ void vertex() {
     // Identical SERA topology encoding: COLOR.rgb = face A normal,
     // COLOR.a = 80-degree hard crease. CUSTOM0.xyz = face B normal;
     // CUSTOM0.w = whether an adjacent triangle exists.
-    vec3 normal_a = normalize(COLOR.rgb * 2.0 - vec3(1.0));
+    vec3 normal_a = -normalize(COLOR.rgb * 2.0 - vec3(1.0));
     vec3 world_position = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
     mat3 normal_matrix = transpose(inverse(mat3(MODEL_MATRIX)));
     vec3 n_a = normalize(normal_matrix * normal_a);
@@ -23,7 +23,7 @@ void vertex() {
     bool contour = boundary && a_facing > 0.02;
     bool both_front = false;
     if (!boundary) {
-        vec3 n_b = normalize(normal_matrix * CUSTOM0.xyz);
+        vec3 n_b = -normalize(normal_matrix * CUSTOM0.xyz);
         float b_facing = dot(n_b, view_ray);
         contour = (a_facing > 0.02 && b_facing < -0.02)
             || (b_facing > 0.02 && a_facing < -0.02);
