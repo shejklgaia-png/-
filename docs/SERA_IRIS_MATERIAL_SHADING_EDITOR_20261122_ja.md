@@ -26,9 +26,9 @@ LAB・倉庫・SERA全身・戦闘・装備モデル原本は対象外。
 ## 初期値
 | material key | 陰影段階 | しきい値 |
 |---|---:|---:|
-| `armor` | 4 | 0.55 |
-| `dark_mechanism` | 4 | 0.60 |
-| `lens` | OFF（0） | 0.25 |
+| `armor` | 8 | 0.65 |
+| `dark_mechanism` | 2 | 0.70 |
+| `lens` | 3 | 0.10 |
 | `emission` | OFF（0） | 0.00（固定） |
 
 点灯状態の初期値は false。
@@ -41,9 +41,9 @@ LAB・倉庫・SERA全身・戦闘・装備モデル原本は対象外。
   "scope": "NEXUS_SINGLE_PREVIEW",
   "lens_lit": false,
   "materials": {
-    "armor": {"steps": 4, "threshold": 0.55},
-    "dark_mechanism": {"steps": 4, "threshold": 0.60},
-    "lens": {"steps": 0, "threshold": 0.25},
+    "armor": {"steps": 8, "threshold": 0.65},
+    "dark_mechanism": {"steps": 2, "threshold": 0.70},
+    "lens": {"steps": 3, "threshold": 0.10},
     "emission": {"steps": 0, "threshold": 0.0}
   }
 }
