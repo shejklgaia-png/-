@@ -5,6 +5,10 @@ const EquipmentPreview = preload("res://tools/equipment_intake/godot_preview.gd"
 const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
 const RotateMark = preload("res://scripts/sera_rotatable_mark.gd")
 const IrisIDContour = preload("res://scripts/sera_iris_id_silhouette_preview.gd")
+const IrisPolygonLight = preload("res://shaders/sera_iris_polygon_light.gdshader")
+const SHADING_MODES = [0, 2, 3, 4]
+const double_tap_window_msec: int = 330
+signal preview_fullscreen_requested(enabled: bool)
 # The live part preview starts at the same angle as the approved 19 PNGs.
 const DEFAULT_YAW: float = 156.900744628906
 const DEFAULT_PITCH: float = 11.8749389648438
@@ -22,6 +26,18 @@ var selected_parts: Dictionary = {}
 var _request_serial: int = 0
 var _pressed_mouse: bool = false
 var _last_mouse: Vector2 = Vector2.ZERO
+var shade_levels: int = 4
+var fullscreen: bool = false
+var _shade_column: VBoxContainer
+var _shade_buttons: Dictionary = {}
+var _fullscreen_close: Button
+var _original_materials: Dictionary = {}
+var _light_materials: Dictionary = {}
+var _white_texture: ImageTexture
+var _touch_starts: Dictionary = {}
+var _ui_mode_touches: Dictionary = {}
+var _last_tap_time: int = 0
+var _last_tap_position: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
     mouse_filter = Control.MOUSE_FILTER_STOP
@@ -38,6 +54,8 @@ func _ready() -> void:
     cue.size = Vector2(28, 28)
     cue.mouse_filter = Control.MOUSE_FILTER_IGNORE
     add_child(cue)
+    _create_iris_controls()
+    resized.connect(_layout_iris_controls)
     # With SubViewportContainer.stretch=true, Godot controls its size.
     # Do not fight it by assigning SubViewport.size after parenting.
 
