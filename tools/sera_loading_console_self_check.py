@@ -26,6 +26,13 @@ assert "_play_loading_preview.bind(LoadingConsole.PREVIEW_RENDER_SCALE_2)" in ba
 assert "screen.set_render_scale(render_scale)" in base
 assert "screen.start_preview()" in base
 assert "extends Control" in console
+# The shared loading overlay owns its temporary 10 FPS cap, not the BASE or combat settings.
+assert "const LOADING_FPS: int = 10" in console
+assert "Engine.max_fps = LOADING_FPS" in console
+assert "func _exit_tree() -> void:" in console
+assert "Engine.max_fps = _previous_max_fps" in console
+assert "if not pixel_source_mode:" in console
+assert "1.0 / float(LOADING_FPS)" in console
 # Render only this prompt at half raster resolution. Do not touch the game viewport.
 assert "const CONSOLE_RENDER_SCALE: float = 0.5" in console
 assert "const PREVIEW_RENDER_SCALE_1: float = 0.375" in console
