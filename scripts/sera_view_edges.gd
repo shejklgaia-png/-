@@ -8,6 +8,7 @@ const COMPOSITOR_NAME: String = "SeraIDOutlineControl"
 
 var _contour_enabled: bool = true
 var _stroke_px: float = 3.0
+var _nexus_sera_contact_mode: bool = false
 var _compositor: Control
 
 
@@ -49,6 +50,8 @@ func _register() -> void:
         layer.add_child(_compositor)
     _compositor.call("register_root", actor, self)
     _compositor.call("set_stroke_px", _stroke_px)
+    if _nexus_sera_contact_mode:
+        _compositor.call("set_nexus_sera_contact_mode", true)
 
 
 func set_contour_enabled(enabled: bool) -> void:
@@ -67,3 +70,10 @@ func set_stroke_px(width: float) -> void:
     _stroke_px = clampf(width, 1.0, 3.0)
     if is_instance_valid(_compositor):
         _compositor.call("set_stroke_px", _stroke_px)
+
+# NEXUS only: the existing ID viewport draws contact seams for the display.
+# All other viewports keep the original IRIS shader and palette.
+func set_nexus_sera_contact_mode(enabled: bool) -> void:
+    _nexus_sera_contact_mode = enabled
+    if enabled and is_instance_valid(_compositor):
+        _compositor.call("set_nexus_sera_contact_mode", true)

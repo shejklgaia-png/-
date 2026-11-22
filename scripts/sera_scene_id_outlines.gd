@@ -8,9 +8,15 @@ const ID_OPEN = preload("res://shaders/sera_iris_mesh_id_open.gdshader")
 const MULTI_ID_CLOSED = preload("res://shaders/sera_scene_multimesh_iris_id_closed.gdshader")
 const MULTI_ID_OPEN = preload("res://shaders/sera_scene_multimesh_iris_id_open.gdshader")
 const INK = preload("res://shaders/sera_iris_mesh_id_outline.gdshader")
+const NEXUS_CONTACT_INK = preload("res://shaders/sera_nexus_mesh_contact_ink.gdshader")
+const NEXUS_CONTACT_CLOSED = preload("res://shaders/sera_nexus_mesh_contact_closed.gdshader")
+const NEXUS_CONTACT_OPEN = preload("res://shaders/sera_nexus_mesh_contact_open.gdshader")
 # The IRIS shader compares red IDs spaced by 1/8. In one pass it
 # distinguishes up to seven values; larger scenes necessarily reuse them.
 const IRIS_PALETTE_COUNT: int = 7
+# RGB channels quantized to 1/8, keeping 343 distinct visible SERA meshes
+# without changing the architecture's working red-only IRIS palette.
+const NEXUS_CONTACT_PALETTE_COUNT: int = 343
 const MAX_IDENTIFIED_MESHES: int = 4095
 const SCAN_INTERVAL: float = 0.65
 
@@ -35,6 +41,10 @@ var _last_camera_aspect: int = -1
 var _last_camera_mask: int = -1
 var _ink_stroke: float = 3.0
 var _redraw_requests: int = 0
+var _nexus_sera_contact_mode: bool = false
+var _contact_ids: Dictionary = {}
+var _free_contact_ids: Array[int] = []
+var _next_contact_id: int = 1
 
 
 func get_outline_metrics() -> Dictionary:
@@ -135,6 +145,25 @@ func set_stroke_px(px: float) -> void:
     _ink_stroke = clampf(px, 1.0, 3.0)
     if is_instance_valid(ink):
         (ink.material as ShaderMaterial).set_shader_parameter("stroke_px", _ink_stroke)
+
+
+# Change this compositor only in the NEXUS viewport. The single ID target
+# keeps its depth buffer; the canvas ink suppresses SERA outer silhouettes.
+func set_nexus_sera_contact_mode(enabled: bool) -> void:
+    if _nexus_sera_contact_mode == enabled:
+        return
+    _nexus_sera_contact_mode = enabled
+    if is_instance_valid(ink):
+        var material: ShaderMaterial = ink.material as ShaderMaterial
+        material.shader = NEXUS_CONTACT_INK if enabled else INK
+        # Rebind all shared uniforms when replacing a shader resource.
+        material.set_shader_parameter("mesh_id_texture", id_viewport.get_texture())
+        material.set_shader_parameter("mesh_id_texel", Vector2(
+            1.0 / float(id_viewport.size.x), 1.0 / float(id_viewport.size.y)))
+        material.set_shader_parameter("ink_color", Color("#17212f"))
+        material.set_shader_parameter("stroke_px", _ink_stroke)
+    _clear_copies()
+    _scan_elapsed = 0.0
 
 
 func _process(delta: float) -> void:
@@ -239,6 +268,15 @@ static func _is_visual_part(node: Node) -> bool:
     return true
 
 
+static func _is_nexus_contact_mesh(node: Node) -> bool:
+    var cursor: Node = node
+    while cursor != null:
+        if bool(cursor.get_meta("sera_nexus_id_contact_only", false)):
+            return true
+        cursor = cursor.get_parent()
+    return false
+
+
 static func _solid_material(part: GeometryInstance3D) -> bool:
     var material: Material = part.material_override
     if material is BaseMaterial3D:
@@ -313,6 +351,29 @@ func _allocate_ids(count: int) -> int:
     return first_new
 
 
+# Unique RGB ID for each visible NEXUS SERA mesh. Recycle IDs on swaps.
+# Allocation is independent of the red-only room/architecture IDs.
+func _contact_id_for(key: int) -> int:
+    if _contact_ids.has(key):
+        return int(_contact_ids[key])
+    var contact_id: int = 0
+    if not _free_contact_ids.is_empty():
+        contact_id = _free_contact_ids.pop_back()
+    elif _next_contact_id <= NEXUS_CONTACT_PALETTE_COUNT:
+        contact_id = _next_contact_id
+        _next_contact_id += 1
+    if contact_id > 0:
+        _contact_ids[key] = contact_id
+    return contact_id
+
+
+func _release_contact_id(key: int) -> void:
+    if not _contact_ids.has(key):
+        return
+    _free_contact_ids.append(int(_contact_ids[key]))
+    _contact_ids.erase(key)
+
+
 func _range_less(a: Dictionary, b: Dictionary) -> bool:
     return int(a["first"]) < int(b["first"])
 
@@ -356,7 +417,9 @@ func _rescan() -> bool:
                 var occluding: bool = not eligible and _background_occluder(part)
                 if eligible or occluding:
                     desired[node.get_instance_id()] = {
-                        "node": part, "occluder": occluding
+                        "node": part, "occluder": occluding,
+                        "contact": eligible and _nexus_sera_contact_mode and (
+                            _is_nexus_contact_mesh(part))
                     }
             for child in node.get_children():
                 if child is Node3D and child.name != "ViewEdges" and (
@@ -373,6 +436,7 @@ func _rescan() -> bool:
             old.queue_free()
         _copies.erase(key)
         _source_refs.erase(key)
+        _release_contact_id(key)
         if _id_allocations.has(key):
             _release_ids(_id_allocations[key])
             _id_allocations.erase(key)
@@ -382,6 +446,7 @@ func _rescan() -> bool:
             continue
         var entry: Dictionary = desired[key]
         var is_occluder: bool = bool(entry["occluder"])
+        var is_contact: bool = bool(entry.get("contact", false))
         var source: Node3D = entry["node"] as Node3D
         var instance_count: int = 1
         if source is MultiMeshInstance3D:
@@ -394,7 +459,11 @@ func _rescan() -> bool:
         var per_instance_id: bool = false
         var identification: int = 0
         var allocation_count: int = 0
-        if not is_occluder:
+        if is_contact:
+            identification = _contact_id_for(key)
+            if identification <= 0:
+                continue
+        elif not is_occluder:
             allocation_count = instance_count if instance_count > 1 else 1
             identification = _allocate_ids(allocation_count)
             if identification >= 0:
@@ -414,6 +483,8 @@ func _rescan() -> bool:
             batch_copy.multimesh = (source as MultiMeshInstance3D).multimesh
             clone = batch_copy
         if clone == null:
+            if is_contact:
+                _release_contact_id(key)
             if allocation_count > 0:
                 _release_ids({"first": identification, "count": allocation_count})
             continue
@@ -431,7 +502,14 @@ func _rescan() -> bool:
         var closed: bool = bool((source as GeometryInstance3D).get_meta(
             "sera_single_sided", false))
         var mat := ShaderMaterial.new()
-        if per_instance_id:
+        if is_contact:
+            mat.shader = NEXUS_CONTACT_CLOSED if closed else NEXUS_CONTACT_OPEN
+            var digit: int = identification - 1
+            mat.set_shader_parameter("contact_id", Vector3(
+                float(digit % 7 + 1) / 8.0,
+                float(int(digit / 7) % 7 + 1) / 8.0,
+                float(int(digit / 49) % 7 + 1) / 8.0))
+        elif per_instance_id:
             mat.shader = MULTI_ID_CLOSED if closed else MULTI_ID_OPEN
             mat.set_shader_parameter("mesh_id_base", identification)
         else:
@@ -490,3 +568,6 @@ func _clear_copies() -> void:
     _id_allocations.clear()
     _free_ranges.clear()
     _next_id = 1
+    _contact_ids.clear()
+    _free_contact_ids.clear()
+    _next_contact_id = 1
