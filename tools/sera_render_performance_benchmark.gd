@@ -3,7 +3,7 @@ extends SceneTree
 ## comparable FPS/draw-call data; headless metrics are NOT Android GPU proof.
 const SLOW = preload("res://shaders/sera_view_edges.gdshader")
 const FAST = preload("res://shaders/sera_view_edges_fast.gdshader")
-const CULLING = preload("res://scripts/sera_face_culling.gd")
+const EDGES = preload("res://scripts/sera_view_edges.gd")
 
 const SAMPLES: int = 72
 const WARMUP: int = 20
@@ -52,12 +52,12 @@ func _run() -> void:
     root.add_child(world)
     var camera := Camera3D.new()
     camera.position = Vector3(0.0, 6.0, 22.0)
+    world.add_child(camera)
     camera.look_at(Vector3(0.0, 0.0, 0.0))
     camera.current = true
-    world.add_child(camera)
     var source_mesh := BoxMesh.new()
     # Identical repeated meshes and positions in both runs.
-    var shell: ArrayMesh = CULLING.create_test_hull(source_mesh)
+    var shell: ArrayMesh = EDGES._build_overlay(source_mesh)
     if shell == null:
         push_error("SERA_RENDER_BENCH_FAIL: missing shell")
         quit(1)
