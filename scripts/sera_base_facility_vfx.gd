@@ -2,6 +2,7 @@ extends Node3D
 ## Separate FX-only graph, NEVER collected into the architectural outline mask.
 ## CPU chimney plumes are GL Compatibility safe; all light shafts are unshaded
 ## additive quads. Main solid MultiMesh and archived NEXUS remain untouched.
+const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const PORTALS: Dictionary = {
     "NEXUS": {"at": Vector3(0, 1.64, 2.95), "size": Vector2(2.10, 2.25),
         "color": Color("#c9eaff")},
@@ -91,6 +92,9 @@ func _make_surface(label: String, at: Vector3, span: Vector2,
     shader.code = shader_source
     var mat := ShaderMaterial.new()
     mat.shader = shader
+    # All translucent shafts and fire reflections draw AFTER the 3D
+    # depth-resolved outlines. The FX is still excluded from ID rendering.
+    mat.render_priority = RENDER_ORDER.FACILITY_VFX_FOREGROUND
     if shader_source == SHAFT_SHADER:
         mat.set_shader_parameter("hue", hue)
         mat.set_shader_parameter("floor_mode", 1.0 if is_floor else 0.0)
@@ -135,6 +139,7 @@ func _smoke_quad_material() -> StandardMaterial3D:
     mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
     mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
     mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+    mat.render_priority = RENDER_ORDER.FACILITY_VFX_FOREGROUND
     return mat
 
 func _add_smoke() -> void:
