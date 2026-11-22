@@ -2,14 +2,14 @@ extends SceneTree
 ## End-to-end BASE night lighting and authored large detail, no screenshot assumptions.
 const Arch = preload("res://scripts/sera_base_architecture.gd")
 const FEATURES = {
-    "NEXUS": "NexusServiceFan",
-    "LABO": "LabCanopyCrest",
-    "SCRAP_COLLECTOR": "CollectorWeatherHood",
-    "SMELTER": "SmelterTallExhaust",
-    "RECYCLER": "RecyclerRoofCowl",
-    "GENERATOR": "GeneratorRoofShield",
-    "STORAGE": "StorageFabricCanopy",
-    "BUILD_TERMINAL": "TerminalServiceRoof",
+    "NEXUS": "FreshNexusSplitCrown",
+    "LABO": "FreshLabTensionedAwning",
+    "SCRAP_COLLECTOR": "FreshCollectorTallBoom",
+    "SMELTER": "FreshSmelterTwinStacks",
+    "RECYCLER": "FreshRecyclerOpenVJaws",
+    "GENERATOR": "FreshGeneratorBlueCorona",
+    "STORAGE": "FreshStorageOffsetStacks",
+    "BUILD_TERMINAL": "FreshTerminalWideScreen",
 }
 const LIGHTS = {
     "NEXUS": "NexusAmberGateLight",
