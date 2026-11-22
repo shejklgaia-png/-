@@ -25,6 +25,7 @@ const KATANA_EMBEDDED = preload("res://assets/sera_katana_data.gd")
 const KICK_PACK = preload("res://assets/sera_kick_clips.gd")
 const EQUIPMENT_SCRIPT = preload("res://scripts/sera_equipment.gd")
 const OUTLINE_SCRIPT = preload("res://scripts/sera_view_edges.gd")
+const FACE_CULLING = preload("res://scripts/sera_face_culling.gd")
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const BIRD_EMBEDDED = preload("res://assets/sera_bird_data.gd")
 const BIRD_LIVE_SOURCE: String = "res://models/core/BirdLeg.bbmodel"
@@ -948,17 +949,16 @@ func _make_mesh(element: Dictionary) -> MeshInstance3D:
     var faces: Dictionary = element.get("faces", {})
     if vertex_map.is_empty() or faces.is_empty():
         return null
-    var centroid := Vector3.ZERO
-    for value in vertex_map.values():
-        centroid += _to_v3(value) * UNIT
-    centroid /= float(vertex_map.size())
+    var winding: Dictionary = FACE_CULLING.inspect_element(element)
+    var reverse_faces: Dictionary = winding["reverse_faces"]
+    var safe_closed: bool = bool(winding["cull_back"])
 
     var tool := SurfaceTool.new()
     tool.begin(Mesh.PRIMITIVE_TRIANGLES)
     var triangle_count: int = 0
     var is_sword_fx: bool = str(element.get("name", "")) == "Swordeffect"
-    for face_value in faces.values():
-        var face: Dictionary = face_value
+    for face_id in faces.keys():
+        var face: Dictionary = faces[face_id]
         # Blockbench free-model UVs are keyed per-face/per-vertex. Preserve
         # their correspondence when changing polygon winding for Godot.
         var points: Array[Vector3] = []
@@ -976,14 +976,12 @@ func _make_mesh(element: Dictionary) -> MeshInstance3D:
                     face_uvs.append(Vector2(float(coords[0]) / 96.0, float(coords[1]) / 32.0))
         if points.size() < 3:
             continue
-        var face_center := Vector3.ZERO
-        for p in points:
-            face_center += p
-        face_center /= float(points.size())
         var facing: Vector3 = (points[1] - points[0]).cross(points[2] - points[0])
         if facing.length_squared() < 0.000000001:
             continue
-        if facing.dot(face_center - centroid) < 0.0:
+        # Topology-wide winding correction; never flip a concave face solely
+        # because its center is inward relative to a global centroid.
+        if bool(reverse_faces.get(face_id, false)):
             points.reverse()
             face_uvs.reverse()
         for i in range(1, points.size() - 1):
@@ -1012,7 +1010,11 @@ func _make_mesh(element: Dictionary) -> MeshInstance3D:
     material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
     material.metallic = 0.0
     material.roughness = 1.0
-    material.cull_mode = BaseMaterial3D.CULL_DISABLED
+    # Open/ambiguous geometry (e.g. IRIS side plates) must remain visible
+    # from both sides; all verified closed shells are back-face culled.
+    material.cull_mode = (BaseMaterial3D.CULL_BACK if safe_closed else
+        BaseMaterial3D.CULL_DISABLED)
+    result.set_meta("sera_single_sided", safe_closed)
     result.material_override = material
     if not is_sword_fx:
         if _foreground_mat == null:
