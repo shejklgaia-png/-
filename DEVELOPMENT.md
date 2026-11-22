@@ -1,3 +1,11 @@
+## 2026-11-22 — BASEの丸み除去とNEXUS旧モデル（2つ前）復元
+
+- ユーザー指示：「丸みを消して」「ネクサスは元のモデル(2つ前)に戻して」。
+- 保存ブランチ `archive/base-models-20261122-before-rebuild`（`3ef30727c20c450991bb534b96548764703c4bbb`）のNEXUSを選択。NEXUSの先行改修、`NexusCutCornerShell` / `ArmoredRoof` / `GatePortal` / `SealedGate` / `FrontEmblem` / 上部保守室・サービスアネックスを含む保管済みジオメトリを、現行の`BaseArchitecture.build_nexus`に保存されている旧モードから再有効化。二つの新型モデルは削除せず、将来の比較・再切替に保持。
+- **丸みをなくす対象はその他の7施設**。マテリアル・施設のIDと配置・バッチ数抑制・3D灯・画面タップ・GRID・CRATEを維持したまま、描画バッチで形状`bevel/drum/gear/hopper/canvas/tube`を直角の立方体へ解決し、円環は8面から4辺の角張った枠に置換。NEXUSはこの変換を適用しない。
+- 仕様受入先行テスト `base_angular_archive_nexus_self_check.py` / `base_angular_archive_nexus_runtime_check.gd` を追加し、NEXUSの旧ジオメトリ有効・新型非表示・7施設の丸い造形不在・全施設タップ/カメラ/倍率を検査。過去の新造NEXUSを前提とする関連ランタイム期待値のみを先に旧版へ修正し、機能CIは保持。
+- 実ゲーム720×1280スクリーンショットとmain統合後の全CIを照合。Android実機画面は別途実機確認。
+
 ## 2026-11-22 — 添付拠点リファレンスに合わせた8施設の再造形
 
 - 施設の個別プロシージャルメッシュを、ユーザー提供画像の機械的特徴が読み取れる形へ再設計。既存の `scripts/sera_base_fresh_design.gd` を置換し、既にゲームで有効な `BaseFreshDesign.add_details` から描画する。スクリーンショットをテクスチャに使用しない。
