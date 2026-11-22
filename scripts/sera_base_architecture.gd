@@ -312,6 +312,7 @@ class Batch:
                         crease_draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
                         crease_draw.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
                         crease_draw.extra_cull_margin = 0.30
+                        crease_draw.visible = false
                         crease_draw.set_meta("FX_NO_OUTLINE", true)
                         host.add_child(crease_draw)
                         outline_crease_meshes_by_bucket[key] = crease_multi
