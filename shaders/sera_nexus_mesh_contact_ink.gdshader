@@ -1,7 +1,7 @@
 shader_type canvas_item;
 // NEXUS: shared depth-resolved ID ink. SERA silhouette is 3px total:
-// 2px inside the visible mesh + 1px outside, so bright mesh edges cannot
-// protrude past an entirely inward contour. Mesh-to-mesh seams are 1px.
+// 1px inside the visible mesh + 2px outside, keeping bright mesh edges
+// enclosed by contour ink. Visible mesh-to-mesh seams are 2px.
 // No obscured contours or camera-facing geometric convex creases are drawn.
 // Outside pixels are sampled only within the projected SERA screen bounds.
 render_mode blend_mix;
@@ -11,7 +11,7 @@ uniform vec2 mesh_id_texel = vec2(0.0026041667, 0.0026041667);
 uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
 uniform float stroke_px : hint_range(1.0, 3.0) = 2.0; // NEXUS architecture
 uniform float sera_stroke_px : hint_range(1.0, 3.0) = 3.0;
-uniform float sera_seam_px : hint_range(0.5, 2.0) = 1.0;
+uniform float sera_seam_px : hint_range(0.5, 2.0) = 2.0;
 // xmin, ymin, xmax, ymax in viewport UV; zero-sized when SERA absent.
 uniform vec4 sera_screen_bounds = vec4(0.0);
 
@@ -26,7 +26,7 @@ bool is_sera(vec3 mesh_id) {
     return mesh_id.g >= 0.06;
 }
 
-// One-sided ordering makes a contact seam 1px instead of two adjacent 1px lines.
+// One-sided ordering keeps a 2px contact seam on only one mesh.
 bool owns_contact(vec3 center_id, vec3 neighbor_id) {
     if (abs(center_id.b - neighbor_id.b) > 0.06) {
         return center_id.b > neighbor_id.b;
@@ -83,11 +83,11 @@ void fragment() {
     float coverage = 0.0;
 
     if (center_sera) {
-        float inner_width = max(1.0, sera_stroke_px - 1.0);
+        float inner_width = 1.0;
         float outer_distance = 99.0;
         float seam_distance = 99.0;
-        // Only a two-pixel inward silhouette and a one-pixel mesh seam:
-        // at most 12 neighbor samples, not the earlier 20-28.
+        // One-pixel inward silhouette plus a two-pixel contact seam.
+        // At most 12 neighbor samples are required for visible SERA.
         for (int radius = 1; radius <= 2; radius++) {
             for (int direction = 0; direction < 8; direction++) {
                 vec2 offset = sample_offset(radius, direction);
@@ -110,31 +110,29 @@ void fragment() {
         coverage = max(solid_coverage(outer_distance, inner_width),
             solid_coverage(seam_distance, sera_seam_px));
     } else {
-        // The extra exterior pixel is drawn only near projected SERA.
-        // Do not turn every background pixel into an eight-texture lookup.
+        // Two exterior pixels belong to the projected SERA boundary only.
+        // Skip extra sampling outside the projected SERA screen bounds.
         bool near_sera = UV.x >= sera_screen_bounds.x &&
             UV.y >= sera_screen_bounds.y &&
             UV.x <= sera_screen_bounds.z &&
             UV.y <= sera_screen_bounds.w;
         bool room = center_id.r >= 0.06;
         if (near_sera || room) {
+            float outside_width = max(1.0, sera_stroke_px - 1.0);
             float outside_distance = 99.0;
             float room_distance = 99.0;
             for (int radius = 1; radius <= 2; radius++) {
-                if (radius > 1 && !room) {
-                    break;
-                }
                 for (int direction = 0; direction < 8; direction++) {
                     vec2 offset = sample_offset(radius, direction);
                     float distance_px = length(offset);
-                    if (distance_px > max(stroke_px, 1.0) + 0.5) {
+                    if (distance_px > max(stroke_px, outside_width) + 0.5) {
                         continue;
                     }
                     if (radius > 1 && direction >= 4) {
                         continue;
                     }
                     vec3 neighbor_id = id_at(UV + offset * mesh_id_texel);
-                    if (radius == 1 && near_sera && is_sera(neighbor_id)) {
+                    if (near_sera && is_sera(neighbor_id)) {
                         outside_distance = min(outside_distance, distance_px);
                     }
                     if (room && room_mismatch(center_id, neighbor_id)) {
@@ -147,7 +145,7 @@ void fragment() {
                 }
             }
             coverage = max(solid_coverage(room_distance, stroke_px),
-                solid_coverage(outside_distance, 1.0));
+                solid_coverage(outside_distance, outside_width));
         }
     }
     COLOR = vec4(ink_color.rgb, ink_color.a * coverage);
