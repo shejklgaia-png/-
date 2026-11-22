@@ -1,3 +1,6 @@
+# BASE VFX and pixel-accurate solid-only outlines: smoke, portal, furnace.
+py tools/base_facility_fx_outline_self_check.py
+gd tools/base_facility_fx_outline_runtime_check.gd
 # BASE 8 machine motion channels: real indexed MultiMesh transforms and archived NEXUS.
 py tools/base_facility_motion_self_check.py
 gd tools/base_facility_motion_runtime_check.gd
