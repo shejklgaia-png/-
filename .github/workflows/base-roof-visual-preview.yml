@@ -6,6 +6,8 @@ on:
     paths:
       - 'scripts/sera_base_fresh_design.gd'
       - 'scripts/sera_base_facility_motion.gd'
+      - 'scripts/sera_base_facility_vfx.gd'
+      - 'scripts/sera_base_facility_outlines.gd'
       - 'scripts/sera_base_roof_identity.gd'
       - 'scripts/sera_base_architecture.gd'
       - 'scripts/sera_base_night_facade.gd'
@@ -24,6 +26,7 @@ on:
       - 'tools/base_gameplay_angle_visibility_*'
       - 'tools/base_isometric_visual_capture.gd'
       - 'tools/base_facility_motion_*'
+      - 'tools/base_facility_fx_outline_*'
       - '.github/workflows/base-roof-visual-preview.yml'
   workflow_dispatch:
 
@@ -42,6 +45,7 @@ jobs:
           python3 tools/base_fresh_rebuild_self_check.py
           python3 tools/base_roof_identity_self_check.py
           python3 tools/base_facility_motion_self_check.py
+          python3 tools/base_facility_fx_outline_self_check.py
           python3 tools/base_gameplay_angle_visibility_self_check.py
           python3 tools/base_night_facility_self_check.py
           python3 tools/base_structural_mass_self_check.py
@@ -84,6 +88,7 @@ jobs:
         run: |
           set -euo pipefail
           GODOT="$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+          "$GODOT" --headless --path . --script tools/base_facility_fx_outline_runtime_check.gd
           "$GODOT" --headless --path . --script tools/base_facility_motion_runtime_check.gd
           "$GODOT" --headless --path . --script tools/base_roof_identity_runtime_check.gd
           "$GODOT" --headless --path . --script tools/base_fresh_rebuild_runtime_check.gd
