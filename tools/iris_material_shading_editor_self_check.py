@@ -20,6 +20,9 @@ assert "set_fullscreen_state(enabled: bool)" in widget
 assert "_material_toggle.visible = enabled and _is_iris_preview()" in widget
 assert "_material_panel.visible = enabled and _material_editor_open" in widget
 assert "func _toggle_material_editor()" in widget
+assert "IrisShadeModeColumn" not in widget
+assert "func set_shading_mode(" not in widget
+assert "func _mode_at_local_point(" not in widget
 assert "func _copy_iris_material_settings()" in widget
 assert "DisplayServer.clipboard_set(" in widget
 assert 'SERA_IRIS_MATERIAL_SHADING_V1' in widget
