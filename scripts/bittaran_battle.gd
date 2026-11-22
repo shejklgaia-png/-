@@ -242,8 +242,8 @@ func _build_debug_leg_buttons() -> void:
     debug_leg_panel.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
     debug_leg_panel.offset_left = 14.0
     debug_leg_panel.offset_right = -14.0
-    debug_leg_panel.offset_top = 264.0
-    debug_leg_panel.offset_bottom = 356.0
+    debug_leg_panel.offset_top = 276.0
+    debug_leg_panel.offset_bottom = 368.0
 
     var caption := Label.new()
     caption.name = "LegBreakDebugTitle"
