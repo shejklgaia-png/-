@@ -16,7 +16,7 @@ const SCAN_INTERVAL: float = 0.65
 var source_viewport: Viewport
 var id_viewport: SubViewport
 var id_camera: Camera3D
-var ink: TextureRect
+var ink: ColorRect
 var _root_refs: Dictionary = {} # owner id -> WeakRef to scene/actor root
 var _copies: Dictionary = {} # source instance id -> ID MeshInstance/MultiMeshInstance
 var _source_refs: Dictionary = {}
@@ -60,17 +60,16 @@ func _ready() -> void:
     id_camera.name = "SeraIDCamera"
     id_viewport.add_child(id_camera)
     id_camera.current = true
-    ink = TextureRect.new()
+    ink = ColorRect.new()
     ink.name = "SeraVisibleMeshIDInk"
     ink.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    ink.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-    ink.stretch_mode = TextureRect.STRETCH_SCALE
-    ink.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+    ink.color = Color.TRANSPARENT
     ink.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    # A shader failure MUST NOT expose the colored debug IDs.
-    var safe := Image.create(1, 1, false, Image.FORMAT_RGBA8)
-    safe.fill(Color.TRANSPARENT)
-    ink.texture = ImageTexture.create_from_image(safe)
+    # Draw an actual full-viewport CanvasItem quad. A TextureRect backed by
+    # a 1x1 fully transparent placeholder can be culled by the renderer
+    # before our shader writes a nonzero alpha; HEAD D's preview overlay
+    # does not reliably reproduce when mounted under a global CanvasLayer.
+    # A ColorRect retains a drawable quad with a transparent failure state.
     var material := ShaderMaterial.new()
     material.shader = INK
     material.set_shader_parameter("mesh_id_texture", id_viewport.get_texture())
@@ -112,6 +111,16 @@ func set_stroke_px(px: float) -> void:
 func _process(delta: float) -> void:
     if _root_refs.is_empty() or not is_instance_valid(source_viewport):
         return
+    var viewport_rect: Rect2 = source_viewport.get_visible_rect()
+    # A CanvasLayer is not a Control layout parent: explicitly size the
+    # compositing quad to the source viewport, including after resize.
+    var desired_rect_size: Vector2 = viewport_rect.size
+    if desired_rect_size.x < 32.0 or desired_rect_size.y < 32.0:
+        return
+    if size != desired_rect_size:
+        size = desired_rect_size
+        ink.position = Vector2.ZERO
+        ink.size = desired_rect_size
     var source_camera: Camera3D = source_viewport.get_camera_3d()
     if not is_instance_valid(source_camera):
         ink.visible = false
@@ -128,7 +137,7 @@ func _process(delta: float) -> void:
 
 
 func _sync_camera(source_camera: Camera3D) -> bool:
-    var target_size: Vector2 = source_viewport.get_visible_rect().size
+    var target_size: Vector2 = size
     if target_size.x < 32.0 or target_size.y < 32.0:
         return false
     # Keep one ID target per rendering viewport, rather than one per actor.
@@ -167,7 +176,10 @@ func _sync_camera(source_camera: Camera3D) -> bool:
         id_camera.near = source_camera.near
         id_camera.far = source_camera.far
         id_camera.keep_aspect = source_camera.keep_aspect
-        id_camera.cull_mask = source_camera.cull_mask
+        # ID clones live in a separate World3D and always use layer one.
+        # Do not inherit arbitrary per-effect source render masks: the
+        # originals have already been checked for visibility/culling.
+        id_camera.cull_mask = 1
         id_camera.global_transform = source_camera.global_transform
         dirty = true
     return dirty
@@ -407,7 +419,7 @@ func _rescan() -> bool:
         clone.name = "VisibleID_%d" % identification
         clone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         clone.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
-        clone.layers = original.layers
+        clone.layers = 1
         id_viewport.add_child(clone)
         _copies[key] = clone
         _source_refs[key] = weakref(source)
