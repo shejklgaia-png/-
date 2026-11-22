@@ -5,6 +5,9 @@ extends Control
 const ID_FRONT = preload("res://shaders/sera_scene_mesh_id_front.gdshader")
 const ID_BACK = preload("res://shaders/sera_scene_mesh_id_back.gdshader")
 const ID_DOUBLE = preload("res://shaders/sera_scene_mesh_id_double.gdshader")
+const MULTI_ID_FRONT = preload("res://shaders/sera_scene_multimesh_id_front.gdshader")
+const MULTI_ID_BACK = preload("res://shaders/sera_scene_multimesh_id_back.gdshader")
+const MULTI_ID_DOUBLE = preload("res://shaders/sera_scene_multimesh_id_double.gdshader")
 const INK = preload("res://shaders/sera_scene_mesh_id_outline.gdshader")
 const MAX_IDENTIFIED_MESHES: int = 4095
 const MAX_TARGET_PIXELS: int = 921600 # 720 x 1280; avoid high-res Android spikes.
@@ -283,6 +286,15 @@ func _rescan() -> bool:
         if not is_occluder and _next_id > MAX_IDENTIFIED_MESHES:
             continue
         var source: Node3D = entry["node"] as Node3D
+        var instance_count: int = 1
+        if source is MultiMeshInstance3D:
+            var mesh_batch: MultiMesh = (source as MultiMeshInstance3D).multimesh
+            instance_count = mesh_batch.instance_count if mesh_batch != null else 1
+        # For combined geometry, unique ID per instance preserves seams.
+        # If the 4095-ID budget is exceeded, degrade to one ID PER batch
+        # rather than creating thousands of draw calls or dropping geometry.
+        var per_instance_id: bool = (not is_occluder and instance_count > 1
+            and _next_id + instance_count - 1 <= MAX_IDENTIFIED_MESHES)
         var clone: GeometryInstance3D = null
         if source is MeshInstance3D:
             var mesh_copy := MeshInstance3D.new()
@@ -297,7 +309,7 @@ func _rescan() -> bool:
         var identification: int = 0
         if not is_occluder:
             identification = _next_id
-            _next_id += 1
+            _next_id += instance_count if per_instance_id else 1
         # RGB444 IDs permit many equipment pieces while keeping per-channel
         # jumps robust at nearest-neighbor sample resolution.
         var color_id := Vector3(float((identification >> 8) & 15) / 15.0,
@@ -316,8 +328,18 @@ func _rescan() -> bool:
                 shader = ID_FRONT
             elif culling == BaseMaterial3D.CULL_BACK:
                 shader = ID_BACK
+        if per_instance_id:
+            if shader == ID_FRONT:
+                shader = MULTI_ID_FRONT
+            elif shader == ID_BACK:
+                shader = MULTI_ID_BACK
+            else:
+                shader = MULTI_ID_DOUBLE
         mat.shader = shader
-        mat.set_shader_parameter("mesh_id_rgb", color_id)
+        if per_instance_id:
+            mat.set_shader_parameter("mesh_id_base", identification)
+        else:
+            mat.set_shader_parameter("mesh_id_rgb", color_id)
         clone.material_override = mat
         clone.name = "VisibleID_%d" % identification
         clone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
