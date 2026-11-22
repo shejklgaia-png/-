@@ -7,6 +7,7 @@ const BaseNightFacade = preload("res://scripts/sera_base_night_facade.gd")
 const BaseStructuralMass = preload("res://scripts/sera_base_structural_mass.gd")
 const BaseRoofIdentity = preload("res://scripts/sera_base_roof_identity.gd")
 const BaseFreshDesign = preload("res://scripts/sera_base_fresh_design.gd")
+const BaseFacilityMotion = preload("res://scripts/sera_base_facility_motion.gd")
 const ACTIVE_BASE_MODEL: String = "FRESH_20261122"
 # User reverted the NEXUS two versions: the pre-FRESH archived geometry is intact.
 const ARCHIVED_NEXUS_MODEL: bool = true
@@ -55,6 +56,9 @@ class Batch:
     # Seven outdoor machines use rectangular, sharp 90-degree mesh edges.
     # The archived NEXUS is deliberately NOT affected by this flag.
     var hard_edges: bool = false
+    # Only selected machine features record their existing batched instance slots.
+    var motion_names: Array = []
+    var motion_indices: Dictionary = {}
 
     func _init(node: Node3D) -> void:
         host = node
@@ -73,6 +77,11 @@ class Batch:
         var moved: Vector3 = pivot + spin * ((at - pivot) * detail_scale)
         (entries[key] as Array).append(Transform3D(
             spin * basis.scaled_local(Vector3.ONE * detail_scale), moved))
+        if motion_names.has(feature):
+            if not motion_indices.has(feature):
+                motion_indices[feature] = []
+            (motion_indices[feature] as Array).append({
+                "bucket": key, "index": (entries[key] as Array).size() - 1})
         if not features.has(feature):
             features.append(feature)
 
@@ -151,6 +160,7 @@ class Batch:
         var keys: Array = entries.keys()
         keys.sort()
         var polygon_meshes: Dictionary = {}
+        var motion_multimeshes: Dictionary = {}
         for key_variant in keys:
             var key: String = str(key_variant)
             var names: PackedStringArray = key.split("|")
@@ -181,6 +191,8 @@ class Batch:
             multi.transform_format = MultiMesh.TRANSFORM_3D
             multi.mesh = mesh
             multi.instance_count = poses.size()
+            if not motion_indices.is_empty():
+                motion_multimeshes[key] = multi
             for i in range(poses.size()):
                 multi.set_instance_transform(i, poses[i])
             var surface := StandardMaterial3D.new()
@@ -229,6 +241,23 @@ class Batch:
             draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
             host.add_child(draw)
         host.set_meta("unique_model_features", features.duplicate())
+        if not motion_indices.is_empty():
+            var motion_entries: Dictionary = {}
+            for feature_variant in motion_indices.keys():
+                var feature: String = str(feature_variant)
+                var recorded: Array = []
+                for slot_variant in motion_indices[feature]:
+                    var slot: Dictionary = slot_variant
+                    var mesh: MultiMesh = motion_multimeshes.get(
+                        str(slot["bucket"])) as MultiMesh
+                    if mesh == null:
+                        continue
+                    var instance_index: int = int(slot["index"])
+                    recorded.append({
+                        "mesh": mesh, "index": instance_index,
+                        "bind": mesh.get_instance_transform(instance_index)})
+                motion_entries[feature] = recorded
+            host.set_meta("motion_entries", motion_entries)
 
 # Small local point lights are tied to the physical machines, not screen UI.
 # Unshadowed lights avoid costly extra passes on mobile GL Compatibility.
@@ -259,6 +288,7 @@ static func build_nexus(parent: Node3D) -> void:
     parent.add_child(node)
     var g := Batch.new(node)
     g.yaw = facility_yaw_radians("NEXUS")
+    g.motion_names = BaseFacilityMotion.MOTION_FEATURES["NEXUS"]
     # Broaden the hub silhouette without enlarging the surrounding clutter.
     g.detail_scale = 1.14
     node.set_meta("visual_model_scale", g.detail_scale)
@@ -270,6 +300,7 @@ static func build_nexus(parent: Node3D) -> void:
         g.detail_scale = 1.0
         BaseClutter.decorate(g, "NEXUS")
         g.flush()
+        BaseFacilityMotion.attach(node, "NEXUS")
         _light(node, "NexusAmberGateLight", Vector3(0, 2.55, 2.89),
             "#ffc491", 1.05, 4.0)
         return
@@ -386,6 +417,7 @@ static func build_nexus(parent: Node3D) -> void:
     g.detail_scale = 1.0
     BaseClutter.decorate(g, "NEXUS")
     g.flush()
+    BaseFacilityMotion.attach(node, "NEXUS")
     _light(node, "NexusAmberGateLight", Vector3(0, 2.55, 2.89),
         "#ffc491", 1.05, 4.0)
 
@@ -648,6 +680,7 @@ static func build_facility(parent: Node3D, key: String) -> void:
     parent.add_child(node)
     var g := Batch.new(node)
     g.hard_edges = true
+    g.motion_names = BaseFacilityMotion.MOTION_FEATURES.get(key, [])
     g.yaw = facility_yaw_radians(key)
     # Seven work buildings grow into the unused portrait space; NEXUS retains
     # its own 1.14x size. Keep all pad, tap anchor and clutter placements.
@@ -663,6 +696,7 @@ static func build_facility(parent: Node3D, key: String) -> void:
     g.detail_scale = 1.0
     BaseClutter.decorate(g, key)
     g.flush()
+    BaseFacilityMotion.attach(node, key)
     _add_facility_lights(node, key)
 
 
