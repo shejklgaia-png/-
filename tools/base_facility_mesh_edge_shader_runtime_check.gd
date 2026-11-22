@@ -5,7 +5,8 @@ const FACILITIES: Array[String] = [
     "NEXUS", "LABO", "SCRAP_COLLECTOR", "SMELTER",
     "RECYCLER", "GENERATOR", "STORAGE", "BUILD_TERMINAL",
 ]
-const INK = preload("res://shaders/base_facility_view_edges.gdshader")
+const INK = preload("res://shaders/sera_view_edges.gdshader")
+const CREASE = preload("res://shaders/base_facility_view_edges.gdshader")
 const SERA = preload("res://scripts/sera_view_edges.gd")
 
 func _initialize() -> void:
@@ -44,6 +45,7 @@ func _run() -> void:
             _fail(key + " actual facility missing")
             return
         var ink_total: int = 0
+        var crease_total: int = 0
         var base_total: int = 0
         for child in model.get_children():
             if not child is MultiMeshInstance3D:
@@ -58,19 +60,23 @@ func _run() -> void:
                     _fail(key + " does not use real SERA-derived shader")
                     return
                 if not is_equal_approx(
-                        float(ink_mat.get_shader_parameter("silhouette_px")), 6.0):
-                    _fail(key + " silhouette no longer 6 screen pixels")
-                    return
-                if not is_equal_approx(
-                        float(ink_mat.get_shader_parameter("crease_px")), 2.0):
-                    _fail(key + " foreground corner no longer 2 pixels")
+                        float(ink_mat.get_shader_parameter("stroke_px")), 6.0):
+                    _fail(key + " latest SERA hull no longer 6 screen pixels")
                     return
                 if inst.has_meta("FX_NO_OUTLINE") == false:
                     _fail(key + " ink instance not marked as non-FX")
                     return
+            elif str(inst.name).begins_with("ArchitecturalCreaseInk_"):
+                crease_total += inst.multimesh.instance_count
+                var crease_mat: ShaderMaterial = inst.material_override as ShaderMaterial
+                if crease_mat == null or crease_mat.shader != CREASE or (
+                        not is_equal_approx(float(
+                        crease_mat.get_shader_parameter("crease_px")), 2.0)):
+                    _fail(key + " foreground crease changed from approved 2px")
+                    return
             elif str(inst.name).begins_with("Architectural_"):
                 base_total += inst.multimesh.instance_count
-        if ink_total < 18 or ink_total > base_total:
+        if ink_total < 18 or ink_total > base_total or crease_total != ink_total:
             _fail(key + " wrong number of real mesh edges: " +
                 str(ink_total) + "/" + str(base_total))
             return
@@ -79,14 +85,15 @@ func _run() -> void:
             return
         var fx: Node3D = model.get_node("BaseFacilityVFX") as Node3D
         for child in fx.get_children():
-            if str(child.name).begins_with("ArchitecturalEdgeInk_"):
+            if str(child.name).begins_with("ArchitecturalEdgeInk_") or (
+                    str(child.name).begins_with("ArchitecturalCreaseInk_")):
                 _fail(key + " effect incorrectly received facility outline")
                 return
             if child is MeshInstance3D:
                 var material: ShaderMaterial = (
                     child as MeshInstance3D).material_override as ShaderMaterial
-                if material != null and material.shader == INK:
-                    _fail(key + " effect is using the physical edge ink shader")
+                if material != null and material.shader in [INK, CREASE]:
+                    _fail(key + " effect is using a solid-only outline shader")
                     return
     # Verify indexed animated part and its ink remain in the *same pose*.
     var collector: Node3D = hub.get_node(
@@ -94,7 +101,8 @@ func _run() -> void:
     var controller: Node = collector.get_node("FacilityMotion")
     var entries: Dictionary = collector.get_meta("motion_entries", {})
     var arms: Array = entries.get("FreshCollectorClawHead", [])
-    if arms.is_empty() or not (arms[0] as Dictionary).has("ink_mesh"):
+    if arms.is_empty() or not (arms[0] as Dictionary).has("ink_mesh") or (
+            not (arms[0] as Dictionary).has("crease_mesh")):
         _fail("moving solid claw has no ink-following batch entry")
         return
     var slot: Dictionary = arms[0]
@@ -103,8 +111,11 @@ func _run() -> void:
         int(slot["index"]))
     var ink_pose: Transform3D = (slot["ink_mesh"] as MultiMesh).get_instance_transform(
         int(slot["ink_index"]))
-    if visible_pose.origin.distance_to(ink_pose.origin) > 0.0001:
-        _fail("outline fails to follow moving mechanical claw")
+    var crease_pose: Transform3D = (slot["crease_mesh"] as MultiMesh).get_instance_transform(
+        int(slot["crease_index"]))
+    if visible_pose.origin.distance_to(ink_pose.origin) > 0.0001 or (
+            visible_pose.origin.distance_to(crease_pose.origin) > 0.0001):
+        _fail("6px hull or preserved 2px corner fails to follow moving claw")
         return
     if str(hub.get_node("NEXUSBuilding/NexusArchitecture").get_meta(
             "base_design", "")) != "ARCHIVED_20261122":
