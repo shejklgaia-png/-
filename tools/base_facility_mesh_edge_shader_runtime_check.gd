@@ -79,12 +79,15 @@ func _run() -> void:
             return
         var fx: Node3D = model.get_node("BaseFacilityVFX") as Node3D
         for child in fx.get_children():
-            if str(child.name).begins_with("ArchitecturalEdgeInk_") or (
-                    child is MeshInstance3D and (
-                    (child as MeshInstance3D).material_override as ShaderMaterial != null and
-                    (child as MeshInstance3D).material_override.shader == INK)):
+            if str(child.name).begins_with("ArchitecturalEdgeInk_"):
                 _fail(key + " effect incorrectly received facility outline")
                 return
+            if child is MeshInstance3D:
+                var material: ShaderMaterial = (
+                    child as MeshInstance3D).material_override as ShaderMaterial
+                if material != null and material.shader == INK:
+                    _fail(key + " effect is using the physical edge ink shader")
+                    return
     # Verify indexed animated part and its ink remain in the *same pose*.
     var collector: Node3D = hub.get_node(
         "BaseFacilities/SCRAP_COLLECTOR/IndustrialModel")
