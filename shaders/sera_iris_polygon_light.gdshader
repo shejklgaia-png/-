@@ -41,7 +41,10 @@ void fragment() {
     int material_id = is_cyan ? (lens_emissive ? 3 : 2) :
         (is_armor ? 0 : 1);
     // One face normal for both authored triangles: no internal diagonal.
-    vec3 face = normalize(NORMAL);
+    // Spatial NORMAL is view-space in fragment. Use world-space normals
+    // for the same stable light angle as the full SERA material shader.
+    vec3 face = normalize((INV_VIEW_MATRIX *
+        vec4(normalize(NORMAL), 0.0)).xyz);
     float illumination = clamp(dot(face, normalize(vec3(-0.45, 0.65, 0.70)))
         * 0.5 + 0.5, 0.0, 1.0);
     int levels = material_id == 0 ? armor_levels :
