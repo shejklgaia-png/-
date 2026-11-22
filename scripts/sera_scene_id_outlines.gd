@@ -544,6 +544,7 @@ static func _outline_role(node: Node) -> int:
             "facility": return 2
             "clutter": return 3
             "grid": return 4
+            "crate": return 5
         cursor = cursor.get_parent()
     return 1
 
