@@ -12,6 +12,12 @@ uniform vec4 ink_screen_bounds = vec4(0.0);
 uniform float main_inside_px = 1.0;
 uniform float main_outside_px = 3.0;
 uniform float main_seam_px = 3.0;
+// Dense BASE machinery used to flood small faces with 3px ID seams.
+// Retain its 1px inside contour, but move only 2px outside, and keep
+// same-screen visible component contacts to 1px.
+uniform float facility_inside_px = 1.0;
+uniform float facility_outside_px = 2.0;
+uniform float facility_seam_px = 1.0;
 uniform float clutter_inside_px = 1.0;
 uniform float clutter_outside_px = 1.0;
 uniform float clutter_seam_px = 2.0;
@@ -80,8 +86,11 @@ void fragment() {
     float coverage = 0.0;
     if (center_role != 0) {
         bool small = center_role == 3;
-        float in_px = small ? clutter_inside_px : main_inside_px;
-        float seam_px = small ? clutter_seam_px : main_seam_px;
+        bool facility = center_role == 2;
+        float in_px = small ? clutter_inside_px :
+            (facility ? facility_inside_px : main_inside_px);
+        float seam_px = small ? clutter_seam_px :
+            (facility ? facility_seam_px : main_seam_px);
         float to_empty = 99.0;
         float to_contact = 99.0;
         // Sample only the reachable 3px neighborhood. No ID readback.
@@ -130,7 +139,8 @@ void fragment() {
                         continue;
                     }
                     float width_px = next_role == 3 ?
-                        clutter_outside_px : main_outside_px;
+                        clutter_outside_px : (next_role == 2 ?
+                        facility_outside_px : main_outside_px);
                     coverage = max(coverage, fill_px(length(off), width_px));
                     if (coverage >= 1.0) {
                         break;
