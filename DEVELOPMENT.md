@@ -1,3 +1,9 @@
+## 2026-11-22 — ロード完了「COMPLETE」全システム起動カット（描画2フレーム）
+- 共通コンソール表示中に限って実フレーム上限10FPSを適用し、終了時に元のFPS上限を復元（既存PR #737の変更も今回のPRへ統合）。通常のBASE・NEXUS・GRID・戦闘のFPS設定は不変更。
+- 起動工程が100%に達すると、`> COMPLETE`、`100%`、`ALL SYSTEMS ONLINE`を表示。COREを最大発光、3層リング全展開、8ノード全点灯、左右各6本の診断ゲージ最大として描画。
+- 従来の`process_frame`2回待機を廃止し、`RenderingServer.frame_post_draw`2回目で完了通知を発火して画面を閉じる。BASEプレビューも5秒/100件のログ後、同じ2描画フレームを保持する。
+- 仕様・先行CI期待値は`tools/sera_loading_console_self_check.py`、`tools/sera_loading_console_runtime_check.gd`、`tools/base_startup_first_frame_self_check.py`で保護。Godot実行・Android実機での描画回数と表示は要確認。ゲームバージョンは据え置く。
+
 ## 2026-11-22 — FPS OPTIONS（拠点/NEXUS・GRID操作・戦闘の3系統）
 - NEXUS → SYSTEMにFPS SETTINGSのサブページを新設。3行それぞれタップで60/40/30/20FPSへ巡回、Android戻ると画面内BACKで元のSYSTEMへ。狭幅端末でも従来の3セーブスロット・4アクション・ロック・利き手設定と重ならないようSYSTEMレイアウトを調整。
 - `scripts/sera_frame_rate_settings.gd`は端末グローバル`user://sera_settings.cfg`の[fps]へ各値を保存し、[controls]・セーブスロットを保持。初期値はBASE/NEXUS=30、GRID編集=60、戦闘=60。無効な値は初期値にフォールバック。
