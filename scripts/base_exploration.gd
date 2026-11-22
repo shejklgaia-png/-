@@ -3,7 +3,7 @@ extends Node3D
 const Modules = preload("res://assets/base_command_modules.gd")
 const SERA_RIG_PATH: String = "res://scripts/sera_rig.gd"
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
-const LoadingSweep = preload("res://scripts/sera_loading_sweep.gd")
+const LoadingConsole = preload("res://scripts/sera_loading_console.gd")
 const BaseFacilities = preload("res://scripts/base_facility_system.gd")
 const PowerBoard = preload("res://scripts/sera_base_power_board.gd")
 const GridUi = preload("res://scripts/sera_base_grid_ui.gd")
@@ -83,7 +83,8 @@ var facility_touch_id: int = -1
 var facility_touch_key: String = ""
 var facility_touch_start: Vector2 = Vector2.ZERO
 var startup_layer: CanvasLayer
-var startup_label: Label
+var console_screen: Control
+var preview_layer: CanvasLayer
 var layout_tools: VBoxContainer
 var layout_shuffle_button: Button
 var layout_copy_button: Button
@@ -105,84 +106,97 @@ var grid_touch_start: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
     BaseClutter.clear_preview()
-    # The old synchronous boot left Android showing only Godot's gray clear
-    # color until the entire large BASE world and all of its dependencies
-    # finished. Draw an engine-native first frame before heavy construction.
+    # Show the terminal before the expensive outdoor scene is constructed.
     get_window().go_back_requested.connect(_on_android_back)
     _setup_world()
     _create_camera()
     _create_startup_overlay()
     print("SERA_BASE_BOOT: initial frame ready")
-    # A process_frame signal fires BEFORE drawing; wait across two signals
-    # so a complete frame can actually be painted between them.
+    # A process_frame signal fires before rendering.  Keep two frames.
     await get_tree().process_frame
     await get_tree().process_frame
-    _startup_step("FLOOR")
+    # Load the existing bundled SERA cyber face after the first visible frame.
+    if console_screen != null:
+        console_screen.set_cyber_font(LaboSkin.display_font())
     _build_hangar()
-    # Two frame signals guarantee at least one rendered sweep frame between
-    # heavy synchronous construction phases (one signal fires pre-draw).
+    _startup_step("WORLD / FLOOR MATRIX ONLINE", 18)
     await get_tree().process_frame
     await get_tree().process_frame
-    _startup_step("NEXUS")
     _build_nexus_building()
+    _startup_step("NEXUS / COMMAND LINK ONLINE", 33)
     await get_tree().process_frame
     await get_tree().process_frame
-    _startup_step("FACILITIES")
     _build_field_facilities()
+    _startup_step("SHELL / FACILITY ARRAY ONLINE", 49)
     _build_power_board()
+    _startup_step("GRID / POWER ROUTING ONLINE", 61)
     _create_grid_selection()
+    _startup_step("GRID / ADDRESS MAP VERIFIED", 67)
     await get_tree().process_frame
     await get_tree().process_frame
-    _startup_step("SALVAGE")
     _create_salvage()
+    _startup_step("ARCHIVE / SALVAGE INDEXED", 79)
     await get_tree().process_frame
     await get_tree().process_frame
-    _startup_step("CRATE")
     _create_player()
+    _startup_step("SHELL / RIG STANDBY", 86)
     _create_crate()
-    _startup_step("UI")
+    _startup_step("CRATE / SIGNAL CONFIRMED", 92)
     _create_hud()
+    _startup_step("OS / INTERFACE ONLINE", 99)
     SeraSave.mark_location("BASE")
+    _startup_step("SYSTEM / BOOT COMPLETE", 100)
+    # Display the *completed* real result at least once before uncovering BASE.
+    await get_tree().process_frame
+    await get_tree().process_frame
     startup_layer.queue_free()
     startup_layer = null
-    startup_label = null
+    console_screen = null
     print("SERA_BASE_BOOT: COMPLETE")
 
 
 func _create_startup_overlay() -> void:
-    # No bundled fonts, imported textures, or material shaders in the loader.
-    # It must remain visible even if an optional resource fails to import.
     startup_layer = CanvasLayer.new()
     startup_layer.name = "BaseStartupOverlay"
     startup_layer.layer = 100
     add_child(startup_layer)
-    var cover := ColorRect.new()
-    cover.name = "Background"
-    cover.color = Color("#0b111b")
-    cover.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    cover.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    startup_layer.add_child(cover)
-    var sweep := LoadingSweep.new() as Control
-    sweep.name = "LoadingSweep"
-    sweep.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    sweep.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    startup_layer.add_child(sweep)
-    startup_label = Label.new()
-    startup_label.name = "StartupMessage"
-    startup_label.text = "SERA / INITIALIZING"
-    startup_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    startup_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    startup_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    startup_label.add_theme_font_size_override("font_size", 26)
-    startup_label.add_theme_color_override("font_color", Color("#dcebf3"))
-    startup_layer.add_child(startup_label)
+    var screen := LoadingConsole.new() as Control
+    screen.name = "SeraLoadingConsole"
+    screen.mouse_filter = Control.MOUSE_FILTER_STOP
+    startup_layer.add_child(screen)
+    screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    console_screen = screen
 
 
-func _startup_step(step: String) -> void:
-    print("SERA_BASE_BOOT: " + step)
-    if startup_label != null:
-        startup_label.text = "SERA / INITIALIZING " + step
+func _startup_step(message: String, completed_percent: int) -> void:
+    # Real progress advances ONLY after its work has actually completed.
+    print("SERA_BASE_BOOT: %s / %d%%" % [message, completed_percent])
+    if console_screen != null:
+        console_screen.set_stage(message, completed_percent)
 
+
+func _play_loading_preview() -> void:
+    if preview_layer != null or scene_changing or power_view_active:
+        return
+    if facility_system != null and bool(facility_system.call("is_menu_open")):
+        return
+    preview_layer = CanvasLayer.new()
+    preview_layer.name = "LoadingPreviewLayer"
+    preview_layer.layer = 110
+    add_child(preview_layer)
+    var screen := LoadingConsole.new() as Control
+    screen.name = "SeraLoadingConsolePreview"
+    preview_layer.add_child(screen)
+    screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    screen.set_cyber_font(LaboSkin.display_font())
+    screen.preview_finished.connect(_loading_preview_complete)
+    screen.start_preview()
+
+
+func _loading_preview_complete() -> void:
+    if preview_layer != null:
+        preview_layer.queue_free()
+        preview_layer = null
 
 func _setup_world() -> void:
     var world := WorldEnvironment.new()
@@ -589,8 +603,6 @@ func _create_hud() -> void:
     hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
     layer.add_child(hud)
     hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    # Draw behind all BASE HUD controls but above opaque 3D facility geometry.
-    # Exact 6px/2px strokes use the live 720x1280 camera projection.
     var facility_outlines := SeraBaseFacilityOutlines.new()
     hud.add_child(facility_outlines)
     facility_outlines.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -624,7 +636,7 @@ func _layout_hud() -> void:
     hint.add_theme_font_size_override("font_size", 16 if view.x < 600.0 else 19)
     if layout_tools != null:
         layout_tools.position = Vector2(view.x - 168.0, 14.0)
-        layout_tools.size = Vector2(156.0, 122.0)
+        layout_tools.size = Vector2(156.0, 178.0)
     if grid_ui != null:
         grid_ui.call("reflow", view)
     if power_back_button != null:
@@ -673,6 +685,7 @@ func _create_layout_tools() -> void:
         "小物を再配置", "LayoutShuffleButton", _shuffle_layout)
     layout_copy_button = _layout_tool_button(
         "配置データコピー", "LayoutCopyButton", _copy_layout_data)
+    _layout_tool_button("ロード演出", "LoadingPreviewButton", _play_loading_preview)
     layout_status = Label.new()
     layout_status.name = "LayoutStatus"
     layout_status.text = "PREVIEW / 未確定"
@@ -1063,6 +1076,8 @@ func _power_camera_return_finished() -> void:
 
 
 func _on_android_back() -> void:
+    if preview_layer != null:
+        return
     if power_view_active:
         _power_back_pressed()
         return
@@ -1070,7 +1085,7 @@ func _on_android_back() -> void:
         facility_system.call("navigate_back")
 
 func _input(event: InputEvent) -> void:
-    if scene_changing or hud == null:
+    if scene_changing or hud == null or preview_layer != null:
         return
     if power_view_active:
         _power_input(event)
