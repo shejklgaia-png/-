@@ -21,6 +21,9 @@ uniform vec3 fx_emission : source_color = vec3(0.0);
 uniform vec2 texture_uv_scale = vec2(1.0);
 uniform vec2 texture_uv_offset = vec2(0.0);
 uniform bool use_vertex_color = false;
+// Only BASE NEXUS uses a raised face-brightness minimum; all other scenes
+// retain the existing physical/look grading without an added draw pass.
+uniform float scene_min_brightness : hint_range(0.0, 1.0) = 0.0;
 
 float sera_band_brightness(int levels, float threshold, float lighting) {
     if (levels < 2) {
@@ -82,6 +85,7 @@ void fragment() {
     if (baked_palette) {
         multiplier = mix(1.0, multiplier, 0.50);
     }
+    multiplier = max(multiplier, scene_min_brightness);
     vec3 shaded = original * multiplier;
     EMISSION = fx_emission;
     if (kind == 2 && lens_emissive) {

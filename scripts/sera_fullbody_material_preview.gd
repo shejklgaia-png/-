@@ -185,6 +185,8 @@ static func _make_shaded_material(geometry: GeometryInstance3D,
     var baked_palette: bool = (not armor_only and
         texture.get_width() == 96 and texture.get_height() == 32)
     var cull: int = source.cull_mode
+    var scene_min_brightness: float = clampf(float(
+        geometry.get_meta("sera_scene_min_brightness", 0.0)), 0.0, 1.0)
     var next_id: int = (source.next_pass.get_instance_id()
         if source.next_pass != null else 0)
     var key: String = str([
@@ -192,7 +194,8 @@ static func _make_shaded_material(geometry: GeometryInstance3D,
         hint, cull, int(iris_atlas), int(armor_only), int(baked_palette), next_id,
         source.emission.to_html(true) if source.emission_enabled else "none",
         source.emission_energy_multiplier if source.emission_enabled else 0.0,
-        source.vertex_color_use_as_albedo, source.uv1_scale, source.uv1_offset
+        source.vertex_color_use_as_albedo, source.uv1_scale, source.uv1_offset,
+        scene_min_brightness
     ])
     var shaded: ShaderMaterial = _shared_materials.get(key) as ShaderMaterial
     if shaded == null or preserve_per_object:
@@ -218,6 +221,8 @@ static func _make_shaded_material(geometry: GeometryInstance3D,
             Vector2(source.uv1_offset.x, source.uv1_offset.y))
         shaded.set_shader_parameter("use_vertex_color",
             source.vertex_color_use_as_albedo)
+        shaded.set_shader_parameter(
+            "scene_min_brightness", scene_min_brightness)
         shaded.set_shader_parameter("fx_emission", Vector3(source.emission.r,
             source.emission.g, source.emission.b) * (
             source.emission_energy_multiplier if source.emission_enabled else 0.0))

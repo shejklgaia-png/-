@@ -230,7 +230,23 @@ class Batch:
                     0.25 if facility_indices.has(i) else 0.375,
                     0.0, 0.0, 1.0))
             var surface := StandardMaterial3D.new()
-            surface.albedo_color = Color(COLORS[tint])
+            # Texture audit: the industrial steel/armor/oxide SVGs have
+            # near-white substrates, not black pixels. The BASE NEXUS front
+            # instead multiplies the old near-black "dark"/"void"/"trim"
+            # swatches by face/vertex shading, crushing whole wall sections.
+            # Restore a readable blue-grey range only on the archived NEXUS.
+            var surface_tint: Color = Color(COLORS[tint])
+            if host.name == "NexusArchitecture":
+                match tint:
+                    "dark":
+                        surface_tint = Color("#384a59")
+                    "void":
+                        surface_tint = Color("#2b3c4a")
+                    "trim":
+                        surface_tint = Color("#405363")
+                    "rubber":
+                        surface_tint = Color("#30414e")
+            surface.albedo_color = surface_tint
             # Only authored polygon meshes have face-tone vertex colors.
             # Tubes/cubes keep the original material contract unchanged.
             surface.vertex_color_use_as_albedo = (
@@ -274,6 +290,10 @@ class Batch:
             draw.material_override = surface
             draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
             draw.set_meta("sera_outline_instanced_roles", true)
+            if host.name == "NexusArchitecture":
+                # Per-material bright-face floor without touching SERA,
+                # boss, GRID or other BASE facility shading.
+                draw.set_meta("sera_scene_min_brightness", 0.82)
             if tint in ["blue_light", "amber_light", "amber"]:
                 # Emissive visual details can occlude opaque contours, but
                 # must never receive ink themselves.
