@@ -1,5 +1,5 @@
 extends SceneTree
-const FACILITY_SHADER = preload("res://shaders/sera_view_edges.gdshader")
+const FACILITY_SHADER = preload("res://shaders/base_facility_silhouette_edges.gdshader")
 const CREASE_SHADER = preload("res://shaders/base_facility_view_edges.gdshader")
 ## Acceptance: real BASE scene, actual screen-space strokes, solid-only model
 ## metadata, 8 door shafts, two live chimney plumes and animated floor bounce.
@@ -70,7 +70,7 @@ func _run() -> void:
             if shaded == null or shaded.shader != FACILITY_SHADER or (
                     not is_equal_approx(float(
                     shaded.get_shader_parameter("stroke_px")), 6.0)):
-                _fail(key + " not using latest SERA inverted hull at 6px")
+                _fail(key + " not using latest SERA silhouette edge ribbon at 6px")
                 return
             if shaded.get_shader_parameter("ink_color") != Color("#000000"):
                 _fail(key + " 6px SERA silhouette must be black")

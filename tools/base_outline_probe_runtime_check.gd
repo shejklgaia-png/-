@@ -1,8 +1,8 @@
 extends SceneTree
 ## The only approved 6px diagnostic is explicit and reversible.
 const BASE_INK = preload("res://scripts/sera_base_facility_outlines.gd")
-const SAFE = preload("res://shaders/sera_view_edges.gdshader")
-const FAST = preload("res://shaders/sera_view_edges_fast.gdshader")
+const SAFE = preload("res://shaders/base_facility_silhouette_edges.gdshader")
+const FAST = preload("res://shaders/base_facility_silhouette_edges.gdshader")
 
 func _initialize() -> void:
     call_deferred("_run")
@@ -25,16 +25,18 @@ func _run() -> void:
         _fail("user cannot open visible outline diagnostic; source may be stale")
         return
     var mat: ShaderMaterial = BASE_INK.material()
-    if mat.shader != SAFE or mat.get_shader_parameter("ink_color") != Color("#000000"):
+    if mat.shader != SAFE or mat.get_shader_parameter("ink_color") != Color("#000000") or (
+            bool(mat.get_shader_parameter("force_all_edges"))):
         _fail("normal black 6px facility silhouette was changed")
         return
     hub.call("_cycle_outline_probe")
     if mat.shader != SAFE or mat.get_shader_parameter("ink_color") != Color("#ff00ff"):
-        _fail("pink masked probe does not use the actual production shader")
+        _fail("pink selected-contour probe does not use the actual production shader")
         return
     hub.call("_cycle_outline_probe")
-    if mat.shader != FAST or mat.get_shader_parameter("ink_color") != Color("#ff00ff"):
-        _fail("pink unmasked probe is not using the no-depth fast shader")
+    if mat.shader != FAST or mat.get_shader_parameter("ink_color") != Color("#ff00ff") or (
+            not bool(mat.get_shader_parameter("force_all_edges"))):
+        _fail("pink all-edge probe must reveal geometry for diagnosis")
         return
     hub.call("_cycle_outline_probe")
     if mat.shader != SAFE or mat.get_shader_parameter("ink_color") != Color("#000000"):
