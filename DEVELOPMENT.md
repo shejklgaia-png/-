@@ -1,3 +1,8 @@
+## 2026-11-22 — 共通ロード画面を実10FPSに制限
+- `sera_loading_console.gd`の実ロード／BASEプレビューで、表示中に限って`Engine.max_fps=10`を適用し、コンソールの破棄時に以前のFPS上限を復元する。描画用SubViewportは別の上限を持たず、解像度50%/37.5%/25%は維持する。戦闘・GRID/NEXUSの保存設定は変更しない。
+- 中央診断ビジュアルの装飾更新も10FPSへ変更。5秒/100段階プレビューは時間ベースで50ms刻みの論理進捗を生成し、画面上では最大10FPSで最新状態を表示する。
+- CIの独立した期待値を先行更新：`sera_loading_console_self_check.py`と`sera_loading_console_runtime_check.gd`に10FPS有効化、旧FPS値・ゲーム時間の復元を検査する条件を追加。Android・Godot実機確認は別途必要。
+
 ## 2026-11-22 — FPS OPTIONS（拠点/NEXUS・GRID操作・戦闘の3系統）
 - NEXUS → SYSTEMにFPS SETTINGSのサブページを新設。3行それぞれタップで60/40/30/20FPSへ巡回、Android戻ると画面内BACKで元のSYSTEMへ。狭幅端末でも従来の3セーブスロット・4アクション・ロック・利き手設定と重ならないようSYSTEMレイアウトを調整。
 - `scripts/sera_frame_rate_settings.gd`は端末グローバル`user://sera_settings.cfg`の[fps]へ各値を保存し、[controls]・セーブスロットを保持。初期値はBASE/NEXUS=30、GRID編集=60、戦闘=60。無効な値は初期値にフォールバック。
