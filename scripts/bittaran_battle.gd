@@ -30,8 +30,9 @@ const LASER_DAMAGE_MULTIPLIER: float = BALANCE.RAILGUN_DAMAGE_MULTIPLIER
 const BOSS_WORLD_SCALE: float = 2.0
 # Boss-only opening range: training's -8m start stays unchanged.
 const BOSS_START_DISTANCE_METERS: float = 12.0
-# Live 3D stomp volume: 1.5x both horizontal dimensions of the rendered toe.
+# Live 3D stomp follows the rendered toe; front width expands only.
 const STOMP_FOLLOW_WIDTH_MULTIPLIER: float = 1.50
+const FRONT_STOMP_FOLLOW_WIDTH_MULTIPLIER: float = 1.80
 const STOMP_FOLLOW_MIN_HEIGHT_METERS: float = 0.18
 # v434: isolate the actual 17:21 Blockbench rotations and positions first.
 # No supporting-leg IK, pose-independent head tracking, contact snap,
@@ -830,16 +831,20 @@ func _tick_bittaran_footfalls() -> void:
 
 ## World-space rectangular prism continuously follows the actual
 ## front/rear foot MESH after Blockbench playback and support-leg IK.
-## Only X/Z are widened to 1.5x. Y follows the true mesh height, with
-## a small thickness floor to prevent a flat foot losing all collision.
+## Only X/Z are widened: front 1.8x and rear 1.5x.
+## Y follows true mesh height; a small floor avoids flat-foot thinness.
 func _bittaran_stomp_follow_box(leg_id: String) -> AABB:
     var foot_box: AABB = _bittaran_attack_foot_bounds(leg_id)
     if not foot_box.has_volume():
         return AABB()
+    var width_multiplier: float = (
+        FRONT_STOMP_FOLLOW_WIDTH_MULTIPLIER
+        if leg_id.begins_with("leg_f")
+        else STOMP_FOLLOW_WIDTH_MULTIPLIER)
     var size := Vector3(
-        foot_box.size.x * STOMP_FOLLOW_WIDTH_MULTIPLIER,
+        foot_box.size.x * width_multiplier,
         maxf(foot_box.size.y, STOMP_FOLLOW_MIN_HEIGHT_METERS),
-        foot_box.size.z * STOMP_FOLLOW_WIDTH_MULTIPLIER)
+        foot_box.size.z * width_multiplier)
     return AABB(foot_box.get_center() - size * 0.5, size)
 
 
@@ -939,7 +944,7 @@ func _update_bittaran_stomp_follow() -> void:
         stomp_follow_apex_passed = true
 
     # Completely INVISIBLE collision volume. While the foot is rising
-    # the player is safe even if standing inside its 1.5x footprint.
+    # the player is safe even inside its expanded front/rear footprint.
     # Once the measured peak is behind us, follow the foot all the
     # way to first floor contact. Sweep previous->current only AFTER
     # arming, so ascending-only positions cannot deal phantom damage.

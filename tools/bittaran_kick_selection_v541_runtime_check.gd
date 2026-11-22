@@ -48,7 +48,9 @@ func _run() -> void:
         var one: Dictionary = {}
         one[leg] = Vector3.ZERO
         var director: RefCounted = A.new()
-        for pair in [[3.11, -59.0], [6.29, 59.0], [4.50, 0.0]]:
+        # KICK remains eligible inside the new front STOMP range,
+        # but STOMP has always been prioritized there.
+        for pair in [[3.71, -59.0], [6.29, 59.0], [4.50, 0.0]]:
             var kind: String = str(director.call(
                 "_choose_kind", _pos(float(pair[0]), float(pair[1])),
                 one, 0.0))
@@ -56,6 +58,11 @@ func _run() -> void:
                 _fail("expanded kick not preferred over sweep "
                     + str([leg, pair, kind]))
                 return
+        var close_kind: String = str(director.call(
+            "_choose_kind", _pos(3.5, 0.0), one, 0.0))
+        if close_kind != "stomp":
+            _fail("new front STOMP priority did not override kick")
+            return
         for last in ["stomp", "sweep"]:
             director.set("last_kind", last)
             var picked: String = str(director.call(

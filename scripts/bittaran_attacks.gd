@@ -70,6 +70,9 @@ const BETWEEN_ATTACKS_SECONDS: float = 1.35
 # the four-leg SWEEP covers mid/far and lateral/rear flanks. Every
 # selection is also validated against the actual available foot.
 const STOMP_RANGE_METERS: float = 3.00
+# v542: front-only STOMP trigger reaches 3.7m from the LIVE sole.
+# Rear STOMP stays at 3.0m; the existing attack-choice priority applies.
+const FRONT_STOMP_RANGE_METERS: float = 3.70
 # v541: broaden only the FRONT-leg KICK activation envelope.
 # Use each live foot's actual sole, NOT the boss center; preserve STOMP
 # for within 3m and the original Blockbench KICK hit geometry/timings.
@@ -279,6 +282,8 @@ static func _leg_can_reach(attack_kind: String, id: String,
     if distance > START_RANGE_METERS:
         return false
     if attack_kind == "stomp":
+        if id.begins_with("leg_f"):
+            return distance <= FRONT_STOMP_RANGE_METERS
         return distance <= STOMP_RANGE_METERS
     var angle_degrees: float = absf(rad_to_deg(wrapf(
         atan2(to_player.x, to_player.y) - boss_yaw, -PI, PI)))
