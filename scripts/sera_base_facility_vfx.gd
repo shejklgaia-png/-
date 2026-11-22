@@ -77,6 +77,27 @@ void fragment() {
 static var _pool_shader: Shader
 static var _nexus_shutter_beam_shader: Shader
 
+# A screen-readable additive slit interior, exclusively for the GENERATOR.
+# The brightest filament stays at each gap center; feathered edges create
+# a contained glow instead of washing the entire machine blue.
+const GENERATOR_GAP_LEAK_SHADER: String = """
+shader_type spatial;
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never;
+void fragment() {
+    float horizontal = abs(UV.x - 0.5) * 2.0;
+    float vertical = abs(UV.y - 0.5) * 2.0;
+    float ends = 1.0 - smoothstep(0.73, 1.0, horizontal);
+    float halo = 1.0 - smoothstep(0.54, 1.0, vertical);
+    float center = 1.0 - smoothstep(0.10, 0.48, vertical);
+    float light = ends * (0.48 * halo + 0.52 * center);
+    vec3 ice_blue = vec3(0.62, 0.91, 1.0);
+    ALBEDO = ice_blue;
+    EMISSION = ice_blue * light * 9.5;
+    ALPHA = clamp(light * 0.94, 0.0, 1.0);
+}
+"""
+static var _generator_gap_leak_shader: Shader
+
 const FIRE_FLOOR_SHADER: String = """
 shader_type spatial;
 render_mode unshaded, blend_add, cull_disabled, depth_draw_never;
@@ -290,6 +311,57 @@ func _generator_vent_slit(label: String, at: Vector3, size: Vector3,
             Vector3(0.055, size.y * 2.0, 0.086), steel)
 
 
+# The earlier sub-0.05m 3D emissive filaments became nearly invisible
+# after BASE zoom and screen downsampling. Overlay their actual physical
+# openings with ten larger, thin, depth-tested emissive faces. All quads
+# share ONE MultiMesh draw and do not contribute to outlines or shadows.
+func _generator_visible_gap_leaks() -> void:
+    if _generator_gap_leak_shader == null:
+        _generator_gap_leak_shader = Shader.new()
+        _generator_gap_leak_shader.code = GENERATOR_GAP_LEAK_SHADER
+
+    var glow_material := ShaderMaterial.new()
+    glow_material.shader = _generator_gap_leak_shader
+    glow_material.render_priority = RENDER_ORDER.FACILITY_VFX_FOREGROUND
+
+    var unit_quad := QuadMesh.new()
+    unit_quad.size = Vector2.ONE
+    var instances := MultiMesh.new()
+    instances.transform_format = MultiMesh.TRANSFORM_3D
+    instances.mesh = unit_quad
+    instances.instance_count = 10
+
+    # Four open channels between five rotor louvers. These faces sit just
+    # in front of the 1.144m grille depth but remain between the metal
+    # bars, so the dark divisions stay legible in the overview.
+    for i in range(4):
+        instances.set_instance_transform(i, Transform3D(
+            Basis().scaled(Vector3(1.44, 0.081, 1.0)),
+            Vector3(-0.27, 1.22 + float(i) * 0.14, 1.153)))
+
+    # Four front-facing, boxed cabinet vents. Their VFX steel lips end at
+    # z=0.58; moving the narrow luminous core to z=0.586 prevents the
+    # original light from being lost behind the geometry at oblique angles.
+    for i in range(4):
+        instances.set_instance_transform(4 + i, Transform3D(
+            Basis().scaled(Vector3(0.41, 0.063, 1.0)),
+            Vector3(1.22, 1.70 + float(i) * 0.125, 0.586)))
+
+    # Cooling fins have two actual open 0.07m gaps, visible above the rotor.
+    for i in range(2):
+        instances.set_instance_transform(8 + i, Transform3D(
+            Basis().scaled(Vector3(0.56, 0.076, 1.0)),
+            Vector3(-1.20, 2.98 + float(i) * 0.16, -0.225)))
+
+    var strip_batch := MultiMeshInstance3D.new()
+    strip_batch.name = "GeneratorVisibleGapLeakBatch"
+    strip_batch.set_meta("FX_NO_OUTLINE", true)
+    strip_batch.multimesh = instances
+    strip_batch.material_override = glow_material
+    strip_batch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    add_child(strip_batch)
+
+
 func _spot(label: String, at: Vector3, target: Vector3,
         tint: Color, energy: float, reach: float, cone: float) -> void:
     # One shadow-free local spotlight replaces an entire broad facade shaft.
@@ -429,6 +501,10 @@ func _add_practical_lighting(key: String) -> void:
             _spot("RotorVentLight", Vector3(-0.54, 1.84, 1.10),
                 Vector3(-0.27, 1.42, 1.18),
                 Color("#b2edff"), 2.40, 2.8, 54.0)
+            # Guaranteed thin visible glow on every actual open channel,
+            # independent of whether the recessed emissive boxes survive
+            # the low-resolution BASE overview.
+            _generator_visible_gap_leaks()
         "STORAGE":
             # Two independent protected industrial fixtures make circular
             # warm landing pools in front of the loading opening.
