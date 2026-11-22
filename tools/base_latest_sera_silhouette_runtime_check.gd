@@ -83,7 +83,7 @@ func _run() -> void:
                     _fail(key + " foreground crease not preserved at 1px")
                     return
                 if mat2.get_shader_parameter("ink_color") != Color("#202020"):
-                    _fail(key + " retained 1px polygon corners must be black")
+                    _fail(key + " retained 1px polygon corners must be #202020")
                     return
         if hull_parts.is_empty() or crease_parts.is_empty() or (
                 hull_parts.size() != crease_parts.size()):

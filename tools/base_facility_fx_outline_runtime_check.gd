@@ -56,10 +56,10 @@ func _run() -> void:
                 if corner_mat == null or corner_mat.shader != CREASE_SHADER or (
                         not is_equal_approx(float(
                         corner_mat.get_shader_parameter("crease_px")), 1.0)):
-                    _fail(key + " old 1px corner line changed")
+                    _fail(key + " 1px corner line changed")
                     return
                 if corner_mat.get_shader_parameter("ink_color") != Color("#202020"):
-                    _fail(key + " 1px polygon corners must be black")
+                    _fail(key + " 1px polygon corners must be #202020")
                     return
                 continue
             if not str(piece.name).begins_with("ArchitecturalEdgeInk_"):

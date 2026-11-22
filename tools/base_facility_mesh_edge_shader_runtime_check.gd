@@ -80,7 +80,7 @@ func _run() -> void:
                     return
 
                 if crease_mat.get_shader_parameter("ink_color") != Color("#202020"):
-                    _fail(key + " 1px corner ink must be black")
+                    _fail(key + " 1px corner ink must be #202020")
                     return
             elif str(inst.name).begins_with("Architectural_"):
                 base_total += inst.multimesh.instance_count
