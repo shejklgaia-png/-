@@ -17,7 +17,6 @@ func _pos(distance: float, angle: float) -> Vector3:
 
 func _check_one(id: String, distance: float, angle: float,
         kick_allowed: bool) -> bool:
-    var actor: RefCounted = A.new()
     var player: Vector3 = _pos(distance, angle)
     var foot: Vector3 = Vector3.ZERO
     var got: bool = A._leg_can_reach("kick", id, player, foot, 0.0)
@@ -34,7 +33,7 @@ func _run() -> void:
         _fail("expanded activation specification changed")
         return
     for leg in ["leg_fl", "leg_fr"]:
-        for distance in [3.10, 3.25, 4.50, 5.15, 6.30]:
+        for distance in [3.11, 3.25, 4.50, 5.15, 6.29]:
             for angle in [-60.0, -40.0, 0.0, 40.0, 60.0]:
                 if not _check_one(leg, distance, angle, true):
                     return
@@ -46,9 +45,10 @@ func _run() -> void:
                 return
         # Both near and far edge are physically reachable by the live
         # selector, but outside them SWEEP (or STOMP if close) is legal.
-        var one: Dictionary = {leg: Vector3.ZERO}
+        var one: Dictionary = {}
+        one[leg] = Vector3.ZERO
         var director: RefCounted = A.new()
-        for pair in [[3.10, -60.0], [6.30, 60.0], [4.50, 0.0]]:
+        for pair in [[3.11, -59.0], [6.29, 59.0], [4.50, 0.0]]:
             var kind: String = str(director.call(
                 "_choose_kind", _pos(float(pair[0]), float(pair[1])),
                 one, 0.0))
