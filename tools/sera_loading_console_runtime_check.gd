@@ -45,7 +45,37 @@ func _run() -> void:
     if reduced_view.size != Vector2i(225, 400):
         _fail("offscreen viewport did not follow small-screen resize")
         return
+    # Preview variants rasterize the same original layout at real lower sizes.
+    screen.call("set_render_scale", 0.375)
+    if reduced_view.size != Vector2i(169, 300):
+        _fail("37.5 percent narrow terminal is not 169x300 (ceil)")
+        return
+    if source_canvas.scale != Vector2(0.375, 0.375):
+        _fail("37.5 percent preset did not scale the source canvas")
+        return
     screen.size = Vector2(720.0, 1280.0)
+    if reduced_view.size != Vector2i(270, 480):
+        _fail("37.5 percent portrait terminal is not 270x480")
+        return
+    screen.call("set_render_scale", 0.25)
+    if reduced_view.size != Vector2i(180, 320):
+        _fail("25 percent portrait terminal is not 180x320")
+        return
+    if source_canvas.scale != Vector2(0.25, 0.25):
+        _fail("25 percent preset did not scale the source canvas")
+        return
+    screen.size = Vector2(450.0, 800.0)
+    if reduced_view.size != Vector2i(113, 200):
+        _fail("25 percent narrow terminal is not 113x200 (ceil)")
+        return
+    screen.call("set_render_scale", 0.5)
+    if reduced_view.size != Vector2i(225, 400):
+        _fail("returning to existing 50 percent preset did not restore viewport")
+        return
+    screen.size = Vector2(720.0, 1280.0)
+    if reduced_view.size != Vector2i(360, 640):
+        _fail("real loading 50 percent render size was not restored")
+        return
     screen.call("set_stage", "CORE / ONLINE", 18)
     if int(screen.get("percent")) != 18:
         _fail("real milestone not committed")
