@@ -1,3 +1,11 @@
+## 2026-11-22 — v540 Bittaran authored fall dust / synchronized impact camera / creator SE
+
+- Following the owner's explicit source-time request, only rear-leg full-body fall FX has moved to author-key `0.75s`, while front fall FX stays `1.75s`; the actual DOWN countdown still starts only at the `1.75s` authored pose for **both**. This preserves full 2.5/6.0s hold, diagonal replant and stand-up.
+- Shared `consume_body_fall_impact()` emits exactly once per collapse. On that very FX frame, the scene launches a strong vertical-only decaying camera offset and the uploaded `巨大ロボットが倒れる.mp3` as an Android-safe embedded Ogg.
+- Additional creator MP3s embedded and routed: `ロボットの足音1` on finished walking ground contact, `巨大ロボットが腕を動かす3` when the authored attack entry begins (excluding stance setup), and `ロボットを強く殴る3` at the first break/recoil reaction. One-shot latches prevent repeated start sounds on normal ticks or multiple breaks during one fall.
+- New asset: `assets/bittaran_sfx_data.gd`, all four original submitted sounds transcoded to 24kHz mono Vorbis at ~48kbps; no external URL and no `.godot` audio cache dependency. Existing attack thuds, background music and other effects remain.
+- CI expectations updated FIRST in `tools/v534_bittaran_down_pacing_ground_replant_runtime_check.gd` and `tools/bittaran_body_fall_runtime_check.gd`. Added `tools/bittaran_sfx_event_self_check.py` and `tools/bittaran_sfx_event_runtime_check.gd` to `tools/sera_ci_manifest.txt`, covering original sound payloads, distinct rear/front source FX times, once-only punch/collapse/arm/footstep, unchanged down timer and large vertical shake. Final GitHub CI status must be recorded separately; Android physical-device sound/shake verification remains manual.
+
 ## 2026-11-22 — BASE施設8棟の完全新造（旧デザイン保存）
 
 - ユーザー指示：「一から作り直してみて欲しい。現在のモデルは保存しておいて」。
