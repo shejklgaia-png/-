@@ -36,7 +36,8 @@ assert "BaseFacilityInk.overlay_for" in arch
 assert "ArchitecturalEdgeInk_" in arch
 for key in ("NEXUS","LABO","SCRAP_COLLECTOR","SMELTER","RECYCLER",
             "GENERATOR","STORAGE","BUILD_TERMINAL"):
-    assert '"'+key+'"' in edges
+    # GPU physical mesh outlines are shared by every facility, not special-
+    # cased by 2D silhouette keys. Each portal still has its own FX color.
     assert '"'+key+'"' in vfx
 assert "py tools/base_facility_fx_outline_self_check.py" in manifest
 assert "gd tools/base_facility_fx_outline_runtime_check.gd" in manifest
