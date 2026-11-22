@@ -1,17 +1,17 @@
 extends SceneTree
-## Real Godot scene: shape-upgrade batch, preserved eight interactive
+## Real Godot scene: fresh industrial shape batches, preserved eight interactive
 ## front-facing stations and unchanged 152 site decorative placements.
 const Arch = preload("res://scripts/sera_base_architecture.gd")
-const Mass = preload("res://scripts/sera_base_structural_mass.gd")
+const Mass = preload("res://scripts/sera_base_fresh_design.gd")
 const Features = {
-    "NEXUS": ["NexusCornerButtress", "NexusRoofGutter"],
-    "LABO": ["LabAFrameRidge", "LabAngledSideRoof", "LabRollUpServiceBay"],
-    "SCRAP_COLLECTOR": ["CollectorCraneCounterweight", "CollectorDiagonalArmBrace"],
-    "SMELTER": ["SmelterSecondaryExhaust", "SmelterWindBaffle"],
-    "RECYCLER": ["RecyclerSplayedArmorJaw", "RecyclerCantedCowl"],
-    "GENERATOR": ["GeneratorExternalCoolingDrum", "GeneratorRibbedTurbineGuard"],
-    "STORAGE": ["StorageRaisedLoadingFrame", "StorageTarpSaddle"],
-    "BUILD_TERMINAL": ["TerminalSlopedRoofWing", "TerminalToolHatch"],
+    "NEXUS": ["FreshNexusCommandHull", "FreshNexusSplitCrown"],
+    "LABO": ["FreshLabStructuralPost", "FreshLabTensionedAwning", "FreshLabFabricationBed"],
+    "SCRAP_COLLECTOR": ["FreshCollectorTallBoom", "FreshCollectorOpenGrip"],
+    "SMELTER": ["FreshSmelterTwinStacks", "FreshSmelterHotThroat"],
+    "RECYCLER": ["FreshRecyclerOpenVJaws", "FreshRecyclerRoller"],
+    "GENERATOR": ["FreshGeneratorSideSupport", "FreshGeneratorFrontRotor"],
+    "STORAGE": ["FreshStorageOffsetStacks", "FreshStorageLoadingLift"],
+    "BUILD_TERMINAL": ["FreshTerminalSignalBody", "FreshTerminalMonitorVisor"],
 }
 
 func _initialize() -> void:
@@ -48,7 +48,7 @@ func _run() -> void:
             return
         for feature in Features[key]:
             if not features.has(feature):
-                _fail(key + " shape is missing real batch geometry: " + feature)
+                _fail(key + " new physical structural silhouette missing: " + feature)
                 return
         var props: Array = model.get_meta("clutter_props", [])
         total += props.size()

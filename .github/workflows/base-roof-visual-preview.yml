@@ -4,6 +4,7 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'scripts/sera_base_fresh_design.gd'
       - 'scripts/sera_base_roof_identity.gd'
       - 'scripts/sera_base_architecture.gd'
       - 'scripts/sera_base_night_facade.gd'
@@ -36,6 +37,7 @@ jobs:
       - name: Plan impact and verify BASE contract
         run: |
           python3 tools/sera_workplan.py --query 'BASE 屋根 施設の視認性' --json > "$RUNNER_TEMP/base-roof-plan.json"
+          python3 tools/base_fresh_rebuild_self_check.py
           python3 tools/base_roof_identity_self_check.py
           python3 tools/base_gameplay_angle_visibility_self_check.py
           python3 tools/base_night_facility_self_check.py
@@ -72,6 +74,7 @@ jobs:
           set -euo pipefail
           GODOT="$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
           "$GODOT" --headless --path . --script tools/base_roof_identity_runtime_check.gd
+          "$GODOT" --headless --path . --script tools/base_fresh_rebuild_runtime_check.gd
           "$GODOT" --headless --path . --script tools/base_gameplay_angle_visibility_runtime_check.gd
           "$GODOT" --headless --path . --script tools/base_structural_mass_runtime_check.gd
       - name: Upload real BASE visual check

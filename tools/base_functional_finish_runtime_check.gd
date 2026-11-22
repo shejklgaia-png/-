@@ -15,14 +15,14 @@ func _run() -> void:
         if hub.get_node_or_null("BaseFacilities/LABO/IndustrialModel") != null:
             break
     var expected := {
-        "NEXUSBuilding/NexusArchitecture":"NexusRaisedCatwalk",
-        "BaseFacilities/LABO/IndustrialModel":"LabPrinterServiceGantry",
-        "BaseFacilities/SCRAP_COLLECTOR/IndustrialModel":"CollectorArticulatedLine",
-        "BaseFacilities/SMELTER/IndustrialModel":"FurnaceHeatShieldRibs",
-        "BaseFacilities/RECYCLER/IndustrialModel":"CrusherInputSafetyRim",
-        "BaseFacilities/GENERATOR/IndustrialModel":"GeneratorWindingGuard",
-        "BaseFacilities/STORAGE/IndustrialModel":"CargoLoadingFrame",
-        "BaseFacilities/BUILD_TERMINAL/IndustrialModel":"BlueprintWorkLightSconce",
+        "NEXUSBuilding/NexusArchitecture": "FreshNexusGateLight",
+        "BaseFacilities/LABO/IndustrialModel": "FreshLabPrinterHotHead",
+        "BaseFacilities/SCRAP_COLLECTOR/IndustrialModel": "FreshCollectorOpenGrip",
+        "BaseFacilities/SMELTER/IndustrialModel": "FreshSmelterHeatFin",
+        "BaseFacilities/RECYCLER/IndustrialModel": "FreshRecyclerTooth",
+        "BaseFacilities/GENERATOR/IndustrialModel": "FreshGeneratorRotorBlade",
+        "BaseFacilities/STORAGE/IndustrialModel": "FreshStorageLoadingLift",
+        "BaseFacilities/BUILD_TERMINAL/IndustrialModel": "FreshTerminalTactileKey",
     }
     for path in expected:
         var model: Node3D = hub.get_node_or_null(path) as Node3D

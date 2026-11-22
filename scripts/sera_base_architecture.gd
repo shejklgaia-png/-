@@ -6,6 +6,8 @@ const BaseFinish = preload("res://scripts/sera_base_functional_finish.gd")
 const BaseNightFacade = preload("res://scripts/sera_base_night_facade.gd")
 const BaseStructuralMass = preload("res://scripts/sera_base_structural_mass.gd")
 const BaseRoofIdentity = preload("res://scripts/sera_base_roof_identity.gd")
+const BaseFreshDesign = preload("res://scripts/sera_base_fresh_design.gd")
+const ACTIVE_BASE_MODEL: String = "FRESH_20261122"
 const BasePolygon = preload("res://scripts/sera_base_polygon_meshes.gd")
 const WEATHERED_STEEL_PATH: String = "res://assets/base/industrial_steel_grunge.svg"
 const WEATHERED_CANVAS_PATH: String = "res://assets/base/aged_canvas_weave.svg"
@@ -252,6 +254,17 @@ static func build_nexus(parent: Node3D) -> void:
     g.detail_scale = 1.14
     node.set_meta("visual_model_scale", g.detail_scale)
     node.set_meta("body_yaw", g.yaw)
+    if ACTIVE_BASE_MODEL == "FRESH_20261122":
+        node.set_meta("base_design", ACTIVE_BASE_MODEL)
+        BaseFreshDesign.add_details(g, "NEXUS")
+        # Retain existing site dressing only, not old building geometry.
+        g.detail_scale = 1.0
+        BaseClutter.decorate(g, "NEXUS")
+        g.flush()
+        _light(node, "NexusAmberGateLight", Vector3(0, 2.55, 2.89),
+            "#ffc491", 1.05, 4.0)
+        return
+    # Archived original geometry for reversible comparison / older tests.
     # Wide reinforced shell, individual roof modules, recessed front blast door.
     g.poly("NexusCutCornerShell", "bevel", Vector3(0, 2.25, -0.08), Vector3(5.70, 3.98, 4.95), "armor")
     g.poly("ArmoredRoof", "bevel", Vector3(0, 4.38, -0.15), Vector3(6.27, 0.32, 5.27), "slate")
@@ -629,6 +642,19 @@ static func build_facility(parent: Node3D, key: String) -> void:
     g.detail_scale = 1.45 if key == "LABO" else 1.55
     node.set_meta("visual_model_scale", g.detail_scale)
     node.set_meta("body_yaw", g.yaw)
+    if ACTIVE_BASE_MODEL == "FRESH_20261122":
+        node.set_meta("base_design", ACTIVE_BASE_MODEL)
+        BaseFreshDesign.add_details(g, key)
+    else:
+        # Original geometry remains available and never draws in fresh mode.
+        _build_original_facility_geometry(g, key)
+    g.detail_scale = 1.0
+    BaseClutter.decorate(g, key)
+    g.flush()
+    _add_facility_lights(node, key)
+
+
+static func _build_original_facility_geometry(g: Batch, key: String) -> void:
     match key:
         "LABO":
             _labo(g)
@@ -647,6 +673,7 @@ static func build_facility(parent: Node3D, key: String) -> void:
         _:
             push_warning("Unknown base device: " + key)
             return
+    # Original-only structural overlays; fresh design builds none of these.
     # Shared bolted skid and utility conduits, with unique anatomy above.
     for side in [-1.0, 1.0]:
         g.box("BaseMountingRail", Vector3(side * 0.72, 0.24, 0.0),
@@ -660,9 +687,9 @@ static func build_facility(parent: Node3D, key: String) -> void:
     BaseNightFacade.add_details(g, key)
     BaseStructuralMass.add_details(g, key)
     BaseRoofIdentity.add_details(g, key)
-    g.detail_scale = 1.0
-    BaseClutter.decorate(g, key)
-    g.flush()
+
+
+static func _add_facility_lights(node: Node3D, key: String) -> void:
     match key:
         "LABO":
             _light(node, "LabTaskLighting", Vector3(0, 2.28, 1.31),
