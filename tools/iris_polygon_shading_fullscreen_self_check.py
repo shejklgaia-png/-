@@ -9,6 +9,7 @@ read = lambda path: (root / path).read_text(encoding="utf-8")
 widget = read("scripts/sera_part_preview_widget.gd")
 nexus = read("scripts/command_nexus.gd")
 shader = read("shaders/sera_iris_polygon_light.gdshader")
+closed_shader = read("shaders/sera_iris_polygon_light_closed.gdshader")
 outline = read("shaders/sera_iris_mesh_id_outline.gdshader")
 manifest = read("tools/sera_ci_manifest.txt")
 assert "py tools/iris_polygon_shading_fullscreen_self_check.py" in manifest
@@ -36,5 +37,7 @@ assert "uniform int shade_levels" in shader
 assert "shade_levels == 2" in shader and "shade_levels == 3" in shader
 assert "source_texture" in shader and "eye_pixel" in shader
 assert "render_mode unshaded" in shader
+assert "cull_disabled" in shader and "cull_front" in closed_shader
+assert "IrisPolygonLightClosed" in widget and 'source.get_meta("sera_single_sided", false)' in widget
 assert "uniform float stroke_px" in outline and "mesh_id_texture" in outline
 print("NEXUS IRIS face shading/fullscreen source contracts PASS (not visual validation)")
