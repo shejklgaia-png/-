@@ -1,12 +1,11 @@
 shader_type spatial;
-// Same camera-normal/depth-tested ribbon pipeline as SERA's view edges.
-// Unlike SERA's actor shader, BASE additionally renders FRONT-FRONT hard
-// creases at 2px, as explicitly requested for the near-facing corners.
+// BASE's previous front/front 2px crease shader is intentionally retained.
+// OUTER SILHOUETTES NOW USE THE LATEST SERA INVERTED HULL IN A SEPARATE PASS.
+// This pass renders only the original 80-degree foreground corner lines.
 // Solid building geometry only: FX/smoke/lamps never receive ink batches.
 render_mode unshaded, cull_disabled, depth_draw_never;
 
 uniform vec4 ink_color : source_color = vec4(0.3333, 0.4745, 0.5412, 1.0);
-uniform float silhouette_px : hint_range(1.0, 12.0) = 6.0;
 uniform float crease_px : hint_range(0.5, 6.0) = 2.0;
 varying float edge_visible;
 
@@ -30,12 +29,12 @@ void vertex() {
             || (b_facing > 0.02 && a_facing < -0.02);
         both_front = (a_facing > 0.02 && b_facing > 0.02);
     }
-    // A contour is always 6px. An actual >=80deg front/front edge is 2px;
-    // coplanar triangle seams and all hidden back/back edges stay invisible.
+    // Retain the old front/front >=80-degree criterion verbatim.
+    // Contour segments are now exclusively drawn by SERA's real rear hull.
     bool foreground_crease = both_front && COLOR.a > 0.5;
-    bool visible = contour || foreground_crease;
+    bool visible = foreground_crease;
     edge_visible = visible ? 1.0 : 0.0;
-    float width = contour ? silhouette_px : crease_px;
+    float width = crease_px;
 
     vec3 eye_vertex = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
     vec3 eye_tangent = normalize((MODELVIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);

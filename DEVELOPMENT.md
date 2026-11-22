@@ -1,3 +1,12 @@
+## 2026-11-22 — BASE施設の6pxシルエットを最新SERAシェーダーへ更新（2px角線は保持）
+
+- 2026-11-22 PR #706でSERA本体の輪郭処理は、旧「隣接面エッジリボン」から**頂点の面積加重平均法線＋深度テスト付き背面拡張（inverted hull）**へ変更された。BASEでは旧リボンのシェーダーに新しいSERAの`_build_overlay`（背面三角メッシュ）を渡しており、頂点属性が不一致だったためこの差分を解消。
+- 施設の6px輪郭は**最新正本`shaders/sera_view_edges.gdshader`そのもの**を参照し、施設用`ShaderMaterial`で`ink_color=#55798A`、`stroke_px=6.0`を設定。法線生成は`SeraViewEdges._build_overlay`をそのまま呼ぶ。元のフラットシェーディング/装備/ターゲットの3pxシェーダーは未変更。
+- 2px角線は変更前の2026-11-21 SERA 80°`_extract_edges`と`_build_overlay`を`scripts/sera_base_facility_crease_geometry.gd`へ**そのまま分離**。BASE従来の`shaders/base_facility_view_edges.gdshader`は二面ともカメラ向きの`COLOR.a > 0.5`だけを描画する専用パスへ切替。幅・線色・深度条件は保持し、旧6pxリボン描画だけを停止して外側で二重にならないようにする。
+- 外周と角線は不透明な建築パーツのみに別の`MultiMesh`で描画（`ArchitecturalEdgeInk_*`と`ArchitecturalCreaseInk_*`）。元の外装/屋根/機械アニメは維持。可動部が持つ`ink_mesh`と`crease_mesh`に同じ30Hz変換を適用し、両方のラインを同期させる。
+- 煙、炎、光漏れ、床反射、発光ガラス、拠点小物にはどちらも適用しない。2つ前の旧NEXUSと7施設の角張った形状、GRID、CRATE、端末タップの仕様も不変。
+- CI受入条件を先に追加・更新：`base_latest_sera_silhouette_{self_check.py,runtime_check.gd}`。既存2つのBASE FX/輪郭テストも二系統描画へ改訂。通常BASEカメラ720×1280のスクリーンショットで輪郭の太さ・ちらつき・内側の余計な線がないか目視確認する。Android実機での検証とは区別する。
+
 ## 2026-11-22 — SERA・標的の可視独立メッシュ輪郭へ移行
 
 - アイリス（HEAD D）の比較実験で確定した「急角度の面の線は消し、モデル外周と独立した可視メッシュ輪郭は残す」をセラ・訓練標的・ビットタランの共通 `SeraViewEdges` に採用。80°の隣接ポリゴン判定／表裏切替エッジリボンは廃止。画面に現れる背面ハルのみを3pxで拡張する軽量実装へ置換。FX・非発光・材質・アニメ・装備交換契約は維持。
