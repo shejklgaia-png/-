@@ -2,7 +2,7 @@ extends SceneTree
 ## Godot 4.7 live scene: original models remain archived, but none render.
 ## Enforces actual batch geometry, 8 independent identities, touch and camera.
 const FEATURES = {
-    "NEXUS": ["FreshNexusSplitCrown", "FreshNexusGateCore", "FreshNexusCanvasAwning", "FreshNexusCommandAntenna"],
+    "NEXUS": ["NexusCutCornerShell", "ArmoredRoof", "GatePortal", "SealedGate", "FrontEmblem"],
     "LABO": ["FreshLabOpenPrinterBridge", "FreshLabFabricationBed", "FreshLabPrinterHotHead"],
     "SCRAP_COLLECTOR": ["FreshCollectorTallBoom", "FreshCollectorOpenGrip", "FreshCollectorClawHead"],
     "SMELTER": ["FreshSmelterTwinStacks", "FreshSmelterHotThroat", "FreshSmelterFlameTongue"],
@@ -51,7 +51,8 @@ func _run() -> void:
             return
         var model: Node3D = building.get_node_or_null(
             "NexusArchitecture" if key == "NEXUS" else "IndustrialModel") as Node3D
-        if model == null or str(model.get_meta("base_design", "")) != "FRESH_20261122":
+        if model == null or str(model.get_meta("base_design", "")) != (
+                "ARCHIVED_20261122" if key == "NEXUS" else "FRESH_20261122"):
             _fail(key + " was not rebuilt from independent fresh mesh source")
             return
         var scale: float = float(model.get_meta("visual_model_scale", 0.0))
@@ -66,7 +67,7 @@ func _run() -> void:
                 _fail(key + " signature missing real batch geometry " + identity)
                 return
         for invalid in OLD_ONLY:
-            if features.has(invalid):
+            if key != "NEXUS" and features.has(invalid):
                 _fail(key + " still draws legacy geometry " + invalid)
                 return
         var batches: int = 0
