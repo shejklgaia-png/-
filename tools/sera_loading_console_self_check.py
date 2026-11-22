@@ -60,6 +60,8 @@ assert 'draw_texture_rect_region(pixel_font_atlas' in console
 assert 'roundi(at.x * console_render_scale)' in console
 assert 'roundi(at.y * console_render_scale)' in console
 assert 'func _pixel_cell_pixels(font_size: int) -> int:' in console
+assert 'console_render_scale >= 0.35' in console, "37.5 percent title must have a distinct 2px mode"
+assert 'SERA // OMNI SYNC' in console, "medium title fits the screen at 2x pixels"
 assert 'func _pixel_text_width(message: String, font_size: int) -> float:' in console
 assert '_fit_pixel_text(' in console, "truncate long logs by actual glyph width"
 assert 'pixel_source.set("console_render_scale", console_render_scale)' in console
