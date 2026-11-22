@@ -18,8 +18,8 @@ assert ready.index("await get_tree().process_frame") < ready.index("_build_hanga
 assert ready.index("_build_hangar()") < ready.index("_build_field_facilities()")
 assert ready.index("_build_field_facilities()") < ready.index("_create_hud()")
 assert ready.index("_create_hud()") < ready.index("startup_layer.queue_free()")
-assert 'cover.color = Color("#0b111b")' in base
-assert "startup_label.text = \"SERA / INITIALIZING\"" in base
+assert 'screen.name = "SeraLoadingConsole"' in base
+assert 'screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)' in base
 assert "SERA_BASE_BOOT: COMPLETE" in base
 # Disabled hub character should not force the entire combat script graph
 # and its models to preload on a mobile BASE-first boot.
