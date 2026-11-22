@@ -8,8 +8,8 @@ shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_never, fog_disabled;
 
 uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
-uniform float silhouette_px : hint_range(1.0, 6.0) = 4.0;
-uniform float boundary_px : hint_range(1.0, 6.0) = 3.0;
+uniform float silhouette_px : hint_range(1.0, 6.0) = 3.0;
+uniform float boundary_px : hint_range(0.5, 6.0) = 1.0;
 varying float edge_visible;
 
 void vertex() {
@@ -26,14 +26,20 @@ void vertex() {
     bool boundary = CUSTOM0.w < 0.5;
     bool contour = false;
     if (boundary) {
-        // An open face can be double-sided in Blockbench. Occlusion is
-        // resolved by hardware depth, not by its authored winding.
+        // Open geometric boundaries receive the thin 1px detail stroke.
+        // Unlike the 3px silhouette, these are not automatically the
+        // exterior edge of the assembled character.
         contour = true;
     } else if (!contact) {
         vec3 n_b = normalize(normal_matrix * (-normalize(CUSTOM0.xyz)));
         float b_facing = dot(n_b, view_ray);
-        contour = (a_facing > 0.02 && b_facing < -0.02)
-            || (b_facing > 0.02 && a_facing < -0.02);
+        // A nonzero facing threshold on both sides of the edge created
+        // short gaps at tangent angles as the model was rotated.
+        // Small numerical slack keeps a front/back transition continuous
+        // without enabling ordinary front/front convex creases.
+        float facing_product = a_facing * b_facing;
+        contour = (facing_product <= 0.00002)
+            && (min(a_facing, b_facing) <= 0.0);
     }
     edge_visible = (contact || contour) ? 1.0 : 0.0;
 
@@ -42,8 +48,11 @@ void vertex() {
     // all NEXUS SERA strokes to disappear in the previous implementation.
     vec3 eye_tangent = normalize((MODELVIEW_MATRIX *
         vec4(NORMAL, 0.0)).xyz);
+    // A slightly stronger view-space offset keeps thin lines in front of
+    // their own face on Android GL Compatibility. Hardware depth testing
+    // still rejects segments hidden behind the other solid parts.
     eye_vertex += normalize(-eye_vertex) *
-        max(0.002, length(eye_vertex) * 0.0003);
+        max(0.003, length(eye_vertex) * 0.0004);
     vec4 clip = PROJECTION_MATRIX * vec4(eye_vertex, 1.0);
     vec4 tip = PROJECTION_MATRIX * vec4(
         eye_vertex + eye_tangent * 0.10, 1.0);
@@ -55,6 +64,9 @@ void vertex() {
         delta_px = vec2(1.0, 0.0);
     }
     vec2 side = normalize(vec2(-delta_px.y, delta_px.x));
+    // Three pixels for a real view silhouette; one pixel for open
+    // boundaries and intersecting/disconnected mesh contact lines.
+    // Both-front convex edges are explicitly excluded above.
     float width = (contact || boundary) ? boundary_px : silhouette_px;
     clip.xy += side * vec2(1.0 / VIEWPORT_SIZE.x,
         1.0 / VIEWPORT_SIZE.y) * width * clip.w * UV.x;
