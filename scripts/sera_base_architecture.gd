@@ -29,7 +29,7 @@ const COLORS = {
     "amber": "#dd8647", "amber_light": "#ffc18b", "glass": "#276076",
     # Separate emissive materials for the generator cavity and terminal LCD.
     # Their opacity and correct depth test preserve the physical vent masks.
-    "generator_emitter": "#66cfff", "terminal_monitor": "#449fc9",
+    "generator_emitter": "#a7eaff", "terminal_monitor": "#449fc9",
     "white": "#b3c1c8"
 }
 
@@ -301,7 +301,7 @@ class Batch:
                 surface.emission_enabled = true
                 surface.emission = Color(COLORS[tint])
                 if tint == "generator_emitter":
-                    surface.emission_energy_multiplier = 3.7
+                    surface.emission_energy_multiplier = 6.0
                 elif tint == "terminal_monitor":
                     surface.emission_energy_multiplier = 2.85
                 else:
