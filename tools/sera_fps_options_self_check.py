@@ -20,8 +20,8 @@ assert 'func get_limit(' in settings and 'func set_limit(' in settings
 assert 'func next_limit(' in settings and 'func apply(' in settings
 assert 'ConfigFile.new()' in settings and 'settings.save(path)' in settings
 assert 'FPS_LEVELS.has(' in settings, "Reject invalid FPS values"
-assert 'FrameRateSettings.get_limit("base_nexus")' in budget
-assert 'FrameRateSettings.get_limit("grid")' in budget
+assert 'FrameRateSettings.get_limit("base_nexus", _settings_path)' in budget
+assert 'FrameRateSettings.get_limit("grid", _settings_path)' in budget
 assert 'RenderingServer.viewport_set_update_mode' not in budget, "Never return to frame skipping"
 assert 'Engine.physics_ticks_per_second = INPUT_LOOP_FPS' in budget
 assert '_frame_budget.set_grid_zoomed(grid_placement_active)' in base
@@ -37,6 +37,22 @@ assert '"base_nexus"' in nexus and '"grid"' in nexus and '"combat"' in nexus
 assert 'FrameRateSettings.set_limit(' in nexus
 assert 'FrameRateSettings.next_limit(' in nexus
 assert 'if system_fps_options_open:' in nexus, "Back must close submenu"
+# Keep all tap targets inside the short portrait SYSTEM panel.
+assert "var compact: bool = focus_panel.size.y < 575.0" in nexus
+assert 'value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT' in nexus
+assert 'focus_panel.size.y = minf(view.y * 0.76,' in nexus
+for screen_height in (640.0, 800.0, 1280.0):
+    panel_height = min(screen_height * .76, max(610.0, screen_height * .535))
+    header_height = min(60.0, screen_height * .068)
+    compact = panel_height < 575.0
+    gap = 5.0 if compact else 8.0
+    row_height = max(39.0 if compact else 50.0,
+                     min(73.0, (panel_height - header_height -
+                                (312.0 if compact else 365.0)) / 3.0))
+    actions_top = (header_height + 12.0 + 3.0 * (row_height + gap)
+                   + (6.0 if compact else 9.0))
+    status_top = actions_top + (224.0 if compact else 276.0)
+    assert status_top + 24.0 <= panel_height, "SYSTEM status must fit"
 assert 'py tools/sera_fps_options_self_check.py' in manifest
 assert 'gd tools/sera_fps_options_runtime_check.gd' in manifest
 print("SERA_FPS_OPTIONS_STATIC_PASS")
