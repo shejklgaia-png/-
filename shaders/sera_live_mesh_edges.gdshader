@@ -1,62 +1,70 @@
 shader_type spatial;
-// NEXUS SERA: edge ribbons follow the exact source MeshInstance3D hierarchy.
-// No secondary camera, ID texture, screen capture or previous-frame pose.
-render_mode unshaded, cull_disabled, blend_mix, depth_draw_never, fog_disabled;
+// NEXUS SERA: same-frame screen-pixel edge ribbons in the actual 3D scene.
+// Use the already adopted BASE SurfaceTool ribbon data convention:
+//   NORMAL = local edge tangent (NOT the face normal)
+//   COLOR.rgb = first face normal encoded into 0..1
+//   CUSTOM0.xyz = second face normal, CUSTOM0.w = 0 open, 1 paired,
+//   CUSTOM0.w = 2 for explicit mesh/mesh contact.
+render_mode unshaded, cull_disabled, depth_draw_never, fog_disabled;
 
 uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
 uniform float silhouette_px : hint_range(1.0, 6.0) = 4.0;
 uniform float boundary_px : hint_range(1.0, 6.0) = 3.0;
-
-varying float draw_edge;
+varying float edge_visible;
 
 void vertex() {
-    // NORMAL = first face normal; COLOR.rgb = second normal encoded to 0..1.
-    // COLOR.a = 0 for an open mesh boundary, 1 for two adjacent faces.
-    // TANGENT = local edge direction; UV.x = +/- extrusion side.
-    vec3 world_point = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-    vec3 eye = normalize(CAMERA_POSITION_WORLD - world_point);
-    vec3 first_normal = normalize(mat3(MODEL_MATRIX) * NORMAL);
-    vec3 second_normal = normalize(mat3(MODEL_MATRIX) *
-        (COLOR.rgb * 2.0 - vec3(1.0)));
-    float first_facing = dot(first_normal, eye);
-    float second_facing = dot(second_normal, eye);
-    bool boundary = COLOR.a < 0.5;
-    // Only view-dependent silhouette transitions, never arbitrary sharp
-    // angles or the internal diagonals from a triangulated authored quad.
-    draw_edge = boundary ? 1.0 :
-        ((first_facing * second_facing < -0.00001) ? 1.0 : 0.0);
+    vec3 eye_vertex = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
+    // The source SurfaceTool polygons use Godot's clockwise front faces.
+    // Their right-hand geometric cross is reversed for the visible side.
+    mat3 normal_matrix = transpose(inverse(mat3(MODELVIEW_MATRIX)));
+    vec3 a_normal = -normalize(COLOR.rgb * 2.0 - vec3(1.0));
+    vec3 n_a = normalize(normal_matrix * a_normal);
+    vec3 view_ray = PROJECTION_MATRIX[3][3] > 0.5 ?
+        vec3(0.0, 0.0, 1.0) : normalize(-eye_vertex);
+    float a_facing = dot(n_a, view_ray);
+    bool contact = CUSTOM0.w > 1.5;
+    bool boundary = CUSTOM0.w < 0.5;
+    bool contour = false;
+    if (boundary) {
+        // An open face can be double-sided in Blockbench. Occlusion is
+        // resolved by hardware depth, not by its authored winding.
+        contour = true;
+    } else if (!contact) {
+        vec3 n_b = normalize(normal_matrix * (-normalize(CUSTOM0.xyz)));
+        float b_facing = dot(n_b, view_ray);
+        contour = (a_facing > 0.02 && b_facing < -0.02)
+            || (b_facing > 0.02 && a_facing < -0.02);
+    }
+    edge_visible = (contact || contour) ? 1.0 : 0.0;
 
-    vec4 clip = PROJECTION_MATRIX * MODELVIEW_MATRIX * vec4(VERTEX, 1.0);
-    vec4 next_clip = PROJECTION_MATRIX * MODELVIEW_MATRIX *
-        vec4(VERTEX + TANGENT * 0.1, 1.0);
-    if (clip.w <= 0.0 || next_clip.w <= 0.0) {
-        draw_edge = 0.0;
-        POSITION = vec4(2.0, 2.0, 0.0, 1.0);
-        return;
+    // Use the established BASE projected-ribbon calculation verbatim.
+    // This avoids the unreliable tangent/color repacking that caused
+    // all NEXUS SERA strokes to disappear in the previous implementation.
+    vec3 eye_tangent = normalize((MODELVIEW_MATRIX *
+        vec4(NORMAL, 0.0)).xyz);
+    eye_vertex += normalize(-eye_vertex) *
+        max(0.002, length(eye_vertex) * 0.0003);
+    vec4 clip = PROJECTION_MATRIX * vec4(eye_vertex, 1.0);
+    vec4 tip = PROJECTION_MATRIX * vec4(
+        eye_vertex + eye_tangent * 0.10, 1.0);
+    vec2 delta_ndc = tip.xy / max(tip.w, 0.00001)
+        - clip.xy / max(clip.w, 0.00001);
+    vec2 delta_px = delta_ndc * VIEWPORT_SIZE;
+    if (dot(delta_px, delta_px) < 0.0000001) {
+        edge_visible = 0.0;
+        delta_px = vec2(1.0, 0.0);
     }
-    vec2 pixel_direction = (next_clip.xy / next_clip.w -
-        clip.xy / clip.w) * VIEWPORT_SIZE;
-    float direction_length = length(pixel_direction);
-    if (direction_length < 0.00001) {
-        draw_edge = 0.0;
-        POSITION = vec4(2.0, 2.0, 0.0, 1.0);
-        return;
-    }
-    vec2 perpendicular = vec2(
-        -pixel_direction.y, pixel_direction.x) / direction_length;
-    float stroke = boundary ? boundary_px : silhouette_px;
-    clip.xy += perpendicular * (UV.x * stroke / VIEWPORT_SIZE) * clip.w;
-    // Godot 4 uses reversed Z. A minuscule forward bias avoids z-fighting
-    // against the face which owns this physical edge; scene depth still
-    // occludes ribbons behind nearer body parts.
-    clip.z += 0.00002 * clip.w;
+    vec2 side = normalize(vec2(-delta_px.y, delta_px.x));
+    float width = (contact || boundary) ? boundary_px : silhouette_px;
+    clip.xy += side * vec2(1.0 / VIEWPORT_SIZE.x,
+        1.0 / VIEWPORT_SIZE.y) * width * clip.w * UV.x;
     POSITION = clip;
 }
 
 void fragment() {
-    if (draw_edge < 0.5) {
+    if (edge_visible < 0.5) {
         discard;
     }
     ALBEDO = ink_color.rgb;
-    ALPHA = ink_color.a;
+    ALPHA = 1.0;
 }
