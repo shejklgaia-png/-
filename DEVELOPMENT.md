@@ -1,3 +1,11 @@
+## 2026-11-22 — 添付拠点リファレンスに合わせた8施設の再造形
+
+- 施設の個別プロシージャルメッシュを、ユーザー提供画像の機械的特徴が読み取れる形へ再設計。既存の `scripts/sera_base_fresh_design.gd` を置換し、既にゲームで有効な `BaseFreshDesign.add_details` から描画する。スクリーンショットをテクスチャに使用しない。
+- NEXUS：低い平屋バンカー、厚い正面エアロック、左の布製天幕／荷箱、右の排熱・管路・通信マスト。LABO：奥側だけを覆う天幕、開放した正面、発光ノズルの3Dプリンター、製作台、工具棚と端末。
+- 精製装置：二本の縦煙突と正面の橙色炉口。分解装置：開いたV字の投入ジョーと二本の横置き歯付きローラー。発電機：横置き青色タービン、発光コアリブ、独立の制御盤。回収機：腕の曲がり目が見える油圧ブーム、吊りケーブルと開いた爪。資材保管庫：正面へ露出した積荷、後部のみの布カバー。建設端末：大型設計図画面と操作キー。
+- 同一MultiMeshバッチ構造・金属の既存テクスチャ・温冷色照明・ゲームの27度正投影カメラ・施設位置とタップ領域・GRID移動・CRATE導線・ジェネレーター動作を維持。以前の新造型は今回のPR直前のmain履歴に、さらに古い型は `archive/base-models-20261122-before-rebuild` に保存済み。
+- 既存 `base_fresh_rebuild` 静的／Godotテストに各施設の基準形状を追加し、既存8施設機能・配置・視点・スケール・25〜260個のバッチプリミティブ検査を維持。実画面キャプチャの目視、CI結果とAndroid実機は別々に判定する。
+
 ## 2026-11-22 — v540 Bittaran authored fall dust / synchronized impact camera / creator SE
 
 - Following the owner's explicit source-time request, only rear-leg full-body fall FX has moved to author-key `0.75s`, while front fall FX stays `1.75s`; the actual DOWN countdown still starts only at the `1.75s` authored pose for **both**. This preserves full 2.5/6.0s hold, diagonal replant and stand-up.
