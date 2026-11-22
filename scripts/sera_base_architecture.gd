@@ -19,7 +19,7 @@ const COLORS = {
     "dark": "#202934", "void": "#121d27", "armor": "#53616f",
     "armor_light": "#72808c", "slate": "#3b4a59", "edge": "#84909a",
     "trim": "#303e4c", "crate": "#5a6573", "rubber": "#242b31",
-    "gold": "#a98448", "caution": "#c4a35f", "cloth": "#68685f",
+    "gold": "#a98448", "caution": "#c4a35f", "cloth": "#858176",
     "rust": "#785644", "blue": "#357d95", "blue_light": "#81d6ed",
     "amber": "#dd8647", "amber_light": "#ffc18b", "glass": "#276076",
     "white": "#b3c1c8"
