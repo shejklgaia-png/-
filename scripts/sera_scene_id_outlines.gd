@@ -11,6 +11,11 @@ const INK = preload("res://shaders/sera_iris_mesh_id_outline.gdshader")
 const NEXUS_CONTACT_INK = preload("res://shaders/sera_nexus_mesh_contact_ink.gdshader")
 const NEXUS_CONTACT_CLOSED = preload("res://shaders/sera_nexus_mesh_contact_closed.gdshader")
 const NEXUS_CONTACT_OPEN = preload("res://shaders/sera_nexus_mesh_contact_open.gdshader")
+const SHARED_INK = preload("res://shaders/sera_scene_visible_ink_3d.gdshader")
+const SHARED_ID_CLOSED = preload("res://shaders/sera_scene_visible_id_closed.gdshader")
+const SHARED_ID_OPEN = preload("res://shaders/sera_scene_visible_id_open.gdshader")
+const SHARED_MULTI_CLOSED = preload("res://shaders/sera_scene_visible_id_multi_closed.gdshader")
+const SHARED_MULTI_OPEN = preload("res://shaders/sera_scene_visible_id_multi_open.gdshader")
 # The IRIS shader compares red IDs spaced by 1/8. In one pass it
 # distinguishes up to seven values; larger scenes necessarily reuse them.
 const IRIS_PALETTE_COUNT: int = 7
@@ -45,6 +50,12 @@ var _nexus_sera_contact_mode: bool = false
 var _contact_ids: Dictionary = {}
 var _free_contact_ids: Array[int] = []
 var _next_contact_id: int = 1
+var _shared_scene_mode: bool = false
+var _screen_quad: MeshInstance3D
+var _screen_material: ShaderMaterial
+var _screen_camera: Camera3D
+var _styled_sources: Dictionary = {} # Visible IDs, excludes background depth masks.
+var _pose_stamps: Dictionary = {}
 
 
 func get_outline_metrics() -> Dictionary:
@@ -122,6 +133,60 @@ func _ready() -> void:
     visible = false
 
 
+func _exit_tree() -> void:
+    # The 3D quad lives under the source Camera3D, not under this canvas.
+    if is_instance_valid(_screen_quad):
+        _screen_quad.queue_free()
+
+
+# Transparent-3D ink precedes smoke/glow/slash effects in render_priority,
+# whereas the old CanvasLayer ink always painted OVER those effects.
+func set_shared_scene_mode(enabled: bool) -> void:
+    if _shared_scene_mode == enabled:
+        return
+    _shared_scene_mode = enabled
+    if enabled:
+        _screen_material = ShaderMaterial.new()
+        _screen_material.shader = SHARED_INK
+        _screen_material.render_priority = -30
+        _screen_material.set_shader_parameter(
+            "mesh_id_texture", id_viewport.get_texture())
+        _screen_material.set_shader_parameter("mesh_id_texel", Vector2(
+            1.0 / float(id_viewport.size.x),
+            1.0 / float(id_viewport.size.y)))
+        _screen_material.set_shader_parameter(
+            "ink_color", Color("#17212f"))
+        _screen_material.set_shader_parameter(
+            "ink_screen_bounds", Vector4.ZERO)
+        ink.visible = false
+    elif is_instance_valid(_screen_quad):
+        _screen_quad.visible = false
+    _clear_copies()
+    _scan_elapsed = 0.0
+
+
+func _sync_screen_quad(camera: Camera3D) -> void:
+    if not _shared_scene_mode or not is_instance_valid(camera):
+        return
+    if not is_instance_valid(_screen_quad):
+        _screen_quad = MeshInstance3D.new()
+        _screen_quad.name = "SeraVisibleInkBeforeVFX"
+        _screen_quad.mesh = QuadMesh.new()
+        _screen_quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        _screen_quad.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+        _screen_quad.extra_cull_margin = 100.0
+        _screen_quad.material_override = _screen_material
+        _screen_quad.set_meta("FX_NO_OUTLINE", true)
+        _screen_quad.set_meta("sera_skip_common_id_outline", true)
+        camera.add_child(_screen_quad)
+    elif _screen_quad.get_parent() != camera:
+        _screen_quad.reparent(camera, false)
+    _screen_camera = camera
+    _screen_quad.position = Vector3(0.0, 0.0,
+        -maxf(0.2, camera.near * 1.5))
+    _screen_quad.visible = true
+
+
 func register_root(root: Node3D, owner: Node) -> void:
     if not is_instance_valid(root) or not is_instance_valid(owner):
         return
@@ -138,6 +203,8 @@ func unregister_root(owner: Node) -> void:
         _clear_copies()
         id_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
         visible = false
+        if is_instance_valid(_screen_quad):
+            _screen_quad.visible = false
         set_process(false)
 
 
@@ -150,6 +217,10 @@ func set_stroke_px(px: float) -> void:
 # Change this compositor only in the NEXUS viewport. The single ID target
 # keeps its depth buffer; the canvas ink owns the outer silhouette and contacts.
 func set_nexus_sera_contact_mode(enabled: bool) -> void:
+    if enabled:
+        # Retain the NEXUS registration API, but use the shared VFX-safe pass.
+        set_shared_scene_mode(true)
+        return
     if _nexus_sera_contact_mode == enabled:
         return
     _nexus_sera_contact_mode = enabled
@@ -191,8 +262,12 @@ func _process(delta: float) -> void:
     var source_camera: Camera3D = source_viewport.get_camera_3d()
     if not is_instance_valid(source_camera):
         ink.visible = false
+        if is_instance_valid(_screen_quad):
+            _screen_quad.visible = false
         return
-    ink.visible = true
+    ink.visible = not _shared_scene_mode
+    if _shared_scene_mode:
+        _sync_screen_quad(source_camera)
     var dirty: bool = _sync_camera(source_camera)
     _scan_elapsed -= delta
     if _scan_elapsed <= 0.0:
@@ -200,7 +275,9 @@ func _process(delta: float) -> void:
         dirty = _rescan() or dirty
     dirty = _sync_copies() or dirty
     if dirty:
-        if _nexus_sera_contact_mode:
+        if _shared_scene_mode:
+            _update_shared_screen_bounds(source_camera)
+        elif _nexus_sera_contact_mode:
             _update_nexus_sera_screen_bounds(source_camera)
         id_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
         _redraw_requests += 1
@@ -261,6 +338,55 @@ func _update_nexus_sera_screen_bounds(camera: Camera3D) -> void:
     else:
         material.set_shader_parameter("sera_screen_bounds", Vector4.ZERO)
 
+# Project the bounds of styled opaque meshes for outside ink only. An empty
+# mask draws no outline, so clear depth does not become a full-screen border.
+func _update_shared_screen_bounds(camera: Camera3D) -> void:
+    if _screen_material == null:
+        return
+    var screen_size: Vector2 = source_viewport.get_visible_rect().size
+    if screen_size.x < 1.0 or screen_size.y < 1.0:
+        return
+    var low := Vector2(1000000.0, 1000000.0)
+    var high := Vector2(-1000000.0, -1000000.0)
+    var found: bool = false
+    var near_plane: bool = false
+    for key in _styled_sources.keys():
+        var source_ref: WeakRef = _source_refs.get(key) as WeakRef
+        var source: GeometryInstance3D = (
+            source_ref.get_ref() as GeometryInstance3D
+            if source_ref != null else null)
+        if not is_instance_valid(source) or not source.is_visible_in_tree():
+            continue
+        var box: AABB = source.get_aabb()
+        for x in [0.0, 1.0]:
+            for y in [0.0, 1.0]:
+                for z in [0.0, 1.0]:
+                    var corner: Vector3 = box.position + box.size * (
+                        Vector3(x, y, z))
+                    var point3: Vector3 = source.global_transform * corner
+                    if camera.is_position_behind(point3):
+                        near_plane = true
+                        continue
+                    var projected: Vector2 = camera.unproject_position(point3)
+                    low = low.min(projected)
+                    high = high.max(projected)
+                    found = true
+    if near_plane:
+        _screen_material.set_shader_parameter("ink_screen_bounds",
+            Vector4(0.0, 0.0, 1.0, 1.0))
+    elif found:
+        var margin := Vector2(6.0, 6.0)
+        var lower: Vector2 = ((low - margin) / screen_size).clamp(
+            Vector2.ZERO, Vector2.ONE)
+        var upper: Vector2 = ((high + margin) / screen_size).clamp(
+            Vector2.ZERO, Vector2.ONE)
+        _screen_material.set_shader_parameter("ink_screen_bounds", Vector4(
+            lower.x, lower.y, upper.x, upper.y))
+    else:
+        _screen_material.set_shader_parameter(
+            "ink_screen_bounds", Vector4.ZERO)
+
+
 func _sync_camera(source_camera: Camera3D) -> bool:
     var target_size: Vector2 = size
     if target_size.x < 32.0 or target_size.y < 32.0:
@@ -275,6 +401,9 @@ func _sync_camera(source_camera: Camera3D) -> bool:
         id_viewport.size = desired
         (ink.material as ShaderMaterial).set_shader_parameter("mesh_id_texel",
             Vector2(1.0 / float(desired.x), 1.0 / float(desired.y)))
+        if _screen_material != null:
+            _screen_material.set_shader_parameter("mesh_id_texel", Vector2(
+                1.0 / float(desired.x), 1.0 / float(desired.y)))
         dirty = true
     if _last_camera != source_camera.global_transform or (
             _last_camera_fov != source_camera.fov) or (
@@ -339,6 +468,19 @@ static func _is_nexus_contact_mesh(node: Node) -> bool:
     return false
 
 
+static func _outline_role(node: Node) -> int:
+    var cursor: Node = node
+    while cursor != null:
+        var tag: String = str(cursor.get_meta("sera_outline_role", ""))
+        match tag:
+            "actor": return 1
+            "facility": return 2
+            "clutter": return 3
+            "grid": return 4
+        cursor = cursor.get_parent()
+    return 1
+
+
 static func _solid_material(part: GeometryInstance3D) -> bool:
     var material: Material = part.material_override
     if material is BaseMaterial3D:
@@ -377,6 +519,8 @@ static func _background_occluder(node: Node3D) -> bool:
         return false
     if not _solid_material(node as GeometryInstance3D):
         return false
+    if bool(node.get_meta("sera_outline_occluder_only", false)):
+        return true
     var cursor: Node = node
     while cursor != null:
         var label: String = str(cursor.name).to_lower()
@@ -475,8 +619,11 @@ func _rescan() -> bool:
             var node: Node = pending.pop_back()
             if node is Node3D:
                 var part: Node3D = node as Node3D
-                var eligible: bool = _eligible(part)
-                var occluding: bool = not eligible and _background_occluder(part)
+                var skip_ink: bool = bool(
+                    part.get_meta("sera_outline_occluder_only", false))
+                var eligible: bool = _eligible(part) and not skip_ink
+                var occluding: bool = (not eligible and
+                    _background_occluder(part))
                 if eligible or occluding:
                     desired[node.get_instance_id()] = {
                         "node": part, "occluder": occluding,
@@ -498,6 +645,8 @@ func _rescan() -> bool:
             old.queue_free()
         _copies.erase(key)
         _source_refs.erase(key)
+        _styled_sources.erase(key)
+        _pose_stamps.erase(key)
         _release_contact_id(key)
         if _id_allocations.has(key):
             _release_ids(_id_allocations[key])
@@ -521,7 +670,17 @@ func _rescan() -> bool:
         var per_instance_id: bool = false
         var identification: int = 0
         var allocation_count: int = 0
-        if is_contact:
+        if _shared_scene_mode and not is_occluder:
+            allocation_count = instance_count if instance_count > 1 else 1
+            identification = _allocate_ids(allocation_count)
+            if identification >= 0:
+                per_instance_id = instance_count > 1
+            else:
+                allocation_count = 1
+                identification = _allocate_ids(1)
+                if identification < 0:
+                    continue
+        elif is_contact:
             identification = _contact_id_for(key)
             if identification <= 0:
                 continue
@@ -564,7 +723,24 @@ func _rescan() -> bool:
         var closed: bool = bool((source as GeometryInstance3D).get_meta(
             "sera_single_sided", false))
         var mat := ShaderMaterial.new()
-        if is_contact:
+        if _shared_scene_mode:
+            var role: int = _outline_role(source)
+            if is_occluder:
+                # Keep depth occlusion without drawing contours on FX/ground.
+                mat.shader = SHARED_ID_CLOSED if closed else SHARED_ID_OPEN
+                mat.set_shader_parameter("encoded_id", Vector3.ZERO)
+            elif source is MultiMeshInstance3D:
+                mat.shader = SHARED_MULTI_CLOSED if closed else SHARED_MULTI_OPEN
+                mat.set_shader_parameter("mesh_id_base", identification)
+                mat.set_shader_parameter("role_code", role)
+                mat.set_shader_parameter("use_instance_roles", bool(
+                    source.get_meta("sera_outline_instanced_roles", false)))
+            else:
+                mat.shader = SHARED_ID_CLOSED if closed else SHARED_ID_OPEN
+                mat.set_shader_parameter("encoded_id", Vector3(
+                    float(identification % 64) / 63.0, float(role) / 8.0,
+                    float(int(identification / 64) % 64) / 63.0))
+        elif is_contact:
             mat.shader = NEXUS_CONTACT_CLOSED if closed else NEXUS_CONTACT_OPEN
             var digit: int = identification - 1
             mat.set_shader_parameter("contact_id", Vector3(
@@ -585,6 +761,8 @@ func _rescan() -> bool:
         id_viewport.add_child(clone)
         _copies[key] = clone
         _source_refs[key] = weakref(source)
+        if _shared_scene_mode and not is_occluder:
+            _styled_sources[key] = true
         dirty = true
     return dirty
 
@@ -608,6 +786,15 @@ func _sync_copies() -> bool:
         if clone.global_transform != source.global_transform:
             clone.global_transform = source.global_transform
             dirty = true
+        if _shared_scene_mode and source is MultiMeshInstance3D:
+            # MultiMesh is shared with the opaque source; in-place animated
+            # instance transforms do not change the resource identity.
+            var parent_node: Node = source.get_parent()
+            var stamp: int = int(parent_node.get_meta(
+                "sera_outline_pose_stamp", 0)) if parent_node != null else 0
+            if stamp != int(_pose_stamps.get(key, -1)):
+                _pose_stamps[key] = stamp
+                dirty = true
         if source is MeshInstance3D and clone is MeshInstance3D:
             if (clone as MeshInstance3D).mesh != (source as MeshInstance3D).mesh:
                 (clone as MeshInstance3D).mesh = (source as MeshInstance3D).mesh
@@ -627,6 +814,8 @@ func _clear_copies() -> void:
             (clone as Node).queue_free()
     _copies.clear()
     _source_refs.clear()
+    _styled_sources.clear()
+    _pose_stamps.clear()
     _id_allocations.clear()
     _free_ranges.clear()
     _next_id = 1
