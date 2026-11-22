@@ -316,7 +316,7 @@ func _add_practical_lighting(key: String) -> void:
                 Vector3(0.0, 0.31, 3.58), Color("#bceaff"),
                 0.72, 2.7, 55.0)
             _round_floor_pool("ShutterLowerGapSpill",
-                Vector3(0.0, 0.33, 3.36), Vector2(2.35, 1.16),
+                Vector3(0.0, 0.06, 3.36), Vector2(2.35, 1.16),
                 Color("#bbecff"), 0.23)
         "RECYCLER":
             for side in [-1.0, 1.0]:
