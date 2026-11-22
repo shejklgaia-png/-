@@ -46,7 +46,7 @@ placement = nexus.split("func _apply_customization_preview_transform() -> void:"
 assert "var front_basis := Basis(Vector3.UP, PI)" in placement
 assert "var pivot_camera: Vector3 = " in placement
 assert "var pivot_origin: Vector3 = pivot_camera - basis * customize_motion_torso_local" in placement
-assert "Transform3D(basis, pivot_origin)" in placement
+assert re.search(r"Transform3D\(\s*basis,\s*pivot_origin\)", placement)
 start = nexus.split("func _show_customization_preview() -> void:")[1].split("\nfunc ")[0]
 assert "customize_motion_torso_local = _customize_torso_anchor_local()" in start
 assert start.index("customize_motion_torso_local = _customize_torso_anchor_local()") < (
