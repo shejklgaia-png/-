@@ -42,6 +42,16 @@ func _run() -> void:
     if err != OK:
         _fail("save_png %d" % err)
         return
+    # A compact, explicit CI-log thumbnail permits actual-image review in
+    # text-only GitHub connector clients; the original PNG remains unmodified.
+    if OS.get_environment("SERA_BASE_PREVIEW_LOG") == "1":
+        var thumbnail: Image = image.duplicate()
+        thumbnail.resize(270, 480, Image.INTERPOLATE_LANCZOS)
+        var jpeg: PackedByteArray = thumbnail.save_jpg_to_buffer(0.64)
+        if jpeg.is_empty():
+            _fail("base preview JPEG encode failed")
+            return
+        print("SERA_BASE_PREVIEW_JPEG_B64=" + Marshalls.raw_to_base64(jpeg))
     print("SERA_BASE_ORTHO_SCREENSHOT_PASS true gameplay angle: " +
         str(image.get_size()))
     quit(0)
