@@ -81,7 +81,8 @@ const OUTLINE_DIAGNOSTIC_MODES: Array[String] = [
     "通常", "外周候補", "全エッジ", "開放境界", "接合線", "深度無視",
     "対象メッシュ", "マスク表示", "ハル単独", "合成確認",
     "立方体＝", "立方体≠", "全身＝", "面反転",
-    "法線＋8px", "法線－8px", "マスクなし外周"
+    "法線＋8px", "法線－8px", "マスクなし外周",
+    "17一致", "書込停止≠17"
 ]
 const OUTLINE_DIAGNOSTIC_EXPLAINS: Array[String] = [
     "全身マスク＋GPUエッジで外周3px。診断終了時は通常へ戻ります。",
@@ -100,7 +101,9 @@ const OUTLINE_DIAGNOSTIC_EXPLAINS: Array[String] = [
     "橙: カリングを逆転。紫のハル単独と比較。",
     "桃: 法線＋8px。青緑の元輪郭より外に出るか確認。",
     "黄: 法線－8px。青緑の元輪郭より外に出るか確認。",
-    "青緑: 新GPU外周を同じ3px・同じ投影で描き、ステンシルのみ無効。合成確認と比較。"
+    "青緑: 新GPU外周を同じ3px・同じ投影で描き、ステンシルのみ無効。合成確認と比較。",
+    "緑: マスク書込みON、同じGPUエッジでステンシル17一致画素を表示。",
+    "紫: マスク書込みOFFで17不一致のGPUエッジを表示。残留値や比較の異常を切り分け。"
 ]
 var outline_debug_button: Panel
 var outline_debug_button_text: Label
@@ -3022,7 +3025,7 @@ func _create_outline_debug() -> void:
 
     outline_debug_stats = Label.new()
     outline_debug_stats.name = "GPUEdgeGeometryCounts"
-    outline_debug_stats.position = Vector2(10.0, 305.0)
+    outline_debug_stats.position = Vector2(10.0, 349.0)
     outline_debug_stats.size = Vector2(286.0, 137.0)
     outline_debug_stats.text = "GPU 輪郭メッシュの準備状態を確認中"
     outline_debug_stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3033,7 +3036,7 @@ func _create_outline_debug() -> void:
 
     outline_debug_hint = Label.new()
     outline_debug_hint.name = "GPUEdgeDiagnosticsHelp"
-    outline_debug_hint.position = Vector2(10.0, 449.0)
+    outline_debug_hint.position = Vector2(10.0, 493.0)
     outline_debug_hint.size = Vector2(286.0, 60.0)
     outline_debug_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     outline_debug_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -3057,10 +3060,10 @@ func _layout_outline_debug(view: Vector2) -> void:
     # top of SERA at left. The model stays visible for rotation/screenshots.
     var panel_width: float = minf(307.0, view.x - 2.0 * x)
     var panel_x: float = view.x - x - panel_width
-    var panel_y: float = minf(view.y - 521.0,
-        maxf(230.0, view.y * 0.24))
+    var panel_y: float = minf(view.y - 565.0,
+        maxf(190.0, view.y * 0.21))
     outline_debug_panel.position = Vector2(panel_x, panel_y)
-    outline_debug_panel.size = Vector2(panel_width, 516.0)
+    outline_debug_panel.size = Vector2(panel_width, 560.0)
 
 
 func _set_gpu_outline_debug_mode(mode: int) -> void:
