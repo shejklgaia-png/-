@@ -307,6 +307,11 @@ static func _smelter(g: Variant) -> void:
     g.poly("FreshSmelterCombustionHood", "hood",
         Vector3(0, 2.17, 1.04),
         Vector3(1.74, 0.32, 0.62), "armor_light")
+    # Angled side heat guard, offset so it cannot cover the bright furnace.
+    g.poly_tilt("FreshSmelterObliqueShield", "roof",
+        Vector3(1.08, 2.36, 0.44),
+        Vector3(0.48, 0.15, 0.88), "armor_light",
+        Vector3(-0.20, 0.0, 0.22))
     for side in [-1.0, 1.0]:
         g.poly("FreshSmelterTwinStacks", "drum",
             Vector3(side * 0.81, 3.01, -0.84),
@@ -422,6 +427,14 @@ static func _generator(g: Variant) -> void:
         Vector3(-0.27, 1.43, 1.07), 0.74, "blue_light", "z")
     g.ring("FreshGeneratorRotorInnerRim",
         Vector3(-0.27, 1.43, 1.11), 0.51, "edge", "z")
+    # Four true spokes across the exposed turbine face (not a solid plate).
+    for i in range(4):
+        var phase: float = TAU * float(i) / 4.0
+        g.rod("FreshGeneratorRotorBlade",
+            Vector3(-0.27, 1.43, 1.16),
+            Vector3(-0.27 + cos(phase) * 0.47,
+                1.43 + sin(phase) * 0.47, 1.16),
+            0.11, "edge")
     g.box("FreshGeneratorHousingUpper",
         Vector3(-0.21, 2.25, -0.25),
         Vector3(2.40, 0.24, 1.11), "armor_light")
