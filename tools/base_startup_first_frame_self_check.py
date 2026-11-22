@@ -18,6 +18,10 @@ assert ready.index("await get_tree().process_frame") < ready.index("_build_hanga
 assert ready.index("_build_hangar()") < ready.index("_build_field_facilities()")
 assert ready.index("_build_field_facilities()") < ready.index("_create_hud()")
 assert ready.index("_create_hud()") < ready.index("startup_layer.queue_free()")
+# Do not count pre-render process_frame signals as the two completion frames.
+assert 'await Signal(console_screen, &"completion_cut_finished")' in ready
+assert ready.index('_startup_step("SYSTEM / BOOT COMPLETE", 100)') < ready.index(
+    'await Signal(console_screen, &"completion_cut_finished")') < ready.index("startup_layer.queue_free()")
 assert 'screen.name = "SeraLoadingConsole"' in base
 assert 'screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)' in base
 assert "SERA_BASE_BOOT: COMPLETE" in base
