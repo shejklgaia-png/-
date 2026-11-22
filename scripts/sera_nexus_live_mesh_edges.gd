@@ -33,8 +33,8 @@ func _ready() -> void:
     _edge_material.shader = EDGE_SHADER
     _edge_material.render_priority = RenderOrder.NEXUS_SURFACE_EDGES
     _edge_material.set_shader_parameter("ink_color", Color("#17212f"))
-    _edge_material.set_shader_parameter("silhouette_px", 4.0)
-    _edge_material.set_shader_parameter("boundary_px", 3.0)
+    _edge_material.set_shader_parameter("silhouette_px", 3.0)
+    _edge_material.set_shader_parameter("boundary_px", 1.0)
     visible = GraphicsSettings.get_enabled("character_outline")
     if visible:
         _refresh_meshes()
