@@ -73,7 +73,7 @@ func _setup_pixel_renderer() -> void:
     pixel_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
     add_child(pixel_viewport)
 
-    var script_source: Script = get_script() as Script
+    var script_source: GDScript = get_script() as GDScript
     pixel_source = script_source.new() as Control
     pixel_source.name = "TerminalLowResCanvas"
     pixel_source.set("pixel_source_mode", true)
