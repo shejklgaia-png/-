@@ -7,6 +7,7 @@ extends RefCounted
 ## Opaque meshes use the engine's default depth buffer, not these priorities.
 ## These priorities apply only to transparent/overlay passes.
 const AFTERIMAGE: int = -20             # Low-priority temporal ghosts.
+const NEXUS_SURFACE_EDGES: int = -10      # Depth-tested gray geometry edges, below NEXUS selection glows.
 const SLASH_VOLUME: int = 100            # Cutout slash volume/lens.
 const SLASH_SURFACE: int = 105           # Sword's visible cutting arc.
 const SLASH_PARTICLES: int = 110         # Small bright micro-particles.
