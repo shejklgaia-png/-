@@ -57,7 +57,8 @@ func _run() -> void:
     var ik: RefCounted = battle.get("bittaran_foot_ik")
     var feet: Array = ik.get("legs")
     battle.set("bittaran_motion", "Approach")
-    battle.set("footfall_prev_stepping", [true, false, false, false])
+    var was_stepping: Array[bool] = battle.get("footfall_prev_stepping")
+    was_stepping[0] = true
     feet[0]["stepping"] = false
     battle.call("_tick_bittaran_footfalls")
     if _count(battle, "footstep") != 1:
