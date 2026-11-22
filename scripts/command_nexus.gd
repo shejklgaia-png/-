@@ -80,15 +80,15 @@ var customize_body_rotate_cue: Control
 # NEXUS-only, opt-in diagnostic for the active same-frame GPU contours.
 # Unlike the removed ID-mask probe, this operates on the actual SERA mesh.
 const OUTLINE_DIAGNOSTIC_MODES: Array[String] = [
-    "通常", "外周候補", "全エッジ", "開放境界", "接合線", "深度無視",
-    "対象メッシュ", "マスク表示", "ハル単独", "合成確認",
+    "通常 (枠線OFF)", "旧2D近似", "全エッジ", "開放境界", "接合線", "深度無視",
+    "対象メッシュ", "マスク表示", "ハル単独", "旧2D合成",
     "立方体＝", "立方体≠", "全身＝", "面反転",
     "法線＋8px", "法線－8px", "深度なし全エッジ",
     "17一致", "書込停止≠17"
 ]
 const OUTLINE_DIAGNOSTIC_EXPLAINS: Array[String] = [
-    "同一カメラで全身装甲を2D投影・結合。外周のみ黒3px。",
-    "青緑: 2D投影した全身形状の外周を強調表示。",
+    "現在のNEXUS全身枠線は無効です。旧2D境界箱は診断専用。",
+    "青緑: 不採用の2D境界箱輪郭を診断用に表示。通常時は描画しません。",
     "黄: 生成済みの全エッジ。視点による非表示を解除。",
     "橙: 開放境界のみ。閉じた装甲には通常ありません。",
     "紫: メッシュ同士の交差から生成した接合線のみ。",
@@ -96,7 +96,7 @@ const OUTLINE_DIAGNOSTIC_EXPLAINS: Array[String] = [
     "緑: 輪郭へ登録した表示中のメッシュを着色。",
     "橙: ステンシル書込みパスを着色。描画確認用。",
     "紫: マスクなしの反転ハル。面の破綻を確認。",
-    "青緑: 全装備の2D投影領域の結合シルエットを表示。",
+    "青緑: 不採用の2D結合輪郭の診断。外周の正確性は保証しません。",
     "立方体: 書込29に一致する部分が緑なら成功候補。",
     "立方体: 29と異なる外周が紫、中心は抜けるはず。",
     "全身: ステンシル17と一致する領域を緑で表示。",
@@ -325,10 +325,9 @@ func _ready() -> void:
     _create_customization_glow()
     _wall_mark()
     _hud()
-    # Render NEXUS SERA's outline on the SAME viewport canvas. Compute
-    # projected mesh-box unions at draw time after the real camera pose
-    # has updated, with zero stencil/transparent-pass dependencies.
-    # Keep this behind HUD panels and above the 3D scene.
+    # Deprecated AABB union silhouette is never drawn in production.
+    # Keep its controller behind the HUD for opt-in diagnostic modes only;
+    # the next dedicated lightweight outline will be implemented separately.
     nexus_canvas_silhouette = NexusCanvasSilhouette.new()
     nexus_canvas_silhouette.name = "NexusCanvasSilhouette"
     nexus_canvas_silhouette.call(
@@ -3177,8 +3176,8 @@ func _refresh_outline_debug(delta: float) -> void:
         eightway_data = nexus_canvas_silhouette.call(
             "get_outline_snapshot")
     outline_debug_stats.text = (
-        "2D対象: %d / 候補: %d  非表示: %d\n"
-        + "合成外周: %d  ステンシル: %d  旧ハル: %d\n"
+        "旧2D診断対象: %d / 候補: %d  非表示: %d\n"
+        + "旧2D外周: %d  ステンシル: %d  旧ハル: %d\n"
         + "旧エッジ(診断): %d / %d  欠落: %d\n"
         + "候補エッジ: %d  交差線: %d\n"
         + "カメラ: %s  枠線設定: %s\n"
@@ -3197,9 +3196,9 @@ func _refresh_outline_debug(delta: float) -> void:
         int(data.get("contact_segments", 0)),
         "OK" if bool(data.get("camera_present", false)) else "なし",
         "ON" if bool(data.get("enabled", false)) else "OFF",
-        "2D投影合成" if bool(eightway_data.get("active", false)) else (
-            "無視" if bool(data.get("depth_disabled", false))
-            else "診断モード"),
+        "旧2D診断" if bool(eightway_data.get("active", false)) else (
+            "通常無効" if outline_debug_mode == 0
+            else "旧方式診断"),
         "済" if bool(data.get("contacts_cached", false)) else "なし",
         int(stencil_data.get("probe_ref", 0)),
         "OK" if bool(stencil_data.get("probe_camera", false)) else "未確認",

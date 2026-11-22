@@ -1,10 +1,9 @@
 extends Control
-## NEXUS full-body only: robust same-viewport, same-frame 2D silhouette.
-## No shaders, stencil, GPU-readback, extra camera or SubViewport.
-## Project the eight corners of each VISIBLE original mesh AABB through the
-## ACTUAL NEXUS camera, union their projected footprints and stroke only
-## the exterior boundaries. This is deliberately an approximate silhouette:
-## robustness and zero view-frame lag matter more than exact geometry.
+## Deprecated approximate mesh-AABB contour.
+## DIAGNOSTIC ONLY: PR #812's 2D box unions produced false outer shapes
+## and interior seams on the actual Android device. This renderer is
+## deliberately disabled in normal NEXUS views; do not enable as fallback.
+## No camera, stencil or SubViewport is created here.
 const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
 const RESCAN_SECONDS: float = 0.35
 const STROKE_PX: float = 3.0
@@ -30,7 +29,7 @@ func _ready() -> void:
     set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     clip_contents = true
     process_priority = 100
-    _scan_sources()
+    # Never scan/rebuild this deprecated contour on normal gameplay.
     set_process(true)
 
 func _enabled() -> bool:
@@ -40,15 +39,24 @@ func _enabled() -> bool:
         return false
     if not GraphicsSettings.get_enabled("character_outline"):
         return false
+    # The old AABB outline is NOT an acceptable normal-mode fallback.
+    # Only explicitly requested cyan diagnostic modes may render it.
+    if not bool(_nexus.get("outline_debug_enabled")):
+        return false
     # Only NEXUS' full-body customization display. No foreign UI/scene.
     if str(_nexus.get("focused_target")) != "CUSTOMIZE":
         return false
     if not bool(_nexus.get("customize_preview_active")):
         return false
-    return _mode == 0 or _mode == 1 or _mode == 9
+    return _mode == 1 or _mode == 9
 
 func set_diagnostic_mode(mode: int) -> void:
     _mode = clampi(mode, 0, 18)
+    _elapsed = 0.0
+    if not _enabled():
+        _sources.clear()
+        _last_candidate_count = 0
+        _last_merged_count = 0
     queue_redraw()
 
 func _source_allowed(node: Node) -> bool:
@@ -84,17 +92,19 @@ func _scan_sources() -> void:
     _last_candidate_count = _sources.size()
 
 func _process(delta: float) -> void:
+    if not _enabled():
+        if not _sources.is_empty() or _last_merged_count != 0:
+            _sources.clear()
+            _last_candidate_count = 0
+            _last_merged_count = 0
+            queue_redraw()
+        return
     _elapsed -= delta
     if _elapsed <= 0.0:
         _elapsed = RESCAN_SECONDS
         _scan_sources()
-    if _enabled():
-        # Draw after scene _process updates have settled, using the same
-        # camera and source transforms that the 3D frame will render.
-        queue_redraw()
-    elif _last_merged_count != 0:
-        _last_merged_count = 0
-        queue_redraw()
+    # Diagnostic only. No periodic union or projection in normal views.
+    queue_redraw()
 
 func _polygon_bounds(poly: PackedVector2Array) -> Rect2:
     var rect: Rect2 = Rect2(poly[0], Vector2.ZERO)
@@ -212,7 +222,8 @@ func get_outline_snapshot() -> Dictionary:
         "contours": _last_merged_count,
         "active": _enabled(),
         "mode": _mode,
-        "pipeline": "canvas_projected_mesh_box_union",
+        "pipeline": "deprecated_box_union_diagnostic_only",
+        "production_disabled": true,
         "stencil_required": false,
         "viewport_copies": 0,
         "stroke_px": STROKE_PX
