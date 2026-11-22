@@ -5,7 +5,8 @@ const FACILITIES: Array[String] = [
     "NEXUS", "LABO", "SCRAP_COLLECTOR", "SMELTER",
     "RECYCLER", "GENERATOR", "STORAGE", "BUILD_TERMINAL",
 ]
-const INK = preload("res://shaders/base_facility_view_edges.gdshader")
+const INK = preload("res://shaders/sera_view_edges.gdshader")
+const CREASE = preload("res://shaders/base_facility_view_edges.gdshader")
 const SERA = preload("res://scripts/sera_view_edges.gd")
 
 func _initialize() -> void:
@@ -44,6 +45,7 @@ func _run() -> void:
             _fail(key + " actual facility missing")
             return
         var ink_total: int = 0
+        var corner_total: int = 0
         var base_total: int = 0
         for child in model.get_children():
             if not child is MultiMeshInstance3D:
@@ -58,34 +60,43 @@ func _run() -> void:
                     _fail(key + " does not use real SERA-derived shader")
                     return
                 if not is_equal_approx(
-                        float(ink_mat.get_shader_parameter("silhouette_px")), 6.0):
-                    _fail(key + " silhouette no longer 6 screen pixels")
-                    return
-                if not is_equal_approx(
-                        float(ink_mat.get_shader_parameter("crease_px")), 2.0):
-                    _fail(key + " foreground corner no longer 2 pixels")
+                        float(ink_mat.get_shader_parameter("stroke_px")), 6.0):
+                    _fail(key + " latest SERA silhouette no longer 6 screen pixels")
                     return
                 if inst.has_meta("FX_NO_OUTLINE") == false:
                     _fail(key + " ink instance not marked as non-FX")
                     return
+            elif str(inst.name).begins_with("ArchitecturalCreaseInk_"):
+                corner_total += inst.multimesh.instance_count
+                var corner_mat: ShaderMaterial = inst.material_override as ShaderMaterial
+                if corner_mat == null or corner_mat.shader != CREASE:
+                    _fail(key + " 2px corner renderer changed")
+                    return
+                if not is_equal_approx(
+                        float(corner_mat.get_shader_parameter("crease_px")), 2.0) or (
+                        not bool(corner_mat.get_shader_parameter("crease_only"))):
+                    _fail(key + " foreground 2px corners changed")
+                    return
             elif str(inst.name).begins_with("Architectural_"):
                 base_total += inst.multimesh.instance_count
-        if ink_total < 18 or ink_total > base_total:
-            _fail(key + " wrong number of real mesh edges: " +
-                str(ink_total) + "/" + str(base_total))
+        if ink_total < 18 or ink_total > base_total or (
+                corner_total < 18 or corner_total > base_total):
+            _fail(key + " wrong number of silhouette/corner instances: " +
+                str(ink_total) + "/" + str(corner_total) + "/" + str(base_total))
             return
         if not model.has_node("BaseFacilityVFX"):
             _fail(key + " entrance effect missing")
             return
         var fx: Node3D = model.get_node("BaseFacilityVFX") as Node3D
         for child in fx.get_children():
-            if str(child.name).begins_with("ArchitecturalEdgeInk_"):
+            if str(child.name).begins_with("ArchitecturalEdgeInk_") or (
+                    str(child.name).begins_with("ArchitecturalCreaseInk_")):
                 _fail(key + " effect incorrectly received facility outline")
                 return
             if child is MeshInstance3D:
                 var material: ShaderMaterial = (
                     child as MeshInstance3D).material_override as ShaderMaterial
-                if material != null and material.shader == INK:
+                if material != null and (material.shader == INK or material.shader == CREASE):
                     _fail(key + " effect is using the physical edge ink shader")
                     return
     # Verify indexed animated part and its ink remain in the *same pose*.
