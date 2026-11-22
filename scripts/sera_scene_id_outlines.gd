@@ -68,18 +68,26 @@ func get_outline_metrics() -> Dictionary:
         "id_copies": _copies.size(),
         "source_camera": is_instance_valid(source_viewport) and (
             is_instance_valid(source_viewport.get_camera_3d())),
-        "overlay_visible": visible and is_instance_valid(ink) and ink.visible,
+        "overlay_visible": visible and (
+            (is_instance_valid(_screen_quad) and _screen_quad.visible)
+            if (_shared_scene_mode or _nexus_sera_contact_mode) else (
+            is_instance_valid(ink) and ink.visible)),
         "ink_rect_size": ink.size if is_instance_valid(ink) else Vector2.ZERO,
         "ink_shader_bound": (is_instance_valid(_screen_quad) and
             _screen_material != null and
-            _screen_material.shader == SHARED_INK) if _shared_scene_mode else (
+            _screen_material.shader == (
+                SHARED_INK if _shared_scene_mode else NEXUS_CONTACT_INK_3D))
+            if (_shared_scene_mode or _nexus_sera_contact_mode) else (
             is_instance_valid(ink) and ink.material is ShaderMaterial and
             (ink.material as ShaderMaterial).shader == INK),
         "shared_vfx_safe_3d_ink": _shared_scene_mode,
-        "front_effects_cover_ink": _shared_scene_mode,
-        "ink_draw_source": "transparent_1px",
-        "id_encoding": "ROLE_GREEN_AND_RGB12" if _shared_scene_mode else
-            "IRIS_RED_1_OF_7",
+        "nexus_contact_vfx_safe_3d_ink": _nexus_sera_contact_mode,
+        "front_effects_cover_ink": _shared_scene_mode or _nexus_sera_contact_mode,
+        "ink_draw_source": "spatial_before_vfx" if (
+            _shared_scene_mode or _nexus_sera_contact_mode) else "canvas",
+        "id_encoding": "ROLE_GREEN_AND_RGB12" if _shared_scene_mode else (
+            "NEXUS_RGB_7x7x7" if _nexus_sera_contact_mode else
+            "IRIS_RED_1_OF_7"),
         "palette_collision_possible": _id_allocations.size() > (
             MAX_IDENTIFIED_MESHES if _shared_scene_mode else IRIS_PALETTE_COUNT),
         "canvas_layer": (get_parent() as CanvasLayer).layer if (
