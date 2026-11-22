@@ -87,6 +87,12 @@ func _run() -> void:
             is_equal_approx(before_pitch, float(nexus.get("customize_preview_pitch")))):
         _fail("drag must rotate yaw and pitch even after crossing the top stats")
         return
+    # wrapf handles crossing PI -> -PI at the neutral front-facing pose.
+    var dragged_yaw: float = float(nexus.get("customize_preview_yaw"))
+    var yaw_change: float = wrapf(dragged_yaw - before_yaw, -PI, PI)
+    if yaw_change * (cross.x - origin.x) <= 0.0:
+        _fail("horizontal drag must be reversed: moving right increases yaw")
+        return
     var dragged_pitch: float = float(nexus.get("customize_preview_pitch"))
     if (dragged_pitch - before_pitch) * (cross.y - origin.y) >= 0.0:
         _fail("vertical drag pitch must be reversed: dragging upward tilts positive")
@@ -121,8 +127,10 @@ func _run() -> void:
     mouse_motion.relative = cross - origin
     var yaw2: float = float(nexus.get("customize_preview_yaw"))
     nexus.call("_input", mouse_motion)
-    if is_equal_approx(yaw2, float(nexus.get("customize_preview_yaw"))):
-        _fail("mouse rotation stopped across a different UI rectangle")
+    var mouse_yaw_change: float = wrapf(
+        float(nexus.get("customize_preview_yaw")) - yaw2, -PI, PI)
+    if mouse_yaw_change * mouse_motion.relative.x <= 0.0:
+        _fail("mouse horizontal drag direction was not inverted")
         return
     if (nexus.get("customize_preview_position") as Vector3).distance_to(
             before_position) > 0.000001 or (
