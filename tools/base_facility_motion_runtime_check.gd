@@ -70,6 +70,13 @@ func _run() -> void:
                     poses[0].basis.z.distance_to(poses[i].basis.z) > 0.02):
                 changed = true
         if not changed:
+            var raw_channels: Dictionary = model.get_meta("motion_entries", {})
+            var player_channels: Dictionary = player.get("_parts") as Dictionary
+            print("SERA_BASE_MOTION_CHANNEL_DIAG " + key +
+                " expected=" + str(MOTORS[key]) +
+                " in_model=" + str(raw_channels.keys()) +
+                " in_player=" + str(player_channels.keys()) +
+                " parts=" + str((player_channels.get(str(MOTORS[key]), []) as Array).size()))
             print("SERA_BASE_MOTION_POSE_DIAG " + key + " " + str(poses))
             _fail(key + " model part does not actually move across time")
             return
