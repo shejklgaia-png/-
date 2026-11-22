@@ -1,0 +1,63 @@
+name: SERA ARMOUR real-pixel culling regression
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/sera_rig.gd'
+      - 'scripts/sera_face_culling.gd'
+      - 'scripts/sera_view_edges.gd'
+      - 'shaders/sera_view_edges_fast.gdshader'
+      - 'shaders/sera_view_edges.gdshader'
+      - 'tools/sera_armour_visible_ink_capture.gd'
+      - '.github/workflows/sera-armour-visible-ink.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  armour-real-pixels:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check canonical winding and runtime culling contracts
+        run: |
+          python3 tools/sera_face_culling_self_check.py
+          python3 tools/sera_view_edges_self_check.py
+      - name: Install Godot 4.7.2 and Xvfb
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb
+          curl --fail --location --retry 3 --connect-timeout 15 --max-time 180 \
+            --output "$RUNNER_TEMP/godot.zip" \
+            'https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip'
+          mkdir -p "$RUNNER_TEMP/godot"
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+      - name: Import game resources
+        run: |
+          "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" \
+            --headless --editor --path . --import --quit
+      - name: Render IRIS from actual Godot GL Compatibility and check black overdraw
+        env:
+          SERA_ARMOUR_CAPTURE_DIR: ${{ runner.temp }}/sera-armour-visual
+        run: |
+          set -euo pipefail
+          mkdir -p "$SERA_ARMOUR_CAPTURE_DIR"
+          xvfb-run -a -s '-screen 0 720x1280x24' \
+            "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" \
+            --path . --rendering-method gl_compatibility \
+            --script tools/sera_armour_visible_ink_capture.gd
+          test -s "$SERA_ARMOUR_CAPTURE_DIR/IRIS_no_ink.png"
+          test -s "$SERA_ARMOUR_CAPTURE_DIR/IRIS_with_ink.png"
+      - name: Upload paired actual-render evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sera-armour-face-cull-iris-actual-pixels
+          path: ${{ runner.temp }}/sera-armour-visual/*.png
+          if-no-files-found: warn
+          retention-days: 14
