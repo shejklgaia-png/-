@@ -46,8 +46,8 @@ func _run() -> void:
     # text-only GitHub connector clients; the original PNG remains unmodified.
     if OS.get_environment("SERA_BASE_PREVIEW_LOG") == "1":
         var thumbnail: Image = image.duplicate()
-        thumbnail.resize(270, 480, Image.INTERPOLATE_LANCZOS)
-        var jpeg: PackedByteArray = thumbnail.save_jpg_to_buffer(0.64)
+        thumbnail.resize(540, 960, Image.INTERPOLATE_LANCZOS)
+        var jpeg: PackedByteArray = thumbnail.save_jpg_to_buffer(0.69)
         if jpeg.is_empty():
             _fail("base preview JPEG encode failed")
             return
