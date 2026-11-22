@@ -383,9 +383,12 @@ func _gate_light_quad(parent: Node3D, label: String, local_pos: Vector3,
     if horizontal:
         surface.rotation.x = -PI * 0.5
     surface.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    surface.set_meta("FX_NO_OUTLINE", true)
     var light_material := StandardMaterial3D.new()
     light_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
     light_material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+    # The gate lightspill must blend AFTER the NEXUS's dedicated ID ink.
+    light_material.render_priority = RENDER_ORDER.FACILITY_VFX_FOREGROUND
     light_material.cull_mode = BaseMaterial3D.CULL_DISABLED
     light_material.albedo_color = tint
     light_material.emission_enabled = true
