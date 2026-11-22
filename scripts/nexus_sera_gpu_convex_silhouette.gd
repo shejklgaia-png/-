@@ -7,6 +7,12 @@ const INK_SHADER = preload("res://shaders/nexus_sera_gpu_convex_silhouette.gdsha
 const EDGE_NAME: String = "NexusSeraConvexInk"
 const SCAN_SECONDS: float = 0.65
 const MAX_EDGES_PER_MESH: int = 8000
+# Keep the apparent ink as thick as the 3px single-part ID preview.
+# The old hardware depth test hid part of every screen-space ribbon.
+const PREVIEW_MATCHED_STROKE_PX: float = 3.0
+# Permit partial penetration between individually authored armor meshes.
+# Full occlusion farther than this remains hidden; no global X-ray.
+const EMBEDDED_EDGE_ALLOWANCE_M: float = 0.22
 
 var _elapsed: float = 0.0
 var _overlays: Dictionary = {} # source instance ID -> {source, overlay, mesh, closed}
@@ -18,7 +24,9 @@ func _ready() -> void:
     _material = ShaderMaterial.new()
     _material.shader = INK_SHADER
     _material.set_shader_parameter("ink_color", Color("#17212f"))
-    _material.set_shader_parameter("stroke_px", 3.0)
+    _material.set_shader_parameter("stroke_px", PREVIEW_MATCHED_STROKE_PX)
+    _material.set_shader_parameter(
+        "contact_depth_allowance", EMBEDDED_EDGE_ALLOWANCE_M)
     _material.render_priority = 110
     _scan()
     set_process(true)
