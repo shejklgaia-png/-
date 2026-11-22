@@ -655,6 +655,9 @@ func _wall_mark() -> void:
 func _hud() -> void:
     var canvas := CanvasLayer.new()
     canvas.name = "NexusInteractiveHUD"
+    # The viewport-wide visible-ID ink is layer 1; all NEXUS UI should
+    # remain above the ink even when both scenes draw in the same viewport.
+    canvas.layer = 2
     add_child(canvas)
     hud = Control.new()
     hud.name = "NexusOverlay"
