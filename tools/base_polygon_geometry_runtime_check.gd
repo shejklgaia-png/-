@@ -80,21 +80,33 @@ func _run() -> void:
         if group == null or not (group.get_meta("unique_model_features", []) as Array).has(expected[path]):
             _fail("facility polygon was not installed: " + path)
             return
+        # The archived command hall retains its authored polygonal armor.
+        # Seven facilities deliberately replace rounded/beveled parts with
+        # hard-edge BoxMesh batches; verify those real mesh instances instead.
+        var is_nexus: bool = path.begins_with("NEXUSBuilding/")
         var count: int = 0
         for child in group.get_children():
-            if child is MultiMeshInstance3D and (
-                    child.name.begins_with("Architectural_bevel_") or
-                    child.name.begins_with("Architectural_hopper_") or
-                    child.name.begins_with("Architectural_hood_") or
-                    child.name.begins_with("Architectural_canvas_") or
-                    child.name.begins_with("Architectural_drum_") or
-                    child.name.begins_with("Architectural_gear_")):
-                if not child.multimesh.mesh is ArrayMesh:
-                    _fail("polygonal facility draw mesh missing: " + path)
+            if not child is MultiMeshInstance3D:
+                continue
+            var draw: MultiMeshInstance3D = child as MultiMeshInstance3D
+            if draw.multimesh == null:
+                continue
+            if is_nexus and (
+                    str(child.name).begins_with("Architectural_bevel_") or
+                    str(child.name).begins_with("Architectural_hopper_") or
+                    str(child.name).begins_with("Architectural_hood_") or
+                    str(child.name).begins_with("Architectural_roof_")):
+                if not draw.multimesh.mesh is ArrayMesh:
+                    _fail("archived NEXUS armor polygon mesh missing")
                     return
-                count += child.multimesh.instance_count
-        if count < 1:
-            _fail("facility has no polygonal instancing: " + path)
+                count += draw.multimesh.instance_count
+            elif not is_nexus and str(child.name).begins_with("Architectural_cube_"):
+                if not draw.multimesh.mesh is BoxMesh:
+                    _fail("angular facility must render true sharp-edged cube: " + path)
+                    return
+                count += draw.multimesh.instance_count
+        if count < (1 if is_nexus else 25):
+            _fail("sharp facility / original NEXUS lacks real instanced geometry: " + path)
             return
     print("SERA_BASE_POLYGON_GEOMETRY_RUNTIME_PASS")
     quit(0)
