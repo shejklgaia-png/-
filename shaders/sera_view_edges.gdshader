@@ -10,14 +10,14 @@ uniform float stroke_px : hint_range(0.5, 8.0) = 3.0;
 uniform sampler2D opaque_depth : hint_depth_texture, filter_nearest, repeat_disable;
 varying float source_depth;
 
-float opaque_depth_at(vec2 uv) {
+float opaque_depth_at(vec2 uv, mat4 inv_projection) {
     float z = textureLod(opaque_depth, clamp(uv, vec2(0.0), vec2(1.0)), 0.0).r;
     #if CURRENT_RENDERER == RENDERER_COMPATIBILITY
     vec3 ndc = vec3(uv, z) * 2.0 - vec3(1.0);
     #else
     vec3 ndc = vec3(uv * 2.0 - vec2(1.0), z);
     #endif
-    vec4 view = INV_PROJECTION_MATRIX * vec4(ndc, 1.0);
+    vec4 view = inv_projection * vec4(ndc, 1.0);
     if (abs(view.w) < 0.000001) {
         return 1e12;
     }
@@ -29,13 +29,15 @@ float opaque_depth_at(vec2 uv) {
  // Scale the 3D inverted-hull contour by the shorter rendering viewport
  // dimension, keeping the same fraction of the screen across full-size
  // 720x1280 and square single-part views. Never shrink small previews.
- float effective_stroke_px() {
-     float short_side_px = min(VIEWPORT_SIZE.x, VIEWPORT_SIZE.y);
-     return stroke_px * max(1.0, short_side_px / 384.0);
- }
+float effective_stroke_px(vec2 viewport_size, float base_stroke_px) {
+    // Built-ins such as VIEWPORT_SIZE are scoped to vertex()/fragment().
+    // Custom functions only receive their values as explicit arguments.
+    float short_side_px = min(viewport_size.x, viewport_size.y);
+    return base_stroke_px * max(1.0, short_side_px / 384.0);
+}
 
 void vertex() {
-    float scaled_stroke_px = effective_stroke_px();
+    float scaled_stroke_px = effective_stroke_px(VIEWPORT_SIZE, stroke_px);
     vec3 view_position = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
     source_depth = -view_position.z;
     vec3 view_normal = normalize(
@@ -56,7 +58,7 @@ void vertex() {
 void fragment() {
     // The center depth is from the actual opaque scene, not the ink pass.
     // Suppress any hull fragment overlying its own real surface.
-    float opaque_center = opaque_depth_at(SCREEN_UV);
+    float opaque_center = opaque_depth_at(SCREEN_UV, INV_PROJECTION_MATRIX);
     float near_epsilon = max(0.03, 3.5 * fwidth(source_depth));
     if (abs(opaque_center - source_depth) <= near_epsilon) {
         discard;
@@ -69,16 +71,16 @@ void fragment() {
     // A 6px contour diagonal projects only 4.24px onto each axis.
     // A 6px axial probe therefore misses the source completely; use
     // a 1.5x offset for BASE strokes, without changing SERA's 3px mask.
-    float scaled_stroke_px = effective_stroke_px();
+    float scaled_stroke_px = effective_stroke_px(VIEWPORT_SIZE, stroke_px);
     float depth_probe_px = scaled_stroke_px > 4.0 ?
         scaled_stroke_px * 1.5 : scaled_stroke_px;
     vec2 pixel_step = vec2(depth_probe_px) / VIEWPORT_SIZE;
     float neighbor_epsilon = max(near_epsilon * 1.2, 0.055);
     bool near_surface =
-        abs(opaque_depth_at(SCREEN_UV + vec2(pixel_step.x, 0.0)) - source_depth) <= neighbor_epsilon ||
-        abs(opaque_depth_at(SCREEN_UV - vec2(pixel_step.x, 0.0)) - source_depth) <= neighbor_epsilon ||
-        abs(opaque_depth_at(SCREEN_UV + vec2(0.0, pixel_step.y)) - source_depth) <= neighbor_epsilon ||
-        abs(opaque_depth_at(SCREEN_UV - vec2(0.0, pixel_step.y)) - source_depth) <= neighbor_epsilon;
+        abs(opaque_depth_at(SCREEN_UV + vec2(pixel_step.x, 0.0), INV_PROJECTION_MATRIX) - source_depth) <= neighbor_epsilon ||
+        abs(opaque_depth_at(SCREEN_UV - vec2(pixel_step.x, 0.0), INV_PROJECTION_MATRIX) - source_depth) <= neighbor_epsilon ||
+        abs(opaque_depth_at(SCREEN_UV + vec2(0.0, pixel_step.y), INV_PROJECTION_MATRIX) - source_depth) <= neighbor_epsilon ||
+        abs(opaque_depth_at(SCREEN_UV - vec2(0.0, pixel_step.y), INV_PROJECTION_MATRIX) - source_depth) <= neighbor_epsilon;
     if (!near_surface) {
         discard;
     }
