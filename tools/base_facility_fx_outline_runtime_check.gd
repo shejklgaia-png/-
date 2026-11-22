@@ -1,4 +1,5 @@
 extends SceneTree
+const FACILITY_SHADER = preload("res://shaders/base_facility_view_edges.gdshader")
 ## Acceptance: real BASE scene, actual screen-space strokes, solid-only model
 ## metadata, 8 door shafts, two live chimney plumes and animated floor bounce.
 const FACILITIES: Array[String] = [
@@ -25,10 +26,8 @@ func _run() -> void:
     if cam == null or cam.projection != Camera3D.PROJECTION_ORTHOGONAL:
         _fail("normal BASE camera changed")
         return
-    var overlay: Control = hub.get_node_or_null(
-        "BaseHUDLayer/BaseHUD/FacilityOutlines") as Control
-    if overlay == null or not overlay.has_method("silhouette_for"):
-        _fail("pixel-accurate 6px solid silhouette layer missing")
+    if hub.get_node_or_null("BaseHUDLayer/BaseHUD/FacilityOutlines") != null:
+        _fail("obsolete oversized screen-space cage is still present")
         return
     for key in FACILITIES:
         var model: Node3D = hub.get_node(
@@ -43,9 +42,19 @@ func _run() -> void:
             if tint in ["blue_light", "amber_light", "amber", "glass"]:
                 _fail(key + " emissive appearance entered solid-only mask")
                 return
-        var rim: PackedVector2Array = overlay.call("silhouette_for", key)
-        if rim.size() < 3:
-            _fail(key + " silhouette has no projected geometry")
+        var ink_count: int = 0
+        for piece in model.get_children():
+            if not piece is MultiMeshInstance3D or not (
+                    str(piece.name).begins_with("ArchitecturalEdgeInk_")):
+                continue
+            var ink: MultiMeshInstance3D = piece as MultiMeshInstance3D
+            ink_count += ink.multimesh.instance_count if ink.multimesh != null else 0
+            var shaded: ShaderMaterial = ink.material_override as ShaderMaterial
+            if shaded == null or shaded.shader != FACILITY_SHADER:
+                _fail(key + " not using SERA-based physical edge ribbon shader")
+                return
+        if ink_count < 18:
+            _fail(key + " physical 3D mesh edges not rendered")
             return
         var fx: Node3D = model.get_node_or_null("BaseFacilityVFX") as Node3D
         if fx == null:
