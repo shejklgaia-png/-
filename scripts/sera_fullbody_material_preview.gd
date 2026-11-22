@@ -1,9 +1,13 @@
 extends RefCounted
-## NEXUS exhibition SERA only. Apply authored user IRIS material numbers to all
-## installed and switchable body/weapon meshes with provisional palette/part
-## classification. Leave training/combat, icons, LAB and master BB files alone.
+## Shared material shading on every solid 3D scene (character, boss, base,
+## NEXUS, LAB, warehouse and 3D previews). Authored assets remain untouched.
+## Uses only solid original materials; FX, transparent surfaces and outlines
+## keep their source passes and render order.
 const OPEN_SHADER = preload("res://shaders/sera_fullbody_material_shading.gdshader")
 const CLOSED_SHADER = preload("res://shaders/sera_fullbody_material_shading_closed.gdshader")
+const BACK_SHADER = preload("res://shaders/sera_fullbody_material_shading_back.gdshader")
+static var _white_texture: Texture2D
+static var _shared_materials: Dictionary = {}
 const BODY_SLOTS: Array[String] = [
     "head", "torso", "legs", "arms", "booster", "weapon_r", "weapon_l"
 ]
@@ -32,7 +36,8 @@ static func _part_material_hint(mesh: MeshInstance3D, slot: String) -> int:
     for keyword in ["joint", "hinge", "piston", "shaft", "gear", "servo",
             "inner", "mechanism", "cable", "motor", "axle", "rubber",
             "connector", "waist", "elbow", "knee", "neck", "pivot",
-            "関節", "内部", "駆動", "軸"]:
+            "shin", "forearm", "linkage", "actuator", "chassis",
+            "関節", "内部", "駆動", "軸", "機構"]:
         if labels.contains(keyword):
             return 2
     # Breastplates, helmets, limbs, frames, decorative shells and weapons
@@ -48,9 +53,15 @@ static func _is_display_piece(mesh: MeshInstance3D) -> bool:
         var label: String = str(cursor.name).to_lower()
         if label.contains("swordeffect") or label.contains("afterimage") or (
                 label.contains("ghost")) or label.contains("slash") or (
-                label.contains("exhaust")) or label.contains("flame"):
+                label.contains("exhaust")) or label.contains("flame") or (
+                label.contains("particle")) or label.contains("smoke") or (
+                label.contains("spark") ) or label.contains("laser") or (
+                label.contains("beam") ) or label.contains("trail") or (
+                label.contains("shockwave") ) or label.contains("gridbackdrop") or (
+                label.contains("edgeink") ) or label.contains("overlay"):
             return false
-        if bool(cursor.get_meta("sera_no_view_edges", false)):
+        if bool(cursor.get_meta("sera_no_view_edges", false)) or (
+                bool(cursor.get_meta("FX_NO_OUTLINE", false))):
             return false
         cursor = cursor.get_parent()
     var material: Material = mesh.material_override
@@ -68,16 +79,7 @@ static func apply_to_rig(rig: Node3D) -> Dictionary:
     if equipment == null:
         return result
     var available: Dictionary = equipment.get("available")
-    # Identical texture + tint + culling + rough classification share one
-    # ShaderMaterial. No per-mesh duplicate shader resources or extra pass.
-    var material_cache: Dictionary = {}
     var applied_mesh_ids: Dictionary = {}
-    # Several authored solid details have only an albedo tint. A 1x1 white
-    # texture passes that base color into the common sampler without skipping
-    # those meshes or changing their original Godot material resources.
-    var white_image := Image.create(1, 1, false, Image.FORMAT_RGBA8)
-    white_image.fill(Color.WHITE)
-    var white_texture: ImageTexture = ImageTexture.create_from_image(white_image)
     for set_key in available.keys():
         var selection: Dictionary = available[set_key]
         for slot in BODY_SLOTS:
@@ -89,35 +91,10 @@ static func apply_to_rig(rig: Node3D) -> Dictionary:
                 var mesh_id: int = mesh.get_instance_id()
                 if applied_mesh_ids.has(mesh_id):
                     continue
-                var source: StandardMaterial3D = mesh.material_override as StandardMaterial3D
-                var original_texture: Texture2D = source.albedo_texture
-                if original_texture == null:
-                    original_texture = white_texture
-                var hint: int = _part_material_hint(mesh, slot)
-                var iris_atlas: bool = (original_texture.get_width() == 16
-                    and original_texture.get_height() == 16)
-                var closed: bool = bool(mesh.get_meta("sera_single_sided", false))
-                var key: String = "%d:%s:%d:%d:%d" % [
-                    original_texture.get_instance_id(),
-                    source.albedo_color.to_html(true), hint, int(closed),
-                    int(iris_atlas)
-                ]
-                var shaded: ShaderMaterial = material_cache.get(key) as ShaderMaterial
+                var shaded: ShaderMaterial = _make_shaded_material(
+                    mesh, _part_material_hint(mesh, slot), false)
                 if shaded == null:
-                    shaded = ShaderMaterial.new()
-                    shaded.shader = CLOSED_SHADER if closed else OPEN_SHADER
-                    shaded.set_shader_parameter("source_texture", original_texture)
-                    shaded.set_shader_parameter("source_tint", source.albedo_color)
-                    shaded.set_shader_parameter("material_hint", hint)
-                    shaded.set_shader_parameter("iris_palette", iris_atlas)
-                    shaded.set_shader_parameter("armor_levels", ARMOR_STEPS)
-                    shaded.set_shader_parameter("armor_threshold", ARMOR_THRESHOLD)
-                    shaded.set_shader_parameter("dark_levels", MECHANISM_STEPS)
-                    shaded.set_shader_parameter("dark_threshold", MECHANISM_THRESHOLD)
-                    shaded.set_shader_parameter("lens_levels", LENS_STEPS)
-                    shaded.set_shader_parameter("lens_threshold", LENS_THRESHOLD)
-                    shaded.set_shader_parameter("lens_emissive", LENS_LIT)
-                    material_cache[key] = shaded
+                    continue
                 mesh.material_override = shaded
                 applied_mesh_ids[mesh_id] = true
                 count += 1
@@ -126,7 +103,105 @@ static func apply_to_rig(rig: Node3D) -> Dictionary:
                 var summary_key: String = str(set_key) + "/" + slot
                 result["sets"][summary_key] = count
                 result["slots"][slot] = int(result["slots"].get(slot, 0)) + count
-    # SeraRig already installs its current 3px view-dependent ink on all
-    # equipment MeshInstances; keep that shader and geometry unchanged.
-    # The existing ink still ignores transparency/FX and follows animation.
+    # SeraRig's 3px ViewEdges still owns contours, excluding effect meshes.
     return result
+
+
+static func _white() -> Texture2D:
+    if not is_instance_valid(_white_texture):
+        var img := Image.create(1, 1, false, Image.FORMAT_RGBA8)
+        img.fill(Color.WHITE)
+        _white_texture = ImageTexture.create_from_image(img)
+    return _white_texture
+
+
+static func _make_shaded_material(geometry: GeometryInstance3D,
+        hint: int, preserve_per_object: bool) -> ShaderMaterial:
+    var source: StandardMaterial3D = geometry.material_override as StandardMaterial3D
+    if source == null or source.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED:
+        return null
+    # Opaque material with a special rendering pass retains it as next_pass.
+    # Transparent/high-energy visuals are filtered by caller name/metadata.
+    var texture: Texture2D = source.albedo_texture
+    if texture == null:
+        texture = _white()
+    var iris_atlas: bool = texture.get_width() == 16 and texture.get_height() == 16
+    var cull: int = source.cull_mode
+    var next_id: int = (source.next_pass.get_instance_id()
+        if source.next_pass != null else 0)
+    var key: String = "%d:%s:%d:%d:%d:%d:%s:%g" % [
+        texture.get_instance_id(), source.albedo_color.to_html(true),
+        hint, cull, int(iris_atlas), next_id,
+        source.emission.to_html(true) if source.emission_enabled else "none",
+        source.emission_energy_multiplier if source.emission_enabled else 0.0
+    ]
+    var shaded: ShaderMaterial = _shared_materials.get(key) as ShaderMaterial
+    if shaded == null or preserve_per_object:
+        shaded = ShaderMaterial.new()
+        shaded.shader = (CLOSED_SHADER if cull == BaseMaterial3D.CULL_FRONT else
+            (BACK_SHADER if cull == BaseMaterial3D.CULL_BACK else OPEN_SHADER))
+        shaded.set_shader_parameter("source_texture", texture)
+        shaded.set_shader_parameter("source_tint", source.albedo_color)
+        shaded.set_shader_parameter("iris_palette", iris_atlas)
+        shaded.set_shader_parameter("material_hint", hint)
+        shaded.set_shader_parameter("armor_levels", ARMOR_STEPS)
+        shaded.set_shader_parameter("armor_threshold", ARMOR_THRESHOLD)
+        shaded.set_shader_parameter("dark_levels", MECHANISM_STEPS)
+        shaded.set_shader_parameter("dark_threshold", MECHANISM_THRESHOLD)
+        shaded.set_shader_parameter("lens_levels", LENS_STEPS)
+        shaded.set_shader_parameter("lens_threshold", LENS_THRESHOLD)
+        shaded.set_shader_parameter("lens_emissive", LENS_LIT)
+        shaded.set_shader_parameter("fx_emission", Vector3(source.emission.r,
+            source.emission.g, source.emission.b) * (
+            source.emission_energy_multiplier if source.emission_enabled else 0.0))
+        shaded.next_pass = source.next_pass
+        shaded.render_priority = source.render_priority
+        if not preserve_per_object:
+            _shared_materials[key] = shaded
+    return shaded
+
+
+static func apply_to_subtree(root: Node3D,
+        preserve_per_object: bool = false) -> int:
+    # One-shot scene build hook, no recurring tree scan or extra draw target.
+    # SERA/BitTaran have their own ViewEdges; architecture keeps its authored
+    # silhouette + front-crease meshes. FX shaders are never replaced.
+    if not is_instance_valid(root):
+        return 0
+    var changed: int = 0
+    var pending: Array[Node] = [root]
+    while not pending.is_empty():
+        var node: Node = pending.pop_back()
+        if node is MeshInstance3D:
+            var mesh: MeshInstance3D = node as MeshInstance3D
+            if _is_display_piece(mesh):
+                var styled: ShaderMaterial = _make_shaded_material(mesh,
+                    _part_material_hint(mesh, ""), preserve_per_object)
+                if styled != null:
+                    mesh.material_override = styled
+                    changed += 1
+        elif node is MultiMeshInstance3D:
+            var batch: MultiMeshInstance3D = node as MultiMeshInstance3D
+            if batch.multimesh != null and batch.multimesh.mesh != null and (
+                    batch.material_override is StandardMaterial3D) and (
+                    not bool(batch.get_meta("FX_NO_OUTLINE", false))):
+                var src: StandardMaterial3D = batch.material_override as StandardMaterial3D
+                if src.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED:
+                    var batch_material: ShaderMaterial = _make_shaded_material(
+                        batch, _part_material_hint_batch(batch), false)
+                    if batch_material != null:
+                        batch.material_override = batch_material
+                        changed += 1
+        for child in node.get_children():
+            if child is Node3D and child.name not in ["ViewEdges", "SeraEdgeInk"]:
+                pending.append(child)
+    return changed
+
+
+static func _part_material_hint_batch(mesh: MultiMeshInstance3D) -> int:
+    var label: String = str(mesh.name).to_lower()
+    for word in ["hinge", "shaft", "joint", "piston", "mechanism",
+            "motor", "cable", "gear", "drive", "servo", "軸", "内部"]:
+        if label.contains(word):
+            return 2
+    return 1
