@@ -21,6 +21,8 @@ var _root_refs: Dictionary = {} # owner id -> WeakRef to scene/actor root
 var _copies: Dictionary = {} # source instance id -> ID MeshInstance/MultiMeshInstance
 var _source_refs: Dictionary = {}
 var _next_id: int = 1
+var _id_allocations: Dictionary = {} # source id -> {first, count}
+var _free_ranges: Array[Dictionary] = []
 var _scan_elapsed: float = 0.0
 var _last_camera: Transform3D = Transform3D.IDENTITY
 var _last_camera_fov: float = -1.0
@@ -242,6 +244,50 @@ static func _background_occluder(node: Node3D) -> bool:
     return false
 
 
+func _allocate_ids(count: int) -> int:
+    # Reuse freed contiguous blocks on layout regeneration/equipment changes.
+    # Otherwise 4095 can be exhausted even when only a few meshes are alive.
+    for i in range(_free_ranges.size()):
+        var block: Dictionary = _free_ranges[i]
+        if int(block["count"]) < count:
+            continue
+        var first: int = int(block["first"])
+        if int(block["count"]) == count:
+            _free_ranges.remove_at(i)
+        else:
+            block["first"] = first + count
+            block["count"] = int(block["count"]) - count
+            _free_ranges[i] = block
+        return first
+    if _next_id + count - 1 > MAX_IDENTIFIED_MESHES:
+        return -1
+    var first_new: int = _next_id
+    _next_id += count
+    return first_new
+
+
+func _release_ids(record: Dictionary) -> void:
+    if record.is_empty():
+        return
+    var released: Dictionary = {
+        "first": int(record["first"]), "count": int(record["count"])
+    }
+    if int(released["count"]) > 0:
+        _free_ranges.append(released)
+    _free_ranges.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+        return int(a["first"]) < int(b["first"]))
+    var packed: Array[Dictionary] = []
+    for block in _free_ranges:
+        if not packed.is_empty() and int(packed.back()["first"]) + (
+                int(packed.back()["count"])) == int(block["first"]):
+            var last: Dictionary = packed.pop_back()
+            last["count"] = int(last["count"]) + int(block["count"])
+            packed.append(last)
+        else:
+            packed.append(block)
+    _free_ranges = packed
+
+
 func _rescan() -> bool:
     var desired: Dictionary = {}
     var expired: Array[int] = []
@@ -277,24 +323,36 @@ func _rescan() -> bool:
             old.queue_free()
         _copies.erase(key)
         _source_refs.erase(key)
+        if _id_allocations.has(key):
+            _release_ids(_id_allocations[key])
+            _id_allocations.erase(key)
         dirty = true
     for key in desired.keys():
         if _copies.has(key):
             continue
         var entry: Dictionary = desired[key]
         var is_occluder: bool = bool(entry["occluder"])
-        if not is_occluder and _next_id > MAX_IDENTIFIED_MESHES:
-            continue
         var source: Node3D = entry["node"] as Node3D
         var instance_count: int = 1
         if source is MultiMeshInstance3D:
             var mesh_batch: MultiMesh = (source as MultiMeshInstance3D).multimesh
             instance_count = mesh_batch.instance_count if mesh_batch != null else 1
         # For combined geometry, unique ID per instance preserves seams.
-        # If the 4095-ID budget is exceeded, degrade to one ID PER batch
-        # rather than creating thousands of draw calls or dropping geometry.
-        var per_instance_id: bool = (not is_occluder and instance_count > 1
-            and _next_id + instance_count - 1 <= MAX_IDENTIFIED_MESHES)
+        # If the 4095-ID budget is exceeded, keep the batch's one draw call
+        # with one ID instead of dropping the geometry.
+        var per_instance_id: bool = false
+        var identification: int = 0
+        var allocation_count: int = 0
+        if not is_occluder:
+            allocation_count = instance_count if instance_count > 1 else 1
+            identification = _allocate_ids(allocation_count)
+            if identification >= 0:
+                per_instance_id = instance_count > 1
+            else:
+                allocation_count = 1
+                identification = _allocate_ids(1)
+                if identification < 0:
+                    continue
         var clone: GeometryInstance3D = null
         if source is MeshInstance3D:
             var mesh_copy := MeshInstance3D.new()
@@ -305,11 +363,13 @@ func _rescan() -> bool:
             batch_copy.multimesh = (source as MultiMeshInstance3D).multimesh
             clone = batch_copy
         if clone == null:
+            if allocation_count > 0:
+                _release_ids({"first": identification, "count": allocation_count})
             continue
-        var identification: int = 0
-        if not is_occluder:
-            identification = _next_id
-            _next_id += instance_count if per_instance_id else 1
+        if allocation_count > 0:
+            _id_allocations[key] = {
+                "first": identification, "count": allocation_count
+            }
         # RGB444 IDs permit many equipment pieces while keeping per-channel
         # jumps robust at nearest-neighbor sample resolution.
         var color_id := Vector3(float((identification >> 8) & 15) / 15.0,
@@ -388,4 +448,6 @@ func _clear_copies() -> void:
             (clone as Node).queue_free()
     _copies.clear()
     _source_refs.clear()
+    _id_allocations.clear()
+    _free_ranges.clear()
     _next_id = 1
