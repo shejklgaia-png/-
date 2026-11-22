@@ -258,7 +258,9 @@ static func apply_to_subtree(root: Node3D,
                     not batch.multimesh.mesh is QuadMesh) and (
                     not batch.multimesh.mesh is PlaneMesh) and (
                     batch.material_override is StandardMaterial3D) and (
-                    not bool(batch.get_meta("FX_NO_OUTLINE", false))):
+                    not bool(batch.get_meta("FX_NO_OUTLINE", false))) and (
+                    not bool(batch.get_meta(
+                        "sera_preserve_authored_material", false))):
                 var src: StandardMaterial3D = batch.material_override as StandardMaterial3D
                 if src.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED:
                     var batch_material: ShaderMaterial = _make_shaded_material(
