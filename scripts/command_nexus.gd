@@ -3116,7 +3116,7 @@ func _refresh_outline_debug(delta: float) -> void:
     if live == null:
         outline_debug_stats.text = (
             "GPU輪郭制御: 未生成\n"
-            "NEXUS全身SERAの表示状態を確認してください。")
+            + "NEXUS全身SERAの表示状態を確認してください.")
         return
     var data: Dictionary = live.call("get_diagnostic_snapshot")
     var count: int = int(data.get("active_sources", 0))
