@@ -20,6 +20,19 @@ assert 'button.name = identifier' in base
 assert '"LoadingPreviewButton", _play_loading_preview' in base
 assert "screen.start_preview()" in base
 assert "extends Control" in console
+# Render only this prompt at half raster resolution. Do not touch the game viewport.
+assert "const CONSOLE_RENDER_SCALE: float = 0.5" in console
+assert "SubViewport.new()" in console, "dedicated reduced-size render target"
+assert "pixel_viewport.size = Vector2i(" in console, "offscreen viewport follows console dimensions"
+assert "pixel_source.scale = Vector2(CONSOLE_RENDER_SCALE, CONSOLE_RENDER_SCALE)" in console
+assert "get_script() as Script" in console, "same terminal renderer re-used offscreen"
+assert "TextureRect.new()" in console
+assert "CanvasItem.TEXTURE_FILTER_NEAREST" in console, "no bilinear blur"
+assert "pixel_output.texture = pixel_viewport.get_texture()" in console
+assert "if not pixel_source_mode:" in console, "controller must not render native-resolution duplicate"
+assert 'config/name="SERA v' in (root / "project.godot").read_text("utf-8")
+assert "viewport_width=720" in (root / "project.godot").read_text("utf-8")
+assert "viewport_height=1280" in (root / "project.godot").read_text("utf-8")
 assert "const PREVIEW_SECONDS: float = 5.0" in console
 assert "const PREVIEW_STEPS: int = 100" in console
 assert "target = mini(PREVIEW_STEPS" in console
