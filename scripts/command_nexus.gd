@@ -4,6 +4,7 @@ extends Node3D
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
+const NexusSeraGpuSilhouette = preload("res://scripts/nexus_sera_gpu_convex_silhouette.gd")
 const ID_DEBUG_SHADER = preload("res://shaders/sera_scene_id_debug.gdshader")
 const ID_INK_SHADER = preload("res://shaders/sera_iris_mesh_id_outline.gdshader")
 const ID_SOLID_SHADER = preload("res://shaders/sera_scene_id_solid_probe.gdshader")
@@ -93,6 +94,8 @@ var customize_part_preview_slot: String = "head"
 # Never modify the source mesh/material or the training SeraRig.
 var customize_selection_material: StandardMaterial3D
 var customize_highlighted_meshes: Array[MeshInstance3D] = []
+# NEXUS exhibition rig only; other scenes continue using IRIS visible IDs.
+var nexus_fullbody_gpu_outline: Node3D
 const CUSTOMIZE_SELECTION_BLINK_PERIOD_SECONDS: float = 1.0
 const CUSTOMIZE_SELECTION_BLINK_ON_RATIO: float = 0.60
 var customize_selection_blink_elapsed: float = 0.0
@@ -505,6 +508,12 @@ func _sera_display() -> void:
     rig.scale = Vector3.ONE * 1.35
     rig.rotation.y = PI
     stand.add_child(rig)
+    # Exclude this display rig from the shared ID compositor without touching
+    # SERA's material shading, BASE, combat, or NEXUS architecture.
+    rig.set_meta("sera_skip_common_id_outline", true)
+    var rig_id_outline: Node = rig.get_node_or_null("ViewEdges")
+    if is_instance_valid(rig_id_outline):
+        rig_id_outline.call("set_contour_enabled", false)
     # v192: reset any profile-dependent training sole lift BEFORE capturing the
     # original exhibit pose. The camera fitter owns the preview transform.
     rig.call("set_exhibition_mode", true)
@@ -536,6 +545,10 @@ func _sera_display() -> void:
     _remember_nexus_arm_rest_pose(rig)
     _fit_nexus_arms_to_lower_body()
     _capture_sera_silhouette(rig)
+    # GPU face-transition contour is a child of the animated/exhibited rig.
+    nexus_fullbody_gpu_outline = NexusSeraGpuSilhouette.new()
+    nexus_fullbody_gpu_outline.name = "NexusSeraConvexSilhouette"
+    rig.add_child(nexus_fullbody_gpu_outline)
 
 func _remember_nexus_arm_rest_pose(rig: Node3D) -> void:
     # Called only once, immediately AFTER applying the authored NEXUSpose.
@@ -1600,6 +1613,8 @@ func _choose_customization_part(choice: String) -> void:
     if slot == "legs" or slot == "arms":
         _fit_nexus_arms_to_lower_body()
     _capture_sera_silhouette(sera_display_rig)
+    if is_instance_valid(nexus_fullbody_gpu_outline):
+        nexus_fullbody_gpu_outline.call("refresh_meshes")
     _update_projected_silhouettes()
     outline.queue_redraw()
 
