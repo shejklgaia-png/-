@@ -1,5 +1,6 @@
 extends SceneTree
-const FACILITY_SHADER = preload("res://shaders/base_facility_view_edges.gdshader")
+const FACILITY_SHADER = preload("res://shaders/sera_view_edges.gdshader")
+const CORNER_SHADER = preload("res://shaders/base_facility_view_edges.gdshader")
 ## Acceptance: real BASE scene, actual screen-space strokes, solid-only model
 ## metadata, 8 door shafts, two live chimney plumes and animated floor bounce.
 const FACILITIES: Array[String] = [
@@ -43,18 +44,24 @@ func _run() -> void:
                 _fail(key + " emissive appearance entered solid-only mask")
                 return
         var ink_count: int = 0
+        var corner_count: int = 0
         for piece in model.get_children():
-            if not piece is MultiMeshInstance3D or not (
-                    str(piece.name).begins_with("ArchitecturalEdgeInk_")):
+            if not piece is MultiMeshInstance3D:
                 continue
             var ink: MultiMeshInstance3D = piece as MultiMeshInstance3D
-            ink_count += ink.multimesh.instance_count if ink.multimesh != null else 0
             var shaded: ShaderMaterial = ink.material_override as ShaderMaterial
-            if shaded == null or shaded.shader != FACILITY_SHADER:
-                _fail(key + " not using SERA-based physical edge ribbon shader")
-                return
-        if ink_count < 18:
-            _fail(key + " physical 3D mesh edges not rendered")
+            if str(piece.name).begins_with("ArchitecturalEdgeInk_"):
+                ink_count += ink.multimesh.instance_count if ink.multimesh != null else 0
+                if shaded == null or shaded.shader != FACILITY_SHADER:
+                    _fail(key + " not using latest SERA inverted-hull shader")
+                    return
+            elif str(piece.name).begins_with("ArchitecturalCreaseInk_"):
+                corner_count += ink.multimesh.instance_count if ink.multimesh != null else 0
+                if shaded == null or shaded.shader != CORNER_SHADER:
+                    _fail(key + " existing 2px corner shader lost")
+                    return
+        if ink_count < 18 or corner_count < 18:
+            _fail(key + " 6px silhouette or 2px corners not rendered")
             return
         var fx: Node3D = model.get_node_or_null("BaseFacilityVFX") as Node3D
         if fx == null:
