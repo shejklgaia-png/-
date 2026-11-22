@@ -18,18 +18,8 @@ uniform float contact_depth_allowance : hint_range(0.0, 0.40) = 0.22;
 uniform sampler2D scene_depth_texture : hint_depth_texture, filter_nearest, repeat_disable;
 varying float edge_visible;
 
-// Decode *both* the scene and ribbon depths with the same renderer's NDC
-// convention. The Compatibility backend uses OpenGL's [-1, 1] depth.
-float view_distance_from_depth(float depth) {
-#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
-    float ndc_depth = depth * 2.0 - 1.0;
-#else
-    float ndc_depth = depth;
-#endif
-    vec4 view_point = INV_PROJECTION_MATRIX * vec4(
-        SCREEN_UV * 2.0 - vec2(1.0), ndc_depth, 1.0);
-    return -view_point.z / max(abs(view_point.w), 0.000001);
-}
+// Keep renderer-specific depth reconstruction in fragment(): Godot's
+// Compatibility backend cannot reliably compile fragment built-ins in helpers.
 
 void vertex() {
     vec3 eye_point = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -82,8 +72,23 @@ void fragment() {
     bool has_opaque_surface = scene_depth > 0.00001;
 #endif
     if (has_opaque_surface) {
-        float visible_surface = view_distance_from_depth(scene_depth);
-        float ribbon_surface = view_distance_from_depth(FRAGCOORD.z);
+        // Unproject at the fragment site. The Compatibility renderer uses
+        // OpenGL NDC z [-1, 1]; Forward+/Mobile use [0, 1].
+        float scene_ndc = scene_depth;
+        float ribbon_ndc = FRAGCOORD.z;
+#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
+        scene_ndc = scene_depth * 2.0 - 1.0;
+        ribbon_ndc = FRAGCOORD.z * 2.0 - 1.0;
+#endif
+        vec2 ndc_xy = SCREEN_UV * 2.0 - vec2(1.0);
+        vec4 scene_view = INV_PROJECTION_MATRIX * vec4(
+            ndc_xy, scene_ndc, 1.0);
+        vec4 ribbon_view = INV_PROJECTION_MATRIX * vec4(
+            ndc_xy, ribbon_ndc, 1.0);
+        float visible_surface = -scene_view.z / max(
+            abs(scene_view.w), 0.000001);
+        float ribbon_surface = -ribbon_view.z / max(
+            abs(ribbon_view.w), 0.000001);
         if (ribbon_surface > visible_surface + contact_depth_allowance) {
             discard;
         }
