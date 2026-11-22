@@ -61,7 +61,8 @@ func _process(delta: float) -> void:
         for record in _edge_links.values():
             var draw: MeshInstance3D = record.get("draw") as MeshInstance3D
             if is_instance_valid(draw):
-                draw.visible = enabled and _diagnostic_mode >= 2 and _diagnostic_mode <= 5
+                draw.visible = enabled and ((_diagnostic_mode >= 2 and _diagnostic_mode <= 5)
+                    or _diagnostic_mode == 14 or _diagnostic_mode == 15)
         for contact in _contact_links.values():
             if is_instance_valid(contact):
                 (contact as MeshInstance3D).visible = enabled and (
@@ -126,7 +127,8 @@ func _refresh_meshes() -> void:
             draw.set_meta("FX_NO_OUTLINE", true)
             draw.mesh = ribbons
             draw.material_override = _edge_material
-            draw.visible = _diagnostic_mode >= 2 and _diagnostic_mode <= 5
+            draw.visible = ((_diagnostic_mode >= 2 and _diagnostic_mode <= 5)
+                    or _diagnostic_mode == 14 or _diagnostic_mode == 15)
             draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
             draw.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
             draw.layers = source.layers
@@ -151,7 +153,8 @@ func _refresh_meshes() -> void:
             var draw: MeshInstance3D = record.get("draw") as MeshInstance3D
             if is_instance_valid(draw):
                 draw.material_override = current_material
-                draw.visible = _diagnostic_mode >= 2 and _diagnostic_mode <= 5
+                draw.visible = ((_diagnostic_mode >= 2 and _diagnostic_mode <= 5)
+                    or _diagnostic_mode == 14 or _diagnostic_mode == 15)
         for value in _contact_links.values():
             var contact: MeshInstance3D = value as MeshInstance3D
             if is_instance_valid(contact):
@@ -252,21 +255,27 @@ func _refresh_contact_lines(found: Dictionary) -> void:
 ## Diagnostic controls are intentionally separate from the persistent
 ## GRAPHICS SETTINGS switch; all modes return to production on exit.
 func set_diagnostic_mode(mode: int) -> void:
-    _diagnostic_mode = clampi(mode, 0, 13)
+    _diagnostic_mode = clampi(mode, 0, 15)
     if _edge_material == null or _xray_material == null:
         return
     if _diagnostic_mode == 4 or _diagnostic_mode == 5:
         # On-demand extraction, not a continuous background contact scan.
         _refresh_contact_lines(_visible_sources)
-    _edge_material.set_shader_parameter("diagnostic_mode", _diagnostic_mode)
-    _xray_material.set_shader_parameter("diagnostic_mode", _diagnostic_mode)
+    # The extrusion probes keep the real source silhouette in bright cyan
+    # as an on-screen position reference. Their hull material uses no mask.
+    var shader_mode: int = 1 if (
+        _diagnostic_mode == 14 or _diagnostic_mode == 15
+    ) else _diagnostic_mode
+    _edge_material.set_shader_parameter("diagnostic_mode", shader_mode)
+    _xray_material.set_shader_parameter("diagnostic_mode", shader_mode)
     var chosen: ShaderMaterial = (
         _xray_material if _diagnostic_mode == 5 else _edge_material)
     for record in _edge_links.values():
         var draw: MeshInstance3D = record.get("draw") as MeshInstance3D
         if is_instance_valid(draw):
             draw.material_override = chosen
-            draw.visible = (_diagnostic_mode >= 2 and _diagnostic_mode <= 5
+            draw.visible = (((_diagnostic_mode >= 2 and _diagnostic_mode <= 5)
+                    or _diagnostic_mode == 14 or _diagnostic_mode == 15)
                 and GraphicsSettings.get_enabled("character_outline"))
     for value in _contact_links.values():
         var contact: MeshInstance3D = value as MeshInstance3D
