@@ -95,6 +95,8 @@ var layout_shuffle_button: Button
 var layout_copy_button: Button
 var outline_probe_button: Button
 var outline_probe_mode: int = 0
+var nexus_material_probe_button: Button
+var nexus_material_probe_mode: int = 0
 var layout_status: Label
 var layout_seed: int = 0
 var layout_rerolls: int = 0
@@ -659,7 +661,7 @@ func _layout_hud() -> void:
     hint.add_theme_font_size_override("font_size", 16 if view.x < 600.0 else 19)
     if layout_tools != null:
         layout_tools.position = Vector2(view.x - 168.0, 14.0)
-        layout_tools.size = Vector2(156.0, 340.0)
+        layout_tools.size = Vector2(156.0, 392.0)
     if grid_ui != null:
         grid_ui.call("reflow", view)
     if power_back_button != null:
@@ -715,6 +717,9 @@ func _create_layout_tools() -> void:
         _play_loading_preview.bind(LoadingConsole.PREVIEW_RENDER_SCALE_2))
     outline_probe_button = _layout_tool_button(
         "輪郭検査 v1", "OutlineProbeButton", _cycle_outline_probe)
+    nexus_material_probe_button = _layout_tool_button(
+        "NEXUS材質：通常", "NexusMaterialProbeButton",
+        _cycle_nexus_material_probe)
     layout_status = Label.new()
     layout_status.name = "LayoutStatus"
     layout_status.text = "OUTLINE-DIAG v1"
@@ -758,6 +763,68 @@ func _cycle_outline_probe() -> void:
     mat.set_shader_parameter("stroke_px", 4.0)
     print("SERA_BASE_OUTLINE_DIAG mode=%d shader=%s" % [
         outline_probe_mode, mat.shader.resource_path])
+
+
+
+
+func _cycle_nexus_material_probe() -> void:
+    # Five *manual* visual views isolate where BASE NEXUS loses contrast.
+    # Only authored NEXUS MultiMesh materials are affected. No GPU image
+    # readback, CI, automated verification or additional render target.
+    if scene_changing or power_view_active or (
+            facility_system != null and bool(facility_system.call("is_menu_open"))):
+        return
+    var nexus_root: Node = (
+        nexus_building.get_node_or_null("NexusArchitecture")
+        if is_instance_valid(nexus_building) else null)
+    if not is_instance_valid(nexus_root):
+        return
+    nexus_material_probe_mode = (nexus_material_probe_mode + 1) % 5
+    var names: Array[String] = [
+        "通常", "色のみ", "テクスチャ", "頂点色", "陰影なし"]
+    var altered: int = 0
+    var skipped_emissive: int = 0
+    for node in nexus_root.get_children():
+        var draw: MultiMeshInstance3D = node as MultiMeshInstance3D
+        if not is_instance_valid(draw):
+            continue
+        var authored: StandardMaterial3D = draw.get_meta(
+            "sera_base_authored_material", null) as StandardMaterial3D
+        if authored == null:
+            continue
+        # Emissive screens/lights stay exactly as authored in every mode.
+        if authored.emission_enabled:
+            skipped_emissive += 1
+            continue
+        if nexus_material_probe_mode == 0:
+            draw.material_override = authored
+        else:
+            var diagnostic: StandardMaterial3D = (
+                authored.duplicate() as StandardMaterial3D)
+            diagnostic.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+            if nexus_material_probe_mode == 1:
+                # Raw authored material tint; ignore weathered SVG and vertex.
+                diagnostic.albedo_texture = null
+                diagnostic.vertex_color_use_as_albedo = false
+            elif nexus_material_probe_mode == 2:
+                # Raw SVG/UV only, before tint, vertex and scene lighting.
+                diagnostic.albedo_color = Color.WHITE
+                diagnostic.vertex_color_use_as_albedo = false
+            elif nexus_material_probe_mode == 3:
+                # Authored flat polygon vertex tones (uncolored BoxMesh = white).
+                diagnostic.albedo_color = Color.WHITE
+                diagnostic.albedo_texture = null
+                diagnostic.vertex_color_use_as_albedo = true
+            # Mode 4 retains authored tint × SVG × vertex with lighting OFF.
+            draw.material_override = diagnostic
+        altered += 1
+    nexus_material_probe_button.text = (
+        "NEXUS材質：" + names[nexus_material_probe_mode])
+    layout_status.text = "MAT %d/4 | %d batches" % [
+        nexus_material_probe_mode, altered]
+    print("SERA_NEXUS_MATERIAL_DIAG mode=%d label=%s batches=%d emissive=%d" %
+        [nexus_material_probe_mode, names[nexus_material_probe_mode],
+        altered, skipped_emissive])
 
 
 func _layout_tool_button(caption: String, identifier: String,
@@ -820,6 +887,10 @@ func _apply_layout_preview(selected: Dictionary) -> void:
     if old_nexus != null:
         old_nexus.free()
     BaseArchitecture.build_nexus(nexus_building)
+    # A rebuilt model starts with its original authored materials.
+    nexus_material_probe_mode = 0
+    if nexus_material_probe_button != null:
+        nexus_material_probe_button.text = "NEXUS材質：通常"
     for spec in BaseFacilities.FACILITY_SPECS:
         var key: String = str(spec["id"])
         var station: Node3D = facility_system.get_node_or_null(key) as Node3D
