@@ -36,10 +36,10 @@ func _verify_synthetic() -> bool:
         [Vector3(0, 0, 0), FEET, "stomp"],
         [Vector3(1, 0, 5.0), FEET, "kick"],
         [Vector3(0, 0, 5.0), FEET, "kick"],
-        [Vector3(1, 0, 4.74), {"leg_fr": Vector3(1, 0, 1)}, "sweep"],
-        [Vector3(1, 0, 4.75), {"leg_fr": Vector3(1, 0, 1)}, "kick"],
+        [Vector3(1, 0, 4.09), {"leg_fr": Vector3(1, 0, 1)}, "sweep"],
+        [Vector3(1, 0, 4.10), {"leg_fr": Vector3(1, 0, 1)}, "kick"],
         [Vector3(1, 0, 6.14), FEET, "kick"],
-        [Vector3(1, 0, 6.17), FEET, "sweep"],
+        [Vector3(1, 0, 7.31), {"leg_fr": Vector3(1, 0, 1)}, "sweep"],
         [Vector3(5.6, 0, 1.0), FEET, "sweep"],
         [Vector3(-5.6, 0, 1.0), FEET, "sweep"],
         [Vector3(1.0, 0, -2.0), FEET, "stomp"],
@@ -141,8 +141,8 @@ func _verify_live_first(start_distance: float) -> bool:
 
 func _run() -> void:
     if absf(ATTACKS.STOMP_RANGE_METERS - 3.0) > 0.0001 or (
-            absf(ATTACKS.KICK_MIN_RANGE_METERS - 3.75) > 0.0001):
-        _fail("existing approved attack distances changed")
+            absf(ATTACKS.KICK_MIN_RANGE_METERS - 3.10) > 0.0001):
+        _fail("STOMP remains 3m and expanded KICK starts at 3.1m")
         return
     if not _verify_synthetic():
         return
