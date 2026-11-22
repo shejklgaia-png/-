@@ -1,5 +1,4 @@
 extends Node
-class_name SeraBaseFacilityMotion
 ## BASE equipment: eight deterministic production-loop motions of actual existing
 ## authored MultiMesh instances. No additional 3D draw nodes, colliders or lights.
 ## Animated positions are in the same local coordinates as the authored model.
@@ -26,21 +25,20 @@ var _model_scale: float = 1.0
 var _clock: float = 0.0
 var _accumulator: float = 0.0
 
-static func attach(model: Node3D, key: String) -> void:
+func bind_to(model: Node3D, key: String) -> void:
     var source: Dictionary = model.get_meta("motion_entries", {})
     var expected: Array = MOTION_FEATURES.get(key, [])
     for feature in expected:
         if not source.has(feature) or (source[feature] as Array).is_empty():
             push_error("SERA_BASE_MOTION_MISSING: " + key + "/" + str(feature))
             return
-    var controller := SeraBaseFacilityMotion.new()
-    controller.name = "FacilityMotion"
-    controller.facility_key = key
-    controller._parts = source
-    controller._body_yaw = float(model.get_meta("body_yaw", 0.0))
-    controller._model_scale = float(model.get_meta("visual_model_scale", 1.0))
-    model.add_child(controller)
-    controller.sample_at(0.0)
+    name = "FacilityMotion"
+    facility_key = key
+    _parts = source
+    _body_yaw = float(model.get_meta("body_yaw", 0.0))
+    _model_scale = float(model.get_meta("visual_model_scale", 1.0))
+    model.add_child(self)
+    sample_at(0.0)
 
 func _process(delta: float) -> void:
     _clock += maxf(0.0, delta)
