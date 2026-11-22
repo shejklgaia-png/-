@@ -286,11 +286,83 @@ func set_preview_active(enabled: bool) -> void:
         if is_instance_valid(preview_scene):
             preview_scene.call("_on_preview_touch", 0, false, Vector2.ZERO)
 
+func _mode_at_local_point(point: Vector2) -> int:
+    if not is_instance_valid(_shade_column) or not _shade_column.visible:
+        return -1
+    var global_point: Vector2 = get_global_rect().position + point
+    for mode in SHADING_MODES:
+        var button: Button = _shade_buttons[mode] as Button
+        if button.get_global_rect().has_point(global_point):
+            return mode
+    return -1
+
+
+func _hit_fullscreen_close(point: Vector2) -> bool:
+    return fullscreen and _fullscreen_close != null and (
+        _fullscreen_close.get_global_rect().has_point(
+            get_global_rect().position + point))
+
+
+func _track_preview_tap(point: Vector2, started: Dictionary) -> void:
+    var now: int = Time.get_ticks_msec()
+    if now - int(started.get("time", 0)) > 300 or (
+            bool(started.get("moved", false))) or (
+            point.distance_to(started.get("point", point)) > 18.0):
+        _last_tap_time = 0
+        return
+    if _last_tap_time > 0 and now - _last_tap_time <= double_tap_window_msec and (
+            point.distance_to(_last_tap_position) <= 30.0):
+        _last_tap_time = 0
+        preview_fullscreen_requested.emit(not fullscreen)
+    else:
+        _last_tap_time = now
+        _last_tap_position = point
+
+
 func feed_touch(index: int, pressed: bool, point: Vector2) -> void:
-    if ready_for_commands and active_preview and is_instance_valid(preview_scene):
-        preview_scene.call("_on_preview_touch", index, pressed, point)
+    if not ready_for_commands or not active_preview or not is_instance_valid(preview_scene):
+        return
+    if pressed:
+        var mode: int = _mode_at_local_point(point)
+        if mode >= 0:
+            _ui_mode_touches[index] = mode
+            _last_tap_time = 0
+            return
+        if _hit_fullscreen_close(point):
+            _ui_mode_touches[index] = -2
+            _last_tap_time = 0
+            return
+        _touch_starts[index] = {
+            "point": point, "time": Time.get_ticks_msec(), "moved": false}
+        if _touch_starts.size() > 1:
+            for key in _touch_starts.keys():
+                _touch_starts[key]["moved"] = true
+        preview_scene.call("_on_preview_touch", index, true, point)
+        return
+    if _ui_mode_touches.has(index):
+        var captured_mode: int = int(_ui_mode_touches[index])
+        _ui_mode_touches.erase(index)
+        if captured_mode == -2:
+            if _hit_fullscreen_close(point):
+                _request_close_fullscreen()
+        elif _mode_at_local_point(point) == captured_mode:
+            set_shading_mode(captured_mode)
+        return
+    var started: Dictionary = _touch_starts.get(index, {})
+    _touch_starts.erase(index)
+    preview_scene.call("_on_preview_touch", index, false, point)
+    if not started.is_empty():
+        _track_preview_tap(point, started)
+
 
 func feed_drag(index: int, point: Vector2) -> void:
+    if _ui_mode_touches.has(index):
+        return
+    if _touch_starts.has(index):
+        var state: Dictionary = _touch_starts[index]
+        if point.distance_to(state.get("point", point)) > 18.0:
+            state["moved"] = true
+            _touch_starts[index] = state
     if ready_for_commands and active_preview and is_instance_valid(preview_scene):
         preview_scene.call("_on_preview_drag", index, point)
 
