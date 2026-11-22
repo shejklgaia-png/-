@@ -177,6 +177,8 @@ func set_shared_scene_mode(enabled: bool) -> void:
             "ink_color", Color("#17212f"))
         _screen_material.set_shader_parameter(
             "ink_screen_bounds", Vector4.ZERO)
+        _screen_material.set_shader_parameter(
+            "facility_screen_bounds", Vector4.ZERO)
         ink.visible = false
     elif is_instance_valid(_screen_quad):
         _screen_quad.visible = false
@@ -385,6 +387,10 @@ func _update_shared_screen_bounds(camera: Camera3D) -> void:
     var high := Vector2(-1000000.0, -1000000.0)
     var found: bool = false
     var near_plane: bool = false
+    var facility_low := Vector2(1000000.0, 1000000.0)
+    var facility_high := Vector2(-1000000.0, -1000000.0)
+    var facility_found: bool = false
+    var facility_near_plane: bool = false
     for key in _styled_sources.keys():
         var source_ref: WeakRef = _source_refs.get(key) as WeakRef
         var source: GeometryInstance3D = (
@@ -392,6 +398,7 @@ func _update_shared_screen_bounds(camera: Camera3D) -> void:
             if source_ref != null else null)
         if not is_instance_valid(source) or not source.is_visible_in_tree():
             continue
+        var is_facility: bool = _outline_role(source) == 2
         var box: AABB = source.get_aabb()
         for x in [0.0, 1.0]:
             for y in [0.0, 1.0]:
@@ -401,11 +408,36 @@ func _update_shared_screen_bounds(camera: Camera3D) -> void:
                     var point3: Vector3 = source.global_transform * corner
                     if camera.is_position_behind(point3):
                         near_plane = true
+                        if is_facility:
+                            facility_near_plane = true
                         continue
                     var projected: Vector2 = camera.unproject_position(point3)
                     low = low.min(projected)
                     high = high.max(projected)
                     found = true
+                    if is_facility:
+                        facility_low = facility_low.min(projected)
+                        facility_high = facility_high.max(projected)
+                        facility_found = true
+    # More expensive fourth-ring reads happen only around actual
+    # projected facility batches; clutter, GRID and actors keep <=3px.
+    if facility_near_plane:
+        _screen_material.set_shader_parameter("facility_screen_bounds",
+            Vector4(0.0, 0.0, 1.0, 1.0))
+    elif facility_found:
+        var facility_margin := Vector2(6.0, 6.0)
+        var facility_min: Vector2 = (
+            (facility_low - facility_margin) / screen_size).clamp(
+            Vector2.ZERO, Vector2.ONE)
+        var facility_max: Vector2 = (
+            (facility_high + facility_margin) / screen_size).clamp(
+            Vector2.ZERO, Vector2.ONE)
+        _screen_material.set_shader_parameter("facility_screen_bounds",
+            Vector4(facility_min.x, facility_min.y,
+                facility_max.x, facility_max.y))
+    else:
+        _screen_material.set_shader_parameter(
+            "facility_screen_bounds", Vector4.ZERO)
     if near_plane:
         _screen_material.set_shader_parameter("ink_screen_bounds",
             Vector4(0.0, 0.0, 1.0, 1.0))
