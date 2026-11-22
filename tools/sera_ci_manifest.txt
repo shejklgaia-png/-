@@ -1,5 +1,6 @@
 # NEXUS H02 fullscreen per-material shade thresholds/steps, cyan lamp and clipboard editor.
 py tools/iris_material_shading_editor_self_check.py
+gd tools/iris_material_shading_editor_runtime_check.gd
 # NEXUS IRIS authored quad face normals: no triangle-diagonal shading.
 py tools/iris_face_normal_preview_self_check.py
 # NEXUS IRIS OFF / 2-8-step polygon shading and double-tap fullscreen.
