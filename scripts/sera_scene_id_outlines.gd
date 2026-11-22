@@ -162,6 +162,9 @@ func set_nexus_sera_contact_mode(enabled: bool) -> void:
             1.0 / float(id_viewport.size.x), 1.0 / float(id_viewport.size.y)))
         material.set_shader_parameter("ink_color", Color("#17212f"))
         material.set_shader_parameter("stroke_px", _ink_stroke)
+        if enabled:
+            # NEXUS SERA only. Retain the room/building 2px ID ink.
+            material.set_shader_parameter("sera_stroke_px", 4.0)
     _clear_copies()
     _scan_elapsed = 0.0
 

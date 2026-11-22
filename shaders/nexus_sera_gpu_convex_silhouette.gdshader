@@ -8,7 +8,7 @@ shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_never;
 
 uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
-uniform float stroke_px : hint_range(1.0, 3.0) = 3.0;
+uniform float stroke_px : hint_range(1.0, 4.0) = 4.0;
 varying float edge_visible;
 
 void vertex() {
