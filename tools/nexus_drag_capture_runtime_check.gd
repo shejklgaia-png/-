@@ -68,7 +68,16 @@ func _run() -> void:
     var before_position: Vector3 = nexus.get("customize_preview_position") as Vector3
     var before_scale: float = float(nexus.get("customize_preview_scale"))
     var display_rig: Node3D = nexus.get("sera_display_rig") as Node3D
+    # The root is at the feet: cache the actual Chest/Torso/Waist center.
+    # _focus_arrived() can be called without entering via the motion tween.
+    var pivot_local: Vector3 = nexus.call("_customize_torso_anchor_local") as Vector3
+    if pivot_local.length() < 0.10:
+        _fail("live body pivot is missing or still at the feet/root")
+        return
+    nexus.set("customize_motion_torso_local", pivot_local)
+    nexus.call("_apply_customization_preview_transform")
     var before_world_origin: Vector3 = display_rig.global_position
+    var before_world_pivot: Vector3 = display_rig.to_global(pivot_local)
     nexus.call("_input", _touch(origin, true, 2))
     if int(nexus.get("customize_touch_id")) != 2:
         _fail("full-body touch was not captured in original model area")
@@ -85,8 +94,11 @@ func _run() -> void:
     if (nexus.get("customize_preview_position") as Vector3).distance_to(
             before_position) > 0.000001 or (
             absf(float(nexus.get("customize_preview_scale")) - before_scale) > 0.000001) or (
-            display_rig.global_position.distance_to(before_world_origin) > 0.000001):
-        _fail("touch rotation must never reposition or rescale the full-body model")
+            display_rig.to_global(pivot_local).distance_to(before_world_pivot) > 0.0001):
+        _fail("touch rotation must hold SERA's torso-center pivot fixed in place")
+        return
+    if display_rig.global_position.distance_to(before_world_origin) < 0.001:
+        _fail("root must orbit the center pivot instead of rotating around its feet")
         return
     nexus.call("_input", _touch(cross, false, 2))
     if int(nexus.get("customize_touch_id")) != -1:
@@ -114,8 +126,9 @@ func _run() -> void:
         return
     if (nexus.get("customize_preview_position") as Vector3).distance_to(
             before_position) > 0.000001 or (
-            absf(float(nexus.get("customize_preview_scale")) - before_scale) > 0.000001):
-        _fail("mouse drag also must only change the model rotation")
+            absf(float(nexus.get("customize_preview_scale")) - before_scale) > 0.000001) or (
+            display_rig.to_global(pivot_local).distance_to(before_world_pivot) > 0.0001):
+        _fail("mouse rotation must keep the torso pivot, anchor and scale fixed")
         return
     left.pressed = false
     left.position = cross
