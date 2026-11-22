@@ -1,15 +1,6 @@
 name: SERA v535 Bittaran 10-minute battle balance
+# Manual-only: focused local checks are the default; retain opt-in Actions diagnostics.
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - 'scripts/bittaran_balance.gd'
-      - 'scripts/bittaran_battle.gd'
-      - 'scripts/bittaran_parts.gd'
-      - 'scripts/sera_part_stats.gd'
-      - 'scripts/main.gd'
-      - 'tools/bittaran_ten_min_balance_*'
-      - '.github/workflows/sera-bittaran-10min-balance.yml'
   workflow_dispatch:
 
 jobs:
