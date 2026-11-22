@@ -383,9 +383,10 @@ func _rescan() -> bool:
         if source is MultiMeshInstance3D:
             var mesh_batch: MultiMesh = (source as MultiMeshInstance3D).multimesh
             instance_count = mesh_batch.instance_count if mesh_batch != null else 1
-        # For combined geometry, unique ID per instance preserves seams.
-        # If the 4095-ID budget is exceeded, keep the batch's one draw call
-        # with one ID instead of dropping the geometry.
+        # Preserve one ID draw call per MultiMesh with per-instance red
+        # palette indices where possible. Seven repeating IRIS IDs do NOT
+        # guarantee contact seams between every neighboring instance.
+        # On logical allocation exhaustion, retain the batch as one ID.
         var per_instance_id: bool = false
         var identification: int = 0
         var allocation_count: int = 0
