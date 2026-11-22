@@ -43,9 +43,21 @@ func _run() -> void:
             not panel.visible or buttons.size() != 4):
         _fail("one visible debug panel with exactly four buttons required")
         return
-    if panel.position.y < 260 or panel.position.y > 700 or (
-            panel.size.x > 360 or panel.size.y > 220):
-        _fail("portrait overlay too large or outside expected HUD-safe space")
+    # Creator-requested 4-wide, top-of-portrait compact strip: below the
+    # 186-220 boss name and 230-264 victory caption; above combat space.
+    if not is_equal_approx(panel.position.y, 264.0) or (
+            panel.size.y > 100.0 or panel.size.y < 80.0) or (
+            panel.size.x < 650.0 or panel.position.x < 10.0):
+        _fail("debug strip must be wide and near the top HUD")
+        return
+    var boss_caption: Label = battle.get("boss_name_label") as Label
+    var victory: Label = battle.get("victory_label") as Label
+    if boss_caption == null or victory == null or (
+            panel.get_global_rect().intersects(
+                boss_caption.get_global_rect())) or (
+            panel.get_global_rect().intersects(
+                victory.get_global_rect())):
+        _fail("debug strip must not obscure boss title or victory notice")
         return
     for i in range(4):
         var id: String = IDS[i]
@@ -54,13 +66,22 @@ func _run() -> void:
                 not button.visible or button.disabled or button.size.y < 40.0):
             _fail("leg mapping/accessible touch target invalid: " + id)
             return
-        var expected_top: float = 366.0 + float(floori(float(i) / 2.0)) * 50.0
-        var expected_left: float = 24.0 + float(i % 2) * 160.0
-        if not is_equal_approx(button.get_global_rect().position.x,
-                expected_left) or not is_equal_approx(
-                button.get_global_rect().position.y, expected_top):
-            _fail("front/rear and left/right buttons must occupy a real 2x2 grid")
+        var first: Button = buttons.get(IDS[0]) as Button
+        var first_rect: Rect2 = first.get_global_rect()
+        var rect: Rect2 = button.get_global_rect()
+        if (not is_equal_approx(rect.position.y, first_rect.position.y)
+                or rect.position.y < panel.position.y + 30.0
+                or rect.end.y > panel.position.y + panel.size.y - 5.0
+                or rect.position.x < panel.position.x + 6.0
+                or rect.end.x > panel.position.x + panel.size.x - 6.0
+                or button.size.x < 125.0):
+            _fail("all four leg buttons must share one upper-screen row")
             return
+        if i > 0:
+            var previous: Button = buttons.get(IDS[i - 1]) as Button
+            if previous.get_global_rect().end.x + 5.0 > rect.position.x:
+                _fail("buttons not horizontally ordered with a usable gap")
+                return
         for j in range(i):
             var other: Button = buttons.get(IDS[j]) as Button
             if button.get_global_rect().intersects(other.get_global_rect()):
