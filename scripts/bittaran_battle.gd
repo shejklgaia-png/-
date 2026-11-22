@@ -8,6 +8,7 @@ const BittaranParts = preload("res://scripts/bittaran_parts.gd")
 const BALANCE = preload("res://scripts/bittaran_balance.gd")
 const BittaranAttacks = preload("res://scripts/bittaran_attacks.gd")
 const BittaranDirtFX = preload("res://scripts/bittaran_dirt_fx.gd")
+const BittaranSoundData = preload("res://assets/bittaran_sfx_data.gd")
 const BittaranRailgun = preload("res://scripts/bittaran_railgun.gd")
 const BittaranLegTurrets = preload("res://scripts/bittaran_leg_turrets.gd")
 const BittaranSweepFXTrack = preload("res://scripts/bittaran_sweep_fx_track.gd")
@@ -179,6 +180,12 @@ var stomp_follow_landed: bool = false
 var bittaran_dirt_fx: Node3D
 var bittaran_sweep_fx_baked: bool = false
 var bittaran_thud_audio: AudioStreamPlayer
+# Four independent, creator-provided cues. Embedded Ogg data is available
+# on Android before any asynchronous Godot audio import completes.
+var bittaran_sfx_players: Dictionary = {}
+var bittaran_sfx_event_counts: Dictionary = {}
+var bittaran_attack_sfx_active: bool = false
+var fall_vertical_shake_strength: float = 0.0
 # v454: gapless 174-BPM audio provided by the creator. The Ogg source
 # must be included at this resource path for Android export; a user://
 # fallback permits listening without rebuilding during development.
@@ -200,6 +207,7 @@ var attack_contact_initialized: bool = false
 func _ready() -> void:
     super._ready()
     _start_neural_flow_bgm()
+    _initialize_bittaran_sfx()
     # Dedicated boss locomotion is not controlled by training-room settings.
     target_move_enabled = true
     if move_target_button != null:
@@ -589,6 +597,56 @@ func _build_bittaran_shockwave() -> void:
     add_child(bittaran_thud_audio)
 
 
+func _initialize_bittaran_sfx() -> void:
+    var encoded: Dictionary = {
+        "footstep": BittaranSoundData.FOOTSTEP,
+        "arm": BittaranSoundData.ARM,
+        "collapse": BittaranSoundData.COLLAPSE,
+        "punch": BittaranSoundData.PUNCH
+    }
+    var gain_db: Dictionary = {
+        "footstep": -5.0, "arm": -7.0,
+        "collapse": -4.0, "punch": -4.0
+    }
+    for cue in encoded:
+        var pcm: PackedByteArray = Marshalls.base64_to_raw(str(encoded[cue]))
+        var stream: AudioStreamOggVorbis = (
+            AudioStreamOggVorbis.load_from_buffer(pcm))
+        if stream == null:
+            push_error("BITTARAN_SFX_MISSING: " + str(cue))
+            continue
+        stream.loop = false
+        var channel := AudioStreamPlayer.new()
+        channel.name = "BittaranSFX_" + str(cue)
+        channel.stream = stream
+        channel.volume_db = float(gain_db[cue])
+        channel.max_polyphony = 4 if cue == "footstep" else 2
+        add_child(channel)
+        bittaran_sfx_players[cue] = channel
+        bittaran_sfx_event_counts[cue] = 0
+
+
+func _play_bittaran_sound(cue: String) -> void:
+    var channel: AudioStreamPlayer = (
+        bittaran_sfx_players.get(cue, null) as AudioStreamPlayer)
+    if channel == null:
+        return
+    channel.play()
+    bittaran_sfx_event_counts[cue] = (
+        int(bittaran_sfx_event_counts.get(cue, 0)) + 1)
+
+
+func _tick_bittaran_attack_sfx() -> void:
+    # The stance is a preparation step, not the authored attack motion.
+    # A latched entry triggers exactly once per attack, regardless of
+    # animation speed, frame rate or consecutive attacks of the same kind.
+    var playing: bool = not bittaran_attack_frame.is_empty() and (
+        not bool(bittaran_attack_frame.get("stance_prepare", false)))
+    if playing and not bittaran_attack_sfx_active:
+        _play_bittaran_sound("arm")
+    bittaran_attack_sfx_active = playing
+
+
 func _make_bittaran_thud() -> AudioStreamWAV:
     # Original heavy ground thud for the boss (v401); 16-bit PCM
     # generated once at startup, mirroring the mechanical-footstep
@@ -698,9 +756,12 @@ func _tick_impact_shake(delta: float) -> void:
     # All unrelated impulses retain their own preexisting decay.
     if not _sweep_hit_window_active():
         sweep_shake_strength = 0.0
-    if impact_shake_strength <= 0.0004 and sweep_shake_strength <= 0.0004:
+    if (impact_shake_strength <= 0.0004 and
+            sweep_shake_strength <= 0.0004 and
+            fall_vertical_shake_strength <= 0.0004):
         impact_shake_strength = 0.0
         sweep_shake_strength = 0.0
+        fall_vertical_shake_strength = 0.0
         if camera.h_offset != 0.0 or camera.v_offset != 0.0:
             camera.h_offset = 0.0
             camera.v_offset = 0.0
@@ -708,12 +769,15 @@ func _tick_impact_shake(delta: float) -> void:
     var dt: float = maxf(delta, 0.0)
     impact_shake_strength *= exp(-impact_shake_decay_rate * dt)
     sweep_shake_strength *= exp(-11.5 * dt)
+    fall_vertical_shake_strength *= exp(-8.5 * dt)
     var amplitude: float = maxf(impact_shake_strength, sweep_shake_strength)
     var t: float = impact_shake_time
     var nx: float = sin(t * 43.7) * 0.62 + sin(t * 29.3 + 1.7) * 0.38
     var ny: float = sin(t * 37.9 + 0.6) * 0.62 + sin(t * 24.1 + 2.9) * 0.38
     camera.h_offset = nx * amplitude * BITTARAN_SHAKE_HORIZONTAL_WEIGHT
-    camera.v_offset = ny * amplitude * BITTARAN_SHAKE_VERTICAL_WEIGHT
+    camera.v_offset = ny * maxf(
+        amplitude * BITTARAN_SHAKE_VERTICAL_WEIGHT,
+        fall_vertical_shake_strength)
 
 
 func _play_bittaran_thud(point: Vector3, pitch: float,
@@ -749,7 +813,7 @@ func _tick_bittaran_footfalls() -> void:
                     and bittaran_attack_frame.is_empty()):
                 var leg_id: String = BittaranFootIK.LEG_PART_IDS[i]
                 var contact: Vector3 = _bittaran_ground_fx_contact(leg_id)
-                _play_bittaran_thud(contact, 1.3, -13.0)
+                _play_bittaran_sound("footstep")
                 var footfall_factor: float = _footfall_shake_factor(contact)
                 if footfall_factor > 0.0:
                     _add_impact_shake(0.20 * footfall_factor, 10.5)
@@ -954,8 +1018,12 @@ func _tick_bittaran_body_fall_fx() -> void:
         maxf(body.size.x * 0.70, 0.80),
         maxf(body.size.z * 0.70, 0.80))
     bittaran_dirt_fx.call("emit_body_fall", contact, half_extents)
-    _add_impact_shake(0.48, 9.0)
-    _play_bittaran_thud(contact, 0.83, -3.0)
+    # One physical event owns dust, vertical-only camera impulse and SE.
+    # The fall impulse is ~2x the previous collapse's vertical amplitude;
+    # it decays smoothly and has no added lateral camera movement.
+    fall_vertical_shake_strength = maxf(fall_vertical_shake_strength, 2.1)
+    impact_shake_time = 0.0
+    _play_bittaran_sound("collapse")
 
 
 func _bittaran_player_overlap(box: AABB) -> bool:
@@ -1727,6 +1795,7 @@ func _advance_target_motion(delta: float) -> void:
             bittaran_foot_ik.call("attack_stance_is_ready")),
         target.global_position, target.rotation.y)
         if bittaran_attacks != null else {})
+    _tick_bittaran_attack_sfx()
     var attacking: bool = not bittaran_attack_frame.is_empty()
     # On the LAST attack frame the director may already return {}; stage
     # the leg-home/body-rise recovery before permitting any next gait.
@@ -2442,10 +2511,13 @@ func _handle_bittaran_leg_break(hit_id: String, result: Dictionary,
     if bittaran_attacks != null:
         bittaran_attacks.call("cancel")
     bittaran_attack_frame.clear()
+    bittaran_attack_sfx_active = false
     bittaran_attack_body_yaw = 0.0
     if bittaran_foot_ik != null:
         bittaran_foot_ik.call("clear_attack_pose")
     if bittaran_foot_ik != null and target_parts != null:
+        var already_recoiling: bool = bool(
+            bittaran_foot_ik.call("break_reaction_active"))
         boss_head_windup_start_yaw = boss_head_yaw
         head_collision_filtered_depth = 0.0
         head_collision_blocked = false
@@ -2453,6 +2525,9 @@ func _handle_bittaran_leg_break(hit_id: String, result: Dictionary,
         var head_world: Vector3 = target_parts.call("get_part_aim_world", "head")
         bittaran_foot_ik.call("start_leg_break_slide", hit_id, head_world.y,
             int(result.get("broken_legs", 0)) >= 4)
+        if not already_recoiling and bool(
+                bittaran_foot_ik.call("break_reaction_active")):
+            _play_bittaran_sound("punch")
         # On an INTERRUPTED attack retain the player's head tracker.
         # Shift the authored combat BODY and striking limb to the
         # real STOMP raised prepose over the existing separate 0.60s
@@ -2518,6 +2593,15 @@ func _reset_target_after_respawn() -> void:
     if bittaran_head != null:
         bittaran_head.position = boss_head_rest_local_position
     boss_downed_escaping = false
+    bittaran_attack_sfx_active = false
+    fall_vertical_shake_strength = 0.0
+    impact_shake_strength = 0.0
+    sweep_shake_strength = 0.0
+    impact_shake_time = 0.0
+    footfall_prev_stepping = [false, false, false, false]
+    for cue in bittaran_sfx_players:
+        (bittaran_sfx_players[cue] as AudioStreamPlayer).stop()
+        bittaran_sfx_event_counts[cue] = 0
     if boss_death_particles != null:
         boss_death_particles.emitting = false
     if bittaran_ai != null:
