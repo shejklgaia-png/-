@@ -1592,6 +1592,9 @@ func _close_customization_part_picker() -> void:
 
 func _create_single_part_preview() -> void:
     customize_single_part_preview = PartViewer.new()
+    # Preview-only A/B prototype. Do NOT activate in 3D full-body SERA,
+    # LABO, STORAGE, training mode, or Bittaran.
+    customize_single_part_preview.enable_nexus_iris_id_contour = true
     customize_single_part_preview.name = "CustomizeSinglePartPreview"
     customize_single_part_preview.visible = false
     focus_panel.add_child(customize_single_part_preview)
