@@ -45,7 +45,7 @@ func _run() -> void:
         return
     # Creator-requested 4-wide, top-of-portrait compact strip: below the
     # 186-220 boss name and 230-264 victory caption; above combat space.
-    if not is_equal_approx(panel.position.y, 264.0) or (
+    if not is_equal_approx(panel.position.y, 276.0) or (
             panel.size.y > 100.0 or panel.size.y < 80.0) or (
             panel.size.x < 650.0 or panel.position.x < 10.0):
         _fail("debug strip must be wide and near the top HUD")
@@ -57,7 +57,10 @@ func _run() -> void:
                 boss_caption.get_global_rect())) or (
             panel.get_global_rect().intersects(
                 victory.get_global_rect())):
-        _fail("debug strip must not obscure boss title or victory notice")
+        _fail("debug strip must not obscure boss title or victory notice: panel="
+            + str(panel.get_global_rect()) + " boss="
+            + str(boss_caption.get_global_rect()) + " victory="
+            + str(victory.get_global_rect()))
         return
     for i in range(4):
         var id: String = IDS[i]
