@@ -8,16 +8,16 @@ battle = (root / "scripts/bittaran_battle.gd").read_text(encoding="utf-8")
 attacks = (root / "scripts/bittaran_attacks.gd").read_text(encoding="utf-8")
 manifest = (root / "tools/sera_ci_manifest.txt").read_text(encoding="utf-8")
 source = (root / "assets/bittaran_sweep_loop_data.gd").read_text(encoding="utf-8")
-match = re.search(r'const SWEEP_MP3: String = "([A-Za-z0-9+/=]+)"', source)
+match = re.search(r'const SWEEP: String = "([A-Za-z0-9+/=]+)"', source)
 assert match, "real uploaded sweep loop data missing"
 data = base64.b64decode(match.group(1), validate=True)
-assert len(data) > 5000 and (data.startswith(b"ID3") or data[0] == 0xff), (
-    "not a real MP3 recording"
+assert len(data) > 10000 and data.startswith(b"OggS"), (
+    "not a real Ogg Vorbis recording"
 )
 for line in (
     "const BITTARAN_SWEEP_LOOP_FADE_SECONDS: float = 3.0",
     "const BITTARAN_SWEEP_LOOP_VOLUME_DB: float = 2.0",
-    "AudioStreamMP3.load_from_buffer",
+    "AudioStreamOggVorbis.load_from_buffer",
     "stream.loop = true",
     "player.pitch_scale = 1.0",
     "func _tick_bittaran_sweep_loop_audio(delta: float) -> void:",
