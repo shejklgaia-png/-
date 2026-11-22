@@ -1156,6 +1156,8 @@ func _ensure_craft_part_preview() -> void:
     confirmation_preview_host.add_child(confirmation_preview_viewport)
     confirmation_preview_scene = EquipmentPreview.new()
     confirmation_preview_scene.name = "CraftNativePartViewer"
+    # The LABO confirmation viewer shares the single-part outline preference.
+    confirmation_preview_scene.set_meta("sera_graphics_outline_category", "part")
     confirmation_preview_viewport.add_child(confirmation_preview_scene)
 
 func _show_craft_rotatable_part(blueprint: String) -> void:
