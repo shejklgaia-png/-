@@ -1671,6 +1671,8 @@ func _route_fullscreen_preview_input(event: InputEvent) -> bool:
     if event.is_action_pressed("ui_cancel") or (
             event is InputEventKey and event.pressed and not event.echo and
             event.keycode in [KEY_BACK, KEY_ESCAPE]):
+        if bool(customize_single_part_preview.call("dismiss_iris_material_keyboard")):
+            return true
         _set_single_part_preview_fullscreen(false)
         return true
     var part_rect: Rect2 = customize_single_part_preview.get_global_rect()
