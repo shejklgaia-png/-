@@ -683,7 +683,9 @@ gd tools/labo_square_craft_confirmation_runtime_check.gd
 py tools/equipment_intake/intake_self_check.py
 # Intake viewer: full-body A assembly, isolated selected part, and tab boundaries.
 py tools/equipment_intake/preview_tabs_contract_self_check.py
-# Preview backgrounds stay lighter than active 3D ink, shared across 3D and icon views.\npy tools/preview_backdrop_contrast_self_check.py\n# Cross-chat source fidelity, one shared equipment background and stable touch.
+# Preview backgrounds stay lighter than active 3D ink, shared across 3D and icon views.
+py tools/preview_backdrop_contrast_self_check.py
+# Cross-chat source fidelity, one shared equipment background and stable touch.
 py tools/equipment_intake/portable_equipment_self_check.py
 py tools/equipment_intake/arm_clearance_contract_self_check.py
 gd tools/equipment_intake/preview_runtime_check.gd
