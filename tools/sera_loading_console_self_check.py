@@ -6,6 +6,7 @@ root = Path(__file__).resolve().parents[1]
 base = (root / "scripts/base_exploration.gd").read_text("utf-8")
 console = (root / "scripts/sera_loading_console.gd").read_text("utf-8")
 manifest = (root / "tools/sera_ci_manifest.txt").read_text("utf-8")
+pixel_font = (root / "scripts/sera_terminal_pixel_font.gd").read_text("utf-8")
 
 assert 'const LoadingConsole = preload("res://scripts/sera_loading_console.gd")' in base
 assert 'screen.name = "SeraLoadingConsole"' in base
@@ -52,7 +53,22 @@ assert "set_stage(_preview_message(point), point)" in console
 assert "history.push_back(message)" in console
 assert "draw_texture_rect(" in console, "procedural repeating electronic-screen texture"
 assert "draw_line(" in console, "scanlines, frame, progress divisions"
-assert "draw_string(" in console, "terminal log drawn in canvas"
+# Pixel glyphs are generated as a compact atlas, never scaled TTFs.
+assert 'preload("res://scripts/sera_terminal_pixel_font.gd")' in console
+assert 'pixel_font_atlas = TerminalPixelFont.make_atlas()' in console
+assert 'draw_texture_rect_region(pixel_font_atlas' in console
+assert 'roundi(at.x * console_render_scale)' in console
+assert 'roundi(at.y * console_render_scale)' in console
+assert 'func _pixel_cell_pixels(font_size: int) -> int:' in console
+assert 'func _pixel_text_width(message: String, font_size: int) -> float:' in console
+assert '_fit_pixel_text(' in console, "truncate long logs by actual glyph width"
+assert 'pixel_source.set("console_render_scale", console_render_scale)' in console
+assert 'var percent_x: float =' in console
+assert 'Image.create(' in pixel_font
+assert 'ImageTexture.create_from_image(' in pixel_font
+assert 'GLYPH_ROWS' in pixel_font
+assert 'GLYPH_ORDER' in pixel_font
+assert "draw_string(" not in console, "no scaled vector glyphs in the terminal"
 # No animated horizontal line across the screen or progress rail.
 # Fixed scanlines and granular electronic noise remain part of the UI design.
 assert "sweep_phase" not in console, "remove left-to-right scanner motion"
