@@ -266,6 +266,10 @@ func _allocate_ids(count: int) -> int:
     return first_new
 
 
+func _range_less(a: Dictionary, b: Dictionary) -> bool:
+    return int(a["first"]) < int(b["first"])
+
+
 func _release_ids(record: Dictionary) -> void:
     if record.is_empty():
         return
@@ -274,8 +278,7 @@ func _release_ids(record: Dictionary) -> void:
     }
     if int(released["count"]) > 0:
         _free_ranges.append(released)
-    _free_ranges.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-        return int(a["first"]) < int(b["first"]))
+    _free_ranges.sort_custom(_range_less)
     var packed: Array[Dictionary] = []
     for block in _free_ranges:
         if not packed.is_empty() and int(packed.back()["first"]) + (
