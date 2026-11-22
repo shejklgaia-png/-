@@ -5,11 +5,31 @@ shader_type spatial;
 // COLOR.rgb: outward normal A encoded 0..1. COLOR.a: convex/usable flag.
 // CUSTOM0.xyz: outward normal B. CUSTOM0.w: paired-face flag.
 // NORMAL: original edge tangent. UV.x: ribbon side (-1 / +1).
-render_mode unshaded, cull_disabled, depth_draw_never;
+// Render after opaque SERA, then consult its depth buffer explicitly.
+// Ordinary z-testing hides half of a 3px ribbon behind the source polygon,
+// making the FULL BODY contour look much thinner than the 3px part preview.
+// A limited view-space depth allowance keeps independent embedded plates'
+// silhouettes visible without turning the entire character into X-ray ink.
+render_mode unshaded, cull_disabled, depth_test_disabled, depth_draw_never;
 
 uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
 uniform float stroke_px : hint_range(1.0, 3.0) = 3.0;
+uniform float contact_depth_allowance : hint_range(0.0, 0.40) = 0.22;
+uniform sampler2D scene_depth_texture : hint_depth_texture, filter_nearest, repeat_disable;
 varying float edge_visible;
+
+// Decode *both* the scene and ribbon depths with the same renderer's NDC
+// convention. The Compatibility backend uses OpenGL's [-1, 1] depth.
+float view_distance_from_depth(float depth) {
+#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
+    float ndc_depth = depth * 2.0 - 1.0;
+#else
+    float ndc_depth = depth;
+#endif
+    vec4 view_point = INV_PROJECTION_MATRIX * vec4(
+        SCREEN_UV * 2.0 - vec2(1.0), ndc_depth, 1.0);
+    return -view_point.z / max(abs(view_point.w), 0.000001);
+}
 
 void vertex() {
     vec3 eye_point = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -50,6 +70,23 @@ void vertex() {
 void fragment() {
     if (edge_visible < 0.5) {
         discard;
+    }
+    float scene_depth = texture(scene_depth_texture, SCREEN_UV).r;
+    // The clear depth contains no opaque occluder. Geometry offscreen and
+    // camera-facing mesh edges remain eligible; only real opaque foreground
+    // objects can reject an edge.
+#if CURRENT_RENDERER == RENDERER_COMPATIBILITY
+    bool has_opaque_surface = scene_depth < 0.99999;
+#else
+    // Forward+/Mobile use reversed-Z (0 means far-plane clear).
+    bool has_opaque_surface = scene_depth > 0.00001;
+#endif
+    if (has_opaque_surface) {
+        float visible_surface = view_distance_from_depth(scene_depth);
+        float ribbon_surface = view_distance_from_depth(FRAGCOORD.z);
+        if (ribbon_surface > visible_surface + contact_depth_allowance) {
+            discard;
+        }
     }
     ALBEDO = ink_color.rgb;
     ALPHA = ink_color.a;
