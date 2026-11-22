@@ -139,7 +139,8 @@ static func _labo(g: Variant) -> void:
         g.rod("FreshLabStructuralPost",
             Vector3(side * 1.73, 0.60, -1.32),
             Vector3(side * 1.73, 3.49, -1.32), 0.17, "gold")
-        g.box_tilt("FreshLabTensionedAwning", Vector3(side * 0.88, 3.23, -1.08),
+        g.poly_tilt("FreshLabTensionedAwning", "canvas",
+            Vector3(side * 0.88, 3.23, -1.08),
             Vector3(1.68, 0.10, 1.56), "cloth",
             Vector3(-0.21, 0, side * -0.21))
         g.rod("FreshLabOpenPrinterBridge",
