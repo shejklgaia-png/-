@@ -1010,9 +1010,11 @@ func _make_mesh(element: Dictionary) -> MeshInstance3D:
     material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
     material.metallic = 0.0
     material.roughness = 1.0
-    # Open/ambiguous geometry (e.g. IRIS side plates) must remain visible
-    # from both sides; all verified closed shells are back-face culled.
-    material.cull_mode = (BaseMaterial3D.CULL_BACK if safe_closed else
+    # Open/ambiguous geometry stays two-sided. Canonical positive-volume
+    # Blockbench faces are outward by their mathematical normal but have the
+    # opposite winding from Godot's clockwise SurfaceTool front-face rule.
+    # CULL_FRONT hides the actual inward faces, preserving outer armor colors.
+    material.cull_mode = (BaseMaterial3D.CULL_FRONT if safe_closed else
         BaseMaterial3D.CULL_DISABLED)
     result.set_meta("sera_single_sided", safe_closed)
     result.material_override = material
