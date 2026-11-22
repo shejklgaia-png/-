@@ -29,6 +29,14 @@ assert "history.push_back(message)" in console
 assert "draw_texture_rect(" in console, "procedural repeating electronic-screen texture"
 assert "draw_line(" in console, "scanlines, frame, progress divisions"
 assert "draw_string(" in console, "terminal log drawn in canvas"
+# No animated horizontal line across the screen or progress rail.
+# Fixed scanlines and granular electronic noise remain part of the UI design.
+assert "sweep_phase" not in console, "remove left-to-right scanner motion"
+assert "head_x" not in console, "remove the progress-rail sweep stroke"
+assert "scan_y" not in console, "remove the traveling full-width horizontal noise band"
+assert "for y in range(0, int(h), 7):" in console, "retain static scanlines"
+assert "noise_phase += 1" in console, "retain flickering electronic noise"
+assert "for step in range(PREVIEW_STEPS):" in console, "retain real progress rail"
 assert '"#55798a"' in console.lower(), "shared UI blueprint color"
 assert "py tools/sera_loading_console_self_check.py" in manifest
 assert "gd tools/sera_loading_console_runtime_check.gd" in manifest
