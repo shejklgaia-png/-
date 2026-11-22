@@ -70,8 +70,9 @@ func _run() -> void:
         _fail("need two separately positioned chimney plumes")
         return
     for plume in smoke.get_children():
-        if not plume is CPUParticles3D or not plume.emitting or (
-                plume.amount < 10) or plume.mesh == null:
+        var smoke_particle: CPUParticles3D = plume as CPUParticles3D
+        if smoke_particle == null or not smoke_particle.emitting or (
+                smoke_particle.amount < 10) or smoke_particle.mesh == null:
             _fail("live smoke is not emitting translucent particles")
             return
     var bounce: MeshInstance3D = vfx.get_node_or_null(
