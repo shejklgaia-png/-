@@ -8,6 +8,7 @@ const BaseFacilities = preload("res://scripts/base_facility_system.gd")
 const PowerBoard = preload("res://scripts/sera_base_power_board.gd")
 const GridUi = preload("res://scripts/sera_base_grid_ui.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
+const SeraBaseFacilityOutlines = preload("res://scripts/sera_base_facility_outlines.gd")
 const BaseClutter = preload("res://scripts/sera_base_clutter.gd")
 const BaseLayoutPreview = preload("res://scripts/sera_base_layout_preview.gd")
 const JunkGeometry = preload("res://scripts/sera_base_junk_geometry.gd")
@@ -602,6 +603,10 @@ func _create_hud() -> void:
     hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
     layer.add_child(hud)
     hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    var facility_outlines := SeraBaseFacilityOutlines.new()
+    hud.add_child(facility_outlines)
+    facility_outlines.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    facility_outlines.bind(self, cam)
     # PRESET_FULL_RECT follows viewport size; manual size conflicts with anchors.
     hud_title = _label(hud, "BASE / 拠点", 25)
     hint = _label(hud, "建物をタップして施設を開く", 19)

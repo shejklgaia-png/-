@@ -1,3 +1,6 @@
+# BASE VFX and pixel-accurate solid-only outlines: smoke, portal, furnace.
+py tools/base_facility_fx_outline_self_check.py
+gd tools/base_facility_fx_outline_runtime_check.gd
 # Cyber terminal loading console: real completed-work milestones and 5s/100-step preview.
 py tools/sera_loading_console_self_check.py
 gd tools/sera_loading_console_runtime_check.gd
