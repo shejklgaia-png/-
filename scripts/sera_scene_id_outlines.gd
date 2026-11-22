@@ -148,6 +148,10 @@ func _exit_tree() -> void:
 # Transparent-3D ink precedes smoke/glow/slash effects in render_priority,
 # whereas the old CanvasLayer ink always painted OVER those effects.
 func set_shared_scene_mode(enabled: bool) -> void:
+    # NEXUS full-body specifically requires the pre-existing RGB contact
+    # Canvas shader; do not overwrite it when another root registers.
+    if enabled and _nexus_sera_contact_mode:
+        return
     if _shared_scene_mode == enabled:
         return
     _shared_scene_mode = enabled
@@ -223,10 +227,10 @@ func set_stroke_px(px: float) -> void:
 # Change this compositor only in the NEXUS viewport. The single ID target
 # keeps its depth buffer; the canvas ink owns the outer silhouette and contacts.
 func set_nexus_sera_contact_mode(enabled: bool) -> void:
-    if enabled:
-        # Retain the NEXUS registration API, but use the shared VFX-safe pass.
-        set_shared_scene_mode(true)
-        return
+    if enabled and _shared_scene_mode:
+        # Restore the working NEXUS 4px silhouette + 3px contact ink.
+        # Both the full-screen 3D quad and its ID encoding are disabled.
+        set_shared_scene_mode(false)
     if _nexus_sera_contact_mode == enabled:
         return
     _nexus_sera_contact_mode = enabled
