@@ -301,6 +301,15 @@ func _contact_ribbon_mesh(segments: PackedVector3Array) -> ArrayMesh:
     mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
     return mesh
 
+func _relative_pose_signature(pose: Transform3D) -> String:
+    # Quantization cancels float roundoff from rotating the complete rig:
+    # never mistake a camera/player drag for a changed joint assembly.
+    var components: Array[String] = []
+    for value in [pose.basis.x, pose.basis.y, pose.basis.z, pose.origin]:
+        components.append("%d,%d,%d" % [roundi(value.x * 1000.0),
+            roundi(value.y * 1000.0), roundi(value.z * 1000.0)])
+    return ";".join(components)
+
 func _refresh_contact_lines(found: Dictionary) -> void:
     # Contact extraction only runs when the *relative assembly* changes.
     # Dragging/rotating the complete preview does NOT rebuild any contacts.
@@ -310,7 +319,8 @@ func _refresh_contact_lines(found: Dictionary) -> void:
         var source: MeshInstance3D = found[key] as MeshInstance3D
         var relative: Transform3D = relative_root * source.global_transform
         tokens.append("%d:%d:%s:%s" % [
-            key, source.mesh.get_instance_id(), str(relative),
+            key, source.mesh.get_instance_id(),
+            _relative_pose_signature(relative),
             str(source.is_visible_in_tree())])
     tokens.sort()
     var signature: String = "|".join(tokens)
