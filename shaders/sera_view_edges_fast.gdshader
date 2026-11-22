@@ -14,13 +14,15 @@ uniform float stroke_px : hint_range(0.5, 6.0) = 3.0;
  // Scale the 3D inverted-hull contour by the shorter rendering viewport
  // dimension, keeping the same fraction of the screen across full-size
  // 720x1280 and square single-part views. Never shrink small previews.
- float effective_stroke_px() {
-     float short_side_px = min(VIEWPORT_SIZE.x, VIEWPORT_SIZE.y);
-     return stroke_px * max(1.0, short_side_px / 384.0);
- }
+float effective_stroke_px(vec2 viewport_size, float base_stroke_px) {
+    // Built-ins such as VIEWPORT_SIZE are scoped to vertex()/fragment().
+    // Custom functions only receive their values as explicit arguments.
+    float short_side_px = min(viewport_size.x, viewport_size.y);
+    return base_stroke_px * max(1.0, short_side_px / 384.0);
+}
 
 void vertex() {
-    float scaled_stroke_px = effective_stroke_px();
+    float scaled_stroke_px = effective_stroke_px(VIEWPORT_SIZE, stroke_px);
     vec3 view_position = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
     vec3 view_normal = normalize(
         transpose(inverse(mat3(MODELVIEW_MATRIX))) * NORMAL);
