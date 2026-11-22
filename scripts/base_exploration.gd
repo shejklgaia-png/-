@@ -154,6 +154,11 @@ func _ready() -> void:
     # One material pass across constructed BASE solids: buildings, crate,
     # clutter and batch geometry. Existing 4px/2px facility ink is untouched.
     SharedMaterialShading.apply_to_subtree(self)
+    # Group the NEXUS building, outdoor facilities and moving CRATE in
+    # one visible-ID depth pass. Do not outline transparent VFX or floor grid.
+    var id_outline := SeraViewEdges.new()
+    id_outline.name = "ViewEdges"
+    add_child(id_outline)
     _startup_step("CRATE / SIGNAL CONFIRMED", 92)
     _create_hud()
     _startup_step("OS / INTERFACE ONLINE", 99)

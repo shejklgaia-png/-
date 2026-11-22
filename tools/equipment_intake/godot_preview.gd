@@ -355,10 +355,10 @@ func _apply_command(data: Dictionary) -> void:
             clampf(float(view.get("panY",camera_pan.y)),-0.7,0.7))
         var ink: Node3D = rig.get_node_or_null("ViewEdges")
         if ink != null:
-            var mat: Variant = ink.get("_ink_material")
-            if mat is ShaderMaterial:
-                mat.set_shader_parameter("stroke_px",
-                    clampf(float(view.get("outlinePx",3.0)),0.0,6.0))
+            # The old inverted-hull materials have been replaced by the
+            # shared visible-ID renderer. Match the IRIS 3px range.
+            ink.call("set_stroke_px",
+                clampf(float(view.get("outlinePx", 3.0)), 1.0, 3.0))
     _apply_equipment()
     var seq: int = int(data.get("seq",-1))
     _last_request_seq=seq

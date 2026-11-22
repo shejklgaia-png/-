@@ -3,6 +3,7 @@ extends Node3D
 # Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
+const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
 const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const TrainingDefaults = preload("res://scripts/training_defaults.gd")
@@ -264,6 +265,11 @@ func _ready() -> void:
     SharedMaterialShading.apply_to_subtree(self)
     _sera_display()
     _camera()
+    # Scene-wide IRIS-style ID pass: architecture and display SERA share
+    # ONE viewport compositor instead of duplicate inverted-hull passes.
+    var id_outline := SeraViewEdges.new()
+    id_outline.name = "ViewEdges"
+    add_child(id_outline)
     _create_customization_glow()
     _wall_mark()
     _hud()
@@ -446,9 +452,9 @@ func _render_batches() -> void:
         draw.name = "BlockbenchBatch_%02d" % index
         draw.multimesh = multi
         var material: StandardMaterial3D = _mat(index)
-        # The cyan, amber and blue emissive accents remain untouched.
-        if index not in [5, 6, 7]:
-            material.next_pass = _nexus_edge_material()
+        # Scene-wide visible-mesh-ID contours now own ALL opaque module
+        # boundaries. Do not draw the old polygon-edge next_pass on top.
+        # Cyan/amber/blue emissive accents remain untouched.
         draw.material_override = material
         draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         add_child(draw)
@@ -464,7 +470,7 @@ func _pad_center() -> void:
     surface.mesh = cylinder
     surface.position = Vector3(0.0, 0.33, -4.75)
     var pad_material: StandardMaterial3D = _mat(2)
-    pad_material.next_pass = _nexus_edge_material(1)
+    # The shared ID pass draws the pad silhouette without a second edge pass.
     surface.material_override = pad_material
     add_child(surface)
 

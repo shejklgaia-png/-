@@ -1,225 +1,66 @@
 extends Node3D
-## Lightweight per-MeshInstance visible-silhouette ink (inverted hull).
-## The original triangles and averaged outward normals are cached per Mesh.
-## GPU expansion is a constant screen-space 3px; no interior polygon edges.
-const SCAN_INTERVAL: float = 0.75
-const MAX_TRIANGLES_PER_MESH: int = 30000
-const INK_SHADER = preload("res://shaders/sera_view_edges.gdshader")
-const FAST_INK_SHADER = preload("res://shaders/sera_view_edges_fast.gdshader")
-const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
-const INK_NAME: String = "SeraEdgeInk"
+## SERA's common visible-mesh-ID outline registration.
+## The old inverted hull is intentionally no longer instantiated. All active
+## actors and world roots sharing one Viewport use one ID depth pass, as IRIS.
+const SceneIDOutlines = preload("res://scripts/sera_scene_id_outlines.gd")
+const LAYER_NAME: String = "SeraIDOutlineLayer"
+const COMPOSITOR_NAME: String = "SeraIDOutlineControl"
 
-var _scan_remaining: float = 0.0
-var _mesh_cache: Dictionary = {}
-var _ink_material: ShaderMaterial
-var _fast_ink_material: ShaderMaterial
+var _contour_enabled: bool = true
+var _stroke_px: float = 3.0
+var _compositor: Control
+
 
 func _ready() -> void:
-    _ink_material = ShaderMaterial.new()
-    _ink_material.shader = INK_SHADER
-    # Inverted rear hull runs after opaque armor; depth testing stays enabled.
-    _ink_material.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
-    _ink_material.set_shader_parameter("ink_color", Color("#17212f"))
-    _ink_material.set_shader_parameter("stroke_px", 3.0)
-    _fast_ink_material = ShaderMaterial.new()
-    _fast_ink_material.shader = FAST_INK_SHADER
-    _fast_ink_material.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
-    _fast_ink_material.set_shader_parameter("ink_color", Color("#17212f"))
-    _fast_ink_material.set_shader_parameter("stroke_px", 3.0)
-    _sync_meshes()
-    set_process(true)
+    # SeraRig may still be under construction when ViewEdges enters the tree.
+    # Add the viewport-owned CanvasLayer after the parent hierarchy settles.
+    _register.call_deferred()
 
-func _process(delta: float) -> void:
-    # Equipment may install/swap MeshInstances after the actor's _ready.
-    # No per-frame CPU mesh projection, edge extraction or silhouette rebuild,
-    # or material mutation occurs between these infrequent topology scans.
-    _scan_remaining -= delta
-    if _scan_remaining <= 0.0:
-        _scan_remaining = SCAN_INTERVAL
-        _sync_meshes()
 
-func _sync_meshes() -> void:
-    var actor: Node = get_parent()
-    if actor == null:
+func _exit_tree() -> void:
+    if is_instance_valid(_compositor):
+        _compositor.call("unregister_root", self)
+    _compositor = null
+
+
+func _register() -> void:
+    if not _contour_enabled or not is_inside_tree():
         return
-    # The training target controller is parented directly to its core mesh.
-    if actor is MeshInstance3D:
-        _attach(actor as MeshInstance3D)
-    var pending: Array[Node] = [actor]
-    while not pending.is_empty():
-        var node: Node = pending.pop_back()
-        for child in node.get_children():
-            if child == self or child.name == INK_NAME:
-                continue
-            if child is MeshInstance3D:
-                _attach(child as MeshInstance3D)
-            pending.append(child)
-
-func _attach(source: MeshInstance3D) -> void:
-    if source.mesh == null or not _is_eligible(source):
-        # Effects can be created, retagged or assigned a transparent FX
-        # material after the previous 0.75-second topology scan.
-        _remove_overlay(source)
+    var actor: Node3D = get_parent() as Node3D
+    if not is_instance_valid(actor):
         return
-    var old: MeshInstance3D = source.get_node_or_null(INK_NAME) as MeshInstance3D
-    var mesh_id: int = source.mesh.get_instance_id()
-    # Authored closed parts are guaranteed back-face culled. Open meshes
-    # retain the depth-sampled shader to avoid black internal polygons.
-    var use_fast: bool = bool(source.get_meta("sera_single_sided", false))
-    if old != null and int(old.get_meta("edge_source_mesh_id", -1)) == mesh_id and (
-            bool(old.get_meta("edge_fast_path", false)) == use_fast):
+    var viewport: Viewport = get_viewport()
+    if not is_instance_valid(viewport):
         return
-    if old != null:
-        source.remove_child(old)
-        old.queue_free()
-    var ink: ArrayMesh = _mesh_cache.get(mesh_id)
-    if not _mesh_cache.has(mesh_id):
-        ink = _build_overlay(source.mesh)
-        _mesh_cache[mesh_id] = ink
-    if ink == null:
+    var layer: CanvasLayer = viewport.get_node_or_null(LAYER_NAME) as CanvasLayer
+    if layer == null:
+        layer = CanvasLayer.new()
+        layer.name = LAYER_NAME
+        # World mesh ink above 3D, beneath existing HUD CanvasLayer(1+).
+        layer.layer = 0
+        viewport.add_child(layer)
+    _compositor = layer.get_node_or_null(COMPOSITOR_NAME) as Control
+    if _compositor == null:
+        _compositor = SceneIDOutlines.new()
+        _compositor.name = COMPOSITOR_NAME
+        layer.add_child(_compositor)
+    _compositor.call("register_root", actor, self)
+    _compositor.call("set_stroke_px", _stroke_px)
+
+
+func set_contour_enabled(enabled: bool) -> void:
+    if _contour_enabled == enabled:
         return
-    var instance := MeshInstance3D.new()
-    instance.name = INK_NAME
-    instance.mesh = ink
-    instance.material_override = _fast_ink_material if use_fast else _ink_material
-    instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-    instance.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
-    instance.extra_cull_margin = 0.10
-    instance.set_meta("edge_source_mesh_id", mesh_id)
-    instance.set_meta("edge_fast_path", use_fast)
-    source.add_child(instance)
-    # Inherits animation, joint transforms, equipment swaps, and visibility.
-    # Face interiors are occluded by their own opaque source geometry.
-
-func _remove_overlay(source: MeshInstance3D) -> void:
-    var old: MeshInstance3D = source.get_node_or_null(INK_NAME) as MeshInstance3D
-    if old != null:
-        source.remove_child(old)
-        old.queue_free()
+    _contour_enabled = enabled
+    if not enabled:
+        if is_instance_valid(_compositor):
+            _compositor.call("unregister_root", self)
+        _compositor = null
+    else:
+        _register()
 
 
-static func _is_fx_node(node: Node) -> bool:
-    # Explicitly mark effect subtrees, even when the individual mesh has
-    # an opaque material and an arbitrary name such as "Arc" or "Cube".
-    if bool(node.get_meta("sera_no_view_edges", false)) or (
-            node.is_in_group("sera_no_view_edges")):
-        return true
-    var label: String = str(node.name).to_lower()
-    for forbidden in ["swordeffect", "afterimage", "ghost", "trail",
-            "particle", "flame", "shockwave", "glow", "flash", "beam",
-            "slash", "effect", "exhaust", "spark", "smoke", "radiance",
-            "projectile", "debris", "blast"]:
-        if label.contains(forbidden):
-            return true
-    return label.begins_with("fx_") or label.ends_with("_fx") or (
-        label.contains("_vfx"))
-
-
-static func _is_transient_material(material: Material) -> bool:
-    if material == null:
-        return false
-    if material is BaseMaterial3D:
-        var solid_or_fx: BaseMaterial3D = material
-        return solid_or_fx.transparency != BaseMaterial3D.TRANSPARENCY_DISABLED or (
-            solid_or_fx.no_depth_test) or (
-            solid_or_fx.blend_mode == BaseMaterial3D.BLEND_MODE_ADD)
-    if material is ShaderMaterial:
-        var shaded: ShaderMaterial = material
-        if shaded.shader != null:
-            # Character armor can have its own opaque ShaderMaterial; do not
-            # reject shaders indiscriminately. Only transparent FX passes.
-            var code: String = shaded.shader.code
-            return code.contains("ALPHA") or code.contains("blend_add") or (
-                code.contains("depth_test_disabled"))
-    return false
-
-
-static func _is_eligible(source: MeshInstance3D) -> bool:
-    if source.mesh == null or source.mesh is QuadMesh or source.mesh is PlaneMesh:
-        return false
-    # A sword slash has a Slash-named parent but a neutral child mesh name
-    # (AlphaClippedMainArc / ConvexTwoSided3DArc). Check ALL ancestors.
-    var ancestor: Node = source
-    while ancestor != null:
-        if _is_fx_node(ancestor):
-            return false
-        ancestor = ancestor.get_parent()
-    # Transparent/alpha-blended shader geometry must not be treated as
-    # opaque character armor even when the FX node names are generic.
-    if _is_transient_material(source.material_override):
-        return false
-    for surface in range(source.mesh.get_surface_count()):
-        if _is_transient_material(source.get_active_material(surface)):
-            return false
-    return true
-
-static func _position_key(p: Vector3) -> String:
-    # Blockbench triangulates UV seams with separate, coincident vertices.
-    return "%d:%d:%d" % [roundi(p.x * 10000.0),
-        roundi(p.y * 10000.0), roundi(p.z * 10000.0)]
-
-static func _build_overlay(mesh: Mesh) -> ArrayMesh:
-    # The previous edge ribbons selected front/back polygon transitions even
-    # inside steeply angled visible surfaces. Draw no edge primitives at all.
-    # Instead, the shader draws the enlarged BACK faces of each source mesh.
-    # Opaque front faces cover their interior; only the visible mesh contour
-    # can survive the depth test. Independent MeshInstances retain their seams.
-    var triangle_vertices := PackedVector3Array()
-    var triangle_normals := PackedVector3Array()
-    var normal_sum: Dictionary = {}
-    var triangle_count: int = 0
-    for surface in range(mesh.get_surface_count()):
-        if mesh is ArrayMesh and (
-                (mesh as ArrayMesh).surface_get_primitive_type(surface) != Mesh.PRIMITIVE_TRIANGLES):
-            continue
-        var arrays: Array = mesh.surface_get_arrays(surface)
-        var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-        if vertices.is_empty():
-            continue
-        var indices := PackedInt32Array()
-        if arrays[Mesh.ARRAY_INDEX] is PackedInt32Array:
-            indices = arrays[Mesh.ARRAY_INDEX]
-        var indexed: bool = not indices.is_empty()
-        var count: int = indices.size() if indexed else vertices.size()
-        for first in range(0, count - 2, 3):
-            var i0: int = indices[first] if indexed else first
-            var i1: int = indices[first + 1] if indexed else first + 1
-            var i2: int = indices[first + 2] if indexed else first + 2
-            if mini(i0, mini(i1, i2)) < 0 or maxi(i0, maxi(i1, i2)) >= vertices.size():
-                continue
-            var a: Vector3 = vertices[i0]
-            var b: Vector3 = vertices[i1]
-            var c: Vector3 = vertices[i2]
-            var face_normal: Vector3 = (b - a).cross(c - a)
-            if face_normal.length_squared() < 0.000000001:
-                continue
-            # Do not return a partly inked mesh (a broken silhouette).
-            if triangle_count >= MAX_TRIANGLES_PER_MESH:
-                return null
-            triangle_count += 1
-            var unit_normal: Vector3 = face_normal.normalized()
-            for p in [a, b, c]:
-                triangle_vertices.append(p)
-                triangle_normals.append(unit_normal)
-                var key: String = _position_key(p)
-                normal_sum[key] = normal_sum.get(key, Vector3.ZERO) + face_normal
-
-    if triangle_count == 0:
-        return null
-    # Weld only the normals at coincident positions; do not change the source
-    # geometry, UVs, hard/flat shading or actual opaque material.
-    # Area weighting prevents triangulation diagonals becoming false ridges.
-    var vertex_normals := PackedVector3Array()
-    for i in range(triangle_vertices.size()):
-        var key: String = _position_key(triangle_vertices[i])
-        var smooth: Vector3 = normal_sum.get(key, triangle_normals[i])
-        if smooth.length_squared() < 0.000000001:
-            smooth = triangle_normals[i]
-        vertex_normals.append(smooth.normalized())
-    var surface_arrays: Array = []
-    surface_arrays.resize(Mesh.ARRAY_MAX)
-    surface_arrays[Mesh.ARRAY_VERTEX] = triangle_vertices
-    surface_arrays[Mesh.ARRAY_NORMAL] = vertex_normals
-    var inverted_hull := ArrayMesh.new()
-    inverted_hull.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, surface_arrays)
-    return inverted_hull
+func set_stroke_px(width: float) -> void:
+    _stroke_px = clampf(width, 1.0, 3.0)
+    if is_instance_valid(_compositor):
+        _compositor.call("set_stroke_px", _stroke_px)
