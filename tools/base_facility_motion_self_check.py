@@ -23,7 +23,8 @@ for key in ("NEXUS", "LABO", "SCRAP_COLLECTOR", "SMELTER", "RECYCLER",
 assert 'const BaseFacilityMotion = preload("res://scripts/sera_base_facility_motion.gd")' in arch
 assert "g.motion_names" in arch
 assert "motion_indices" in arch
-assert "BaseFacilityMotion.attach(node, \"NEXUS\")" in arch
+assert 'fresh_motion.bind_to(node, "NEXUS")' in arch
+assert 'archived_motion.bind_to(node, "NEXUS")' in arch
 assert "device_motion.bind_to(node, key)" in arch
 assert "BaseFacilityMotion.new()" in arch
 assert 'const ARCHIVED_NEXUS_MODEL: bool = true' in arch
