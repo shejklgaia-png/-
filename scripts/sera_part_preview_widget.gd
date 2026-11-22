@@ -59,6 +59,89 @@ func _ready() -> void:
     # With SubViewportContainer.stretch=true, Godot controls its size.
     # Do not fight it by assigning SubViewport.size after parenting.
 
+func _create_iris_controls() -> void:
+    _shade_column = VBoxContainer.new()
+    _shade_column.name = "IrisShadeModeColumn"
+    _shade_column.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _shade_column.add_theme_constant_override("separation", 3)
+    _shade_column.visible = false
+    add_child(_shade_column)
+    for mode in SHADING_MODES:
+        var button := Button.new()
+        button.name = "IrisShade_%d" % mode
+        button.text = "OFF" if mode == 0 else "%d段" % mode
+        button.custom_minimum_size = Vector2(52, 42)
+        button.focus_mode = Control.FOCUS_NONE
+        button.add_theme_font_size_override("font_size", 15)
+        button.pressed.connect(set_shading_mode.bind(mode))
+        _shade_column.add_child(button)
+        _shade_buttons[mode] = button
+    _fullscreen_close = Button.new()
+    _fullscreen_close.name = "IrisFullscreenClose"
+    _fullscreen_close.text = "縮小"
+    _fullscreen_close.focus_mode = Control.FOCUS_NONE
+    _fullscreen_close.custom_minimum_size = Vector2(76, 48)
+    _fullscreen_close.pressed.connect(_request_close_fullscreen)
+    _fullscreen_close.visible = false
+    add_child(_fullscreen_close)
+    _style_shading_buttons()
+    _layout_iris_controls()
+
+
+func _layout_iris_controls() -> void:
+    if _shade_column == null:
+        return
+    _shade_column.position = Vector2(maxf(4.0, size.x - 62.0), 10.0)
+    _shade_column.size = Vector2(52.0, 177.0)
+    if _fullscreen_close != null:
+        _fullscreen_close.position = Vector2(12.0, 12.0)
+        _fullscreen_close.size = Vector2(76.0, 48.0)
+
+
+func _style_shading_buttons() -> void:
+    for mode in SHADING_MODES:
+        var button: Button = _shade_buttons.get(mode) as Button
+        if not is_instance_valid(button):
+            continue
+        var active: bool = shade_levels == mode
+        var box := StyleBoxFlat.new()
+        box.bg_color = Color("#325f72") if active else Color("#17303d")
+        box.border_color = Color("#a7e9f6") if active else Color("#5c8190")
+        box.set_border_width_all(2 if active else 1)
+        box.set_corner_radius_all(3)
+        button.add_theme_stylebox_override("normal", box)
+        button.add_theme_stylebox_override("hover", box)
+        button.add_theme_stylebox_override("pressed", box)
+        button.add_theme_color_override("font_color", Color("#e7f6fa"))
+
+
+func _is_iris_preview() -> bool:
+    return enable_nexus_iris_id_contour and current_blueprint == "H02"
+
+
+func set_fullscreen_state(enabled: bool) -> void:
+    fullscreen = enabled
+    _last_tap_time = 0
+    _touch_starts.clear()
+    _ui_mode_touches.clear()
+    if is_instance_valid(_fullscreen_close):
+        _fullscreen_close.visible = enabled
+    _layout_iris_controls()
+
+
+func _request_close_fullscreen() -> void:
+    if fullscreen:
+        preview_fullscreen_requested.emit(false)
+
+
+func set_shading_mode(levels: int) -> void:
+    if not SHADING_MODES.has(levels):
+        return
+    shade_levels = levels
+    _style_shading_buttons()
+    _apply_iris_shading()
+
+
 func _make_viewport() -> void:
     if render_viewport != null:
         return
