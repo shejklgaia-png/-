@@ -3,11 +3,14 @@ extends Control
 ## Live mode is driven only by completed boot tasks.  The 5s simulation is
 ## explicitly opt-in from BASE; it never replaces a real loading metric.
 signal preview_finished
+signal completion_cut_finished
 
 const TerminalPixelFont = preload("res://scripts/sera_terminal_pixel_font.gd")
 
 const PREVIEW_SECONDS: float = 5.0
 const PREVIEW_STEPS: int = 100
+const COMPLETE_CUT_FRAMES: int = 2
+const LOADING_FPS: int = 10
 const MAX_HISTORY: int = 120
 # Loading terminal only: live loading remains at 50%; BASE previews may use
 # two lower internal raster resolutions without changing gameplay or UI sizes.
@@ -41,7 +44,10 @@ var percent: int = 0
 var history: Array[String] = []
 var preview_elapsed: float = 0.0
 var preview_running: bool = false
-var preview_hold: float = -1.0
+var completion_cut_active: bool = false
+var completion_frames_remaining: int = 0
+var _previous_max_fps: int = 0
+var _fps_limit_active: bool = false
 var noise_elapsed: float = 0.0
 var noise_phase: int = 0
 var anim_time: float = 0.0
@@ -66,12 +72,25 @@ func _ready() -> void:
         _create_electronic_texture()
         resized.connect(queue_redraw)
     else:
+        # Only the presenter owns the temporary global FPS cap. The inner
+        # low-resolution canvas must not start a second FPS limiter.
+        _previous_max_fps = Engine.max_fps
+        Engine.max_fps = LOADING_FPS
+        _fps_limit_active = true
         _setup_pixel_renderer()
         resized.connect(_resize_pixel_renderer)
     if history.is_empty():
         set_stage("BOOT / SYSTEM LINK OPEN", 0)
     # The offscreen CanvasItem never runs another timer or preview.
     set_process(not pixel_source_mode)
+
+func _exit_tree() -> void:
+    # Do not leave a callback to a freed loading screen on RenderingServer.
+    if RenderingServer.frame_post_draw.is_connected(_on_completion_frame_presented):
+        RenderingServer.frame_post_draw.disconnect(_on_completion_frame_presented)
+    if _fps_limit_active:
+        Engine.max_fps = _previous_max_fps
+        _fps_limit_active = false
 
 func set_render_scale(scale_value: float) -> void:
     # Preview-only quality selection. Real loading keeps CONSOLE_RENDER_SCALE.
@@ -134,6 +153,7 @@ func _queue_console_redraw() -> void:
     pixel_source.set("history", history.duplicate())
     pixel_source.set("noise_phase", noise_phase)
     pixel_source.set("anim_time", anim_time)
+    pixel_source.set("completion_cut_active", completion_cut_active)
     pixel_source.set("screen_font", screen_font)
     pixel_source.queue_redraw()
 
@@ -152,13 +172,38 @@ func set_stage(message: String, completed_percent: int) -> void:
     history.push_back(message)
     while history.size() > MAX_HISTORY:
         history.pop_front()
+    if percent == 100 and not completion_cut_active and not pixel_source_mode:
+        _begin_completion_cut()
     _queue_console_redraw()
+
+func _begin_completion_cut() -> void:
+    completion_cut_active = true
+    completion_frames_remaining = COMPLETE_CUT_FRAMES
+    # Count only actually presented frames, never pre-render process_frame ticks.
+    if not RenderingServer.frame_post_draw.is_connected(_on_completion_frame_presented):
+        RenderingServer.frame_post_draw.connect(_on_completion_frame_presented)
+
+func _on_completion_frame_presented() -> void:
+    if completion_frames_remaining <= 0:
+        return
+    completion_frames_remaining -= 1
+    if completion_frames_remaining > 0:
+        return
+    if RenderingServer.frame_post_draw.is_connected(_on_completion_frame_presented):
+        RenderingServer.frame_post_draw.disconnect(_on_completion_frame_presented)
+    completion_cut_finished.emit()
+    if not preview_running and preview_elapsed >= PREVIEW_SECONDS:
+        preview_finished.emit()
+        set_process(false)
 
 func start_preview() -> void:
     # Preview progress is fake by design; the live path never calls this.
+    if RenderingServer.frame_post_draw.is_connected(_on_completion_frame_presented):
+        RenderingServer.frame_post_draw.disconnect(_on_completion_frame_presented)
     preview_elapsed = 0.0
     preview_running = true
-    preview_hold = -1.0
+    completion_cut_active = false
+    completion_frames_remaining = 0
     percent = 0
     history.clear()
     set_stage(_preview_message(0), 0)
@@ -177,8 +222,8 @@ func _process(delta: float) -> void:
     # Cosmetic animation may run independently, but never advances progress.
     anim_time += dt
     visual_elapsed += dt
-    if visual_elapsed >= 1.0 / 30.0:
-        visual_elapsed = fposmod(visual_elapsed, 1.0 / 30.0)
+    if visual_elapsed >= 1.0 / float(LOADING_FPS):
+        visual_elapsed = fposmod(visual_elapsed, 1.0 / float(LOADING_FPS))
         _queue_console_redraw()
     noise_elapsed += dt
     if noise_elapsed >= 0.055:
@@ -194,13 +239,8 @@ func _process(delta: float) -> void:
             set_stage(_preview_message(point), point)
         if target == PREVIEW_STEPS:
             preview_running = false
-            preview_hold = 0.15  # Briefly show 100% before returning to BASE.
-    elif preview_hold >= 0.0:
-        preview_hold -= dt
-        if preview_hold < 0.0:
-            preview_hold = -1.0
-            preview_finished.emit()
-            set_process(false)
+            # The shared completion-cut callback closes the preview after
+            # exactly two rendered frames, independent of frame time.
 
 func _create_electronic_texture() -> void:
     # Small, deterministic, CPU-generated screen texture.  Never import an
@@ -307,25 +347,34 @@ func _draw_system_visual(w: float, h: float) -> void:
     _draw_diagnostics(w, bounds)
 
 func _draw_core_visual(center: Vector2, radius: float) -> void:
-    var pulse: float = 1.0 + 0.055 * sin(anim_time * 2.6)
+    var pulse: float = 1.16 if completion_cut_active else 1.0 + 0.055 * sin(anim_time * 2.6)
     var core_r: float = radius * 0.225 * pulse
     for layer in range(5, 0, -1):
+        var halo_alpha: float = (0.06 + float(6 - layer) * 0.025
+            if completion_cut_active else 0.018 + float(6 - layer) * 0.015)
         draw_circle(center, core_r + float(layer) * 8.0,
-            Color("#41bbff", 0.018 + float(6 - layer) * 0.015))
+            Color("#41bbff", halo_alpha))
     var hexagon := PackedVector2Array()
     for point in range(7):
         var angle: float = TAU * float(point) / 6.0 - PI / 6.0
         hexagon.append(center + Vector2(cos(angle), sin(angle)) * core_r * 1.47)
-    draw_polyline(hexagon, Color("#9aebff", 0.73), 1.6, true)
-    draw_circle(center, core_r, Color("#85defa", 0.42))
-    draw_circle(center, core_r * 0.72, Color("#d5f9ff", 0.91))
-    draw_circle(center, core_r * 0.40, Color("#ffffff", 0.98))
+    draw_polyline(hexagon,
+        Color("#e0faff", 1.0) if completion_cut_active else Color("#9aebff", 0.73),
+        2.4 if completion_cut_active else 1.6, true)
+    draw_circle(center, core_r,
+        Color("#9deaff", 0.80) if completion_cut_active else Color("#85defa", 0.42))
+    draw_circle(center, core_r * 0.72, Color("#d5f9ff", 1.0 if completion_cut_active else 0.91))
+    draw_circle(center, core_r * 0.40, Color("#ffffff", 1.0 if completion_cut_active else 0.98))
     # Broken rings, separate angular velocities, no horizontal sweep lines.
     for ring in range(3):
         var ring_r: float = radius * (0.53 + float(ring) * 0.235)
         var segments: int = 5 + ring * 3
         var speed: float = 0.66 if ring == 0 else (-0.43 if ring == 1 else 0.27)
         var stroke: float = 3.5 if ring == 0 else (2.7 if ring == 1 else 1.9)
+        if completion_cut_active:
+            # All three previously segmented rings lock into full, bright circles.
+            draw_arc(center, ring_r, 0.0, TAU, 64, Color("#dbfaff", 1.0), stroke + 1.0, true)
+            continue
         var tint: Color = Color("#b9f3ff", 0.93) if ring == 0 else (
             Color("#6fdcff", 0.70) if ring == 1 else Color("#55798a", 0.79))
         for piece in range(segments):
@@ -353,13 +402,17 @@ func _draw_system_nodes(center: Vector2, radius: float, wires_only: bool) -> voi
         var point: Vector2 = positions[i]
         var active: bool = _system_node_online(label)
         if wires_only:
-            draw_line(center, point,
-                Color("#6bd9f5", 0.48) if active else Color("#55798a", 0.25), 1.2)
+            var wire_tint: Color = (Color("#c9f7ff", 1.0) if completion_cut_active
+                else (Color("#6bd9f5", 0.48) if active else Color("#55798a", 0.25)))
+            draw_line(center, point, wire_tint, 2.0 if completion_cut_active else 1.2)
             continue
         draw_circle(point, 8.0, Color("#152c3b", 0.97))
-        draw_circle(point, 5.0, Color("#b9f2ff") if active else Color("#446475"))
+        draw_circle(point, 5.0,
+            Color("#ffffff") if completion_cut_active else (Color("#b9f2ff") if active else Color("#446475")))
         if active:
-            draw_arc(point, 11.0, 0.0, TAU, 16, Color("#74dfff", 0.36), 1.7, true)
+            draw_arc(point, 11.0, 0.0, TAU, 16,
+                Color("#bdf5ff", 1.0) if completion_cut_active else Color("#74dfff", 0.36),
+                2.2 if completion_cut_active else 1.7, true)
         var font_size: int = 12 if size.x >= 510.0 else 10
         # At extremely narrow 25%-raster previews, abbreviate only the
         # decorative node captions; the underlying system IDs never change.
@@ -392,8 +445,7 @@ func _draw_diag_panel(rect: Rect2, mode: int) -> void:
     var chart_w: float = rect.size.x - 18.0
     var row_step: float = maxf(13.0, (rect.size.y - 105.0) / 6.0)
     for i in range(6):
-        var value: float = 0.23 + 0.72 * absf(sin(
-            anim_time * (0.92 + float(i) * 0.15) + float(i) * 0.81 + float(mode) * 1.2))
+        var value: float = _diagnostic_value(i, mode)
         var y: float = rect.position.y + 43.0 + float(i) * row_step
         draw_rect(Rect2(x, y, chart_w, 5.0), Color("#284454", 0.48))
         draw_rect(Rect2(x, y, chart_w * value, 5.0),
@@ -405,9 +457,16 @@ func _draw_diag_panel(rect: Rect2, mode: int) -> void:
         var fy: float = rect.end.y - 35.0 + 7.0 * sin(anim_time * 1.8 + t * 0.37 + float(mode))
         fy += 3.0 * cos(anim_time * 1.13 + t * 0.18)
         wave.append(Vector2(fx, fy))
-    draw_polyline(wave, Color("#a6ebff", 0.67), 1.25, true)
+    draw_polyline(wave,
+        Color("#d8faff", 1.0) if completion_cut_active else Color("#a6ebff", 0.67),
+        1.7 if completion_cut_active else 1.25, true)
     _draw_text("SIGNAL", Vector2(x, rect.end.y - 8.0), 9,
-        Color("#608ba0", 0.82))
+        Color("#b5eeff", 1.0) if completion_cut_active else Color("#608ba0", 0.82))
+
+func _diagnostic_value(index: int, mode: int) -> float:
+    var value: float = 1.0 if completion_cut_active else 0.23 + 0.72 * absf(sin(
+        anim_time * (0.92 + float(index) * 0.15) + float(index) * 0.81 + float(mode) * 1.2))
+    return value
 
 # Text sizes are quantized to *integer internal pixels*. Unlike shrinking
 # a vector font, every 5x7 glyph remains a complete, crisp pixel pattern.
@@ -490,7 +549,8 @@ func _draw_readout(w: float, h: float) -> void:
         _draw_text(_fit_pixel_text("> " + previous, previous_size, w - first_x - 42.0),
             Vector2(first_x, previous_y),
             previous_size, Color(0.48, 0.73, 0.83, alpha))
-    var latest: String = history.back() if not history.is_empty() else "BOOT"
+    var latest: String = ("COMPLETE" if completion_cut_active
+        else (history.back() if not history.is_empty() else "BOOT"))
     var percent_size: int = 39 if compact else 50
     var percentage: String = "%03d%%" % percent
     # The right-aligned percentage has a reserved, independently measured
@@ -505,7 +565,7 @@ func _draw_readout(w: float, h: float) -> void:
         percent_size, Color("#efffff"), true)
     draw_line(Vector2(first_x, latest_y + 19.0),
         Vector2(w - 45.0, latest_y + 19.0), Color("#55798a", 0.62), 1.0)
-    var status: String = "LINK %s / STREAM ACTIVE" % (
-        "OK" if percent == 100 else "SYNC")
+    var status: String = ("ALL SYSTEMS ONLINE" if completion_cut_active
+        else "LINK %s / STREAM ACTIVE" % ("OK" if percent == 100 else "SYNC"))
     _draw_text(_fit_pixel_text(status, 13 if compact else 16, w - 86.0),
         Vector2(43.0, h - 37.0), 13 if compact else 16, Color("#85bfd7"))
