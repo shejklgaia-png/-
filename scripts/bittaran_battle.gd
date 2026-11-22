@@ -661,8 +661,8 @@ func _tick_bittaran_attack_sfx() -> void:
 
 func _initialize_bittaran_sweep_loop_audio() -> void:
     var bytes: PackedByteArray = Marshalls.base64_to_raw(
-        BittaranSweepLoopData.SWEEP_MP3)
-    var stream: AudioStreamMP3 = AudioStreamMP3.load_from_buffer(bytes)
+        BittaranSweepLoopData.SWEEP)
+    var stream: AudioStreamOggVorbis = AudioStreamOggVorbis.load_from_buffer(bytes)
     if stream == null:
         push_error("BITTARAN_SWEEP_LOOP_MISSING: creator sound unreadable")
         return
