@@ -1,3 +1,6 @@
+# BASE 6px latest SERA inverted hull + separate unchanged 2px foreground creases.
+py tools/base_latest_sera_silhouette_self_check.py
+gd tools/base_latest_sera_silhouette_runtime_check.gd
 # BASE SERA-derived real mesh contour shader: 6px outer / 2px front-facing creases.
 py tools/base_facility_mesh_edge_shader_self_check.py
 gd tools/base_facility_mesh_edge_shader_runtime_check.gd
