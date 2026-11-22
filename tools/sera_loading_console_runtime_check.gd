@@ -42,6 +42,9 @@ func _run() -> void:
         _fail("offscreen terminal retains an incorrect source scale")
         return
     screen.size = Vector2(450.0, 800.0)
+    if int(source_canvas.call("_pixel_cell_pixels", 19)) != 1:
+        _fail("50 percent compact logs must retain at least 1-pixel cells")
+        return
     if reduced_view.size != Vector2i(225, 400):
         _fail("offscreen viewport did not follow small-screen resize")
         return
