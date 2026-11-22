@@ -7,6 +7,7 @@ const LoadingConsole = preload("res://scripts/sera_loading_console.gd")
 const BaseFacilities = preload("res://scripts/base_facility_system.gd")
 const PowerBoard = preload("res://scripts/sera_base_power_board.gd")
 const GridUi = preload("res://scripts/sera_base_grid_ui.gd")
+const BaseFrameBudget = preload("res://scripts/sera_base_frame_budget.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
 const BaseFacilityInk = preload("res://scripts/sera_base_facility_outlines.gd")
 const OUTLINE_TEST_SAFE_SHADER = preload("res://shaders/base_facility_silhouette_edges.gdshader")
@@ -107,8 +108,11 @@ var grid_selected_cell: Vector2i = Vector2i(-1, -1)
 var grid_selection_mesh: MeshInstance3D
 var grid_touch_id: int = -1
 var grid_touch_start: Vector2 = Vector2.ZERO
+var _frame_budget: RefCounted
 
 func _ready() -> void:
+    _frame_budget = BaseFrameBudget.new()
+    _frame_budget.start(get_viewport())
     BaseClutter.clear_preview()
     # Show the terminal before the expensive outdoor scene is constructed.
     get_window().go_back_requested.connect(_on_android_back)
@@ -852,6 +856,8 @@ func _copy_layout_data() -> void:
 
 
 func _exit_tree() -> void:
+    if _frame_budget != null:
+        _frame_budget.stop()
     BaseClutter.clear_preview()
 
 
@@ -1028,6 +1034,8 @@ func _enter_grid_placement() -> void:
             power_transition_busy):
         return
     grid_placement_active = true
+    # Switch to 60 FPS before the close-up camera begins its motion.
+    _frame_budget.set_grid_zoomed(true)
     power_transition_busy = true
     hint.visible = false
     grid_ui.call("set_edit", true, true)
@@ -1041,6 +1049,8 @@ func _enter_grid_placement() -> void:
 
 func _grid_camera_arrived() -> void:
     power_transition_busy = false
+    # Keep 60 FPS throughout the zoom-out tween, then return to 30 FPS.
+    _frame_budget.set_grid_zoomed(grid_placement_active)
 
 
 func _leave_grid_placement() -> void:
@@ -1234,6 +1244,8 @@ func _move_player(direction: Vector2, delta: float) -> void:
             player.position = slide_z
 
 func _process(delta: float) -> void:
+    if _frame_budget != null:
+        _frame_budget.advance(delta)
     if scene_changing or player == null:
         return
     elapsed += delta
