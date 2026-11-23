@@ -11,19 +11,19 @@
   },
   "elements": [
     {
-      "name": "Suspended working canopy angular shell 0",
+      "name": "twelve faceted outer armor 0",
       "type": "cube",
       "from": [
-        -4.93,
-        -5.9,
-        60.25
+        -5.167,
+        -5.25,
+        60.55
       ],
       "to": [
-        4.93,
-        -1.5,
-        63.75
+        5.167,
+        -1.75,
+        64.05
       ],
-      "color": 3,
+      "color": 4,
       "rotation": [
         0,
         0,
@@ -31,10 +31,10 @@
       ],
       "origin": [
         0,
-        -3.7,
-        62
+        -3.5,
+        62.3
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000458",
+      "uuid": "8c340523-b00f-4000-8000-000000000722",
       "faces": {
         "north": {
           "uv": [
@@ -90,33 +90,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Suspended working canopy angular shell 1",
+      "name": "twelve faceted outer armor 1",
       "type": "cube",
       "from": [
-        5.07,
-        -5.9,
-        57.571
+        4.983,
+        -5.25,
+        57.83
       ],
       "to": [
-        14.93,
-        -1.5,
-        61.071
+        15.317,
+        -1.75,
+        61.33
       ],
-      "color": 3,
+      "color": 4,
       "rotation": [
         0,
         30,
         0
       ],
       "origin": [
-        10,
-        -3.7,
-        59.321
+        10.15,
+        -3.5,
+        59.58
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000459",
+      "uuid": "8c340523-b00f-4000-8000-000000000723",
       "faces": {
         "north": {
           "uv": [
@@ -172,33 +174,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Suspended working canopy angular shell 2",
+      "name": "twelve faceted outer armor 2",
       "type": "cube",
       "from": [
-        12.39,
-        -5.9,
-        50.25
+        12.413,
+        -5.25,
+        50.4
       ],
       "to": [
-        22.251,
-        -1.5,
-        53.75
+        22.748,
+        -1.75,
+        53.9
       ],
-      "color": 3,
+      "color": 4,
       "rotation": [
         0,
         60,
         0
       ],
       "origin": [
-        17.321,
-        -3.7,
-        52
+        17.581,
+        -3.5,
+        52.15
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000460",
+      "uuid": "8c340523-b00f-4000-8000-000000000724",
       "faces": {
         "north": {
           "uv": [
@@ -254,33 +258,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Suspended working canopy angular shell 3",
+      "name": "twelve faceted outer armor 3",
       "type": "cube",
       "from": [
-        15.07,
-        -5.9,
+        15.133,
+        -5.25,
         40.25
       ],
       "to": [
-        24.93,
-        -1.5,
+        25.467,
+        -1.75,
         43.75
       ],
-      "color": 3,
+      "color": 4,
       "rotation": [
         0,
         90,
         0
       ],
       "origin": [
-        20,
-        -3.7,
+        20.3,
+        -3.5,
         42
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000461",
+      "uuid": "8c340523-b00f-4000-8000-000000000725",
       "faces": {
         "north": {
           "uv": [
@@ -336,33 +342,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Suspended working canopy angular shell 4",
+      "name": "twelve faceted outer armor 4",
       "type": "cube",
       "from": [
-        12.39,
-        -5.9,
-        30.25
+        12.413,
+        -5.25,
+        30.1
       ],
       "to": [
-        22.251,
-        -1.5,
-        33.75
+        22.748,
+        -1.75,
+        33.6
       ],
-      "color": 3,
+      "color": 4,
       "rotation": [
         0,
         120,
         0
       ],
       "origin": [
-        17.321,
-        -3.7,
-        32
+        17.581,
+        -3.5,
+        31.85
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000462",
+      "uuid": "8c340523-b00f-4000-8000-000000000726",
       "faces": {
         "north": {
           "uv": [
@@ -418,33 +426,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Suspended working canopy angular shell 5",
+      "name": "twelve faceted outer armor 5",
       "type": "cube",
       "from": [
-        5.07,
-        -5.9,
-        22.929
+        4.983,
+        -5.25,
+        22.67
       ],
       "to": [
-        14.93,
-        -1.5,
-        26.429
+        15.317,
+        -1.75,
+        26.17
       ],
-      "color": 3,
+      "color": 4,
       "rotation": [
         0,
         150,
         0
       ],
       "origin": [
-        10,
-        -3.7,
-        24.679
+        10.15,
+        -3.5,
+        24.42
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000463",
+      "uuid": "8c340523-b00f-4000-8000-000000000727",
       "faces": {
         "north": {
           "uv": [
@@ -500,22 +510,24 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Suspended working canopy angular shell 6",
+      "name": "twelve faceted outer armor 6",
       "type": "cube",
       "from": [
-        -4.93,
-        -5.9,
-        20.25
+        -5.167,
+        -5.25,
+        19.95
       ],
       "to": [
-        4.93,
-        -1.5,
-        23.75
+        5.167,
+        -1.75,
+        23.45
       ],
-      "color": 3,
+      "color": 4,
       "rotation": [
         0,
         180,
@@ -523,10 +535,10 @@
       ],
       "origin": [
         0,
-        -3.7,
-        22
+        -3.5,
+        21.7
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000464",
+      "uuid": "8c340523-b00f-4000-8000-000000000728",
       "faces": {
         "north": {
           "uv": [
@@ -582,33 +594,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Suspended working canopy angular shell 7",
+      "name": "twelve faceted outer armor 7",
       "type": "cube",
       "from": [
-        -14.93,
-        -5.9,
-        22.929
+        -15.317,
+        -5.25,
+        22.67
       ],
       "to": [
-        -5.07,
-        -1.5,
-        26.429
+        -4.983,
+        -1.75,
+        26.17
       ],
-      "color": 3,
+      "color": 4,
       "rotation": [
         0,
         210,
         0
       ],
       "origin": [
-        -10,
-        -3.7,
-        24.679
+        -10.15,
+        -3.5,
+        24.42
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000465",
+      "uuid": "8c340523-b00f-4000-8000-000000000729",
       "faces": {
         "north": {
           "uv": [
@@ -664,33 +678,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Suspended working canopy angular shell 8",
+      "name": "twelve faceted outer armor 8",
       "type": "cube",
       "from": [
-        -22.251,
-        -5.9,
-        30.25
+        -22.748,
+        -5.25,
+        30.1
       ],
       "to": [
-        -12.39,
-        -1.5,
-        33.75
+        -12.413,
+        -1.75,
+        33.6
       ],
-      "color": 3,
+      "color": 4,
       "rotation": [
         0,
         240,
         0
       ],
       "origin": [
-        -17.321,
-        -3.7,
-        32
+        -17.58,
+        -3.5,
+        31.85
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000466",
+      "uuid": "8c340523-b00f-4000-8000-000000000730",
       "faces": {
         "north": {
           "uv": [
@@ -746,33 +762,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Suspended working canopy angular shell 9",
+      "name": "twelve faceted outer armor 9",
       "type": "cube",
       "from": [
-        -24.93,
-        -5.9,
+        -25.467,
+        -5.25,
         40.25
       ],
       "to": [
-        -15.07,
-        -1.5,
+        -15.133,
+        -1.75,
         43.75
       ],
-      "color": 3,
+      "color": 4,
       "rotation": [
         0,
         270,
         0
       ],
       "origin": [
-        -20,
-        -3.7,
+        -20.3,
+        -3.5,
         42
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000467",
+      "uuid": "8c340523-b00f-4000-8000-000000000731",
       "faces": {
         "north": {
           "uv": [
@@ -828,33 +846,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Suspended working canopy angular shell 10",
+      "name": "twelve faceted outer armor 10",
       "type": "cube",
       "from": [
-        -22.251,
-        -5.9,
-        50.25
+        -22.748,
+        -5.25,
+        50.4
       ],
       "to": [
-        -12.39,
-        -1.5,
-        53.75
+        -12.413,
+        -1.75,
+        53.9
       ],
-      "color": 3,
+      "color": 4,
       "rotation": [
         0,
         300,
         0
       ],
       "origin": [
-        -17.321,
-        -3.7,
-        52
+        -17.58,
+        -3.5,
+        52.15
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000468",
+      "uuid": "8c340523-b00f-4000-8000-000000000732",
       "faces": {
         "north": {
           "uv": [
@@ -910,33 +930,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Suspended working canopy angular shell 11",
+      "name": "twelve faceted outer armor 11",
       "type": "cube",
       "from": [
-        -14.93,
-        -5.9,
-        57.571
+        -15.317,
+        -5.25,
+        57.83
       ],
       "to": [
-        -5.07,
-        -1.5,
-        61.071
+        -4.983,
+        -1.75,
+        61.33
       ],
-      "color": 3,
+      "color": 4,
       "rotation": [
         0,
         330,
         0
       ],
       "origin": [
-        -10,
-        -3.7,
-        59.321
+        -10.15,
+        -3.5,
+        59.58
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000469",
+      "uuid": "8c340523-b00f-4000-8000-000000000733",
       "faces": {
         "north": {
           "uv": [
@@ -992,20 +1014,1030 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Working canopy lower cool lamp 0",
+      "name": "under-ring dark machine liner 0",
       "type": "cube",
       "from": [
-        -4.314,
-        -6.57,
-        58.5
+        -4.684,
+        -6.25,
+        59
       ],
       "to": [
-        4.314,
-        -5.83,
-        60.5
+        4.684,
+        -4.75,
+        61.8
+      ],
+      "color": 1,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        -5.5,
+        60.4
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000734",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "under-ring dark machine liner 1",
+      "type": "cube",
+      "from": [
+        4.516,
+        -6.25,
+        56.535
+      ],
+      "to": [
+        13.884,
+        -4.75,
+        59.335
+      ],
+      "color": 1,
+      "rotation": [
+        0,
+        30,
+        0
+      ],
+      "origin": [
+        9.2,
+        -5.5,
+        57.935
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000735",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "under-ring dark machine liner 2",
+      "type": "cube",
+      "from": [
+        11.251,
+        -6.25,
+        49.8
+      ],
+      "to": [
+        20.619,
+        -4.75,
+        52.6
+      ],
+      "color": 1,
+      "rotation": [
+        0,
+        60,
+        0
+      ],
+      "origin": [
+        15.935,
+        -5.5,
+        51.2
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000736",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "under-ring dark machine liner 3",
+      "type": "cube",
+      "from": [
+        13.716,
+        -6.25,
+        40.6
+      ],
+      "to": [
+        23.084,
+        -4.75,
+        43.4
+      ],
+      "color": 1,
+      "rotation": [
+        0,
+        90,
+        0
+      ],
+      "origin": [
+        18.4,
+        -5.5,
+        42
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000737",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "under-ring dark machine liner 4",
+      "type": "cube",
+      "from": [
+        11.251,
+        -6.25,
+        31.4
+      ],
+      "to": [
+        20.619,
+        -4.75,
+        34.2
+      ],
+      "color": 1,
+      "rotation": [
+        0,
+        120,
+        0
+      ],
+      "origin": [
+        15.935,
+        -5.5,
+        32.8
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000738",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "under-ring dark machine liner 5",
+      "type": "cube",
+      "from": [
+        4.516,
+        -6.25,
+        24.665
+      ],
+      "to": [
+        13.884,
+        -4.75,
+        27.465
+      ],
+      "color": 1,
+      "rotation": [
+        0,
+        150,
+        0
+      ],
+      "origin": [
+        9.2,
+        -5.5,
+        26.065
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000739",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "under-ring dark machine liner 6",
+      "type": "cube",
+      "from": [
+        -4.684,
+        -6.25,
+        22.2
+      ],
+      "to": [
+        4.684,
+        -4.75,
+        25
+      ],
+      "color": 1,
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "origin": [
+        0,
+        -5.5,
+        23.6
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000740",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "under-ring dark machine liner 7",
+      "type": "cube",
+      "from": [
+        -13.884,
+        -6.25,
+        24.665
+      ],
+      "to": [
+        -4.516,
+        -4.75,
+        27.465
+      ],
+      "color": 1,
+      "rotation": [
+        0,
+        210,
+        0
+      ],
+      "origin": [
+        -9.2,
+        -5.5,
+        26.065
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000741",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "under-ring dark machine liner 8",
+      "type": "cube",
+      "from": [
+        -20.619,
+        -6.25,
+        31.4
+      ],
+      "to": [
+        -11.251,
+        -4.75,
+        34.2
+      ],
+      "color": 1,
+      "rotation": [
+        0,
+        240,
+        0
+      ],
+      "origin": [
+        -15.935,
+        -5.5,
+        32.8
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000742",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "under-ring dark machine liner 9",
+      "type": "cube",
+      "from": [
+        -23.084,
+        -6.25,
+        40.6
+      ],
+      "to": [
+        -13.716,
+        -4.75,
+        43.4
+      ],
+      "color": 1,
+      "rotation": [
+        0,
+        270,
+        0
+      ],
+      "origin": [
+        -18.4,
+        -5.5,
+        42
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000743",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "under-ring dark machine liner 10",
+      "type": "cube",
+      "from": [
+        -20.619,
+        -6.25,
+        49.8
+      ],
+      "to": [
+        -11.251,
+        -4.75,
+        52.6
+      ],
+      "color": 1,
+      "rotation": [
+        0,
+        300,
+        0
+      ],
+      "origin": [
+        -15.935,
+        -5.5,
+        51.2
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000744",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "under-ring dark machine liner 11",
+      "type": "cube",
+      "from": [
+        -13.884,
+        -6.25,
+        56.535
+      ],
+      "to": [
+        -4.516,
+        -4.75,
+        59.335
+      ],
+      "color": 1,
+      "rotation": [
+        0,
+        330,
+        0
+      ],
+      "origin": [
+        -9.2,
+        -5.5,
+        57.935
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000745",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "under-ring cyan working light 0",
+      "type": "cube",
+      "from": [
+        -4.531,
+        -6.625,
+        59.175
+      ],
+      "to": [
+        4.531,
+        -5.775,
+        60.425
       ],
       "color": 5,
       "rotation": [
@@ -1016,9 +2048,9 @@
       "origin": [
         0,
         -6.2,
-        59.5
+        59.8
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000470",
+      "uuid": "8c340523-b00f-4000-8000-000000000746",
       "faces": {
         "north": {
           "uv": [
@@ -1074,20 +2106,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Working canopy lower cool lamp 1",
+      "name": "under-ring cyan working light 1",
       "type": "cube",
       "from": [
-        4.436,
-        -6.57,
-        56.155
+        4.369,
+        -6.625,
+        56.79
       ],
       "to": [
-        13.064,
-        -5.83,
-        58.155
+        13.431,
+        -5.775,
+        58.04
       ],
       "color": 5,
       "rotation": [
@@ -1096,11 +2130,11 @@
         0
       ],
       "origin": [
-        8.75,
+        8.9,
         -6.2,
-        57.155
+        57.415
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000471",
+      "uuid": "8c340523-b00f-4000-8000-000000000747",
       "faces": {
         "north": {
           "uv": [
@@ -1156,20 +2190,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Working canopy lower cool lamp 2",
+      "name": "under-ring cyan working light 2",
       "type": "cube",
       "from": [
-        10.841,
-        -6.57,
-        49.75
+        10.884,
+        -6.625,
+        50.275
       ],
       "to": [
-        19.469,
-        -5.83,
-        51.75
+        19.946,
+        -5.775,
+        51.525
       ],
       "color": 5,
       "rotation": [
@@ -1178,11 +2214,11 @@
         0
       ],
       "origin": [
-        15.155,
+        15.415,
         -6.2,
-        50.75
+        50.9
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000472",
+      "uuid": "8c340523-b00f-4000-8000-000000000748",
       "faces": {
         "north": {
           "uv": [
@@ -1238,20 +2274,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Working canopy lower cool lamp 3",
+      "name": "under-ring cyan working light 3",
       "type": "cube",
       "from": [
-        13.186,
-        -6.57,
-        41
+        13.269,
+        -6.625,
+        41.375
       ],
       "to": [
-        21.814,
-        -5.83,
-        43
+        22.331,
+        -5.775,
+        42.625
       ],
       "color": 5,
       "rotation": [
@@ -1260,11 +2298,11 @@
         0
       ],
       "origin": [
-        17.5,
+        17.8,
         -6.2,
         42
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000473",
+      "uuid": "8c340523-b00f-4000-8000-000000000749",
       "faces": {
         "north": {
           "uv": [
@@ -1320,20 +2358,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Working canopy lower cool lamp 4",
+      "name": "under-ring cyan working light 4",
       "type": "cube",
       "from": [
-        10.841,
-        -6.57,
-        32.25
+        10.884,
+        -6.625,
+        32.475
       ],
       "to": [
-        19.469,
-        -5.83,
-        34.25
+        19.946,
+        -5.775,
+        33.725
       ],
       "color": 5,
       "rotation": [
@@ -1342,11 +2382,11 @@
         0
       ],
       "origin": [
-        15.155,
+        15.415,
         -6.2,
-        33.25
+        33.1
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000474",
+      "uuid": "8c340523-b00f-4000-8000-000000000750",
       "faces": {
         "north": {
           "uv": [
@@ -1402,20 +2442,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Working canopy lower cool lamp 5",
+      "name": "under-ring cyan working light 5",
       "type": "cube",
       "from": [
-        4.436,
-        -6.57,
-        25.845
+        4.369,
+        -6.625,
+        25.96
       ],
       "to": [
-        13.064,
-        -5.83,
-        27.845
+        13.431,
+        -5.775,
+        27.21
       ],
       "color": 5,
       "rotation": [
@@ -1424,11 +2466,11 @@
         0
       ],
       "origin": [
-        8.75,
+        8.9,
         -6.2,
-        26.845
+        26.585
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000475",
+      "uuid": "8c340523-b00f-4000-8000-000000000751",
       "faces": {
         "north": {
           "uv": [
@@ -1484,20 +2526,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Working canopy lower cool lamp 6",
+      "name": "under-ring cyan working light 6",
       "type": "cube",
       "from": [
-        -4.314,
-        -6.57,
-        23.5
+        -4.531,
+        -6.625,
+        23.575
       ],
       "to": [
-        4.314,
-        -5.83,
-        25.5
+        4.531,
+        -5.775,
+        24.825
       ],
       "color": 5,
       "rotation": [
@@ -1508,9 +2552,9 @@
       "origin": [
         0,
         -6.2,
-        24.5
+        24.2
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000476",
+      "uuid": "8c340523-b00f-4000-8000-000000000752",
       "faces": {
         "north": {
           "uv": [
@@ -1566,20 +2610,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Working canopy lower cool lamp 7",
+      "name": "under-ring cyan working light 7",
       "type": "cube",
       "from": [
-        -13.064,
-        -6.57,
-        25.845
+        -13.431,
+        -6.625,
+        25.96
       ],
       "to": [
-        -4.436,
-        -5.83,
-        27.845
+        -4.369,
+        -5.775,
+        27.21
       ],
       "color": 5,
       "rotation": [
@@ -1588,11 +2634,11 @@
         0
       ],
       "origin": [
-        -8.75,
+        -8.9,
         -6.2,
-        26.845
+        26.585
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000477",
+      "uuid": "8c340523-b00f-4000-8000-000000000753",
       "faces": {
         "north": {
           "uv": [
@@ -1648,20 +2694,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Working canopy lower cool lamp 8",
+      "name": "under-ring cyan working light 8",
       "type": "cube",
       "from": [
-        -19.469,
-        -6.57,
-        32.25
+        -19.946,
+        -6.625,
+        32.475
       ],
       "to": [
-        -10.841,
-        -5.83,
-        34.25
+        -10.884,
+        -5.775,
+        33.725
       ],
       "color": 5,
       "rotation": [
@@ -1670,11 +2718,11 @@
         0
       ],
       "origin": [
-        -15.155,
+        -15.415,
         -6.2,
-        33.25
+        33.1
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000478",
+      "uuid": "8c340523-b00f-4000-8000-000000000754",
       "faces": {
         "north": {
           "uv": [
@@ -1730,20 +2778,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Working canopy lower cool lamp 9",
+      "name": "under-ring cyan working light 9",
       "type": "cube",
       "from": [
-        -21.814,
-        -6.57,
-        41
+        -22.331,
+        -6.625,
+        41.375
       ],
       "to": [
-        -13.186,
-        -5.83,
-        43
+        -13.269,
+        -5.775,
+        42.625
       ],
       "color": 5,
       "rotation": [
@@ -1752,11 +2802,11 @@
         0
       ],
       "origin": [
-        -17.5,
+        -17.8,
         -6.2,
         42
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000479",
+      "uuid": "8c340523-b00f-4000-8000-000000000755",
       "faces": {
         "north": {
           "uv": [
@@ -1812,20 +2862,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Working canopy lower cool lamp 10",
+      "name": "under-ring cyan working light 10",
       "type": "cube",
       "from": [
-        -19.469,
-        -6.57,
-        49.75
+        -19.946,
+        -6.625,
+        50.275
       ],
       "to": [
-        -10.841,
-        -5.83,
-        51.75
+        -10.884,
+        -5.775,
+        51.525
       ],
       "color": 5,
       "rotation": [
@@ -1834,11 +2886,11 @@
         0
       ],
       "origin": [
-        -15.155,
+        -15.415,
         -6.2,
-        50.75
+        50.9
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000480",
+      "uuid": "8c340523-b00f-4000-8000-000000000756",
       "faces": {
         "north": {
           "uv": [
@@ -1894,20 +2946,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Working canopy lower cool lamp 11",
+      "name": "under-ring cyan working light 11",
       "type": "cube",
       "from": [
-        -13.064,
-        -6.57,
-        56.155
+        -13.431,
+        -6.625,
+        56.79
       ],
       "to": [
-        -4.436,
-        -5.83,
-        58.155
+        -4.369,
+        -5.775,
+        58.04
       ],
       "color": 5,
       "rotation": [
@@ -1916,11 +2970,11 @@
         0
       ],
       "origin": [
-        -8.75,
+        -8.9,
         -6.2,
-        57.155
+        57.415
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000481",
+      "uuid": "8c340523-b00f-4000-8000-000000000757",
       "faces": {
         "north": {
           "uv": [
@@ -1976,1988 +3030,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Working canopy amber locator 0",
+      "name": "facet top tier 0",
       "type": "cube",
       "from": [
-        -4.832,
-        -6.26,
-        61.15
+        -3.25,
+        -1.75,
+        60.7
       ],
       "to": [
-        4.832,
-        -5.7,
-        62.05
-      ],
-      "color": 6,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        0,
-        -5.98,
-        61.6
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000482",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Working canopy amber locator 1",
-      "type": "cube",
-      "from": [
-        4.968,
-        -6.26,
-        58.524
-      ],
-      "to": [
-        14.632,
-        -5.7,
-        59.424
-      ],
-      "color": 6,
-      "rotation": [
-        0,
-        30,
-        0
-      ],
-      "origin": [
-        9.8,
-        -5.98,
-        58.974
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000483",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Working canopy amber locator 2",
-      "type": "cube",
-      "from": [
-        12.142,
-        -6.26,
-        51.35
-      ],
-      "to": [
-        21.806,
-        -5.7,
-        52.25
-      ],
-      "color": 6,
-      "rotation": [
-        0,
-        60,
-        0
-      ],
-      "origin": [
-        16.974,
-        -5.98,
-        51.8
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000484",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Working canopy amber locator 3",
-      "type": "cube",
-      "from": [
-        14.768,
-        -6.26,
-        41.55
-      ],
-      "to": [
-        24.432,
-        -5.7,
-        42.45
-      ],
-      "color": 6,
-      "rotation": [
-        0,
-        90,
-        0
-      ],
-      "origin": [
-        19.6,
-        -5.98,
-        42
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000485",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Working canopy amber locator 4",
-      "type": "cube",
-      "from": [
-        12.142,
-        -6.26,
-        31.75
-      ],
-      "to": [
-        21.806,
-        -5.7,
-        32.65
-      ],
-      "color": 6,
-      "rotation": [
-        0,
-        120,
-        0
-      ],
-      "origin": [
-        16.974,
-        -5.98,
-        32.2
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000486",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Working canopy amber locator 5",
-      "type": "cube",
-      "from": [
-        4.968,
-        -6.26,
-        24.576
-      ],
-      "to": [
-        14.632,
-        -5.7,
-        25.476
-      ],
-      "color": 6,
-      "rotation": [
-        0,
-        150,
-        0
-      ],
-      "origin": [
-        9.8,
-        -5.98,
-        25.026
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000487",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Working canopy amber locator 6",
-      "type": "cube",
-      "from": [
-        -4.832,
-        -6.26,
-        21.95
-      ],
-      "to": [
-        4.832,
-        -5.7,
-        22.85
-      ],
-      "color": 6,
-      "rotation": [
-        0,
-        180,
-        0
-      ],
-      "origin": [
-        0,
-        -5.98,
-        22.4
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000488",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Working canopy amber locator 7",
-      "type": "cube",
-      "from": [
-        -14.632,
-        -6.26,
-        24.576
-      ],
-      "to": [
-        -4.968,
-        -5.7,
-        25.476
-      ],
-      "color": 6,
-      "rotation": [
-        0,
-        210,
-        0
-      ],
-      "origin": [
-        -9.8,
-        -5.98,
-        25.026
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000489",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Working canopy amber locator 8",
-      "type": "cube",
-      "from": [
-        -21.806,
-        -6.26,
-        31.75
-      ],
-      "to": [
-        -12.142,
-        -5.7,
-        32.65
-      ],
-      "color": 6,
-      "rotation": [
-        0,
-        240,
-        0
-      ],
-      "origin": [
-        -16.974,
-        -5.98,
-        32.2
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000490",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Working canopy amber locator 9",
-      "type": "cube",
-      "from": [
-        -24.432,
-        -6.26,
-        41.55
-      ],
-      "to": [
-        -14.768,
-        -5.7,
-        42.45
-      ],
-      "color": 6,
-      "rotation": [
-        0,
-        270,
-        0
-      ],
-      "origin": [
-        -19.6,
-        -5.98,
-        42
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000491",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Working canopy amber locator 10",
-      "type": "cube",
-      "from": [
-        -21.806,
-        -6.26,
-        51.35
-      ],
-      "to": [
-        -12.142,
-        -5.7,
-        52.25
-      ],
-      "color": 6,
-      "rotation": [
-        0,
-        300,
-        0
-      ],
-      "origin": [
-        -16.974,
-        -5.98,
-        51.8
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000492",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Working canopy amber locator 11",
-      "type": "cube",
-      "from": [
-        -14.632,
-        -6.26,
-        58.524
-      ],
-      "to": [
-        -4.968,
-        -5.7,
-        59.424
-      ],
-      "color": 6,
-      "rotation": [
-        0,
-        330,
-        0
-      ],
-      "origin": [
-        -9.8,
-        -5.98,
-        58.974
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000493",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Working canopy dark outer apron 0",
-      "type": "cube",
-      "from": [
-        -4.708,
-        -3.375,
-        60.625
-      ],
-      "to": [
-        4.708,
-        -2.125,
-        61.575
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        0,
-        -2.75,
-        61.1
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000494",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Working canopy dark outer apron 1",
-      "type": "cube",
-      "from": [
-        4.842,
-        -3.375,
-        58.066
-      ],
-      "to": [
-        14.258,
-        -2.125,
-        59.016
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        30,
-        0
-      ],
-      "origin": [
-        9.55,
-        -2.75,
-        58.541
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000495",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Working canopy dark outer apron 2",
-      "type": "cube",
-      "from": [
-        11.833,
-        -3.375,
-        51.075
-      ],
-      "to": [
-        21.249,
-        -2.125,
-        52.025
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        60,
-        0
-      ],
-      "origin": [
-        16.541,
-        -2.75,
-        51.55
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000496",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Working canopy dark outer apron 3",
-      "type": "cube",
-      "from": [
-        14.392,
-        -3.375,
-        41.525
-      ],
-      "to": [
-        23.808,
-        -2.125,
-        42.475
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        90,
-        0
-      ],
-      "origin": [
-        19.1,
-        -2.75,
-        42
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000497",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Working canopy dark outer apron 4",
-      "type": "cube",
-      "from": [
-        11.833,
-        -3.375,
-        31.975
-      ],
-      "to": [
-        21.249,
-        -2.125,
-        32.925
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        120,
-        0
-      ],
-      "origin": [
-        16.541,
-        -2.75,
-        32.45
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000498",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Working canopy dark outer apron 5",
-      "type": "cube",
-      "from": [
-        4.842,
-        -3.375,
-        24.984
-      ],
-      "to": [
-        14.258,
-        -2.125,
-        25.934
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        150,
-        0
-      ],
-      "origin": [
-        9.55,
-        -2.75,
-        25.459
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000499",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Working canopy dark outer apron 6",
-      "type": "cube",
-      "from": [
-        -4.708,
-        -3.375,
-        22.425
-      ],
-      "to": [
-        4.708,
-        -2.125,
-        23.375
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        180,
-        0
-      ],
-      "origin": [
-        0,
-        -2.75,
-        22.9
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000500",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Working canopy dark outer apron 7",
-      "type": "cube",
-      "from": [
-        -14.258,
-        -3.375,
-        24.984
-      ],
-      "to": [
-        -4.842,
-        -2.125,
-        25.934
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        210,
-        0
-      ],
-      "origin": [
-        -9.55,
-        -2.75,
-        25.459
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000501",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Working canopy dark outer apron 8",
-      "type": "cube",
-      "from": [
-        -21.249,
-        -3.375,
-        31.975
-      ],
-      "to": [
-        -11.833,
-        -2.125,
-        32.925
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        240,
-        0
-      ],
-      "origin": [
-        -16.541,
-        -2.75,
-        32.45
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000502",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Working canopy dark outer apron 9",
-      "type": "cube",
-      "from": [
-        -23.808,
-        -3.375,
-        41.525
-      ],
-      "to": [
-        -14.392,
-        -2.125,
-        42.475
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        270,
-        0
-      ],
-      "origin": [
-        -19.1,
-        -2.75,
-        42
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000503",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Working canopy dark outer apron 10",
-      "type": "cube",
-      "from": [
-        -21.249,
-        -3.375,
-        51.075
-      ],
-      "to": [
-        -11.833,
-        -2.125,
-        52.025
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        300,
-        0
-      ],
-      "origin": [
-        -16.541,
-        -2.75,
-        51.55
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000504",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Working canopy dark outer apron 11",
-      "type": "cube",
-      "from": [
-        -14.258,
-        -3.375,
-        58.066
-      ],
-      "to": [
-        -4.842,
-        -2.125,
-        59.016
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        330,
-        0
-      ],
-      "origin": [
-        -9.55,
-        -2.75,
-        58.541
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000505",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Canopy crossbeam spine",
-      "type": "cube",
-      "from": [
-        -3,
-        -2.5,
-        21
-      ],
-      "to": [
-        3,
-        0.6,
-        63
+        3.25,
+        -0.05,
+        63.9
       ],
       "color": 2,
       "rotation": [
@@ -3967,10 +3055,10 @@
       ],
       "origin": [
         0,
-        -0.95,
-        42
+        -0.9,
+        62.3
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000506",
+      "uuid": "8c340523-b00f-4000-8000-000000000758",
       "faces": {
         "north": {
           "uv": [
@@ -4026,33 +3114,39 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        0,
+        0
+      ]
     },
     {
-      "name": "Hanging gantry overhead bracket -1",
+      "name": "visible tool pod 0",
       "type": "cube",
       "from": [
-        -15.2,
-        -3.4,
-        39.5
+        -1.05,
+        -7.25,
+        61.2
       ],
       "to": [
-        -11.6,
-        15,
-        44.5
+        1.05,
+        -4.95,
+        63.4
       ],
-      "color": 3,
+      "color": 6,
       "rotation": [
         0,
         0,
         0
       ],
       "origin": [
-        -13.4,
-        5.8,
-        42
+        0,
+        -6.1,
+        62.3
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000507",
+      "uuid": "8c340523-b00f-4000-8000-000000000759",
       "faces": {
         "north": {
           "uv": [
@@ -4108,102 +3202,26 @@
           ],
           "texture": null
         }
-      }
-    },
-    {
-      "name": "Hanging gantry telescoping spine -1",
-      "type": "cube",
-      "from": [
-        -14.15,
-        14,
-        41
-      ],
-      "to": [
-        -12.65,
-        24,
-        43
-      ],
-      "color": 4,
-      "rotation": [
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
         0,
         0,
         0
-      ],
-      "origin": [
-        -13.4,
-        19,
-        42
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000508",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
+      ]
     },
     {
-      "name": "Gantry blue service optic -1",
+      "name": "work light diode 0",
       "type": "cube",
       "from": [
-        -15.4,
-        -5.5,
-        52
+        -0.75,
+        -7.7,
+        61.55
       ],
       "to": [
-        -11.4,
-        -5.1,
-        54
+        0.75,
+        -7.2,
+        63.05
       ],
       "color": 5,
       "rotation": [
@@ -4212,11 +3230,11 @@
         0
       ],
       "origin": [
-        -13.4,
-        -5.3,
-        53
+        0,
+        -7.45,
+        62.3
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000509",
+      "uuid": "8c340523-b00f-4000-8000-000000000760",
       "faces": {
         "north": {
           "uv": [
@@ -4272,20 +3290,110 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Hanging gantry overhead bracket 1",
+      "name": "facet top tier 1",
       "type": "cube",
       "from": [
-        11.6,
-        -3.4,
-        39.5
+        6.9,
+        -1.75,
+        57.98
       ],
       "to": [
-        15.2,
-        15,
-        44.5
+        13.4,
+        -0.05,
+        61.18
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        10.15,
+        -0.9,
+        59.58
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000761",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        30,
+        0
+      ]
+    },
+    {
+      "name": "visible tool pod 1",
+      "type": "cube",
+      "from": [
+        9.1,
+        -7.25,
+        58.48
+      ],
+      "to": [
+        11.2,
+        -4.95,
+        60.68
       ],
       "color": 3,
       "rotation": [
@@ -4294,11 +3402,11 @@
         0
       ],
       "origin": [
-        13.4,
-        5.8,
-        42
+        10.15,
+        -6.1,
+        59.58
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000510",
+      "uuid": "8c340523-b00f-4000-8000-000000000762",
       "faces": {
         "north": {
           "uv": [
@@ -4354,33 +3462,39 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        30,
+        0
+      ]
     },
     {
-      "name": "Hanging gantry telescoping spine 1",
+      "name": "facet top tier 2",
       "type": "cube",
       "from": [
-        12.65,
-        14,
-        41
+        14.33,
+        -1.75,
+        50.55
       ],
       "to": [
-        14.15,
-        24,
-        43
+        20.83,
+        -0.05,
+        53.75
       ],
-      "color": 4,
+      "color": 2,
       "rotation": [
         0,
         0,
         0
       ],
       "origin": [
-        13.4,
-        19,
-        42
+        17.58,
+        -0.9,
+        52.15
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000511",
+      "uuid": "8c340523-b00f-4000-8000-000000000763",
       "faces": {
         "north": {
           "uv": [
@@ -4436,20 +3550,114 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        60,
+        0
+      ]
     },
     {
-      "name": "Gantry blue service optic 1",
+      "name": "visible tool pod 2",
       "type": "cube",
       "from": [
-        11.4,
-        -5.5,
-        52
+        16.53,
+        -7.25,
+        51.05
       ],
       "to": [
-        15.4,
-        -5.1,
-        54
+        18.63,
+        -4.95,
+        53.25
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        17.58,
+        -6.1,
+        52.15
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000764",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        60,
+        0
+      ]
+    },
+    {
+      "name": "work light diode 2",
+      "type": "cube",
+      "from": [
+        16.83,
+        -7.7,
+        51.4
+      ],
+      "to": [
+        18.33,
+        -7.2,
+        52.9
       ],
       "color": 5,
       "rotation": [
@@ -4458,11 +3666,11 @@
         0
       ],
       "origin": [
-        13.4,
-        -5.3,
-        53
+        17.58,
+        -7.45,
+        52.15
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000512",
+      "uuid": "8c340523-b00f-4000-8000-000000000765",
       "faces": {
         "north": {
           "uv": [
@@ -4518,22 +3726,2532 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Canopy central actuator head",
+      "name": "facet top tier 3",
+      "type": "cube",
+      "from": [
+        17.05,
+        -1.75,
+        40.4
+      ],
+      "to": [
+        23.55,
+        -0.05,
+        43.6
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        20.3,
+        -0.9,
+        42
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000766",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        90,
+        0
+      ]
+    },
+    {
+      "name": "visible tool pod 3",
+      "type": "cube",
+      "from": [
+        19.25,
+        -7.25,
+        40.9
+      ],
+      "to": [
+        21.35,
+        -4.95,
+        43.1
+      ],
+      "color": 6,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        20.3,
+        -6.1,
+        42
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000767",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        90,
+        0
+      ]
+    },
+    {
+      "name": "facet top tier 4",
+      "type": "cube",
+      "from": [
+        14.33,
+        -1.75,
+        30.25
+      ],
+      "to": [
+        20.83,
+        -0.05,
+        33.45
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        17.58,
+        -0.9,
+        31.85
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000768",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        120,
+        0
+      ]
+    },
+    {
+      "name": "visible tool pod 4",
+      "type": "cube",
+      "from": [
+        16.53,
+        -7.25,
+        30.75
+      ],
+      "to": [
+        18.63,
+        -4.95,
+        32.95
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        17.58,
+        -6.1,
+        31.85
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000769",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        120,
+        0
+      ]
+    },
+    {
+      "name": "work light diode 4",
+      "type": "cube",
+      "from": [
+        16.83,
+        -7.7,
+        31.1
+      ],
+      "to": [
+        18.33,
+        -7.2,
+        32.6
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        17.58,
+        -7.45,
+        31.85
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000770",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "facet top tier 5",
+      "type": "cube",
+      "from": [
+        6.9,
+        -1.75,
+        22.82
+      ],
+      "to": [
+        13.4,
+        -0.05,
+        26.02
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        10.15,
+        -0.9,
+        24.42
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000771",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        150,
+        0
+      ]
+    },
+    {
+      "name": "visible tool pod 5",
+      "type": "cube",
+      "from": [
+        9.1,
+        -7.25,
+        23.32
+      ],
+      "to": [
+        11.2,
+        -4.95,
+        25.52
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        10.15,
+        -6.1,
+        24.42
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000772",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        150,
+        0
+      ]
+    },
+    {
+      "name": "facet top tier 6",
+      "type": "cube",
+      "from": [
+        -3.25,
+        -1.75,
+        20.1
+      ],
+      "to": [
+        3.25,
+        -0.05,
+        23.3
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        -0.9,
+        21.7
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000773",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        180,
+        0
+      ]
+    },
+    {
+      "name": "visible tool pod 6",
+      "type": "cube",
+      "from": [
+        -1.05,
+        -7.25,
+        20.6
+      ],
+      "to": [
+        1.05,
+        -4.95,
+        22.8
+      ],
+      "color": 6,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        -6.1,
+        21.7
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000774",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        180,
+        0
+      ]
+    },
+    {
+      "name": "work light diode 6",
+      "type": "cube",
+      "from": [
+        -0.75,
+        -7.7,
+        20.95
+      ],
+      "to": [
+        0.75,
+        -7.2,
+        22.45
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        -7.45,
+        21.7
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000775",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "facet top tier 7",
+      "type": "cube",
+      "from": [
+        -13.4,
+        -1.75,
+        22.82
+      ],
+      "to": [
+        -6.9,
+        -0.05,
+        26.02
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -10.15,
+        -0.9,
+        24.42
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000776",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        210,
+        0
+      ]
+    },
+    {
+      "name": "visible tool pod 7",
+      "type": "cube",
+      "from": [
+        -11.2,
+        -7.25,
+        23.32
+      ],
+      "to": [
+        -9.1,
+        -4.95,
+        25.52
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -10.15,
+        -6.1,
+        24.42
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000777",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        210,
+        0
+      ]
+    },
+    {
+      "name": "facet top tier 8",
+      "type": "cube",
+      "from": [
+        -20.83,
+        -1.75,
+        30.25
+      ],
+      "to": [
+        -14.33,
+        -0.05,
+        33.45
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -17.58,
+        -0.9,
+        31.85
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000778",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        240,
+        0
+      ]
+    },
+    {
+      "name": "visible tool pod 8",
+      "type": "cube",
+      "from": [
+        -18.63,
+        -7.25,
+        30.75
+      ],
+      "to": [
+        -16.53,
+        -4.95,
+        32.95
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -17.58,
+        -6.1,
+        31.85
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000779",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        240,
+        0
+      ]
+    },
+    {
+      "name": "work light diode 8",
+      "type": "cube",
+      "from": [
+        -18.33,
+        -7.7,
+        31.1
+      ],
+      "to": [
+        -16.83,
+        -7.2,
+        32.6
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -17.58,
+        -7.45,
+        31.85
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000780",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "facet top tier 9",
+      "type": "cube",
+      "from": [
+        -23.55,
+        -1.75,
+        40.4
+      ],
+      "to": [
+        -17.05,
+        -0.05,
+        43.6
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -20.3,
+        -0.9,
+        42
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000781",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        270,
+        0
+      ]
+    },
+    {
+      "name": "visible tool pod 9",
+      "type": "cube",
+      "from": [
+        -21.35,
+        -7.25,
+        40.9
+      ],
+      "to": [
+        -19.25,
+        -4.95,
+        43.1
+      ],
+      "color": 6,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -20.3,
+        -6.1,
+        42
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000782",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        270,
+        0
+      ]
+    },
+    {
+      "name": "facet top tier 10",
+      "type": "cube",
+      "from": [
+        -20.83,
+        -1.75,
+        50.55
+      ],
+      "to": [
+        -14.33,
+        -0.05,
+        53.75
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -17.58,
+        -0.9,
+        52.15
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000783",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        300,
+        0
+      ]
+    },
+    {
+      "name": "visible tool pod 10",
+      "type": "cube",
+      "from": [
+        -18.63,
+        -7.25,
+        51.05
+      ],
+      "to": [
+        -16.53,
+        -4.95,
+        53.25
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -17.58,
+        -6.1,
+        52.15
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000784",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        300,
+        0
+      ]
+    },
+    {
+      "name": "work light diode 10",
+      "type": "cube",
+      "from": [
+        -18.33,
+        -7.7,
+        51.4
+      ],
+      "to": [
+        -16.83,
+        -7.2,
+        52.9
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -17.58,
+        -7.45,
+        52.15
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000785",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "facet top tier 11",
+      "type": "cube",
+      "from": [
+        -13.4,
+        -1.75,
+        57.98
+      ],
+      "to": [
+        -6.9,
+        -0.05,
+        61.18
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -10.15,
+        -0.9,
+        59.58
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000786",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        330,
+        0
+      ]
+    },
+    {
+      "name": "visible tool pod 11",
+      "type": "cube",
+      "from": [
+        -11.2,
+        -7.25,
+        58.48
+      ],
+      "to": [
+        -9.1,
+        -4.95,
+        60.68
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -10.15,
+        -6.1,
+        59.58
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000787",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        330,
+        0
+      ]
+    },
+    {
+      "name": "heavy suspended vertical spindle -13",
+      "type": "cube",
+      "from": [
+        -14.5,
+        -0.5,
+        39.9
+      ],
+      "to": [
+        -11.5,
+        16.5,
+        44.1
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -13,
+        8,
+        42
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000788",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "telescoping lift rod -13",
+      "type": "cube",
+      "from": [
+        -13.625,
+        11,
+        41.25
+      ],
+      "to": [
+        -12.375,
+        23,
+        42.75
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -13,
+        17,
+        42
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000789",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "canopy angled support brace -13",
+      "type": "cube",
+      "from": [
+        -17.4,
+        2.35,
+        40.733
+      ],
+      "to": [
+        -15.1,
+        4.65,
+        55.267
+      ],
+      "color": 2,
+      "rotation": [
+        20.121,
+        -28.443,
+        0
+      ],
+      "origin": [
+        -16.25,
+        3.5,
+        48
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000790",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "heavy suspended vertical spindle 13",
+      "type": "cube",
+      "from": [
+        11.5,
+        -0.5,
+        39.9
+      ],
+      "to": [
+        14.5,
+        16.5,
+        44.1
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        13,
+        8,
+        42
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000791",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "telescoping lift rod 13",
+      "type": "cube",
+      "from": [
+        12.375,
+        11,
+        41.25
+      ],
+      "to": [
+        13.625,
+        23,
+        42.75
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        13,
+        17,
+        42
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000792",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "canopy angled support brace 13",
+      "type": "cube",
+      "from": [
+        15.1,
+        2.35,
+        40.733
+      ],
+      "to": [
+        17.4,
+        4.65,
+        55.267
+      ],
+      "color": 2,
+      "rotation": [
+        20.121,
+        28.443,
+        0
+      ],
+      "origin": [
+        16.25,
+        3.5,
+        48
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000793",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "upper actuator armored drum",
+      "type": "cube",
+      "from": [
+        -6,
+        -2,
+        36
+      ],
+      "to": [
+        6,
+        8,
+        48
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        3,
+        42
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000794",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "front inspection hood",
       "type": "cube",
       "from": [
         -5,
-        0.4,
-        37
+        -2.15,
+        46.5
       ],
       "to": [
         5,
-        9,
-        47
+        1.15,
+        51.5
       ],
-      "color": 2,
+      "color": 4,
       "rotation": [
         0,
         0,
@@ -4541,10 +6259,10 @@
       ],
       "origin": [
         0,
-        4.7,
-        42
+        -0.5,
+        49
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000513",
+      "uuid": "8c340523-b00f-4000-8000-000000000795",
       "faces": {
         "north": {
           "uv": [
@@ -4600,20 +6318,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Canopy actuator front indicator",
+      "name": "front inspection readout",
       "type": "cube",
       "from": [
-        -3,
-        1.9,
-        47
+        -2.85,
+        -0.8,
+        51.41
       ],
       "to": [
-        3,
-        4.9,
-        47.5
+        2.85,
+        0.4,
+        51.79
       ],
       "color": 5,
       "rotation": [
@@ -4623,10 +6343,10 @@
       ],
       "origin": [
         0,
-        3.4,
-        47.25
+        -0.2,
+        51.6
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000514",
+      "uuid": "8c340523-b00f-4000-8000-000000000796",
       "faces": {
         "north": {
           "uv": [
@@ -4682,499 +6402,9 @@
           ],
           "texture": null
         }
-      }
-    },
-    {
-      "name": "Suspension nozzle 0",
-      "type": "cube",
-      "from": [
-        10.65,
-        -5.25,
-        40.65
-      ],
-      "to": [
-        13.35,
-        -2,
-        43.35
-      ],
-      "color": 4,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        12,
-        -3.625,
-        42
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000515",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Suspension nozzle 1",
-      "type": "cube",
-      "from": [
-        4.65,
-        -5.25,
-        51.042
-      ],
-      "to": [
-        7.35,
-        -2,
-        53.742
-      ],
-      "color": 4,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        6,
-        -3.625,
-        52.392
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000516",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Suspension nozzle 2",
-      "type": "cube",
-      "from": [
-        -7.35,
-        -5.25,
-        51.042
-      ],
-      "to": [
-        -4.65,
-        -2,
-        53.742
-      ],
-      "color": 4,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        -6,
-        -3.625,
-        52.392
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000517",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Suspension nozzle 3",
-      "type": "cube",
-      "from": [
-        -13.35,
-        -5.25,
-        40.65
-      ],
-      "to": [
-        -10.65,
-        -2,
-        43.35
-      ],
-      "color": 4,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        -12,
-        -3.625,
-        42
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000518",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Suspension nozzle 4",
-      "type": "cube",
-      "from": [
-        -7.35,
-        -5.25,
-        30.258
-      ],
-      "to": [
-        -4.65,
-        -2,
-        32.958
-      ],
-      "color": 4,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        -6,
-        -3.625,
-        31.608
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000519",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Suspension nozzle 5",
-      "type": "cube",
-      "from": [
-        4.65,
-        -5.25,
-        30.258
-      ],
-      "to": [
-        7.35,
-        -2,
-        32.958
-      ],
-      "color": 4,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        6,
-        -3.625,
-        31.608
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000520",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     }
   ],
   "textures": []

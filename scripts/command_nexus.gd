@@ -32,7 +32,7 @@ const NEXUS_EDGE_SHADER = preload("res://shaders/nexus_polygon_edges.gdshader")
 const NEXUS_EDGE_WIDTH_PIXELS: float = 2.0
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 
-const GATE_ORIGIN: Vector3 = Vector3(4.00, 0.02, -10.48)
+const GATE_ORIGIN: Vector3 = Vector3(5.35, 0.02, -17.00)
 const SERA_STAGE_ORIGIN: Vector3 = Vector3(0.0, 0.0, -4.75)
 
 var batch_data: Dictionary = {}
@@ -272,16 +272,16 @@ var customize_silhouette_vertex_cache: Dictionary = {}
 # reserved for a menu panel. Camera transforms/FOV only: no moving 3D assets.
 # TRAINING/GATE/CUSTOMIZE on the right; SYSTEM/ARCHIVE on the left.
 var focus_views: Dictionary = {
-    "TRAINING": {"eye": Vector3(1.95, 3.15, 7.70),
-        "look": Vector3(0.45, 1.35, 1.25), "fov": 68.0},
-    "SYSTEM": {"eye": Vector3(-1.95, 3.15, 7.70),
-        "look": Vector3(-0.45, 1.35, 1.25), "fov": 68.0},
+    "TRAINING": {"eye": Vector3(2.85, 3.25, 7.60),
+        "look": Vector3(2.64, 1.70, 0.72), "fov": 68.0},
+    "SYSTEM": {"eye": Vector3(-2.85, 3.10, 7.80),
+        "look": Vector3(-2.65, 1.15, 2.18), "fov": 68.0},
     "CUSTOMIZE": {"eye": Vector3(-4.50, 3.80, 5.00),
         "look": Vector3(-1.70, 2.00, -4.75), "fov": 67.0},
     "DATA ARCHIVE": {"eye": Vector3(-3.90, 4.50, 2.50),
         "look": Vector3(-1.70, 3.55, -8.80), "fov": 64.0},
-    "DEPLOYMENT": {"eye": Vector3(6.20, 5.30, 5.00),
-        "look": Vector3(1.80, 3.40, -10.48), "fov": 76.0}
+    "DEPLOYMENT": {"eye": Vector3(5.90, 5.35, 1.20),
+        "look": Vector3(5.35, 3.40, -17.00), "fov": 65.0}
 }
 
 # (left fraction, width fraction) of focus menu. Opposite each 3D object;
@@ -304,11 +304,11 @@ func _ready() -> void:
     _module("hangar_shell", Vector3.ZERO)
     _module("maintenance_pad", Vector3(0.0, 0.0, -4.75))
     _module("maintenance_canopy", Vector3(0.0, 8.0, -8.95))
-    _module("deployment_gate", GATE_ORIGIN, _gate_facing_yaw(), 1.20, 1.25)
+    _module("deployment_gate", GATE_ORIGIN, _gate_facing_yaw())
     _module("archive_mezzanine", Vector3(-4.00, 0.0, -6.55))
     _module("data_bank", Vector3(-4.00, 2.19, -8.95))
-    _module("kiosk", Vector3(-1.95, 0.0, 1.30), deg_to_rad(36.0))
-    _module("kiosk", Vector3(1.95, 0.0, 1.30), deg_to_rad(-36.0))
+    _module("system_console", Vector3(-2.65, 0.0, 2.18), deg_to_rad(22.0))
+    _module("training_console", Vector3(2.64, 0.0, 0.72), deg_to_rad(-16.0))
     _render_batches()
     _deployment_gate_lightspill()
     _pad_center()
@@ -372,8 +372,10 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
     var parent_basis := Basis(Vector3.UP, yaw)
     var selected_shape := ""
     match name:
-        "kiosk":
-            selected_shape = "SYSTEM" if at.x < 0.0 else "TRAINING"
+        "system_console":
+            selected_shape = "SYSTEM"
+        "training_console":
+            selected_shape = "TRAINING"
         "data_bank":
             selected_shape = "DATA ARCHIVE"
         "deployment_gate":
@@ -735,13 +737,13 @@ func _collect_sera_geometry(node: Node, visible_parts: Array) -> void:
 func _camera() -> void:
     cam = Camera3D.new()
     cam.name = "NexusPortraitCamera"
-    cam.position = Vector3(0.0, 4.10, 10.20)
+    cam.position = Vector3(0.0, 4.20, 11.75)
     cam.near = 0.05
     cam.keep_aspect = Camera3D.KEEP_HEIGHT
     cam.fov = DisplayProfile.vertical_fov(63.0,
         get_viewport().get_visible_rect().size)
     add_child(cam)
-    cam.look_at(Vector3(0.0, 3.00, -5.50), Vector3.UP)
+    cam.look_at(Vector3(0.0, 3.10, -7.10), Vector3.UP)
     cam.current = true
     overview_pose = cam.transform
     overview_fov = cam.fov
@@ -770,7 +772,7 @@ func _wall_mark() -> void:
     logo.font_size = 120
     logo.pixel_size = 0.008
     logo.modulate = Color("#a4b5d1")
-    logo.position = Vector3(0.0, 6.70, -9.05)
+    logo.position = Vector3(0.0, 5.68, -12.27)
     add_child(logo)
     var name := Label3D.new()
     name.text = "S E R A"
@@ -778,7 +780,7 @@ func _wall_mark() -> void:
     name.font_size = 80
     name.pixel_size = 0.006
     name.modulate = Color("#b4c5dd")
-    name.position = Vector3(0.0, 5.92, -9.03)
+    name.position = Vector3(0.0, 5.06, -12.24)
     add_child(name)
 
 # Outline geometry is derived from the actual visible 3D display/model meshes,
