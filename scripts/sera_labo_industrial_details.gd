@@ -90,18 +90,18 @@ func _body(s: SurfaceTool, center: Vector3,
     var high: float = center.y + size.y * 0.5
     for i in range(1, 7):
         _tri(s, Vector3(center.x+loop[0].x, high, center.z+loop[0].y),
-            Vector3(center.x+loop[i].x, high, center.z+loop[i].y),
-            Vector3(center.x+loop[i+1].x, high, center.z+loop[i+1].y), tint.lightened(0.07))
+            Vector3(center.x+loop[i+1].x, high, center.z+loop[i+1].y),
+            Vector3(center.x+loop[i].x, high, center.z+loop[i].y), tint.lightened(0.07))
         _tri(s, Vector3(center.x+loop[0].x, low, center.z+loop[0].y),
-            Vector3(center.x+loop[i+1].x, low, center.z+loop[i+1].y),
-            Vector3(center.x+loop[i].x, low, center.z+loop[i].y), tint.darkened(0.16))
+            Vector3(center.x+loop[i].x, low, center.z+loop[i].y),
+            Vector3(center.x+loop[i+1].x, low, center.z+loop[i+1].y), tint.darkened(0.16))
     for i in range(8):
         var j := (i+1) % 8
         var a := Vector3(center.x+loop[i].x, low, center.z+loop[i].y)
         var btm := Vector3(center.x+loop[j].x, low, center.z+loop[j].y)
         var top := Vector3(center.x+loop[j].x, high, center.z+loop[j].y)
         var d := Vector3(center.x+loop[i].x, high, center.z+loop[i].y)
-        _quad(s, a, btm, top, d, tint if i in [0, 3, 4] else tint.darkened(0.075))
+        _quad(s, a, d, top, btm, tint if i in [0, 3, 4] else tint.darkened(0.075))
 
 # Front-facing octagonal access panel with an actual extruded edge.
 func _front(s: SurfaceTool, pos: Vector3,
@@ -160,14 +160,14 @@ func _ring(s: SurfaceTool, center: Vector3,
         var d1: Vector3 = u*cos(b)+v*sin(b)
         var front := center + n * (depth*0.5)
         var back := center - n * (depth*0.5)
-        _quad(s, front+d0*inner, front+d1*inner,
-            front+d1*outer, front+d0*outer, tint.lightened(0.09))
-        _quad(s, back+d1*inner, back+d0*inner,
-            back+d0*outer, back+d1*outer, tint.darkened(0.15))
         _quad(s, front+d0*outer, front+d1*outer,
-            back+d1*outer, back+d0*outer, tint)
+            front+d1*inner, front+d0*inner, tint.lightened(0.09))
         _quad(s, back+d0*inner, back+d1*inner,
-            front+d1*inner, front+d0*inner, tint.darkened(0.2))
+            back+d1*outer, back+d0*outer, tint.darkened(0.15))
+        _quad(s, front+d0*outer, back+d0*outer,
+            back+d1*outer, front+d1*outer, tint)
+        _quad(s, front+d0*inner, front+d1*inner,
+            back+d1*inner, back+d0*inner, tint.darkened(0.2))
 
 func _strut(s: SurfaceTool, a: Vector3, b: Vector3,
         radius: float, tint: Color) -> void:
