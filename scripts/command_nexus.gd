@@ -1197,6 +1197,11 @@ func _set_customize_mode(mode: int) -> void:
     _refresh_customize_mode_tabs()
     if focused_target != "CUSTOMIZE":
         return
+    # Camera/model approach may still be animating. Apply actual viewport
+    # visibility only once both transitions finish.
+    if in_transition:
+        _layout_hud()
+        return
     if mode == 0:
         if is_instance_valid(sera_display_rig):
             sera_display_rig.visible = true
@@ -3741,7 +3746,7 @@ func _customization_entrance_arrived(final_world: Transform3D) -> void:
         _update_customization_glow()
         customize_glow_quad.visible = true
     in_transition = false
-    _sync_customization_part_glow()
+    _set_customize_mode(customize_display_mode)
 
 # On Back, retract the *currently rotated* model while the camera is also
 # returning to the overview. The grid does not follow the model and is hidden
