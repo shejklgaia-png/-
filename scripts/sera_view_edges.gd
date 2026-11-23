@@ -132,10 +132,10 @@ func set_outline_widths(inside_px: float, outside_px: float,
         _compositor.call("set_actor_outline_widths",
             _actor_widths_px.x, _actor_widths_px.y, _actor_widths_px.z)
 
-# Only width presets differ: 0=normal/BASE/part, 1=Bittaran, 2=NEXUS.
+# Only width presets differ: 0=default, 1=Bittaran, 2=NEXUS, 3=training.
 # Every profile keeps exactly the same depth-resolved RGB-ID algorithm.
 func set_outline_profile(profile: int) -> void:
-    _numeric_outline_profile = clampi(profile, 0, 2)
+    _numeric_outline_profile = clampi(profile, 0, 3)
     if is_instance_valid(_compositor):
         _compositor.call("set_scene_profile", _numeric_outline_profile)
 
