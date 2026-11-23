@@ -942,6 +942,12 @@ static func _outline_role(node: Node) -> int:
             "grid": return 4
             "crate": return 5
             "part": return 6
+        # The displayed/active SERA inherits a NEXUS/BASE facility root.
+        # Its closer character category MUST take priority over that root,
+        # otherwise the player becomes a role-2 facility (and gains convex).
+        if str(cursor.get_meta("sera_graphics_outline_category", "")) == (
+                "character"):
+            return 1
         cursor = cursor.get_parent()
     return 1
 
