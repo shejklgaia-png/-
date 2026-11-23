@@ -1,7 +1,7 @@
 shader_type canvas_item;
 // NEXUS: 1px inner / 2px outer, fully opaque, depth-resolved silhouette.
 // Use an exact Euclidean pixel radius; no fractional grey anti-alias fringe.
-// Visible mesh-to-mesh contact seams use a 1.5px hard Euclidean radius, on one mesh only.
+// Visible mesh-to-mesh contact seams use a 2px hard Euclidean radius, on one mesh only.
 // No obscured contours or camera-facing geometric convex creases are drawn.
 // Outside pixels are sampled only within the projected SERA screen bounds.
 render_mode blend_mix;
@@ -12,7 +12,7 @@ uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
 uniform float stroke_px : hint_range(1.0, 3.0) = 2.0; // NEXUS architecture
 uniform float sera_inner_px : hint_range(0.0, 3.0) = 1.0;
 uniform float sera_outer_px : hint_range(0.0, 8.0) = 2.0;
-uniform float sera_seam_px : hint_range(0.5, 3.0) = 1.5;
+uniform float sera_seam_px : hint_range(0.5, 3.0) = 2.0;
 // xmin, ymin, xmax, ymax in viewport UV; zero-sized when SERA absent.
 uniform vec4 sera_screen_bounds = vec4(0.0);
 
@@ -27,7 +27,7 @@ bool is_sera(vec3 mesh_id) {
     return mesh_id.g >= 0.06;
 }
 
-// One-sided ordering keeps the 1.5px contact seam on only one mesh.
+// One-sided ordering keeps the 2px contact seam on only one mesh.
 bool owns_contact(vec3 center_id, vec3 neighbor_id) {
     if (abs(center_id.b - neighbor_id.b) > 0.06) {
         return center_id.b > neighbor_id.b;
@@ -92,9 +92,9 @@ void fragment() {
     if (center_sera) {
         float inner_distance = 99.0;
         float seam_distance = 99.0;
-        // Inner silhouette stays 1px. The 1.5px contact radius also accepts
-        // diagonal neighbors (sqrt(2)), without any alpha/grey fringe.
-        for (int radius = 1; radius <= 1; radius++) {
+        // Inner silhouette stays 1px. Contact seams extend to a 2px
+        // radius, requiring two sample rings with no alpha/grey fringe.
+        for (int radius = 1; radius <= 2; radius++) {
             for (int direction = 0; direction < 8; direction++) {
                 vec2 offset = sample_offset(radius, direction);
                 float distance_px = length(offset);
