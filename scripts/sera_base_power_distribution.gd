@@ -184,14 +184,14 @@ static func _visible_at_camera(at: Vector2, yaw: float, camera: Camera3D,
                 center + Vector3.UP * 1.6) >= device_distance - 0.35:
             continue
         var half: Vector2 = _footprint(str(site["id"]))
-        var yaw := Basis(Vector3.UP,
+        var site_basis := Basis(Vector3.UP,
             BaseArchitecture.facility_yaw_radians(str(site["id"])))
         var low := Vector2(100000.0, 100000.0)
         var high := Vector2(-100000.0, -100000.0)
         for dx in [-1.0, 1.0]:
             for dz in [-1.0, 1.0]:
                 for h in [0.0, _height_of(str(site["id"]))]:
-                    var corner: Vector3 = center + yaw * Vector3(
+                    var corner: Vector3 = center + site_basis * Vector3(
                         dx * half.x, h, dz * half.y)
                     var screen: Vector2 = camera.unproject_position(corner)
                     low = low.min(screen)
