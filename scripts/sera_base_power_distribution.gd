@@ -116,6 +116,22 @@ static func _open_location(at: Vector2, all_sites: Array[Dictionary],
     return true
 
 
+static func _terminal_gates_open(key: String, at: Vector2, yaw: float,
+        sites: Array[Dictionary], props: Array[Dictionary],
+        placed: Array[Vector2]) -> bool:
+    var turn := Basis(Vector3.UP, yaw)
+    var outward: Array[Vector3] = [
+        Vector3(-0.36, 0.0, 1.40),
+        Vector3(0.36, 0.0, 1.40)]
+    if key == "GENERATOR":
+        outward.append(Vector3(0.0, 0.0, -1.48))
+    for offset in outward:
+        var pos: Vector3 = Vector3(at.x, 0.0, at.y) + turn * offset
+        if not _open_location(_xz(pos), sites, props, placed, 0.46):
+            return false
+    return true
+
+
 static func _height_of(key: String) -> float:
     match key:
         "NEXUS": return 6.7
@@ -193,6 +209,9 @@ static func _locate_device(key: String, all_sites: Array[Dictionary],
         var test: Vector2 = goal + Vector2(cos(turn), sin(turn)) * radius
         if not _open_location(test, all_sites, props, placed):
             continue
+        if not _terminal_gates_open(key, test, yaw,
+                all_sites, props, placed):
+            continue
         if not _visible_at_camera(test, camera, all_sites):
             continue
         var site: Dictionary = {}
@@ -215,6 +234,9 @@ static func _locate_device(key: String, all_sites: Array[Dictionary],
             var test: Vector2 = goal + Vector2(cos(phi), sin(phi)) * (
                 float(ring) * 0.33)
             if not _open_location(test, all_sites, props, placed):
+                continue
+            if not _terminal_gates_open(key, test, yaw,
+                    all_sites, props, placed):
                 continue
             if not _visible_at_camera(test, camera, all_sites):
                 continue
