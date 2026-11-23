@@ -122,6 +122,38 @@ bool sera_in_contact_footprint(int dx, int dy, float total_seam_px) {
     return max(reach_x, reach_y) <= max(half_width, 0.5) + 0.001;
 }
 
+// The requested ENVIRONMENT mesh seam is its TOTAL visible thickness, not
+// a radius independently applied to both meshes. Resolve the full width to
+// integer ID texels once, then allocate the extra odd texel to the stable
+// contact owner: 1px = 1+0, 2px = 1+1, 3px = 2+1 at 1:1 output.
+// Separate X/Y counts also respect nonuniform viewport display scaling.
+bool sera_in_total_environment_seam(
+        int dx, int dy, float requested_px, bool owner) {
+    if (requested_px < 0.001) { return false; }
+    int total_x = clamp(int(ceil(requested_px /
+        max(0.125, output_px_per_id_pixel.x) - 0.00001)), 1, 32);
+    int total_y = clamp(int(ceil(requested_px /
+        max(0.125, output_px_per_id_pixel.y) - 0.00001)), 1, 32);
+    int side_x = owner ? (total_x + 1) / 2 : total_x / 2;
+    int side_y = owner ? (total_y + 1) / 2 : total_y / 2;
+    return (side_x > 0 || side_y > 0) &&
+        abs(dx) <= side_x && abs(dy) <= side_y;
+}
+
+// Admit only the maximum OWNED half-width to the early square/diagonal
+// search (not the full width). A 3px facility contact needs at most 2 ID
+// texels on one side at 1:1, limiting texture reads on dense Android scenes.
+bool sera_environment_contact_candidate(
+        int dx, int dy, float width_px) {
+    if (width_px < 0.001) { return false; }
+    int total_x = clamp(int(ceil(width_px /
+        max(0.125, output_px_per_id_pixel.x) - 0.00001)), 1, 32);
+    int total_y = clamp(int(ceil(width_px /
+        max(0.125, output_px_per_id_pixel.y) - 0.00001)), 1, 32);
+    return abs(dx) <= (total_x + 1) / 2 &&
+        abs(dy) <= (total_y + 1) / 2;
+}
+
 float sera_inner_width(int role) {
     if (role == 1 && actor_inside_override_px >= 0.0) {
         return actor_inside_override_px;
@@ -220,7 +252,9 @@ float sera_visible_id_ink_alpha(vec2 uv) {
                 // intermittently dropped visibly slanted armor junctions.
                 bool diagonal_contact = abs(dx) == 1 && abs(dy) == 1 &&
                     seam_px > 0.001;
-                if (!diagonal_contact &&
+                bool environment_candidate = role >= 2 && role <= 4 &&
+                    sera_environment_contact_candidate(dx, dy, seam_px);
+                if (!diagonal_contact && !environment_candidate &&
                         !sera_in_disk(dx, dy, max(inner_px, contact_px))) {
                     continue;
                 }
@@ -247,19 +281,26 @@ float sera_visible_id_ink_alpha(vec2 uv) {
                 if (same_styled_role && same_actor_group) {
                     ivec2 this_mesh = ivec2(floor(center.rb * 255.0 + 0.5));
                     ivec2 next_mesh = ivec2(floor(neighbor.rb * 255.0 + 0.5));
-                    if (any(notEqual(this_mesh, next_mesh)) &&
-                            sera_in_contact_footprint(dx, dy, seam_px)) {
-                        // A 1px character seam must occupy ONE ID pixel in
-                        // total. Previously both contacting meshes wrote ink,
-                        // yielding a visibly 2px-wide line. The stable ID
-                        // ordering selects exactly one side, even diagonally.
-                        // Keep facilities/clutter and wider seams unchanged.
-                        bool thin_character_seam = seam_px <= 1.001 &&
-                            (role == 1 || role == 5 || role == 6);
-                        if (!thin_character_seam ||
-                                sera_contact_owner(center, neighbor)) {
-                            draw_ink = true;
-                            break;
+                    if (any(notEqual(this_mesh, next_mesh))) {
+                        bool owner = sera_contact_owner(center, neighbor);
+                        // Environment uses the combined width, not one
+                        // half-width applied independently to both meshes.
+                        if (role >= 2 && role <= 4) {
+                            if (sera_in_total_environment_seam(
+                                    dx, dy, seam_px, owner)) {
+                                draw_ink = true;
+                                break;
+                            }
+                        } else if (sera_in_contact_footprint(
+                                dx, dy, seam_px)) {
+                            // Preserve character/CRATE single-sided 1px
+                            // seams and the existing eight-neighbor scan.
+                            bool thin_character_seam = seam_px <= 1.001 &&
+                                (role == 1 || role == 5 || role == 6);
+                            if (!thin_character_seam || owner) {
+                                draw_ink = true;
+                                break;
+                            }
                         }
                     }
                     continue;
@@ -274,6 +315,28 @@ float sera_visible_id_ink_alpha(vec2 uv) {
                 if (player_enemy_contact) {
                     if (!player_pixel && near_player_contact &&
                             sera_in_disk(dx, dy, contact_px)) {
+                        draw_ink = true;
+                        break;
+                    }
+                    continue;
+                }
+                // A facility/GRID-to-clutter contact also has a single
+                // total width. Prefer facility ownership of the odd pixel,
+                // so clutter's 1px search never needs the facility's 3px
+                // dilation radius. NEXUS profile 2 remains 2px.
+                bool environment_pair = role >= 2 && role <= 4 &&
+                    other_role >= 2 && other_role <= 4;
+                if (environment_pair) {
+                    bool owner = sera_contact_owner(center, neighbor);
+                    if ((role == 2 || role == 4) && other_role == 3) {
+                        owner = true;
+                    } else if (role == 3 &&
+                            (other_role == 2 || other_role == 4)) {
+                        owner = false;
+                    }
+                    float pair_px = max(seam_px, sera_seam_width(other_role));
+                    if (sera_in_total_environment_seam(
+                            dx, dy, pair_px, owner)) {
                         draw_ink = true;
                         break;
                     }
