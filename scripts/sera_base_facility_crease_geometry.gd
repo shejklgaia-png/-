@@ -122,3 +122,69 @@ static func _build_overlay(mesh: Mesh) -> ArrayMesh:
     if added == 0:
         return null
     return st.commit()
+
+
+# The ID compositor owns ALL silhouettes and mesh-ID contacts. This cached
+# overlay contains ONLY physically convex >=80-degree edges of one mesh.
+# No open boundary/front-back silhouette or concave crease is ever emitted.
+static func build_convex_only(mesh: Mesh) -> ArrayMesh:
+    if mesh == null:
+        return null
+    var volume: float = 0.0
+    for si in range(mesh.get_surface_count()):
+        var arrays: Array = mesh.surface_get_arrays(si)
+        var points: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+        var indices := PackedInt32Array()
+        if arrays[Mesh.ARRAY_INDEX] is PackedInt32Array:
+            indices = arrays[Mesh.ARRAY_INDEX]
+        var count: int = indices.size() if not indices.is_empty() else points.size()
+        for k in range(0, count - 2, 3):
+            var ia: int = indices[k] if not indices.is_empty() else k
+            var ib: int = indices[k + 1] if not indices.is_empty() else k + 1
+            var ic: int = indices[k + 2] if not indices.is_empty() else k + 2
+            if mini(ia, mini(ib, ic)) < 0 or (
+                    maxi(ia, maxi(ib, ic)) >= points.size()):
+                continue
+            volume += points[ia].dot(points[ib].cross(points[ic])) / 6.0
+    var outward_sign: float = -1.0 if volume < -0.000001 else 1.0
+    var st := SurfaceTool.new()
+    st.begin(Mesh.PRIMITIVE_TRIANGLES)
+    st.set_custom_format(0, SurfaceTool.CUSTOM_RGBA_FLOAT)
+    var count: int = 0
+    for edge_value in _extract_edges(mesh):
+        if count >= MAX_EDGES_PER_MESH:
+            break
+        var edge: Dictionary = edge_value
+        if not bool(edge.get("crease", false)) or (
+                not edge.has("face_b")) or (
+                int(edge.get("count", 0)) != 2) or (
+                bool(edge.get("duplicate_triangle", false))):
+            continue
+        var start: Vector3 = edge["a"]
+        var finish: Vector3 = edge["b"]
+        var direction: Vector3 = finish - start
+        if direction.length_squared() < 0.000000001:
+            continue
+        var tangent: Vector3 = direction.normalized()
+        var na: Vector3 = edge["face_a"]
+        var nb: Vector3 = edge["face_b"]
+        if tangent.dot(na.cross(nb)) * outward_sign <= 0.00001:
+            continue
+        # The existing front/front shader expects its two inward normals
+        # in COLOR.rgb and CUSTOM0.xyz, with COLOR.a as hard crease flag.
+        # Copy the legacy mesh encoding exactly to preserve mobile depth.
+        var face_a := Color(na.x * 0.5 + 0.5,
+            na.y * 0.5 + 0.5, na.z * 0.5 + 0.5, 1.0)
+        var face_b := Color(nb.x, nb.y, nb.z, 1.0)
+        for endpoint in [[start, -1.0], [finish, -1.0],
+                [finish, 1.0], [start, -1.0],
+                [finish, 1.0], [start, 1.0]]:
+            st.set_color(face_a)
+            st.set_custom(0, face_b)
+            st.set_normal(tangent)
+            st.set_uv(Vector2(float(endpoint[1]), 0.0))
+            st.add_vertex(endpoint[0])
+        count += 1
+    if count == 0:
+        return null
+    return st.commit()
