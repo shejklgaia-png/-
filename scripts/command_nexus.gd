@@ -9,6 +9,7 @@ const NexusComplexMachining = preload("res://scripts/nexus_complex_machining.gd"
 const NexusSculptedFittings = preload("res://scripts/nexus_sculpted_fittings.gd")
 const NexusDeploymentWallDock = preload("res://scripts/nexus_deployment_wall_dock.gd")
 const NexusCanonicalPlacement = preload("res://scripts/nexus_canonical_placement.gd")
+const NexusCameraAnglePlacement = preload("res://scripts/nexus_camera_angle_placement.gd")
 const NexusBulkheadRefit = preload("res://scripts/nexus_bulkhead_refit.gd")
 const NexusRoomMotion = preload("res://scripts/nexus_room_motion.gd")
 const NexusTrainingServiceModule = preload("res://scripts/nexus_training_service_module.gd")
@@ -295,6 +296,8 @@ var target_parts: Dictionary = {}
 var canonical_core_refs: Dictionary = {}
 var canonical_render_batches: Dictionary = {}
 var placement_editor
+var camera_angle_editor
+var placement_ui_layer: CanvasLayer
 # Reuse each mesh's actual authored vertices when reprojecting a changed outfit.
 var customize_silhouette_vertex_cache: Dictionary = {}
 
@@ -423,10 +426,20 @@ func _ready() -> void:
         "DEPLOYMENT": {"module": "DeploymentConsolePlacementAnchor",
             "position": gate_console_at, "yaw": gate_yaw}
     }
+    # Independent top-layer editor HUD. The former placement-only _draw()
+    # child of NexusOverlay was not reliably rendered in portrait builds.
+    # Real controls now sit above both the RGB-ID outline and focus menus.
+    placement_ui_layer = CanvasLayer.new()
+    placement_ui_layer.name = "NexusPlacementOverlay"
+    placement_ui_layer.layer = 8
+    add_child(placement_ui_layer)
     placement_editor = NexusCanonicalPlacement.new()
-    hud.add_child(placement_editor)
+    placement_ui_layer.add_child(placement_editor)
     placement_editor.configure(self, placement_specs,
         canonical_core_refs, canonical_render_batches)
+    camera_angle_editor = NexusCameraAnglePlacement.new()
+    placement_ui_layer.add_child(camera_angle_editor)
+    camera_angle_editor.configure(self)
     # The rejected 2D bounding-box contour is not created in NEXUS.
     # The new depth hull shares the real 3D scene and its current camera.
     SeraSave.mark_location("NEXUS")
@@ -4221,6 +4234,9 @@ func _on_android_back() -> void:
     _navigate_back()
 
 func _navigate_back() -> void:
+    if camera_angle_editor != null and camera_angle_editor.active:
+        camera_angle_editor.close_mode()
+        return
     if placement_editor != null and placement_editor.active:
         placement_editor.close_mode()
         return
@@ -4241,6 +4257,11 @@ func _navigate_back() -> void:
         _return_to_overview()
 
 func _input(event: InputEvent) -> void:
+    # A camera-angle edit is available only in a settled zoom view.
+    # It captures normal menu/Back input until explicitly closed.
+    if camera_angle_editor != null and camera_angle_editor.route_input(event):
+        get_viewport().set_input_as_handled()
+        return
     # Canonical placement takes precedence over ALL existing actions, including
     # EXIT TO BASE, focus menus, animations, debug taps, and equipment pickers.
     if placement_editor != null and placement_editor.route_input(event):
@@ -4488,6 +4509,8 @@ func _tap_at(point: Vector2) -> void:
     _navigate_back()
 
 func _enter_base() -> void:
+    if camera_angle_editor != null and camera_angle_editor.active:
+        camera_angle_editor.close_mode()
     if placement_editor != null and placement_editor.active:
         placement_editor.close_mode()
     # Explicit EXIT TO BASE must not be blocked by an interrupted tween.
@@ -4602,6 +4625,8 @@ func _focus_arrived(target_name: String) -> void:
 func _return_to_overview() -> void:
     if in_transition or focused_target.is_empty():
         return
+    if camera_angle_editor != null and camera_angle_editor.active:
+        camera_angle_editor.close_mode()
     if nexus_room_motion != null:
         nexus_room_motion.set_deployment_open(false)
     _set_single_part_preview_fullscreen(false)
