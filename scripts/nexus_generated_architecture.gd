@@ -77,6 +77,12 @@ static func build(room: Node3D, system_at: Vector3,
             Vector3(side * 1.91, 3.10, 0.955),
             Vector3(0.047, 0.14, 0.018))
 
+    # The existing twelve-piece canopy gets one low-poly annular bearing
+    # inside its luminous rim. It adds a readable circular machine layer
+    # without another light or a second full-size overlapping canopy.
+    _append(pieces, "canopy_ring",
+        Transform3D(Basis(), Vector3(0.0, 7.09, -4.75)))
+
     _flush(room, pieces)
 
 
@@ -201,6 +207,52 @@ static func _louver_mesh() -> ArrayMesh:
     return result
 
 
+static func _machined_annulus() -> ArrayMesh:
+    # Closed, low-sided industrial collar with shaded upper/lower facets.
+    # Dimensions are local meters; center is the authored maintenance stage.
+    var vertices := PackedVector3Array()
+    var normals := PackedVector3Array()
+    var colors := PackedColorArray()
+    var segments: int = 24
+    var outer_radius: float = 1.43
+    var inner_radius: float = 1.18
+    for i in range(segments):
+        var angle_a: float = TAU * float(i) / float(segments)
+        var angle_b: float = TAU * float(i + 1) / float(segments)
+        var radial_a := Vector2(cos(angle_a), sin(angle_a))
+        var radial_b := Vector2(cos(angle_b), sin(angle_b))
+        var top_outer_a := Vector3(radial_a.x * outer_radius, 0.061,
+            radial_a.y * outer_radius)
+        var top_outer_b := Vector3(radial_b.x * outer_radius, 0.061,
+            radial_b.y * outer_radius)
+        var top_inner_a := Vector3(radial_a.x * inner_radius, 0.061,
+            radial_a.y * inner_radius)
+        var top_inner_b := Vector3(radial_b.x * inner_radius, 0.061,
+            radial_b.y * inner_radius)
+        var bottom_outer_a := Vector3(top_outer_a.x, -0.048, top_outer_a.z)
+        var bottom_outer_b := Vector3(top_outer_b.x, -0.048, top_outer_b.z)
+        var bottom_inner_a := Vector3(top_inner_a.x, -0.048, top_inner_a.z)
+        var bottom_inner_b := Vector3(top_inner_b.x, -0.048, top_inner_b.z)
+        var crown: Color = (Color("#d1e0ea")
+            if i % 4 == 0 else Color("#9db7c8"))
+        _quad(vertices, normals, colors, top_inner_a, top_inner_b,
+            top_outer_b, top_outer_a, crown)
+        _quad(vertices, normals, colors, bottom_outer_a, bottom_outer_b,
+            bottom_inner_b, bottom_inner_a, Color("#667d90"))
+        _quad(vertices, normals, colors, top_outer_a, top_outer_b,
+            bottom_outer_b, bottom_outer_a, Color("#91aaba"))
+        _quad(vertices, normals, colors, bottom_inner_a, bottom_inner_b,
+            top_inner_b, top_inner_a, Color("#40586b"))
+    var arrays: Array = []
+    arrays.resize(Mesh.ARRAY_MAX)
+    arrays[Mesh.ARRAY_VERTEX] = vertices
+    arrays[Mesh.ARRAY_NORMAL] = normals
+    arrays[Mesh.ARRAY_COLOR] = colors
+    var result := ArrayMesh.new()
+    result.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+    return result
+
+
 static func _quad(vertices: PackedVector3Array,
         normals: PackedVector3Array, colors: PackedColorArray,
         a: Vector3, b: Vector3, c: Vector3, d: Vector3,
@@ -230,6 +282,7 @@ static func _flush(room: Node3D, pieces: Dictionary) -> void:
     room.add_child(root)
     var plate_mesh: Mesh = _cast_panel_mesh()
     var louver_mesh: Mesh = _louver_mesh()
+    var annulus_mesh: Mesh = _machined_annulus()
     var cube := BoxMesh.new()
     cube.size = Vector3.ONE
     for key_value in pieces.keys():
@@ -240,6 +293,8 @@ static func _flush(room: Node3D, pieces: Dictionary) -> void:
             shared_mesh = plate_mesh
         elif finish == "louver":
             shared_mesh = louver_mesh
+        elif finish == "canopy_ring":
+            shared_mesh = annulus_mesh
         var batch := MultiMesh.new()
         batch.transform_format = MultiMesh.TRANSFORM_3D
         batch.mesh = shared_mesh
@@ -263,18 +318,22 @@ static func _material(finish: String) -> StandardMaterial3D:
         "plate_dark": Color("#263b4d"),
         "plate_trim": Color("#536c80"),
         "metal": Color("#587385"),
+        "canopy_ring": Color("#41586c"),
         "pin": Color("#859cac"),
         "glow": Color("#6dcfff")
     }
     var mat := StandardMaterial3D.new()
     mat.albedo_color = palette.get(finish, Color.WHITE)
-    mat.vertex_color_use_as_albedo = finish.begins_with("plate_") or finish == "louver"
+    mat.vertex_color_use_as_albedo = (
+        finish.begins_with("plate_") or finish == "louver" or
+        finish == "canopy_ring")
     if finish == "louver":
         mat.albedo_color = Color.WHITE
     mat.metallic = 0.48
     mat.roughness = 0.41
     mat.metallic_specular = 0.56
-    if finish.begins_with("plate_") or finish == "louver":
+    if finish.begins_with("plate_") or (
+            finish == "louver" or finish == "canopy_ring"):
         mat.cull_mode = BaseMaterial3D.CULL_DISABLED
     if finish == "glow":
         mat.emission_enabled = true
