@@ -3,6 +3,7 @@ extends Node3D
 signal power_board_requested
 const BaseMaterials = preload("res://scripts/sera_base_materials.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
+const WorldMonitors = preload("res://scripts/sera_world_monitor_textures.gd")
 const IconAtlas = preload("res://scripts/sera_item_icons.gd")
 const EquipmentPreview = preload("res://tools/equipment_intake/godot_preview.gd")
 const WarehouseDetailPopup = preload("res://scripts/sera_warehouse_detail_popup.gd")
@@ -185,6 +186,7 @@ func _build_facilities() -> void:
         foundation.rotation.y = BaseArchitecture.facility_yaw_radians(key)
         # All seven stations now have separately authored industrial geometry.
         BaseArchitecture.build_facility(root_node, key)
+        WorldMonitors.attach_facility(root_node,key)
         # Keep the generator's existing rotor animation after the geometry swap.
         if key == "GENERATOR":
             generator_rotor = Node3D.new()
