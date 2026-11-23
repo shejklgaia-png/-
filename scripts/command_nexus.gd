@@ -8,6 +8,7 @@ const NexusGeneratedArchitecture = preload("res://scripts/nexus_generated_archit
 const NexusComplexMachining = preload("res://scripts/nexus_complex_machining.gd")
 const NexusSculptedFittings = preload("res://scripts/nexus_sculpted_fittings.gd")
 const NexusDeploymentWallDock = preload("res://scripts/nexus_deployment_wall_dock.gd")
+const NexusRoomMotion = preload("res://scripts/nexus_room_motion.gd")
 const NexusTrainingServiceModule = preload("res://scripts/nexus_training_service_module.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
@@ -217,6 +218,7 @@ var system_confirm_blink_bright: bool = true
 # afterimage nodes whose lifetime is tied to _exit_tree. Set its world transform
 # from camera space instead; no duplicate model, SubViewport or draw batch.
 var nexus_room_visuals: Array[Node3D] = []
+var nexus_room_motion
 var sera_display_stand: Node3D
 var sera_display_rig: Node3D
 var sera_original_transform: Transform3D
@@ -369,6 +371,12 @@ func _ready() -> void:
     target_parts["DEPLOYMENT"] = deployment_parts
     _deployment_gate_lightspill()
     _pad_center()
+    # Animate only auxiliary equipment, never the Blockbench selection solids.
+    # This child joins nexus_room_visuals and is hidden during CUSTOMIZE.
+    nexus_room_motion = NexusRoomMotion.new()
+    add_child(nexus_room_motion)
+    nexus_room_motion.configure(SYSTEM_CONSOLE_ORIGIN,
+        TRAINING_CONSOLE_ORIGIN, GATE_ORIGIN, _gate_facing_yaw(), GATE_SCALE)
     # NEXUS equipment has 3/0/2+convex1; its displayed SERA remains
     # universal character 4/0/2, all in the exact shared visible RGB-ID pass.
     SharedMaterialShading.apply_to_subtree(self)
@@ -4458,6 +4466,8 @@ func _select_target(target_name: String) -> void:
     if in_transition or not focus_views.has(target_name):
         return
     focused_target = target_name
+    if nexus_room_motion != null:
+        nexus_room_motion.set_deployment_open(target_name == "DEPLOYMENT")
     # Show the bright contour in the initial press event, before camera tween.
     outline.set("active_target", target_name)
     _update_projected_silhouettes()
@@ -4539,6 +4549,8 @@ func _focus_arrived(target_name: String) -> void:
 func _return_to_overview() -> void:
     if in_transition or focused_target.is_empty():
         return
+    if nexus_room_motion != null:
+        nexus_room_motion.set_deployment_open(false)
     _set_single_part_preview_fullscreen(false)
     _clear_customization_part_glow()
     # Back immediately ends the bright selection, before camera return.
