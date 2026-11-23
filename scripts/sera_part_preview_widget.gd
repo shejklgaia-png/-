@@ -18,6 +18,9 @@ signal preview_fullscreen_requested(enabled: bool)
 # The live part preview starts at the same angle as the approved 19 PNGs.
 const DEFAULT_YAW: float = 156.900744628906
 const DEFAULT_PITCH: float = 11.8749389648438
+# Reserve breathing room around single-part silhouettes in the compact
+# NEXUS viewer. Fullscreen and pinch-to-zoom remain interactive.
+const NEXUS_COMPACT_PREVIEW_ZOOM: float = 0.86
 
 var render_viewport: SubViewport
 var preview_scene: Node3D
@@ -484,7 +487,7 @@ func _load_part(request: int) -> void:
         "background_mode": "grid",
         "camera": {"yaw": DEFAULT_YAW, "pitch": DEFAULT_PITCH,
             "roll": 0.0, "panX": 0.0, "panY": 0.0,
-            "zoom": 1.0, "outlinePx": 3.0},
+            "zoom": NEXUS_COMPACT_PREVIEW_ZOOM, "outlinePx": 3.0},
         "seq": request
     })
     # HEAD D/IRIS no longer uses a six-ID custom Canvas mask. Exactly the
