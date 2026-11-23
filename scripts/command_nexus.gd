@@ -8,6 +8,7 @@ const NexusGeneratedArchitecture = preload("res://scripts/nexus_generated_archit
 const NexusComplexMachining = preload("res://scripts/nexus_complex_machining.gd")
 const NexusSculptedFittings = preload("res://scripts/nexus_sculpted_fittings.gd")
 const NexusDeploymentWallDock = preload("res://scripts/nexus_deployment_wall_dock.gd")
+const NexusBulkheadRefit = preload("res://scripts/nexus_bulkhead_refit.gd")
 const NexusRoomMotion = preload("res://scripts/nexus_room_motion.gd")
 const NexusTrainingServiceModule = preload("res://scripts/nexus_training_service_module.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
@@ -346,6 +347,9 @@ func _ready() -> void:
     # Replace only the floor surface, retaining the authored foundation,
     # all structures, console hit areas and the original NEXUS ID pipeline.
     NexusFloorPanels.build(self)
+    # Replace the solid back wall, interfering gate-side column and the
+    # horizontal bridge with an actual cut-out shell and shaped trusses.
+    NexusBulkheadRefit.build(self)
     # Shared low-poly castings sit inside existing Blockbench silhouettes.
     # Build before the shared material/depth pass, without changing hit zones.
     NexusGeneratedArchitecture.build(
@@ -492,6 +496,14 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
         # tiles, stripes, light sockets and grate boxes replaced by the new
         # depth-occluding reference deck, avoiding double/z-fighting surfaces.
         if name == "hangar_shell" and _is_replaced_nexus_deck_part(String(part[0])):
+            continue
+        if name == "hangar_shell" and NexusBulkheadRefit.suppresses_authored_part(
+                str(part[0])):
+            continue
+        # The actual cyan optics now rotate left as a shared group. Leave
+        # the fixed amber carrier and mechanical canopy castings intact.
+        if name == "maintenance_canopy" and str(part[0]).begins_with(
+                "Overhead cyan maintenance optic "):
             continue
         var stretch := Vector3(1.0, height_factor, 1.0)
         var lo: Vector3 = _vec(part[1]) * Modules.UNIT * scale_factor * stretch
