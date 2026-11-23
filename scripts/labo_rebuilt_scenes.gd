@@ -1,4 +1,5 @@
 extends RefCounted
+const IndustrialDetail = preload("res://scripts/sera_labo_industrial_details.gd")
 ## SERA LABO / REFINE / STORAGE: independent, authored procedural 3D environments.
 ## No generated textures. Repeated fittings are two colored MultiMesh batches per mount.
 ## Coordinates keep the existing three camera compositions and CRATE work routes.
@@ -20,6 +21,7 @@ var _batch_material: StandardMaterial3D
 var _spool: Node3D
 var _lift: Node3D
 var _refinery_impellers: Array[Node3D] = []
+var _industrial_detail
 
 func build(stage) -> void:
     host = stage
@@ -37,8 +39,15 @@ func build(stage) -> void:
     _build_refining()
     _build_storage()
     _flush_batches()
+    # One authored low-draw-call detail pass per room; keeps existing UI,
+    # live 24fps displays, camera, CRATE routing and warehouse identifiers.
+    _industrial_detail = IndustrialDetail.new()
+    _industrial_detail.build(host.printer_group, host.converter_group,
+        host.warehouse_group)
 
 func animate(time: float, section: String) -> void:
+    if _industrial_detail != null:
+        _industrial_detail.animate(time, section)
     if section == "LABO" and is_instance_valid(_spool):
         _spool.rotation.x = time * 0.28
     elif section in ["SMELTER", "RECYCLER"]:
