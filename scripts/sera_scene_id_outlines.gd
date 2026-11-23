@@ -675,6 +675,15 @@ func _sync_camera(source_camera: Camera3D) -> bool:
         id_camera.cull_mask = 1
         id_camera.global_transform = source_camera.global_transform
         dirty = true
+    # Bittaran's camera shake uses projection offsets, not a node transform.
+    # Mirror both independently: a stationary global_transform must not
+    # leave the visible-ID pass at its pre-shake projection for even one frame.
+    # Also clears stale shake offsets when returning to NEXUS/BASE.
+    if id_camera.h_offset != source_camera.h_offset or (
+            id_camera.v_offset != source_camera.v_offset):
+        id_camera.h_offset = source_camera.h_offset
+        id_camera.v_offset = source_camera.v_offset
+        dirty = true
     return dirty
 
 
