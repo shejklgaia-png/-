@@ -1,4 +1,5 @@
 extends Node
+const CollectorConveyor = preload("res://scripts/sera_base_collector_conveyor.gd")
 ## BASE equipment: eight deterministic production-loop motions of actual existing
 ## authored MultiMesh instances. No additional 3D draw nodes, colliders or lights.
 ## Animated positions are in the same local coordinates as the authored model.
@@ -11,14 +12,39 @@ const MOTION_FEATURES: Dictionary = {
     "LABO": ["FreshLabPrinterServo", "FreshLabPrinterHotHead",
         "FreshLabPrinterTip", "FreshLabPrintedShell"],
     "SCRAP_COLLECTOR": ["FreshCollectorSuspendedCable", "FreshCollectorClawHead",
-        "FreshCollectorJawHinge", "FreshCollectorOpenGrip"],
+        "FreshCollectorJawHinge", "FreshCollectorOpenGrip",
+        "FreshCollectorConveyorFlight", "FreshCollectorPickupScrap",
+        "FreshCollectorCranePayload"],
     "SMELTER": ["FreshSmelterFlameTongue", "FreshSmelterLowFire"],
     "RECYCLER": ["FreshRecyclerRoller", "FreshRecyclerTooth"],
     "GENERATOR": ["FreshGeneratorRotorBlade"],
     "STORAGE": ["FreshStorageLoadingLift"],
     "BUILD_TERMINAL": ["FreshTerminalBlueprintRows", "FreshTerminalMastLamp"],
 }
+# Bearing and pinion stay fixed while the machine above the slewing ring
+# rotates together. The existing 30 Hz MultiMesh animation cap is retained.
+const CRANE_SLEW_FEATURES = [
+    "FreshCollectorWinchMotor", "FreshCollectorMotorGlow",
+    "CollectorCraneTurntableSkirt", "CollectorCranePivotCheek",
+    "CollectorCraneBaseWeb", "CollectorCraneLowerPin", "CollectorCranePivotLock",
+    "CollectorCranePrimaryCasting", "CollectorCraneSecondaryCasting",
+    "CollectorCranePrimaryCapRail", "CollectorCraneStickCapRail",
+    "CollectorCraneDiagonalStiffener", "CollectorCraneStickWeb",
+    "CollectorCraneElbowGuard", "CollectorCraneElbowShaft",
+    "CollectorCraneElbowWasher", "CollectorCraneLiftCylinder",
+    "CollectorCraneLiftPiston", "CollectorCraneLiftSeal",
+    "CollectorCraneStickCylinder", "CollectorCraneStickPiston",
+    "CollectorCranePressureHose", "CollectorCraneStickHose",
+    "CollectorCraneSheave", "CollectorCraneSheaveAxle",
+    "CollectorCraneSheaveFork", "CollectorCraneSheaveGuard",
+]
 const TICK_SECONDS: float = 1.0 / 30.0
+
+static func animated_features_for(key: String) -> Array:
+    var features: Array = (MOTION_FEATURES.get(key, []) as Array).duplicate()
+    if key == "SCRAP_COLLECTOR":
+        features.append_array(CRANE_SLEW_FEATURES)
+    return features
 
 var _model: Node3D
 var facility_key: String = ""
@@ -30,7 +56,7 @@ var _accumulator: float = 0.0
 
 func bind_to(model: Node3D, key: String) -> void:
     var source: Dictionary = model.get_meta("motion_entries", {})
-    var expected: Array = MOTION_FEATURES.get(key, [])
+    var expected: Array = animated_features_for(key)
     for feature in expected:
         if not source.has(feature) or (source[feature] as Array).is_empty():
             push_error("SERA_BASE_MOTION_MISSING: " + key + "/" + str(feature))
@@ -81,6 +107,19 @@ func sample_at(seconds: float) -> void:
     # This exact public sampler is used during normal _process and by live
     # Godot CI to compare real MultiMesh poses at multiple animation times.
     var time: float = maxf(0.0, seconds)
+    var crane_phase: float = 0.0
+    var crane_slew: float = 0.0
+    var crane_lift: float = 0.0
+    var crane_grip: float = 0.0
+    var crane_center := Vector3.ZERO
+    var crane_rotation := Basis.IDENTITY
+    if facility_key == "SCRAP_COLLECTOR":
+        crane_phase = CollectorConveyor.phase_at(time)
+        crane_slew = CollectorConveyor.slew_at(crane_phase)
+        crane_lift = CollectorConveyor.lift_at(crane_phase)
+        crane_grip = CollectorConveyor.grip_at(crane_phase)
+        crane_center = _at(CollectorConveyor.CRANE_PIVOT)
+        crane_rotation = Basis(_axis(Vector3.UP), crane_slew)
     for name_variant in _parts.keys():
         var feature: String = str(name_variant)
         var records: Array = _parts[feature]
@@ -101,19 +140,81 @@ func sample_at(seconds: float) -> void:
                         pose.basis = rest.basis.scaled_local(
                             Vector3(1.0, progress, 1.0))
                 "SCRAP_COLLECTOR":
-                    var hoist: float = 0.16 * sin(time * 1.17)
-                    var sway: float = 0.06 * sin(time * 0.70)
-                    if feature == "FreshCollectorSuspendedCable":
-                        pose.origin += _at(Vector3(sway * 0.5, hoist * 0.5, 0))
-                        pose.basis = rest.basis.scaled_local(
-                            Vector3(1.0, 1.0 - hoist / 0.70, 1.0))
-                    else:
-                        pose.origin += _at(Vector3(sway, hoist, 0))
-                        if feature == "FreshCollectorOpenGrip":
-                            var grip: float = 0.20 * sin(time * 1.17 + 0.7)
-                            var side: float = -1.0 if i % 2 == 0 else 1.0
-                            pose.basis = Basis(
-                                _axis(Vector3.FORWARD), grip * side) * rest.basis
+                    if feature in CRANE_SLEW_FEATURES:
+                        # All sculpted upper boom parts share one genuine
+                        # turntable pivot, including their hydraulic plumbing.
+                        pose = _spin_about(rest, crane_center,
+                            _axis(Vector3.UP), crane_slew)
+                    elif feature == "FreshCollectorConveyorFlight":
+                        # A moving wide tread pattern on the static belt.
+                        var belt_local: Vector3 = Basis(
+                            Vector3.UP, -_body_yaw) * rest.origin / _model_scale
+                        var belt_span: float = (
+                            CollectorConveyor.BELT_PICKUP_X -
+                            CollectorConveyor.BELT_START_X)
+                        var shifted: float = fposmod(
+                            belt_local.x - CollectorConveyor.BELT_START_X +
+                            time * CollectorConveyor.BELT_SPEED, belt_span)
+                        pose.origin += _at(Vector3(
+                            CollectorConveyor.BELT_START_X + shifted -
+                            belt_local.x, 0.0, 0.0))
+                    elif feature == "FreshCollectorPickupScrap":
+                        # One parcel rides in from screen left and waits at
+                        # the pickup gate. The carried parcel replaces it.
+                        var advance: float = (
+                            CollectorConveyor.BELT_PICKUP_X -
+                            CollectorConveyor.BELT_START_X) * clampf(
+                            crane_phase / 3.10, 0.0, 1.0)
+                        pose.origin += _at(Vector3(advance, 0.0, 0.0))
+                        if crane_phase >= 3.52:
+                            pose.basis = rest.basis.scaled_local(
+                                Vector3.ONE * 0.0001)
+                    elif feature in ["FreshCollectorSuspendedCable",
+                            "FreshCollectorClawHead",
+                            "FreshCollectorJawHinge", "FreshCollectorOpenGrip",
+                            "FreshCollectorCranePayload"]:
+                        # Hook, jaws and payload inherit the boom's real yaw.
+                        pose = _spin_about(rest, crane_center,
+                            _axis(Vector3.UP), crane_slew)
+                        if feature == "FreshCollectorSuspendedCable":
+                            # Cable top stays attached to the final sheave:
+                            # only its lower end follows the hoisting winch.
+                            pose.origin += _at(
+                                Vector3(0.0, crane_lift * 0.5, 0.0))
+                            pose.basis = pose.basis.scaled_local(
+                                Vector3(1.0,
+                                    (CollectorConveyor.HOIST_CABLE_LENGTH -
+                                    crane_lift) /
+                                    CollectorConveyor.HOIST_CABLE_LENGTH,
+                                    1.0))
+                        else:
+                            pose.origin += _at(Vector3(0.0, crane_lift, 0.0))
+                            if feature == "FreshCollectorOpenGrip":
+                                # Two submeshes per jaw share the actual pin.
+                                var side: float = (
+                                    -1.0 if i % 2 == 0 else 1.0)
+                                var row: float = (
+                                    -1.0 if posmod(i, 4) < 2 else 1.0)
+                                var jaw_pin := Vector3(
+                                    0.76 + side * 0.24, 1.72,
+                                    1.04 + row * 0.21)
+                                var jaw_world: Vector3 = (
+                                    crane_center + crane_rotation *
+                                    (_at(jaw_pin) - crane_center) +
+                                    _at(Vector3(0.0, crane_lift, 0.0)))
+                                pose = _spin_about(pose, jaw_world,
+                                    crane_rotation * _axis(Vector3.FORWARD),
+                                    side * crane_grip)
+                            elif feature == "FreshCollectorCranePayload":
+                                # Never show two copies at the handoff.
+                                # Once released, fall into the real hopper.
+                                if crane_phase < 3.52 or crane_phase >= 6.54:
+                                    pose.basis = rest.basis.scaled_local(
+                                        Vector3.ONE * 0.0001)
+                                elif crane_phase > 6.14:
+                                    pose.origin += _at(Vector3(0.0,
+                                        -0.42 * smoothstep(
+                                            6.14, 6.54, crane_phase), 0.0))
                 "SMELTER":
                     if feature == "FreshSmelterFlameTongue":
                         # Irregular phase offsets prevent all four heat tongues

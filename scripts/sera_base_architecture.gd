@@ -810,7 +810,7 @@ static func build_facility(parent: Node3D, key: String) -> void:
     parent.add_child(node)
     var g := Batch.new(node)
     g.hard_edges = true
-    g.motion_names = BaseFacilityMotion.MOTION_FEATURES.get(key, [])
+    g.motion_names = BaseFacilityMotion.animated_features_for(key)
     g.outline_enabled = true
     g.yaw = facility_yaw_radians(key)
     # Seven work buildings grow into the unused portrait space; NEXUS retains

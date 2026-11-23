@@ -1,5 +1,6 @@
 extends RefCounted
 const CollectorCrane = preload("res://scripts/sera_base_collector_crane.gd")
+const CollectorConveyor = preload("res://scripts/sera_base_collector_conveyor.gd")
 ## SERA BASE FRESH_20261122 — image-reference industrial re-authoring of eight facilities.
 ## Reference: front-facing bunker, canvas workshop, furnace, shredder, Geometry belongs to the
 ## exposed generator, freight racks, grabber crane and blueprint terminal.
@@ -249,7 +250,11 @@ static func _collector(g: Variant) -> void:
                 0.28 + float(i / 5) * 0.48),
             Vector3(0.16, 0.13, 0.25), "rust" if i % 3 else "edge",
             Vector3(0.12 * (i % 3), 0.23 * i, 0.08 * i))
-    # Detailed sculpted crane keeps the existing moving cable and jaw names.
+    # The conveyor originates beyond the portrait left edge. Build it in the
+    # collector local frame so the entire feed follows the station body yaw.
+    CollectorConveyor.build(g)
+    # The detailed crane now slews around the belt pickup and hopper; its
+    # entire rig shares the same material-batched MultiMeshes as the belt.
     CollectorCrane.build(g)
     g.box("FreshCollectorHazardLamp",
         Vector3(-0.99, 1.44, -0.21),
