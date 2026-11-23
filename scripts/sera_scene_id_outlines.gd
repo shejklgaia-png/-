@@ -220,7 +220,7 @@ func get_outline_metrics() -> Dictionary:
         "bittaran_mesh_id_mode": _bittaran_id_mode,
         "canonical_id_shader": true,
         "scene_width_profile": _active_scene_profile(),
-        "convex_draw_batches": _convex_ink.get_draw_count() if (
+        "convex_draw_batches": int(_convex_ink.call("get_draw_count")) if (
             is_instance_valid(_convex_ink)) else 0,
         "base_facility_convex_px": 2.0,
         "base_clutter_convex_px": 1.0,
