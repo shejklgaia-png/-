@@ -30,6 +30,9 @@ const IRIS_PALETTE_COUNT: int = 7
 # without changing the architecture's working red-only IRIS palette.
 const NEXUS_CONTACT_PALETTE_COUNT: int = 343
 const MAX_IDENTIFIED_MESHES: int = 4095
+# Keep some RGB12 IDs available for SERA/targets/CRATE when dense BASE
+# facilities or MultiMesh batches consume the ordinary ID pool.
+const ACTOR_ID_RESERVE: int = 256
 const SCAN_INTERVAL: float = 0.65
 
 var source_viewport: Viewport
@@ -1028,12 +1031,17 @@ static func _background_occluder(node: Node3D) -> bool:
     return false
 
 
-func _allocate_ids(count: int) -> int:
+func _allocate_ids(count: int, actor_priority: bool = false) -> int:
+    var max_id: int = (MAX_IDENTIFIED_MESHES if actor_priority else
+        MAX_IDENTIFIED_MESHES - ACTOR_ID_RESERVE)
     # Reuse freed contiguous blocks on layout regeneration/equipment changes.
     # Otherwise 4095 can be exhausted even when only a few meshes are alive.
     for i in range(_free_ranges.size()):
         var block: Dictionary = _free_ranges[i]
-        if int(block["count"]) < count:
+        # Do not recycle a character-reserved range for scenery.
+        var available: int = mini(int(block["count"]),
+            maxi(0, max_id - int(block["first"]) + 1))
+        if available < count:
             continue
         var first: int = int(block["first"])
         if int(block["count"]) == count:
@@ -1043,7 +1051,7 @@ func _allocate_ids(count: int) -> int:
             block["count"] = int(block["count"]) - count
             _free_ranges[i] = block
         return first
-    if _next_id + count - 1 > MAX_IDENTIFIED_MESHES:
+    if _next_id + count - 1 > max_id:
         return -1
     var first_new: int = _next_id
     _next_id += count
@@ -1162,7 +1170,18 @@ func _rescan() -> bool:
             _release_ids(_id_allocations[key])
             _id_allocations.erase(key)
         dirty = true
-    for key in desired.keys():
+    # Character copies receive IDs first even when room geometry is much
+    # denser than the RGB12 palette. Existing copies retain their IDs.
+    var actor_keys: Array = []
+    var other_keys: Array = []
+    for candidate_key in desired.keys():
+        var candidate: Node3D = desired[candidate_key]["node"] as Node3D
+        var candidate_role: int = _outline_role(candidate)
+        if _shared_scene_mode and candidate_role in [1, 5, 6]:
+            actor_keys.append(candidate_key)
+        else:
+            other_keys.append(candidate_key)
+    for key in actor_keys + other_keys:
         if _copies.has(key):
             continue
         var entry: Dictionary = desired[key]
@@ -1182,14 +1201,16 @@ func _rescan() -> bool:
         var per_instance_id: bool = false
         var identification: int = 0
         var allocation_count: int = 0
+        var actor_priority: bool = _shared_scene_mode and (
+            _outline_role(source) in [1, 5, 6])
         if _shared_scene_mode and not is_occluder:
             allocation_count = instance_count if instance_count > 1 else 1
-            identification = _allocate_ids(allocation_count)
+            identification = _allocate_ids(allocation_count, actor_priority)
             if identification >= 0:
                 per_instance_id = instance_count > 1
             else:
                 allocation_count = 1
-                identification = _allocate_ids(1)
+                identification = _allocate_ids(1, actor_priority)
                 if identification < 0:
                     continue
         elif is_contact:
@@ -1256,6 +1277,9 @@ func _rescan() -> bool:
             elif source is MultiMeshInstance3D:
                 mat.shader = SHARED_MULTI_CLOSED if closed else SHARED_MULTI_OPEN
                 mat.set_shader_parameter("mesh_id_base", identification)
+                # Full allocation: a unique ID per instance. Fallback: one
+                # reserved ID for the whole batch, NEVER an unallocated range.
+                mat.set_shader_parameter("use_instance_ids", per_instance_id)
                 mat.set_shader_parameter("role_code", role)
                 mat.set_shader_parameter("player_tag", player_tag)
                 mat.set_shader_parameter("use_instance_roles", bool(
