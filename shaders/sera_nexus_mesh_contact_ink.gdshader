@@ -1,7 +1,7 @@
 shader_type canvas_item;
-// NEXUS: shared depth-resolved ID ink. SERA silhouette is 3px total:
-// 1px inside the visible mesh + 2px outside; contacts remain 3px.
-// Visible mesh-to-mesh contact seams are 3px.
+// NEXUS: shared depth-resolved ID ink. SERA silhouette is 2px total:
+// 1px inside the visible mesh + 1px outside.
+// Visible mesh-to-mesh contact seams are 2px, on one mesh only.
 // No obscured contours or camera-facing geometric convex creases are drawn.
 // Outside pixels are sampled only within the projected SERA screen bounds.
 render_mode blend_mix;
@@ -10,8 +10,9 @@ uniform sampler2D mesh_id_texture : filter_nearest, repeat_disable;
 uniform vec2 mesh_id_texel = vec2(0.0026041667, 0.0026041667);
 uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
 uniform float stroke_px : hint_range(1.0, 3.0) = 2.0; // NEXUS architecture
-uniform float sera_stroke_px : hint_range(1.0, 4.0) = 3.0;
-uniform float sera_seam_px : hint_range(0.5, 3.0) = 3.0;
+uniform float sera_inner_px : hint_range(0.0, 3.0) = 1.0;
+uniform float sera_outer_px : hint_range(0.0, 3.0) = 1.0;
+uniform float sera_seam_px : hint_range(0.5, 3.0) = 2.0;
 // xmin, ymin, xmax, ymax in viewport UV; zero-sized when SERA absent.
 uniform vec4 sera_screen_bounds = vec4(0.0);
 
@@ -26,7 +27,7 @@ bool is_sera(vec3 mesh_id) {
     return mesh_id.g >= 0.06;
 }
 
-// One-sided ordering keeps a 3px contact seam on only one mesh.
+// One-sided ordering keeps a 2px contact seam on only one mesh.
 bool owns_contact(vec3 center_id, vec3 neighbor_id) {
     if (abs(center_id.b - neighbor_id.b) > 0.06) {
         return center_id.b > neighbor_id.b;
@@ -83,34 +84,33 @@ void fragment() {
     float coverage = 0.0;
 
     if (center_sera) {
-        float inner_width = 1.0;
-        float outer_distance = 99.0;
+        float inner_distance = 99.0;
         float seam_distance = 99.0;
-        // One-pixel inward silhouette plus a three-pixel contact seam.
-        // Sparse axial/diagonal sampling, up to 20 neighbor samples.
-        for (int radius = 1; radius <= 3; radius++) {
+        // Separate 1px interior border from 2px one-sided contact seams.
+        // With both widths <= 2px, a third sampling ring is unnecessary.
+        for (int radius = 1; radius <= 2; radius++) {
             for (int direction = 0; direction < 8; direction++) {
                 vec2 offset = sample_offset(radius, direction);
                 float distance_px = length(offset);
-                if (distance_px > max(inner_width, sera_seam_px) + 0.5) {
+                if (distance_px > max(sera_inner_px, sera_seam_px) + 0.5) {
                     continue;
                 }
                 vec3 neighbor_id = id_at(UV + offset * mesh_id_texel);
                 if (!is_sera(neighbor_id)) {
-                    outer_distance = min(outer_distance, distance_px);
+                    inner_distance = min(inner_distance, distance_px);
                 } else if (distance_px <= sera_seam_px + 0.5 &&
                         owns_contact(center_id, neighbor_id)) {
                     seam_distance = min(seam_distance, distance_px);
                 }
             }
-            if (outer_distance <= 1.0 && seam_distance <= 1.0) {
+            if (inner_distance <= 1.0 && seam_distance <= 1.0) {
                 break;
             }
         }
-        coverage = max(solid_coverage(outer_distance, inner_width),
+        coverage = max(solid_coverage(inner_distance, sera_inner_px),
             solid_coverage(seam_distance, sera_seam_px));
     } else {
-        // Two exterior pixels belong to the projected SERA boundary only.
+        // One exterior pixel belongs to the projected SERA boundary only.
         // Skip extra sampling outside the projected SERA screen bounds.
         bool near_sera = UV.x >= sera_screen_bounds.x &&
             UV.y >= sera_screen_bounds.y &&
@@ -118,24 +118,19 @@ void fragment() {
             UV.y <= sera_screen_bounds.w;
         bool room = center_id.r >= 0.06;
         if (near_sera || room) {
-            float outside_width = max(1.0, sera_stroke_px - 1.0);
+            float outside_width = sera_outer_px;
             float outside_distance = 99.0;
             float room_distance = 99.0;
-            for (int radius = 1; radius <= 3; radius++) {
-                // Architecture alone never needs more than the original 2px.
-                if (radius > 2 && !near_sera) {
-                    break;
-                }
+            for (int radius = 1; radius <= 2; radius++) {
                 for (int direction = 0; direction < 8; direction++) {
                     vec2 offset = sample_offset(radius, direction);
                     float distance_px = length(offset);
                     if (distance_px > max(stroke_px, outside_width) + 0.5) {
                         continue;
                     }
-                    // Radius-2 diagonals complete the 3px exterior curve.
-                    // Radius-3 diagonals are beyond 3px and never sampled.
-                    if (direction >= 4 && (radius > 2 || !near_sera &&
-                            radius > 1)) {
+                    // Radius-2 diagonals lie outside both the 1px SERA
+                    // exterior and the 2px room border.
+                    if (direction >= 4 && radius > 1) {
                         continue;
                     }
                     vec3 neighbor_id = id_at(UV + offset * mesh_id_texel);
