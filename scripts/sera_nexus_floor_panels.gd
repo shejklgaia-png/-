@@ -226,14 +226,13 @@ static func _bolt(batches: Dictionary, x: float, z: float) -> void:
 
 
 static func _service_lid(batches: Dictionary, x: float, z: float) -> void:
-    _cube(batches, "lid_shadow", Vector3(x, PLATE_TOP + 0.004, z),
-        Vector3(0.69, 0.009, 0.42))
-    _cube(batches, "lid_steel", Vector3(x, PLATE_TOP + 0.013, z),
-        Vector3(0.59, 0.010, 0.34))
+    # Shared press-formed rim with beveled corners and an inset metal face.
+    # The former flat shadow+face stack is fully replaced by real geometry.
+    _access_cover(batches, x, z, 0.69, 0.42)
     for sign_value in [-1, 1]:
         _cube(batches, "bolt_metal",
             Vector3(x + float(sign_value) * 0.20,
-                PLATE_TOP + 0.021, z),
+                PLATE_TOP + 0.030, z),
             Vector3(0.040, 0.004, 0.040))
 
 
@@ -252,17 +251,14 @@ static func _light(batches: Dictionary, x: float, z: float, width: float) -> voi
 
 static func _inspection_bay(batches: Dictionary,
         x: float, z: float) -> void:
-    # Dark gasket + inset cover + hardware; each element sits close to the
-    # plate top, without the tall step of an independent equipment pedestal.
-    _cube(batches, "bay_gasket", Vector3(x, PLATE_TOP + 0.003, z),
-        Vector3(0.61, 0.006, 0.34))
-    _cube(batches, "bay_metal", Vector3(x, PLATE_TOP + 0.009, z),
-        Vector3(0.52, 0.006, 0.25))
-    _cube(batches, "bay_slot", Vector3(x, PLATE_TOP + 0.013, z),
+    # Same instanced machined cover as the large inspection lids.
+    # A small inset latch stays visible above the recessed central panel.
+    _access_cover(batches, x, z, 0.61, 0.34)
+    _cube(batches, "bay_slot", Vector3(x, PLATE_TOP + 0.030, z),
         Vector3(0.26, 0.003, 0.025))
     for side_value in [-1, 1]:
         _cube(batches, "bolt_metal",
-            Vector3(x + float(side_value) * 0.20, PLATE_TOP + 0.016, z),
+            Vector3(x + float(side_value) * 0.20, PLATE_TOP + 0.032, z),
             Vector3(0.028, 0.004, 0.028))
 
 
@@ -346,6 +342,59 @@ static func _disc(batches: Dictionary, finish: String,
         Transform3D(Basis().scaled_local(size), at))
 
 
+static func _access_cover(batches: Dictionary,
+        x: float, z: float, width: float, length: float) -> void:
+    # One true 3D cover frame per location, using the same common ArrayMesh.
+    var transforms: Array = batches.get("cover", [])
+    transforms.append(Transform3D(
+        Basis().scaled_local(Vector3(width, 1.0, length)),
+        Vector3(x, PLATE_TOP + 0.003, z)))
+    batches["cover"] = transforms
+
+
+static func _access_cover_mesh() -> ArrayMesh:
+    # Normalized octagonal tooling hatch: thicker dark outer rim, sloped
+    # sidewalls, a lower inset center. No texture or extra draw pass needed.
+    var outline: Array = [
+        Vector2(-0.50, -0.41), Vector2(-0.43, -0.50),
+        Vector2(0.43, -0.50), Vector2(0.50, -0.41),
+        Vector2(0.50, 0.41), Vector2(0.43, 0.50),
+        Vector2(-0.43, 0.50), Vector2(-0.50, 0.41)
+    ]
+    var vertices := PackedVector3Array()
+    var normals := PackedVector3Array()
+    var colors := PackedColorArray()
+    var edge_dark := Color(0.43, 0.57, 0.68)
+    var bevel_bright := Color(0.87, 0.94, 1.0)
+    var face_tone := Color(0.66, 0.76, 0.85)
+    for i in range(outline.size()):
+        var j: int = (i + 1) % outline.size()
+        var v0: Vector2 = outline[i]
+        var v1: Vector2 = outline[j]
+        var w0: Vector2 = v0 * 0.86
+        var w1: Vector2 = v1 * 0.86
+        var e0 := Vector3(v0.x, 0.006, v0.y)
+        var e1 := Vector3(v1.x, 0.006, v1.y)
+        var h0 := Vector3(w0.x, 0.024, w0.y)
+        var h1 := Vector3(w1.x, 0.024, w1.y)
+        # High side, slanted metal lip and a subtly recessed center plate.
+        _mesh_triangle(vertices, normals, colors, e0, e1, h1,
+            edge_dark, edge_dark, bevel_bright)
+        _mesh_triangle(vertices, normals, colors, e0, h1, h0,
+            edge_dark, bevel_bright, bevel_bright)
+        _mesh_triangle(vertices, normals, colors,
+            Vector3(0.0, 0.018, 0.0), h0, h1,
+            face_tone, face_tone, face_tone, true)
+    var arrays: Array = []
+    arrays.resize(Mesh.ARRAY_MAX)
+    arrays[Mesh.ARRAY_VERTEX] = vertices
+    arrays[Mesh.ARRAY_NORMAL] = normals
+    arrays[Mesh.ARRAY_COLOR] = colors
+    var mesh := ArrayMesh.new()
+    mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+    return mesh
+
+
 static func _chamfered_armor_mesh() -> ArrayMesh:
     # One normalized octagonal plate is instanced at arbitrary dimensions.
     # Flat top, sharply beveled perimeter, four visibly clipped corners.
@@ -419,6 +468,7 @@ static func _submit(room: Node3D, batches: Dictionary) -> void:
     var simple_cube := BoxMesh.new()
     simple_cube.size = Vector3.ONE
     var armor := _chamfered_armor_mesh()
+    var cover := _access_cover_mesh()
     var disc := CylinderMesh.new()
     disc.top_radius = 0.5
     disc.bottom_radius = 0.5
@@ -433,6 +483,9 @@ static func _submit(room: Node3D, batches: Dictionary) -> void:
         if key.begins_with("armor_"):
             mesh_data = armor
             material_key = key.trim_prefix("armor_")
+        elif key == "cover":
+            mesh_data = cover
+            material_key = "access_cover"
         elif key.begins_with("disc_"):
             mesh_data = disc
             material_key = key.trim_prefix("disc_")
@@ -446,7 +499,7 @@ static func _submit(room: Node3D, batches: Dictionary) -> void:
         instance.name = "Deck_" + key
         instance.multimesh = multimesh
         instance.material_override = _material(material_key,
-            key.begins_with("armor_"))
+            key.begins_with("armor_") or key == "cover")
         instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         instance.set_meta("sera_outline_occluder_only", true)
         instance.set_meta("FX_NO_OUTLINE", true)
@@ -483,6 +536,7 @@ static func _material(finish: String, vertex_color: bool) -> StandardMaterial3D:
         "bay_gasket": Color("#1c303e"),
         "bay_metal": Color("#405b6b"),
         "bay_slot": Color("#1a3240"),
+        "access_cover": Color("#526b7e"),
         "tie_recess": Color("#294252"),
         "tie_metal": Color("#637d8c")
     }
@@ -493,6 +547,10 @@ static func _material(finish: String, vertex_color: bool) -> StandardMaterial3D:
     mat.metallic = 0.56 if finish.begins_with("deck_") else 0.27
     mat.roughness = 0.36 if finish.begins_with("deck_") else 0.54
     mat.metallic_specular = 0.64 if finish.begins_with("deck_") else 0.50
+    if finish == "access_cover":
+        # Both sides of the sloped hatch rim must remain visible in the
+        # portrait GL Compatibility renderer, regardless of triangulation.
+        mat.cull_mode = BaseMaterial3D.CULL_DISABLED
     if finish.begins_with("deck_"):
         mat.clearcoat_enabled = true
         mat.clearcoat = 0.32
