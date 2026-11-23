@@ -276,8 +276,14 @@ func _collect_authored_emission_halos() -> void:
                 continue
             var hue: Color = (
                 mat.emission if emissive else Color("#d6f1ff"))
+            # LABO blue-white strips have a dedicated material and should
+            # read from the overhead camera, unlike the former faint glint.
+            # Boost only their small masked halos; no additional lights.
+            var lab_cyan_line: bool = (
+                is_line and source.name.ends_with("_lab_cyan"))
             var thickness: float = (
-                1.8 if is_line else 1.55)
+                2.2 if lab_cyan_line else (
+                1.8 if is_line else 1.55))
             # Roof strips are flat on XZ. A standing XY glow quad would
             # become hidden by their solid roof face in an overhead camera.
             var roof_strip: bool = (height < 0.16 and depth >= 0.12 and
@@ -289,10 +295,13 @@ func _collect_authored_emission_halos() -> void:
                 Vector2(clampf(width * 1.65, 0.19, 2.35),
                     clampf(depth * 1.8, 0.19, 1.48)) if roof_strip
                 else Vector2(clampf(width * thickness, 0.19, 2.35),
-                    clampf(height * (2.6 if is_line else 2.25),
-                        0.19, 1.48)))
+                    clampf(height * (
+                        3.0 if lab_cyan_line else (
+                        2.6 if is_line else 2.25)), 0.19,
+                        1.85 if lab_cyan_line else 1.48)))
             _queue_soft_halo(center_light, halo_span, hue,
-                0.16 if is_line else 0.10,
+                0.24 if lab_cyan_line else (
+                0.16 if is_line else 0.10),
                 Vector3(-PI * 0.5, 0.0, 0.0) if roof_strip
                 else Vector3.ZERO)
             remaining -= 1
