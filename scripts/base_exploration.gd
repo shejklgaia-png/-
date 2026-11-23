@@ -1,6 +1,7 @@
 extends Node3D
 ## Outdoor portrait base hub; CRATE wanders independently and NEXUS is a tappable building.
 const Modules = preload("res://assets/base_command_modules.gd")
+const WorldMonitors = preload("res://scripts/sera_world_monitor_textures.gd")
 const SERA_RIG_PATH: String = "res://scripts/sera_rig.gd"
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const LoadingConsole = preload("res://scripts/sera_loading_console.gd")
@@ -267,6 +268,7 @@ func _add_module(name: String, at: Vector3, yaw: float = 0.0,
         if not batches.has(material_index):
             batches[material_index] = []
         (batches[material_index] as Array).append(pose)
+    WorldMonitors.attach_blockbench(self,name,at,yaw,factor,height_factor,"BASE")
 
 func _material(index: int) -> StandardMaterial3D:
     var mat := StandardMaterial3D.new()

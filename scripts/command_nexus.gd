@@ -2,6 +2,7 @@ extends Node3D
 # v147: move exhibition SERA twice as fast (0.14 s) and finalize only after concurrent camera arrival.
 # Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
+const WorldMonitors = preload("res://scripts/sera_world_monitor_textures.gd")
 const NexusFloorPanels = preload("res://scripts/sera_nexus_floor_panels.gd")
 const NexusGeneratedArchitecture = preload("res://scripts/nexus_generated_architecture.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
@@ -468,6 +469,7 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
         batch_data[batch_key] = instances
     if not selected_shape.is_empty():
         target_parts[selected_shape] = silhouette_parts
+    WorldMonitors.attach_blockbench(self,name,at,yaw,scale_factor,height_factor,"NEXUS")
 
 
 
