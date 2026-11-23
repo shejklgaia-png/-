@@ -5,6 +5,8 @@ const MODE_EXPANDED: String = "expanded"
 const MODE_CLASSIC: String = "classic"
 const REFERENCE_WIDTH: float = 720.0
 const REFERENCE_HEIGHT: float = 1280.0
+# Shared camera FOV for training, Bittaran combat, and NEXUS full-body view.
+const COMBAT_REFERENCE_VERTICAL_FOV: float = 61.0
 
 static func get_mode(path: String = SETTINGS_PATH) -> String:
     var settings := ConfigFile.new()
