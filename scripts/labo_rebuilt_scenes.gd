@@ -325,9 +325,11 @@ func _build_fabrication() -> void:
     # The fabrication aperture is oriented exactly toward the RIGHT (+X),
     # directly facing the monitoring station on the opposite side of the aisle.
     # Its open 3D print envelope remains visible from the right-front camera.
-    var machine := _node(room, "AtlasOpenFramePrinter", Vector3(-2.42, 0, -1.34))
+    var machine := _node(room, "AtlasOpenFramePrinter", Vector3(-2.55, 0, -1.40))
     machine.rotation.y = PI * 0.5
-    machine.scale = Vector3(1.30, 1.20, 1.06)
+    # The larger factory cell preserves the authored moving nozzle, print
+    # shell, feed spindle and the right-facing output assembly as one unit.
+    machine.scale = Vector3(1.56, 1.36, 1.22)
     _b(machine, Vector3(0, 0.25, 0.06), Vector3(3.14, 0.50, 2.12), DEEP)
     _b(machine, Vector3(0, 0.53, 0.08), Vector3(2.62, 0.10, 1.65), METAL)
     _b(machine, Vector3(0, 0.61, 0.08), Vector3(2.19, 0.045, 1.32), SHADOW)
