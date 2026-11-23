@@ -3,7 +3,8 @@ extends RefCounted
 const Modules = preload("res://assets/base_command_modules.gd")
 const Architecture = preload("res://scripts/sera_base_architecture.gd")
 const MONITOR_SHADER = preload("res://assets/monitors/world_monitor.gdshader")
-const READOUT = preload("res://assets/monitors/telemetry.svg")
+const READOUT_PATH := "res://assets/monitors/telemetry.svg"
+const PLANS_PATH := "res://assets/monitors/blueprints.svg"
 const MONITOR_IDS = ["N01", "N02", "N03", "N04", "N05", "N06", "B01", "B02", "B03", "B04", "B05"]
 const BLOCKBENCH = [
     {"id":"N01","scene":"NEXUS","module":"system_console","part":"SYSTEM blue operational screen","offset":0.55},
@@ -41,12 +42,14 @@ static func _surface(host: Node3D, id: String, pose: Transform3D, size: Vector2)
     display.set_meta("sera_preserve_authored_material", true)
     display.set_meta("monitor_id", id)
     display.set_meta("monitor_resolution", texture.get_size())
+    var readout := load(READOUT_PATH) as Texture2D
+    var plans := load(PLANS_PATH) as Texture2D
     var mat := ShaderMaterial.new()
     mat.shader = MONITOR_SHADER
     mat.set_shader_parameter("panel", texture)
-    mat.set_shader_parameter("readout", READOUT)
+    mat.set_shader_parameter("readout", readout)
     mat.set_shader_parameter("mode", MONITOR_IDS.find(id))
-    mat.set_shader_parameter("plans", preload("res://assets/monitors/blueprints.svg"))
+    mat.set_shader_parameter("plans", plans)
     display.material_override = mat
     host.add_child(display)
 
