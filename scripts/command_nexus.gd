@@ -298,6 +298,10 @@ var canonical_render_batches: Dictionary = {}
 var placement_editor
 var camera_angle_editor
 var placement_ui_layer: CanvasLayer
+# Permanent entry controls live in the exact same viewport/HUD as EXIT TO
+# BASE. Never depend on the heavy 3D placement editor's initialization.
+var placement_entry_button: Button
+var angle_entry_button: Button
 # Reuse each mesh's actual authored vertices when reprojecting a changed outfit.
 var customize_silhouette_vertex_cache: Dictionary = {}
 
@@ -448,7 +452,50 @@ func _ready() -> void:
     if focus_views.has(route):
         call_deferred("_select_target", route)
 
+func _placement_launcher_button(caption: String, id: String) -> Button:
+    var b := Button.new()
+    b.name = id
+    b.text = caption
+    b.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    b.focus_mode = Control.FOCUS_NONE
+    b.add_theme_font_size_override("font_size", 20)
+    b.add_theme_color_override("font_color", Color("#e4f7ff"))
+    b.add_theme_color_override("font_hover_color", Color("#ffffff"))
+    var frame := StyleBoxFlat.new()
+    frame.bg_color = Color("#173548", 0.98)
+    frame.border_color = Color("#6dc8e9")
+    frame.set_border_width_all(2)
+    frame.set_corner_radius_all(4)
+    var hover: StyleBoxFlat = frame.duplicate() as StyleBoxFlat
+    hover.bg_color = Color("#28566b")
+    b.add_theme_stylebox_override("normal", frame)
+    b.add_theme_stylebox_override("hover", hover)
+    b.add_theme_stylebox_override("pressed", hover)
+    hud.add_child(b)
+    return b
+
+
+func _sync_placement_launchers() -> void:
+    if hud == null or placement_entry_button == null or angle_entry_button == null:
+        return
+    var view: Vector2 = get_viewport().get_visible_rect().size
+    # Keep these in the same DESIGN coordinate system as the SubViewport HUD.
+    # They do not depend on an editor state poll or a one-shot redraw event.
+    placement_entry_button.position = Vector2(20.0, 36.0)
+    placement_entry_button.size = Vector2(156.0, 54.0)
+    angle_entry_button.position = Vector2(maxf(16.0, view.x - 228.0), 36.0)
+    angle_entry_button.size = Vector2(208.0, 54.0)
+    var in_overview: bool = focused_target.is_empty()
+    placement_entry_button.visible = in_overview and (
+        placement_editor == null or not placement_editor.active)
+    angle_entry_button.visible = (
+        ["SYSTEM", "TRAINING", "DATA ARCHIVE", "DEPLOYMENT"].has(focused_target)
+        and not in_transition and camera_angle_editor != null
+        and not camera_angle_editor.active)
+
+
 func _process(delta: float) -> void:
+    _sync_placement_launchers()
     SeraSave.record_game_time(delta)
     _recover_nexus_transition_if_stalled(delta)
     _refresh_outline_debug(delta)
@@ -998,6 +1045,18 @@ func _hud() -> void:
     explore_label.size = explore_panel.size
     explore_panel.visible = true
     VersionIndicator.attach(hud)
+    # This HUD is proven visible in the Android SubViewport (EXIT TO BASE).
+    # Keep launcher buttons HERE instead of another CanvasLayer. Even if
+    # editor configuration aborts, the entry points remain visible.
+    placement_entry_button = _placement_launcher_button("正規配置", "NexusPlaceEntry")
+    angle_entry_button = _placement_launcher_button(
+        "アングル正規配置", "NexusAngleEntry")
+    placement_entry_button.position = Vector2(20.0, 36.0)
+    placement_entry_button.size = Vector2(156.0, 54.0)
+    placement_entry_button.visible = true
+    angle_entry_button.visible = false
+    placement_entry_button.z_index = 100
+    angle_entry_button.z_index = 100
 
     outline = NexusSelectionOutline.new()
     outline.name = "SelectableSilhouettes"
@@ -3527,6 +3586,7 @@ func _refresh_outline_debug(delta: float) -> void:
 func _layout_hud() -> void:
     if hud == null:
         return
+    _sync_placement_launchers()
     # Recover from missing layout information before touching any menus.
     var view := hud.size
     if view.x <= 1.0 or view.y <= 1.0:
