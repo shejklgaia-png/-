@@ -82,9 +82,8 @@ const SCRAP_SETTLE_FINISH: float = 3.16
 const SCRAP_PLATE_RISE: float = 0.14
 const SCRAP_BELT_Y: float = 1.02
 const SCRAP_PICKUP_LIFT: float = -0.17
-# The parked cargo and the carried cargo must have exactly the same
-# center when the 3.72s pickup handoff occurs. Previously the carried
-# cargo spawned 0.14m too low and penetrated the elevated landing pad.
+# The single parcel is rigged to the claw at this exact parked lift
+# without generating a duplicate carrying mesh. No spatial handoff jump.
 
 
 static func grip_at(phase: float) -> float:
@@ -231,8 +230,8 @@ static func build(g: Variant) -> void:
             Vector3(x, 0.90, BELT_Z),
             Vector3(0.085, 0.045, 1.52), "slate")
 
-    # The same salvage parcel first rides the belt, is hidden when the jaws
-    # close, and becomes the crane payload; no duplicated visible cargo.
+    # This ONE salvage parcel rides the belt, rocks on the raised plate,
+    # stays visible while lifted by the claw, and falls into the hopper.
     g.poly_tilt("FreshCollectorPickupScrap", "cargo_case",
         Vector3(BELT_START_X, SCRAP_BELT_Y, BELT_Z),
         Vector3(0.46, 0.25, 0.41), "rust",
@@ -241,7 +240,3 @@ static func build(g: Variant) -> void:
         Vector3(BELT_START_X - 0.07, SCRAP_BELT_Y + 0.14,
             BELT_Z + 0.05),
         Vector3(0.24, 0.14, 0.24), "edge")
-    # This one two-piece parcel is also the carried load: do not generate
-    # a second item for the grabber. The motion system continues its same
-    # world transform from the pickup plate onto the crane and into the
-    # sorting hopper without any swap/teleport.
