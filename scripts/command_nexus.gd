@@ -35,13 +35,16 @@ const NEXUS_PREVIEW_BACKDROP_COLOR: Color = Color("#afc4d1")
 const NEXUS_ROOM_BACKDROP_COLOR: Color = Color("#17212c")
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 
-# Keep the front console bodies (including their sculpted side fittings) inside
-# the portrait overview's horizontal safe area. Leave a clear center sightline
-# to the SERA stage and keep the distant deployment gate in its existing slot.
-const GATE_ORIGIN: Vector3 = Vector3(4.55, 0.80, -24.75)
+# Widen only the NEXUS side bays, preserving the center pillar and SERA pad.
+# The right-side gate remains full size; the expanded bay prevents wall clipping.
+const HANGAR_SIDE_WIDEN_START: float = 2.50
+const HANGAR_SIDE_WIDEN_RATIO: float = 0.40
+const GATE_ORIGIN: Vector3 = Vector3(6.10, 0.80, -24.75)
 const GATE_SCALE: float = 1.35
-const SYSTEM_CONSOLE_ORIGIN: Vector3 = Vector3(-1.70, 0.0, 0.70)
-const TRAINING_CONSOLE_ORIGIN: Vector3 = Vector3(1.75, 0.0, 0.70)
+# Bring complete console bodies forward, but keep their bases within the
+# bottom safe area in the portrait overview (camera z=11.60).
+const SYSTEM_CONSOLE_ORIGIN: Vector3 = Vector3(-1.70, 0.0, 2.00)
+const TRAINING_CONSOLE_ORIGIN: Vector3 = Vector3(1.75, 0.0, 2.00)
 const SERA_STAGE_ORIGIN: Vector3 = Vector3(0.0, 0.0, -4.75)
 
 var batch_data: Dictionary = {}
@@ -290,16 +293,16 @@ var customize_silhouette_vertex_cache: Dictionary = {}
 # reserved for a menu panel. Camera transforms/FOV only: no moving 3D assets.
 # TRAINING/GATE/CUSTOMIZE on the right; SYSTEM/ARCHIVE on the left.
 var focus_views: Dictionary = {
-    "TRAINING": {"eye": Vector3(2.32, 3.08, 6.15),
+    "TRAINING": {"eye": Vector3(2.32, 3.08, 7.45),
         "look": TRAINING_CONSOLE_ORIGIN + Vector3(0.0, 1.34, 0.0), "fov": 68.0},
-    "SYSTEM": {"eye": Vector3(-2.30, 3.05, 6.05),
+    "SYSTEM": {"eye": Vector3(-2.30, 3.05, 7.35),
         "look": SYSTEM_CONSOLE_ORIGIN + Vector3(0.0, 1.25, 0.0), "fov": 68.0},
     "CUSTOMIZE": {"eye": Vector3(-4.50, 3.80, 5.00),
         "look": Vector3(-1.70, 2.00, -4.75),
         "fov": DisplayProfile.COMBAT_REFERENCE_VERTICAL_FOV},
     "DATA ARCHIVE": {"eye": Vector3(-4.75, 4.18, 0.65),
         "look": Vector3(-4.95, 3.90, -12.10), "fov": 61.0},
-    "DEPLOYMENT": {"eye": Vector3(4.95, 5.90, -4.60),
+    "DEPLOYMENT": {"eye": Vector3(6.10, 5.90, -4.60),
         "look": GATE_ORIGIN + Vector3(-1.35, 4.38, 0.0), "fov": 67.0}
 }
 
@@ -485,6 +488,12 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
         var stretch := Vector3(1.0, height_factor, 1.0)
         var lo: Vector3 = _vec(part[1]) * Modules.UNIT * scale_factor * stretch
         var hi: Vector3 = _vec(part[2]) * Modules.UNIT * scale_factor * stretch
+        if name == "hangar_shell":
+            # Nonlinear side-bay stretch: central posts and center stage keep
+            # their authored shape, while wall frames, beams and deck foundation
+            # widen coherently without adding meshes or another draw path.
+            lo.x = _expanded_hangar_x(lo.x)
+            hi.x = _expanded_hangar_x(hi.x)
         var rot: Vector3 = _vec(part[4]) * (PI / 180.0)
         var basis: Basis = (parent_basis * Basis.from_euler(rot)).scaled_local(hi - lo)
         var transform := Transform3D(basis, at + parent_basis * ((lo + hi) * 0.5))
@@ -515,6 +524,14 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
         target_parts[selected_shape] = silhouette_parts
     WorldMonitors.attach_blockbench(self,name,at,yaw,scale_factor,height_factor,"NEXUS")
 
+
+
+func _expanded_hangar_x(x: float) -> float:
+    var added: float = maxf(absf(x) - HANGAR_SIDE_WIDEN_START, 0.0)
+    if added <= 0.0:
+        return x
+    return x + (1.0 if x > 0.0 else -1.0) * (
+        added * HANGAR_SIDE_WIDEN_RATIO)
 
 
 func _is_replaced_training_side_part(part_name: String) -> bool:
