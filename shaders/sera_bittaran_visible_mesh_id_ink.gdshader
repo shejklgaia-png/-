@@ -12,7 +12,7 @@ uniform vec4 ink_screen_bounds = vec4(0.0);
 // Kept separate from all shared BASE/NEXUS/training defaults.
 uniform float main_inside_px = 0.0;
 uniform float main_outside_px = 3.0;
-uniform float main_seam_px = 2.0;
+uniform float main_seam_px = 1.0;
 
 void vertex() {
     // Same depth-independent full-screen quad used by the established
@@ -40,7 +40,7 @@ bool same_id(vec3 a, vec3 b) {
         abs(a.b - b.b) < 0.0078;
 }
 
-// Only one side of an ID-to-ID contact paints two pixels.
+// Only one side of an ID-to-ID contact paints one pixel.
 // Without an owner, two neighboring 2px bands would overlap.
 bool owns_contact(vec3 a, vec3 b) {
     if (abs(a.b - b.b) > 0.0078) {
@@ -66,10 +66,10 @@ void fragment() {
     bool draw_ink = false;
     if (role == 1) {
         // No inner silhouette: only visible ID-to-ID contacts use ink here.
-        // Assign the 2px contact to one side to prevent doubled thickness.
-        // The smaller 2px search reduces per-pixel GPU texture samples.
-        for (int dy = -2; dy <= 2; dy++) {
-            for (int dx = -2; dx <= 2; dx++) {
+        // Assign the 1px contact to one side to prevent doubled thickness.
+        // The 1px search uses only four cardinal neighbors.
+        for (int dy = -1; dy <= 1; dy++) {
+            for (int dx = -1; dx <= 1; dx++) {
                 int distance_squared = dx * dx + dy * dy;
                 if (distance_squared == 0 ||
                         !in_disk(distance_squared, main_seam_px)) {
