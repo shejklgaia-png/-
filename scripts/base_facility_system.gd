@@ -1307,7 +1307,9 @@ func _set_labo_hero(enabled: bool, section: String = "") -> void:
         modal_panel.anchor_bottom = 0.985
         hero_stage.call("set_section", section)
         hero_stage.set_process(true)
-        hero_viewport.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
+        # WHEN_VISIBLE can stop refreshing the offscreen stage on some Android
+        # GL Compatibility devices. Animate while this modal is actually open.
+        hero_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
     else:
         modal_panel.anchor_top = 0.08
         modal_panel.anchor_bottom = 0.92

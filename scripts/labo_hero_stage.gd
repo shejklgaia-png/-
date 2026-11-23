@@ -1,5 +1,5 @@
 extends Node3D
-const DISPLAY_SHADER = preload("res://assets/monitors/labo_display.gdshader")
+const LaboMonitor = preload("res://scripts/sera_labo_monitor_24fps.gd")
 enum Display { PRINT, FLOW, PURITY, RECYCLE, INVENTORY, SCANNER }
 const RebuiltScenes = preload("res://scripts/labo_rebuilt_scenes.gd")
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
@@ -51,20 +51,12 @@ func _sign(parent: Node3D, caption: String, at: Vector3,
 # with a large 3D printer on the LEFT and open service area on the RIGHT.
 
 func _live_display(parent: Node3D, label: String, front_z: float, size: Vector2, mode: int) -> void:
-    var panel := MeshInstance3D.new()
-    var quad := QuadMesh.new()
-    quad.size = size
-    var material := ShaderMaterial.new()
-    material.shader = DISPLAY_SHADER
-    material.set_shader_parameter("mode", mode)
-    material.set_shader_parameter("fps", 24.0)
+    # LABO monitors need an active 24Hz image even on GL Compatibility.
+    # A native ImageTexture quad does not depend on custom spatial GLSL.
+    var panel := LaboMonitor.new()
     panel.name = label
     panel.position.z = front_z
-    panel.mesh = quad
-    panel.material_override = material
-    panel.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-    panel.set_meta("FX_NO_OUTLINE", true)
-    panel.set_meta("sera_preserve_authored_material", true)
+    panel.configure(size, mode)
     parent.add_child(panel)
 
 
