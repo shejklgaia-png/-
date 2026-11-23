@@ -110,8 +110,9 @@ float sera_visible_id_ink_alpha(vec2 uv) {
         float seam_px = sera_seam_width(role);
         // The Bittaran pass uses a 1px 4-neighbor disk for its contacts,
         // but wider scene-specific contacts use the SAME disk predicate.
-        for (int dy = -3; dy <= 3; dy++) {
-            for (int dx = -3; dx <= 3; dx++) {
+        int search_radius = int(ceil(max(inner_px, seam_px)));
+        for (int dy = -search_radius; dy <= search_radius; dy++) {
+            for (int dx = -search_radius; dx <= search_radius; dx++) {
                 int d2 = dx * dx + dy * dy;
                 if (d2 == 0 ||
                         !sera_in_disk(d2, max(inner_px, seam_px))) {
