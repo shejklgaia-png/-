@@ -130,8 +130,8 @@ float sera_outer_width(int role) {
         return actor_outside_override_px;
     }
     if (role == 2) {
-        return scene_profile == 2 ?
-            nexus_facility_outside_px : facility_outside_px;
+        if (scene_profile == 2) { return nexus_facility_outside_px; }
+        return facility_outside_px;
     }
     if (role == 3) { return clutter_outside_px; }
     if (role == 5) { return crate_outside_px; }
@@ -147,8 +147,8 @@ float sera_seam_width(int role) {
         return actor_seam_override_px;
     }
     if (role == 2) {
-        return scene_profile == 2 ?
-            nexus_facility_seam_px : facility_seam_px;
+        if (scene_profile == 2) { return nexus_facility_seam_px; }
+        return facility_seam_px;
     }
     if (role == 3) { return clutter_seam_px; }
     if (role == 5) { return crate_seam_px; }
