@@ -6,7 +6,6 @@ extends SceneTree
 const RigScript = preload("res://scripts/sera_rig.gd")
 const EdgeScript = preload("res://scripts/sera_view_edges.gd")
 const ConvexGeometry = preload("res://scripts/sera_base_facility_crease_geometry.gd")
-const IconContactInk = preload("res://shaders/sera_icon_capture_visible_id_ink.gdshader")
 const IconConvexInk = preload("res://shaders/sera_icon_capture_convex_ink.gdshader")
 const PixelReconstruction = preload("res://tools/icon_studio/sera_pixel_outline_reconstruction.gd")
 const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
@@ -265,18 +264,23 @@ func _run() -> void:
         # The same real 3D rig is captured separately for three UI sizes.
         # Runtime NEXUS shaders remain untouched; only this SubViewport has
         # an icon-specific visible-ID material and convex corner ribbons.
-        var icon_material: ShaderMaterial = native_compositor.get(
-            "_screen_material") as ShaderMaterial
+        # The latest NEXUS contact compositor uses a CanvasLayer ink rect,
+        # NOT a spatial _screen_material. The final-pixel reconstruction
+        # reads the RGB visible-ID buffer directly, so suppress the canvas
+        # ink during both source passes and keep only convex 3D ribbons
+        # in the second one. Do not modify any runtime shaders.
         var icon_id_viewport: SubViewport = native_compositor.get(
             "id_viewport") as SubViewport
-        if icon_material == null or icon_id_viewport == null:
-            _fail(id + ": capture ID material or viewport is missing")
+        var canvas_ink: TextureRect = native_compositor.get(
+            "ink") as TextureRect
+        if icon_id_viewport == null or canvas_ink == null or (
+                not canvas_ink.material is ShaderMaterial):
+            _fail(id + ": native visible-ID viewport or canvas ink is missing")
             return
-        if icon_material.shader != IconContactInk:
-            icon_material.shader = IconContactInk
-        icon_material.set_shader_parameter(
-            "mesh_id_texture", icon_id_viewport.get_texture())
-        icon_material.set_shader_parameter("ink_color", Color("#17212f"))
+        var canvas_ink_material: ShaderMaterial = (
+            canvas_ink.material as ShaderMaterial)
+        canvas_ink_material.set_shader_parameter(
+            "ink_color", Color(0.0, 0.0, 0.0, 0.0))
 
         for profile_spec in CAPTURE_PROFILES:
             var profile_name: String = str(profile_spec["name"])
@@ -286,18 +290,11 @@ func _run() -> void:
             # The color/depth/mesh-ID render uses four times the final
             # resolution. Stroke geometry is provisional; final ink is
             # reconstructed from the visible IDs at the TARGET pixel grid.
-            icon_material.set_shader_parameter(
-                "sera_inner_px", float(profile_spec["inner"]) * SUPERSAMPLE)
-            icon_material.set_shader_parameter(
-                "sera_outer_px", float(profile_spec["outer"]) * SUPERSAMPLE)
-            icon_material.set_shader_parameter(
-                "sera_seam_px", float(profile_spec["seam"]) * SUPERSAMPLE)
             convex_material.set_shader_parameter(
                 "crease_px", float(profile_spec["convex"]) * SUPERSAMPLE)
 
             # Capture original mesh shading without ink for clean per-pixel
             # color and alpha. No 3D changes are made to the real equipment.
-            icon_material.set_shader_parameter("ink_color", Color(0, 0, 0, 0))
             for ribbon in convex_nodes:
                 ribbon.visible = false
             native_compositor.set("_scan_elapsed", 0.0)
@@ -318,7 +315,6 @@ func _run() -> void:
             # One additional inked native pass preserves the authored
             # camera-visible convex ribbons. Edges are never resized after
             # being finalized at the output PNG's integer-pixel resolution.
-            icon_material.set_shader_parameter("ink_color", Color("#17212f"))
             for ribbon in convex_nodes:
                 ribbon.visible = true
             native_compositor.set("_scan_elapsed", 0.0)
