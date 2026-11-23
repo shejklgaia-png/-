@@ -36,6 +36,8 @@ const GATE_ORIGIN: Vector3 = Vector3(4.00, 0.02, -10.48)
 const SERA_STAGE_ORIGIN: Vector3 = Vector3(0.0, 0.0, -4.75)
 
 var batch_data: Dictionary = {}
+# Native geometry overlays; no architectural lines are rendered by an ID viewport.
+var nexus_native_edge_sources: Array[GeometryInstance3D] = []
 var hud: Control
 var cam: Camera3D
 var outline: Control
@@ -315,8 +317,8 @@ func _ready() -> void:
     SharedMaterialShading.apply_to_subtree(self)
     _sera_display()
     _camera()
-    # The shared depth-resolved ID viewport draws only the visible outer
-    # silhouette and inter-mesh contacts. No convex edge ribbons are created.
+    # The only retained ID viewport belongs to the displayed SERA. The room
+    # is native depth-tested geometry; its ID copies are occluders, not ink.
     var id_outline := SeraViewEdges.new()
     id_outline.name = "ViewEdges"
     id_outline.set_nexus_sera_contact_mode(true)
@@ -498,10 +500,31 @@ func _nexus_edge_material(geometry_mode: int = 0) -> ShaderMaterial:
     var edge := ShaderMaterial.new()
     edge.shader = NEXUS_EDGE_SHADER
     edge.render_priority = RENDER_ORDER.NEXUS_SURFACE_EDGES
-    edge.set_shader_parameter("edge_tint", Color("#7e858e"))
+    edge.set_shader_parameter("edge_tint", Color("#17212f"))
     edge.set_shader_parameter("width_px", NEXUS_EDGE_WIDTH_PIXELS)
     edge.set_shader_parameter("geometry_mode", geometry_mode)
     return edge
+
+func _add_nexus_native_edge(source: GeometryInstance3D,
+        geometry_mode: int = 0) -> void:
+    # Material overlay draws the actual front-facing geometry under native
+    # opaque depth testing. No silhouette screen quad or duplicate world.
+    var edge: ShaderMaterial = _nexus_edge_material(geometry_mode)
+    source.set_meta("nexus_native_edge_material", edge)
+    nexus_native_edge_sources.append(source)
+    if GraphicsSettings.get_enabled("base_outline"):
+        source.material_overlay = edge
+
+func _refresh_nexus_native_edges() -> void:
+    # Graphics option applies to native architectural overlays, separately
+    # from the SERA ID outlines. Keep the materials allocated while disabled.
+    var enabled: bool = GraphicsSettings.get_enabled("base_outline")
+    for source in nexus_native_edge_sources:
+        if not is_instance_valid(source):
+            continue
+        var edge: Material = source.get_meta(
+            "nexus_native_edge_material") as Material
+        source.material_overlay = edge if enabled else null
 
 func _render_batches() -> void:
     var cube := BoxMesh.new()
@@ -521,17 +544,17 @@ func _render_batches() -> void:
         draw.name = ("BlockbenchFloorDepth_%02d" % index
             if floor_depth_only else "BlockbenchBatch_%02d" % index)
         draw.multimesh = multi
-        if floor_depth_only:
-            # Source remains solid/opaque. In the NEXUS RGB-ID pass this batch
-            # writes depth with a reserved no-ink tag, hiding rear contours.
-            draw.set_meta("sera_outline_occluder_only", true)
+        # All room solids write the SERA mask's depth as no-ink occluders.
+        # No room surface is allowed to generate RGB-ID contour pixels.
+        draw.set_meta("sera_outline_occluder_only", true)
         var material: StandardMaterial3D = _mat(index)
-        # Scene-wide visible-mesh-ID contours now own ALL opaque module
-        # boundaries. Do not draw the old polygon-edge next_pass on top.
-        # Cyan/amber/blue emissive accents remain untouched.
         draw.material_override = material
         draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         add_child(draw)
+        # Floors, drains and emissive details keep their authored visuals,
+        # but no polygon-edge overlay. Only opaque architecture gets 2px ink.
+        if not floor_depth_only and index not in [5, 6, 7]:
+            _add_nexus_native_edge(draw)
 
 func _pad_center() -> void:
     var surface := MeshInstance3D.new()
@@ -544,9 +567,10 @@ func _pad_center() -> void:
     surface.mesh = cylinder
     surface.position = Vector3(0.0, 0.33, -4.75)
     var pad_material: StandardMaterial3D = _mat(2)
-    # The shared ID pass draws the pad silhouette without a second edge pass.
     surface.material_override = pad_material
+    surface.set_meta("sera_outline_occluder_only", true)
     add_child(surface)
+    _add_nexus_native_edge(surface, 1)
 
 func _sera_display() -> void:
     # Do not alter the authored combat animations. The base uses a neutral
@@ -2414,6 +2438,8 @@ func _tap_fps_option_control(point: Vector2) -> void:
                     "SeraIDOutlineLayer/SeraIDOutlineControl")
                 if is_instance_valid(compositor):
                     compositor.call("refresh_graphics_preferences")
+                if scope == "base_outline":
+                    _refresh_nexus_native_edges()
                 _refresh_fps_option_controls()
             else:
                 system_fps_note.text = "グラフィック設定の保存に失敗しました。"
