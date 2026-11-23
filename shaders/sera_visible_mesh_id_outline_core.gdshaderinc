@@ -23,19 +23,19 @@ uniform float actor_seam_override_px = -1.0;
 // Each scene's actor profile is independently configurable, not hardcoded.
 // Global actor standard in all scenes (combat, CRATE, NEXUS, previews).
 uniform float bittaran_inside_px = 0.0;
-uniform float bittaran_outside_px = 6.0;
+uniform float bittaran_outside_px = 5.0;
 uniform float bittaran_seam_px = 1.0;
 uniform float nexus_actor_inside_px = 0.0;
-uniform float nexus_actor_outside_px = 6.0;
+uniform float nexus_actor_outside_px = 5.0;
 uniform float nexus_actor_seam_px = 1.0;
 uniform float training_inside_px = 0.0;
-uniform float training_outside_px = 6.0;
+uniform float training_outside_px = 5.0;
 uniform float training_seam_px = 1.0;
 uniform float nexus_facility_outside_px = 3.0;
 uniform float nexus_facility_seam_px = 2.0;
 // Existing per-element settings. None of these change the ID processing path.
 uniform float main_inside_px = 0.0;
-uniform float main_outside_px = 6.0;
+uniform float main_outside_px = 5.0;
 uniform float main_seam_px = 1.0;
 uniform float facility_inside_px = 0.0;
 uniform float facility_outside_px = 4.0;
@@ -44,10 +44,10 @@ uniform float clutter_inside_px = 0.0;
 uniform float clutter_outside_px = 3.0;
 uniform float clutter_seam_px = 1.0;
 uniform float crate_inside_px = 0.0;
-uniform float crate_outside_px = 6.0;
+uniform float crate_outside_px = 5.0;
 uniform float crate_seam_px = 1.0;
 uniform float part_inside_px = 0.0;
-uniform float part_outside_px = 6.0;
+uniform float part_outside_px = 5.0;
 uniform float part_seam_px = 1.0;
 
 vec3 sera_sample_visible_id(vec2 uv) {
