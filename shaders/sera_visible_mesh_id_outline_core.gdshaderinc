@@ -177,7 +177,6 @@ float sera_visible_id_ink_alpha(vec2 uv) {
         float seam_px = sera_seam_width(role);
         bool player_pixel = role == 1 && center.g > 0.14;
         float contact_px = player_pixel ? max(seam_px, sera_outer_width(role)) : seam_px;
-        bool character_mesh = role == 1 || role == 5 || role == 6;
         ivec2 id_size = textureSize(mesh_id_texture, 0);
         ivec2 center_pixel = ivec2(floor(uv * vec2(id_size)));
         // The Bittaran pass uses a 1px 4-neighbor disk for its contacts,
@@ -201,12 +200,18 @@ float sera_visible_id_ink_alpha(vec2 uv) {
                     draw_ink = true;
                     break;
                 }
-                // For the standard 2px internal seam, each visible mesh
-                // contributes one side. Only the red/blue mesh ID matters.
-                bool same_actor_class = character_mesh && role == other_role &&
-                    (role != 1 || player_pixel == (neighbor.g > 0.14));
-                if (same_actor_class && seam_px >= 2.0) {
-                    if (any(greaterThan(abs(center.rb - neighbor.rb), vec2(0.5 / 255.0))) &&
+                // Every independently identified visible mesh contributes
+                // its own half of the prescribed seam, INCLUDING facilities,
+                // clutter and GRID. The previous actor-only condition left
+                // many same-role contacts owned by a single tiny pixel.
+                // Compare integer RGB8 values, not interpolated floats.
+                bool same_styled_role = role == other_role && role <= 6;
+                bool same_actor_group = role != 1 ||
+                    player_pixel == (neighbor.g > 0.14);
+                if (same_styled_role && same_actor_group) {
+                    ivec2 this_mesh = ivec2(floor(center.rb * 255.0 + 0.5));
+                    ivec2 next_mesh = ivec2(floor(neighbor.rb * 255.0 + 0.5));
+                    if (any(notEqual(this_mesh, next_mesh)) &&
                             sera_in_disk(dx, dy, seam_px * 0.5)) {
                         draw_ink = true;
                         break;
