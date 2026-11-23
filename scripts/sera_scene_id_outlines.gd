@@ -59,12 +59,13 @@ var _shared_scene_mode: bool = false
 # Only the Bittaran battle uses a 3px outside / 2px mesh-ID contact shader.
 # Shared ID depth/camera/copies remain identical to other combat scenes.
 var _bittaran_id_mode: bool = false
-# The pre-draw signal is the last common boundary before the RenderingServer
-# updates the ID child viewport and the main viewport that consumes it.
-# The existing non-Bittaran _process path remains unchanged.
-var _bittaran_pre_draw_frame: int = -1
-var _bittaran_snapshot_dirty_frame: int = -1
-var _bittaran_pending_rebuild: bool = false
+# In combat, read the interpolated render pose only from late _process.
+# The Bittaran battle and the articulated SERA rig finish their own _process
+# before our process_priority=10000. Capturing at frame_pre_draw happened
+# outside this render-frame update phase and could use a different pose sample.
+# Non-Bittaran screens retain their existing synchronization behavior.
+var _bittaran_pose_frame: int = -1
+var _bittaran_pose_dirty_frame: int = -1
 # Only independent equipment preview SubViewports use 2D shared-ID ink.
 var _part_preview_canvas_mode: bool = false
 # Combat needs the interpolated pose every render frame, not the last physics tick.
@@ -153,11 +154,11 @@ func _refresh_combat_viewport_mode() -> void:
             break
     _combat_scene_mode = combat
     # The actor rig evaluates before the main combat camera (priority 0).
-    # Capture the *final* render pose after both have advanced, not the pose
+    # Capture the final _process render pose after both have advanced, not the pose
     # from the beginning of this frame. Non-combat viewports keep their
     # existing scheduling to avoid changing preview/BASE behavior.
-    # Let player, boss, authored joints, camera and effects finish their
-    # render-frame updates before capturing the visible mesh-ID source pose.
+    # Let player, boss, authored joints and camera finish their idle-frame
+    # updates before copying their displayed (interpolated) source poses.
     process_priority = 10000 if combat else 0
     if not is_instance_valid(id_viewport):
         return
@@ -195,8 +196,8 @@ func get_outline_metrics() -> Dictionary:
                 NEXUS_CONTACT_INK if _nexus_sera_contact_mode else
                 (SHARED_CANVAS_INK if _part_preview_canvas_mode else INK))),
         "bittaran_mesh_id_mode": _bittaran_id_mode,
-        "bittaran_pre_draw_frame": _bittaran_pre_draw_frame,
-        "bittaran_snapshot_dirty_frame": _bittaran_snapshot_dirty_frame,
+        "bittaran_pose_frame": _bittaran_pose_frame,
+        "bittaran_pose_dirty_frame": _bittaran_pose_dirty_frame,
         "shared_vfx_safe_3d_ink": _shared_scene_mode,
         "nexus_contact_vfx_safe_3d_ink": false,
         "front_effects_cover_ink": (_shared_scene_mode and not _part_preview_canvas_mode),
@@ -271,9 +272,6 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
-    # A viewport-owned compositor can outlive one scene. Disconnect before
-    # its camera/source meshes are freed, avoiding stale pre-draw callbacks.
-    _disconnect_bittaran_pre_draw()
     # The 3D quad lives under the source Camera3D, not under this canvas.
     if is_instance_valid(_screen_quad):
         _screen_quad.queue_free()
@@ -323,40 +321,28 @@ func set_shared_scene_mode(enabled: bool) -> void:
     _scan_elapsed = 0.0
 
 
-func _disconnect_bittaran_pre_draw() -> void:
-    if RenderingServer.frame_pre_draw.is_connected(
-            _on_bittaran_frame_pre_draw):
-        RenderingServer.frame_pre_draw.disconnect(
-            _on_bittaran_frame_pre_draw)
-
-
-# Single render-boundary commit for the Bittaran visible-ID path.
-# The scene's _process methods have finished updating the model and camera.
-# Transfer their final interpolated transforms / projection to the ID pass
-# before the RenderingServer refreshes the ID texture and parent viewport.
-# No await, CPU readback, forced redraw, screen buffer, or extra frame.
-func _on_bittaran_frame_pre_draw() -> void:
-    if not _bittaran_id_mode or _root_refs.is_empty() or (
-            not is_inside_tree()) or (
-            not is_instance_valid(id_viewport)) or (
-            not is_instance_valid(source_viewport)):
+# The only Bittaran ID pose commit is made from this late idle-frame
+# callback, *after* the source rig and Bittaran camera _process handlers.
+# Capture camera projection, shake offsets and every actor's interpolated
+# render transform in one consecutive pass, before either viewport renders.
+# The ID target stays UPDATE_ALWAYS and the completed-frame SubViewport
+# continues presenting the combined image through its existing dependency.
+# This fixes mismatched CPU sampling times, not a possible GPU texture lag.
+func _commit_bittaran_render_pose(
+        source_camera: Camera3D, mesh_changed: bool) -> void:
+    var frame: int = Engine.get_process_frames()
+    if _bittaran_pose_frame == frame:
         return
-    var source_camera: Camera3D = source_viewport.get_camera_3d()
-    if not is_instance_valid(source_camera):
-        return
-    var dirty: bool = _bittaran_pending_rebuild
+    _bittaran_pose_frame = frame
+    var dirty: bool = mesh_changed
     dirty = _sync_camera(source_camera) or dirty
     dirty = _sync_copies() or dirty
     if dirty:
         _update_shared_screen_bounds(source_camera)
-        _bittaran_snapshot_dirty_frame = Engine.get_process_frames()
+        _bittaran_pose_dirty_frame = frame
         _redraw_requests += 1
-    _bittaran_pending_rebuild = false
-    # A child ID viewport is a texture dependency of the parent's 3D
-    # silhouette composite. Both are requested in the same render tick.
     if id_viewport.render_target_update_mode != SubViewport.UPDATE_ALWAYS:
         id_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-    _bittaran_pre_draw_frame = Engine.get_process_frames()
 
 
 # Select the dedicated Bittaran ID-contacts compositor without changing the
@@ -366,16 +352,10 @@ func set_bittaran_id_mode(enabled: bool) -> void:
     if _bittaran_id_mode == enabled:
         return
     _bittaran_id_mode = enabled
-    if enabled:
-        if not RenderingServer.frame_pre_draw.is_connected(
-                _on_bittaran_frame_pre_draw):
-            RenderingServer.frame_pre_draw.connect(
-                _on_bittaran_frame_pre_draw)
-    else:
-        _disconnect_bittaran_pre_draw()
-        _bittaran_pre_draw_frame = -1
-        _bittaran_snapshot_dirty_frame = -1
-    _bittaran_pending_rebuild = enabled
+    # Never register a render-server signal here: all interpolation reads
+    # now happen in the final regular _process for the active combat scene.
+    _bittaran_pose_frame = -1
+    _bittaran_pose_dirty_frame = -1
     if _shared_scene_mode and _screen_material != null:
         _screen_material.shader = (
             BITTARAN_ID_INK if enabled else SHARED_INK)
@@ -481,10 +461,8 @@ func unregister_root(owner: Node) -> void:
         _shared_scene_mode = false
         _nexus_sera_contact_mode = false
         _bittaran_id_mode = false
-        _disconnect_bittaran_pre_draw()
-        _bittaran_pre_draw_frame = -1
-        _bittaran_snapshot_dirty_frame = -1
-        _bittaran_pending_rebuild = false
+        _bittaran_pose_frame = -1
+        _bittaran_pose_dirty_frame = -1
         _screen_material = null
         # A new camera can have exactly the same transform and projection;
         # force its settings back into the independent ID camera on entry.
@@ -571,21 +549,20 @@ func _process(delta: float) -> void:
         _sync_screen_quad(source_camera)
     elif is_instance_valid(_screen_quad):
         _screen_quad.visible = false
-    # In Bittaran, never capture camera or actor poses at two different
-    # points in _process. The one authoritative snapshot is committed at
-    # RenderingServer.frame_pre_draw, immediately before both viewports
-    # render. Other screens keep their existing _process ID synchronization.
+    # Bittaran captures the final animated/render-interpolated pose at
+    # process priority 10000. Never read a second set of transforms from
+    # RenderingServer.frame_pre_draw. Other screens keep their established
+    # dirty-only ID update path, without changing their rendered behavior.
     var dirty: bool = false
     if not _bittaran_id_mode:
         dirty = _sync_camera(source_camera)
     _scan_elapsed -= delta
     if _scan_elapsed <= 0.0:
         _scan_elapsed = SCAN_INTERVAL
-        var mesh_changed: bool = _rescan()
-        dirty = mesh_changed or dirty
-        if _bittaran_id_mode and mesh_changed:
-            _bittaran_pending_rebuild = true
-    if not _bittaran_id_mode:
+        dirty = _rescan() or dirty
+    if _bittaran_id_mode:
+        _commit_bittaran_render_pose(source_camera, dirty)
+    else:
         dirty = _sync_copies() or dirty
         if dirty:
             if _shared_scene_mode:
