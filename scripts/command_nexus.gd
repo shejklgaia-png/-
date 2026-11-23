@@ -2029,9 +2029,9 @@ func _layout_single_part_preview() -> void:
     if customize_single_part_preview == null:
         return
     var view: Vector2 = hud.size
-    # The SubViewportContainer owns the rectangular frame; stretching it
-    # across this window keeps the grid backdrop aligned to the chamfer rim.
-    # Its native viewport receives the actual aspect ratio automatically.
+    # In normal mode the focus panel itself is a centered square, so the
+    # part SubViewport and its technical rim keep the same aspect ratio.
+    # Fullscreen reparenting still uses the entire display.
     if customize_part_preview_fullscreen_active:
         customize_single_part_preview.position = Vector2.ZERO
         customize_single_part_preview.size = customize_part_preview_fullscreen_layer.size
@@ -3132,6 +3132,18 @@ func _customize_tall_menu_rect(view: Vector2) -> Rect2:
         Vector2(view.x * 0.455, view.y * 0.615))
 
 
+func _customize_single_part_rect(view: Vector2) -> Rect2:
+    # The dedicated 3D part SubViewport should never inherit the tall
+    # full-body display rect. Keep a square aspect for consistent icon-like
+    # framing and center it in the left column, beside the seven-slot menu.
+    var column: Rect2 = _customize_square_menu_rect(view)
+    var side: float = floorf(minf(column.size.x - 16.0,
+        column.size.y - 24.0))
+    side = maxf(1.0, side)
+    return Rect2(column.get_center() - Vector2.ONE * (side * 0.5),
+        Vector2.ONE * side)
+
+
 func _customize_model_area(view: Vector2) -> Rect2:
     return _customize_square_menu_rect(view).grow(-8.0)
 
@@ -3422,8 +3434,11 @@ func _layout_hud() -> void:
     if focused_target == "CUSTOMIZE":
         var square: Rect2 = _customize_square_menu_rect(view)
         var tall: Rect2 = _customize_tall_menu_rect(view)
-        focus_panel.position = square.position
-        focus_panel.size = square.size
+        var part_square: Rect2 = _customize_single_part_rect(view)
+        var preview_rect: Rect2 = (
+            part_square if customize_display_mode == 1 else square)
+        focus_panel.position = preview_rect.position
+        focus_panel.size = preview_rect.size
         customize_right_panel.position = tall.position
         customize_right_panel.size = tall.size
         customize_right_header.position = Vector2.ZERO
@@ -3909,7 +3924,8 @@ func _fit_customization_preview() -> void:
     customize_preview_fitted_scale = customize_preview_scale
 
 func _is_customization_drag_zone(pixel: Vector2) -> bool:
-    if focused_target != "CUSTOMIZE" or not customize_preview_active or hud == null:
+    if focused_target != "CUSTOMIZE" or not customize_preview_active or (
+            customize_display_mode != 0) or hud == null:
         return false
     if not Rect2(Vector2.ZERO, hud.size).has_point(pixel):
         return false
