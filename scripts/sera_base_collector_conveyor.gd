@@ -8,7 +8,7 @@ const LOOP_SECONDS: float = 8.0
 const BELT_START_X: float = -5.70
 const BELT_PICKUP_X: float = -1.30
 const BELT_Z: float = 1.28
-const BELT_SPEED: float = 1.4193548  # 4.40m / 3.10s
+const BELT_SPEED: float = 1.5597015  # 4.18m in 2.68s, before the ramp
 # In the oblique camera, moving local -X/-Z shifts the shaft upper-left.
 # The octave-bearing center is isolated behind the yellow hopper rim.
 # The shorter boom and the retracted belt pickup meet at this new position.
@@ -44,16 +44,18 @@ static func lift_at(phase: float) -> float:
     # Keep the rotating gripper and carried metal above the hopper's steel
     # rim throughout both yaw traversals. Cable is 0.70m at rest; +0.44m
     # leaves a real 0.26m tether rather than inverting its stretch axis.
-    if phase < 2.60:
+    # Open claws while high, keep them visibly open, then descend onto the
+    # cargo only after the belt parcel has bumped up and settled on the plate.
+    if phase < 3.16:
         return 0.17
-    if phase < 3.10:
-        return lerpf(0.17, -0.17, smoothstep(2.60, 3.10, phase))
-    if phase < 3.52:
+    if phase < 3.44:
+        return lerpf(0.17, -0.17, smoothstep(3.16, 3.44, phase))
+    if phase < 3.72:
         return -0.17
     if phase < 4.18:
-        # Complete the lift before the crane starts rotating at 4.18s.
+        # Gripping is complete before any upward motion or slewing.
         return lerpf(-0.17, SWEEP_CLEARANCE_LIFT,
-            smoothstep(3.52, 4.18, phase))
+            smoothstep(3.72, 4.18, phase))
     if phase < 5.62:
         return SWEEP_CLEARANCE_LIFT
     if phase < 6.04:
@@ -73,17 +75,75 @@ static func lift_at(phase: float) -> float:
         smoothstep(7.70, LOOP_SECONDS, phase))
 
 
+const GRIP_OPEN_ANGLE: float = 0.42
+const SCRAP_RAMP_START: float = 2.68
+const SCRAP_RAMP_FINISH: float = 2.96
+const SCRAP_SETTLE_FINISH: float = 3.16
+const SCRAP_PLATE_RISE: float = 0.14
+
+
 static func grip_at(phase: float) -> float:
-    # Positive angle opens both opposing fingers around their root pins.
-    if phase < 3.10:
-        return 0.27
-    if phase < 3.52:
-        return lerpf(0.27, 0.0, smoothstep(3.10, 3.52, phase))
+    # The returning claws start CLOSED. Open 0.8 seconds before descent,
+    # hold fully open until lowered, then grip while remaining down.
+    if phase < 2.00:
+        return 0.0
+    if phase < 2.36:
+        return lerpf(0.0, GRIP_OPEN_ANGLE,
+            smoothstep(2.00, 2.36, phase))
+    if phase < 3.44:
+        return GRIP_OPEN_ANGLE
+    if phase < 3.72:
+        return lerpf(GRIP_OPEN_ANGLE, 0.0,
+            smoothstep(3.44, 3.72, phase))
     if phase < 6.04:
         return 0.0
     if phase < 6.32:
-        return lerpf(0.0, 0.27, smoothstep(6.04, 6.32, phase))
-    return 0.27
+        return lerpf(0.0, GRIP_OPEN_ANGLE,
+            smoothstep(6.04, 6.32, phase))
+    if phase < 7.70:
+        return GRIP_OPEN_ANGLE
+    # Close again only when back at the upper pickup station. This makes
+    # the 8s loop wrap continuously with closed claws at phase zero.
+    return lerpf(GRIP_OPEN_ANGLE, 0.0,
+        smoothstep(7.70, LOOP_SECONDS, phase))
+
+
+static func scrap_offset_at(phase: float) -> Vector3:
+    # 0–2.68s: regular belt transport; the scrap approaches the ramp lip.
+    var approach: float = BELT_PICKUP_X - 0.22 - BELT_START_X
+    if phase < SCRAP_RAMP_START:
+        return Vector3(BELT_SPEED * phase, 0.0, 0.0)
+    if phase < SCRAP_RAMP_FINISH:
+        # The inertia carries the part up a short steel ramp; one visible
+        # upward bump is separate from the small later settling vibration.
+        var t: float = smoothstep(
+            SCRAP_RAMP_START, SCRAP_RAMP_FINISH, phase)
+        return Vector3(approach + 0.32 * t,
+            SCRAP_PLATE_RISE * t + 0.075 * sin(t * PI), 0.0)
+    if phase < SCRAP_SETTLE_FINISH:
+        var t: float = (phase - SCRAP_RAMP_FINISH) / (
+            SCRAP_SETTLE_FINISH - SCRAP_RAMP_FINISH)
+        var fade: float = 1.0 - t
+        return Vector3(approach + 0.32 +
+            0.027 * sin(t * TAU) * fade,
+            SCRAP_PLATE_RISE + 0.034 *
+            sin(t * TAU * 1.5) * fade,
+            0.014 * sin(t * TAU) * fade)
+    # Cargo remains supported and motionless on the actual elevated plate
+    # until the jaws have completed their close around it at 3.72 seconds.
+    return Vector3(approach + 0.32, SCRAP_PLATE_RISE, 0.0)
+
+
+static func scrap_rock_at(phase: float) -> float:
+    if phase < SCRAP_RAMP_START or phase >= SCRAP_SETTLE_FINISH:
+        return 0.0
+    if phase < SCRAP_RAMP_FINISH:
+        var t: float = smoothstep(
+            SCRAP_RAMP_START, SCRAP_RAMP_FINISH, phase)
+        return 0.24 * sin(t * PI)
+    var t: float = (phase - SCRAP_RAMP_FINISH) / (
+        SCRAP_SETTLE_FINISH - SCRAP_RAMP_FINISH)
+    return 0.17 * sin(t * TAU * 1.5) * (1.0 - t)
 
 
 static func build(g: Variant) -> void:
@@ -141,6 +201,20 @@ static func build(g: Variant) -> void:
     g.box("FreshCollectorPickupUnderstop",
         Vector3(BELT_PICKUP_X + 0.11, 0.72, BELT_Z),
         Vector3(0.12, 0.11, 1.60), "edge")
+    # The pickup has its own raised steel loading plate, 0.14m above the
+    # belt. A gently pitched metal lip lets the scrap actually ride up.
+    g.poly_tilt("FreshCollectorPickupRamp", "cargo_case",
+        Vector3(BELT_PICKUP_X - 0.20, 0.94, BELT_Z),
+        Vector3(0.36, 0.065, 1.22), "edge",
+        Vector3(0.0, 0.0, 0.25))
+    g.poly("FreshCollectorPickupPlate", "cargo_case",
+        Vector3(BELT_PICKUP_X + 0.12, 0.93, BELT_Z),
+        Vector3(0.50, 0.18, 1.26), "slate")
+    for side in [-1.0, 1.0]:
+        g.box("FreshCollectorPickupPlateSideLip",
+            Vector3(BELT_PICKUP_X + 0.11, 1.06,
+                BELT_Z + side * 0.61),
+            Vector3(0.43, 0.08, 0.055), "armor_light")
 
     # Moving transverse tread bars communicate a continuous physical belt
     # without animating the entire static conveyor or creating many nodes.
