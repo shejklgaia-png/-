@@ -305,6 +305,9 @@ const PANEL_LAYOUTS: Dictionary = {
 
 func _ready() -> void:
     set_meta("sera_graphics_outline_category", "base")
+    # Any untagged opaque room equipment receives NEXUS inner 3/0/2 +
+    # convex1, while the child SERA rig's character category takes priority.
+    set_meta("sera_outline_role", "facility")
     DisplayProfile.apply(get_window())
     FrameRateSettings.apply("base_nexus")
     # Godot 4 Android Back is a Window go-back request when auto-quit is off.
