@@ -937,16 +937,11 @@ static func _build_original_facility_geometry(g: Batch, key: String) -> void:
 
 static func _add_facility_lights(node: Node3D, key: String) -> void:
     match key:
-        "LABO":
-            _light(node, "LabTaskLighting", Vector3(0, 2.28, 1.31),
-                "#ffbd86", 1.52, 3.65)
         "SMELTER":
+            # Furnace fire is an area heat source, not a searchlight.
             _light(node, "FurnaceHeatLight", Vector3(0, 1.10, 1.14),
                 "#ff904d", 2.05, 3.40)
-        # Collector, crusher, power generator and storage use dedicated
-        # hooded lamps / slit emitters with local spots in BaseFacilityVFX.
-        # Do not add the old broad unmodelled omni lights in parallel.
-        "BUILD_TERMINAL":
-            _light(node, "TerminalWorkLight", Vector3(0.0, 2.23, 0.54),
-                "#8ccefa", 1.00, 3.10)
+        # LABO, BUILD_TERMINAL and the other sites now use one real aimed
+        # SpotLight per visible projector in BaseFacilityVFX. Remove their
+        # former broad unmodelled OmniLights to avoid double lighting.
 
