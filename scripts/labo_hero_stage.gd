@@ -118,15 +118,15 @@ func set_section(section: String) -> void:
     crate.scale = Vector3.ONE
     match current_section:
         "LABO":
-            # Scene A: low camera from front RIGHT (24 degree yaw) makes the
-            # oversized left printer gantry visibly three-dimensional,
-            # while preserving CRATE and terminal on the right.
-            crate.position = Vector3(1.96, 0.0, 0.55)
-            crate.rotation.y = 2.26
+            # Left printer opens to +X; the large right display looks back
+            # across the central inspection aisle. CRATE travels between the
+            # two functional areas, with both in the hero camera composition.
+            crate.position = Vector3(-0.62, 0.0, -0.48)
+            crate.rotation.y = 1.10
             work_state = "print_to_terminal"
-            hero_camera.position = Vector3(2.65, 1.45, 4.40)
-            hero_camera.fov = 54.0
-            hero_camera.look_at(Vector3(0.15, 1.80, -0.70), Vector3.UP)
+            hero_camera.position = Vector3(2.10, 2.35, 5.35)
+            hero_camera.fov = 56.0
+            hero_camera.look_at(Vector3(0.10, 1.66, -1.22), Vector3.UP)
         "SMELTER", "RECYCLER":
             # Scene B: front LEFT 21 degree viewpoint and raised camera.
             # Orange vessel appears nearer than cyan and violet; four
@@ -188,22 +188,26 @@ func _animate_manufacturing(delta: float) -> void:
     printed_part.scale.y = 0.92 + 0.06*sin(clock*0.4)
     match work_state:
         "print_to_terminal":
-            if _move_to(Vector3(2.60, 0, 0.24), delta):
+            # Keep the central aisle clear: the terminal sits farther back
+            # while the operator approaches its front-left work position.
+            if _move_to(Vector3(1.70, 0, 0.40), delta):
                 _enter("print_inspect_terminal")
         "print_inspect_terminal":
-            crate.rotation.y = lerp_angle(crate.rotation.y, 2.10, minf(delta*2.0, 1.0))
+            crate.rotation.y = lerp_angle(crate.rotation.y, -0.49, minf(delta*2.0, 1.0))
             crate_head.rotation.x = lerpf(crate_head.rotation.x, 0.17, minf(delta*3.0, 1.0))
             crate_arm.rotation.x = -0.30 + 0.06*sin(clock*2.2)
-            if state_time > 3.1:
+            if state_time > 3.2:
                 _enter("print_to_machine")
         "print_to_machine":
-            if _move_to(Vector3(1.32, 0, 0.42), delta):
+            # The printer has a right-facing opening. Stop to the right
+            # of its output tray, never inside the print envelope.
+            if _move_to(Vector3(-0.52, 0, -0.62), delta):
                 _enter("print_inspect_shell")
         "print_inspect_shell":
-            crate.rotation.y = lerp_angle(crate.rotation.y, 2.65, minf(delta*2.5, 1.0))
+            crate.rotation.y = lerp_angle(crate.rotation.y, 1.13, minf(delta*2.5, 1.0))
             crate_head.rotation.x = lerpf(crate_head.rotation.x, -0.13, minf(delta*3.0, 1.0))
             crate_left_arm.rotation.x = 0.12*sin(clock*1.8)
-            if state_time > 2.6:
+            if state_time > 2.8:
                 _enter("print_to_terminal")
 
 func _animate_refinery(delta: float) -> void:
