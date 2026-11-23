@@ -8,8 +8,8 @@ uniform vec2 texture_uv_scale = vec2(1.0);
 uniform vec2 texture_uv_offset = vec2(0.0);
 // Stronger floor-only framing. These are screen-position effects, not a
 // fullscreen overlay: buildings, cables, VFX and UI never receive the tint.
-uniform float top_edge_darkness : hint_range(0.0, 0.30, 0.01) = 0.20;
-uniform float lower_corner_darkness : hint_range(0.0, 0.30, 0.01) = 0.20;
+uniform float top_edge_darkness : hint_range(0.0, 0.50, 0.01) = 0.40;
+uniform float lower_corner_darkness : hint_range(0.0, 0.50, 0.01) = 0.40;
 varying vec2 floor_world_xz;
 
 void vertex() {
@@ -48,18 +48,18 @@ void fragment() {
     // across the width; bottom darkening is concentrated in the two corners.
     // SCREEN_UV makes the fade stay at the displayed screen edges when the
     // camera moves, while the broad floor lighting stays world-anchored.
-    float top_fade = 1.0 - smoothstep(0.0, 0.30, SCREEN_UV.y);
-    vec2 left_pos = (SCREEN_UV - vec2(-0.06, 1.08)) /
-        vec2(0.50, 0.49);
-    vec2 right_pos = (SCREEN_UV - vec2(1.06, 1.08)) /
-        vec2(0.50, 0.49);
+    float top_fade = 1.0 - smoothstep(0.0, 0.34, SCREEN_UV.y);
+    vec2 left_pos = (SCREEN_UV - vec2(-0.08, 1.10)) /
+        vec2(0.56, 0.56);
+    vec2 right_pos = (SCREEN_UV - vec2(1.08, 1.10)) /
+        vec2(0.56, 0.56);
     float left_corner = 1.0 - smoothstep(0.05, 1.0,
         dot(left_pos, left_pos));
     float right_corner = 1.0 - smoothstep(0.05, 1.0,
         dot(right_pos, right_pos));
     float corner_fade = max(left_corner, right_corner);
     float screen_vignette = clamp(top_edge_darkness * top_fade +
-        lower_corner_darkness * corner_fade, 0.0, 0.30);
+        lower_corner_darkness * corner_fade, 0.0, 0.50);
     ALBEDO = clamp(authored * directional_band *
         light_variation * temperature * (1.0 - screen_vignette),
         vec3(0.0), vec3(1.0));
