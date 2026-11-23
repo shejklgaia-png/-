@@ -116,7 +116,9 @@ void fragment() {
     // The fixture contains the first few centimetres. The beam remains
     // legible down to its intended work point, without a hard cut-off.
     float start = smoothstep(0.01, 0.09, along);
-    float end_fade = 1.0 - smoothstep(0.81, 1.0, along);
+    // Preserve the broad fan almost to the impact point; the final tip
+    // still fades smoothly instead of showing a hard polygon edge.
+    float end_fade = 1.0 - smoothstep(0.90, 1.0, along);
     float light = (0.56 * soft_edge + 0.44 * center) *
         start * end_fade * (0.96 - 0.18 * along);
     ALBEDO = shaft_tint.rgb;
@@ -534,15 +536,16 @@ static func _shared_searchlight_shaft_mesh() -> ArrayMesh:
     var vertices := PackedVector3Array()
     var texcoords := PackedVector2Array()
     var indices := PackedInt32Array()
-    # Three 60-degree-crossed planes are readable from the actual BASE
-    # camera without GPU volumetric fog or fullscreen blur.
+    # Three 60-degree-crossed planes retain the low-cost cone. The end
+    # width expands from 0.96 to 1.70 (about 1.77x), while the lens end
+    # stays narrow for a clear fan-shaped beam in the BASE overview.
     for plane in range(3):
         var angle: float = float(plane) * PI / 3.0
         var lateral := Vector3(cos(angle), sin(angle), 0.0)
         var start_index: int = vertices.size()
         for ring in range(6):
             var t: float = float(ring) / 5.0
-            var width: float = lerpf(0.12, 0.96, pow(t, 0.82)) * 0.50
+            var width: float = lerpf(0.10, 1.70, pow(t, 1.05)) * 0.50
             for side in [-1.0, 1.0]:
                 vertices.append(lateral * width * side +
                     Vector3(0.0, 0.0, -t))
@@ -627,7 +630,7 @@ func _directed_searchlight(label: String, at: Vector3, target: Vector3,
     _queue_soft_halo(target + (
             Vector3(0.0, 0.045, 0.0) if is_floor
             else Vector3(0.0, 0.0, 0.07)),
-        Vector2(beam_radius * 1.18, beam_radius * 0.78),
+        Vector2(beam_radius * 1.68, beam_radius * 1.18),
         tint, 0.17, Vector3(-PI * 0.5, 0.0, 0.0) if is_floor
         else Vector3.ZERO)
 
@@ -748,7 +751,9 @@ func _spot(label: String, at: Vector3, target: Vector3,
     # shadowless spots illuminate real work surfaces, not unshaded copies.
     spot.light_energy = energy * 4.0
     spot.spot_range = reach * 1.12
-    spot.spot_angle = minf(85.0, cone + 4.0)
+    # The physical spotlight opens slightly wider as the visible low-poly
+    # cone expands. Keep the lighting focused on its original work target.
+    spot.spot_angle = minf(75.0, cone + 10.0)
     spot.spot_attenuation = 0.82
     spot.shadow_enabled = false
 
