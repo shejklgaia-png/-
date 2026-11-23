@@ -1,12 +1,13 @@
 shader_type spatial;
 // Companion to SERA's one canonical visible-RGB12-ID outline shader.
-// This shader draws ONLY topology-confirmed convex front/front hard corners.
-// Exterior silhouettes, open edges and inter-mesh ID boundaries NEVER draw here.
+// Both concave and convex front/front building hard corners share this 1px
+// overlay. Clutter uses convex-only geometry. Exterior silhouettes,
+// open edges and inter-mesh ID boundaries remain handled elsewhere.
 render_mode unshaded, cull_disabled, depth_draw_never, blend_mix;
 
 uniform vec4 ink_color : source_color = vec4(0.0, 0.0, 0.0, 1.0);
 // Total requested full-width line in final display pixels, not half-width.
-uniform float convex_width_px : hint_range(0.0, 8.0) = 2.0;
+uniform float corner_width_px : hint_range(0.0, 8.0) = 1.0;
 uniform vec2 output_px_per_render_pixel = vec2(1.0);
 uniform bool outlines_enabled = true;
 uniform sampler2D emissive_id_texture : filter_nearest, repeat_disable;
@@ -44,7 +45,7 @@ void vertex() {
         output_px_per_render_pixel.x, output_px_per_render_pixel.y));
     // Quantize at one internal raster pixel when the requested physical
     // thickness would otherwise disappear. GPU/ID draw at the same source px.
-    float width_px = max(1.0, convex_width_px / scale);
+    float width_px = max(1.0, corner_width_px / scale);
     // The NDC-to-pixel factor (viewport_size / 2) already halves each
     // signed offset. With UV.x=+-1 this produces width_px TOTAL screen px.
     clip.xy += side * vec2(1.0 / VIEWPORT_SIZE.x,
