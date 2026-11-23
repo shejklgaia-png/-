@@ -117,6 +117,9 @@ void fragment() {
 """
 static var _soft_halo_texture: ImageTexture
 static var _soft_halo_material: ShaderMaterial
+# All bright authored line details share one draw call per facility. Bound
+# the number of tiny quads to avoid screen-wide translucent overdraw.
+const MAX_SOFT_HALO_PATCHES: int = 160
 var _soft_halos: Array[Dictionary] = []
 
 const FIRE_FLOOR_SHADER: String = """
@@ -184,6 +187,8 @@ func setup(model: Node3D, key: String) -> void:
 
 func _queue_soft_halo(at: Vector3, span: Vector2, tint: Color,
         opacity: float) -> void:
+    if _soft_halos.size() >= MAX_SOFT_HALO_PATCHES:
+        return
     _soft_halos.append({
         "at": at, "span": span, "color": Color(
             tint.r, tint.g, tint.b, clampf(opacity, 0.0, 0.60))
@@ -221,7 +226,8 @@ func _collect_authored_emission_halos() -> void:
     # Every body part already shares its MultiMesh material. Copy only the
     # emissive coordinates into the SAME halo batch; no new real lights.
     # Limit total translucent overdraw on Android overview scenes.
-    var remaining: int = maxi(0, 64 - _soft_halos.size())
+    var remaining: int = maxi(
+        0, MAX_SOFT_HALO_PATCHES - _soft_halos.size())
     for child in _model.get_children():
         if remaining <= 0:
             break
@@ -229,9 +235,16 @@ func _collect_authored_emission_halos() -> void:
         if source == null or source.multimesh == null:
             continue
         var mat: StandardMaterial3D = source.material_override as StandardMaterial3D
-        if mat == null or not mat.emission_enabled:
+        if mat == null:
             continue
-        var many: int = mini(source.multimesh.instance_count, remaining)
+        # The authored white thin strips are luminous details in the
+        # approved BASE view, even when they use a neutral steel material.
+        # Large white panels remain ordinary paint, never extra bloom.
+        var emissive: bool = mat.emission_enabled
+        var white_detail: bool = source.name.ends_with("_white")
+        if not emissive and not white_detail:
+            continue
+        var many: int = source.multimesh.instance_count
         for i in range(many):
             var pose: Transform3D = source.multimesh.get_instance_transform(i)
             var center: Vector3 = to_local(source.to_global(pose.origin))
@@ -242,13 +255,26 @@ func _collect_authored_emission_halos() -> void:
                 pose.origin + pose.basis.y)) - center).length()
             var depth: float = (to_local(source.to_global(
                 pose.origin + pose.basis.z)) - center).length()
-            var hue: Color = mat.emission
+            var long_axis: float = maxf(width, maxf(height, depth))
+            var short_axes: int = (
+                int(width < 0.23) + int(height < 0.23) +
+                int(depth < 0.23))
+            var is_line: bool = short_axes >= 2 and long_axis >= 0.30
+            if white_detail and not is_line:
+                continue
+            var hue: Color = (
+                mat.emission if emissive else Color("#d6f1ff"))
+            var thickness: float = (
+                1.8 if is_line else 1.55)
             _queue_soft_halo(center + Vector3(
                 0.0, 0.0, depth * 0.50 + 0.035),
-                Vector2(clampf(width * 1.65, 0.20, 2.40),
-                    clampf(height * 2.8, 0.20, 1.60)),
-                hue, 0.12)
+                Vector2(clampf(width * thickness, 0.19, 2.35),
+                    clampf(height * (2.6 if is_line else 2.25),
+                        0.19, 1.48)),
+                hue, 0.16 if is_line else 0.10)
             remaining -= 1
+            if remaining <= 0:
+                break
 
 
 func _finish_soft_halos() -> void:
@@ -376,8 +402,8 @@ func _box(parent: Node3D, label: String, at: Vector3, dimensions: Vector3,
         var center: Vector3 = to_local(piece.global_position)
         var front_z: float = center.z + dimensions.z * 0.50 + 0.035
         _queue_soft_halo(Vector3(center.x, center.y, front_z),
-            Vector2(maxf(0.27, dimensions.x * 2.15),
-                maxf(0.25, dimensions.y * 3.7)), color, 0.22)
+            Vector2(maxf(0.27, dimensions.x * 1.85),
+                maxf(0.25, dimensions.y * 2.85)), color, 0.16)
     return piece
 
 
@@ -479,6 +505,9 @@ func _generator_visible_gap_leaks() -> void:
         instances.set_instance_transform(i, Transform3D(
             Basis().scaled(Vector3(1.44, 0.081, 1.0)),
             Vector3(-0.27, 1.22 + float(i) * 0.14, 1.153)))
+        _queue_soft_halo(
+            Vector3(-0.27, 1.22 + float(i) * 0.14, 1.162),
+            Vector2(1.62, 0.23), Color("#a1eaff"), 0.12)
 
     # Four front-facing, boxed cabinet vents. Their VFX steel lips end at
     # z=0.58; moving the narrow luminous core to z=0.586 prevents the
@@ -487,12 +516,18 @@ func _generator_visible_gap_leaks() -> void:
         instances.set_instance_transform(4 + i, Transform3D(
             Basis().scaled(Vector3(0.41, 0.063, 1.0)),
             Vector3(1.22, 1.70 + float(i) * 0.125, 0.586)))
+        _queue_soft_halo(
+            Vector3(1.22, 1.70 + float(i) * 0.125, 0.595),
+            Vector2(0.58, 0.19), Color("#c9f5ff"), 0.11)
 
     # Cooling fins have two actual open 0.07m gaps, visible above the rotor.
     for i in range(2):
         instances.set_instance_transform(8 + i, Transform3D(
             Basis().scaled(Vector3(0.56, 0.076, 1.0)),
             Vector3(-1.20, 2.98 + float(i) * 0.16, -0.225)))
+        _queue_soft_halo(
+            Vector3(-1.20, 2.98 + float(i) * 0.16, -0.215),
+            Vector2(0.73, 0.22), Color("#b6edff"), 0.10)
 
     var strip_batch := MultiMeshInstance3D.new()
     strip_batch.name = "GeneratorVisibleGapLeakBatch"
@@ -651,9 +686,9 @@ func _add_practical_lighting(key: String) -> void:
             # One broad soft edge per main luminous cavity; their precise
             # ten hard light gaps remain separately readable in front.
             _queue_soft_halo(Vector3(-0.27, 1.45, 1.185),
-                Vector2(1.93, 1.35), Color("#8fdcff"), 0.18)
+                Vector2(1.93, 1.35), Color("#8fdcff"), 0.09)
             _queue_soft_halo(Vector3(1.22, 1.89, 0.618),
-                Vector2(0.74, 0.87), Color("#b2edff"), 0.15)
+                Vector2(0.74, 0.87), Color("#b2edff"), 0.08)
         "STORAGE":
             # Two independent protected industrial fixtures make circular
             # warm landing pools in front of the loading opening.
