@@ -2,7 +2,7 @@ extends SceneTree
 ## Offline only: photograph all existing live SeraRig parts using the
 ## user-approved H02 Godot preset, with the current NEXUS mesh-ID ink.
 ## Capture profiles: full 512px, warehouse native 82px, craft native 96px.
-## Small thumbnails use screen-native strokes, never a scaled 512px outline.
+## All profiles render at 4x and reconstruct ink at final integer pixels.
 const RigScript = preload("res://scripts/sera_rig.gd")
 const EdgeScript = preload("res://scripts/sera_view_edges.gd")
 const ConvexGeometry = preload("res://scripts/sera_base_facility_crease_geometry.gd")
@@ -361,39 +361,3 @@ func _run() -> void:
         return
     print("SERA_NATIVE_EQUIPMENT_BATCH_PASS count=19 profiles=3 images=57 NEXUS_pose=true approved_preset=true")
     quit(0)
-
-# Pixel-alpha crop is applied after the real native render, not to the
-# authoritative 3D mesh. The four *occupied* margins are identical to ±1px.
-func _equalize_transparent_margins(source: Image, auto_fit: float, pixels: int) -> Image:
-    var left: int = pixels
-    var right: int = -1
-    var top: int = pixels
-    var bottom: int = -1
-    for y in range(pixels):
-        for x in range(pixels):
-            var alpha: float = source.get_pixel(x, y).a
-            if alpha > 0.10:
-                left = mini(left, x)
-                right = maxi(right, x)
-                top = mini(top, y)
-                bottom = maxi(bottom, y)
-    if right < left or bottom < top:
-        return null
-    var width: int = right - left + 1
-    var height: int = bottom - top + 1
-    # An authored auto_fit of 0.76 occupies at most 76% of the 512px canvas.
-    # This preserves symmetric transparent margins without an arbitrary zoom.
-    var target_side: int = roundi(pixels * auto_fit)
-    var factor: float = minf(float(target_side) / float(width),
-        float(target_side) / float(height))
-    var output_width: int = clampi(roundi(float(width) * factor), 1, target_side)
-    var output_height: int = clampi(roundi(float(height) * factor), 1, target_side)
-    var crop: Image = source.get_region(Rect2i(left, top, width, height))
-    crop.resize(output_width, output_height, Image.INTERPOLATE_LANCZOS)
-    var composed: Image = Image.create(
-        pixels, pixels, false, Image.FORMAT_RGBA8)
-    composed.fill(Color.TRANSPARENT)
-    composed.blit_rect(crop, Rect2i(0, 0, output_width, output_height),
-        Vector2i((pixels - output_width) / 2,
-            (pixels - output_height) / 2))
-    return composed
