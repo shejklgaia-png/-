@@ -515,7 +515,7 @@ static func common_theme() -> Theme:
         theme.set_stylebox(state, "Button", style("normal" if state == "focus" else state))
     theme.default_font = ui_font()
     theme.default_font_size = 18
-    theme.set_font("font", "Button", ui_font())
+    theme.set_font("font", "Button", control_font())
     theme.set_font("font", "Label", ui_font())
     theme.set_font("font", "SpinBox", data_font())
     theme.set_font("font", "LineEdit", data_font())
