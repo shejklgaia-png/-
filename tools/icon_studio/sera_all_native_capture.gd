@@ -6,7 +6,6 @@ extends SceneTree
 const RigScript = preload("res://scripts/sera_rig.gd")
 const EdgeScript = preload("res://scripts/sera_view_edges.gd")
 const ConvexGeometry = preload("res://scripts/sera_base_facility_crease_geometry.gd")
-const IconContactInk = preload("res://shaders/sera_icon_capture_visible_id_ink.gdshader")
 const IconConvexInk = preload("res://shaders/sera_icon_capture_convex_ink.gdshader")
 const PixelReconstruction = preload("res://tools/icon_studio/sera_pixel_outline_reconstruction.gd")
 const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
