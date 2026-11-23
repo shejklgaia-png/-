@@ -64,6 +64,7 @@ var _bittaran_id_mode: bool = false
 # The normal _process path remains a safe fallback on all render backends.
 var _bittaran_pre_draw_frame: int = -1
 var _bittaran_snapshot_dirty_frame: int = -1
+var _bittaran_pending_rebuild: bool = false
 # Only independent equipment preview SubViewports use 2D shared-ID ink.
 var _part_preview_canvas_mode: bool = false
 # Combat needs the interpolated pose every render frame, not the last physics tick.
@@ -344,11 +345,14 @@ func _on_bittaran_frame_pre_draw() -> void:
     var source_camera: Camera3D = source_viewport.get_camera_3d()
     if not is_instance_valid(source_camera):
         return
-    var dirty: bool = _sync_camera(source_camera)
+    var dirty: bool = _bittaran_pending_rebuild
+    dirty = _sync_camera(source_camera) or dirty
     dirty = _sync_copies() or dirty
     if dirty:
         _update_shared_screen_bounds(source_camera)
         _bittaran_snapshot_dirty_frame = Engine.get_process_frames()
+        _redraw_requests += 1
+    _bittaran_pending_rebuild = false
     # A child ID viewport is a texture dependency of the parent's 3D
     # silhouette composite. Both are requested in the same render tick.
     if id_viewport.render_target_update_mode != SubViewport.UPDATE_ALWAYS:
@@ -372,6 +376,7 @@ func set_bittaran_id_mode(enabled: bool) -> void:
         _disconnect_bittaran_pre_draw()
         _bittaran_pre_draw_frame = -1
         _bittaran_snapshot_dirty_frame = -1
+    _bittaran_pending_rebuild = enabled
     if _shared_scene_mode and _screen_material != null:
         _screen_material.shader = (
             BITTARAN_ID_INK if enabled else SHARED_INK)
@@ -480,6 +485,7 @@ func unregister_root(owner: Node) -> void:
         _disconnect_bittaran_pre_draw()
         _bittaran_pre_draw_frame = -1
         _bittaran_snapshot_dirty_frame = -1
+        _bittaran_pending_rebuild = false
         _screen_material = null
         # A new camera can have exactly the same transform and projection;
         # force its settings back into the independent ID camera on entry.
@@ -566,22 +572,32 @@ func _process(delta: float) -> void:
         _sync_screen_quad(source_camera)
     elif is_instance_valid(_screen_quad):
         _screen_quad.visible = false
-    var dirty: bool = _sync_camera(source_camera)
+    # In Bittaran, never capture camera or actor poses at two different
+    # points in _process. The one authoritative snapshot is committed at
+    # RenderingServer.frame_pre_draw, immediately before both viewports
+    # render. Other screens keep their existing _process ID synchronization.
+    var dirty: bool = false
+    if not _bittaran_id_mode:
+        dirty = _sync_camera(source_camera)
     _scan_elapsed -= delta
     if _scan_elapsed <= 0.0:
         _scan_elapsed = SCAN_INTERVAL
-        dirty = _rescan() or dirty
-    dirty = _sync_copies() or dirty
-    if dirty:
-        if _shared_scene_mode:
-            _update_shared_screen_bounds(source_camera)
-        elif _nexus_sera_contact_mode:
-            _update_nexus_sera_screen_bounds(source_camera)
-        # Combat's continuously rendered ID target is already active. Other
-        # scenes retain dirty-only redraws to avoid extra GPU work.
-        if not _combat_scene_mode:
-            id_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
-        _redraw_requests += 1
+        var mesh_changed: bool = _rescan()
+        dirty = mesh_changed or dirty
+        if _bittaran_id_mode and mesh_changed:
+            _bittaran_pending_rebuild = true
+    if not _bittaran_id_mode:
+        dirty = _sync_copies() or dirty
+        if dirty:
+            if _shared_scene_mode:
+                _update_shared_screen_bounds(source_camera)
+            elif _nexus_sera_contact_mode:
+                _update_nexus_sera_screen_bounds(source_camera)
+            # Normal combat's continuously rendered ID target remains active.
+            # All non-combat viewports keep the existing dirty-only redraw.
+            if not _combat_scene_mode:
+                id_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+            _redraw_requests += 1
 
 
 
