@@ -335,8 +335,9 @@ func _ready() -> void:
     # The numeric preset preserves architecture 2px and SERA 1/2/2.
     var id_outline := SeraViewEdges.new()
     id_outline.name = "ViewEdges"
+    # Architecture gets NEXUS 3/0/2 + convex1; the displayed SERA
+    # retains its universal character 4/0/2 (no old 2px override).
     id_outline.set_outline_profile(2)
-    id_outline.set_stroke_px(2.0)
     add_child(id_outline)
     _create_customization_glow()
     _wall_mark()
