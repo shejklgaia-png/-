@@ -176,6 +176,9 @@ func _build_facilities() -> void:
         var key: String = str(spec["id"])
         var root_node := Node3D.new()
         root_node.name = key
+        # Include foundation, rotor, and independently authored geometry in
+        # one BASE facility classification (4/0/3 + convex2).
+        root_node.set_meta("sera_outline_role", "facility")
         root_node.position = spec["at"]
         add_child(root_node)
         facility_nodes[key] = root_node
