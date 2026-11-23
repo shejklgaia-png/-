@@ -61,6 +61,10 @@ static func build(room: Node3D, gate_at: Vector3,
         Vector3(5.67, 0.22, 0.30))
     for side_value in [-1, 1]:
         var side: float = float(side_value)
+        # Rear tie blocks pierce the rear-wall facing, closing the gap on
+        # the angled right cheek without spreading toward the center pillar.
+        _box(boxes, "iron", Vector3(side * 2.42, 3.23, -3.04),
+            Vector3(0.62, 8.0, 1.72))
         _box(boxes, "iron", Vector3(side * 2.86, 4.38, -1.95),
             Vector3(0.56, 6.96, 2.50))
         _box(boxes, "trim", Vector3(side * 2.77, 4.12, 1.27),
