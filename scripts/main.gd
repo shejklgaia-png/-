@@ -150,6 +150,10 @@ const STEP_SIDE_DISTANCE: float = 4.0
 const STEP_LAUNCH_WARP_DISTANCE: float = 0.1
 const STEP_LAUNCH_FX_SECONDS: float = 0.05
 const STEP_SPEED: float = 15.0  # m/s, equipment-adjusted
+# Extend only the ordinary STEP braking tail; keep the old launch burst
+# (velocity and clock), the 0.1m warp, and all side-kick timing unchanged.
+const STEP_BRAKE_DURATION_MULTIPLIER: float = 1.5
+const STEP_BRAKE_BURST_FRACTION: float = 0.15
 const SIDE_KICK_STEP_SPEED: float = 10.0  # preserve legacy combo kick timing
 # Legacy speed policy retained for historic tests, not called by STEP.
 const STEP_CLOSE_SPEED: float = 8.0
@@ -3592,7 +3596,8 @@ func _start_omni_step(flick: Vector2) -> bool:
     step_linear_offset = Vector2(world_step.x, world_step.z)
 
     step_duration_current = (step_arc_length / step_speed_current
-        * float(part_stats.get("step_time_mult", 1.0)))
+        * float(part_stats.get("step_time_mult", 1.0))
+        * STEP_BRAKE_DURATION_MULTIPLIER)
     # Side kicks preserve close-combat camera protection through pursuit
     # and the 4m straight exit; ordinary STEP retains
     # the older 1m proximity threshold and committed screen trajectory.
@@ -3660,11 +3665,10 @@ func _start_omni_step(flick: Vector2) -> bool:
         var actual_launch: Vector3 = player.global_position - launch_origin
         var launch_distance: float = Vector2(
             actual_launch.x, actual_launch.z).length()
-        # Keep the total 4m path and 15m/s clock. Advancing the clock by
-        # the launch fraction prevents the following tick from snapping back
-        # to the pre-warp interpolation point or counting a sixth meter.
+        # Keep the original launch clock (15m/s), even though only the
+        # subsequent deceleration is longer. Do not change the 0.1m warp.
         step_traveled_distance = launch_distance
-        step_elapsed = step_duration_current * clampf(
+        step_elapsed = (step_duration_current / STEP_BRAKE_DURATION_MULTIPLIER) * clampf(
             launch_distance / maxf(step_arc_length, 0.0001), 0.0, 1.0)
         if launch_distance > 0.00001:
             player.reset_physics_interpolation()
@@ -3880,16 +3884,19 @@ func _advance_side_step(delta: float) -> void:
                 line_goal.x - player.position.x, 0.0,
                 line_goal.y - player.position.z), true)
     else:
-        # Ordinary 360deg STEP keeps its initial 15m/s for the first 15%
-        # of the original clock, then brakes smoothly to zero velocity.
-        # This adjusts the deceleration ONLY: the swept 0.1m launch warp,
-        # initial velocity, step duration and combo-kick trajectory remain.
-        # At base stats the nominal 4m vector now covers 1.28m.
-        var motion_progress: float = progress
-        if progress > 0.15:
-            var brake_t: float = (progress - 0.15) / 0.85
-            motion_progress = 0.15 + (0.85 / 5.0) * (
-                1.0 - pow(1.0 - brake_t, 5.0))
+        # Keep the original 15m/s launch for exactly the same 0.04s.
+        # Extend only the braking tail and ease off more gradually, ending
+        # with zero velocity. Base travel is ~1.95m over 0.40s; BOOST still
+        # outruns two ordinary STEPs over equal time.
+        var brake_start: float = (STEP_BRAKE_BURST_FRACTION
+            / STEP_BRAKE_DURATION_MULTIPLIER)
+        var motion_progress: float = progress * STEP_BRAKE_DURATION_MULTIPLIER
+        if progress > brake_start:
+            var brake_t: float = clampf(
+                (progress - brake_start) / (1.0 - brake_start), 0.0, 1.0)
+            motion_progress = STEP_BRAKE_BURST_FRACTION + (
+                (STEP_BRAKE_DURATION_MULTIPLIER - STEP_BRAKE_BURST_FRACTION)
+                / 4.0 * (1.0 - pow(1.0 - brake_t, 4.0)))
         var new_offset: Vector2 = step_start_offset + step_linear_offset * motion_progress
         var requested: Vector3 = Vector3(
             step_target_center.x + new_offset.x - player.position.x,
