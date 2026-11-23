@@ -35,6 +35,7 @@ const FOOTPRINTS = {
     "spare_roller": Vector2(0.95, 0.87),
     "hydraulic_kit": Vector2(0.94, 0.81),
     "scrap_hopper": Vector2(1.10, 0.86),
+    "scrap_crate_heap": Vector2(0.98, 0.94),
     "wheel": Vector2(0.81, 0.82),
     "old_joint": Vector2(0.98, 0.84),
     "rack_stack": Vector2(1.08, 0.87),
@@ -133,6 +134,8 @@ const LOOSE_SCRAP_KINDS = [
 ]
 const PILE_MAX_COUNT: int = 8
 const PILE_PATTERN_COUNT: int = 4
+const SCRAP_CRATES_PER_SITE: int = 3
+const DENSE_SATELLITES_PER_PRIMARY: int = 2
 
 
 static func is_loose_pile(kind: String) -> bool:
@@ -335,6 +338,7 @@ static func default_props_for(key: String) -> Array[Dictionary]:
         item["yaw_deg"] = chosen
         items[index] = item
     _enlarge_dressing(key, items)
+    _append_scrap_crates(key, items)
     _append_satellite_props(key, items)
     return items
 
@@ -361,7 +365,10 @@ static func _satellite_clear(key: String, item: Dictionary,
 
 
 static func _append_satellite_props(key: String, items: Array[Dictionary]) -> void:
-    var primary_count: int = items.size()
+    var primary_count: int = 0
+    for p in items:
+        if not bool(p.get("satellite", false)):
+            primary_count += 1
     if primary_count == 0:
         return
     # The lower bound of each dedicated deck slab is at least 5.8 meters,
@@ -388,7 +395,7 @@ static func _append_satellite_props(key: String, items: Array[Dictionary]) -> vo
     var spacing: float = 0.39
     var grid_side: int = floori((half * 2.0 - 0.38) / spacing) + 1
     var cell_count: int = grid_side * grid_side
-    for i in range(primary_count):
+    for i in range(primary_count * DENSE_SATELLITES_PER_PRIMARY):
         # The 24 already authored compact shapes provide a coherent assortment.
         # Each is a genuine multi-primitive 3D model and is reused without
         # making 76 new mesh resources or separate material batches.
@@ -398,9 +405,9 @@ static func _append_satellite_props(key: String, items: Array[Dictionary]) -> vo
         satellite["accent"] = true
         satellite["satellite"] = true
         satellite["yaw_deg"] = float(22 + posmod(site_seed + i * 13, 4) * 8)
-        var parent_at: Vector2 = items[i]["at"]
+        var parent_at: Vector2 = items[posmod(i, primary_count)]["at"]
         var found: bool = false
-        for small_scale in [0.68, 0.59, 0.50, 0.44]:
+        for small_scale in [0.62, 0.54, 0.46, 0.38]:
             satellite["scale"] = float(small_scale)
             # Prefer real little assemblies tucked in beside a large machine.
             for j in range(offsets.size()):
@@ -428,14 +435,75 @@ static func _append_satellite_props(key: String, items: Array[Dictionary]) -> vo
             if found:
                 break
         if not found:
-            push_error("SERA BASE satellite floor packing failed: " +
-                key + " / " + str(i))
-            return
+            # Respect the power-routing space over any target prop count.
+            continue
         reserved.append(_yaw_rect(satellite, 0.0).grow(0.035))
         reserved.append(_yaw_rect(satellite,
             float(satellite["yaw_deg"])).grow(0.035))
         items.append(satellite)
 
+
+
+# Add actual open-topped scrap crates before the micro props. Packing every
+# crate as a full yaw-aware footprint keeps the building, existing yard kit,
+# entrance and the later routed power network out of its volume.
+static func _append_scrap_crates(key: String, items: Array[Dictionary]) -> void:
+    if items.is_empty():
+        return
+    var primary_count: int = items.size()
+    var half: float = (
+        4.85 if key == "NEXUS" else
+        3.13 if key == "LABO" else 2.70)
+    var usable := Rect2(-half, -half, half * 2.0, half * 2.0)
+    var reserved: Array[Rect2] = []
+    for part in items:
+        reserved.append(_yaw_rect(part, 0.0).grow(0.035))
+        reserved.append(_yaw_rect(part,
+            float(part.get("yaw_deg", 0.0))).grow(0.035))
+    var offsets: Array[Vector2] = [
+        Vector2(0.0, 1.12), Vector2(0.0, -1.12),
+        Vector2(1.12, 0.0), Vector2(-1.12, 0.0),
+        Vector2(0.92, 0.92), Vector2(-0.92, -0.92),
+        Vector2(-0.92, 0.92), Vector2(0.92, -0.92),
+    ]
+    var seed: int = _stable_seed(key, "scrap_crate_heap", 0)
+    var step: float = 0.34
+    var cells: int = floori((half * 2.0 - 0.44) / step) + 1
+    for slot in range(SCRAP_CRATES_PER_SITE):
+        var crate := _item("scrap_crate_heap", 0.0, 0.0, 0.80)
+        crate["satellite"] = true
+        crate["accent"] = true
+        crate["stack"] = 6 + posmod(seed + slot * 7, 4)
+        crate["yaw_deg"] = float(15 + posmod(seed + slot * 19, 5) * 11)
+        var origin: Vector2 = items[posmod(slot * 3 + 1, primary_count)]["at"]
+        var found: bool = false
+        for scale in [0.86, 0.77, 0.68]:
+            crate["scale"] = float(scale)
+            for delta in offsets:
+                crate["at"] = origin + delta
+                if _satellite_clear(key, crate, usable, reserved):
+                    found = true
+                    break
+            if found:
+                break
+            # The deterministic full-slab fallback still rejects every
+            # occupied AABB; it never forces a prop under a building or wire.
+            for i in range(cells * cells):
+                var cell: int = posmod(
+                    i * 37 + seed + slot * 41, cells * cells)
+                crate["at"] = Vector2(
+                    -half + 0.22 + float(cell % cells) * step,
+                    -half + 0.22 + float(int(cell / cells)) * step)
+                if _satellite_clear(key, crate, usable, reserved):
+                    found = true
+                    break
+            if found:
+                break
+        if not found:
+            continue
+        reserved.append(_yaw_rect(crate, 0.0).grow(0.035))
+        reserved.append(_yaw_rect(crate, float(crate["yaw_deg"])).grow(0.035))
+        items.append(crate)
 
 static func _authored_props_for(key: String) -> Array[Dictionary]:
     match key:
@@ -1231,6 +1299,54 @@ static func _make(g: Variant, kind: String, at: Vector2, k: float,
             Vector3(0.56, 0.073, 0.025), "caution")
 
 
+
+# A low open steel bin filled with individually tilted-looking fragments:
+# broken plate profiles, short conduit, bearing loops and bolted rim guards.
+# All solids are folded into the existing material batches (no new node).
+static func _make_scrap_crate(g: Variant, at: Vector2, k: float,
+        order: int, fragment_count: int) -> void:
+    _box(g, "ScrapCrateFloor", at, k,
+        Vector3(0.0, 0.18, 0.0), Vector3(0.86, 0.11, 0.78), "trim")
+    for x in [-0.40, 0.40]:
+        _box(g, "ScrapCrateSideWall", at, k,
+            Vector3(x, 0.35, 0.0), Vector3(0.075, 0.38, 0.78),
+            "slate")
+    for z in [-0.36, 0.36]:
+        _box(g, "ScrapCrateEndWall", at, k,
+            Vector3(0.0, 0.35, z), Vector3(0.83, 0.38, 0.07),
+            "armor_light")
+        _box(g, "ScrapCrateRim", at, k,
+            Vector3(0.0, 0.56, z), Vector3(0.91, 0.055, 0.09),
+            "edge")
+    for x in [-0.42, 0.42]:
+        _box(g, "ScrapCrateRimSide", at, k,
+            Vector3(x, 0.56, 0.0), Vector3(0.075, 0.055, 0.81),
+            "edge")
+        for z in [-0.33, 0.33]:
+            _box(g, "ScrapCrateCornerBolt", at, k,
+                Vector3(x, 0.60, z), Vector3(0.08, 0.06, 0.08),
+                "gold")
+    for i in range(clampi(fragment_count, 5, 9)):
+        var row: int = int(i / 3)
+        var col: int = i % 3
+        var skew: int = posmod(i * 11 + order * 3, 7)
+        var px: float = float(col - 1) * 0.245 + float(skew - 3) * 0.014
+        var pz: float = float(row - 1) * 0.205
+        var py: float = 0.42 + float(i % 3) * 0.050 + float(row) * 0.043
+        var tint: String = (
+            "rust" if posmod(i + order, 5) == 0
+            else ("armor_light" if i % 2 == 0 else "slate"))
+        _box(g, "ScrapCrateFragment", at, k,
+            Vector3(px, py, pz),
+            Vector3(0.15 + float(i % 3) * 0.023,
+                0.10 + float(i % 2) * 0.040, 0.23),
+            tint, float((i * 19 + order * 7) % 61 - 30) * 0.013)
+        if i % 3 == 1:
+            _rod(g, "ScrapCrateConduit", at, k,
+                Vector3(px - 0.08, py + 0.09, pz - 0.10),
+                Vector3(px + 0.11, py + 0.13, pz + 0.10),
+                0.042, "edge")
+
 static func decorate(g: Variant, key: String) -> void:
     var props: Array[Dictionary] = props_for(key)
     # Legacy geometry-capture renderers implement box/rod/ring/crate only.
@@ -1253,7 +1369,10 @@ static func decorate(g: Variant, key: String) -> void:
         if supports_yaw:
             g.pivot = Vector3(anchor.x, 0.0, anchor.y)
             g.yaw = deg_to_rad(float(p.get("yaw_deg", 0.0)))
-        if is_stack_container(kind) and int(p.get("stack", 1)) > 0:
+        if kind == "scrap_crate_heap":
+            _make_scrap_crate(g, anchor, float(p["scale"]),
+                index, int(p.get("stack", 7)))
+        elif is_stack_container(kind) and int(p.get("stack", 1)) > 0:
             _make_container_stack(g, key, kind, index,
                 p["at"] as Vector2, float(p["scale"]))
         elif is_loose_pile(kind):
