@@ -259,7 +259,8 @@ func _hall(parent: Node3D, theme: String) -> void:
             Vector3(0.25, 4.80, side_length), HULL)
     var rear_columns: Array = [-5.25, -2.70, -0.10, 2.65, 5.25]
     if storage:
-        rear_columns = [-8.15, -5.45, -2.75, 0.0, 2.75, 5.45, 8.15]
+        # Keep the -2.32 .. +0.22m freight doorway free of pillars.
+        rear_columns = [-8.15, -5.45, -3.10, 2.95, 5.45, 8.15]
     for x in rear_columns:
         _b(parent, Vector3(x, 2.45, rear_z+0.26),
             Vector3(0.22, 4.85, 0.22), METAL)
