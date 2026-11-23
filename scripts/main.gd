@@ -661,6 +661,11 @@ var strike_prev_blade: PackedVector3Array = PackedVector3Array()
 
 func _ready() -> void:
     set_meta("sera_graphics_outline_category", "character")
+    # Training uses the shared RGB12 ID algorithm with its OWN numerical
+    # 1px mesh-contact preset. Bittaran sets its own flag before super._ready
+    # and must keep its existing 0/3/1px profile instead.
+    if not bool(get_meta("sera_bittaran_id_outline", false)):
+        set_meta("sera_training_id_outline", true)
     # ViewEdges may be used by NEXUS and BASE as well. Only the combat root
     # enables the mesh-derived, depth-tested visible convex-corner pass.
     set_meta("sera_combat_convex_ink", true)

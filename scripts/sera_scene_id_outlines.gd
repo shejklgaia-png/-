@@ -50,6 +50,12 @@ var _last_camera_far: float = -1.0
 var _last_camera_aspect: int = -1
 var _last_camera_mask: int = -1
 var _ink_stroke: float = 3.0
+# -1 means use the scene's preset. Only an explicit ViewEdges.set_stroke_px
+# overrides the actor OUTSIDE radius, never its seam or inside radius.
+var _actor_inside_override_px: float = -1.0
+var _actor_outside_override_px: float = -1.0
+var _actor_seam_override_px: float = -1.0
+var _output_px_per_id_pixel: Vector2 = Vector2.ONE
 var _redraw_requests: int = 0
 var _nexus_sera_contact_mode: bool = false
 var _contact_ids: Dictionary = {}
@@ -144,6 +150,17 @@ func _refresh_part_preview_canvas_mode() -> void:
                 1.0 / float(id_viewport.size.x),
                 1.0 / float(id_viewport.size.y)))
             mat.set_shader_parameter("ink_color", Color("#17212f"))
+            if preview and _shared_scene_mode:
+                mat.set_shader_parameter("output_px_per_id_pixel",
+                    _output_px_per_id_pixel)
+                mat.set_shader_parameter("actor_inside_override_px",
+                    _actor_inside_override_px)
+                mat.set_shader_parameter("actor_outside_override_px",
+                    _actor_outside_override_px)
+                mat.set_shader_parameter("actor_seam_override_px",
+                    _actor_seam_override_px)
+                mat.set_shader_parameter("scene_profile",
+                    _active_scene_profile())
     if preview and is_instance_valid(_screen_quad):
         _screen_quad.visible = false
 
@@ -201,6 +218,15 @@ func get_outline_metrics() -> Dictionary:
         "bittaran_mesh_id_mode": _bittaran_id_mode,
         "canonical_id_shader": true,
         "scene_width_profile": _active_scene_profile(),
+        "display_px_per_id_texel": _output_px_per_id_pixel,
+        "actor_inside_override_px": _actor_inside_override_px,
+        "actor_outside_override_px": _actor_outside_override_px,
+        "actor_seam_override_px": _actor_seam_override_px,
+        "actor_inside_px": _effective_actor_inside_px(),
+        "actor_outside_px": _effective_actor_outside_px(),
+        "actor_seam_px": _effective_actor_seam_px(),
+        "actor_total_silhouette_px": (
+            _effective_actor_inside_px() + _effective_actor_outside_px()),
         "bittaran_pose_frame": _bittaran_pose_frame,
         "bittaran_pose_dirty_frame": _bittaran_pose_dirty_frame,
         "shared_vfx_safe_3d_ink": _shared_scene_mode,
@@ -300,6 +326,14 @@ func set_shared_scene_mode(enabled: bool) -> void:
         _screen_material.render_priority = -30
         _screen_material.set_shader_parameter(
             "scene_profile", _active_scene_profile())
+        _screen_material.set_shader_parameter("actor_inside_override_px",
+            _actor_inside_override_px)
+        _screen_material.set_shader_parameter("actor_outside_override_px",
+            _actor_outside_override_px)
+        _screen_material.set_shader_parameter("actor_seam_override_px",
+            _actor_seam_override_px)
+        _screen_material.set_shader_parameter("output_px_per_id_pixel",
+            _output_px_per_id_pixel)
         _screen_material.set_shader_parameter(
             "mesh_id_texture", id_viewport.get_texture())
         _screen_material.set_shader_parameter("mesh_id_texel", Vector2(
@@ -320,6 +354,17 @@ func set_shared_scene_mode(enabled: bool) -> void:
             1.0 / float(id_viewport.size.x), 1.0 / float(id_viewport.size.y)))
         canvas_mat.set_shader_parameter("ink_color", Color("#17212f"))
         canvas_mat.set_shader_parameter("ink_screen_bounds", Vector4.ZERO)
+        if _part_preview_canvas_mode:
+            canvas_mat.set_shader_parameter(
+                "output_px_per_id_pixel", _output_px_per_id_pixel)
+            canvas_mat.set_shader_parameter("actor_inside_override_px",
+                _actor_inside_override_px)
+            canvas_mat.set_shader_parameter("actor_outside_override_px",
+                _actor_outside_override_px)
+            canvas_mat.set_shader_parameter("actor_seam_override_px",
+                _actor_seam_override_px)
+            canvas_mat.set_shader_parameter("scene_profile",
+                _active_scene_profile())
         ink.visible = _part_preview_canvas_mode
     elif is_instance_valid(_screen_quad):
         _screen_quad.visible = false
@@ -360,7 +405,7 @@ func _active_scene_profile() -> int:
 
 func set_scene_profile(profile: int) -> void:
     # Only numeric widths/color vary: same shader, RGB IDs and pose pipeline.
-    var requested: int = clampi(profile, 0, 2)
+    var requested: int = clampi(profile, 0, 3)
     if _requested_scene_profile == requested:
         return
     _requested_scene_profile = requested
@@ -368,6 +413,10 @@ func set_scene_profile(profile: int) -> void:
         _screen_material.set_shader_parameter(
             "scene_profile", _active_scene_profile())
         _refresh_shared_ink_color()
+    if _part_preview_canvas_mode and is_instance_valid(ink) and (
+            ink.material is ShaderMaterial):
+        (ink.material as ShaderMaterial).set_shader_parameter(
+            "scene_profile", _active_scene_profile())
     _scan_elapsed = 0.0
 
 
@@ -381,6 +430,10 @@ func set_bittaran_id_mode(enabled: bool) -> void:
         _screen_material.set_shader_parameter(
             "scene_profile", _active_scene_profile())
         _refresh_shared_ink_color()
+    if _part_preview_canvas_mode and is_instance_valid(ink) and (
+            ink.material is ShaderMaterial):
+        (ink.material as ShaderMaterial).set_shader_parameter(
+            "scene_profile", _active_scene_profile())
     _scan_elapsed = 0.0
     _last_camera_projection = -1
 
@@ -463,6 +516,10 @@ func unregister_root(owner: Node) -> void:
         _nexus_sera_contact_mode = false
         _bittaran_id_mode = false
         _requested_scene_profile = 0
+        _actor_inside_override_px = -1.0
+        _actor_outside_override_px = -1.0
+        _actor_seam_override_px = -1.0
+        _output_px_per_id_pixel = Vector2.ONE
         _bittaran_pose_frame = -1
         _bittaran_pose_dirty_frame = -1
         _screen_material = null
@@ -473,12 +530,90 @@ func unregister_root(owner: Node) -> void:
         set_process(false)
 
 
+# Legacy scalar now really changes only the actor OUTSIDE width.
+# The caller can also override all three independently without changing
+# facility, CRATE, clutter or part-preview settings.
 func set_stroke_px(px: float) -> void:
-    _ink_stroke = clampf(px, 1.0, 3.0)
-    if is_instance_valid(ink):
-        (ink.material as ShaderMaterial).set_shader_parameter("stroke_px", _ink_stroke)
-    if _nexus_sera_contact_mode and _screen_material != null:
-        _screen_material.set_shader_parameter("stroke_px", _ink_stroke)
+    _ink_stroke = clampf(px, 0.0, 8.0)
+    _actor_outside_override_px = _ink_stroke
+    _apply_actor_width_overrides()
+    if not _shared_scene_mode and is_instance_valid(ink) and (
+            ink.material is ShaderMaterial):
+        (ink.material as ShaderMaterial).set_shader_parameter(
+            "stroke_px", _ink_stroke)
+
+
+func set_actor_outline_widths(inside_px: float, outside_px: float,
+        seam_px: float) -> void:
+    _actor_inside_override_px = clampf(inside_px, 0.0, 8.0)
+    _actor_outside_override_px = clampf(outside_px, 0.0, 8.0)
+    _actor_seam_override_px = clampf(seam_px, 0.0, 8.0)
+    _ink_stroke = _actor_outside_override_px
+    _apply_actor_width_overrides()
+
+
+func _apply_actor_width_overrides() -> void:
+    if _screen_material != null and _shared_scene_mode:
+        _screen_material.set_shader_parameter(
+            "actor_inside_override_px", _actor_inside_override_px)
+        _screen_material.set_shader_parameter(
+            "actor_outside_override_px", _actor_outside_override_px)
+        _screen_material.set_shader_parameter(
+            "actor_seam_override_px", _actor_seam_override_px)
+    if _part_preview_canvas_mode and is_instance_valid(ink) and (
+            ink.material is ShaderMaterial):
+        var canvas: ShaderMaterial = ink.material as ShaderMaterial
+        canvas.set_shader_parameter(
+            "actor_inside_override_px", _actor_inside_override_px)
+        canvas.set_shader_parameter(
+            "actor_outside_override_px", _actor_outside_override_px)
+        canvas.set_shader_parameter(
+            "actor_seam_override_px", _actor_seam_override_px)
+
+
+func _effective_actor_inside_px() -> float:
+    if _actor_inside_override_px >= 0.0:
+        return _actor_inside_override_px
+    match _active_scene_profile():
+        1: return 0.0
+        2, 3: return 1.0
+    return 1.0
+
+
+func _effective_actor_outside_px() -> float:
+    if _actor_outside_override_px >= 0.0:
+        return _actor_outside_override_px
+    return 2.0 if _active_scene_profile() == 2 else 3.0
+
+
+func _effective_actor_seam_px() -> float:
+    if _actor_seam_override_px >= 0.0:
+        return _actor_seam_override_px
+    match _active_scene_profile():
+        1, 3: return 1.0
+        2: return 2.0
+    return 3.0
+
+
+# Compute what one ID target texel occupies on the FINAL display.
+# Viewport.get_screen_transform includes nested SubViewportContainers and
+# root Window canvas-items stretching; the ID camera itself stays 1:1 with
+# source_viewport to preserve exact 3D visibility/depth.
+func _refresh_output_pixel_scale() -> void:
+    var scale: Vector2 = source_viewport.get_screen_transform().get_scale().abs()
+    if scale.x < 0.125 or scale.y < 0.125:
+        scale = Vector2.ONE
+    if scale.is_equal_approx(_output_px_per_id_pixel):
+        return
+    _output_px_per_id_pixel = scale
+    if _screen_material != null:
+        _screen_material.set_shader_parameter(
+            "output_px_per_id_pixel", scale)
+    if _part_preview_canvas_mode and is_instance_valid(ink) and (
+            ink.material is ShaderMaterial):
+        (ink.material as ShaderMaterial).set_shader_parameter(
+            "output_px_per_id_pixel", scale)
+
 
 
 # NEXUS keeps the proven RGB contact-ID mask, but composites the ink in
@@ -502,6 +637,7 @@ func _process(delta: float) -> void:
         return
     if size != desired_rect_size:
         size = desired_rect_size
+    _refresh_output_pixel_scale()
     # A CanvasLayer has no Control layout parent. Always keep the actual
     # drawable rectangle at the source viewport's pixel dimensions.
     if ink.position != Vector2.ZERO:
