@@ -9,6 +9,7 @@ const COMPOSITOR_NAME: String = "SeraIDOutlineControl"
 var _contour_enabled: bool = true
 var _stroke_px: float = 3.0
 var _nexus_sera_contact_mode: bool = false
+var _numeric_outline_profile: int = 0
 var _compositor: Control
 
 
@@ -67,10 +68,10 @@ func _register() -> void:
     # Convex/crease geometry is never created for this battle.
     _compositor.call("set_bittaran_id_mode",
         _in_bittaran_id_scene(actor))
-    if _nexus_sera_contact_mode:
-        _compositor.call("set_nexus_sera_contact_mode", true)
-    else:
-        _compositor.call("set_shared_scene_mode", true)
+    # All scene elements use Bittaran's exact shared RGB12 ID pipeline.
+    # This selects only existing widths; no NEXUS-specific ID/ink shader.
+    _compositor.call("set_shared_scene_mode", true)
+    _compositor.call("set_scene_profile", _numeric_outline_profile)
     _compositor.call("set_stroke_px", _stroke_px)
 
 
@@ -91,9 +92,16 @@ func set_stroke_px(width: float) -> void:
     if is_instance_valid(_compositor):
         _compositor.call("set_stroke_px", _stroke_px)
 
-# NEXUS only: the existing ID viewport draws contact seams for the display.
-# All other viewports keep the original IRIS shader and palette.
+# Only width presets differ: 0=normal/BASE/part, 1=Bittaran, 2=NEXUS.
+# Every profile keeps exactly the same depth-resolved RGB-ID algorithm.
+func set_outline_profile(profile: int) -> void:
+    _numeric_outline_profile = clampi(profile, 0, 2)
+    if is_instance_valid(_compositor):
+        _compositor.call("set_scene_profile", _numeric_outline_profile)
+
+
+# Compatibility API: old NEXUS callers now select the numeric profile,
+# never its legacy red-only/stencil mask or a separate outline shader.
 func set_nexus_sera_contact_mode(enabled: bool) -> void:
     _nexus_sera_contact_mode = enabled
-    if enabled and is_instance_valid(_compositor):
-        _compositor.call("set_nexus_sera_contact_mode", true)
+    set_outline_profile(2 if enabled else 0)
