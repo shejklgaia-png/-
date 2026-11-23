@@ -250,22 +250,22 @@ static func _best_enlarged_yaw(key: String, items: Array[Dictionary],
 
 
 static func _enlarge_dressing(key: String, items: Array[Dictionary]) -> void:
-    # Fewer, more legible yard props: free-standing up to 44%, stacked up
-    # to 34%, authored compact accents up to 28%. Keep each multi-part
+    # Larger, well-spaced yard props: free-standing up to 56%, stacked up
+    # to 44%, authored compact accents up to 38%. Keep each multi-part
     # assembly proportional and reject growth if any footprint collides.
     for i in range(items.size()):
         var item: Dictionary = items[i]
-        var limit: float = 1.44
+        var limit: float = 1.56
         if bool(item.get("accent", false)):
-            limit = 1.28
+            limit = 1.38
         elif int(item.get("stack", 1)) > 1:
-            limit = 1.34
+            limit = 1.44
         # Keep each station's one deliberately small primary silhouette as
         # visual punctuation beside the larger stacks (legacy rhythm rule).
-        # It may grow a little, but must remain at or below 0.95 world scale.
+        # It may grow a little, but must remain at or below 1.05 world scale.
         if not bool(item.get("accent", false)) and float(item["scale"]) <= 0.87:
-            limit = minf(limit, 0.95 / float(item["scale"]))
-        for step in range(23, 0, -1):
+            limit = minf(limit, 1.05 / float(item["scale"]))
+        for step in range(28, 0, -1):
             var candidate: float = 1.0 + float(step) * 0.02
             if candidate > limit + 0.001:
                 continue
@@ -407,7 +407,7 @@ static func _append_satellite_props(key: String, items: Array[Dictionary]) -> vo
         satellite["yaw_deg"] = float(22 + posmod(site_seed + i * 13, 4) * 8)
         var parent_at: Vector2 = items[posmod(i, primary_count)]["at"]
         var found: bool = false
-        for small_scale in [0.78, 0.70, 0.64, 0.58]:
+        for small_scale in [0.90, 0.82, 0.75, 0.68]:
             satellite["scale"] = float(small_scale)
             # Prefer real little assemblies tucked in beside a large machine.
             for j in range(offsets.size()):
@@ -477,7 +477,7 @@ static func _append_scrap_crates(key: String, items: Array[Dictionary]) -> void:
         crate["yaw_deg"] = float(15 + posmod(seed + slot * 19, 5) * 11)
         var origin: Vector2 = items[posmod(slot * 3 + 1, primary_count)]["at"]
         var found: bool = false
-        for scale in [0.96, 0.88, 0.80]:
+        for scale in [1.10, 1.02, 0.94]:
             crate["scale"] = float(scale)
             for delta in offsets:
                 crate["at"] = origin + delta
