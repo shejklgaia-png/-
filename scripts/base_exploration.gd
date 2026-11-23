@@ -399,6 +399,7 @@ func _build_nexus_building() -> void:
     # Rebuilt physical architecture retains the exact 3D screen-picking extents.
     nexus_building = Node3D.new()
     nexus_building.name = "NEXUSBuilding"
+    nexus_building.set_meta("sera_outline_role", "facility")
     nexus_building.position = NEXUS_BUILDING_ORIGIN
     add_child(nexus_building)
     var foundation: MeshInstance3D = _box(nexus_building, "Foundation", Vector3(0, 0.23, 0),
