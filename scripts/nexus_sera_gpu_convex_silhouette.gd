@@ -9,6 +9,8 @@ const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
 const EDGE_NAME: String = "NexusSeraConvexInk"
 const SCAN_SECONDS: float = 0.65
 const MAX_EDGES_PER_MESH: int = 8000
+# Bound join construction on unusual high-valence or non-manifold vertices.
+const MAX_JOINT_SPOKES_PER_VERTEX: int = 8
 # Only internal convex ridges use this width; visible-ID owns the outer 4px.
 const PREVIEW_MATCHED_STROKE_PX: float = 4.0
 # Reuse the same topology/depth shader in combat with thinner creases.
@@ -223,6 +225,22 @@ static func _signed_volume(mesh: Mesh) -> float:
     return total
 
 
+# A silhouette corner must lie on a real shared face. This rejects
+# spurious joins between coincident parts/non-manifold spokes at one point.
+static func _join_edges_share_face(first: Dictionary, second: Dictionary) -> bool:
+    var faces_a: Array[Vector3] = [first["face_a"]]
+    var faces_b: Array[Vector3] = [second["face_a"]]
+    if bool(first["paired"]):
+        faces_a.append(first["face_b"])
+    if bool(second["paired"]):
+        faces_b.append(second["face_b"])
+    for face_a in faces_a:
+        for face_b in faces_b:
+            if face_a.dot(face_b) > 0.9995:
+                return true
+    return false
+
+
 static func _make_edges(mesh: Mesh, closed: bool,
         hard_only: bool = false,
         include_full_contour: bool = false) -> ArrayMesh:
@@ -243,6 +261,11 @@ static func _make_edges(mesh: Mesh, closed: bool,
         # Store the local edge midpoint at full float precision; the normal
         # and camera-facing test must not vary between its two endpoints.
         writer.set_custom_format(1, SurfaceTool.CUSTOM_RGBA_FLOAT)
+        writer.set_custom_format(2, SurfaceTool.CUSTOM_RGBA_FLOAT)
+        writer.set_custom_format(3, SurfaceTool.CUSTOM_RGBA_FLOAT)
+    # Keyed by welded endpoint position, not mesh-array vertex ID: Blockbench
+    # splits vertices for UV seams. Built once per cached mesh, never per frame.
+    var incident: Dictionary = {}
     var emitted: int = 0
     for item in extracted:
         if emitted >= MAX_EDGES_PER_MESH:
@@ -306,10 +329,76 @@ static func _make_edges(mesh: Mesh, closed: bool,
             if include_full_contour:
                 writer.set_custom(1, Color(
                     midpoint.x, midpoint.y, midpoint.z, 0.0))
+                writer.set_custom(2, Color(0.0, 0.0, 0.0, 0.0))
+                writer.set_custom(3, Color(0.0, 0.0, 0.0, 0.0))
             writer.set_normal(tangent)
             writer.set_uv(Vector2(float(corner[1]), float(corner[2])))
             writer.add_vertex(corner[0])
         emitted += 1
+        if include_full_contour:
+            # Each endpoint records actual adjacent edge directions and face
+            # normals. GPU visibility decides which connected pair is on the
+            # current view silhouette (no per-frame CPU rebuild).
+            for endpoint in [[a, 1.0], [b, -1.0]]:
+                var endpoint_position: Vector3 = endpoint[0]
+                var endpoint_key: String = Edges._position_key(endpoint_position)
+                if not incident.has(endpoint_key):
+                    incident[endpoint_key] = []
+                var spokes: Array = incident[endpoint_key]
+                spokes.append({
+                    "point": endpoint_position,
+                    "direction": direction,
+                    "face_a": normal_a,
+                    "face_b": normal_b,
+                    "paired": paired,
+                    "orientation": float(endpoint[1])
+                })
     if emitted == 0:
         return null
+    if include_full_contour:
+        for spokes_value in incident.values():
+            var spokes: Array = spokes_value as Array
+            if spokes.size() < 2 or spokes.size() > MAX_JOINT_SPOKES_PER_VERTEX:
+                continue
+            for i in range(spokes.size() - 1):
+                for j in range(i + 1, spokes.size()):
+                    var first: Dictionary = spokes[i] as Dictionary
+                    var second: Dictionary = spokes[j] as Dictionary
+                    if not _join_edges_share_face(first, second):
+                        continue
+                    var direction_a: Vector3 = first["direction"]
+                    var direction_b: Vector3 = second["direction"]
+                    if direction_a.length_squared() < 0.000000001 or (
+                            direction_b.length_squared() < 0.000000001):
+                        continue
+                    var face_a: Vector3 = first["face_a"]
+                    var face_b: Vector3 = first["face_b"]
+                    var other_a: Vector3 = second["face_a"]
+                    var other_b: Vector3 = second["face_b"]
+                    var vertex: Vector3 = first["point"]
+                    # COLOR.a = 1 identifies a join patch instead of a
+                    # ribbon. CUSTOM1.w/CUSTOM3.w store signed edge lengths:
+                    # positive at A, negative at B. UV is a unit square:
+                    # P(0,0), rimA(1,0), miter(1,1), rimB(0,1).
+                    var joint_color := Color(face_a.x * 0.5 + 0.5,
+                        face_a.y * 0.5 + 0.5, face_a.z * 0.5 + 0.5, 1.0)
+                    var signed_length_a: float = direction_a.length() * (
+                        float(first["orientation"]))
+                    var signed_length_b: float = direction_b.length() * (
+                        float(second["orientation"]))
+                    var tangent_b: Vector3 = direction_b.normalized()
+                    for corner in [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0],
+                            [0.0, 0.0], [1.0, 1.0], [0.0, 1.0]]:
+                        writer.set_color(joint_color)
+                        writer.set_custom(0, Color(face_b.x, face_b.y, face_b.z,
+                            1.0 if bool(first["paired"]) else 0.0))
+                        writer.set_custom(1, Color(tangent_b.x, tangent_b.y,
+                            tangent_b.z, signed_length_a))
+                        writer.set_custom(2, Color(other_a.x, other_a.y,
+                            other_a.z, 1.0 if bool(second["paired"]) else 0.0))
+                        writer.set_custom(3, Color(other_b.x, other_b.y,
+                            other_b.z, signed_length_b))
+                        writer.set_normal(direction_a.normalized())
+                        writer.set_uv(Vector2(float(corner[0]), float(corner[1])))
+                        writer.add_vertex(vertex)
     return writer.commit()
