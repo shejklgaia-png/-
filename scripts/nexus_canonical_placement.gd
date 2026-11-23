@@ -416,7 +416,7 @@ func _toggle_rect() -> Rect2:
         var entry_button: Button = host.get("placement_entry_button") as Button
         if entry_button != null:
             return Rect2(entry_button.position, entry_button.size)
-    return Rect2(Vector2(20.0, 36.0), Vector2(156.0, 54.0))
+    return Rect2(Vector2(20.0, 112.0), Vector2(156.0, 54.0))
 
 
 func _close_rect() -> Rect2:
