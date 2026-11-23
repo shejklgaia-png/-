@@ -34,6 +34,12 @@ bool is_sera(vec3 mesh_id) {
     return mesh_id.g >= 0.06;
 }
 
+// A blue-only ID is a solid room panel that hides contours but creates none.
+// Unlike empty background, it must never receive a dilated SERA stroke.
+bool is_room_depth_mask(vec3 mesh_id) {
+    return mesh_id.b > 0.96 && mesh_id.g < 0.06 && mesh_id.r < 0.06;
+}
+
 // One-sided ordering keeps the 2px contact seam on only one mesh.
 bool owns_contact(vec3 center_id, vec3 neighbor_id) {
     if (abs(center_id.b - neighbor_id.b) > 0.06) {
@@ -150,7 +156,7 @@ void fragment() {
         // Only extend the SERA outside silhouette onto actual background.
         // Never stamp it on a visible NEXUS room surface: that makes ink
         // appear to pass through floor panels, walls and stage geometry.
-        if (coverage < 1.0 && !room) {
+        if (coverage < 1.0 && !room && !is_room_depth_mask(center_id)) {
             // The 2px SERA outline is an exact opaque Euclidean disk.
             // Sample both mixed directions (1,2), (3,4), etc. Previous
             // eight-direction-only sampling can make a thick stroke uneven.

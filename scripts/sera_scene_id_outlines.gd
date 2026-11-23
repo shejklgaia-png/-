@@ -905,6 +905,12 @@ func _rescan() -> bool:
                 mat.set_shader_parameter("encoded_id", Vector3(
                     float(identification % 64) / 63.0, float(role) / 8.0,
                     float(int(identification / 64) % 64) / 63.0))
+        elif is_occluder and _nexus_sera_contact_mode:
+            # NEXUS depth-only floor panels must be distinguishable from the
+            # empty backdrop, otherwise the exterior SERA dilation draws
+            # through them. B=1 is reserved outside normal room/SERA IDs.
+            mat.shader = NEXUS_CONTACT_CLOSED if closed else NEXUS_CONTACT_OPEN
+            mat.set_shader_parameter("contact_id", Vector3(0.0, 0.0, 1.0))
         elif is_contact:
             mat.shader = NEXUS_CONTACT_CLOSED if closed else NEXUS_CONTACT_OPEN
             var digit: int = identification - 1
