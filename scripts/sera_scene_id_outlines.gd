@@ -78,6 +78,10 @@ var _screen_material: ShaderMaterial
 var _screen_camera: Camera3D
 var _styled_sources: Dictionary = {} # Visible IDs, excludes background depth masks.
 var _pose_stamps: Dictionary = {}
+# Reuse one interpolated parent pose for ALL of that parent's visible parts
+# during one frame. No joint can see a different interpolation sample.
+var _combat_anchor_pose_frame: int = -1
+var _combat_anchor_pose_cache: Dictionary = {}
 var _base_outline_enabled: bool = true
 var _character_outline_enabled: bool = true
 var _part_outline_enabled: bool = true
@@ -1109,15 +1113,26 @@ func _rescan() -> bool:
 # Instead interpolate the nearest physics-driven ANCHOR once, then apply
 # the complete current-frame local pose of every descendant relative to
 # that anchor. This is the same rule for SERA and the training target.
-static func _visible_combat_pose(source: Node3D) -> Transform3D:
+func _visible_combat_pose(source: Node3D) -> Transform3D:
+    var frame: int = Engine.get_process_frames()
+    if _combat_anchor_pose_frame != frame:
+        _combat_anchor_pose_frame = frame
+        _combat_anchor_pose_cache.clear()
     var anchor: Node3D = source
     while is_instance_valid(anchor):
         if anchor.physics_interpolation_mode == (
                 Node.PHYSICS_INTERPOLATION_MODE_ON):
+            var key: int = anchor.get_instance_id()
+            var anchor_pose: Transform3D
+            if _combat_anchor_pose_cache.has(key):
+                anchor_pose = _combat_anchor_pose_cache[key] as Transform3D
+            else:
+                anchor_pose = anchor.get_global_transform_interpolated()
+                _combat_anchor_pose_cache[key] = anchor_pose
             var relative_pose: Transform3D = (
                 anchor.global_transform.affine_inverse() *
                 source.global_transform)
-            return anchor.get_global_transform_interpolated() * relative_pose
+            return anchor_pose * relative_pose
         anchor = anchor.get_parent() as Node3D
     # An entirely render-updated hierarchy has no physics interpolation.
     return source.global_transform
@@ -1183,6 +1198,8 @@ func _clear_copies() -> void:
     _source_refs.clear()
     _styled_sources.clear()
     _pose_stamps.clear()
+    _combat_anchor_pose_cache.clear()
+    _combat_anchor_pose_frame = -1
     _id_allocations.clear()
     _free_ranges.clear()
     _next_id = 1
