@@ -53,6 +53,13 @@ var focus_panel: Panel
 var focus_header: Panel
 var focus_title: Label
 var customize_right_panel: Panel
+# The equipment list is persistent; only the stats and 3D viewer switch.
+# 0 = complete assembly, 1 = selected individual part.
+var customize_display_mode: int = 0
+var customize_mode_bar: Panel
+var customize_mode_tabs: Array[Panel] = []
+var customize_mode_labels: Array[Label] = []
+var customize_fullbody_preview_frame: Control
 var customize_right_header: Panel
 var customize_equipment_header: Label
 var customize_equipment_rows: Dictionary = {}
@@ -885,6 +892,7 @@ func _hud() -> void:
     focus_title.add_theme_color_override("font_color", Color("#e1f3fd"))
     focus_header.add_child(focus_title)
     _create_customization_stats()
+    _create_customize_mode_tabs()
     # CUSTOMIZE's second, tall right-side menu scaffold. No fabricated
     # actions: both menus remain placeholders until their contents are defined.
     customize_right_panel = Panel.new()
@@ -900,6 +908,7 @@ func _hud() -> void:
     customize_right_panel.add_child(customize_right_header)
     _create_equipment_controls()
     _create_single_part_preview()
+    _create_fullbody_preview_frame()
     _create_customization_part_stats()
     _create_customization_part_picker()
     action_panel = Panel.new()
@@ -1112,6 +1121,112 @@ func _update_training_start_pulse(delta: float) -> void:
 
 # Read-only equipment statistics occupy the existing lower-left CUSTOMIZE
 # square. Reusing twenty stat cells keeps selection changes allocation-free.
+# Single persistent view selector, above the active status window.
+# Raw NEXUS touch routing handles taps, so neither tab captures GUI input.
+func _create_customize_mode_tabs() -> void:
+    customize_mode_bar = Panel.new()
+    customize_mode_bar.name = "CustomizeViewModeBar"
+    customize_mode_bar.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    customize_mode_bar.add_theme_stylebox_override(
+        "panel", _menu_body_style())
+    customize_mode_bar.visible = false
+    hud.add_child(customize_mode_bar)
+    for label_text in ["全身表示", "単体表示"]:
+        var tab := Panel.new()
+        tab.name = "CustomizeMode_" + str(customize_mode_tabs.size())
+        tab.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        customize_mode_bar.add_child(tab)
+        var label := Label.new()
+        label.text = label_text
+        label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        label.add_theme_font_override("font", LaboSkin.equipment_font())
+        label.add_theme_font_size_override("font_size", 22)
+        tab.add_child(label)
+        customize_mode_tabs.append(tab)
+        customize_mode_labels.append(label)
+    _refresh_customize_mode_tabs()
+
+
+func _refresh_customize_mode_tabs() -> void:
+    for i in range(customize_mode_tabs.size()):
+        var selected: bool = i == customize_display_mode
+        customize_mode_tabs[i].add_theme_stylebox_override(
+            "panel", LaboSkin.terminal_segment_style(
+                "selected" if selected else "normal"))
+        customize_mode_labels[i].add_theme_color_override(
+            "font_color", Color("#eafaff") if selected else Color("#a2bac6"))
+
+
+func _layout_customize_mode_tabs() -> void:
+    if customize_mode_bar == null or hud == null:
+        return
+    customize_mode_bar.visible = focused_target == "CUSTOMIZE"
+    var view: Vector2 = hud.size
+    customize_mode_bar.position = Vector2(view.x * 0.035, view.y * 0.020)
+    customize_mode_bar.size = Vector2(view.x * 0.930,
+        clampf(view.y * 0.051, 51.0, 68.0))
+    var padding: float = 5.0
+    var gap: float = 8.0
+    var tab_width: float = (customize_mode_bar.size.x - padding * 2.0 - gap) * 0.5
+    for i in range(customize_mode_tabs.size()):
+        var tab: Panel = customize_mode_tabs[i]
+        tab.position = Vector2(padding + float(i) * (tab_width + gap), padding)
+        tab.size = Vector2(tab_width, customize_mode_bar.size.y - padding * 2.0)
+        customize_mode_labels[i].position = Vector2.ZERO
+        customize_mode_labels[i].size = tab.size
+
+
+func _tap_customize_mode(point: Vector2) -> bool:
+    if focused_target != "CUSTOMIZE" or customize_mode_bar == null or (
+            not customize_mode_bar.visible or
+            not customize_mode_bar.get_global_rect().has_point(point)):
+        return false
+    for i in range(customize_mode_tabs.size()):
+        if customize_mode_tabs[i].get_global_rect().has_point(point):
+            _set_customize_mode(i)
+            break
+    return true
+
+
+func _set_customize_mode(mode: int) -> void:
+    if mode < 0 or mode > 1:
+        return
+    customize_display_mode = mode
+    _refresh_customize_mode_tabs()
+    if focused_target != "CUSTOMIZE":
+        return
+    # Camera/model approach may still be animating. Apply actual viewport
+    # visibility only once both transitions finish.
+    if in_transition:
+        _layout_hud()
+        return
+    if mode == 0:
+        if is_instance_valid(sera_display_rig):
+            sera_display_rig.visible = true
+        if customize_single_part_preview != null:
+            customize_single_part_preview.set_preview_active(false)
+            customize_single_part_preview.visible = false
+        _sync_customization_part_glow()
+    else:
+        _clear_customization_part_glow()
+        if is_instance_valid(sera_display_rig):
+            sera_display_rig.visible = false
+        _refresh_single_part_preview(customize_part_preview_slot)
+    _layout_hud()
+
+
+# The full-body view is drawn by the shared NEXUS 3D camera, not another
+# SubViewport. A tiny 2D rim supplies the same framing as the part viewer.
+func _create_fullbody_preview_frame() -> void:
+    customize_fullbody_preview_frame = PreviewRim.new()
+    customize_fullbody_preview_frame.name = "CustomizeFullbodyTechFrame"
+    customize_fullbody_preview_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    customize_fullbody_preview_frame.visible = false
+    hud.add_child(customize_fullbody_preview_frame)
+
+
 func _create_customization_stats() -> void:
     customize_stats_panel = Panel.new()
     customize_stats_panel.name = "CustomizeTotalStatsPanel"
@@ -1202,14 +1317,14 @@ func _create_customization_stats() -> void:
 func _layout_customization_stats() -> void:
     if customize_stats_scroll == null or hud == null:
         return
-    var show: bool = focused_target == "CUSTOMIZE"
+    var show: bool = focused_target == "CUSTOMIZE" and customize_display_mode == 0
     customize_stats_panel.visible = show
     customize_stats_scroll.visible = show
     var view: Vector2 = hud.size
     var width: float = maxf(180.0, view.x * 0.93)
     var left: float = (view.x - width) * 0.5
-    var top: float = maxf(20.0, view.y * 0.025)
-    var height: float = minf(view.y * 0.227, 290.0)
+    var top: float = view.y * 0.088
+    var height: float = minf(view.y * 0.175, 290.0)
     customize_stats_panel.position = Vector2(left, top)
     customize_stats_panel.size = Vector2(width, height)
     StatUI.layout_status_marks(customize_total_accents, customize_stats_panel.size)
@@ -1914,12 +2029,15 @@ func _layout_single_part_preview() -> void:
     customize_single_part_preview.size = focus_panel.size
     var area: Rect2 = _customize_model_area(view)
     customize_body_rotate_cue.position = area.position + Vector2(8, 8)
-    customize_body_rotate_cue.visible = focused_target == "CUSTOMIZE"
-    customize_part_preview_frame.visible = focused_target == "CUSTOMIZE"
+    customize_body_rotate_cue.visible = (focused_target == "CUSTOMIZE" and
+        customize_display_mode == 0)
+    customize_part_preview_frame.visible = (focused_target == "CUSTOMIZE" and
+        customize_display_mode == 1)
 
 
 func _refresh_single_part_preview(slot: String) -> void:
-    if customize_single_part_preview == null or focused_target != "CUSTOMIZE":
+    if customize_single_part_preview == null or focused_target != "CUSTOMIZE" or (
+            customize_display_mode != 1):
         return
     var blueprint: String = _equipped_part_blueprint(slot)
     if not blueprint.is_empty():
@@ -1975,7 +2093,7 @@ func _create_customization_part_stats() -> void:
     customize_part_stats_scroll.name = "CustomizePartStatsScroll"
     customize_part_stats_scroll.mouse_filter = Control.MOUSE_FILTER_PASS
     customize_part_stats_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-    customize_part_stats_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+    customize_part_stats_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
     customize_part_stats_panel.add_child(customize_part_stats_scroll)
     customize_part_stats_list = GridContainer.new()
     customize_part_stats_list.columns = 3
@@ -2021,19 +2139,16 @@ func _create_customization_part_stats() -> void:
 
 
 func _customize_part_stats_rect(view: Vector2) -> Rect2:
-    # Connect the part-preview bottom to the single-part stat panel.
-    # Keep the rect local: an undefined preview identifier fails scene parsing.
-    var preview: Rect2 = _customize_square_menu_rect(view)
-    var start: float = preview.end.y
-    var bottom: float = view.y * 0.905
-    return Rect2(Vector2(view.x * 0.040, start),
-        Vector2(view.x * 0.920, maxf(120.0, bottom - start)))
+    # Identical footprint to TOTAL STATUS: the switch changes content,
+    # not the layout or the positions of the equipment controls.
+    return Rect2(Vector2(view.x * 0.035, view.y * 0.088),
+        Vector2(view.x * 0.930, minf(view.y * 0.175, 290.0)))
 
 
 func _layout_customization_part_stats() -> void:
     if customize_part_stats_panel == null:
         return
-    customize_part_stats_panel.visible = focused_target == "CUSTOMIZE"
+    customize_part_stats_panel.visible = focused_target == "CUSTOMIZE" and customize_display_mode == 1
     var area: Rect2 = _customize_part_stats_rect(hud.size)
     customize_part_stats_panel.position = area.position
     customize_part_stats_panel.size = area.size
@@ -2144,6 +2259,7 @@ func _sync_customization_part_glow() -> void:
     customize_selection_blink_elapsed = 0.0
     customize_selection_blink_on = true
     if not customize_preview_active or focused_target != "CUSTOMIZE" or (
+            customize_display_mode != 0) or (
             sera_display_rig == null or not bool(sera_display_rig.get("loading_ok"))):
         return
     if customize_selection_material == null:
@@ -2172,6 +2288,7 @@ func _sync_customization_part_glow() -> void:
 
 func _update_customization_part_blink(delta: float) -> void:
     if focused_target != "CUSTOMIZE" or in_transition or (
+            customize_display_mode != 0) or (
             not customize_preview_active or customize_highlighted_meshes.is_empty()):
         return
     customize_selection_blink_elapsed = fposmod(
@@ -2990,44 +3107,20 @@ func _apply_labo_typography() -> void:
         _skin_label(entry["label"] as Label, display, 14, accent)
     _skin_label(archive_record_body, stats, 17, accent)
 
-# CUSTOMIZE: TOTAL above, model/PART VIEW and equipment side-by-side,
-# non-scrolling PART STATUS across the bottom. Rects use HUD coordinates.
-func _customize_part_vertical_shift(view: Vector2) -> float:
-    # Reuse only the unused area UNDER the last visible single-part stat.
-    # 10 stats -> 4 rows -> roughly 40px lower; 15 -> 5 rows -> unchanged.
-    var visible_fields: int = 0
-    for item in customize_part_stat_cells:
-        if (item["panel"] as Panel).visible:
-            visible_fields += 1
-    var content_rows: int = mini(5, maxi(1, ceili(float(visible_fields) / 3.0)))
-    var content_height: float = 41.0 + float(content_rows) * 44.0 + (
-        float(content_rows - 1) * 1.0 + 6.0)
-    var baseline_bottom: float = view.y * 0.905
-    var baseline_status_top: float = view.y * (0.506 + 0.185)
-    var available: float = baseline_bottom - baseline_status_top
-    return clampf(available - content_height - 3.0, 0.0, view.y * 0.045)
-
-
+# CUSTOMIZE: one active status window above one large preview.
+# Both preview modes share the left footprint; the right equipment list stays.
 func _customize_square_menu_rect(view: Vector2) -> Rect2:
-    # PART VIEW and its attached stat window shift together; fonts and the
-    # absolute bottom edge stay fixed across selected equipment.
-    var shift: float = _customize_part_vertical_shift(view)
-    return Rect2(Vector2(view.x * 0.040, view.y * 0.506 + shift),
-        Vector2(view.x * 0.435, view.y * 0.185))
+    return Rect2(Vector2(view.x * 0.035, view.y * 0.282),
+        Vector2(view.x * 0.435, view.y * 0.615))
+
 
 func _customize_tall_menu_rect(view: Vector2) -> Rect2:
-    return Rect2(
-        Vector2(view.x * 0.510, view.y * 0.255),
-        Vector2(view.x * 0.455, view.y * 0.431))
+    return Rect2(Vector2(view.x * 0.510, view.y * 0.282),
+        Vector2(view.x * 0.455, view.y * 0.615))
+
 
 func _customize_model_area(view: Vector2) -> Rect2:
-    # SERA's original fit remains unchanged as the PART VIEW moves down.
-    var part_view: Rect2 = _customize_square_menu_rect(view)
-    var baseline_preview_top: float = view.y * 0.506
-    var top: float = view.y * 0.275
-    var bottom: float = baseline_preview_top - maxf(12.0, view.y * 0.011)
-    return Rect2(Vector2(part_view.position.x, top),
-        Vector2(part_view.size.x, maxf(1.0, bottom - top)))
+    return _customize_square_menu_rect(view).grow(-8.0)
 
 
 func _gpu_outline_diagnostics() -> Node:
@@ -3312,6 +3405,7 @@ func _layout_hud() -> void:
         focus_panel.position.y = minf(focus_panel.position.y, view.y * 0.115)
         focus_panel.size.y = minf(view.y * 0.76,
             maxf(610.0, view.y * 0.535))
+    _layout_customize_mode_tabs()
     if focused_target == "CUSTOMIZE":
         var square: Rect2 = _customize_square_menu_rect(view)
         var tall: Rect2 = _customize_tall_menu_rect(view)
@@ -3324,6 +3418,14 @@ func _layout_hud() -> void:
         customize_right_header.visible = false
         _layout_equipment_controls()
         _layout_customization_part_picker()
+        focus_panel.visible = customize_display_mode == 1 and not in_transition
+        if customize_fullbody_preview_frame != null:
+            customize_fullbody_preview_frame.position = square.position
+            customize_fullbody_preview_frame.size = square.size
+            customize_fullbody_preview_frame.visible = (
+                customize_display_mode == 0 and not in_transition)
+    elif customize_fullbody_preview_frame != null:
+        customize_fullbody_preview_frame.visible = false
     # The opaque top stripe belongs to the focus panel; rest stays blue/clear.
     focus_header.position = Vector2.ZERO
     focus_header.size = Vector2(focus_panel.size.x,
@@ -3644,7 +3746,7 @@ func _customization_entrance_arrived(final_world: Transform3D) -> void:
         _update_customization_glow()
         customize_glow_quad.visible = true
     in_transition = false
-    _sync_customization_part_glow()
+    _set_customize_mode(customize_display_mode)
 
 # On Back, retract the *currently rotated* model while the camera is also
 # returning to the overview. The grid does not follow the model and is hidden
@@ -3695,6 +3797,7 @@ func _restore_customization_preview() -> void:
         customize_entrance_tween.kill()
     if not customize_preview_active or sera_display_rig == null:
         return
+    sera_display_rig.visible = true
     if customize_glow_quad != null:
         customize_glow_quad.visible = false
     # Keep the portrait outline hidden until the return camera finishes.
@@ -3802,6 +3905,9 @@ func _is_customization_drag_zone(pixel: Vector2) -> bool:
         return false
     # All of the gameplay viewport accepts rotation except the complete
     # left menu panel and the bottom-right Back button, at any vertical height.
+    if customize_mode_bar != null and customize_mode_bar.visible and (
+            customize_mode_bar.get_global_rect().has_point(pixel)):
+        return false
     if focus_panel.visible and Rect2(focus_panel.position, focus_panel.size).has_point(pixel):
         return false
     if customize_right_panel.visible and Rect2(
@@ -4162,6 +4268,8 @@ func _tap_at(point: Vector2) -> void:
         if Rect2(back_panel.position, back_panel.size).has_point(point):
             _navigate_back()
             return
+        if focused_target == "CUSTOMIZE" and _tap_customize_mode(point):
+            return
         var in_focused: bool = focus_panel.visible and Rect2(
             focus_panel.position, focus_panel.size).has_point(point)
         var in_customize: bool = focused_target == "CUSTOMIZE" and (
@@ -4176,7 +4284,10 @@ func _tap_at(point: Vector2) -> void:
             customize_stats_panel.get_global_rect().has_point(point))
         if not in_focused and not in_customize and (
                 not in_part_stats and not in_total_stats):
-            _navigate_back()
+            # Customization does not dismiss on blank-space taps; the
+            # explicit Back control and Android Back remain available.
+            if focused_target != "CUSTOMIZE":
+                _navigate_back()
             return
         if focused_target == "SYSTEM" and focus_panel.visible:
             _tap_system_control(point)
@@ -4307,7 +4418,7 @@ func _focus_arrived(target_name: String) -> void:
     _set_training_visible(target_name == "TRAINING")
     _set_deployment_visible(target_name == "DEPLOYMENT")
     _layout_hud()
-    focus_panel.visible = true
+    focus_panel.visible = target_name != "CUSTOMIZE" or customize_display_mode == 1
     customize_right_panel.visible = target_name == "CUSTOMIZE"
     if outline_debug_button != null:
         outline_debug_button.visible = target_name == "CUSTOMIZE"
@@ -4316,6 +4427,7 @@ func _focus_arrived(target_name: String) -> void:
     if target_name == "CUSTOMIZE":
         _refresh_equipment_controls()
         _inspect_customization_part(customize_part_preview_slot)
+        _set_customize_mode(customize_display_mode)
         _layout_single_part_preview()
     elif customize_single_part_preview != null:
         customize_single_part_preview.visible = false
@@ -4332,8 +4444,14 @@ func _return_to_overview() -> void:
     # Hide the matte blue-grey grid on the Back press itself,
     # before either the model or camera Tween gets its first frame.
     if focused_target == "CUSTOMIZE":
+        if is_instance_valid(sera_display_rig):
+            sera_display_rig.visible = true
         if customize_glow_quad != null:
             customize_glow_quad.visible = false
+        if customize_mode_bar != null:
+            customize_mode_bar.visible = false
+        if customize_fullbody_preview_frame != null:
+            customize_fullbody_preview_frame.visible = false
         _set_customization_camera_projection(false)
     in_transition = true
     _close_customization_part_picker()
