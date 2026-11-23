@@ -306,7 +306,8 @@ func set_shared_scene_mode(enabled: bool) -> void:
         # CRATE can register before BASE's root. Resolve the actual scene
         # color again whenever roots enter, independent of registration order.
         _refresh_shared_ink_color()
-        _set_shared_screen_bounds(Vector4.ZERO)
+        if not _bittaran_id_mode:
+            _set_shared_screen_bounds(Vector4.ZERO)
         # The source ID target remains the same. Small part previews use a
         # CanvasLayer overlay because the Compatibility 3D quad can vanish.
         var canvas_mat: ShaderMaterial = ink.material as ShaderMaterial
@@ -348,7 +349,8 @@ func _on_bittaran_frame_pre_draw() -> void:
     dirty = _sync_camera(source_camera) or dirty
     dirty = _sync_copies() or dirty
     if dirty:
-        _update_shared_screen_bounds(source_camera)
+        # Hybrid ID ink has no external silhouette; only ID-to-ID contacts.
+        # No per-mesh AABB projection or full-screen bound uniform is needed.
         _bittaran_snapshot_dirty_frame = Engine.get_process_frames()
         _redraw_requests += 1
     _bittaran_pending_rebuild = false
@@ -385,7 +387,8 @@ func set_bittaran_id_mode(enabled: bool) -> void:
             1.0 / float(id_viewport.size.x),
             1.0 / float(id_viewport.size.y)))
         _screen_material.set_shader_parameter("ink_color", Color("#17212f"))
-        _set_shared_screen_bounds(Vector4.ZERO)
+        if not enabled:
+            _set_shared_screen_bounds(Vector4.ZERO)
         _refresh_shared_ink_color()
     # Force a fresh projected bound/ID redraw on mode transition.
     _scan_elapsed = 0.0
