@@ -15,6 +15,7 @@ const NEXUS_CONTACT_CLOSED = preload("res://shaders/sera_nexus_mesh_contact_clos
 const NEXUS_CONTACT_OPEN = preload("res://shaders/sera_nexus_mesh_contact_open.gdshader")
 const SHARED_INK = preload("res://shaders/sera_bittaran_visible_mesh_id_ink.gdshader")
 const ConvexInk = preload("res://scripts/sera_scene_convex_ink.gd")
+const OutlineStandard = preload("res://scripts/sera_outline_standard.gd")
 # Same Shader resource, not a visually similar replacement.
 const BITTARAN_ID_INK = SHARED_INK
 const SHARED_CANVAS_INK = preload("res://shaders/sera_scene_visible_ink_canvas.gdshader")
@@ -147,6 +148,8 @@ func _refresh_part_preview_canvas_mode() -> void:
         var mat: ShaderMaterial = ink.material as ShaderMaterial
         if mat != null:
             mat.shader = SHARED_CANVAS_INK if preview else INK
+            if preview:
+                OutlineStandard.apply_id_widths(mat)
             mat.set_shader_parameter("mesh_id_texture", id_viewport.get_texture())
             mat.set_shader_parameter("mesh_id_texel", Vector2(
                 1.0 / float(id_viewport.size.x),
@@ -222,9 +225,9 @@ func get_outline_metrics() -> Dictionary:
         "scene_width_profile": _active_scene_profile(),
         "convex_draw_batches": int(_convex_ink.call("get_draw_count")) if (
             is_instance_valid(_convex_ink)) else 0,
-        "base_facility_convex_px": 2.0,
-        "base_clutter_convex_px": 1.0,
-        "nexus_environment_convex_px": 1.0,
+        "base_facility_convex_px": OutlineStandard.BASE_FACILITY_CONVEX_PX,
+        "base_clutter_convex_px": OutlineStandard.BASE_CLUTTER_CONVEX_PX,
+        "nexus_environment_convex_px": OutlineStandard.NEXUS_CONVEX_PX,
         "display_px_per_id_texel": _output_px_per_id_pixel,
         "actor_inside_override_px": _actor_inside_override_px,
         "actor_outside_override_px": _actor_outside_override_px,
@@ -333,6 +336,7 @@ func set_shared_scene_mode(enabled: bool) -> void:
     if enabled:
         _screen_material = ShaderMaterial.new()
         _screen_material.shader = SHARED_INK
+        OutlineStandard.apply_id_widths(_screen_material)
         _screen_material.render_priority = -30
         _screen_material.set_shader_parameter(
             "scene_profile", _active_scene_profile())
@@ -359,6 +363,8 @@ func set_shared_scene_mode(enabled: bool) -> void:
         # CanvasLayer overlay because the Compatibility 3D quad can vanish.
         var canvas_mat: ShaderMaterial = ink.material as ShaderMaterial
         canvas_mat.shader = SHARED_CANVAS_INK if _part_preview_canvas_mode else INK
+        if _part_preview_canvas_mode:
+            OutlineStandard.apply_id_widths(canvas_mat)
         canvas_mat.set_shader_parameter("mesh_id_texture", id_viewport.get_texture())
         canvas_mat.set_shader_parameter("mesh_id_texel", Vector2(
             1.0 / float(id_viewport.size.x), 1.0 / float(id_viewport.size.y)))
@@ -584,19 +590,19 @@ func _apply_actor_width_overrides() -> void:
 func _effective_actor_inside_px() -> float:
     if _actor_inside_override_px >= 0.0:
         return _actor_inside_override_px
-    return 0.0
+    return OutlineStandard.ACTOR_INSIDE_PX
 
 
 func _effective_actor_outside_px() -> float:
     if _actor_outside_override_px >= 0.0:
         return _actor_outside_override_px
-    return 4.0
+    return OutlineStandard.ACTOR_OUTSIDE_PX
 
 
 func _effective_actor_seam_px() -> float:
     if _actor_seam_override_px >= 0.0:
         return _actor_seam_override_px
-    return 2.0
+    return OutlineStandard.ACTOR_SEAM_PX
 
 
 # Compute what one ID target texel occupies on the FINAL display.
