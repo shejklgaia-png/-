@@ -3,9 +3,9 @@ extends RefCounted
 const Modules = preload("res://assets/base_command_modules.gd")
 const Architecture = preload("res://scripts/sera_base_architecture.gd")
 const MONITOR_SHADER = preload("res://assets/monitors/world_monitor.gdshader")
-const READOUT_PATH := "res://assets/monitors/telemetry.svg"
-const PLANS_PATH := "res://assets/monitors/blueprints.svg"
-const MONITOR_IDS = ["N01", "N02", "N03", "N04", "N05", "N06", "B01", "B02", "B03", "B04", "B05"]
+const Frames = preload("res://assets/monitors/numbered_frames.gd")
+const FRAME_RATES = {"N01": 5.0, "N02": 3.0, "N03": 4.0, "N04": 6.0, "N05": 3.0, "N06": 4.0,
+    "B01": 1.5, "B02": 1.33, "B03": 1.0, "B04": 3.0, "B05": 0.85}
 const BLOCKBENCH = [
     {"id":"N01","scene":"NEXUS","module":"system_console","part":"SYSTEM blue operational screen","offset":0.55},
     {"id":"N02","scene":"NEXUS","module":"system_console","part":"SYSTEM auxiliary angled slim right readout","offset":0.12},
@@ -18,18 +18,26 @@ const BLOCKBENCH = [
 ]
 const FACILITIES = [
     {"id":"B03","key":"LABO","at":Vector3(1.46,1.37,1.63),"size":Vector2(0.44,0.40),"face":0.14},
-    {"id":"B04","key":"GENERATOR","at":Vector3(1.22,1.88,0.41),"size":Vector2(0.52,0.55),"face":0.11},
+    {"id":"B04","key":"GENERATOR","at":Vector3(1.22,1.88,0.41),"size":Vector2(0.52,0.55),"face":0.19},
     {"id":"B05","key":"BUILD_TERMINAL","at":Vector3(0,1.94,0.46),"size":Vector2(1.49,0.99),"face":0.12}
 ]
+static func replaces_screen_marks(part_name: String) -> bool:
+    return (part_name.begins_with("Archive console telemetry bar ") or
+        part_name.begins_with("SYSTEM display thin telemetry ") or
+        part_name.begins_with("TRAINING lateral analyzer bar "))
+
 static func _v(a: Array) -> Vector3:
     return Vector3(float(a[0]),float(a[1]),float(a[2]))
 
 static func _surface(host: Node3D, id: String, pose: Transform3D, size: Vector2) -> void:
-    var path := "res://assets/monitors/%s.svg" % id.to_lower()
-    var texture := load(path) as Texture2D
-    if texture == null:
-        push_warning("Monitor image unavailable: " + path)
+    # Decode each compact indexed PNG only when its scene builds. Embedding
+    # the bytes keeps Android source sync independent of editor import state.
+    var image := Image.new()
+    if image.load_png_from_buffer(Marshalls.base64_to_raw(Frames.PNG[id])) != OK:
+        push_error("Invalid monitor atlas: " + id)
         return
+    image.generate_mipmaps()
+    var texture := ImageTexture.create_from_image(image)
     var mesh := QuadMesh.new()
     mesh.size = size
     var display := MeshInstance3D.new()
@@ -41,15 +49,11 @@ static func _surface(host: Node3D, id: String, pose: Transform3D, size: Vector2)
     display.set_meta("sera_outline_occluder_only", true)
     display.set_meta("sera_preserve_authored_material", true)
     display.set_meta("monitor_id", id)
-    display.set_meta("monitor_resolution", texture.get_size())
-    var readout := load(READOUT_PATH) as Texture2D
-    var plans := load(PLANS_PATH) as Texture2D
+    display.set_meta("monitor_resolution", texture.get_size() / Vector2(4, 2))
     var mat := ShaderMaterial.new()
     mat.shader = MONITOR_SHADER
-    mat.set_shader_parameter("panel", texture)
-    mat.set_shader_parameter("readout", readout)
-    mat.set_shader_parameter("mode", MONITOR_IDS.find(id))
-    mat.set_shader_parameter("plans", plans)
+    mat.set_shader_parameter("atlas", texture)
+    mat.set_shader_parameter("fps", FRAME_RATES[id])
     display.material_override = mat
     host.add_child(display)
 
