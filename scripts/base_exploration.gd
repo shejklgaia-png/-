@@ -8,6 +8,8 @@ const BaseFacilities = preload("res://scripts/base_facility_system.gd")
 const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
 const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
 const PowerBoard = preload("res://scripts/sera_base_power_board.gd")
+const BasePowerDistribution = preload(
+    "res://scripts/sera_base_power_distribution.gd")
 const GridUi = preload("res://scripts/sera_base_grid_ui.gd")
 const BaseFrameBudget = preload("res://scripts/sera_base_frame_budget.gd")
 const DisplayProfile = preload("res://scripts/sera_display_profile.gd")
@@ -103,6 +105,7 @@ var layout_status: Label
 var layout_seed: int = 0
 var layout_rerolls: int = 0
 var power_zone: Node3D
+var power_distribution: Node3D
 var power_back_button: Button
 var power_view_active: bool = false
 var power_camera_tween: Tween
@@ -147,6 +150,7 @@ func _ready() -> void:
     _build_field_facilities()
     _startup_step("SHELL / FACILITY ARRAY ONLINE", 49)
     _build_power_board()
+    _build_power_distribution()
     _startup_step("GRID / POWER ROUTING ONLINE", 61)
     _create_grid_selection()
     _startup_step("GRID / ADDRESS MAP VERIFIED", 67)
@@ -414,6 +418,15 @@ func _build_field_facilities() -> void:
 func _build_power_board() -> void:
     # 8×8 stage is a connected physical extension of the existing BASE.
     power_zone = PowerBoard.build(self)
+
+
+func _build_power_distribution() -> void:
+    # Distribution is a separate physical small-prop network; it does not
+    # affect GRID puzzle resources or the seven facility touch colliders.
+    if is_instance_valid(power_distribution):
+        power_distribution.free()
+    power_distribution = BasePowerDistribution.build(
+        self, NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS)
 
 
 func _create_grid_selection() -> void:
@@ -917,6 +930,9 @@ func _apply_layout_preview(selected: Dictionary) -> void:
         if old != null:
             old.free()
         BaseArchitecture.build_facility(station, key)
+    # User-driven prop reshuffles can change what space is free around each
+    # station; recalculate only these fixed-seed substations and their cables.
+    _build_power_distribution()
     var previous: Node = get_node_or_null("SalvageMeshes")
     if previous != null:
         previous.free()
