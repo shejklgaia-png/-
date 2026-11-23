@@ -12,16 +12,16 @@ const DECK_FRONT: float = 24.35
 const DECK_MIDDLE: float = (DECK_BACK + DECK_FRONT) * 0.5
 const PLATE_TOP: float = 0.159
 const GRILLE_OPENINGS: Array = [
-    Vector2(-2.15, -1.45),
-    Vector2(5.44, 6.18)
+    Vector2(-2.10, -1.62),
+    Vector2(3.73, 4.17)
 ]
 # Coordinates in meters; left to right, with the center walking lane clearly
 # broader than side service panels. The unfilled +/-3.6..4.3 intervals are
 # true recessed warning gutters, not yellow overlays on top of the plates.
 const LANES: Array = [
-    [-7.45, -5.70], [-5.62, -4.31], [-3.57, -1.84],
-    [-1.76, 1.76],
-    [1.84, 3.57], [4.31, 5.62], [5.70, 7.45]
+    [-7.45, -5.68], [-5.64, -4.31], [-3.57, -1.82],
+    [-1.80, 1.80],
+    [1.82, 3.57], [4.31, 5.64], [5.68, 7.45]
 ]
 const LANE_OFFSETS: Array = [0.22, -0.48, 0.35, 0.00, -0.14, 0.58, -0.39]
 
@@ -42,10 +42,12 @@ static func build(room: Node3D) -> void:
         var z: float = DECK_BACK + float(LANE_OFFSETS[lane])
         var index: int = 0
         while z < DECK_FRONT - 0.24:
-            var pitch: float = 2.66 if z < -12.0 else 2.18
-            pitch += float((index * 3 + lane * 5) % 4) * 0.17
-            var a: float = maxf(z + 0.055, DECK_BACK + 0.10)
-            var b: float = minf(z + pitch - 0.055, DECK_FRONT - 0.10)
+            var pitch: float = 2.72 if z < -12.0 else 2.12
+            if z > 1.5:
+                pitch = 1.54
+            pitch += float((index * 3 + lane * 5) % 4) * 0.105
+            var a: float = maxf(z + 0.025, DECK_BACK + 0.06)
+            var b: float = minf(z + pitch - 0.025, DECK_FRONT - 0.06)
             if b > a + 0.50:
                 var shade: String = _plate_finish(lane, index)
                 if lane == 3:
@@ -87,8 +89,8 @@ static func build(room: Node3D) -> void:
 
     # The black trough is lower than the steel surface; top rails and grate
     # bars remain within the opening rather than resting on a solid panel.
-    _maintenance_grille(batches, -1.80, 3.34, 0.70)
-    _maintenance_grille(batches, 5.81, 3.34, 0.74)
+    _maintenance_grille(batches, -1.86, 2.48, 0.43)
+    _maintenance_grille(batches, 3.95, 2.28, 0.39)
 
     _submit(room, batches)
 
@@ -124,8 +126,17 @@ static func _center_panel_with_drains(batches: Dictionary,
         portions = next_portions
     for portion_value in portions:
         var piece: Vector2 = portion_value
-        if piece.y - piece.x > 0.36:
-            _armor_panel(batches, x0, x1, piece.x, piece.y, finish, 3, index)
+        if piece.y - piece.x > 0.34:
+            # Split most center slabs into two fabricated panels, but keep
+            # occasional uninterrupted main plates to avoid a rigid grid.
+            if index % 4 != 0:
+                _armor_panel(batches, x0, -0.032,
+                    piece.x, piece.y, finish, 3, index)
+                _armor_panel(batches, 0.032, x1,
+                    piece.x, piece.y, _plate_finish(3, index + 2), 3, index + 1)
+            else:
+                _armor_panel(batches, x0, x1,
+                    piece.x, piece.y, finish, 3, index)
 
 
 static func _armor_panel(batches: Dictionary, x0: float, x1: float,
@@ -138,9 +149,9 @@ static func _armor_panel(batches: Dictionary, x0: float, x1: float,
     # Actual notch-at-corners topography: the polygon mesh is shared by every
     # panel, with steel sidewalls behind the beveled upper armor shell.
     _cube(batches, "plate_skirt", Vector3(cx, 0.099, cz),
-        Vector3(width - 0.035, 0.044, length - 0.035))
+        Vector3(width - 0.018, 0.044, length - 0.018))
     _beveled_plate(batches, finish, Vector3(cx, 0.0, cz),
-        Vector3(width - 0.055, 1.0, length - 0.055))
+        Vector3(width - 0.026, 1.0, length - 0.026))
 
     if length > 1.0:
         # Tiny dark bolt sockets followed by a silver screw head. Their pitch
@@ -149,26 +160,29 @@ static func _armor_panel(batches: Dictionary, x0: float, x1: float,
             for z in [z0 + 0.16, z1 - 0.16]:
                 _bolt(batches, float(x), float(z))
 
-    # Micro-reliefs / catches make each plate clearly fabricated.
-    if length > 1.25 and (index + lane) % 3 == 0:
+    # Narrow inset tooling lines, two-stage panel labels and locking ribs.
+    # Keep the interior clear: the bevel and seams should carry the detail.
+    if length > 1.12 and (index + lane) % 3 == 0:
         _cube(batches, "edge_engraving",
-            Vector3(cx, PLATE_TOP + 0.006, z0 + 0.17),
-            Vector3(minf(0.60, width * 0.48), 0.004, 0.014))
+            Vector3(cx, PLATE_TOP + 0.007, z0 + 0.17),
+            Vector3(minf(0.44, width * 0.32), 0.003, 0.011))
         _cube(batches, "edge_engraving",
-            Vector3(x0 + 0.15, PLATE_TOP + 0.006, z0 + 0.29),
-            Vector3(0.017, 0.004, 0.18))
+            Vector3(x0 + 0.13, PLATE_TOP + 0.007, z0 + 0.27),
+            Vector3(0.012, 0.003, 0.14))
+    if length > 1.12 and (index + lane) % 4 == 1:
+        # A parallel retaining bar creates real fabricated edges without
+        # drawing a thick black screen-space contour on the whole tile.
+        _cube(batches, "pinstripe",
+            Vector3(x1 - 0.16, PLATE_TOP + 0.006, cz),
+            Vector3(0.016, 0.003, length * 0.49))
 
-    if lane == 3 and length > 1.4:
-        # Irregular narrow cool-toned specular strokes, split at each seam.
-        # They imply the reference's reflected overhead light, but are not
-        # a solid painted line extending through every plate.
-        if index % 3 != 1:
-            _cube(batches, "light_reflection",
-                Vector3(0.10, PLATE_TOP + 0.007, cz),
-                Vector3(0.068, 0.004, length * 0.42))
-            _cube(batches, "reflection_fringe",
-                Vector3(-0.09, PLATE_TOP + 0.005, cz + length * 0.08),
-                Vector3(0.026, 0.004, length * 0.27))
+    # The old bright short center dashes looked like paint, not reflected
+    # light. The steel now relies on its rough metal material and bevel
+    # normals; only a low-contrast brushed streak survives on rare plates.
+    if lane == 3 and length > 1.25 and index % 5 == 0:
+        _cube(batches, "reflection_fringe",
+            Vector3(cx + width * 0.18, PLATE_TOP + 0.005, cz),
+            Vector3(0.026, 0.003, length * 0.58))
 
     if lane in [1, 5] and length > 1.9 and (index + lane) % 5 == 2:
         _service_lid(batches, cx, cz)
@@ -183,9 +197,9 @@ static func _beveled_plate(batches: Dictionary, finish: String,
 
 static func _bolt(batches: Dictionary, x: float, z: float) -> void:
     _disc(batches, "bolt_socket", Vector3(x, PLATE_TOP + 0.003, z),
-        Vector3(0.104, 0.006, 0.104))
+        Vector3(0.082, 0.006, 0.082))
     _disc(batches, "bolt_metal", Vector3(x, PLATE_TOP + 0.010, z),
-        Vector3(0.052, 0.006, 0.052))
+        Vector3(0.042, 0.006, 0.042))
 
 
 static func _service_lid(batches: Dictionary, x: float, z: float) -> void:
@@ -272,23 +286,23 @@ static func _chamfered_armor_mesh() -> ArrayMesh:
     # One normalized octagonal plate is instanced at arbitrary dimensions.
     # Flat top, sharply beveled perimeter, four visibly clipped corners.
     var outside: Array = [
-        Vector2(-0.435, -0.500), Vector2(0.435, -0.500),
-        Vector2(0.500, -0.435), Vector2(0.500, 0.435),
-        Vector2(0.435, 0.500), Vector2(-0.435, 0.500),
-        Vector2(-0.500, 0.435), Vector2(-0.500, -0.435)
+        Vector2(-0.479, -0.500), Vector2(0.479, -0.500),
+        Vector2(0.500, -0.479), Vector2(0.500, 0.479),
+        Vector2(0.479, 0.500), Vector2(-0.479, 0.500),
+        Vector2(-0.500, 0.479), Vector2(-0.500, -0.479)
     ]
     var inside: Array = [
-        Vector2(-0.405, -0.461), Vector2(0.405, -0.461),
-        Vector2(0.461, -0.405), Vector2(0.461, 0.405),
-        Vector2(0.405, 0.461), Vector2(-0.405, 0.461),
-        Vector2(-0.461, 0.405), Vector2(-0.461, -0.405)
+        Vector2(-0.461, -0.479), Vector2(0.461, -0.479),
+        Vector2(0.479, -0.461), Vector2(0.479, 0.461),
+        Vector2(0.461, 0.479), Vector2(-0.461, 0.479),
+        Vector2(-0.479, 0.461), Vector2(-0.479, -0.461)
     ]
     var vertices := PackedVector3Array()
     var normals := PackedVector3Array()
     var colors := PackedColorArray()
     var face_color := Color(1.0, 1.0, 1.0)
-    var bevel_dark := Color(0.68, 0.74, 0.79)
-    var bevel_light := Color(0.92, 0.96, 1.0)
+    var bevel_dark := Color(0.79, 0.83, 0.87)
+    var bevel_light := Color(0.96, 0.97, 1.0)
     for i in range(outside.size()):
         var j: int = (i + 1) % outside.size()
         var ti: Vector3 = Vector3(inside[i].x, PLATE_TOP, inside[i].y)
@@ -377,15 +391,15 @@ static func _submit(room: Node3D, batches: Dictionary) -> void:
 
 static func _material(finish: String, vertex_color: bool) -> StandardMaterial3D:
     var palette: Dictionary = {
-        "underdeck": Color("#121d28"),
-        "plate_skirt": Color("#1a2835"),
-        "deck_mid": Color("#3e5264"),
-        "deck_deep": Color("#314557"),
-        "deck_light": Color("#455a6b"),
-        "deck_side": Color("#293d4d"),
-        "edge_engraving": Color("#5a7382"),
-        "light_reflection": Color("#5f8599"),
-        "reflection_fringe": Color("#426476"),
+        "underdeck": Color("#1b2b38"),
+        "plate_skirt": Color("#293d4d"),
+        "deck_mid": Color("#425b6e"),
+        "deck_deep": Color("#374e60"),
+        "deck_light": Color("#4c6476"),
+        "deck_side": Color("#344c5d"),
+        "edge_engraving": Color("#607987"),
+        "pinstripe": Color("#4a6675"),
+        "reflection_fringe": Color("#476575"),
         "gutter": Color("#111b25"),
         "guard_edge": Color("#586e79"),
         "hazard_yellow": Color("#dfa926"),
@@ -398,18 +412,18 @@ static func _material(finish: String, vertex_color: bool) -> StandardMaterial3D:
         "lamp_glass": Color("#84deff"),
         "lamp_glint": Color("#c9f6ff"),
         "drain_black": Color("#0c1a25"),
-        "drain_frame": Color("#647c8a"),
-        "drain_rib": Color("#3a5462"),
-        "drain_rib_glint": Color("#8aa9ba"),
+        "drain_frame": Color("#536b79"),
+        "drain_rib": Color("#304c5c"),
+        "drain_rib_glint": Color("#6c899a"),
         "drain_cross": Color("#223644")
     }
     var mat := StandardMaterial3D.new()
     var tint: Color = palette.get(finish, Color("#354858"))
     mat.albedo_color = tint
     mat.vertex_color_use_as_albedo = vertex_color
-    mat.metallic = 0.46 if finish.begins_with("deck_") else 0.27
-    mat.roughness = 0.29 if finish.begins_with("deck_") else 0.54
-    mat.metallic_specular = 0.68 if finish.begins_with("deck_") else 0.50
+    mat.metallic = 0.56 if finish.begins_with("deck_") else 0.27
+    mat.roughness = 0.36 if finish.begins_with("deck_") else 0.54
+    mat.metallic_specular = 0.64 if finish.begins_with("deck_") else 0.50
     if finish.begins_with("deck_"):
         mat.clearcoat_enabled = true
         mat.clearcoat = 0.32
