@@ -10,6 +10,7 @@ const MULTI_ID_CLOSED = preload("res://shaders/sera_scene_multimesh_iris_id_clos
 const MULTI_ID_OPEN = preload("res://shaders/sera_scene_multimesh_iris_id_open.gdshader")
 const INK = preload("res://shaders/sera_iris_mesh_id_outline.gdshader")
 const NEXUS_CONTACT_INK = preload("res://shaders/sera_nexus_mesh_contact_ink.gdshader")
+const NEXUS_SPATIAL_INK = preload("res://shaders/sera_nexus_mesh_contact_spatial_ink.gdshader")
 const NEXUS_CONTACT_CLOSED = preload("res://shaders/sera_nexus_mesh_contact_closed.gdshader")
 const NEXUS_CONTACT_OPEN = preload("res://shaders/sera_nexus_mesh_contact_open.gdshader")
 const SHARED_INK = preload("res://shaders/sera_scene_visible_ink_3d.gdshader")
@@ -95,20 +96,22 @@ func get_outline_metrics() -> Dictionary:
             is_instance_valid(source_viewport.get_camera_3d())),
         "overlay_visible": visible and (
             (is_instance_valid(_screen_quad) and _screen_quad.visible)
-            if _shared_scene_mode else (
+            if (_shared_scene_mode or _nexus_sera_contact_mode) else (
             is_instance_valid(ink) and ink.visible)),
         "ink_rect_size": ink.size if is_instance_valid(ink) else Vector2.ZERO,
         "ink_shader_bound": (is_instance_valid(_screen_quad) and
             _screen_material != null and
-            _screen_material.shader == SHARED_INK) if _shared_scene_mode else (
+            _screen_material.shader == (NEXUS_SPATIAL_INK
+        if _nexus_sera_contact_mode else SHARED_INK)) if (
+            _shared_scene_mode or _nexus_sera_contact_mode) else (
             is_instance_valid(ink) and ink.material is ShaderMaterial and
             (ink.material as ShaderMaterial).shader == (
                 NEXUS_CONTACT_INK if _nexus_sera_contact_mode else INK)),
         "shared_vfx_safe_3d_ink": _shared_scene_mode,
-        "nexus_contact_vfx_safe_3d_ink": false,
-        "front_effects_cover_ink": _shared_scene_mode,
-        "ink_draw_source": "spatial_before_vfx" if _shared_scene_mode
-            else "canvas",
+        "nexus_contact_vfx_safe_3d_ink": _nexus_sera_contact_mode,
+        "front_effects_cover_ink": (_shared_scene_mode or _nexus_sera_contact_mode),
+        "ink_draw_source": "spatial_before_vfx" if (
+            _shared_scene_mode or _nexus_sera_contact_mode) else "canvas",
         "id_encoding": "ROLE_GREEN_AND_RGB12" if _shared_scene_mode else (
             "NEXUS_RGB_7x7x7" if _nexus_sera_contact_mode else
             "IRIS_RED_1_OF_7"),
@@ -214,7 +217,7 @@ func set_shared_scene_mode(enabled: bool) -> void:
 
 
 func _sync_screen_quad(camera: Camera3D) -> void:
-    if not _shared_scene_mode or not is_instance_valid(camera):
+    if not (_shared_scene_mode or _nexus_sera_contact_mode) or not is_instance_valid(camera):
         return
     if _screen_material == null:
         return
@@ -264,10 +267,12 @@ func set_stroke_px(px: float) -> void:
     _ink_stroke = clampf(px, 1.0, 3.0)
     if is_instance_valid(ink):
         (ink.material as ShaderMaterial).set_shader_parameter("stroke_px", _ink_stroke)
+    if _nexus_sera_contact_mode and _screen_material != null:
+        _screen_material.set_shader_parameter("stroke_px", _ink_stroke)
 
 
-# NEXUS keeps the proven RGB-ID Canvas renderer for outside silhouette.
-# The 3D compositor is reserved for BASE, battle and GRID.
+# NEXUS keeps the proven RGB contact-ID mask, but composites the ink in
+# transparent 3D BEFORE the gate/glow effects instead of over them as Canvas.
 func set_nexus_sera_contact_mode(enabled: bool) -> void:
     if enabled and _shared_scene_mode:
         # Keep the proven RGB contact palette, not the generic RGB12 palette.
@@ -291,8 +296,23 @@ func set_nexus_sera_contact_mode(enabled: bool) -> void:
             material.set_shader_parameter("sera_outer_px", 2.0)
             material.set_shader_parameter("sera_seam_px", 2.0)
             material.set_shader_parameter("sera_screen_bounds", Vector4.ZERO)
-    # NEXUS dedicated RGB IDs must use the proven canvas compositor.
-    # Never use the fullscreen spatial quad for the NEXUS full-body.
+    # Preserve the depth-resolved RGB contact mask and exact NEXUS widths.
+    # Only move ink composition ahead of transparent room/glow effects.
+    if enabled:
+        _screen_material = ShaderMaterial.new()
+        _screen_material.shader = NEXUS_SPATIAL_INK
+        _screen_material.render_priority = -30
+        _screen_material.set_shader_parameter(
+            "mesh_id_texture", id_viewport.get_texture())
+        _screen_material.set_shader_parameter("mesh_id_texel", Vector2(
+            1.0 / float(id_viewport.size.x),
+            1.0 / float(id_viewport.size.y)))
+        _screen_material.set_shader_parameter("ink_color", Color("#17212f"))
+        _screen_material.set_shader_parameter("stroke_px", _ink_stroke)
+        _screen_material.set_shader_parameter("sera_inner_px", 1.0)
+        _screen_material.set_shader_parameter("sera_outer_px", 2.0)
+        _screen_material.set_shader_parameter("sera_seam_px", 2.0)
+        _screen_material.set_shader_parameter("sera_screen_bounds", Vector4.ZERO)
     if is_instance_valid(_screen_quad):
         _screen_quad.visible = false
     _clear_copies()
@@ -322,10 +342,11 @@ func _process(delta: float) -> void:
         if is_instance_valid(_screen_quad):
             _screen_quad.visible = false
         return
-    # NEXUS RGB mask: stable Canvas (restores missing outside silhouette).
-    # BASE / battle / GRID retain transparent-3D composition before VFX.
-    ink.visible = not _shared_scene_mode
-    if _shared_scene_mode:
+    # Both modes use a depth-resolved ID mask, with ink drawn before room VFX.
+    # Canvas remains only for standalone legacy IRIS previews.
+    var spatial_mode: bool = _shared_scene_mode or _nexus_sera_contact_mode
+    ink.visible = not spatial_mode
+    if spatial_mode:
         _sync_screen_quad(source_camera)
     elif is_instance_valid(_screen_quad):
         _screen_quad.visible = false
@@ -350,7 +371,9 @@ func _process(delta: float) -> void:
 # covered by the displayed SERA. This avoids a full-screen neighbor scan.
 # Only calculate when ID rendering is dirty (camera/motion/equipment changes).
 func _set_nexus_screen_bounds(bounds: Vector4) -> void:
-    if is_instance_valid(ink) and ink.material is ShaderMaterial:
+    if _nexus_sera_contact_mode and _screen_material != null:
+        _screen_material.set_shader_parameter("sera_screen_bounds", bounds)
+    elif is_instance_valid(ink) and ink.material is ShaderMaterial:
         (ink.material as ShaderMaterial).set_shader_parameter(
             "sera_screen_bounds", bounds)
 
