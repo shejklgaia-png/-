@@ -184,6 +184,9 @@ var _beacon_timer: Timer
 var _beacon_lit: bool = false
 var _beacon_symbols_left: int = 0
 var _beacon_random := RandomNumberGenerator.new()
+# Non-emissive fixture paints are immutable and can be reused across boxes.
+# Emissive materials stay unique: the beacon and generator alter them later.
+var _fixture_paint_cache: Dictionary = {}
 
 func setup(model: Node3D, key: String) -> void:
     name = "BaseFacilityVFX"
@@ -450,17 +453,29 @@ func _box(parent: Node3D, label: String, at: Vector3, dimensions: Vector3,
     piece.mesh = shape
     piece.position = at
     piece.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-    var surface := StandardMaterial3D.new()
-    surface.albedo_color = color
-    surface.shading_mode = (
-        BaseMaterial3D.SHADING_MODE_UNSHADED if glow else
-        BaseMaterial3D.SHADING_MODE_PER_PIXEL)
-    surface.roughness = 0.74
-    surface.metallic = 0.20 if not glow else 0.0
+    var surface: StandardMaterial3D
     if glow:
+        # Never share animated or individually tuned emissive materials.
+        surface = StandardMaterial3D.new()
+        surface.albedo_color = color
+        surface.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+        surface.roughness = 0.74
+        surface.metallic = 0.0
         surface.emission_enabled = true
         surface.emission = color
         surface.emission_energy_multiplier = 3.2
+    else:
+        # Multiple steel lips/brackets often use exactly the same paint.
+        # Cache only the immutable, non-emissive material per facility.
+        var paint_key: String = color.to_html(true)
+        surface = _fixture_paint_cache.get(paint_key) as StandardMaterial3D
+        if surface == null:
+            surface = StandardMaterial3D.new()
+            surface.albedo_color = color
+            surface.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+            surface.roughness = 0.74
+            surface.metallic = 0.20
+            _fixture_paint_cache[paint_key] = surface
         # Glowing opaque glass must cover ID ink, not become ID=0 space
         # into which adjacent 3px facility contours can spread.
         piece.set_meta("sera_outline_occluder_only", true)
