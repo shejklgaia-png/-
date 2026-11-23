@@ -8,6 +8,9 @@ const COMPOSITOR_NAME: String = "SeraIDOutlineControl"
 
 var _contour_enabled: bool = true
 var _stroke_px: float = 3.0
+# Do not silently overwrite per-element actor widths when ViewEdges enters
+# a shared compositor; the setter is an EXPLICIT override only.
+var _stroke_explicit: bool = false
 var _nexus_sera_contact_mode: bool = false
 var _numeric_outline_profile: int = 0
 var _compositor: Control
@@ -31,6 +34,15 @@ static func _in_bittaran_id_scene(actor: Node3D) -> bool:
     var cursor: Node = actor
     while cursor != null:
         if bool(cursor.get_meta("sera_bittaran_id_outline", false)):
+            return true
+        cursor = cursor.get_parent()
+    return false
+
+
+static func _in_training_id_scene(actor: Node3D) -> bool:
+    var cursor: Node = actor
+    while cursor != null:
+        if bool(cursor.get_meta("sera_training_id_outline", false)):
             return true
         cursor = cursor.get_parent()
     return false
@@ -66,13 +78,19 @@ func _register() -> void:
     # Select Bittaran's dedicated shader before enabling the shared path,
     # avoiding a SHARED_INK -> battle shader swap on the first scene frame.
     # Convex/crease geometry is never created for this battle.
-    _compositor.call("set_bittaran_id_mode",
-        _in_bittaran_id_scene(actor))
+    var is_bittaran: bool = _in_bittaran_id_scene(actor)
+    _compositor.call("set_bittaran_id_mode", is_bittaran)
     # All scene elements use Bittaran's exact shared RGB12 ID pipeline.
     # This selects only existing widths; no NEXUS-specific ID/ink shader.
     _compositor.call("set_shared_scene_mode", true)
-    _compositor.call("set_scene_profile", _numeric_outline_profile)
-    _compositor.call("set_stroke_px", _stroke_px)
+    # Training keeps its 1px INSIDE and 3px OUTSIDE, but its independent
+    # mesh-seam radius is 1px, matching Bittaran. All other profiles persist.
+    var profile: int = (
+        3 if _in_training_id_scene(actor) and not is_bittaran
+        else _numeric_outline_profile)
+    _compositor.call("set_scene_profile", profile)
+    if _stroke_explicit:
+        _compositor.call("set_stroke_px", _stroke_px)
 
 
 func set_contour_enabled(enabled: bool) -> void:
@@ -88,7 +106,8 @@ func set_contour_enabled(enabled: bool) -> void:
 
 
 func set_stroke_px(width: float) -> void:
-    _stroke_px = clampf(width, 1.0, 3.0)
+    _stroke_px = clampf(width, 0.0, 8.0)
+    _stroke_explicit = true
     if is_instance_valid(_compositor):
         _compositor.call("set_stroke_px", _stroke_px)
 
