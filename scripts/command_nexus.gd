@@ -34,11 +34,12 @@ const NEXUS_PREVIEW_BACKDROP_COLOR: Color = Color("#afc4d1")
 const NEXUS_ROOM_BACKDROP_COLOR: Color = Color("#17212c")
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 
-# Pull the portal behind the forward consoles. Its right edge is separated
-# from TRAINING in the portrait overview, while the central SERA pad stays put.
+# Keep the front console bodies (including their sculpted side fittings) inside
+# the portrait overview's horizontal safe area. Leave a clear center sightline
+# to the SERA stage and keep the distant deployment gate in its existing slot.
 const GATE_ORIGIN: Vector3 = Vector3(3.45, 0.02, -20.35)
-const SYSTEM_CONSOLE_ORIGIN: Vector3 = Vector3(-2.50, 0.0, 3.25)
-const TRAINING_CONSOLE_ORIGIN: Vector3 = Vector3(2.55, 0.0, 3.10)
+const SYSTEM_CONSOLE_ORIGIN: Vector3 = Vector3(-1.70, 0.0, 0.70)
+const TRAINING_CONSOLE_ORIGIN: Vector3 = Vector3(1.75, 0.0, 0.70)
 const SERA_STAGE_ORIGIN: Vector3 = Vector3(0.0, 0.0, -4.75)
 
 var batch_data: Dictionary = {}
@@ -287,9 +288,9 @@ var customize_silhouette_vertex_cache: Dictionary = {}
 # reserved for a menu panel. Camera transforms/FOV only: no moving 3D assets.
 # TRAINING/GATE/CUSTOMIZE on the right; SYSTEM/ARCHIVE on the left.
 var focus_views: Dictionary = {
-    "TRAINING": {"eye": Vector3(3.12, 3.08, 8.55),
+    "TRAINING": {"eye": Vector3(2.32, 3.08, 6.15),
         "look": TRAINING_CONSOLE_ORIGIN + Vector3(0.0, 1.34, 0.0), "fov": 68.0},
-    "SYSTEM": {"eye": Vector3(-3.10, 3.05, 8.60),
+    "SYSTEM": {"eye": Vector3(-2.30, 3.05, 6.05),
         "look": SYSTEM_CONSOLE_ORIGIN + Vector3(0.0, 1.25, 0.0), "fov": 68.0},
     "CUSTOMIZE": {"eye": Vector3(-4.50, 3.80, 5.00),
         "look": Vector3(-1.70, 2.00, -4.75),
@@ -326,8 +327,8 @@ func _ready() -> void:
     _module("deployment_gate", GATE_ORIGIN, _gate_facing_yaw())
     _module("archive_mezzanine", Vector3(-4.95, 0.0, -9.90))
     _module("data_bank", Vector3(-4.95, 2.48, -12.10))
-    # Advance both interactive terminals toward the camera. Selection corners
-    # remain derived from the very same model transforms in _module().
+    # Both terminals share their portrait-safe anchors with every generated
+    # fitting, monitor and touch silhouette; focus eyes track the same offset.
     _module("system_console", SYSTEM_CONSOLE_ORIGIN, deg_to_rad(18.0))
     _module("training_console", TRAINING_CONSOLE_ORIGIN, deg_to_rad(-14.0))
     _render_batches()
