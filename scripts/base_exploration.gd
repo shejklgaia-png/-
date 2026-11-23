@@ -8,6 +8,8 @@ const BaseFacilities = preload("res://scripts/base_facility_system.gd")
 const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
 const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
 const PowerBoard = preload("res://scripts/sera_base_power_board.gd")
+const BasePowerDistribution = preload(
+    "res://scripts/sera_base_power_distribution.gd")
 const GridUi = preload("res://scripts/sera_base_grid_ui.gd")
 const BaseFrameBudget = preload("res://scripts/sera_base_frame_budget.gd")
 const DisplayProfile = preload("res://scripts/sera_display_profile.gd")
@@ -103,6 +105,7 @@ var layout_status: Label
 var layout_seed: int = 0
 var layout_rerolls: int = 0
 var power_zone: Node3D
+var power_distribution: Node3D
 var power_back_button: Button
 var power_view_active: bool = false
 var power_camera_tween: Tween
@@ -147,6 +150,7 @@ func _ready() -> void:
     _build_field_facilities()
     _startup_step("SHELL / FACILITY ARRAY ONLINE", 49)
     _build_power_board()
+    _build_power_distribution()
     _startup_step("GRID / POWER ROUTING ONLINE", 61)
     _create_grid_selection()
     _startup_step("GRID / ADDRESS MAP VERIFIED", 67)
@@ -368,6 +372,7 @@ func _build_hangar() -> void:
     _add_module("data_bank", Vector3(22.0, 0.0, -9.0), deg_to_rad(24.0), 0.52)
     var cube := BoxMesh.new()
     cube.size = Vector3.ONE
+    var decorative_crease_poses: Array = []
     for palette_index in batches.keys():
         var poses: Array = batches[palette_index]
         var multi := MultiMesh.new()
@@ -376,6 +381,7 @@ func _build_hangar() -> void:
         multi.instance_count = poses.size()
         for index in range(poses.size()):
             multi.set_instance_transform(index, poses[index])
+            decorative_crease_poses.append(poses[index])
         var draw := MultiMeshInstance3D.new()
         draw.name = "BaseBlockbenchBatch_%02d" % int(palette_index)
         draw.set_meta("sera_outline_role", "clutter")
@@ -383,6 +389,28 @@ func _build_hangar() -> void:
         draw.material_override = _material(int(palette_index))
         draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         add_child(draw)
+    # Legacy modular small props use exactly the same clutter 1px convex
+    # corners as yard clutter and the new power devices.
+    var small_crease: ArrayMesh = BaseFacilityInk.crease_for("cube", cube)
+    if small_crease != null and not decorative_crease_poses.is_empty():
+        var crease_multi := MultiMesh.new()
+        crease_multi.transform_format = MultiMesh.TRANSFORM_3D
+        crease_multi.mesh = small_crease
+        crease_multi.instance_count = decorative_crease_poses.size()
+        for index in range(decorative_crease_poses.size()):
+            crease_multi.set_instance_transform(
+                index, decorative_crease_poses[index])
+        var crease_draw := MultiMeshInstance3D.new()
+        crease_draw.name = "BaseLegacyClutterConvex1px"
+        crease_draw.multimesh = crease_multi
+        crease_draw.material_override = (
+            BaseFacilityInk.clutter_crease_material())
+        crease_draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        crease_draw.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+        crease_draw.extra_cull_margin = 0.20
+        crease_draw.set_meta("FX_NO_OUTLINE", true)
+        add_child(crease_draw)
+
 
 func _build_nexus_building() -> void:
     # Rebuilt physical architecture retains the exact 3D screen-picking extents.
@@ -414,6 +442,15 @@ func _build_field_facilities() -> void:
 func _build_power_board() -> void:
     # 8×8 stage is a connected physical extension of the existing BASE.
     power_zone = PowerBoard.build(self)
+
+
+func _build_power_distribution() -> void:
+    # Distribution is a separate physical small-prop network; it does not
+    # affect GRID puzzle resources or the seven facility touch colliders.
+    if is_instance_valid(power_distribution):
+        power_distribution.free()
+    power_distribution = BasePowerDistribution.build(
+        self, NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS)
 
 
 func _create_grid_selection() -> void:
@@ -917,6 +954,9 @@ func _apply_layout_preview(selected: Dictionary) -> void:
         if old != null:
             old.free()
         BaseArchitecture.build_facility(station, key)
+    # User-driven prop reshuffles can change what space is free around each
+    # station; recalculate only these fixed-seed substations and their cables.
+    _build_power_distribution()
     var previous: Node = get_node_or_null("SalvageMeshes")
     if previous != null:
         previous.free()

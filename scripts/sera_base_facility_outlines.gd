@@ -13,6 +13,7 @@ static var _silhouette_cache: Dictionary = {}
 static var _crease_cache: Dictionary = {}
 static var _shared_silhouette_material: ShaderMaterial
 static var _shared_crease_material: ShaderMaterial
+static var _shared_clutter_crease_material: ShaderMaterial
 static var _outlines_enabled: bool = true
 
 static func set_outlines_enabled(enabled: bool) -> void:
@@ -21,6 +22,9 @@ static func set_outlines_enabled(enabled: bool) -> void:
         _shared_silhouette_material.set_shader_parameter("outlines_enabled", enabled)
     if _shared_crease_material != null:
         _shared_crease_material.set_shader_parameter("outlines_enabled", enabled)
+    if _shared_clutter_crease_material != null:
+        _shared_clutter_crease_material.set_shader_parameter(
+            "outlines_enabled", enabled)
 
 
 static func overlay_for(geometry: String, physical_mesh: Mesh) -> ArrayMesh:
@@ -68,3 +72,19 @@ static func crease_material() -> ShaderMaterial:
         _shared_crease_material.set_shader_parameter(
             "outlines_enabled", _outlines_enabled)
     return _shared_crease_material
+
+
+static func clutter_crease_material() -> ShaderMaterial:
+    # Clutter/power convex hard corners are a separate 1px physical pass;
+    # the BASE building's 2px sharp-corner material stays unchanged.
+    if _shared_clutter_crease_material == null:
+        _shared_clutter_crease_material = ShaderMaterial.new()
+        _shared_clutter_crease_material.shader = BASE_CREASE_SHADER
+        _shared_clutter_crease_material.render_priority = -29
+        _shared_clutter_crease_material.set_shader_parameter(
+            "ink_color", Color.BLACK)
+        _shared_clutter_crease_material.set_shader_parameter(
+            "crease_px", 1.0)
+        _shared_clutter_crease_material.set_shader_parameter(
+            "outlines_enabled", _outlines_enabled)
+    return _shared_clutter_crease_material

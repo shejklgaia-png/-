@@ -18,13 +18,13 @@ uniform float main_outside_px = 3.0;
 uniform float main_seam_px = 3.0;
 // Dense BASE machinery used to flood small faces with 3px ID seams.
 // Facility contour: 1px inside and 3px outside with 1px contacts.
-// Clutter keeps its dedicated 1px inside/1px outside style.
+// Small BASE props and power units use 1px inside/outside/contact ink.
 uniform float facility_inside_px = 1.0;
 uniform float facility_outside_px = 3.0;
 uniform float facility_seam_px = 2.0;
 uniform float clutter_inside_px = 1.0;
 uniform float clutter_outside_px = 1.0;
-uniform float clutter_seam_px = 2.0;
+uniform float clutter_seam_px = 1.0;
 // CRATE has its own 1px interior/1px exterior/1px contact ink.
 uniform float crate_inside_px = 1.0;
 uniform float crate_outside_px = 1.0;
