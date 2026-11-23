@@ -1125,7 +1125,7 @@ func _visible_combat_pose(source: Node3D) -> Transform3D:
             var key: int = anchor.get_instance_id()
             var anchor_pose: Transform3D
             if _combat_anchor_pose_cache.has(key):
-                anchor_pose = _combat_anchor_pose_cache[key] as Transform3D
+                anchor_pose = _combat_anchor_pose_cache[key]
             else:
                 anchor_pose = anchor.get_global_transform_interpolated()
                 _combat_anchor_pose_cache[key] = anchor_pose
