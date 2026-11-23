@@ -210,8 +210,12 @@ func _fabrication(room: Node3D) -> void:
     var gantry: Node3D = room.get_node_or_null("AtlasOpenFramePrinter") as Node3D
     if gantry == null:
         return
+    # Architectural relief stays in room coordinates. Printer mechanisms
+    # below are authored in the scaled gantry's local coordinates.
+    var shell := _start()
+    _industrial_wall(shell, 0)
+    _finish(shell, room, "FabricationWallStructuralRelief")
     var s := _start()
-    _industrial_wall(s, 0)
     # Open-profile gantry: paired bearing rails, exposed nut drives and
     # alternating structural triangular webs behind the traveling head.
     for side in [-1.0, 1.0]:
