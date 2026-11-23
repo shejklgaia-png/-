@@ -64,10 +64,12 @@ var _contact_ids: Dictionary = {}
 var _free_contact_ids: Array[int] = []
 var _next_contact_id: int = 1
 var _shared_scene_mode: bool = false
-# Only the Bittaran battle uses a 3px outside / 2px mesh-ID contact shader.
-# Shared ID depth/camera/copies remain identical to other combat scenes.
+# Bittaran, training, BASE, NEXUS and previews now all use the single
+# documented actor 4/0/2, facility 4/0/3, clutter 3/0/1, NEXUS 3/0/2
+# standard. Scene profiles change role-2/3 widths only.
 var _bittaran_id_mode: bool = false
-# Only numeric widths vary: 0=BASE/normal/preview, 1=Bittaran, 2=NEXUS.
+# Numeric profile selects environment: 0=BASE/default, 1=Bittaran,
+# 2=NEXUS room, 3=training. Character widths stay universally 4/0/2.
 var _requested_scene_profile: int = 0
 # In combat, read the interpolated render pose only from late _process.
 # The Bittaran battle and the articulated SERA rig finish their own _process
