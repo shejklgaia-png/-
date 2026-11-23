@@ -98,6 +98,37 @@ void fragment() {
 """
 static var _generator_gap_leak_shader: Shader
 
+# A visible projector shaft is NOT a real volumetric light pass: three
+# crossed, tapered planes use the same forward vector as SpotLight3D. Their
+# soft shape is depth-tested against buildings and batched once per site.
+const SEARCHLIGHT_SHAFT_SHADER: String = """
+shader_type spatial;
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never, fog_disabled;
+varying vec4 shaft_tint;
+void vertex() {
+    shaft_tint = INSTANCE_CUSTOM;
+}
+void fragment() {
+    float side = abs(UV.x * 2.0 - 1.0);
+    float soft_edge = 1.0 - smoothstep(0.42, 0.99, side);
+    float center = pow(max(0.0, 1.0 - side), 2.0);
+    float along = clamp(UV.y, 0.0, 1.0);
+    // The fixture contains the first few centimetres. The beam remains
+    // legible down to its intended work point, without a hard cut-off.
+    float start = smoothstep(0.01, 0.09, along);
+    float end_fade = 1.0 - smoothstep(0.81, 1.0, along);
+    float light = (0.56 * soft_edge + 0.44 * center) *
+        start * end_fade * (0.96 - 0.18 * along);
+    ALBEDO = shaft_tint.rgb;
+    EMISSION = shaft_tint.rgb * light * 1.65;
+    ALPHA = clamp(shaft_tint.a * light, 0.0, 0.30);
+}
+"""
+static var _searchlight_shaft_shader: Shader
+static var _searchlight_shaft_material: ShaderMaterial
+static var _searchlight_shaft_mesh: ArrayMesh
+var _searchlight_shafts: Array[Dictionary] = []
+
 # Runtime-generated 24x24 radial alpha tile, shared by every BASE facility.
 # One small MultiMesh draw per facility replaces fullscreen bloom/blur.
 const SOFT_HALO_SHADER: String = """
@@ -162,12 +193,15 @@ func setup(model: Node3D, key: String) -> void:
         Vector3.ONE * _visual_scale), Vector3.ZERO)
     model.add_child(self)
     _soft_halos.clear()
+    _searchlight_shafts.clear()
     if key == "SMELTER":
         # Furnace is the sole site retaining its original broad heat shafts,
         # chimney smoke and animated orange floor reflection.
         _add_entrance(key)
         _add_smoke()
         _add_fire_floor()
+        # Aimed maintenance spotlight is separate from the molten glow.
+        _add_practical_lighting(key)
         _furnace_lamp = model.get_node_or_null(
             "FurnaceHeatLight") as OmniLight3D
         sample_fire(0.0)
@@ -186,6 +220,7 @@ func setup(model: Node3D, key: String) -> void:
     # Always construct the same low-cost glow batch on the FIRST load and
     # on later scene rebuilds. Never rely on a delayed post-process bloom.
     _finish_soft_halos()
+    _finish_searchlight_shafts()
 
 func _queue_soft_halo(at: Vector3, span: Vector2, tint: Color,
         opacity: float, face_angles: Vector3 = Vector3.ZERO) -> void:
@@ -400,7 +435,7 @@ func _add_entrance(key: String) -> void:
         SHAFT_SHADER, Color(tint.r, tint.g, tint.b, 0.70), true)
 
 
-# Each luminaire is an actual small 3D object at the real work location.
+# Each aimed luminaire is an actual 3D object above its work location.
 # The parent VFX node is intentionally outside the outline ID pass.
 # All of these fixtures are static; there is no per-frame repositioning.
 func _box(parent: Node3D, label: String, at: Vector3, dimensions: Vector3,
@@ -425,14 +460,14 @@ func _box(parent: Node3D, label: String, at: Vector3, dimensions: Vector3,
         surface.emission = color
         surface.emission_energy_multiplier = 3.2
         # Glowing opaque glass must cover ID ink, not become ID=0 space
-        # into which adjacent 4px facility contours can spread.
+        # into which adjacent 3px facility contours can spread.
         piece.set_meta("sera_outline_occluder_only", true)
         piece.set_meta("sera_outline_emissive_protect", true)
     piece.material_override = surface
     parent.add_child(piece)
-    if glow and label in ["FrontFacingLampGlass", "IlluminatedGap"]:
-        # Only the visible front glass gets a halo. Do not brighten hidden
-        # undersides or the Morse beacon while its lamp is blinking off.
+    if glow and label == "IlluminatedGap":
+        # The oriented projector lens is handled by _directed_searchlight.
+        # Do not attach a static halo to an unseen underside or Morse lens.
         var center: Vector3 = to_local(piece.global_position)
         var front_z: float = center.z + dimensions.z * 0.50 + 0.035
         _queue_soft_halo(Vector3(center.x, center.y, front_z),
@@ -441,33 +476,160 @@ func _box(parent: Node3D, label: String, at: Vector3, dimensions: Vector3,
     return piece
 
 
-func _work_lamp(label: String, at: Vector3, dimensions: Vector3,
-        tint: Color) -> Node3D:
+func _work_lamp(label: String, at: Vector3, target: Vector3,
+        dimensions: Vector3, tint: Color) -> Node3D:
+    # The body, optic and outgoing light are one physically aimed assembly.
+    # Godot projectors emit along local -Z. Keep the open luminous lens
+    # outside the metal hood, facing the exact target position.
     var lamp := Node3D.new()
     lamp.name = label
     lamp.set_meta("FX_NO_OUTLINE", true)
     lamp.position = at
     add_child(lamp)
-    _box(lamp, "RuggedMetalLampHousing", Vector3.ZERO, dimensions,
+    lamp.look_at(to_global(target), Vector3.UP)
+    _box(lamp, "SwivelSearchlightHousing",
+        Vector3(0.0, 0.0, dimensions.z * 0.07), dimensions,
         Color("#344753"))
-    _box(lamp, "RecessedLampDiffuser",
-        Vector3(0.0, -dimensions.y * 0.52, 0.0),
-        Vector3(dimensions.x * 0.77, 0.028, dimensions.z * 0.78),
+    var lip_depth: float = -dimensions.z * 0.51
+    _box(lamp, "BeveledSteelLampLip",
+        Vector3(0.0, dimensions.y * 0.42, lip_depth),
+        Vector3(dimensions.x * 0.96, dimensions.y * 0.14, 0.065),
+        Color("#566d7b"))
+    _box(lamp, "AimedSearchlightLens",
+        Vector3(0.0, 0.0, lip_depth - 0.031),
+        Vector3(dimensions.x * 0.78, dimensions.y * 0.66, 0.026),
         tint, true)
-    # The original bottom-facing diffuser is hidden from the 27-degree
-    # overhead BASE camera. This thin front face reads from that viewpoint,
-    # while the actual spotlight continues illuminating the work area.
-    _box(lamp, "FrontFacingLampGlass",
-        Vector3(0.0, -dimensions.y * 0.14,
-            dimensions.z * 0.50 + 0.014),
-        Vector3(dimensions.x * 0.84, dimensions.y * 0.54, 0.028),
-        tint, true)
-    # A physical short bracket connects the industrial fixture to the frame.
-    _box(lamp, "LampMountBracket",
-        Vector3(0.0, dimensions.y * 0.70, -dimensions.z * 0.28),
-        Vector3(dimensions.x * 0.19, dimensions.y * 0.65,
-            dimensions.z * 0.22), Color("#546676"))
+    _box(lamp, "SearchlightPivotBracket",
+        Vector3(0.0, dimensions.y * 0.81, dimensions.z * 0.15),
+        Vector3(dimensions.x * 0.22, dimensions.y * 0.67,
+            dimensions.z * 0.29), Color("#546676"))
     return lamp
+
+
+# These instances share a 3-plane low-poly shaft mesh and one material.
+# The source is offset to the luminous lens, never the mounting bracket.
+func _queue_searchlight_shaft(at: Vector3, target: Vector3,
+        tint: Color, radius: float, strength: float) -> void:
+    var span: Vector3 = target - at
+    var length: float = span.length()
+    if length < 0.32:
+        return
+    var z_axis: Vector3 = -span / length
+    var x_axis: Vector3 = Vector3.UP.cross(z_axis)
+    if x_axis.length_squared() < 0.01:
+        x_axis = Vector3.FORWARD.cross(z_axis)
+    x_axis = x_axis.normalized()
+    var y_axis: Vector3 = z_axis.cross(x_axis).normalized()
+    _searchlight_shafts.append({
+        "pose": Transform3D(
+            Basis(x_axis * radius, y_axis * radius, z_axis * length), at),
+        "color": Color(tint.r, tint.g, tint.b,
+            clampf(strength, 0.05, 0.32))
+    })
+
+
+static func _shared_searchlight_shaft_mesh() -> ArrayMesh:
+    if _searchlight_shaft_mesh != null:
+        return _searchlight_shaft_mesh
+    var vertices := PackedVector3Array()
+    var texcoords := PackedVector2Array()
+    var indices := PackedInt32Array()
+    # Three 60-degree-crossed planes are readable from the actual BASE
+    # camera without GPU volumetric fog or fullscreen blur.
+    for plane in range(3):
+        var angle: float = float(plane) * PI / 3.0
+        var lateral := Vector3(cos(angle), sin(angle), 0.0)
+        var start_index: int = vertices.size()
+        for ring in range(6):
+            var t: float = float(ring) / 5.0
+            var width: float = lerpf(0.12, 0.96, pow(t, 0.82)) * 0.50
+            for side in [-1.0, 1.0]:
+                vertices.append(lateral * width * side +
+                    Vector3(0.0, 0.0, -t))
+                texcoords.append(Vector2((side + 1.0) * 0.5, t))
+        for ring in range(5):
+            var idx: int = start_index + ring * 2
+            indices.append(idx)
+            indices.append(idx + 1)
+            indices.append(idx + 3)
+            indices.append(idx)
+            indices.append(idx + 3)
+            indices.append(idx + 2)
+    var arrays: Array = []
+    arrays.resize(Mesh.ARRAY_MAX)
+    arrays[Mesh.ARRAY_VERTEX] = vertices
+    arrays[Mesh.ARRAY_TEX_UV] = texcoords
+    arrays[Mesh.ARRAY_INDEX] = indices
+    _searchlight_shaft_mesh = ArrayMesh.new()
+    _searchlight_shaft_mesh.add_surface_from_arrays(
+        Mesh.PRIMITIVE_TRIANGLES, arrays)
+    return _searchlight_shaft_mesh
+
+
+static func _shared_searchlight_shaft_material() -> ShaderMaterial:
+    if _searchlight_shaft_material != null:
+        return _searchlight_shaft_material
+    if _searchlight_shaft_shader == null:
+        _searchlight_shaft_shader = Shader.new()
+        _searchlight_shaft_shader.code = SEARCHLIGHT_SHAFT_SHADER
+    _searchlight_shaft_material = ShaderMaterial.new()
+    _searchlight_shaft_material.shader = _searchlight_shaft_shader
+    _searchlight_shaft_material.render_priority = (
+        RENDER_ORDER.FACILITY_VFX_FOREGROUND)
+    return _searchlight_shaft_material
+
+
+func _finish_searchlight_shafts() -> void:
+    if _searchlight_shafts.is_empty():
+        return
+    var batch_data := MultiMesh.new()
+    batch_data.transform_format = MultiMesh.TRANSFORM_3D
+    batch_data.use_custom_data = true
+    batch_data.mesh = _shared_searchlight_shaft_mesh()
+    batch_data.instance_count = _searchlight_shafts.size()
+    for index in range(_searchlight_shafts.size()):
+        var record: Dictionary = _searchlight_shafts[index]
+        batch_data.set_instance_transform(index, record["pose"])
+        batch_data.set_instance_custom_data(index, record["color"])
+    var draw := MultiMeshInstance3D.new()
+    draw.name = "AimedWorklightShaftBatch"
+    draw.set_meta("FX_NO_OUTLINE", true)
+    draw.multimesh = batch_data
+    draw.material_override = _shared_searchlight_shaft_material()
+    draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    draw.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+    add_child(draw)
+    _searchlight_shafts.clear()
+
+
+func _directed_searchlight(label: String, at: Vector3, target: Vector3,
+        dimensions: Vector3, tint: Color, energy: float, reach: float,
+        cone: float, beam_radius: float = 1.2,
+        beam_strength: float = 0.24) -> void:
+    var line: Vector3 = target - at
+    if line.length_squared() < 0.16:
+        return
+    var direction: Vector3 = line.normalized()
+    var lamp: Node3D = _work_lamp(label + "Housing", at, target,
+        dimensions, tint)
+    # Aim the real spotlight from the actual outward-facing optical glass.
+    var lens_at: Vector3 = at + direction * (
+        dimensions.z * 0.56 + 0.06)
+    _spot(label + "Illumination", lens_at, target, tint, energy, reach, cone)
+    _queue_searchlight_shaft(lens_at, target, tint, beam_radius,
+        beam_strength)
+    _queue_soft_halo(lens_at, Vector2(
+        dimensions.x * 1.78, dimensions.y * 2.25), tint, 0.21,
+        lamp.rotation)
+    # The shaft visibly ends in a localized lit patch at the work target.
+    # Floor and elevated work surfaces need different halo orientations.
+    var is_floor: bool = target.y < 0.70
+    _queue_soft_halo(target + (
+            Vector3(0.0, 0.045, 0.0) if is_floor
+            else Vector3(0.0, 0.0, 0.07)),
+        Vector2(beam_radius * 1.18, beam_radius * 0.78),
+        tint, 0.17, Vector3(-PI * 0.5, 0.0, 0.0) if is_floor
+        else Vector3.ZERO)
 
 
 func _slot_lamp(label: String, at: Vector3, size: Vector3,
@@ -655,20 +817,25 @@ func _advance_beacon() -> void:
 
 
 func _add_practical_lighting(key: String) -> void:
+    # Every mounted work projector is aimed at one explicit machine task.
+    # The housing, lens, SpotLight3D -Z axis, visible shaft and impact patch
+    # all use the SAME pair of local coordinates.
     match key:
         "NEXUS":
             _antenna_beacon()
-            # A slim luminaire under the BLAST shutter, not a broad bright
-            # panel across the whole building's side.
+            # The original shutter gap remains a narrow architectural emitter.
+            # A proper high-mounted projector now illuminates the apron,
+            # rather than a fake spotlight emerging from floor level.
             _slot_lamp("ShutterLowerGapEmitter",
                 Vector3(0.0, 0.34, 2.97),
                 Vector3(1.68, 0.050, 0.06), Color("#bbecff"))
-            _spot("ShutterGapLight", Vector3(0.0, 0.53, 2.99),
-                Vector3(0.0, 0.31, 3.58), Color("#bceaff"),
-                1.15, 3.1, 59.0)
-            # Replaces the previous broad oval with a forward-projecting
-            # strip: near edge z=2.99 at shutter, far edge z=8.79.
-            # It follows the facility yaw/scale through the VFX parent.
+            _directed_searchlight("GateApronSearchlight",
+                Vector3(0.0, 3.48, 2.93),
+                Vector3(0.0, 0.37, 4.76),
+                Vector3(0.68, 0.28, 0.43), Color("#c5edff"),
+                1.80, 5.25, 37.0, 1.50, 0.29)
+            # Keep the independently animated-looking spill geometry at
+            # the shutter; it no longer stands in for the aimed projector.
             _make_surface("ShutterLowerGapSpill",
                 Vector3(0.0, 0.34, 5.89), Vector2(1.42, 5.80),
                 Vector3(-PI * 0.5, 0.0, 0.0),
@@ -676,104 +843,104 @@ func _add_practical_lighting(key: String) -> void:
             _queue_soft_halo(Vector3(0.0, 0.39, 3.065),
                 Vector2(2.28, 0.63), Color("#bceaff"), 0.24)
         "RECYCLER":
+            # Two jaws, two actual aimed lamps. The old central spotlight
+            # used a different origin than both visible lamp housings.
             for side in [-1.0, 1.0]:
-                _work_lamp("ProtectedCrusherWorklamp",
-                    # Real jaw roof ~y=2.315; front ~z=1.27.
-                    Vector3(side * 0.90, 2.47, 1.34),
-                    Vector3(0.32, 0.14, 0.32), Color("#ffcc9a"))
-            _spot("CrusherBiteSpot",
-                Vector3(0.0, 2.38, 1.38),
-                Vector3(0.0, 1.41, 0.32),
-                Color("#ffd5ab"), 2.2, 3.2, 54.0)
+                _directed_searchlight(
+                    "CrusherLeftJawSearchlight" if side < 0.0
+                    else "CrusherRightJawSearchlight",
+                    Vector3(side * 0.90, 2.51, 1.33),
+                    Vector3(side * 0.30, 1.38, 0.52),
+                    Vector3(0.38, 0.19, 0.34), Color("#ffd8af"),
+                    1.34, 3.18, 38.0, 0.88, 0.23)
             _round_floor_pool("CrusherMouthWarmAccent",
                 Vector3(0.0, 0.35, 1.12), Vector2(1.75, 1.05),
-                Color("#ffca8c"), 0.46)
+                Color("#ffca8c"), 0.33)
         "GENERATOR":
-            # The luminous backing sits BEHIND the real rotating fan.
-            # Opaque blades still depth-occlude it; it only shines through
-            # the spaces between fan spokes.
-            # Core halo is physically behind the shadow louvers and moving
-            # rotor blades. Opaque material passes depth-occlude its edges.
+            # Exposed turbine has one elevated service lamp aimed directly
+            # at its rotor; blue cabinet gaps are independent emissive slots.
+            _directed_searchlight("RotorServiceSearchlight",
+                Vector3(-1.10, 3.19, -0.22),
+                Vector3(-0.27, 1.43, 1.19),
+                Vector3(0.42, 0.20, 0.34), Color("#a9e7ff"),
+                1.65, 3.70, 37.0, 0.91, 0.22)
             _make_surface("RotorRearBlueGlow",
                 Vector3(-0.27, 1.43, 1.085), Vector2(1.56, 0.74),
                 Vector3.ZERO, POOL_SHADER, Color(0.60, 0.91, 1.0, 0.96))
             for row in range(4):
                 _generator_vent_slit("PowerCabinetWallSlit",
-                    # Cabinet opaque surface ends near z=0.455;
-                    # a light source at 0.505 is behind the louvers at +0.04.
                     Vector3(1.22, 1.70 + row * 0.125, 0.505),
                     Vector3(0.42, 0.060, 0.026), Color("#d0f7ff"))
-            # A small, depth-tested spill is visible through the real vent
-            # slots, while the steel lips remain opaque in front.
             _make_surface("CabinetVentInnerBloom",
                 Vector3(1.22, 1.89, 0.511), Vector2(0.54, 0.66),
                 Vector3.ZERO, POOL_SHADER, Color(0.53, 0.88, 1.0, 0.41))
-            _work_lamp("RotorGuardWorklamp", Vector3(-0.61, 1.90, 1.06),
-                Vector3(0.30, 0.13, 0.22), Color("#9cdeff"))
-            _spot("RotorVentLight", Vector3(-0.54, 1.84, 1.10),
-                Vector3(-0.27, 1.42, 1.18),
-                Color("#b2edff"), 2.40, 2.8, 54.0)
-            # Guaranteed thin visible glow on every actual open channel,
-            # independent of whether the recessed emissive boxes survive
-            # the low-resolution BASE overview.
             _generator_visible_gap_leaks()
-            # One broad soft edge per main luminous cavity; their precise
-            # ten hard light gaps remain separately readable in front.
             _queue_soft_halo(Vector3(-0.27, 1.45, 1.185),
                 Vector2(1.93, 1.35), Color("#8fdcff"), 0.09)
             _queue_soft_halo(Vector3(1.22, 1.89, 0.618),
                 Vector2(0.74, 0.87), Color("#b2edff"), 0.08)
         "STORAGE":
-            # Two independent protected industrial fixtures make circular
-            # warm landing pools in front of the loading opening.
+            # The actual landing positions are the two loading bays,
+            # not a generic forward-facing luminous facade.
             for side in [-1.0, 1.0]:
-                _work_lamp("WarehouseLoadingBayLamp",
-                    # Rack post height 2.65; position lamps above top boxes.
-                    Vector3(side * 0.72, 2.82, 1.31),
-                    Vector3(0.45, 0.15, 0.32), Color("#ffdda6"))
-                _spot("WarehouseDoorSpot",
-                    Vector3(side * 0.72, 2.75, 1.34),
+                _directed_searchlight(
+                    "LoadingBayLeftSearchlight" if side < 0.0
+                    else "LoadingBayRightSearchlight",
+                    Vector3(side * 1.11, 2.79, 1.11),
                     Vector3(side * 0.70, 0.45, 1.78),
-                    Color("#ffdda6"), 1.75, 3.9, 44.0)
+                    Vector3(0.46, 0.19, 0.36), Color("#ffdda6"),
+                    1.65, 3.95, 35.0, 1.02, 0.26)
                 _round_floor_pool("WarehouseRoundFloorGlow",
                     Vector3(side * 0.70, 0.33, 1.74),
-                    Vector2(1.62, 1.62), Color("#ffdfac"), 0.52)
+                    Vector2(1.35, 1.35), Color("#ffdfac"), 0.32)
         "SCRAP_COLLECTOR":
-            # Scrap recognition pad and loaded collection bin have SEPARATE
-            # spotlights, making the machine's two purposes readable.
-            _work_lamp("CollectorPickupSpotHousing",
-                Vector3(-0.70, 3.17, 0.92),
-                Vector3(0.36, 0.17, 0.31), Color("#c1e9ff"))
-            _spot("CollectorPickupSpot",
-                Vector3(-0.70, 3.10, 0.95),
+            # Separate tracking/recognition and collected-bin functions.
+            # Both lamps visibly end at the same point the spot illuminates.
+            _directed_searchlight("ScrapPickupSearchlight",
+                Vector3(-0.38, 3.15, -0.18),
                 Vector3(0.23, 1.05, 0.23),
-                Color("#a6dfff"), 1.9, 3.4, 40.0)
-            _work_lamp("CollectorBinSpotHousing",
+                Vector3(0.41, 0.21, 0.36), Color("#b9e8ff"),
+                1.90, 3.65, 34.0, 1.05, 0.28)
+            _directed_searchlight("CollectionBinSearchlight",
                 Vector3(0.90, 2.89, 1.41),
-                Vector3(0.33, 0.16, 0.29), Color("#d2eafa"))
-            _spot("CollectorBinSpot", Vector3(0.90, 2.82, 1.44),
                 Vector3(0.35, 0.77, 1.10),
-                Color("#c2ebff"), 1.65, 3.2, 40.0)
+                Vector3(0.39, 0.19, 0.34), Color("#d0efff"),
+                1.65, 3.40, 34.0, 0.89, 0.27)
             _round_floor_pool("CollectorPickupPatch",
                 Vector3(0.20, 0.36, 1.23), Vector2(1.32, 1.00),
-                Color("#9bdfff"), 0.44)
+                Color("#9bdfff"), 0.28)
             _round_floor_pool("CollectorBinPatch",
                 Vector3(0.46, 0.35, 1.65), Vector2(1.08, 0.92),
-                Color("#c2ebff"), 0.44)
+                Color("#c2ebff"), 0.28)
         "LABO":
-            # Keep its existing single task light, add its physical housing.
-            _work_lamp("ExistingLabTaskLampHousing",
-                Vector3(0.0, 2.28, 1.31),
-                Vector3(0.52, 0.15, 0.28), Color("#ffe0af"))
+            # Aim the gantry lamp down onto the fabrication bed. The warm
+            # task light is distinct from the cool cyan indicator strips.
+            _directed_searchlight("FabricationBedSearchlight",
+                Vector3(0.0, 3.12, -0.05),
+                Vector3(0.10, 1.13, 1.35),
+                Vector3(0.56, 0.23, 0.34), Color("#ffe3b8"),
+                1.48, 3.36, 37.0, 0.84, 0.22)
             _queue_soft_halo(Vector3(0.0, 1.56, 1.83),
                 Vector2(0.95, 0.85), Color("#ffe6c3"), 0.10)
         "BUILD_TERMINAL":
-            _work_lamp("ExistingTerminalPanelLampHousing",
-                Vector3(0.0, 2.23, 0.54),
-                Vector3(0.48, 0.14, 0.27), Color("#a9e1ff"))
-            # Static monitor glass: soft backlight, not an extra real lamp.
+            # Aim the fixture at the actual interaction keys, not across
+            # the terminal's holographic display or into empty space.
+            _directed_searchlight("BlueprintConsoleSearchlight",
+                Vector3(-0.76, 2.85, -0.16),
+                Vector3(0.0, 1.18, 0.79),
+                Vector3(0.44, 0.20, 0.33), Color("#acdfff"),
+                1.08, 3.18, 37.0, 0.80, 0.21)
             _queue_soft_halo(Vector3(0.0, 1.78, 0.81),
                 Vector2(1.12, 1.04), Color("#9bdfff"), 0.20)
+        "SMELTER":
+            # Furnace fire and its heat light are NOT searchlights.
+            # A separate, mounted maintenance projector highlights the
+            # front slag intake without replacing the flame reflection.
+            _directed_searchlight("FurnaceServiceSearchlight",
+                Vector3(-0.86, 2.73, 0.92),
+                Vector3(-0.25, 1.24, 1.18),
+                Vector3(0.38, 0.18, 0.31), Color("#ffd5a6"),
+                1.15, 3.25, 38.0, 0.82, 0.17)
 
 
 func _smoke_quad_material() -> StandardMaterial3D:
