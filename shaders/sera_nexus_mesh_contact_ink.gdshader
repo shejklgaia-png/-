@@ -1,6 +1,6 @@
 shader_type canvas_item;
-// NEXUS: shared depth-resolved ID ink. SERA silhouette is 4px total:
-// 1px inside the visible mesh + 3px outside, enclosing bright mesh edges.
+// NEXUS: shared depth-resolved ID ink. SERA silhouette is 3px total:
+// 1px inside the visible mesh + 2px outside; contacts remain 3px.
 // Visible mesh-to-mesh contact seams are 3px.
 // No obscured contours or camera-facing geometric convex creases are drawn.
 // Outside pixels are sampled only within the projected SERA screen bounds.
@@ -10,7 +10,7 @@ uniform sampler2D mesh_id_texture : filter_nearest, repeat_disable;
 uniform vec2 mesh_id_texel = vec2(0.0026041667, 0.0026041667);
 uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
 uniform float stroke_px : hint_range(1.0, 3.0) = 2.0; // NEXUS architecture
-uniform float sera_stroke_px : hint_range(1.0, 4.0) = 4.0;
+uniform float sera_stroke_px : hint_range(1.0, 4.0) = 3.0;
 uniform float sera_seam_px : hint_range(0.5, 3.0) = 3.0;
 // xmin, ymin, xmax, ymax in viewport UV; zero-sized when SERA absent.
 uniform vec4 sera_screen_bounds = vec4(0.0);
@@ -110,7 +110,7 @@ void fragment() {
         coverage = max(solid_coverage(outer_distance, inner_width),
             solid_coverage(seam_distance, sera_seam_px));
     } else {
-        // Three exterior pixels belong to the projected SERA boundary only.
+        // Two exterior pixels belong to the projected SERA boundary only.
         // Skip extra sampling outside the projected SERA screen bounds.
         bool near_sera = UV.x >= sera_screen_bounds.x &&
             UV.y >= sera_screen_bounds.y &&

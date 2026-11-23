@@ -27,6 +27,7 @@ const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
 const DisplayProfile = preload("res://scripts/sera_display_profile.gd")
 const NexusSelectionOutline = preload("res://scripts/nexus_selection_outline.gd")
 const CUSTOMIZE_BACKDROP_SHADER = preload("res://shaders/nexus_customize_radial_glow.gdshader")
+const NEXUS_PREVIEW_BACKDROP_COLOR: Color = Color("#afc4d1")
 const NEXUS_EDGE_SHADER = preload("res://shaders/nexus_polygon_edges.gdshader")
 const NEXUS_EDGE_WIDTH_PIXELS: float = 2.0
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
@@ -80,15 +81,15 @@ var customize_body_rotate_cue: Control
 # NEXUS-only, opt-in diagnostic for the active same-frame GPU contours.
 # Unlike the removed ID-mask probe, this operates on the actual SERA mesh.
 const OUTLINE_DIAGNOSTIC_MODES: Array[String] = [
-    "通常 (深度ハル)", "深度ハル外周", "全エッジ", "開放境界", "接合線", "深度無視",
+    "通常 (可視ID)", "旧深度ハル", "全エッジ", "開放境界", "接合線", "深度無視",
     "対象メッシュ", "マスク表示", "ハル単独", "深度ハル強調",
     "立方体＝", "立方体≠", "全身＝", "面反転",
     "法線＋8px", "法線－8px", "深度なし全エッジ",
     "17一致", "書込停止≠17"
 ]
 const OUTLINE_DIAGNOSTIC_EXPLAINS: Array[String] = [
-    "平滑化ハルをGPU深度テストで描画。ステンシルなし、外周3px。",
-    "青緑: 本番の深度テスト付き反転ハルの外周を強調表示。",
+    "NEXUS建築とセラを同一の可視RGB-ID深度パスで描画。外周は内1px＋外2px。",
+    "青緑: 比較用の旧3D反転ハル。通常の可視ID方式とは別の診断表示。",
     "黄: 生成済みの全エッジ。視点による非表示を解除。",
     "橙: 開放境界のみ。閉じた装甲には通常ありません。",
     "紫: メッシュ同士の交差から生成した接合線のみ。",
@@ -348,7 +349,7 @@ func _environment() -> void:
     var world := WorldEnvironment.new()
     var env := Environment.new()
     env.background_mode = Environment.BG_COLOR
-    env.background_color = Color("#0a0e18")
+    env.background_color = NEXUS_PREVIEW_BACKDROP_COLOR
     env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
     env.ambient_light_color = Color("#8190b2")
     env.ambient_light_energy = 0.85
@@ -544,9 +545,10 @@ func _sera_display() -> void:
     rig.scale = Vector3.ONE * 1.35
     rig.rotation.y = PI
     stand.add_child(rig)
-    # Character contours now share the exact source render frame; the room
-    # still uses its existing viewport-level ID outlines independently.
-    rig.set_meta("sera_skip_common_id_outline", true)
+    # Room and character share the SAME NEXUS RGB-ID depth pass. The rig
+    # receives per-mesh green/blue IDs, while architecture uses red-only IDs.
+    # This makes room contours respect SERA occlusion, with no extra viewport.
+    rig.set_meta("sera_nexus_id_contact_only", true)
     var rig_id_outline: Node = rig.get_node_or_null("ViewEdges")
     if is_instance_valid(rig_id_outline):
         rig_id_outline.call("set_contour_enabled", false)
@@ -581,11 +583,12 @@ func _sera_display() -> void:
     _remember_nexus_arm_rest_pose(rig)
     _fit_nexus_arms_to_lower_body()
     _capture_sera_silhouette(rig)
-    # Reuse the existing position-welded smooth hull baker. Unlike the
-    # retired stencil masks, the production hull passes the GPU depth test.
-    # No separate camera, mask texture, SubViewport or per-frame CPU edges.
+    # The production contour uses the existing scene ID compositor. Keep the
+    # previous depth hull as an explicitly disabled comparison diagnostic:
+    # creating it must not generate opaque black geometry in normal mode.
     var depth_hull: Node3D = DepthHullOutline.new()
     depth_hull.call("configure", rig)
+    depth_hull.call("set_diagnostic_mode", 2)
     rig.add_child(depth_hull)
     # Retain the previous edge/stencil implementations for diagnostics only.
     var live_edges: Node3D = LiveMeshEdges.new()
@@ -635,9 +638,8 @@ func _apply_nexus_pose(rig: Node3D) -> bool:
 
 
 func _capture_sera_silhouette(rig: Node3D) -> void:
-    # Capture only the meshes currently visible after A/B/C part selection.
-    # Keep each mesh separate: a bone-level AABB connects unrelated armor
-    # pieces and cannot trace B's round head or future custom equipment.
+    # Capture only authored opaque geometry; outline/debug/VFX copies must
+    # never affect preview fit, selection shapes, or drag-time CPU work.
     var visible_parts: Array = []
     _collect_sera_geometry(rig, visible_parts)
     target_parts["CUSTOMIZE"] = visible_parts
@@ -674,6 +676,10 @@ func _mesh_outline_local_vertices(mesh: Mesh) -> PackedVector3Array:
     return local_vertices
 
 func _collect_sera_geometry(node: Node, visible_parts: Array) -> void:
+    if bool(node.get_meta("sera_generated_live_edge", false)) or (
+            bool(node.get_meta("FX_NO_OUTLINE", false))) or (
+            bool(node.get_meta("sera_no_view_edges", false))):
+        return
     if node is MeshInstance3D:
         var piece: MeshInstance3D = node as MeshInstance3D
         # Ignore hidden variants and the separate sword slash effect.
@@ -1728,7 +1734,7 @@ func _create_single_part_preview() -> void:
     customize_part_preview_fullscreen_layer.mouse_filter = Control.MOUSE_FILTER_STOP
     customize_part_preview_fullscreen_layer.z_index = 90
     var fullscreen_style := StyleBoxFlat.new()
-    fullscreen_style.bg_color = Color("#263f4d")
+    fullscreen_style.bg_color = NEXUS_PREVIEW_BACKDROP_COLOR
     customize_part_preview_fullscreen_layer.add_theme_stylebox_override(
         "panel", fullscreen_style)
     customize_part_preview_fullscreen_layer.visible = false
@@ -3088,7 +3094,7 @@ func _set_gpu_outline_debug_mode(mode: int) -> void:
         var depth_hull: Node = sera_display_rig.get_node_or_null(
             "SeraDepthHullOutline")
         if depth_hull != null:
-            depth_hull.call("set_diagnostic_mode", outline_debug_mode)
+            depth_hull.call("set_diagnostic_mode", 2 if outline_debug_mode == 0 else outline_debug_mode)
     for i in range(outline_debug_mode_buttons.size()):
         var button: Panel = outline_debug_mode_buttons[i]
         button.add_theme_stylebox_override(
@@ -3153,55 +3159,42 @@ func _refresh_outline_debug(delta: float) -> void:
         return
     outline_debug_elapsed = 0.45
     var live: Node = _gpu_outline_diagnostics()
-    if live == null:
-        outline_debug_stats.text = (
-            "GPU輪郭制御: 未生成\n"
-            + "NEXUS全身SERAの表示状態を確認してください.")
-        return
-    var data: Dictionary = live.call("get_diagnostic_snapshot")
-    var count: int = int(data.get("active_sources", 0))
-    var draws: int = int(data.get("edge_draws", 0))
-    var missing: int = int(data.get("missing_draws", 0))
-    var stencil_data: Dictionary = {}
-    var depth_data: Dictionary = {}
+    var old_data: Dictionary = (
+        live.call("get_diagnostic_snapshot") if live != null else {})
+    var compositor: Node = get_viewport().get_node_or_null(
+        "SeraIDOutlineLayer/SeraIDOutlineControl")
+    var id_data: Dictionary = (
+        compositor.call("get_outline_metrics") if compositor != null else {})
+    var id_size: Vector2i = id_data.get("id_target_size", Vector2i.ZERO)
+    var hull_data: Dictionary = {}
     if is_instance_valid(sera_display_rig):
-        var stencil: Node = sera_display_rig.get_node_or_null("SeraStencilHull")
-        if stencil != null:
-            stencil_data = stencil.call("get_stencil_snapshot")
         var depth_hull: Node = sera_display_rig.get_node_or_null(
             "SeraDepthHullOutline")
         if depth_hull != null:
-            depth_data = depth_hull.call("get_outline_snapshot")
+            hull_data = depth_hull.call("get_outline_snapshot")
+    # Diagnostic values show the actual production renderer first.
+    # The old hull/ribbons are opt-in comparisons, not missing production ink.
     outline_debug_stats.text = (
-        "深度ハル: %d / 候補: %d  非対応: %d\n"
-        + "描画ハル: %d  ステンシル: %d  旧ハル: %d\n"
-        + "旧エッジ(診断): %d / %d  欠落: %d\n"
-        + "候補エッジ: %d  交差線: %d\n"
-        + "カメラ: %s  枠線設定: %s\n"
-        + "画素判定: %s  接合線キャッシュ: %s\n"
-        + "立方体: 値%d / カメラ%s\n"
-        + "法線比較: %s"
+        "本番 可視ID: %s / 材質: %s\n"
+        + "ID複製: %d  解像度: %d×%d\n"
+        + "更新要求: %d  ID衝突: %s\n"
+        + "登録ルート: %d / 設定: %s\n"
+        + "旧ハル(診断): %d / 候補: %d\n"
+        + "旧エッジ(診断): %d / 欠落: %d\n"
+        + "モード: %d"
     ) % [
-        int(depth_data.get("parts", 0)),
-        int(depth_data.get("candidates", 0)),
-        int(depth_data.get("unsupported", 0)),
-        int(depth_data.get("hulls", 0)),
-        0,
-        int(stencil_data.get("hulls", 0)),
-        count, draws, missing,
-        int(data.get("edge_segments", 0)),
-        int(data.get("contact_segments", 0)),
-        "OK" if bool(data.get("camera_present", false)) else "なし",
-        "ON" if bool(data.get("enabled", false)) else "OFF",
-        "GPU深度ハル" if bool(depth_data.get("active", false)) else (
-            "旧方式診断" if outline_debug_mode != 0
-            else "枠線OFF"),
-        "済" if bool(data.get("contacts_cached", false)) else "なし",
-        int(stencil_data.get("probe_ref", 0)),
-        "OK" if bool(stencil_data.get("probe_camera", false)) else "未確認",
-        "+8px" if int(stencil_data.get("signed_offset_px", 0)) == 8 else (
-            "-8px" if int(stencil_data.get("signed_offset_px", 0)) == -8
-            else "OFF")
+        "ON" if bool(id_data.get("overlay_visible", false)) else "OFF",
+        "OK" if bool(id_data.get("ink_shader_bound", false)) else "未接続",
+        int(id_data.get("id_copies", 0)), id_size.x, id_size.y,
+        int(id_data.get("redraw_requests", 0)),
+        "注意" if bool(id_data.get("palette_collision_possible", false)) else "なし",
+        int(id_data.get("roots", 0)),
+        "ON" if GraphicsSettings.get_enabled("character_outline") else "OFF",
+        int(hull_data.get("hulls", 0)),
+        int(hull_data.get("candidates", 0)),
+        int(old_data.get("edge_draws", 0)),
+        int(old_data.get("missing_draws", 0)),
+        outline_debug_mode
     ]
 
 func _layout_hud() -> void:
@@ -3276,10 +3269,10 @@ func _create_customization_glow() -> void:
     quad.size = Vector2.ONE
     var material := ShaderMaterial.new()
     material.shader = CUSTOMIZE_BACKDROP_SHADER
-    material.set_shader_parameter("base_tint", Color("#294755"))
-    material.set_shader_parameter("grid_tint", Color("#193241"))
-    material.set_shader_parameter("grid_strength", 0.77)
-    material.set_shader_parameter("base_opacity", 0.96)
+    material.set_shader_parameter("base_tint", NEXUS_PREVIEW_BACKDROP_COLOR)
+    material.set_shader_parameter("grid_tint", Color("#7894a3"))
+    material.set_shader_parameter("grid_strength", 0.32)
+    material.set_shader_parameter("base_opacity", 1.0)
     var backdrop := MeshInstance3D.new()
     backdrop.name = "CustomizePortraitGridBackdrop"
     backdrop.mesh = quad
@@ -3745,8 +3738,9 @@ func _rotate_customization_preview(delta: Vector2) -> void:
         deg_to_rad(-55.0), deg_to_rad(55.0))
     # Rotation only: no translation, scale or center correction per gesture.
     _apply_customization_preview_transform()
-    _capture_sera_silhouette(sera_display_rig)
-    _update_projected_silhouettes()
+    # CUSTOMIZE's 2D selection silhouette is deliberately hidden here.
+    # The shared GPU-ID pass tracks source meshes without a per-drag CPU
+    # traversal of every visible Blockbench vertex.
 
 func _update_projected_silhouettes() -> void:
     if cam == null or outline == null:

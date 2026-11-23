@@ -285,8 +285,9 @@ func set_nexus_sera_contact_mode(enabled: bool) -> void:
         material.set_shader_parameter("ink_color", Color("#17212f"))
         material.set_shader_parameter("stroke_px", _ink_stroke)
         if enabled:
-            # NEXUS SERA only. Retain the room/building 2px ID ink.
-            material.set_shader_parameter("sera_stroke_px", 4.0)
+            # NEXUS SERA: 1px inner + 2px outer = 3px visible contour;
+            # independent 3px seams. Room/building ink retains its own 2px.
+            material.set_shader_parameter("sera_stroke_px", 3.0)
             material.set_shader_parameter("sera_seam_px", 3.0)
             material.set_shader_parameter("sera_screen_bounds", Vector4.ZERO)
     # NEXUS dedicated RGB IDs must use the proven canvas compositor.
@@ -716,15 +717,20 @@ func _rescan() -> bool:
                 var part: Node3D = node as Node3D
                 var skip_ink: bool = bool(
                     part.get_meta("sera_outline_occluder_only", false))
-                var eligible: bool = (_eligible(part) and not skip_ink
-                    and _graphics_outline_allowed(part))
-                var occluding: bool = (not eligible and
-                    _background_occluder(part))
+                var valid_geometry: bool = _eligible(part) and not skip_ink
+                var contact_geometry: bool = (_nexus_sera_contact_mode and
+                    _is_nexus_contact_mesh(part))
+                var eligible: bool = (valid_geometry and
+                    _graphics_outline_allowed(part))
+                # Even with character ink OFF, its solid meshes still occlude
+                # room IDs. Otherwise NEXUS edges draw through the character.
+                var occluding: bool = (not eligible and (
+                    _background_occluder(part) or (
+                    valid_geometry and contact_geometry)))
                 if eligible or occluding:
                     desired[node.get_instance_id()] = {
                         "node": part, "occluder": occluding,
-                        "contact": eligible and _nexus_sera_contact_mode and (
-                            _is_nexus_contact_mesh(part))
+                        "contact": eligible and contact_geometry
                     }
             for child in node.get_children():
                 if child is Node3D and child.name != "ViewEdges" and (

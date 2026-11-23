@@ -45,7 +45,7 @@ static func nexus_preview_texture(side: int, mode: String = DEFAULT_MODE) -> Tex
     var key: String = "%d:%s:nexus_preview" % [side, mode]
     if not _backdrops.has(key):
         _backdrops[key] = ImageTexture.create_from_image(make_image(
-            side, mode, Color("#bfd0db"), Color("#91aabd")))
+            side, mode, Color("#afc4d1"), Color("#7894a3")))
     return _backdrops[key] as Texture2D
 
 
