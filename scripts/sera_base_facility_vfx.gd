@@ -821,20 +821,25 @@ func _advance_beacon() -> void:
 
 
 func _add_practical_lighting(key: String) -> void:
+    # Every mounted work projector is aimed at one explicit machine task.
+    # The housing, lens, SpotLight3D -Z axis, visible shaft and impact patch
+    # all use the SAME pair of local coordinates.
     match key:
         "NEXUS":
             _antenna_beacon()
-            # A slim luminaire under the BLAST shutter, not a broad bright
-            # panel across the whole building's side.
+            # The original shutter gap remains a narrow architectural emitter.
+            # A proper high-mounted projector now illuminates the apron,
+            # rather than a fake spotlight emerging from floor level.
             _slot_lamp("ShutterLowerGapEmitter",
                 Vector3(0.0, 0.34, 2.97),
                 Vector3(1.68, 0.050, 0.06), Color("#bbecff"))
-            _spot("ShutterGapLight", Vector3(0.0, 0.53, 2.99),
-                Vector3(0.0, 0.31, 3.58), Color("#bceaff"),
-                1.15, 3.1, 59.0)
-            # Replaces the previous broad oval with a forward-projecting
-            # strip: near edge z=2.99 at shutter, far edge z=8.79.
-            # It follows the facility yaw/scale through the VFX parent.
+            _directed_searchlight("GateApronSearchlight",
+                Vector3(0.0, 3.48, 2.93),
+                Vector3(0.0, 0.37, 4.76),
+                Vector3(0.68, 0.28, 0.43), Color("#c5edff"),
+                1.80, 5.25, 37.0, 1.50, 0.29)
+            # Keep the independently animated-looking spill geometry at
+            # the shutter; it no longer stands in for the aimed projector.
             _make_surface("ShutterLowerGapSpill",
                 Vector3(0.0, 0.34, 5.89), Vector2(1.42, 5.80),
                 Vector3(-PI * 0.5, 0.0, 0.0),
@@ -842,104 +847,100 @@ func _add_practical_lighting(key: String) -> void:
             _queue_soft_halo(Vector3(0.0, 0.39, 3.065),
                 Vector2(2.28, 0.63), Color("#bceaff"), 0.24)
         "RECYCLER":
+            # Two jaws, two actual aimed lamps. The old central spotlight
+            # used a different origin than both visible lamp housings.
             for side in [-1.0, 1.0]:
-                _work_lamp("ProtectedCrusherWorklamp",
-                    # Real jaw roof ~y=2.315; front ~z=1.27.
-                    Vector3(side * 0.90, 2.47, 1.34),
-                    Vector3(0.32, 0.14, 0.32), Color("#ffcc9a"))
-            _spot("CrusherBiteSpot",
-                Vector3(0.0, 2.38, 1.38),
-                Vector3(0.0, 1.41, 0.32),
-                Color("#ffd5ab"), 2.2, 3.2, 54.0)
+                _directed_searchlight("CrusherJawSearchlight",
+                    Vector3(side * 0.90, 2.51, 1.33),
+                    Vector3(side * 0.30, 1.38, 0.52),
+                    Vector3(0.38, 0.19, 0.34), Color("#ffd8af"),
+                    1.34, 3.18, 38.0, 0.88, 0.23)
             _round_floor_pool("CrusherMouthWarmAccent",
                 Vector3(0.0, 0.35, 1.12), Vector2(1.75, 1.05),
-                Color("#ffca8c"), 0.46)
+                Color("#ffca8c"), 0.33)
         "GENERATOR":
-            # The luminous backing sits BEHIND the real rotating fan.
-            # Opaque blades still depth-occlude it; it only shines through
-            # the spaces between fan spokes.
-            # Core halo is physically behind the shadow louvers and moving
-            # rotor blades. Opaque material passes depth-occlude its edges.
+            # Exposed turbine has one elevated service lamp aimed directly
+            # at its rotor; blue cabinet gaps are independent emissive slots.
+            _directed_searchlight("RotorServiceSearchlight",
+                Vector3(-1.10, 3.19, 0.78),
+                Vector3(-0.27, 1.43, 1.19),
+                Vector3(0.42, 0.20, 0.34), Color("#a9e7ff"),
+                1.65, 3.70, 37.0, 0.91, 0.22)
             _make_surface("RotorRearBlueGlow",
                 Vector3(-0.27, 1.43, 1.085), Vector2(1.56, 0.74),
                 Vector3.ZERO, POOL_SHADER, Color(0.60, 0.91, 1.0, 0.96))
             for row in range(4):
                 _generator_vent_slit("PowerCabinetWallSlit",
-                    # Cabinet opaque surface ends near z=0.455;
-                    # a light source at 0.505 is behind the louvers at +0.04.
                     Vector3(1.22, 1.70 + row * 0.125, 0.505),
                     Vector3(0.42, 0.060, 0.026), Color("#d0f7ff"))
-            # A small, depth-tested spill is visible through the real vent
-            # slots, while the steel lips remain opaque in front.
             _make_surface("CabinetVentInnerBloom",
                 Vector3(1.22, 1.89, 0.511), Vector2(0.54, 0.66),
                 Vector3.ZERO, POOL_SHADER, Color(0.53, 0.88, 1.0, 0.41))
-            _work_lamp("RotorGuardWorklamp", Vector3(-0.61, 1.90, 1.06),
-                Vector3(0.30, 0.13, 0.22), Color("#9cdeff"))
-            _spot("RotorVentLight", Vector3(-0.54, 1.84, 1.10),
-                Vector3(-0.27, 1.42, 1.18),
-                Color("#b2edff"), 2.40, 2.8, 54.0)
-            # Guaranteed thin visible glow on every actual open channel,
-            # independent of whether the recessed emissive boxes survive
-            # the low-resolution BASE overview.
             _generator_visible_gap_leaks()
-            # One broad soft edge per main luminous cavity; their precise
-            # ten hard light gaps remain separately readable in front.
             _queue_soft_halo(Vector3(-0.27, 1.45, 1.185),
                 Vector2(1.93, 1.35), Color("#8fdcff"), 0.09)
             _queue_soft_halo(Vector3(1.22, 1.89, 0.618),
                 Vector2(0.74, 0.87), Color("#b2edff"), 0.08)
         "STORAGE":
-            # Two independent protected industrial fixtures make circular
-            # warm landing pools in front of the loading opening.
+            # The actual landing positions are the two loading bays,
+            # not a generic forward-facing luminous facade.
             for side in [-1.0, 1.0]:
-                _work_lamp("WarehouseLoadingBayLamp",
-                    # Rack post height 2.65; position lamps above top boxes.
-                    Vector3(side * 0.72, 2.82, 1.31),
-                    Vector3(0.45, 0.15, 0.32), Color("#ffdda6"))
-                _spot("WarehouseDoorSpot",
-                    Vector3(side * 0.72, 2.75, 1.34),
+                _directed_searchlight("LoadingBaySearchlight",
+                    Vector3(side * 0.72, 2.83, 1.31),
                     Vector3(side * 0.70, 0.45, 1.78),
-                    Color("#ffdda6"), 1.75, 3.9, 44.0)
+                    Vector3(0.46, 0.19, 0.36), Color("#ffdda6"),
+                    1.65, 3.95, 35.0, 1.02, 0.26)
                 _round_floor_pool("WarehouseRoundFloorGlow",
                     Vector3(side * 0.70, 0.33, 1.74),
-                    Vector2(1.62, 1.62), Color("#ffdfac"), 0.52)
+                    Vector2(1.35, 1.35), Color("#ffdfac"), 0.32)
         "SCRAP_COLLECTOR":
-            # Scrap recognition pad and loaded collection bin have SEPARATE
-            # spotlights, making the machine's two purposes readable.
-            _work_lamp("CollectorPickupSpotHousing",
+            # Separate tracking/recognition and collected-bin functions.
+            # Both lamps visibly end at the same point the spot illuminates.
+            _directed_searchlight("ScrapPickupSearchlight",
                 Vector3(-0.70, 3.17, 0.92),
-                Vector3(0.36, 0.17, 0.31), Color("#c1e9ff"))
-            _spot("CollectorPickupSpot",
-                Vector3(-0.70, 3.10, 0.95),
                 Vector3(0.23, 1.05, 0.23),
-                Color("#a6dfff"), 1.9, 3.4, 40.0)
-            _work_lamp("CollectorBinSpotHousing",
+                Vector3(0.41, 0.21, 0.36), Color("#b9e8ff"),
+                1.90, 3.65, 34.0, 1.05, 0.28)
+            _directed_searchlight("CollectionBinSearchlight",
                 Vector3(0.90, 2.89, 1.41),
-                Vector3(0.33, 0.16, 0.29), Color("#d2eafa"))
-            _spot("CollectorBinSpot", Vector3(0.90, 2.82, 1.44),
                 Vector3(0.35, 0.77, 1.10),
-                Color("#c2ebff"), 1.65, 3.2, 40.0)
+                Vector3(0.39, 0.19, 0.34), Color("#d0efff"),
+                1.65, 3.40, 34.0, 0.89, 0.27)
             _round_floor_pool("CollectorPickupPatch",
                 Vector3(0.20, 0.36, 1.23), Vector2(1.32, 1.00),
-                Color("#9bdfff"), 0.44)
+                Color("#9bdfff"), 0.28)
             _round_floor_pool("CollectorBinPatch",
                 Vector3(0.46, 0.35, 1.65), Vector2(1.08, 0.92),
-                Color("#c2ebff"), 0.44)
+                Color("#c2ebff"), 0.28)
         "LABO":
-            # Keep its existing single task light, add its physical housing.
-            _work_lamp("ExistingLabTaskLampHousing",
-                Vector3(0.0, 2.28, 1.31),
-                Vector3(0.52, 0.15, 0.28), Color("#ffe0af"))
+            # Aim the gantry lamp down onto the fabrication bed. The warm
+            # task light is distinct from the cool cyan indicator strips.
+            _directed_searchlight("FabricationBedSearchlight",
+                Vector3(0.0, 3.06, 1.18),
+                Vector3(0.10, 1.13, 1.35),
+                Vector3(0.56, 0.23, 0.34), Color("#ffe3b8"),
+                1.48, 3.36, 37.0, 0.84, 0.22)
             _queue_soft_halo(Vector3(0.0, 1.56, 1.83),
                 Vector2(0.95, 0.85), Color("#ffe6c3"), 0.10)
         "BUILD_TERMINAL":
-            _work_lamp("ExistingTerminalPanelLampHousing",
-                Vector3(0.0, 2.23, 0.54),
-                Vector3(0.48, 0.14, 0.27), Color("#a9e1ff"))
-            # Static monitor glass: soft backlight, not an extra real lamp.
+            # Aim the fixture at the actual interaction keys, not across
+            # the terminal's holographic display or into empty space.
+            _directed_searchlight("BlueprintConsoleSearchlight",
+                Vector3(-0.76, 2.94, 0.44),
+                Vector3(0.0, 1.18, 0.79),
+                Vector3(0.44, 0.20, 0.33), Color("#acdfff"),
+                1.08, 3.18, 37.0, 0.80, 0.21)
             _queue_soft_halo(Vector3(0.0, 1.78, 0.81),
                 Vector2(1.12, 1.04), Color("#9bdfff"), 0.20)
+        "SMELTER":
+            # Furnace fire and its heat light are NOT searchlights.
+            # A separate, mounted maintenance projector highlights the
+            # front slag intake without replacing the flame reflection.
+            _directed_searchlight("FurnaceServiceSearchlight",
+                Vector3(-1.02, 2.83, 1.31),
+                Vector3(-0.25, 1.24, 1.18),
+                Vector3(0.38, 0.18, 0.31), Color("#ffd5a6"),
+                1.15, 3.25, 38.0, 0.82, 0.17)
 
 
 func _smoke_quad_material() -> StandardMaterial3D:
