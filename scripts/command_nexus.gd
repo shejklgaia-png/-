@@ -218,7 +218,7 @@ var system_confirm_blink_bright: bool = true
 # afterimage nodes whose lifetime is tied to _exit_tree. Set its world transform
 # from camera space instead; no duplicate model, SubViewport or draw batch.
 var nexus_room_visuals: Array[Node3D] = []
-var nexus_room_motion: Node3D
+var nexus_room_motion
 var sera_display_stand: Node3D
 var sera_display_rig: Node3D
 var sera_original_transform: Transform3D
