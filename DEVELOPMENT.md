@@ -1,3 +1,10 @@
+## 2026-11-23 — Offline equipment PNG contour reconstruction
+
+- Updated `tools/icon_studio/sera_all_native_capture.gd` to capture 19 authored SeraRig equipment models in three display profiles at 4× framebuffer resolution and perform final-pixel outlines after fitting (no post-ink Lanczos resize).
+- Added `tools/icon_studio/sera_pixel_outline_reconstruction.gd`: depth-resolved RGB ID majority reduction, discrete alpha mask, integer-pixel exterior/interior/seam strokes, camera-visible convex ink from native render difference.
+- Preserved approved H02 camera, authored model materials and poses, 512/82/96 output profile paths and runtime 2D caches. Capture metadata describes the new offline process.
+- Source change only. The native 57-image capture and image-manifest hashes require a real graphics-enabled Godot production render; this environment cannot perform that render. No CI or tests were read, changed or run.
+
 ## 2026-11-23 — NEXUSカスタマイズ全身・単体の消えた枠線をCanvas可視ID合成へ修正
 
 - ユーザー画像ではNEXUS全身SERAと頭部単体の外周・接触輪郭が表示されていない。どちらも深度付きID描画は構築していたが、最終合成が透明3Dスクリーンクアッドだったため、GL Compatibility環境で最前面へ出ない恐れがある。
