@@ -54,6 +54,9 @@ var _contact_ids: Dictionary = {}
 var _free_contact_ids: Array[int] = []
 var _next_contact_id: int = 1
 var _shared_scene_mode: bool = false
+# Combat needs the interpolated pose every render frame, not the last physics tick.
+# Keep BASE, NEXUS and part previews on their existing on-demand ID updates.
+var _combat_scene_mode: bool = false
 var _screen_quad: MeshInstance3D
 var _screen_material: ShaderMaterial
 var _screen_camera: Camera3D
@@ -84,6 +87,41 @@ func _graphics_outline_allowed(part: Node3D) -> bool:
     # Training/boss actors and ordinary full-body models use this default.
     return _character_outline_enabled
 
+
+
+# The combat flag lives on main.gd and is inherited by actor descendants.
+# Checking live roots also prevents a window-owned compositor from leaking
+# combat's continuous update mode into the next scene.
+static func _is_combat_descendant(node: Node) -> bool:
+    var current: Node = node
+    while current != null:
+        if bool(current.get_meta("sera_combat_convex_ink", false)):
+            return true
+        current = current.get_parent()
+    return false
+
+
+func _refresh_combat_viewport_mode() -> void:
+    var combat: bool = false
+    for entry in _root_refs.values():
+        var ref: WeakRef = entry as WeakRef
+        if ref == null:
+            continue
+        var root: Node3D = ref.get_ref() as Node3D
+        if is_instance_valid(root) and _is_combat_descendant(root):
+            combat = true
+            break
+    _combat_scene_mode = combat
+    if not is_instance_valid(id_viewport):
+        return
+    if _root_refs.is_empty():
+        id_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+    elif combat:
+        # UPDATE_ONCE requests the NEXT frame, causing visible contours to
+        # trail an actor whose physics-interpolated pose changes this frame.
+        id_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+    else:
+        id_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
 
 
 func get_outline_metrics() -> Dictionary:
@@ -149,6 +187,8 @@ func _ready() -> void:
     id_viewport.add_child(world)
     id_camera = Camera3D.new()
     id_camera.name = "SeraIDCamera"
+    # Copy the render camera exactly; do not interpolate the ID camera again.
+    id_camera.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
     id_viewport.add_child(id_camera)
     id_camera.current = true
     # Fail closed when the shared canvas shader cannot draw on a device.
@@ -284,6 +324,7 @@ func register_root(root: Node3D, owner: Node) -> void:
     if not is_instance_valid(root) or not is_instance_valid(owner):
         return
     _root_refs[owner.get_instance_id()] = weakref(root)
+    _refresh_combat_viewport_mode()
     _refresh_shared_ink_color()
     _scan_elapsed = 0.0
     visible = true
@@ -293,6 +334,7 @@ func register_root(root: Node3D, owner: Node) -> void:
 func unregister_root(owner: Node) -> void:
     if is_instance_valid(owner):
         _root_refs.erase(owner.get_instance_id())
+    _refresh_combat_viewport_mode()
     _refresh_shared_ink_color()
     if _root_refs.is_empty():
         _clear_copies()
@@ -410,7 +452,10 @@ func _process(delta: float) -> void:
             _update_shared_screen_bounds(source_camera)
         elif _nexus_sera_contact_mode:
             _update_nexus_sera_screen_bounds(source_camera)
-        id_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+        # Combat's continuously rendered ID target is already active. Other
+        # scenes retain dirty-only redraws to avoid extra GPU work.
+        if not _combat_scene_mode:
+            id_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
         _redraw_requests += 1
 
 
@@ -938,6 +983,9 @@ func _rescan() -> bool:
         clone.material_override = mat
         clone.name = "VisibleID_%d" % identification
         clone.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        # This clone receives the already-interpolated source render pose.
+        # A second physics interpolation in its separate World3D would lag.
+        clone.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
         clone.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
         clone.layers = 1
         id_viewport.add_child(clone)
@@ -965,8 +1013,14 @@ func _sync_copies() -> bool:
         if clone.visible != show_id:
             clone.visible = show_id
             dirty = true
-        if clone.global_transform != source.global_transform:
-            clone.global_transform = source.global_transform
+        # Combat actors can inherit interpolation from a physics-driven parent
+        # even when their animation rig is updated per render frame. Match the
+        # exact transform the opaque mesh will draw at this frame.
+        var render_transform: Transform3D = (
+            source.get_global_transform_interpolated() if _combat_scene_mode
+            else source.global_transform)
+        if clone.global_transform != render_transform:
+            clone.global_transform = render_transform
             dirty = true
         if _shared_scene_mode and source is MultiMeshInstance3D:
             # MultiMesh is shared with the opaque source; in-place animated
