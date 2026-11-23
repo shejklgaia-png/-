@@ -74,7 +74,10 @@ class Batch:
     func _put(feature: String, kind: String, tint: String, basis: Basis,
             at: Vector3) -> void:
         var resolved_kind: String = kind
-        if hard_edges and kind in ["bevel", "drum", "gear", "hopper", "canvas", "tube"]:
+        # Structural bevels and thin rods stay rectilinear, while true
+        # machine shapes (gears, hollow chutes, canvas, stacks and hoods)
+        # keep their generated triangle topology instead of cube fallbacks.
+        if hard_edges and kind in ["bevel", "tube"]:
             resolved_kind = "cube"
         var key: String = resolved_kind + "|" + tint
         if not entries.has(key):
@@ -481,10 +484,10 @@ static func build_nexus(parent: Node3D) -> void:
         var rx: float = -1.85 + float(panel) * 1.23
         g.box("NexusRoofServiceRack", Vector3(rx, 4.79, 0.65),
             Vector3(1.08, 0.22, 1.35), "armor_light")
-        for ridge in range(4):
-            g.box("NexusRoofServiceVent", Vector3(rx,
-                4.93, 0.19 + ridge * 0.28),
-                Vector3(0.75, 0.035, 0.09), "dark")
+        # One real open-louver mesh replaces four coplanar fake vent bars.
+        g.poly_tilt("NexusRoofServiceVent", "louver",
+            Vector3(rx, 4.96, 0.65), Vector3(0.78, 1.09, 0.16),
+            "slate", Vector3(-PI * 0.5, 0, 0))
     for level in range(3):
         g.rod("NexusAntennas", Vector3(2.42, 4.63 + float(level) * 0.48, -1.78),
             Vector3(2.42, 5.08 + float(level) * 0.48, -1.78),

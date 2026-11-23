@@ -264,6 +264,94 @@ static func _louver(st: SurfaceTool) -> void:
             b + Vector3(0,-0.025,0),
             a + Vector3(0,-0.025,0), Vector3(0,-0.8,-0.6))
 
+
+# The following profiles are authored once, then instanced through BASE's
+# existing material MultiMeshes. Their silhouette, cavity and metalwork are
+# actual geometry instead of overlapping decorative boxes.
+static func _cargo_case(st: SurfaceTool) -> void:
+    _beam(st, Vector3(-0.46, -0.49, -0.43),
+        Vector3(0.46, 0.34, 0.43))
+    _beam(st, Vector3(-0.50, 0.32, -0.48),
+        Vector3(0.50, 0.49, 0.48))
+    for side in [-1.0, 1.0]:
+        var x: float = side * 0.42
+        _beam(st, Vector3(x - 0.065, -0.46, 0.41),
+            Vector3(x + 0.065, 0.34, 0.50))
+        _beam(st, Vector3(x - 0.07, -0.46, -0.49),
+            Vector3(x + 0.07, 0.34, -0.41))
+    _beam(st, Vector3(-0.48, -0.47, 0.44),
+        Vector3(0.48, -0.37, 0.51))
+
+
+static func _reinforced_tray(st: SurfaceTool) -> void:
+    # Open upper face: no slab conceals items placed inside the fabrication bed.
+    _beam(st, Vector3(-0.48, -0.50, -0.48),
+        Vector3(0.48, -0.34, 0.48))
+    for side in [-1.0, 1.0]:
+        var x: float = side * 0.445
+        var z: float = side * 0.445
+        _beam(st, Vector3(x - 0.055, -0.34, -0.49),
+            Vector3(x + 0.055, 0.50, 0.49))
+        _beam(st, Vector3(-0.49, -0.34, z - 0.055),
+            Vector3(0.49, 0.50, z + 0.055))
+    for side in [-1.0, 1.0]:
+        var x: float = side * 0.28
+        _beam(st, Vector3(x - 0.033, -0.33, -0.41),
+            Vector3(x + 0.033, -0.25, 0.41))
+
+
+static func _vent_stack(st: SurfaceTool) -> void:
+    # Sixteen-facet hollow steel sleeve with two integrated raised collars.
+    # Open end is visible from the angled BASE camera; the cavity is real.
+    var segments: int = 16
+    for i in range(segments):
+        var a: float = TAU * float(i) / float(segments)
+        var b: float = TAU * float(i + 1) / float(segments)
+        var outward := Vector3(cos((a + b) * 0.5), 0,
+            sin((a + b) * 0.5))
+        var o0 := Vector3(cos(a) * 0.47, -0.5, sin(a) * 0.47)
+        var o1 := Vector3(cos(b) * 0.47, -0.5, sin(b) * 0.47)
+        var o2 := Vector3(o1.x, 0.5, o1.z)
+        var o3 := Vector3(o0.x, 0.5, o0.z)
+        var h0 := Vector3(cos(a) * 0.31, -0.5, sin(a) * 0.31)
+        var h1 := Vector3(cos(b) * 0.31, -0.5, sin(b) * 0.31)
+        var h2 := Vector3(h1.x, 0.5, h1.z)
+        var h3 := Vector3(h0.x, 0.5, h0.z)
+        _quad(st, o0, o1, o2, o3, outward)
+        _quad(st, h1, h0, h3, h2, -outward)
+        _quad(st, h3, o3, o2, h2, Vector3.UP)
+        _quad(st, o0, h0, h1, o1, Vector3.DOWN)
+        for band in [Vector2(-0.45, -0.36), Vector2(0.37, 0.48)]:
+            var a0 := Vector3(cos(a) * 0.54, band.x, sin(a) * 0.54)
+            var a1 := Vector3(cos(b) * 0.54, band.x, sin(b) * 0.54)
+            var b0 := Vector3(a0.x, band.y, a0.z)
+            var b1 := Vector3(a1.x, band.y, a1.z)
+            var inner0 := Vector3(cos(a) * 0.47, band.y, sin(a) * 0.47)
+            var inner1 := Vector3(cos(b) * 0.47, band.y, sin(b) * 0.47)
+            _quad(st, a0, a1, b1, b0, outward)
+            _quad(st, b0, b1, inner1, inner0, Vector3.UP)
+
+
+static func _welded_gusset(st: SurfaceTool) -> void:
+    # Rigid triangular web joining machine booms and roof uprights.
+    var profile: Array[Vector2] = [
+        Vector2(-0.5, -0.5), Vector2(0.5, -0.5), Vector2(-0.5, 0.5)]
+    for i in range(3):
+        var a: Vector2 = profile[i]
+        var b: Vector2 = profile[(i + 1) % 3]
+        var normal := Vector3(b.y - a.y, a.x - b.x, 0)
+        _quad(st, Vector3(a.x, a.y, -0.5),
+            Vector3(b.x, b.y, -0.5),
+            Vector3(b.x, b.y, 0.5),
+            Vector3(a.x, a.y, 0.5), normal)
+    _triangle(st, Vector3(-0.5, -0.5, 0.5),
+        Vector3(0.5, -0.5, 0.5),
+        Vector3(-0.5, 0.5, 0.5), Vector3(0, 0, 1))
+    _triangle(st, Vector3(-0.5, 0.5, -0.5),
+        Vector3(0.5, -0.5, -0.5),
+        Vector3(-0.5, -0.5, -0.5), Vector3(0, 0, -1))
+
+
 static func make(kind: String) -> ArrayMesh:
     if _mesh_cache.has(kind):
         return _mesh_cache[kind] as ArrayMesh
@@ -288,6 +376,14 @@ static func make(kind: String) -> ArrayMesh:
             _roof(st)
         "louver":
             _louver(st)
+        "cargo_case":
+            _cargo_case(st)
+        "tray":
+            _reinforced_tray(st)
+        "vent_stack":
+            _vent_stack(st)
+        "gusset":
+            _welded_gusset(st)
         _:
             push_error("Unsupported SERA BASE polygon type: " + kind)
             return null
