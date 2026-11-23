@@ -163,8 +163,9 @@ func _ready() -> void:
     _create_player()
     _startup_step("SHELL / RIG STANDBY", 86)
     _create_crate()
-    # One material pass across constructed BASE solids: buildings, crate,
-    # clutter and batch geometry. Existing 4px/2px facility ink is untouched.
+    # One material pass across constructed BASE solids; the shared ID
+    # controller assigns facility 4/0/3+convex2, clutter 3/0/1+convex1,
+    # and the moving CRATE its universal character 4/0/2.
     SharedMaterialShading.apply_to_subtree(self)
     # Share one depth-resolved RGB-ID pass across BASE and GRID.
     # The 3D ink is drawn before VFX; FX/particle/ground remain unoutlined.
@@ -569,7 +570,7 @@ func _create_crate() -> void:
     crate.position = Vector3(3.30, 0.06, 2.40)
     crate.rotation.y = -0.5
     add_child(crate)
-    # CRATE is also a moving opaque model and gets the same 3px silhouette.
+    # CRATE is a character: universal visible-ID 4/0/2, no convex ink.
     var ink := SeraViewEdges.new()
     ink.name = "ViewEdges"
     crate.add_child(ink)
