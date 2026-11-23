@@ -405,7 +405,7 @@ func _active_scene_profile() -> int:
 
 func set_scene_profile(profile: int) -> void:
     # Only numeric widths/color vary: same shader, RGB IDs and pose pipeline.
-    var requested: int = clampi(profile, 0, 2)
+    var requested: int = clampi(profile, 0, 3)
     if _requested_scene_profile == requested:
         return
     _requested_scene_profile = requested
