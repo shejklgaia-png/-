@@ -28,7 +28,7 @@ def catalog_entries() -> dict:
     import re
 
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-    order_match = re.search(r"(?m)^const ORDER = (\\[[^\\n]+\\])", CATALOG_PATH.read_text(encoding="utf-8"))
+    order_match = re.search(r"(?m)^const ORDER = (\[[^\n]+\])", CATALOG_PATH.read_text(encoding="utf-8"))
     if order_match is None:
         raise ValueError("Live equipment catalog order not found")
     order = json.loads(order_match.group(1))
@@ -132,7 +132,7 @@ def annotate_all() -> None:
     manifest["outline_pipeline"] = (
         "NEXUS mesh-ID depth contact: 1px interior, 2px exterior, 2px seams")
     MANIFEST_PATH.write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2) + "\\n",
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8")
     print("SERA_NATIVE_EQUIPMENT_METADATA_UPDATED parts=", len(records))
 
