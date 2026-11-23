@@ -72,21 +72,9 @@ int sera_role_of(vec3 id_value) {
     return clamp(int(floor(id_value.g * 8.0 + 0.5)), 1, 7);
 }
 
-bool sera_same_visible_id(vec3 a, vec3 b) {
-    return abs(a.g - b.g) < 0.05 &&
-        abs(a.r - b.r) < 0.0078 && abs(a.b - b.b) < 0.0078;
-}
-
-bool sera_owns_contact(vec3 a, vec3 b) {
-    // The Bittaran single-role rule is unchanged (blue, then red).
-    // For multi-role scenes the green role is the stable first key.
-    if (abs(a.g - b.g) > 0.05) {
-        return a.g > b.g;
-    }
-    if (abs(a.b - b.b) > 0.0078) {
-        return a.b > b.b;
-    }
-    return a.r > b.r + 0.0078;
+int sera_contact_key(vec3 id_value) {
+    ivec3 bytes = ivec3(floor(id_value * 255.0 + 0.5));
+    return bytes.g * 65536 + bytes.b * 256 + bytes.r;
 }
 
 // Nearest-neighbor ID rendering has a finite pixel footprint. A requested
@@ -182,13 +170,16 @@ float sera_visible_id_ink_alpha(vec2 uv) {
     if (role != 0) {
         float inner_px = sera_inner_width(role);
         float seam_px = sera_seam_width(role);
+        bool player_pixel = role == 1 && center.g > 0.14;
+        float contact_px = player_pixel ? max(seam_px, sera_outer_width(role)) : seam_px;
+        int center_key = sera_contact_key(center);
         // The Bittaran pass uses a 1px 4-neighbor disk for its contacts,
         // but wider scene-specific contacts use the SAME disk predicate.
-        int search_radius = sera_search_radius(max(inner_px, seam_px));
+        int search_radius = sera_search_radius(max(inner_px, contact_px));
         for (int dy = -search_radius; dy <= search_radius; dy++) {
             for (int dx = -search_radius; dx <= search_radius; dx++) {
                 if ((dx == 0 && dy == 0) ||
-                        !sera_in_disk(dx, dy, max(inner_px, seam_px))) {
+                        !sera_in_disk(dx, dy, max(inner_px, contact_px))) {
                     continue;
                 }
                 vec3 neighbor = sera_sample_visible_id(uv +
@@ -200,9 +191,9 @@ float sera_visible_id_ink_alpha(vec2 uv) {
                     break;
                 }
                 if (other_role > 0 && other_role != 7 &&
-                        !sera_same_visible_id(center, neighbor) &&
-                        sera_owns_contact(center, neighbor) &&
-                        sera_in_disk(dx, dy, seam_px)) {
+                        center_key > sera_contact_key(neighbor) &&
+                        sera_in_disk(dx, dy, (player_pixel && other_role == 1 &&
+                            neighbor.g <= 0.14) ? contact_px : seam_px)) {
                     draw_ink = true;
                     break;
                 }

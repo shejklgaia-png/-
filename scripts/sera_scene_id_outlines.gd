@@ -1237,6 +1237,14 @@ func _rescan() -> bool:
         var mat := ShaderMaterial.new()
         if _shared_scene_mode:
             var role: int = _outline_role(source)
+            var player_tag := 0.0
+            if role == 1:
+                var ancestor: Node = source
+                while ancestor != null:
+                    if ancestor.has_meta("sera_player_outline"):
+                        player_tag = 1.0 / 32.0
+                        break
+                    ancestor = ancestor.get_parent()
             if is_occluder:
                 # ID role 7 protects luminous solid cores from the 3px
                 # facility outer stroke; other occluders remain zero-ID
@@ -1249,13 +1257,16 @@ func _rescan() -> bool:
                 mat.shader = SHARED_MULTI_CLOSED if closed else SHARED_MULTI_OPEN
                 mat.set_shader_parameter("mesh_id_base", identification)
                 mat.set_shader_parameter("role_code", role)
+                mat.set_shader_parameter("player_tag", player_tag)
                 mat.set_shader_parameter("use_instance_roles", bool(
                     source.get_meta("sera_outline_instanced_roles", false)))
             else:
                 mat.shader = SHARED_ID_CLOSED if closed else SHARED_ID_OPEN
+                # An odd stride permutes all 4096 IDs and separates adjacent codes.
+                var code := (identification * 1733) % 4096
                 mat.set_shader_parameter("encoded_id", Vector3(
-                    float(identification % 64) / 63.0, float(role) / 8.0,
-                    float(int(identification / 64) % 64) / 63.0))
+                    float(code % 64) / 63.0, float(role) / 8.0 + player_tag,
+                    float(int(code / 64)) / 63.0))
         elif is_occluder and _nexus_sera_contact_mode:
             # NEXUS depth-only floor panels must be distinguishable from the
             # empty backdrop, otherwise the exterior SERA dilation draws
