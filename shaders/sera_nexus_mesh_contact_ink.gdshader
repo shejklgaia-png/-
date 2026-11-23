@@ -156,11 +156,8 @@ void fragment() {
                     if (float(ring - 1) >= sera_outer_px) {
                         break;
                     }
-                    for (int dy = -5; dy <= 5; dy++) {
-                        if (abs(dy) > ring) {
-                            continue;
-                        }
-                        for (int dx = -5; dx <= 5; dx++) {
+                    for (int dy = -ring; dy <= ring; dy++) {
+                        for (int dx = -ring; dx <= ring; dx++) {
                             if (max(abs(dx), abs(dy)) != ring) {
                                 continue;
                             }
