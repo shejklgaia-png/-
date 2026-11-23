@@ -28,8 +28,16 @@ static func slew_at(phase: float) -> float:
     return lerpf(0.0, PICKUP_ANGLE, smoothstep(6.70, 7.70, phase))
 
 
+# High clearance is only used while slewing across the fixed sorting
+# table's raised rim. Lowering is permitted solely after yaw has settled.
+const SWEEP_CLEARANCE_LIFT: float = 0.44
+const SORT_PAN_DROP_LIFT: float = 0.12
+
+
 static func lift_at(phase: float) -> float:
-    # Winding/unwinding extends the same upper-attached 0.70m cable.
+    # Keep the rotating gripper and carried metal above the hopper's steel
+    # rim throughout both yaw traversals. Cable is 0.70m at rest; +0.44m
+    # leaves a real 0.26m tether rather than inverting its stretch axis.
     if phase < 2.60:
         return 0.17
     if phase < 3.10:
@@ -37,16 +45,26 @@ static func lift_at(phase: float) -> float:
     if phase < 3.52:
         return -0.17
     if phase < 4.18:
-        return lerpf(-0.17, 0.18, smoothstep(3.52, 4.18, phase))
+        # Complete the lift before the crane starts rotating at 4.18s.
+        return lerpf(-0.17, SWEEP_CLEARANCE_LIFT,
+            smoothstep(3.52, 4.18, phase))
     if phase < 5.62:
-        return 0.18
+        return SWEEP_CLEARANCE_LIFT
     if phase < 6.04:
-        return lerpf(0.18, -0.04, smoothstep(5.62, 6.04, phase))
+        # The arm faces the hopper before the load descends for release.
+        return lerpf(SWEEP_CLEARANCE_LIFT, SORT_PAN_DROP_LIFT,
+            smoothstep(5.62, 6.04, phase))
     if phase < 6.32:
-        return -0.04
+        return SORT_PAN_DROP_LIFT
     if phase < 6.70:
-        return lerpf(-0.04, 0.17, smoothstep(6.32, 6.70, phase))
-    return 0.17
+        # Retract before returning across the raised worktable rim.
+        return lerpf(SORT_PAN_DROP_LIFT, SWEEP_CLEARANCE_LIFT,
+            smoothstep(6.32, 6.70, phase))
+    if phase < 7.70:
+        return SWEEP_CLEARANCE_LIFT
+    # Only lower again after the return rotation has completely stopped.
+    return lerpf(SWEEP_CLEARANCE_LIFT, 0.17,
+        smoothstep(7.70, LOOP_SECONDS, phase))
 
 
 static func grip_at(phase: float) -> float:
