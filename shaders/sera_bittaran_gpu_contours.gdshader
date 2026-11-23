@@ -101,11 +101,43 @@ void vertex() {
     // Adjacent ribbons were separate open-ended rectangles; their external
     // 5px stroke left triangular pinholes at sharp polygon corners. A short
     // square end cap overlaps those ends on the GPU in the SAME camera pass.
-    // UV.y is -1 at A and +1 at B. It does not change the 1px/5px width.
+    // UV.y keeps the signed 3D-cap fallback from PR #875.
+    // CUSTOM2.xyz contains one genuine face-connected neighbor, selected
+    // once when the cached ribbon was built. Only the extension changes:
+    // width, facing decision, depth, six vertices and GPU follow are intact.
     vec2 edge_dir = normalize(line_vec);
     float cap_length = min(corner_cap_px, outer_px);
+    float cap_scale = abs(UV.y);
+    if (CUSTOM2.w > 0.5 && clip.w > 0.0) {
+        vec3 neighbor_direction =
+            (MODELVIEW_MATRIX * vec4(CUSTOM2.xyz, 0.0)).xyz;
+        vec4 neighbor_tip = PROJECTION_MATRIX *
+            vec4(view_position + neighbor_direction * 0.10, 1.0);
+        if (neighbor_tip.w > 0.0) {
+            vec2 neighbor_vec = (neighbor_tip.xy /
+                max(neighbor_tip.w, 0.00001) -
+                clip.xy / max(clip.w, 0.00001)) * VIEWPORT_SIZE;
+            if (dot(neighbor_vec, neighbor_vec) > 0.000001) {
+                vec2 outgoing = UV.y < 0.0 ? edge_dir : -edge_dir;
+                float screen_cosine = clamp(
+                    dot(outgoing, normalize(neighbor_vec)), -1.0, 1.0);
+                if (screen_cosine < 0.0) {
+                    // Projected obtuse joints need less overlap. Keep a
+                    // conservative floor to avoid subpixel corner pinholes.
+                    cap_scale = clamp(sqrt(max(0.0,
+                        (1.0 + screen_cosine) /
+                        max(1.0 - screen_cosine, 0.0001))), 0.35, 1.0);
+                } else {
+                    // Foreshortening made the screen-space corner acute:
+                    // restore the known-good full cap to prevent gaps.
+                    cap_scale = 1.0;
+                }
+            }
+        }
+    }
     clip.xy += edge_dir * vec2(2.0 / VIEWPORT_SIZE.x,
-        2.0 / VIEWPORT_SIZE.y) * (UV.y * cap_length) * clip.w;
+        2.0 / VIEWPORT_SIZE.y) * (sign(UV.y) * cap_scale *
+        cap_length) * clip.w;
     POSITION = clip;
 }
 
