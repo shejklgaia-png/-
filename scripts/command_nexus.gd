@@ -28,6 +28,8 @@ const DisplayProfile = preload("res://scripts/sera_display_profile.gd")
 const NexusSelectionOutline = preload("res://scripts/nexus_selection_outline.gd")
 const CUSTOMIZE_BACKDROP_SHADER = preload("res://shaders/nexus_customize_radial_glow.gdshader")
 const NEXUS_PREVIEW_BACKDROP_COLOR: Color = Color("#afc4d1")
+# Room fallback only; keep the bright equipment-preview backdrop unchanged.
+const NEXUS_ROOM_BACKDROP_COLOR: Color = Color("#17212c")
 const NEXUS_EDGE_SHADER = preload("res://shaders/nexus_polygon_edges.gdshader")
 const NEXUS_EDGE_WIDTH_PIXELS: float = 2.0
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
@@ -272,10 +274,10 @@ var customize_silhouette_vertex_cache: Dictionary = {}
 # reserved for a menu panel. Camera transforms/FOV only: no moving 3D assets.
 # TRAINING/GATE/CUSTOMIZE on the right; SYSTEM/ARCHIVE on the left.
 var focus_views: Dictionary = {
-    "TRAINING": {"eye": Vector3(2.85, 3.25, 7.60),
-        "look": Vector3(2.64, 1.70, 0.72), "fov": 68.0},
-    "SYSTEM": {"eye": Vector3(-2.85, 3.10, 7.80),
-        "look": Vector3(-2.65, 1.15, 2.18), "fov": 68.0},
+    "TRAINING": {"eye": Vector3(2.75, 3.20, 7.60),
+        "look": Vector3(2.27, 1.47, -0.55), "fov": 68.0},
+    "SYSTEM": {"eye": Vector3(-2.70, 3.10, 7.80),
+        "look": Vector3(-2.22, 1.02, 0.75), "fov": 68.0},
     "CUSTOMIZE": {"eye": Vector3(-4.50, 3.80, 5.00),
         "look": Vector3(-1.70, 2.00, -4.75), "fov": 67.0},
     "DATA ARCHIVE": {"eye": Vector3(-3.90, 4.50, 2.50),
@@ -307,8 +309,8 @@ func _ready() -> void:
     _module("deployment_gate", GATE_ORIGIN, _gate_facing_yaw())
     _module("archive_mezzanine", Vector3(-4.00, 0.0, -6.55))
     _module("data_bank", Vector3(-4.00, 2.19, -8.95))
-    _module("system_console", Vector3(-2.65, 0.0, 2.18), deg_to_rad(22.0))
-    _module("training_console", Vector3(2.64, 0.0, 0.72), deg_to_rad(-16.0))
+    _module("system_console", Vector3(-2.22, 0.0, 0.75), deg_to_rad(18.0), 0.85)
+    _module("training_console", Vector3(2.27, 0.0, -0.55), deg_to_rad(-13.0), 0.82)
     _render_batches()
     _deployment_gate_lightspill()
     _pad_center()
@@ -351,7 +353,7 @@ func _environment() -> void:
     var world := WorldEnvironment.new()
     var env := Environment.new()
     env.background_mode = Environment.BG_COLOR
-    env.background_color = NEXUS_PREVIEW_BACKDROP_COLOR
+    env.background_color = NEXUS_ROOM_BACKDROP_COLOR
     env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
     env.ambient_light_color = Color("#8190b2")
     env.ambient_light_energy = 0.85
@@ -743,7 +745,7 @@ func _camera() -> void:
     cam.fov = DisplayProfile.vertical_fov(63.0,
         get_viewport().get_visible_rect().size)
     add_child(cam)
-    cam.look_at(Vector3(0.0, 3.10, -7.10), Vector3.UP)
+    cam.look_at(Vector3(0.0, 1.95, -7.10), Vector3.UP)
     cam.current = true
     overview_pose = cam.transform
     overview_fov = cam.fov
