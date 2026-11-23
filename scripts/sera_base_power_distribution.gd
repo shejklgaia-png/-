@@ -8,9 +8,6 @@ const BaseClutter = preload("res://scripts/sera_base_clutter.gd")
 const PowerBoard = preload("res://scripts/sera_base_power_board.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
 
-const CONSUMERS: Array[String] = [
-    "NEXUS", "LABO", "SCRAP_COLLECTOR", "SMELTER",
-    "RECYCLER", "STORAGE", "BUILD_TERMINAL"]
 const WIRE_SIDES: int = 6
 const WIRE_STEP: float = 0.75
 const FLOOR_WIRE_Y: float = 0.115
@@ -23,11 +20,18 @@ static func _seed_for(key: String) -> int:
 
 
 static func _footprint(key: String) -> Vector2:
-    if key == "NEXUS":
-        return Vector2(3.70, 3.38)
-    if key == "LABO":
-        return Vector2(3.14, 3.18)
-    return Vector2(2.23, 2.23)
+    # Half-sizes of the ACTUAL FRESH meshes after their per-site 1.55x
+    # scale, not the smaller logical HUD/touch footprints.
+    match key:
+        "NEXUS": return Vector2(3.70, 3.38)
+        "LABO": return Vector2(3.14, 3.18)
+        "SCRAP_COLLECTOR": return Vector2(1.83, 1.76)
+        "SMELTER": return Vector2(1.94, 1.95)
+        "RECYCLER": return Vector2(1.96, 1.94)
+        "GENERATOR": return Vector2(2.00, 1.88)
+        "STORAGE": return Vector2(2.04, 1.85)
+        "BUILD_TERMINAL": return Vector2(1.70, 1.67)
+    return Vector2(2.00, 2.00)
 
 
 static func _locate_device(key: String, origin: Vector3,
@@ -130,17 +134,24 @@ static func _facility_socket(items: Dictionary, key: String,
         clampf(device_local.x, -half.x, half.x),
         0.60, clampf(device_local.z, -half.y, half.y))
     # Place the receiving socket on the actual nearest side of the building.
+    var panel_angle: float = 0.0
     if absf(device_local.x / half.x) > absf(device_local.z / half.y):
         near.x = signf(device_local.x) * half.x
+        panel_angle = PI * 0.5 * signf(device_local.x)
     else:
         near.z = signf(device_local.z) * half.y
-    var yaw := Basis(Vector3.UP, BaseArchitecture.facility_yaw_radians(key))
-    var world_at: Vector3 = origin + yaw * near
-    _device_port(items, "socket", world_at, yaw,
+        if device_local.z < 0.0:
+            panel_angle = PI
+    var body_yaw := Basis(Vector3.UP,
+        BaseArchitecture.facility_yaw_radians(key))
+    var panel_basis := Basis(Vector3.UP,
+        BaseArchitecture.facility_yaw_radians(key) + panel_angle)
+    var world_at: Vector3 = origin + body_yaw * near
+    _device_port(items, "socket", world_at, panel_basis,
         Vector3.ZERO, Vector3(0.29, 0.28, 0.18))
-    _device_port(items, "light", world_at, yaw,
+    _device_port(items, "light", world_at, panel_basis,
         Vector3(0.0, 0.085, 0.096), Vector3(0.16, 0.055, 0.023))
-    return world_at + yaw * Vector3(0.0, 0.0, 0.12)
+    return world_at + panel_basis * Vector3(0.0, 0.0, 0.12)
 
 
 static func _material(tint: Color, luminous: bool = false) -> StandardMaterial3D:
