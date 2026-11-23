@@ -11,8 +11,32 @@
       "rig_set": "A",
       "source_model": "models/core/Standard.bbmodel",
       "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
-      "png_sha256": "575cc095f2cba0513ffa18b9a6577e5a29bbaac2b49e58418e4e37a532c08b0e",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
+      "png_sha256": "711ad73e0522131b85db1a200ae7a2d50d752c4e46a7467dcc516571138b0205",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "variants": {
+        "warehouse": {
+          "path": "assets/ui/sera_equipment_icons/warehouse/H01.png",
+          "size": 82,
+          "png_sha256": "593506fbe065fbba1a59340e2cd7a7d99530ebdd181c7a174d8e73c6a1558696",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.25,
+            "convex": 0.75,
+            "seam": 0.75
+          }
+        },
+        "craft": {
+          "path": "assets/ui/sera_equipment_icons/craft/H01.png",
+          "size": 96,
+          "png_sha256": "b6d8b155645a1bbf576ee713f39108f5f3a88a2826c99004f245d4f7b79e451b",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.5,
+            "convex": 1.0,
+            "seam": 1.0
+          }
+        }
+      }
     },
     "H02": {
       "name": "アイリス",
@@ -20,8 +44,32 @@
       "rig_set": "D",
       "source_model": "models/storage/カメラアイ頭部.bbmodel",
       "source_sha256": "8c60f62b2ec3ee814a136884092fcee18ab2e06faab84fdca5598f3fa25609de",
-      "png_sha256": "3cf5f140e3f25685b24feb59930da2cb3e35fbf9b3349fab88b0a1f7d66669bc",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
+      "png_sha256": "75916f573d3f9c1c12ec8ccfeaa29da4e774b0619b079e8bc9831936cf75c054",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "variants": {
+        "warehouse": {
+          "path": "assets/ui/sera_equipment_icons/warehouse/H02.png",
+          "size": 82,
+          "png_sha256": "2a919e43f1afa0c457d15e9b26eaa2835f61089011c200c25e8912e81b973b8e",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.25,
+            "convex": 0.75,
+            "seam": 0.75
+          }
+        },
+        "craft": {
+          "path": "assets/ui/sera_equipment_icons/craft/H02.png",
+          "size": 96,
+          "png_sha256": "53e2e058bc380420bb929f6617c41e9eaee68f4b98915be71133d4bdd9e062a9",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.5,
+            "convex": 1.0,
+            "seam": 1.0
+          }
+        }
+      }
     },
     "H03": {
       "name": "重装頭部",
@@ -29,8 +77,32 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "2ded55156da75a515be5ab633eaf6abe56b24327271e5f5040f662b9a3d009b3",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
+      "png_sha256": "0f2ee0cdedb479a920f2822ee9c0d9bdce45d877d74876742ab3bb25427d5135",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "variants": {
+        "warehouse": {
+          "path": "assets/ui/sera_equipment_icons/warehouse/H03.png",
+          "size": 82,
+          "png_sha256": "7c18c6a05cfa175f01411aa1e9bbadc1797d083a74f883bffb8731997ecea984",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.25,
+            "convex": 0.75,
+            "seam": 0.75
+          }
+        },
+        "craft": {
+          "path": "assets/ui/sera_equipment_icons/craft/H03.png",
+          "size": 96,
+          "png_sha256": "55bda9162d254f1ba1b51a3ca7882bac31a82debb3a85a675c0fe8d506fd9a42",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.5,
+            "convex": 1.0,
+            "seam": 1.0
+          }
+        }
+      }
     },
     "H04": {
       "name": "軽量頭部",
@@ -38,8 +110,32 @@
       "rig_set": "C",
       "source_model": "models/storage/Head_C.bbmodel",
       "source_sha256": "fbd07abb2609152133875c20038b55891782379d27b591793081feff5ce4e307",
-      "png_sha256": "8acba6640d6db6851324c8f6cca4f72975fc6eb3f66a9480b4c12025165831af",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
+      "png_sha256": "9e02634439a021336841c805b0974b406a4cb09c72bb3191f710ccfe161cb85b",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "variants": {
+        "warehouse": {
+          "path": "assets/ui/sera_equipment_icons/warehouse/H04.png",
+          "size": 82,
+          "png_sha256": "86ee61e21539dccced633b7868cb9bf7f75e83e22cf8dd0015a3cb01c72960c6",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.25,
+            "convex": 0.75,
+            "seam": 0.75
+          }
+        },
+        "craft": {
+          "path": "assets/ui/sera_equipment_icons/craft/H04.png",
+          "size": 96,
+          "png_sha256": "6d8c64035a2d4ce365ae1e0a42d1e10f9c08ad2efc2a2536f117f08b70520797",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.5,
+            "convex": 1.0,
+            "seam": 1.0
+          }
+        }
+      }
     },
     "T01": {
       "name": "標準胴体",
@@ -47,8 +143,32 @@
       "rig_set": "A",
       "source_model": "models/core/Standard.bbmodel",
       "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
-      "png_sha256": "5532e5dc504ab4333afc32f19643739ddbe591ac735779720b9eafb3739c598a",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
+      "png_sha256": "24c06ce6c1aed551ad22d54ed46662c4e3bce6ad5e9cd3efe4616e82e8e64f97",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "variants": {
+        "warehouse": {
+          "path": "assets/ui/sera_equipment_icons/warehouse/T01.png",
+          "size": 82,
+          "png_sha256": "4b47c6083d1d0f9c06cca81d494499d0b8aa32d8ea7b86a02a21df29e55b157b",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.25,
+            "convex": 0.75,
+            "seam": 0.75
+          }
+        },
+        "craft": {
+          "path": "assets/ui/sera_equipment_icons/craft/T01.png",
+          "size": 96,
+          "png_sha256": "caa52b2fb78dc9be42aa5b40df8afeeb68051f9a98c3e28dca2491ec762b96c3",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.5,
+            "convex": 1.0,
+            "seam": 1.0
+          }
+        }
+      }
     },
     "T02": {
       "name": "重装胴体",
@@ -56,8 +176,32 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "4968f4fdbc39673c629c17749277261efd866fe002cf49c981ae28db4fbf2557",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
+      "png_sha256": "beae06b364e6f7de6336dbc9bf113aaaad0b68fd18d476b2de97d12a7953801a",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "variants": {
+        "warehouse": {
+          "path": "assets/ui/sera_equipment_icons/warehouse/T02.png",
+          "size": 82,
+          "png_sha256": "e1ec5e09069df30ac76c2d76eb9ece4fd2694f648172f4e2f4fb5dbbd526082a",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.25,
+            "convex": 0.75,
+            "seam": 0.75
+          }
+        },
+        "craft": {
+          "path": "assets/ui/sera_equipment_icons/craft/T02.png",
+          "size": 96,
+          "png_sha256": "19c7ef92b5161c8e5f6207dfbb7c92e037a436561188035dc2bc9fb48c7272cb",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.5,
+            "convex": 1.0,
+            "seam": 1.0
+          }
+        }
+      }
     },
     "A01": {
       "name": "標準腕部",
@@ -65,8 +209,32 @@
       "rig_set": "A",
       "source_model": "models/core/Standard.bbmodel",
       "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
-      "png_sha256": "7420f7b2652ecb3c5c1a1f06c228cc199aa9e724265cb3c7b645ec8f990d4ce4",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
+      "png_sha256": "86e4cbc66b08e0c250a89b2fbb5729fd700578c06bb7bbb902e5bef1d00a2abe",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "variants": {
+        "warehouse": {
+          "path": "assets/ui/sera_equipment_icons/warehouse/A01.png",
+          "size": 82,
+          "png_sha256": "2fc67ca6c43a9ef494c62c28fcdd0423f3cd3cd5f21c79e6b90ba4208d8ceecb",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.25,
+            "convex": 0.75,
+            "seam": 0.75
+          }
+        },
+        "craft": {
+          "path": "assets/ui/sera_equipment_icons/craft/A01.png",
+          "size": 96,
+          "png_sha256": "bec71ac697a987257873f9653e3c8731a6d4ac477eb55f176a28c0d26ae13ca4",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.5,
+            "convex": 1.0,
+            "seam": 1.0
+          }
+        }
+      }
     },
     "A02": {
       "name": "重装腕部",
@@ -74,8 +242,32 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "93b4e6de258a238346e55f89474e208481edc12c40bce20c555bbe91538ed72c",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
+      "png_sha256": "001298b02dfbe7fa0e8dcc340d4a176c117281ee2bffd673a25154ec327a7297",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "variants": {
+        "warehouse": {
+          "path": "assets/ui/sera_equipment_icons/warehouse/A02.png",
+          "size": 82,
+          "png_sha256": "3d480a7ccf7e7132f3317e08c977118805a3e771e5da5e01011f874b1120b040",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.25,
+            "convex": 0.75,
+            "seam": 0.75
+          }
+        },
+        "craft": {
+          "path": "assets/ui/sera_equipment_icons/craft/A02.png",
+          "size": 96,
+          "png_sha256": "873ec6d012aa7ec19c0dc9e21879d07741ab7e7ce8cc95c876157d3a8c295327",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.5,
+            "convex": 1.0,
+            "seam": 1.0
+          }
+        }
+      }
     },
     "L01": {
       "name": "標準脚部",
@@ -83,8 +275,32 @@
       "rig_set": "A",
       "source_model": "models/core/Standard.bbmodel",
       "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
-      "png_sha256": "d8312023f7c2c149492db75e05078936f10c17eeef4dc9ed454fdd828174d833",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
+      "png_sha256": "43f9e86562eb48b8e4ccd06e2592e6ff2f9851c9c350c25e1d0df631cf9db430",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "variants": {
+        "warehouse": {
+          "path": "assets/ui/sera_equipment_icons/warehouse/L01.png",
+          "size": 82,
+          "png_sha256": "6a1724ccbb68c074ea2a953383c749f80657f2d8eae06165cdb87fb3db578c38",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.25,
+            "convex": 0.75,
+            "seam": 0.75
+          }
+        },
+        "craft": {
+          "path": "assets/ui/sera_equipment_icons/craft/L01.png",
+          "size": 96,
+          "png_sha256": "235fe2d02247633fcc9e26fe3216d28b9ca29e6eb28916146540919407b1926a",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.5,
+            "convex": 1.0,
+            "seam": 1.0
+          }
+        }
+      }
     },
     "L02": {
       "name": "重装脚部B",
@@ -92,8 +308,32 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "745f556dd6746f4e82448c563555a444daf185ac807ef31ef0594b25e80662b4",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
+      "png_sha256": "4cf428a59b374bbc5703786ff239c7456742bf4c35e1f685a2a50d3ede10acba",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "variants": {
+        "warehouse": {
+          "path": "assets/ui/sera_equipment_icons/warehouse/L02.png",
+          "size": 82,
+          "png_sha256": "122d68176a1a7c55eb80dfe63eb2745437050ac7f243384e2cb33760d27c48c8",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.25,
+            "convex": 0.75,
+            "seam": 0.75
+          }
+        },
+        "craft": {
+          "path": "assets/ui/sera_equipment_icons/craft/L02.png",
+          "size": 96,
+          "png_sha256": "5c432704d5cc164c6dfee25bb2c4c701cef8c02b2b4ba65bc658bd02239090e1",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.5,
+            "convex": 1.0,
+            "seam": 1.0
+          }
+        }
+      }
     },
     "L03": {
       "name": "鳥脚",
@@ -101,8 +341,32 @@
       "rig_set": "C",
       "source_model": "models/core/BirdLeg.bbmodel",
       "source_sha256": "00086fb46da6d0af8f66ded01cd98f2a4656e46b648d240638505b7af7675599",
-      "png_sha256": "2ea45eeaec5d05dc40f0a0aabadfb42a6a340d0eb3cf82d00d0fb7c78022c56c",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
+      "png_sha256": "96f68733d0d113654a10b12a29b63b92f2ee2b69d381ca59afc0188b67c452d5",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "variants": {
+        "warehouse": {
+          "path": "assets/ui/sera_equipment_icons/warehouse/L03.png",
+          "size": 82,
+          "png_sha256": "6d6fe59f588ea2beadeb6a042c00a7174e687090cc86271808c41f45197f71ad",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.25,
+            "convex": 0.75,
+            "seam": 0.75
+          }
+        },
+        "craft": {
+          "path": "assets/ui/sera_equipment_icons/craft/L03.png",
+          "size": 96,
+          "png_sha256": "927dbf9b8d14d913dbbdb713e5e0f694cebdf68c56433bd4c0ca34eda3d7fdab",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.5,
+            "convex": 1.0,
+            "seam": 1.0
+          }
+        }
+      }
     },
     "L04": {
       "name": "重装脚部D",
@@ -110,8 +374,32 @@
       "rig_set": "D",
       "source_model": "models/storage/LowerBody_D.bbmodel",
       "source_sha256": "94a6f95d2c7dd0fe69e47b8b94e0087e9f21b02118038afeaa62002a344203c5",
-      "png_sha256": "b6b0fe7ae1bdc054ac42e397e321c0c54b9a03c9744ce335ce9b9e4a96d76e6a",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
+      "png_sha256": "cf841eef85f862f855249b46761616b6c0afa8925952ae1a53346a684d6294ae",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "variants": {
+        "warehouse": {
+          "path": "assets/ui/sera_equipment_icons/warehouse/L04.png",
+          "size": 82,
+          "png_sha256": "15ba8b374265ab131fefd4e209e8dedbf909237299b099249ed3a38589bc9ba5",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.25,
+            "convex": 0.75,
+            "seam": 0.75
+          }
+        },
+        "craft": {
+          "path": "assets/ui/sera_equipment_icons/craft/L04.png",
+          "size": 96,
+          "png_sha256": "d101312ea079d375fb3cc123edd45c469961670df86c05728bb3ad2c008572a2",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.5,
+            "convex": 1.0,
+            "seam": 1.0
+          }
+        }
+      }
     },
     "B01": {
       "name": "標準ブースター",
@@ -119,8 +407,32 @@
       "rig_set": "A",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "e913f3bea5e7a73d7155b9f6ad535135a05fa6f65a590f64cc45d037eb85b7fe",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
+      "png_sha256": "a911f0a6f2f7ad33a171fc197c395b9433cdc171b826546548fbf2d68f41f47b",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "variants": {
+        "warehouse": {
+          "path": "assets/ui/sera_equipment_icons/warehouse/B01.png",
+          "size": 82,
+          "png_sha256": "dd9eb4abfe2c1cd4e3aec8f2fd21d4fa1b454cc2c9be4e606ca76949c865a233",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.25,
+            "convex": 0.75,
+            "seam": 0.75
+          }
+        },
+        "craft": {
+          "path": "assets/ui/sera_equipment_icons/craft/B01.png",
+          "size": 96,
+          "png_sha256": "a541cf8f041b1a1bcef739ff1ea1fa36ac8b2fc410e4687596a53c6e74ecccfe",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.5,
+            "convex": 1.0,
+            "seam": 1.0
+          }
+        }
+      }
     },
     "B02": {
       "name": "重装ブースター",
@@ -128,8 +440,32 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "eb97201a8289a37643a8deff57051face9bab701f31175ecd134a0841066bcd8",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
+      "png_sha256": "4b33ada9c6e012b54ac3d792fc4efd1bcfe864e3dee8e05fb1a6303ec8127805",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "variants": {
+        "warehouse": {
+          "path": "assets/ui/sera_equipment_icons/warehouse/B02.png",
+          "size": 82,
+          "png_sha256": "02f23f427f516739af913994a036d20db6f259bab7dab8262100d411d1187453",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.25,
+            "convex": 0.75,
+            "seam": 0.75
+          }
+        },
+        "craft": {
+          "path": "assets/ui/sera_equipment_icons/craft/B02.png",
+          "size": 96,
+          "png_sha256": "6ecbc0d097e3675958922434d47e8491c44c84c9f712d941dec08eac22ec0361",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.5,
+            "convex": 1.0,
+            "seam": 1.0
+          }
+        }
+      }
     },
     "WR01": {
       "name": "標準ブレード",
@@ -137,8 +473,32 @@
       "rig_set": "A",
       "source_model": "models/core/Standard.bbmodel",
       "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
-      "png_sha256": "d51421ecc3bea55cf3cb5bb3480c47d954beec4b420dbd0a7d59694cdba36a87",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
+      "png_sha256": "1cbd95566b53eb6f5705fbae715c296814d7c7227a25c5189b87368683fc3f86",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "variants": {
+        "warehouse": {
+          "path": "assets/ui/sera_equipment_icons/warehouse/WR01.png",
+          "size": 82,
+          "png_sha256": "35c6cc88c958a6ce36736a1c84f170dee4bb050ea08549a599010cd665e55f08",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.25,
+            "convex": 0.75,
+            "seam": 0.75
+          }
+        },
+        "craft": {
+          "path": "assets/ui/sera_equipment_icons/craft/WR01.png",
+          "size": 96,
+          "png_sha256": "376664cc8821e351c2dbe638cfbbe1dd6f098dc543b688b50073c2885b7756e9",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.5,
+            "convex": 1.0,
+            "seam": 1.0
+          }
+        }
+      }
     },
     "WR02": {
       "name": "重装ブレード",
@@ -146,8 +506,32 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "2c1f78ff58c6b8c653d1c161ab3d112fe3ad8661b27fc6e4b3f99dd06d447116",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
+      "png_sha256": "cf334175ebb6bad592e2354275bbea15c907623da10c9b7892075a449d4b1aeb",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "variants": {
+        "warehouse": {
+          "path": "assets/ui/sera_equipment_icons/warehouse/WR02.png",
+          "size": 82,
+          "png_sha256": "829d085b078a82d09a01bfcd9fd263c5e9500cf589cb4391ca6a055805c48fc5",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.25,
+            "convex": 0.75,
+            "seam": 0.75
+          }
+        },
+        "craft": {
+          "path": "assets/ui/sera_equipment_icons/craft/WR02.png",
+          "size": 96,
+          "png_sha256": "44dcd56f0fb73a09af0ce0a0e6d000e5ed10a7256b850c7f5a17e7db3b7c72f8",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.5,
+            "convex": 1.0,
+            "seam": 1.0
+          }
+        }
+      }
     },
     "WR03": {
       "name": "カタナ",
@@ -155,8 +539,32 @@
       "rig_set": "K",
       "source_model": "models/core/Katana.bbmodel",
       "source_sha256": "62f323d4fe08e931071ac418026e26538a111719d2803253f709239f379ce843",
-      "png_sha256": "8f150cd6511c1272c29611c3465ae83381d8924cd8193b10d9e76756333b3022",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
+      "png_sha256": "8eab2cd84a3133a422f04e7c4c59a36cf4d5a4b53851b9aed8870937b8c45f28",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "variants": {
+        "warehouse": {
+          "path": "assets/ui/sera_equipment_icons/warehouse/WR03.png",
+          "size": 82,
+          "png_sha256": "f0298935778091ec6c4be8ec3828d19314665ec51dbc9a0bbe8d036fe5782ceb",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.25,
+            "convex": 0.75,
+            "seam": 0.75
+          }
+        },
+        "craft": {
+          "path": "assets/ui/sera_equipment_icons/craft/WR03.png",
+          "size": 96,
+          "png_sha256": "fd6aedbd7889be08ef567349370cbad5070a61005fdc2c43df38528e879a80e3",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.5,
+            "convex": 1.0,
+            "seam": 1.0
+          }
+        }
+      }
     },
     "WL01": {
       "name": "標準シールド",
@@ -164,8 +572,32 @@
       "rig_set": "A",
       "source_model": "models/core/Standard.bbmodel",
       "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
-      "png_sha256": "a02430e666f1f48ad4049d64ed8d874bae1c74d4fb673bd3b3321890757ee364",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
+      "png_sha256": "8961b9c24fe885b5045ff15cbf4558b3f4e3e7765e1091f93ef149e106b838b3",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "variants": {
+        "warehouse": {
+          "path": "assets/ui/sera_equipment_icons/warehouse/WL01.png",
+          "size": 82,
+          "png_sha256": "f751d6ca09280bcf078870c469e2cbe493ebfaf53bb60b4fb71e93c0f7f30212",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.25,
+            "convex": 0.75,
+            "seam": 0.75
+          }
+        },
+        "craft": {
+          "path": "assets/ui/sera_equipment_icons/craft/WL01.png",
+          "size": 96,
+          "png_sha256": "6f05a507132cc11caaab8af41634e4c6895265e92e5fdb432a65e9eb0d22045c",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.5,
+            "convex": 1.0,
+            "seam": 1.0
+          }
+        }
+      }
     },
     "WL02": {
       "name": "強化シールド",
@@ -173,10 +605,57 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "9e120a8daa12b3d3e11f1e88b9bd89f74ee4d5282234e30e3a0ea5d57aa2fd1a",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
+      "png_sha256": "dbc1dbc75c836bd194790f18a672f024ec0855b9c50aa9a58c23e9d213d529a6",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "variants": {
+        "warehouse": {
+          "path": "assets/ui/sera_equipment_icons/warehouse/WL02.png",
+          "size": 82,
+          "png_sha256": "e41e7a0c904712b934c77e4c54f2c3976a0383f071c88b45523ade36f810ecbe",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.25,
+            "convex": 0.75,
+            "seam": 0.75
+          }
+        },
+        "craft": {
+          "path": "assets/ui/sera_equipment_icons/craft/WL02.png",
+          "size": 96,
+          "png_sha256": "1bf265a0e1f5f9e0af83a64c3f2b8620a40c38286e3603be89e4f5b0c8d24493",
+          "outline": {
+            "inner": 1.0,
+            "outer": 1.5,
+            "convex": 1.0,
+            "seam": 1.0
+          }
+        }
+      }
     }
   },
   "capture_preset": "assets/ui/sera_icon_presets/H02.json",
-  "outline_pipeline": "ICON ONLY: silhouette inner 1px outer 4px; convex corners 3px; mesh seams 2px"
+  "outline_pipeline": "ICON ONLY: silhouette inner 1px outer 4px; convex corners 3px; mesh seams 2px",
+  "display_profiles": {
+    "full": {
+      "pixels": 512,
+      "inner": 1.0,
+      "outer": 4.0,
+      "convex": 3.0,
+      "seam": 2.0
+    },
+    "warehouse": {
+      "pixels": 82,
+      "inner": 1.0,
+      "outer": 1.25,
+      "convex": 0.75,
+      "seam": 0.75
+    },
+    "craft": {
+      "pixels": 96,
+      "inner": 1.0,
+      "outer": 1.5,
+      "convex": 1.0,
+      "seam": 1.0
+    }
+  }
 }
