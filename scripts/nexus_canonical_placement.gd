@@ -19,6 +19,10 @@ var pointer_id := -999
 var pointer_mouse := false
 var drag_ground := Vector3.ZERO
 var drag_origin := Vector3.ZERO
+var _buttons: Dictionary = {}
+var _status_label: Label
+var _hint_label: Label
+var _ui_signature := ""
 
 
 func configure(scene: Node3D, placements: Dictionary,
@@ -28,7 +32,9 @@ func configure(scene: Node3D, placements: Dictionary,
     mouse_filter = Control.MOUSE_FILTER_IGNORE
     set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     size = get_viewport_rect().size
-    resized.connect(queue_redraw)
+    resized.connect(_sync_ui)
+    _create_visible_controls()
+    set_process(true)
     for key_value in placements.keys():
         var key: String = str(key_value)
         var spec: Dictionary = placements[key]
@@ -106,7 +112,7 @@ func configure(scene: Node3D, placements: Dictionary,
     # ramp and animated shutters deliberately remain fixed.
     _bind_node("DEPLOYMENT", host.get_node_or_null(
         "DeploymentWallDock/DeploymentConsolePlacementAnchor"))
-    queue_redraw()
+    _sync_ui()
 
 
 func _bind_instance(key: String, multi: MultiMesh,
@@ -136,6 +142,7 @@ func route_input(event: InputEvent) -> bool:
                 _toggle_rect().has_point(_press_position(event))):
             active = true
             selected = ""
+            _sync_ui()
             var ink: Control = host.get("outline") as Control
             if ink != null:
                 original_outline_visible = ink.visible
@@ -221,6 +228,7 @@ func _press(where: Vector2, finger: int, mouse: bool) -> void:
 
     var picked: String = _hit_console(where)
     selected = picked
+    _sync_ui()
     queue_redraw()
     if picked.is_empty():
         return
@@ -350,6 +358,7 @@ func _set_pose(key: String, at: Vector3, yaw: float) -> void:
         view["look"] = delta * focus_look
         host.focus_views[key] = view
     # The view contours are hidden during edit; only recalculate on exit.
+    _sync_ui()
     queue_redraw()
 
 
@@ -387,6 +396,7 @@ func close_mode() -> void:
     host.call("_update_projected_silhouettes")
     if ink != null:
         ink.queue_redraw()
+    _sync_ui()
     queue_redraw()
 
 
@@ -430,45 +440,134 @@ func _gizmo_boxes() -> Dictionary:
     }
 
 
-func _draw() -> void:
+# The old _draw() path was dependent on the viewport's redraw timing and
+# _can_open() snapshot: the button could never repaint when the focus mode
+# changed. Real persistent Panel + Label children are visible as soon as the
+# editor is attached; a lightweight state change poll updates their visibility.
+func _create_visible_controls() -> void:
+    var host_hud: Control = host.get("hud") as Control
+    if host_hud != null:
+        theme = host_hud.theme
+    for key in ["toggle", "close", "copy", "copy_all",
+            "rot_l", "rot_r", "up", "down"]:
+        var panel := Panel.new()
+        panel.name = "Placement_" + key
+        panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        var style := StyleBoxFlat.new()
+        style.bg_color = Color("#163447")
+        style.border_color = Color("#72b4ce")
+        style.set_border_width_all(2)
+        style.set_corner_radius_all(4)
+        panel.add_theme_stylebox_override("panel", style)
+        add_child(panel)
+        var label := Label.new()
+        label.name = "Caption"
+        label.text = _caption(key)
+        label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+        label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        label.add_theme_font_size_override("font_size", 16)
+        label.add_theme_color_override("font_color", Color("#dcf5ff"))
+        panel.add_child(label)
+        _buttons[key] = panel
+        panel.visible = false
+
+    _status_label = Label.new()
+    _status_label.name = "CanonicalPlacementStatus"
+    _status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _status_label.add_theme_font_size_override("font_size", 16)
+    _status_label.add_theme_color_override("font_color", Color("#b8edfa"))
+    add_child(_status_label)
+    _hint_label = Label.new()
+    _hint_label.name = "CanonicalPlacementHint"
+    _hint_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _hint_label.add_theme_font_size_override("font_size", 14)
+    _hint_label.add_theme_color_override("font_color", Color("#9cc4d2"))
+    add_child(_hint_label)
+
+
+func _caption(key: String) -> String:
+    match key:
+        "toggle":
+            return "正規配置"
+        "close":
+            return "編集終了"
+        "copy":
+            return "コピー"
+        "copy_all":
+            return "全件コピー"
+        "rot_l":
+            return "回転◀"
+        "rot_r":
+            return "回転▶"
+        "up":
+            return "▲高さ"
+        "down":
+            return "▼高さ"
+    return key
+
+
+func _process(_delta: float) -> void:
     if host == null:
         return
-    if not active:
-        if _can_open():
-            _button(_toggle_rect(), "正規配置")
+    var can_open := _can_open()
+    var signature := "%s/%s/%s/%sx%s" % [
+        str(active), selected, str(can_open),
+        str(int(get_viewport_rect().size.x)),
+        str(int(get_viewport_rect().size.y))]
+    if signature != _ui_signature:
+        _sync_ui()
+
+
+func _sync_ui() -> void:
+    if host == null or _buttons.is_empty():
         return
-    _button(_close_rect(), "編集終了")
-    _button(_copy_rect(), "コピー")
-    _button(_copy_all_rect(), "全件コピー")
-    var font: Font = get_theme_default_font()
-    var caption := ("端末を選択・ドラッグで移動"
-        if selected.is_empty() else "%s / 水平移動・回転・高さ" % selected)
-    draw_string(font, Vector2(19.0, 96.0), caption,
-        HORIZONTAL_ALIGNMENT_LEFT, size.x - 38.0,
-        17, Color("#cbe9f2"))
-    if not selected.is_empty():
-        var state: Dictionary = entries[selected]
-        var at: Vector3 = state["position"]
-        var summary := "X %.2f  Y %.2f  Z %.2f  Yaw %.0f°" % [
-            at.x, at.y, at.z, rad_to_deg(float(state["yaw"]))]
-        draw_string(font, Vector2(19.0, 121.0), summary,
-            HORIZONTAL_ALIGNMENT_LEFT, size.x - 38.0,
-            15, Color("#91c9da"))
-        var boxes: Dictionary = _gizmo_boxes()
-        _button(boxes["rot_l"], "回転◀")
-        _button(boxes["rot_r"], "回転▶")
-        _button(boxes["up"], "▲高さ")
-        _button(boxes["down"], "▼高さ")
-    draw_string(font, Vector2(18.0, size.y - 20.0),
-        "配置は仮設定です。コピー内容をChatGPTへ送って確定してください。",
-        HORIZONTAL_ALIGNMENT_LEFT, size.x - 36.0,
-        14, Color("#9bc5d5"))
+    size = get_viewport_rect().size
+    _ui_signature = "%s/%s/%s/%sx%s" % [
+        str(active), selected, str(_can_open()),
+        str(int(size.x)), str(int(size.y))]
 
+    for name_value in _buttons.keys():
+        var name: String = str(name_value)
+        var panel: Panel = _buttons[name]
+        var enabled: bool = false
+        var rect: Rect2
+        match name:
+            "toggle":
+                enabled = not active and _can_open()
+                rect = _toggle_rect()
+            "close":
+                enabled = active
+                rect = _close_rect()
+            "copy":
+                enabled = active
+                rect = _copy_rect()
+            "copy_all":
+                enabled = active
+                rect = _copy_all_rect()
+            _:
+                enabled = active and not selected.is_empty()
+                if enabled:
+                    rect = _gizmo_boxes().get(name, Rect2())
+        panel.visible = enabled
+        if enabled:
+            panel.position = rect.position
+            panel.size = rect.size
 
-func _button(rect: Rect2, title: String) -> void:
-    draw_rect(rect, Color("#1b3446", 0.95), true)
-    draw_rect(rect, Color("#6e9eb5"), false, 1.5)
-    var font: Font = get_theme_default_font()
-    draw_string(font, rect.position + Vector2(9.0, rect.size.y * 0.65),
-        title, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 16.0,
-        16, Color("#e0f5ff"))
+    _status_label.visible = active
+    _hint_label.visible = active
+    if active:
+        _status_label.position = Vector2(19.0, 84.0)
+        _status_label.size = Vector2(maxf(80.0, size.x - 38.0), 45.0)
+        if selected.is_empty():
+            _status_label.text = "端末を選択・ドラッグで水平移動"
+        else:
+            var state: Dictionary = entries[selected]
+            var at: Vector3 = state["position"]
+            _status_label.text = "%s  X %.2f Y %.2f Z %.2f  Yaw %.0f°" % [
+                selected, at.x, at.y, at.z,
+                rad_to_deg(float(state["yaw"]))]
+        _hint_label.position = Vector2(18.0, size.y - 49.0)
+        _hint_label.size = Vector2(maxf(80.0, size.x - 36.0), 33.0)
+        _hint_label.text = "仮配置です。コピーしてChatGPTへ送ると確定できます。"
