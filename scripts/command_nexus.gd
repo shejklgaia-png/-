@@ -4,10 +4,6 @@ extends Node3D
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
-const LiveMeshEdges = preload("res://scripts/sera_nexus_live_mesh_edges.gd")
-const DepthHullOutline = preload(
-    "res://scripts/sera_nexus_depth_hull_outline.gd")
-const StencilHull = preload("res://scripts/sera_nexus_stencil_hull.gd")
 const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const TrainingDefaults = preload("res://scripts/training_defaults.gd")
@@ -30,16 +26,12 @@ const CUSTOMIZE_BACKDROP_SHADER = preload("res://shaders/nexus_customize_radial_
 const NEXUS_PREVIEW_BACKDROP_COLOR: Color = Color("#afc4d1")
 # Room fallback only; keep the bright equipment-preview backdrop unchanged.
 const NEXUS_ROOM_BACKDROP_COLOR: Color = Color("#17212c")
-const NEXUS_EDGE_SHADER = preload("res://shaders/nexus_polygon_edges.gdshader")
-const NEXUS_EDGE_WIDTH_PIXELS: float = 2.0
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 
 const GATE_ORIGIN: Vector3 = Vector3(5.10, 0.02, -15.50)
 const SERA_STAGE_ORIGIN: Vector3 = Vector3(0.0, 0.0, -4.75)
 
 var batch_data: Dictionary = {}
-# Native geometry overlays; no architectural lines are rendered by an ID viewport.
-var nexus_native_edge_sources: Array[GeometryInstance3D] = []
 var hud: Control
 var cam: Camera3D
 var outline: Control
