@@ -147,47 +147,46 @@ void vertex() {
         clip.xy += shift * vec2(2.0 / VIEWPORT_SIZE.x,
             2.0 / VIEWPORT_SIZE.y) * clip.w;
         POSITION = clip;
-        return;
-    }
+    } else {
+        // Uniform decision at the edge midpoint prevents one end disappearing.
+        vec3 mid_view = (MODELVIEW_MATRIX * vec4(CUSTOM1.xyz, 1.0)).xyz;
+        edge_visible = contour_visible(na, nb, paired, mid_view) ? 1.0 : 0.0;
+        float inner_px = silhouette_inside_px;
+        float outer_px = paired ? silhouette_outside_px : seam_px;
 
-    // Uniform decision at the edge midpoint prevents one end disappearing.
-    vec3 mid_view = (MODELVIEW_MATRIX * vec4(CUSTOM1.xyz, 1.0)).xyz;
-    edge_visible = contour_visible(na, nb, paired, mid_view) ? 1.0 : 0.0;
-    float inner_px = silhouette_inside_px;
-    float outer_px = paired ? silhouette_outside_px : seam_px;
-
-    vec3 ray = view_ray_at(mid_view);
-    view_position += ray * max(0.0015, length(view_position) * 0.00015);
-    vec4 clip = PROJECTION_MATRIX * vec4(view_position, 1.0);
-    vec4 tip = PROJECTION_MATRIX *
-        vec4(view_position + tangent * 0.10, 1.0);
-    vec2 line_vec = screen_point(tip) - screen_point(clip);
-    if (clip.w <= 0.0 || dot(line_vec, line_vec) < 0.000001) {
-        edge_visible = 0.0;
-        line_vec = vec2(1.0, 0.0);
-    }
-    vec2 side = normalize(vec2(-line_vec.y, line_vec.x));
-
-    vec3 inward = cross(na, tangent);
-    if (paired && dot(nb, ray) > dot(na, ray)) {
-        inward = -cross(nb, tangent);
-    }
-    float inward_sign = 1.0;
-    if (length(inward) > 0.00001) {
-        vec4 inside_tip = PROJECTION_MATRIX *
-            vec4(view_position + normalize(inward) * 0.10, 1.0);
-        vec2 projected_inside = screen_point(inside_tip) -
-            screen_point(clip);
-        if (dot(projected_inside, projected_inside) > 0.000001) {
-            inward_sign = dot(projected_inside, side) >= 0.0 ? 1.0 : -1.0;
+        vec3 ray = view_ray_at(mid_view);
+        view_position += ray * max(0.0015, length(view_position) * 0.00015);
+        vec4 clip = PROJECTION_MATRIX * vec4(view_position, 1.0);
+        vec4 tip = PROJECTION_MATRIX *
+            vec4(view_position + tangent * 0.10, 1.0);
+        vec2 line_vec = screen_point(tip) - screen_point(clip);
+        if (clip.w <= 0.0 || dot(line_vec, line_vec) < 0.000001) {
+            edge_visible = 0.0;
+            line_vec = vec2(1.0, 0.0);
         }
+        vec2 side = normalize(vec2(-line_vec.y, line_vec.x));
+
+        vec3 inward = cross(na, tangent);
+        if (paired && dot(nb, ray) > dot(na, ray)) {
+            inward = -cross(nb, tangent);
+        }
+        float inward_sign = 1.0;
+        if (length(inward) > 0.00001) {
+            vec4 inside_tip = PROJECTION_MATRIX *
+                vec4(view_position + normalize(inward) * 0.10, 1.0);
+            vec2 projected_inside = screen_point(inside_tip) -
+                screen_point(clip);
+            if (dot(projected_inside, projected_inside) > 0.000001) {
+                inward_sign = dot(projected_inside, side) >= 0.0 ? 1.0 : -1.0;
+            }
+        }
+        float signed_offset_px = UV.x * (
+            UV.x * inward_sign > 0.0 ? inner_px : outer_px);
+        clip.xy += side * vec2(2.0 / VIEWPORT_SIZE.x,
+            2.0 / VIEWPORT_SIZE.y) * signed_offset_px * clip.w;
+        // No square end extension: cached join patches close true visible corners.
+        POSITION = clip;
     }
-    float signed_offset_px = UV.x * (
-        UV.x * inward_sign > 0.0 ? inner_px : outer_px);
-    clip.xy += side * vec2(2.0 / VIEWPORT_SIZE.x,
-        2.0 / VIEWPORT_SIZE.y) * signed_offset_px * clip.w;
-    // No square end extension: cached join patches close true visible corners.
-    POSITION = clip;
 }
 
 void fragment() {
