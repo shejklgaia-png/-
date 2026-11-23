@@ -179,11 +179,22 @@ func _cable(s: SurfaceTool, points: Array[Vector3],
         _pipe(s, points[i], points[i+1], radius, tint, 7)
 
 func _industrial_wall(s: SurfaceTool, kind: int) -> void:
-    # Load-bearing trusses and relief between wall bays, high enough
-    # to remain behind actors and the three existing display compositions.
+    # Room-wide load-bearing wall geometry. STORAGE has its own expanded
+    # perimeter; never leave the old 12m structural framework in the aisle.
+    var enlarged: bool = kind == 2
+    var wall_x: float = 8.42 if enlarged else 5.15
+    var rib_z: Array = [-4.20, -1.90, 0.40]
+    var duct_start: float = -4.88
+    var duct_mid: float = -3.20
+    var duct_end: float = -0.90
+    if enlarged:
+        rib_z = [-6.85, -3.85, -0.85, 2.15]
+        duct_start = -7.60
+        duct_mid = -4.90
+        duct_end = 2.85
     for side in [-1.0, 1.0]:
-        var x := side * 5.15
-        for z in [-4.20, -1.90, 0.40]:
+        var x: float = side*wall_x
+        for z in rib_z:
             _strut(s, Vector3(x, 0.28, z),
                 Vector3(x, 3.86, z+0.42), 0.07, FRAME)
             _strut(s, Vector3(x, 0.95, z),
@@ -191,20 +202,38 @@ func _industrial_wall(s: SurfaceTool, kind: int) -> void:
             _body(s, Vector3(x, 2.18, z+0.56),
                 Vector3(0.34, 0.20, 1.65), 0.07, DARK)
         for y in [1.05, 3.24]:
-            _cable(s, [Vector3(x, y, -4.88), Vector3(x, y+0.13, -3.20),
-                Vector3(x, y+0.04, -0.90)], 0.036,
+            _cable(s, [Vector3(x, y, duct_start),
+                Vector3(x, y+0.13, duct_mid),
+                Vector3(x, y+0.04, duct_end)], 0.036,
                 ICE if kind == 0 else COPPER if kind == 1 else FRAME)
-    # Visible relief at the rear bulkhead.
-    for x in [-3.45, 0.0, 3.45]:
-        _front(s, Vector3(x, 3.15, -4.79), 1.72, 0.92, 0.095, ARMOR)
-        _front(s, Vector3(x, 3.15, -4.65), 1.32, 0.48, 0.02, DARK)
+    # Deep rear bulkhead with service vents located on the actual rear wall.
+    var section_x: Array = [-3.45, 0.0, 3.45]
+    var rear_z: float = -4.79
+    var vent_z: float = -4.65
+    var slat_z: float = -4.57
+    if enlarged:
+        # Preserve a readable clear lintel and monitor bay between vents.
+        section_x = [-6.15, -3.65, 3.65, 6.15]
+        rear_z = -7.58
+        vent_z = -7.44
+        slat_z = -7.36
+    for x in section_x:
+        _front(s, Vector3(x, 3.15, rear_z), 1.72, 0.92, 0.095, ARMOR)
+        _front(s, Vector3(x, 3.15, vent_z), 1.32, 0.48, 0.02, DARK)
         for i in range(5):
-            var off := -0.48 + 0.24 * float(i)
-            _strut(s, Vector3(x+off, 3.00, -4.57),
-                Vector3(x+off+0.07, 3.31, -4.57), 0.023, EDGE)
-    for x in [-4.30, -2.20, 2.20, 4.30]:
-        _strut(s, Vector3(x, 4.44, -4.70),
-            Vector3(x, 4.44, 1.35), 0.085, FRAME)
+            var off: float = -0.48+0.24*float(i)
+            _strut(s, Vector3(x+off, 3.00, slat_z),
+                Vector3(x+off+0.07, 3.31, slat_z), 0.023, EDGE)
+    var beam_x: Array = [-4.30, -2.20, 2.20, 4.30]
+    var beam_front: float = 1.35
+    var beam_back: float = -4.70
+    if enlarged:
+        beam_x = [-7.65, -4.25, 4.25, 7.65]
+        beam_front = 4.15
+        beam_back = -7.55
+    for x in beam_x:
+        _strut(s, Vector3(x, 4.44, beam_back),
+            Vector3(x, 4.44, beam_front), 0.085, FRAME)
 
 func _fabrication(room: Node3D) -> void:
     var gantry: Node3D = room.get_node_or_null("AtlasOpenFramePrinter") as Node3D
@@ -397,7 +426,8 @@ func _storage(room: Node3D) -> void:
     _finish(c, _cargo_shuttle, "HoistWheelsAndTwoFingerClamp")
     # Rack corners are individually reinforced, not simply covered by a
     # repeated front box. Static fittings merge per rack into one draw surface.
-    for rack_name in ["CargoRackPort", "CargoRackStarboard"]:
+    for rack_name in ["CargoRackPort", "CargoRackStarboard",
+            "CargoRackPortRear", "CargoRackStarboardRear"]:
         var rack: Node3D = room.get_node_or_null(rack_name) as Node3D
         if rack == null:
             continue

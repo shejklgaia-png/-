@@ -138,15 +138,15 @@ func set_section(section: String) -> void:
             hero_camera.fov = 55.0
             hero_camera.look_at(Vector3(-0.10, 1.65, -1.00), Vector3.UP)
         "STORAGE":
-            # Scene C: from front RIGHT, moderately elevated (23 degree yaw).
-            # The near right shelf shows its depth while both label banks
-            # and the central monitoring terminal remain in frame.
+            # Expanded four-bay freight hall: retreat and raise the camera to
+            # reveal the new side wings, rear shelves and overhead transporter.
+            # Do not change CRATE patrol targets or inventory panel controls.
             crate.position = Vector3(0.05, 0.0, 0.85)
             crate.rotation.y = -2.87
             work_state = "storage_scan"
-            hero_camera.position = Vector3(3.35, 2.45, 5.35)
-            hero_camera.fov = 55.0
-            hero_camera.look_at(Vector3(0.00, 1.75, -1.00), Vector3.UP)
+            hero_camera.position = Vector3(6.10, 5.10, 14.80)
+            hero_camera.fov = 70.0
+            hero_camera.look_at(Vector3(0.00, 2.00, -2.30), Vector3.UP)
 
 func _move_to(goal: Vector3, delta: float) -> bool:
     var planar := Vector3(goal.x, crate.position.y, goal.z)
