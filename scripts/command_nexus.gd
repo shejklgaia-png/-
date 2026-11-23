@@ -3355,6 +3355,11 @@ func _create_customization_glow() -> void:
     quad.size = Vector2.ONE
     var material := ShaderMaterial.new()
     material.shader = CUSTOMIZE_BACKDROP_SHADER
+    # This is a full-opacity ALPHA shader drawn in the transparent queue.
+    # Its default priority (0) previously painted OVER the outside pixels
+    # of the shared visible-ID silhouette ink (-30), leaving only the lines
+    # that were on top of SERA's opaque body. Draw the portrait matte first.
+    material.render_priority = RENDER_ORDER.NEXUS_CUSTOMIZE_BACKDROP
     material.set_shader_parameter("base_tint", NEXUS_PREVIEW_BACKDROP_COLOR)
     material.set_shader_parameter("grid_tint", Color("#7894a3"))
     material.set_shader_parameter("grid_strength", 0.32)
