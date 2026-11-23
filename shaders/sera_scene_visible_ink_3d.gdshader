@@ -8,6 +8,9 @@ render_mode unshaded, fog_disabled, blend_mix, cull_disabled, depth_test_disable
 uniform sampler2D mesh_id_texture : filter_nearest, repeat_disable;
 uniform vec2 mesh_id_texel = vec2(0.0026041667);
 uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
+// BASE only: soften opaque black strokes within 2 screen pixels of a real
+// emissive ID=7 surface. Other scenes retain completely opaque strokes.
+uniform float emissive_contact_alpha : hint_range(0.0, 1.0) = 1.0;
 uniform vec4 ink_screen_bounds = vec4(0.0);
 // The 4px outside scan is bounded to projected facility meshes.
 uniform vec4 facility_screen_bounds = vec4(0.0);
@@ -211,6 +214,30 @@ void fragment() {
     if (coverage < 0.5) {
         discard;
     }
+    float ink_alpha = ink_color.a;
+    if (emissive_contact_alpha < 0.999) {
+        // Sample only pixels that ALREADY have ink. Do not blur the full
+        // screen or dim ink on buildings that have no adjacent emitters.
+        bool next_to_emitter = false;
+        for (int dy = -2; dy <= 2; dy++) {
+            for (int dx = -2; dx <= 2; dx++) {
+                if (dx * dx + dy * dy > 4) {
+                    continue;
+                }
+                vec2 shift = vec2(float(dx), float(dy));
+                if (role_of(sample_id(pixel_uv + shift * mesh_id_texel)) == 7) {
+                    next_to_emitter = true;
+                    break;
+                }
+            }
+            if (next_to_emitter) {
+                break;
+            }
+        }
+        if (next_to_emitter) {
+            ink_alpha *= emissive_contact_alpha;
+        }
+    }
     ALBEDO = ink_color.rgb;
-    ALPHA = ink_color.a;
+    ALPHA = ink_alpha;
 }
