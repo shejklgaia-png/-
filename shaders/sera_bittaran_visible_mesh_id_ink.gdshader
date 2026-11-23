@@ -1,17 +1,14 @@
 shader_type spatial;
 // Bittaran-only depth-resolved visible mesh-ID ink. Every visible
 // MeshInstance3D receives ONE RGB identity in the existing shared ID pass.
-// Only a change of visible mesh identity or object/background can ink.
+// Only a change of visible mesh identity can ink. Background never does.
 // Geometry face bends and convex corners within one mesh NEVER produce ink.
 render_mode unshaded, fog_disabled, blend_mix, cull_disabled, depth_test_disabled, depth_draw_never;
 
 uniform sampler2D mesh_id_texture : filter_nearest, repeat_disable;
 uniform vec2 mesh_id_texel = vec2(0.0026041667);
 uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
-uniform vec4 ink_screen_bounds = vec4(0.0);
-// Kept separate from all shared BASE/NEXUS/training defaults.
-uniform float main_inside_px = 0.0;
-uniform float main_outside_px = 3.0;
+// Bittaran-only mesh contact radius, in actual ID viewport pixels.
 uniform float main_seam_px = 2.0;
 
 void vertex() {
@@ -53,70 +50,37 @@ bool in_disk(int squared_distance, float width_px) {
     return float(squared_distance) <= width_px * width_px + 0.001;
 }
 
+// Dedicated ID contact pass: NO background/outer silhouette sampling.
+// GPU ribbons own the silhouette; this only resolves visible mesh contacts.
+// One-sided 2px ownership prevents an 8px double band at adjacent IDs.
 void fragment() {
     vec2 uv = SCREEN_UV;
     vec3 center = sample_id(uv);
-    int role = role_of(center);
-    // Only visible actors and their empty background contribute to ink.
-    // Do not introduce convex lines or ink on scenery/emissive VFX.
-    if (role != 0 && role != 1) {
+    if (role_of(center) != 1) {
         discard;
     }
 
     bool draw_ink = false;
-    if (role == 1) {
-        // No inner silhouette: only visible ID-to-ID contacts use ink here.
-        // Assign the 2px contact to one side to prevent doubled thickness.
-        // The smaller 2px search reduces per-pixel GPU texture samples.
-        for (int dy = -2; dy <= 2; dy++) {
-            for (int dx = -2; dx <= 2; dx++) {
-                int distance_squared = dx * dx + dy * dy;
-                if (distance_squared == 0 ||
-                        !in_disk(distance_squared, main_seam_px)) {
-                    continue;
-                }
-                vec3 neighbor = sample_id(uv +
-                    vec2(float(dx), float(dy)) * mesh_id_texel);
-                if (role_of(neighbor) == 1 &&
-                        !same_id(center, neighbor) &&
-                        owns_contact(center, neighbor)) {
-                    draw_ink = true;
-                    break;
-                }
+    for (int dy = -2; dy <= 2; dy++) {
+        for (int dx = -2; dx <= 2; dx++) {
+            int distance_squared = dx * dx + dy * dy;
+            if (distance_squared == 0 ||
+                    !in_disk(distance_squared, main_seam_px)) {
+                continue;
             }
-            if (draw_ink) {
+            vec3 neighbor = sample_id(uv +
+                vec2(float(dx), float(dy)) * mesh_id_texel);
+            if (role_of(neighbor) == 1 &&
+                    !same_id(center, neighbor) &&
+                    owns_contact(center, neighbor)) {
+                draw_ink = true;
                 break;
             }
         }
-    } else {
-        // 3px outside the visible silhouette, bounded to projected actors.
-        // No full-screen background dilation on large mobile viewports.
-        if (ink_screen_bounds.z <= ink_screen_bounds.x ||
-                ink_screen_bounds.w <= ink_screen_bounds.y ||
-                uv.x < ink_screen_bounds.x || uv.x > ink_screen_bounds.z ||
-                uv.y < ink_screen_bounds.y || uv.y > ink_screen_bounds.w) {
-            discard;
-        }
-        for (int dy = -3; dy <= 3; dy++) {
-            for (int dx = -3; dx <= 3; dx++) {
-                int distance_squared = dx * dx + dy * dy;
-                if (distance_squared == 0 ||
-                        !in_disk(distance_squared, main_outside_px)) {
-                    continue;
-                }
-                vec3 neighbor = sample_id(uv +
-                    vec2(float(dx), float(dy)) * mesh_id_texel);
-                if (role_of(neighbor) == 1) {
-                    draw_ink = true;
-                    break;
-                }
-            }
-            if (draw_ink) {
-                break;
-            }
+        if (draw_ink) {
+            break;
         }
     }
-
     if (!draw_ink) {
         discard;
     }
