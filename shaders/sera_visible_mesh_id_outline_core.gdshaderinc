@@ -235,8 +235,18 @@ float sera_visible_id_ink_alpha(vec2 uv) {
                     ivec2 next_mesh = ivec2(floor(neighbor.rb * 255.0 + 0.5));
                     if (any(notEqual(this_mesh, next_mesh)) &&
                             sera_in_contact_footprint(dx, dy, seam_px)) {
-                        draw_ink = true;
-                        break;
+                        // A 1px character seam must occupy ONE ID pixel in
+                        // total. Previously both contacting meshes wrote ink,
+                        // yielding a visibly 2px-wide line. The stable ID
+                        // ordering selects exactly one side, even diagonally.
+                        // Keep facilities/clutter and wider seams unchanged.
+                        bool thin_character_seam = seam_px <= 1.001 &&
+                            (role == 1 || role == 5 || role == 6);
+                        if (!thin_character_seam ||
+                                sera_contact_owner(center, neighbor)) {
+                            draw_ink = true;
+                            break;
+                        }
                     }
                     continue;
                 }
