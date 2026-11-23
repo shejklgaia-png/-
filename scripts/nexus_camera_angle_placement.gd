@@ -83,19 +83,15 @@ func _make_ui() -> void:
 
 
 func _button_title(id: String) -> String:
-    match id:
-        "open": return "アングル正規配置"
-        "exit": return "編集終了"
-        "copy": return "アングルコピー"
-        "zoom_in": return "近づく ＋"
-        "zoom_out": return "離れる －"
-        "look_left": return "注視 ◀"
-        "look_right": return "注視 ▶"
-        "look_up": return "注視 ▲"
-        "look_down": return "注視 ▼"
-        "fov_minus": return "画角 －"
-        "fov_plus": return "画角 ＋"
-    return id
+    var captions := {
+        "open": "アングル正規配置", "exit": "編集終了",
+        "copy": "アングルコピー", "zoom_in": "近づく ＋",
+        "zoom_out": "離れる －", "look_left": "注視 ◀",
+        "look_right": "注視 ▶", "look_up": "注視 ▲",
+        "look_down": "注視 ▼", "fov_minus": "画角 －",
+        "fov_plus": "画角 ＋"
+    }
+    return str(captions.get(id, id))
 
 
 func _can_open() -> bool:
@@ -163,7 +159,7 @@ func _button_rect(id: String) -> Rect2:
     if index < 0:
         return Rect2()
     var column: int = index % 4
-    var row: int = index / 4
+    var row: int = floori(float(index) / 4.0)
     var span: float = maxf(76.0, (w - 44.0) / 4.0 - 8.0)
     var at_x: float = 14.0 + float(column) * (span + 9.0)
     var at_y: float = h - 148.0 + float(row) * 57.0
@@ -326,8 +322,8 @@ func _copy_pose() -> void:
     text_content += "look=(%.4f, %.4f, %.4f)\n" % [
         look.x, look.y, look.z]
     text_content += "reference_vertical_fov_deg=%.3f\n" % reference_fov
-    text_content += "device_vertical_fov_deg=%.3f\n" % (
-        (host.get("cam") as Camera3D).fov)
+    var camera: Camera3D = host.get("cam") as Camera3D
+    text_content += "device_vertical_fov_deg=%.3f\n" % camera.fov
     var viewport_size: Vector2 = get_viewport_rect().size
     text_content += "viewport=(%.0f, %.0f)\n" % [
         viewport_size.x, viewport_size.y]
