@@ -140,16 +140,18 @@ bool sera_in_total_environment_seam(
         abs(dx) <= side_x && abs(dy) <= side_y;
 }
 
-// Accept square/diagonal ID adjacency before the ordinary circular
-// silhouette-radius cull. This keeps 8-connected 1px prop junctions visible
-// even if one ID texel occupies less than one physical display pixel.
+// Admit only the maximum OWNED half-width to the early square/diagonal
+// search (not the full width). A 3px facility contact needs at most 2 ID
+// texels on one side at 1:1, limiting texture reads on dense Android scenes.
 bool sera_environment_contact_candidate(
         int dx, int dy, float width_px) {
     if (width_px < 0.001) { return false; }
-    vec2 step_px = min(max(output_px_per_id_pixel, vec2(0.125)),
-        vec2(max(width_px, 0.5)));
-    vec2 reach = abs(vec2(float(dx), float(dy))) * step_px;
-    return max(reach.x, reach.y) <= width_px + 0.001;
+    int total_x = clamp(int(ceil(width_px /
+        max(0.125, output_px_per_id_pixel.x) - 0.00001)), 1, 32);
+    int total_y = clamp(int(ceil(width_px /
+        max(0.125, output_px_per_id_pixel.y) - 0.00001)), 1, 32);
+    return abs(dx) <= (total_x + 1) / 2 &&
+        abs(dy) <= (total_y + 1) / 2;
 }
 
 float sera_inner_width(int role) {
