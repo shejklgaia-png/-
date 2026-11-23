@@ -1,6 +1,7 @@
 extends Node3D
 const DISPLAY_SHADER = preload("res://assets/monitors/labo_display.gdshader")
 enum Display { PRINT, FLOW, PURITY, RECYCLE, INVENTORY, SCANNER }
+const InteriorFittings = preload("res://scripts/labo_interior_fittings.gd")
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const CrateModel = preload("res://scripts/sera_crate_model.gd")
 const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
@@ -229,6 +230,7 @@ func _build_warehouse_room() -> void:
         Vector3(0.065, 0.018, 6.9), Color("#ac8b4b"))
     _block(room, "StorageYellowAisleBorderR", Vector3(1.71, 0.017, -0.45),
         Vector3(0.065, 0.018, 6.9), Color("#ac8b4b"))
+    InteriorFittings.new().freight_door(room)
     # Rear monitoring screen (helm blueprint + gauges in this 3D world).
     var monitor := Node3D.new()
     monitor.name = "WarehouseInventoryMonitor"
@@ -308,6 +310,7 @@ func _build_printer() -> void:
         _block(pivot, "PrinterVentSlot", Vector3(-0.31+float(i)*0.20, 0.36, 1.047),
             Vector3(0.09, 0.05, 0.012), Color("#577181"))
     # Modelled inside the printer, not in front of it.
+    InteriorFittings.new().printer(pivot)
     printed_part = Node3D.new()
     printed_part.name = "PrintedPart"
     printed_part.position = Vector3(-0.32, 0.96, -0.10)
@@ -501,6 +504,7 @@ func _build_converter() -> void:
             Vector3(0.37, 0.04, 0.018), colors[i], true)
     var trays := Node3D.new()
     trays.name = "RefineryFeedstockTrays"
+    InteriorFittings.new().refinery(converter_group, locations, colors)
     trays.position = Vector3(-0.50, 0, 1.66)
     converter_group.add_child(trays)
     # Four open trays need four palette entries; only three processing
@@ -519,18 +523,9 @@ func _build_converter() -> void:
             _block(trays, "BinRim",
                 Vector3(x+corner*0.59, 0.53, 0),
                 Vector3(0.055, 0.09, 0.87), Color("#92a5ad"))
-        var sample_positions: Array[Vector3] = []
-        for row in range(2):
-            for col in range(3):
-                sample_positions.append(Vector3(
-                    x-0.37+float(col)*0.36,
-                    0.65+float((col+row)%2)*0.08,
-                    -0.24+float(row)*0.40))
-        _instances(trays, "MaterialSampleBatch_%d" % i,
-            sample_positions, Vector3(0.27, 0.23, 0.27),
-            tray_colors[i])
         _block(trays, "MaterialLabelPlate", Vector3(x, 0.25, 0.435),
             Vector3(0.44, 0.075, 0.018), Color("#b49a63"))
+    InteriorFittings.new().feedstock(trays, tray_colors)
     # Separate control consoles on the left edge and between the first tanks.
     for idx in range(2):
         var controller := Node3D.new()
@@ -588,6 +583,7 @@ func _build_warehouse() -> void:
                     0.96+float(row)*1.03, 0.285))
         _instances(bay, "CartonAmberHandles", stockstrips,
             Vector3(0.30, 0.055, 0.027), Color("#cba35d"))
+        InteriorFittings.new().rack(bay, int(side))
         var inventory_plate := Node3D.new()
         inventory_plate.name = "WarehouseLeftStockLabels" if side < 0 \
             else "WarehouseRightStockLabels"
@@ -683,8 +679,8 @@ func set_section(section: String) -> void:
             crate.rotation.y = 2.26
             work_state = "print_to_terminal"
             hero_camera.position = Vector3(2.65, 1.45, 4.40)
-            hero_camera.fov = 50.0
-            hero_camera.look_at(Vector3(0.15, 1.90, -0.70), Vector3.UP)
+            hero_camera.fov = 54.0
+            hero_camera.look_at(Vector3(0.15, 1.80, -0.70), Vector3.UP)
         "SMELTER", "RECYCLER":
             # Scene B: front LEFT 21 degree viewpoint and raised camera.
             # Orange vessel appears nearer than cyan and violet; four
