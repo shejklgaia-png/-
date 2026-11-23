@@ -2,7 +2,7 @@ extends RefCounted
 ## Numbered, exact-aspect SVGs projected onto existing BASE / NEXUS 3D screens.
 const Modules = preload("res://assets/base_command_modules.gd")
 const Architecture = preload("res://scripts/sera_base_architecture.gd")
-const MONITOR_SHADER = preload("res://assets/monitors/world_monitor.gdshader")
+const MonitorDriver = preload("res://scripts/sera_monitor_24fps_driver.gd")
 const Frames = preload("res://assets/monitors/numbered_frames.gd")
 const ANIMATION_FPS = 24.0
 const MONITOR_MODES = {"N01": 0, "N02": 1, "N03": 2, "N04": 3, "N05": 4, "N06": 5,
@@ -33,14 +33,36 @@ static func replaces_screen_marks(part_name: String) -> bool:
 static func _v(a: Array) -> Vector3:
     return Vector3(float(a[0]),float(a[1]),float(a[2]))
 
+static func _fallback_atlas() -> Image:
+    # Never leave a monitor blank even when a PNG atlas cannot be decoded.
+    # A 4x2 diagnostic deck also receives 24 Hz moving indicators.
+    var image := Image.create(512, 256, false, Image.FORMAT_RGBA8)
+    image.fill(Color("#092432"))
+    for row in range(2):
+        for column in range(4):
+            var ox: int = column * 128
+            var oy: int = row * 128
+            image.fill_rect(Rect2i(ox + 6, oy + 6, 116, 116), Color("#123b4a"))
+            image.fill_rect(Rect2i(ox + 12, oy + 16, 100, 4), Color("#70d7ed"))
+            for bar in range(5):
+                var length: int = 28 + posmod(column * 19 + row * 13 + bar * 17, 68)
+                image.fill_rect(Rect2i(ox + 16, oy + 38 + bar * 14,
+                    length, 4), Color("#4cb8d1"))
+    return image
+
+
 static func _surface(host: Node3D, id: String, pose: Transform3D, size: Vector2) -> void:
-    # Decode each compact indexed PNG only when its scene builds. Embedding
-    # the bytes keeps Android source sync independent of editor import state.
+    # Replaces the previous all-or-nothing PNG + spatial shader path.
+    # StandardMaterial3D is reliable on Android GL Compatibility and
+    # its UV transform is changed only at the exact 24 Hz image cadence.
     var image := Image.new()
-    if image.load_png_from_buffer(Marshalls.base64_to_raw(Frames.PNG[id])) != OK:
-        push_error("Invalid monitor atlas: " + id)
-        return
-    image.generate_mipmaps()
+    var loaded: bool = false
+    if Frames.PNG.has(id):
+        loaded = image.load_png_from_buffer(
+            Marshalls.base64_to_raw(str(Frames.PNG[id]))) == OK
+    if not loaded:
+        push_warning("Monitor atlas failed; showing visible fallback: " + id)
+        image = _fallback_atlas()
     var texture := ImageTexture.create_from_image(image)
     var mesh := QuadMesh.new()
     mesh.size = size
@@ -50,18 +72,23 @@ static func _surface(host: Node3D, id: String, pose: Transform3D, size: Vector2)
     display.transform = pose
     display.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     display.set_meta("FX_NO_OUTLINE", true)
+    display.set_meta("sera_no_view_edges", true)
     display.set_meta("sera_outline_occluder_only", true)
     display.set_meta("sera_preserve_authored_material", true)
     display.set_meta("monitor_id", id)
     display.set_meta("monitor_resolution", texture.get_size() / Vector2(4, 2))
-    var mat := ShaderMaterial.new()
-    mat.shader = MONITOR_SHADER
-    mat.set_shader_parameter("atlas", texture)
-    mat.set_shader_parameter("fps", ANIMATION_FPS)
-    mat.set_shader_parameter("atlas_fps", ATLAS_RATES[id])
-    mat.set_shader_parameter("mode", MONITOR_MODES[id])
-    mat.set_shader_parameter("phase", float(MONITOR_MODES[id]) * 0.37)
+    var mat := StandardMaterial3D.new()
+    mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+    mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
+    mat.albedo_texture = texture
+    mat.albedo_color = Color.WHITE
     display.material_override = mat
+    var driver := MonitorDriver.new()
+    driver.name = "Monitor24FPS"
+    driver.set_meta("FX_NO_OUTLINE", true)
+    display.add_child(driver)
+    driver.setup(id, int(MONITOR_MODES[id]), float(ATLAS_RATES[id]), size, mat)
     host.add_child(display)
 
 static func attach_blockbench(host: Node3D, module: String, at: Vector3,
