@@ -140,15 +140,15 @@ func _assemble(room: Node3D, kind: int) -> void:
     _oct_box(s, Vector3(0, 0.049, trench_z),
         Vector3(trench_length, 0.018, 0.47), 0.055, DARK)
     for j in range(14):
-        var tx: float = -trench_length*0.5+0.19+
-            float(j)*(trench_length-0.38)/13.0
+        var tx: float = (-trench_length*0.5+0.19+
+            float(j)*(trench_length-0.38)/13.0)
         _oct_box(s, Vector3(tx, 0.062, trench_z),
             Vector3(0.061, 0.013, 0.37), 0.012, STEEL)
     # Deep exposed roof trusses. Different spans and purlins for each hall.
     var ceiling_rows: int = 6 if kind == 2 else 5
     for j in range(ceiling_rows):
-        var zc: float = floor_z-depth*0.5+1.1+
-            float(j)*(depth-2.2)/float(ceiling_rows-1)
+        var zc: float = (floor_z-depth*0.5+1.1+
+            float(j)*(depth-2.2)/float(ceiling_rows-1))
         _oct_box(s, Vector3(0, 4.68, zc),
             Vector3(width-0.65, 0.20, 0.23), 0.06, STEEL)
         for side in [-1.0, 1.0]:
