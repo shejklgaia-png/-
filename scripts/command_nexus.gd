@@ -392,9 +392,18 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
                         corners.append(transform * Vector3(ix, iy, iz))
             silhouette_parts.append(corners)
         var index: int = int(part[3])
-        var instances: Array = batch_data.get(index, [])
+        # Floor slabs are intentionally visible as modeled, but they must
+        # occlude the line mask instead of producing a border for each tile.
+        # Keep floor light traces in normal emissive batches.
+        var part_name: String = str(part[0])
+        var floor_depth_only: bool = name == "hangar_shell" and (
+            part_name == "Floor foundation" or
+            part_name.begins_with("Floor steel tile") or
+            part_name == "Floor drain")
+        var batch_key: int = index + 100 if floor_depth_only else index
+        var instances: Array = batch_data.get(batch_key, [])
         instances.append(transform)
-        batch_data[index] = instances
+        batch_data[batch_key] = instances
     if not selected_shape.is_empty():
         target_parts[selected_shape] = silhouette_parts
 
@@ -498,8 +507,10 @@ func _render_batches() -> void:
     var cube := BoxMesh.new()
     cube.size = Vector3.ONE
     for index_value in batch_data.keys():
-        var index: int = int(index_value)
-        var transforms: Array = batch_data[index]
+        var batch_key: int = int(index_value)
+        var floor_depth_only: bool = batch_key >= 100
+        var index: int = batch_key % 100
+        var transforms: Array = batch_data[batch_key]
         var multi := MultiMesh.new()
         multi.transform_format = MultiMesh.TRANSFORM_3D
         multi.mesh = cube
@@ -507,8 +518,13 @@ func _render_batches() -> void:
         for i in range(transforms.size()):
             multi.set_instance_transform(i, transforms[i])
         var draw := MultiMeshInstance3D.new()
-        draw.name = "BlockbenchBatch_%02d" % index
+        draw.name = ("BlockbenchFloorDepth_%02d" % index
+            if floor_depth_only else "BlockbenchBatch_%02d" % index)
         draw.multimesh = multi
+        if floor_depth_only:
+            # Source remains solid/opaque. In the NEXUS RGB-ID pass this batch
+            # writes depth with a reserved no-ink tag, hiding rear contours.
+            draw.set_meta("sera_outline_occluder_only", true)
         var material: StandardMaterial3D = _mat(index)
         # Scene-wide visible-mesh-ID contours now own ALL opaque module
         # boundaries. Do not draw the old polygon-edge next_pass on top.
