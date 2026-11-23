@@ -650,7 +650,8 @@ static func _append_tube(mesh_arrays: Dictionary, points: PackedVector3Array,
 
 static func _finish_cables(parent: Node3D,
         main_wires: Dictionary, stripes: Dictionary) -> void:
-    if (main_wires["vertices"] as PackedVector3Array).is_empty():
+    var body_vertices: PackedVector3Array = main_wires["vertices"]
+    if body_vertices.is_empty():
         return
     var mesh := ArrayMesh.new()
     for record in [
