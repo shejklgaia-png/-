@@ -1,4 +1,5 @@
 extends Node3D
+const Modules = preload("res://assets/base_command_modules.gd")
 ## NEXUS room hardware animation. Built once at scene entry; no additional
 ## viewports, particles, timers, dynamic mesh rebuilding or lights.
 ## All motion is driven from one 20 Hz sampler and leaves authored selection
@@ -16,6 +17,7 @@ var _deployment_requested: bool = false
 var _door_open_amount: float = 0.0
 
 var _canopy_rotor: Node3D
+var _canopy_cyan_rotor: Node3D
 var _scanner: Node3D
 var _arm_heads: Array[Node3D] = []
 var _system_fan: Node3D
@@ -61,6 +63,9 @@ func _process(delta: float) -> void:
     # Constant-speed internal bearing. Outer twelve-segment ceiling support
     # stays fixed; three short radial actuator heads reciprocate independently.
     _canopy_rotor.rotation.y = fposmod(_elapsed * 0.19, TAU)
+    # Camera-facing near arc travels to the LEFT. Unlike the stationary cyan
+    # Blockbench optics, these are now real moving emissive mesh components.
+    _canopy_cyan_rotor.rotation.y = -fposmod(_elapsed * 0.32, TAU)
     for i in range(_arm_heads.size()):
         var phase: float = _elapsed * 0.82 + float(i) * 1.95
         _arm_heads[i].position.y = -0.10 - 0.16 * (
@@ -98,6 +103,7 @@ func _build_ceiling(metal: Material, edge: Material,
     _canopy_rotor.position = Vector3(0.0, 6.92, -4.75)
     add_child(_canopy_rotor)
     _ring(_canopy_rotor, "ServoBearing", 1.22, 1.34, metal)
+    _build_canopy_cyan_optics()
     for i in range(3):
         var angle: float = TAU * float(i) / 3.0
         var arm := Node3D.new()
@@ -116,6 +122,67 @@ func _build_ceiling(metal: Material, edge: Material,
         _box(tip, "WorkLight", Vector3(0.0, -0.16, 0.02),
             Vector3(0.12, 0.027, 0.11), glow)
         _arm_heads.append(tip)
+
+
+func _build_canopy_cyan_optics() -> void:
+    # Rebuild the twelve actual Blockbench luminous segments into rotating
+    # MultiMeshes; sizes and offsets remain IDENTICAL to their authored shapes.
+    # The original static segments are suppressed by command_nexus._module.
+    # Two asymmetrically brighter markers make slow rotation perceptible.
+    _canopy_cyan_rotor = Node3D.new()
+    _canopy_cyan_rotor.name = "LeftRotatingCyanMaintenanceOptics"
+    _canopy_cyan_rotor.position = Vector3(0.0, 7.07, -4.75)
+    add_child(_canopy_cyan_rotor)
+    var normal: Array[Transform3D] = []
+    var markers: Array[Transform3D] = []
+    var source: Array = Modules.MODULES["maintenance_canopy"]
+    var canopy_origin := Vector3(0.0, 8.0, -8.95)
+    for part in source:
+        var label: String = str(part[0])
+        if not label.begins_with("Overhead cyan maintenance optic "):
+            continue
+        var lo: Vector3 = _module_vec(part[1]) * Modules.UNIT
+        var hi: Vector3 = _module_vec(part[2]) * Modules.UNIT
+        var rotation: Vector3 = _module_vec(part[4]) * (PI / 180.0)
+        var center: Vector3 = canopy_origin + (lo + hi) * 0.5
+        var transform := Transform3D(
+            Basis.from_euler(rotation).scaled_local(hi - lo),
+            center - _canopy_cyan_rotor.position)
+        var segment_index: int = int(label.trim_prefix(
+            "Overhead cyan maintenance optic "))
+        if segment_index in [0, 5, 9]:
+            markers.append(transform)
+        else:
+            normal.append(transform)
+    _optic_multimesh(normal, "CyanRingSegments", FINISH_GLOW)
+    _optic_multimesh(markers, "BrighterCyanRotationMarkers",
+        Color("#a5f4ff"))
+
+
+func _optic_multimesh(transforms: Array[Transform3D], label: String,
+        tint: Color) -> void:
+    if transforms.is_empty():
+        return
+    var box := BoxMesh.new()
+    box.size = Vector3.ONE
+    var batch := MultiMesh.new()
+    batch.transform_format = MultiMesh.TRANSFORM_3D
+    batch.mesh = box
+    batch.instance_count = transforms.size()
+    for i in range(transforms.size()):
+        batch.set_instance_transform(i, transforms[i])
+    var node := MultiMeshInstance3D.new()
+    node.name = label
+    node.multimesh = batch
+    node.material_override = _mat(tint, true)
+    node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    node.set_meta("FX_NO_OUTLINE", true)
+    node.set_meta("sera_outline_occluder_only", true)
+    _canopy_cyan_rotor.add_child(node)
+
+
+func _module_vec(values: Array) -> Vector3:
+    return Vector3(float(values[0]), float(values[1]), float(values[2]))
 
 
 func _build_scanner(metal: Material, glow: Material) -> void:
