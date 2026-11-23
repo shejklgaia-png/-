@@ -597,7 +597,11 @@ static func _asymmetric_service_bays(batches: Dictionary) -> void:
         {"x": -8.52, "z": 1.42, "width": 1.47, "length": 3.52,
             "yaw": 0.11, "tone": "deck_steel"},
         {"x": 8.45, "z": 10.85, "width": 1.80, "length": 3.35,
-            "yaw": -0.13, "tone": "deck_mid"}
+            "yaw": -0.13, "tone": "deck_mid"},
+        {"x": -2.86, "z": 9.25, "width": 1.05, "length": 2.18,
+            "yaw": -0.25, "tone": "deck_blue"},
+        {"x": 2.93, "z": 12.40, "width": 1.17, "length": 2.35,
+            "yaw": 0.21, "tone": "deck_steel"}
     ]
     for zone_value in zones:
         var zone: Dictionary = zone_value
