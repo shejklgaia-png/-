@@ -32,7 +32,7 @@ static func build(room: Node3D) -> void:
     # The support shell ends at y=-0.015. This dark solid underdeck is visible
     # only through joints and the two genuinely open maintenance cutouts.
     _cube(batches, "underdeck", Vector3(0.0, 0.023, DECK_MIDDLE),
-        Vector3(15.15, 0.124, DECK_FRONT - DECK_BACK))
+        Vector3(19.75, 0.124, DECK_FRONT - DECK_BACK))
 
     # Independent row rhythms form T-joints instead of long parallel lines.
     # Nearer panels are shorter, reproducing the complex reference foreground.
@@ -61,6 +61,27 @@ static func build(room: Node3D) -> void:
                     _center_panel_with_drains(batches, x0, x1, a, b, shade, index)
                 else:
                     _armor_panel(batches, x0, x1, a, b, shade, lane, index)
+            z += pitch
+            index += 1
+
+    # Extra, separate side-bay decking matches the widened hangar foundation.
+    # Preserve the seven authored inner lanes and the center maintenance ring:
+    # extending these with new outer rows is cheaper than rescaling all plates.
+    for side_index in range(2):
+        var left_side: bool = side_index == 0
+        var x0: float = -9.73 if left_side else 7.54
+        var x1: float = -7.54 if left_side else 9.73
+        var z: float = DECK_BACK + (0.35 if left_side else 0.94)
+        var index: int = 0
+        while z < DECK_FRONT - 0.24:
+            var pitch: float = 3.20 + float(index % 3) * 0.19
+            var a: float = maxf(z + 0.025, DECK_BACK + 0.06)
+            var b: float = minf(z + pitch - 0.025, DECK_FRONT - 0.06)
+            if b > a + 0.50:
+                var finish: String = (
+                    "deck_graphite" if index % 4 < 2 else "deck_side")
+                _armor_panel(batches, x0, x1, a, b, finish,
+                    7 + side_index, index)
             z += pitch
             index += 1
 
