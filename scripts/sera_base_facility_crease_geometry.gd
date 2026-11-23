@@ -1,7 +1,7 @@
 extends RefCounted
-## Freeze BASE's user-approved 2px near-facing crease geometry.
-## Exact 2026-11-21 SERA 80-degree edge extraction / ribbon encoding.
-## Do NOT use for silhouettes: latest SERA's inverted hull handles those.
+## Shared 80-degree hard-edge extraction for BASE and NEXUS.
+## Buildings draw both convex and concave 1px corners; clutter retains
+## convex-only 1px. Silhouettes and mesh contacts use the RGB12 ID pass.
 const CREASE_DEGREES: float = 80.0
 const MAX_EDGES_PER_MESH: int = 8000
 
@@ -124,10 +124,10 @@ static func _build_overlay(mesh: Mesh) -> ArrayMesh:
     return st.commit()
 
 
-# The ID compositor owns ALL silhouettes and mesh-ID contacts. This cached
-# overlay contains ONLY physically convex >=80-degree edges of one mesh.
-# No open boundary/front-back silhouette or concave crease is ever emitted.
-static func build_convex_only(mesh: Mesh) -> ArrayMesh:
+# The RGB12 ID compositor owns silhouettes and inter-mesh boundaries.
+# Extract only manifold hard corners from the SAME mesh. Include concave
+# edges for buildings; keep small props convex-only. No open edges.
+static func build_corner_edges(mesh: Mesh, include_concave: bool) -> ArrayMesh:
     if mesh == null:
         return null
     var volume: float = 0.0
@@ -168,11 +168,12 @@ static func build_convex_only(mesh: Mesh) -> ArrayMesh:
         var tangent: Vector3 = direction.normalized()
         var na: Vector3 = edge["face_a"]
         var nb: Vector3 = edge["face_b"]
-        if tangent.dot(na.cross(nb)) * outward_sign <= 0.00001:
+        var signed_corner: float = tangent.dot(na.cross(nb)) * outward_sign
+        if absf(signed_corner) <= 0.00001 or (
+                signed_corner < 0.0 and not include_concave):
             continue
-        # The convex-only shader expects the two OUTWARD normals in
-        # COLOR.rgb and CUSTOM0.xyz. The hard-crease bit is COLOR.a.
-        # Its depth-tested ribbons cannot draw a separate mesh boundary.
+        # Signed dihedral separates convex (+) and concave (-) corners.
+        # Pass both outward normals for visibility-aware rasterization.
         var a_out: Vector3 = na * outward_sign
         var b_out: Vector3 = nb * outward_sign
         var face_a := Color(a_out.x * 0.5 + 0.5,
@@ -190,3 +191,8 @@ static func build_convex_only(mesh: Mesh) -> ArrayMesh:
     if emitted == 0:
         return null
     return st.commit()
+
+
+# Retain legacy API for convex-only small props.
+static func build_convex_only(mesh: Mesh) -> ArrayMesh:
+    return build_corner_edges(mesh, false)
