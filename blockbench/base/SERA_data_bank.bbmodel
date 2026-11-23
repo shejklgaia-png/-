@@ -11,17 +11,17 @@
   },
   "elements": [
     {
-      "name": "Data station base",
+      "name": "Archive central control chassis",
       "type": "cube",
       "from": [
-        -13.35,
-        -0.05,
-        -4.2
+        -14.3,
+        -0.2,
+        -6.2
       ],
       "to": [
-        13.35,
-        10.85,
-        4.2
+        14.3,
+        9.4,
+        4.6
       ],
       "color": 2,
       "rotation": [
@@ -31,10 +31,10 @@
       ],
       "origin": [
         0,
-        5.4,
-        0
+        4.6,
+        -0.8
       ],
-      "uuid": "8c340520-b00f-4000-8000-000000000001",
+      "uuid": "8c340522-b00f-4000-8000-000000000644",
       "faces": {
         "north": {
           "uv": [
@@ -93,19 +93,19 @@
       }
     },
     {
-      "name": "Station back support",
+      "name": "Archive central support flange",
       "type": "cube",
       "from": [
-        -13.7,
-        8.2,
-        -4.05
+        -15,
+        7.9,
+        -6.1
       ],
       "to": [
-        13.7,
-        20.2,
-        0.45
+        15,
+        12.5,
+        3.3
       ],
-      "color": 2,
+      "color": 3,
       "rotation": [
         0,
         0,
@@ -113,10 +113,10 @@
       ],
       "origin": [
         0,
-        14.2,
-        -1.8
+        10.2,
+        -1.4
       ],
-      "uuid": "8c340520-b00f-4000-8000-000000000002",
+      "uuid": "8c340522-b00f-4000-8000-000000000645",
       "faces": {
         "north": {
           "uv": [
@@ -175,30 +175,112 @@
       }
     },
     {
-      "name": "Data screen casing -0.7",
+      "name": "Archive dual display thick casing -1",
       "type": "cube",
       "from": [
-        -13.25,
-        11.55,
-        -0.9
+        -14.6,
+        10.7,
+        -3.5
       ],
       "to": [
-        -0.75,
-        22.85,
-        1.5
+        -0.2,
+        24.6,
+        2
+      ],
+      "color": 3,
+      "rotation": [
+        -6,
+        0,
+        0
+      ],
+      "origin": [
+        -7.4,
+        17.65,
+        -0.75
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000646",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive screen double bevel -1",
+      "type": "cube",
+      "from": [
+        -13.6,
+        11.8,
+        1.3
+      ],
+      "to": [
+        -1.2,
+        23.8,
+        2.5
       ],
       "color": 4,
       "rotation": [
-        -8,
+        -6,
         0,
         0
       ],
       "origin": [
-        -7,
-        17.2,
-        0.3
+        -7.4,
+        17.8,
+        1.9
       ],
-      "uuid": "8c340520-b00f-4000-8000-000000000003",
+      "uuid": "8c340522-b00f-4000-8000-000000000647",
       "faces": {
         "north": {
           "uv": [
@@ -257,30 +339,30 @@
       }
     },
     {
-      "name": "Data screen -0.7",
+      "name": "Archive cyan screen field -1",
       "type": "cube",
       "from": [
-        -12.3,
-        13.2,
-        1.5
+        -13,
+        12.7,
+        2.46
       ],
       "to": [
-        -1.7,
-        21.8,
-        1.9
+        -1.8,
+        23,
+        2.8
       ],
       "color": 7,
       "rotation": [
-        -8,
+        -6,
         0,
         0
       ],
       "origin": [
-        -7,
-        17.5,
-        1.7
+        -7.4,
+        17.85,
+        2.63
       ],
-      "uuid": "8c340520-b00f-4000-8000-000000000004",
+      "uuid": "8c340522-b00f-4000-8000-000000000648",
       "faces": {
         "north": {
           "uv": [
@@ -339,30 +421,30 @@
       }
     },
     {
-      "name": "Data chart bar 0",
+      "name": "Archive screen upper telemetry -1",
       "type": "cube",
       "from": [
-        -11.4,
-        16.95,
-        1.825
+        -11.6,
+        21.5,
+        2.79
       ],
       "to": [
-        -9.2,
-        17.45,
-        2.175
+        -4.9,
+        22,
+        3.07
       ],
       "color": 5,
       "rotation": [
-        -8,
+        0,
         0,
         0
       ],
       "origin": [
-        -10.3,
-        17.2,
-        2
+        -8.25,
+        21.75,
+        2.93
       ],
-      "uuid": "8c340520-b00f-4000-8000-000000000005",
+      "uuid": "8c340522-b00f-4000-8000-000000000649",
       "faces": {
         "north": {
           "uv": [
@@ -421,276 +503,30 @@
       }
     },
     {
-      "name": "Data chart bar 1",
-      "type": "cube",
-      "from": [
-        -8.3,
-        18.25,
-        1.825
-      ],
-      "to": [
-        -6.1,
-        18.75,
-        2.175
-      ],
-      "color": 5,
-      "rotation": [
-        -8,
-        0,
-        0
-      ],
-      "origin": [
-        -7.2,
-        18.5,
-        2
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000006",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Data chart bar 2",
-      "type": "cube",
-      "from": [
-        -5.2,
-        19.55,
-        1.825
-      ],
-      "to": [
-        -3,
-        20.05,
-        2.175
-      ],
-      "color": 5,
-      "rotation": [
-        -8,
-        0,
-        0
-      ],
-      "origin": [
-        -4.1,
-        19.8,
-        2
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000007",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Data keyboard -0.7",
+      "name": "Archive display chart line -1_0",
       "type": "cube",
       "from": [
         -12,
-        9.5,
-        2.25
+        14.2,
+        2.82
       ],
       "to": [
-        -2,
-        10.9,
-        6.95
-      ],
-      "color": 3,
-      "rotation": [
-        15,
-        0,
-        0
-      ],
-      "origin": [
-        -7,
-        10.2,
-        4.6
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000008",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Data pad -0.7",
-      "type": "cube",
-      "from": [
-        -10,
-        10.875,
-        5.8
-      ],
-      "to": [
-        -4,
-        11.325,
-        7.2
+        -6.3,
+        14.42,
+        2.96
       ],
       "color": 5,
       "rotation": [
-        15,
+        0,
         0,
         0
       ],
       "origin": [
-        -7,
-        11.1,
-        6.5
+        -9.15,
+        14.31,
+        2.89
       ],
-      "uuid": "8c340520-b00f-4000-8000-000000000009",
+      "uuid": "8c340522-b00f-4000-8000-000000000650",
       "faces": {
         "north": {
           "uv": [
@@ -749,30 +585,358 @@
       }
     },
     {
-      "name": "Data screen casing 0.7",
+      "name": "Archive display chart line -1_1",
       "type": "cube",
       "from": [
-        0.75,
-        11.55,
-        -0.9
+        -12,
+        15.38,
+        2.82
       ],
       "to": [
-        13.25,
-        22.85,
-        1.5
+        -5.2,
+        15.6,
+        2.96
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -8.6,
+        15.49,
+        2.89
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000651",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive display chart line -1_2",
+      "type": "cube",
+      "from": [
+        -12,
+        16.56,
+        2.82
+      ],
+      "to": [
+        -4.1,
+        16.78,
+        2.96
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -8.05,
+        16.67,
+        2.89
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000652",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive display chart line -1_3",
+      "type": "cube",
+      "from": [
+        -12,
+        17.74,
+        2.82
+      ],
+      "to": [
+        -6.3,
+        17.96,
+        2.96
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -9.15,
+        17.85,
+        2.89
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000653",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive display chart line -1_4",
+      "type": "cube",
+      "from": [
+        -12,
+        18.92,
+        2.82
+      ],
+      "to": [
+        -5.2,
+        19.14,
+        2.96
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -8.6,
+        19.03,
+        2.89
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000654",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive control keyboard incline -1",
+      "type": "cube",
+      "from": [
+        -13.5,
+        8.2,
+        3.7
+      ],
+      "to": [
+        -1.3,
+        10.8,
+        8.1
       ],
       "color": 4,
       "rotation": [
-        -8,
+        14,
         0,
         0
       ],
       "origin": [
-        7,
-        17.2,
-        0.3
+        -7.4,
+        9.5,
+        5.9
       ],
-      "uuid": "8c340520-b00f-4000-8000-000000000010",
+      "uuid": "8c340522-b00f-4000-8000-000000000655",
       "faces": {
         "north": {
           "uv": [
@@ -831,30 +995,686 @@
       }
     },
     {
-      "name": "Data screen 0.7",
+      "name": "Archive keyboard cyan row -1_0",
       "type": "cube",
       "from": [
-        1.7,
-        13.2,
-        1.5
+        -12.7,
+        10.1,
+        7.2
       ],
       "to": [
-        12.3,
-        21.8,
+        -11.55,
+        10.42,
+        7.95
+      ],
+      "color": 5,
+      "rotation": [
+        14,
+        0,
+        0
+      ],
+      "origin": [
+        -12.125,
+        10.26,
+        7.575
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000656",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive keyboard cyan row -1_1",
+      "type": "cube",
+      "from": [
+        -10.5,
+        10.1,
+        7.2
+      ],
+      "to": [
+        -9.35,
+        10.42,
+        7.95
+      ],
+      "color": 5,
+      "rotation": [
+        14,
+        0,
+        0
+      ],
+      "origin": [
+        -9.925,
+        10.26,
+        7.575
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000657",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive keyboard cyan row -1_2",
+      "type": "cube",
+      "from": [
+        -8.3,
+        10.1,
+        7.2
+      ],
+      "to": [
+        -7.15,
+        10.42,
+        7.95
+      ],
+      "color": 5,
+      "rotation": [
+        14,
+        0,
+        0
+      ],
+      "origin": [
+        -7.725,
+        10.26,
+        7.575
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000658",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive keyboard cyan row -1_3",
+      "type": "cube",
+      "from": [
+        -6.1,
+        10.1,
+        7.2
+      ],
+      "to": [
+        -4.95,
+        10.42,
+        7.95
+      ],
+      "color": 5,
+      "rotation": [
+        14,
+        0,
+        0
+      ],
+      "origin": [
+        -5.525,
+        10.26,
+        7.575
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000659",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive keyboard cyan row -1_4",
+      "type": "cube",
+      "from": [
+        -3.9,
+        10.1,
+        7.2
+      ],
+      "to": [
+        -2.75,
+        10.42,
+        7.95
+      ],
+      "color": 5,
+      "rotation": [
+        14,
+        0,
+        0
+      ],
+      "origin": [
+        -3.325,
+        10.26,
+        7.575
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000660",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive cabinet lower indicator -1",
+      "type": "cube",
+      "from": [
+        -8.4,
+        1.3,
+        4.7
+      ],
+      "to": [
+        -6.4,
+        6.2,
+        5.2
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -7.4,
+        3.75,
+        4.95
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000661",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive dual display thick casing 1",
+      "type": "cube",
+      "from": [
+        0.2,
+        10.7,
+        -3.5
+      ],
+      "to": [
+        14.6,
+        24.6,
+        2
+      ],
+      "color": 3,
+      "rotation": [
+        -6,
+        0,
+        0
+      ],
+      "origin": [
+        7.4,
+        17.65,
+        -0.75
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000662",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive screen double bevel 1",
+      "type": "cube",
+      "from": [
+        1.2,
+        11.8,
+        1.3
+      ],
+      "to": [
+        13.6,
+        23.8,
+        2.5
+      ],
+      "color": 4,
+      "rotation": [
+        -6,
+        0,
+        0
+      ],
+      "origin": [
+        7.4,
+        17.8,
         1.9
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000663",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive cyan screen field 1",
+      "type": "cube",
+      "from": [
+        1.8,
+        12.7,
+        2.46
+      ],
+      "to": [
+        13,
+        23,
+        2.8
       ],
       "color": 7,
       "rotation": [
-        -8,
+        -6,
         0,
         0
       ],
       "origin": [
-        7,
-        17.5,
-        1.7
+        7.4,
+        17.85,
+        2.63
       ],
-      "uuid": "8c340520-b00f-4000-8000-000000000011",
+      "uuid": "8c340522-b00f-4000-8000-000000000664",
       "faces": {
         "north": {
           "uv": [
@@ -913,276 +1733,30 @@
       }
     },
     {
-      "name": "Data chart bar 0",
+      "name": "Archive screen upper telemetry 1",
       "type": "cube",
       "from": [
-        2.6,
-        16.95,
-        1.825
+        3.2,
+        21.5,
+        2.79
       ],
       "to": [
-        4.8,
-        17.45,
-        2.175
-      ],
-      "color": 5,
-      "rotation": [
-        -8,
-        0,
-        0
-      ],
-      "origin": [
-        3.7,
-        17.2,
-        2
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000012",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Data chart bar 1",
-      "type": "cube",
-      "from": [
-        5.7,
-        18.25,
-        1.825
-      ],
-      "to": [
-        7.9,
-        18.75,
-        2.175
-      ],
-      "color": 5,
-      "rotation": [
-        -8,
-        0,
-        0
-      ],
-      "origin": [
-        6.8,
-        18.5,
-        2
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000013",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Data chart bar 2",
-      "type": "cube",
-      "from": [
-        8.8,
-        19.55,
-        1.825
-      ],
-      "to": [
-        11,
-        20.05,
-        2.175
-      ],
-      "color": 5,
-      "rotation": [
-        -8,
-        0,
-        0
-      ],
-      "origin": [
         9.9,
-        19.8,
-        2
+        22,
+        3.07
       ],
-      "uuid": "8c340520-b00f-4000-8000-000000000014",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Data keyboard 0.7",
-      "type": "cube",
-      "from": [
-        2,
-        9.5,
-        2.25
-      ],
-      "to": [
-        12,
-        10.9,
-        6.95
-      ],
-      "color": 3,
+      "color": 5,
       "rotation": [
-        15,
+        0,
         0,
         0
       ],
       "origin": [
-        7,
-        10.2,
-        4.6
+        6.55,
+        21.75,
+        2.93
       ],
-      "uuid": "8c340520-b00f-4000-8000-000000000015",
+      "uuid": "8c340522-b00f-4000-8000-000000000665",
       "faces": {
         "north": {
           "uv": [
@@ -1241,30 +1815,522 @@
       }
     },
     {
-      "name": "Data pad 0.7",
+      "name": "Archive display chart line 1_0",
       "type": "cube",
       "from": [
-        4,
-        10.875,
-        5.8
+        2.8,
+        14.2,
+        2.82
       ],
       "to": [
-        10,
-        11.325,
+        8.5,
+        14.42,
+        2.96
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        5.65,
+        14.31,
+        2.89
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000666",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive display chart line 1_1",
+      "type": "cube",
+      "from": [
+        2.8,
+        15.38,
+        2.82
+      ],
+      "to": [
+        9.6,
+        15.6,
+        2.96
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        6.2,
+        15.49,
+        2.89
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000667",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive display chart line 1_2",
+      "type": "cube",
+      "from": [
+        2.8,
+        16.56,
+        2.82
+      ],
+      "to": [
+        10.7,
+        16.78,
+        2.96
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        6.75,
+        16.67,
+        2.89
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000668",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive display chart line 1_3",
+      "type": "cube",
+      "from": [
+        2.8,
+        17.74,
+        2.82
+      ],
+      "to": [
+        8.5,
+        17.96,
+        2.96
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        5.65,
+        17.85,
+        2.89
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000669",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive display chart line 1_4",
+      "type": "cube",
+      "from": [
+        2.8,
+        18.92,
+        2.82
+      ],
+      "to": [
+        9.6,
+        19.14,
+        2.96
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        6.2,
+        19.03,
+        2.89
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000670",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive control keyboard incline 1",
+      "type": "cube",
+      "from": [
+        1.3,
+        8.2,
+        3.7
+      ],
+      "to": [
+        13.5,
+        10.8,
+        8.1
+      ],
+      "color": 4,
+      "rotation": [
+        14,
+        0,
+        0
+      ],
+      "origin": [
+        7.4,
+        9.5,
+        5.9
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000671",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive keyboard cyan row 1_0",
+      "type": "cube",
+      "from": [
+        2.1,
+        10.1,
         7.2
       ],
+      "to": [
+        3.25,
+        10.42,
+        7.95
+      ],
       "color": 5,
       "rotation": [
-        15,
+        14,
         0,
         0
       ],
       "origin": [
-        7,
-        11.1,
-        6.5
+        2.675,
+        10.26,
+        7.575
       ],
-      "uuid": "8c340520-b00f-4000-8000-000000000016",
+      "uuid": "8c340522-b00f-4000-8000-000000000672",
       "faces": {
         "north": {
           "uv": [
@@ -1323,1577 +2389,511 @@
       }
     },
     {
-      "name": "Station power indicator",
+      "name": "Archive keyboard cyan row 1_1",
       "type": "cube",
       "from": [
-        -0.7,
-        0.8,
-        4.35
+        4.3,
+        10.1,
+        7.2
       ],
       "to": [
-        0.7,
-        4.4,
+        5.45,
+        10.42,
+        7.95
+      ],
+      "color": 5,
+      "rotation": [
+        14,
+        0,
+        0
+      ],
+      "origin": [
+        4.875,
+        10.26,
+        7.575
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000673",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive keyboard cyan row 1_2",
+      "type": "cube",
+      "from": [
+        6.5,
+        10.1,
+        7.2
+      ],
+      "to": [
+        7.65,
+        10.42,
+        7.95
+      ],
+      "color": 5,
+      "rotation": [
+        14,
+        0,
+        0
+      ],
+      "origin": [
+        7.075,
+        10.26,
+        7.575
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000674",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive keyboard cyan row 1_3",
+      "type": "cube",
+      "from": [
+        8.7,
+        10.1,
+        7.2
+      ],
+      "to": [
+        9.85,
+        10.42,
+        7.95
+      ],
+      "color": 5,
+      "rotation": [
+        14,
+        0,
+        0
+      ],
+      "origin": [
+        9.275,
+        10.26,
+        7.575
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000675",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive keyboard cyan row 1_4",
+      "type": "cube",
+      "from": [
+        10.9,
+        10.1,
+        7.2
+      ],
+      "to": [
+        12.05,
+        10.42,
+        7.95
+      ],
+      "color": 5,
+      "rotation": [
+        14,
+        0,
+        0
+      ],
+      "origin": [
+        11.475,
+        10.26,
+        7.575
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000676",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive cabinet lower indicator 1",
+      "type": "cube",
+      "from": [
+        6.4,
+        1.3,
+        4.7
+      ],
+      "to": [
+        8.4,
+        6.2,
+        5.2
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        7.4,
+        3.75,
+        4.95
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000677",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive service canopy upper rail",
+      "type": "cube",
+      "from": [
+        -15.5,
+        24.25,
+        -5.5
+      ],
+      "to": [
+        15.5,
+        26.7,
+        3.1
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        25.475,
+        -1.2
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000678",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Archive lower wire bay",
+      "type": "cube",
+      "from": [
+        -13,
+        0.4,
         4.65
       ],
-      "color": 5,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        0,
-        2.6,
-        4.5
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000017",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Data cabinet service door -1",
-      "type": "cube",
-      "from": [
-        -11.7,
-        1.2,
-        4.28
-      ],
       "to": [
-        -2.3,
-        8.1,
-        4.85
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        -7,
-        4.65,
-        4.565
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000313",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Data cabinet status lamp -1",
-      "type": "cube",
-      "from": [
-        -10.7,
-        3.1,
-        4.9
-      ],
-      "to": [
-        -9.7,
-        6.8,
-        5.2
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        -10.2,
-        4.95,
-        5.05
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000314",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Data display telemetry line -1 0",
-      "type": "cube",
-      "from": [
-        -11.1,
-        18.9,
-        1.95
-      ],
-      "to": [
-        -9.4,
-        19.2,
-        2.2
-      ],
-      "color": 5,
-      "rotation": [
-        -8,
-        0,
-        0
-      ],
-      "origin": [
-        -10.25,
-        19.05,
-        2.075
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000315",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Data display telemetry line -1 1",
-      "type": "cube",
-      "from": [
-        -8.7,
-        17.65,
-        1.95
-      ],
-      "to": [
-        -6.999999999999999,
-        17.95,
-        2.2
-      ],
-      "color": 5,
-      "rotation": [
-        -8,
-        0,
-        0
-      ],
-      "origin": [
-        -7.85,
-        17.8,
-        2.075
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000316",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Data display telemetry line -1 2",
-      "type": "cube",
-      "from": [
-        -6.3,
-        16.4,
-        1.95
-      ],
-      "to": [
-        -4.6,
-        16.7,
-        2.2
-      ],
-      "color": 5,
-      "rotation": [
-        -8,
-        0,
-        0
-      ],
-      "origin": [
-        -5.45,
-        16.55,
-        2.075
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000317",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Data display telemetry line -1 3",
-      "type": "cube",
-      "from": [
-        -3.9000000000000004,
-        15.149999999999999,
-        1.95
-      ],
-      "to": [
-        -2.2,
-        15.45,
-        2.2
-      ],
-      "color": 5,
-      "rotation": [
-        -8,
-        0,
-        0
-      ],
-      "origin": [
-        -3.05,
-        15.3,
-        2.075
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000318",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Archive keyboard key -1 0",
-      "type": "cube",
-      "from": [
-        -10.7,
-        10.85,
-        6.3
-      ],
-      "to": [
-        -9.399999999999999,
-        11.3,
-        7.2
-      ],
-      "color": 5,
-      "rotation": [
-        15,
-        0,
-        0
-      ],
-      "origin": [
-        -10.05,
-        11.075,
-        6.75
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000319",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Archive keyboard key -1 1",
-      "type": "cube",
-      "from": [
-        -8.2,
-        10.85,
-        6.3
-      ],
-      "to": [
-        -6.8999999999999995,
-        11.3,
-        7.2
-      ],
-      "color": 5,
-      "rotation": [
-        15,
-        0,
-        0
-      ],
-      "origin": [
-        -7.55,
-        11.075,
-        6.75
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000320",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Archive keyboard key -1 2",
-      "type": "cube",
-      "from": [
-        -5.699999999999999,
-        10.85,
-        6.3
-      ],
-      "to": [
-        -4.3999999999999995,
-        11.3,
-        7.2
-      ],
-      "color": 5,
-      "rotation": [
-        15,
-        0,
-        0
-      ],
-      "origin": [
-        -5.05,
-        11.075,
-        6.75
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000321",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Data cabinet service door 1",
-      "type": "cube",
-      "from": [
-        2.3,
-        1.2,
-        4.28
-      ],
-      "to": [
-        11.7,
-        8.1,
-        4.85
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        7,
-        4.65,
-        4.565
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000322",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Data cabinet status lamp 1",
-      "type": "cube",
-      "from": [
-        3.3,
-        3.1,
-        4.9
-      ],
-      "to": [
-        4.3,
-        6.8,
-        5.2
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        3.8,
-        4.95,
-        5.05
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000323",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Data display telemetry line 1 0",
-      "type": "cube",
-      "from": [
-        2.9000000000000004,
-        18.9,
-        1.95
-      ],
-      "to": [
-        4.6000000000000005,
-        19.2,
-        2.2
-      ],
-      "color": 5,
-      "rotation": [
-        -8,
-        0,
-        0
-      ],
-      "origin": [
-        3.75,
-        19.05,
-        2.075
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000324",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Data display telemetry line 1 1",
-      "type": "cube",
-      "from": [
-        5.300000000000001,
-        17.65,
-        1.95
-      ],
-      "to": [
-        7.000000000000001,
-        17.95,
-        2.2
-      ],
-      "color": 5,
-      "rotation": [
-        -8,
-        0,
-        0
-      ],
-      "origin": [
-        6.15,
-        17.8,
-        2.075
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000325",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Data display telemetry line 1 2",
-      "type": "cube",
-      "from": [
-        7.7,
-        16.4,
-        1.95
-      ],
-      "to": [
-        9.4,
-        16.7,
-        2.2
-      ],
-      "color": 5,
-      "rotation": [
-        -8,
-        0,
-        0
-      ],
-      "origin": [
-        8.55,
-        16.55,
-        2.075
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000326",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Data display telemetry line 1 3",
-      "type": "cube",
-      "from": [
-        10.1,
-        15.149999999999999,
-        1.95
-      ],
-      "to": [
-        11.799999999999999,
-        15.45,
-        2.2
-      ],
-      "color": 5,
-      "rotation": [
-        -8,
-        0,
-        0
-      ],
-      "origin": [
-        10.95,
-        15.3,
-        2.075
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000327",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Archive keyboard key 1 0",
-      "type": "cube",
-      "from": [
-        3.3,
-        10.85,
-        6.3
-      ],
-      "to": [
-        4.6,
-        11.3,
-        7.2
-      ],
-      "color": 5,
-      "rotation": [
-        15,
-        0,
-        0
-      ],
-      "origin": [
-        3.95,
-        11.075,
-        6.75
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000328",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Archive keyboard key 1 1",
-      "type": "cube",
-      "from": [
-        5.8,
-        10.85,
-        6.3
-      ],
-      "to": [
-        7.1,
-        11.3,
-        7.2
-      ],
-      "color": 5,
-      "rotation": [
-        15,
-        0,
-        0
-      ],
-      "origin": [
-        6.45,
-        11.075,
-        6.75
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000329",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Archive keyboard key 1 2",
-      "type": "cube",
-      "from": [
-        8.3,
-        10.85,
-        6.3
-      ],
-      "to": [
-        9.600000000000001,
-        11.3,
-        7.2
-      ],
-      "color": 5,
-      "rotation": [
-        15,
-        0,
-        0
-      ],
-      "origin": [
-        8.95,
-        11.075,
-        6.75
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000330",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Double-screen upper canopy",
-      "type": "cube",
-      "from": [
-        -13.9,
-        22.5,
-        -1.9
-      ],
-      "to": [
-        13.9,
-        24.3,
-        2.3
-      ],
-      "color": 3,
+        13,
+        1,
+        5.5
+      ],
+      "color": 1,
       "rotation": [
         0,
         0,
@@ -2901,10 +2901,10 @@
       ],
       "origin": [
         0,
-        23.4,
-        0.2
+        0.7,
+        5.075
       ],
-      "uuid": "8c340521-b00f-4000-8000-000000000331",
+      "uuid": "8c340522-b00f-4000-8000-000000000679",
       "faces": {
         "north": {
           "uv": [
@@ -2962,25 +2962,6 @@
         }
       }
     }
-  ],
-  "outliner": [
-    "8c340520-b00f-4000-8000-000000000001",
-    "8c340520-b00f-4000-8000-000000000002",
-    "8c340520-b00f-4000-8000-000000000003",
-    "8c340520-b00f-4000-8000-000000000004",
-    "8c340520-b00f-4000-8000-000000000005",
-    "8c340520-b00f-4000-8000-000000000006",
-    "8c340520-b00f-4000-8000-000000000007",
-    "8c340520-b00f-4000-8000-000000000008",
-    "8c340520-b00f-4000-8000-000000000009",
-    "8c340520-b00f-4000-8000-000000000010",
-    "8c340520-b00f-4000-8000-000000000011",
-    "8c340520-b00f-4000-8000-000000000012",
-    "8c340520-b00f-4000-8000-000000000013",
-    "8c340520-b00f-4000-8000-000000000014",
-    "8c340520-b00f-4000-8000-000000000015",
-    "8c340520-b00f-4000-8000-000000000016",
-    "8c340520-b00f-4000-8000-000000000017"
   ],
   "textures": []
 }

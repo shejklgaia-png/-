@@ -386,7 +386,10 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
         var rot: Vector3 = _vec(part[4]) * (PI / 180.0)
         var basis: Basis = (parent_basis * Basis.from_euler(rot)).scaled_local(hi - lo)
         var transform := Transform3D(basis, at + parent_basis * ((lo + hi) * 0.5))
-        if not selected_shape.is_empty():
+        # Module-level hit flag keeps ornamental trim out of touch outlines.
+        # Backward-compatible with five-field historical cuboids.
+        var part_hit: bool = part.size() < 7 or bool(part[6])
+        if not selected_shape.is_empty() and part_hit:
             var corners := PackedVector3Array()
             for ix in [-0.5, 0.5]:
                 for iy in [-0.5, 0.5]:
@@ -394,15 +397,11 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
                         corners.append(transform * Vector3(ix, iy, iz))
             silhouette_parts.append(corners)
         var index: int = int(part[3])
-        # Floor slabs are intentionally visible as modeled, but they must
-        # occlude the line mask instead of producing a border for each tile.
-        # Keep floor light traces in normal emissive batches.
-        var part_name: String = str(part[0])
-        var floor_depth_only: bool = name == "hangar_shell" and (
-            part_name == "Floor foundation" or
-            part_name.begins_with("Floor steel tile") or
-            part_name == "Floor drain")
-        var batch_key: int = index + 100 if floor_depth_only else index
+        # Small trims, deck seams, LEDs and other decorative surfaces have
+        # no independent 2px polygon edge. Only authored primary armor does.
+        # The legacy five-field modules still use their original ink behavior.
+        var no_stroke: bool = part.size() >= 6 and not bool(part[5])
+        var batch_key: int = index + 100 if no_stroke else index
         var instances: Array = batch_data.get(batch_key, [])
         instances.append(transform)
         batch_data[batch_key] = instances
@@ -531,7 +530,7 @@ func _render_batches() -> void:
     cube.size = Vector3.ONE
     for index_value in batch_data.keys():
         var batch_key: int = int(index_value)
-        var floor_depth_only: bool = batch_key >= 100
+        var no_stroke: bool = batch_key >= 100
         var index: int = batch_key % 100
         var transforms: Array = batch_data[batch_key]
         var multi := MultiMesh.new()
@@ -541,8 +540,8 @@ func _render_batches() -> void:
         for i in range(transforms.size()):
             multi.set_instance_transform(i, transforms[i])
         var draw := MultiMeshInstance3D.new()
-        draw.name = ("BlockbenchFloorDepth_%02d" % index
-            if floor_depth_only else "BlockbenchBatch_%02d" % index)
+        draw.name = ("NexusDetailBatch_%02d" % index
+            if no_stroke else "BlockbenchBatch_%02d" % index)
         draw.multimesh = multi
         # All room solids write the SERA mask's depth as no-ink occluders.
         # No room surface is allowed to generate RGB-ID contour pixels.
@@ -553,7 +552,7 @@ func _render_batches() -> void:
         add_child(draw)
         # Floors, drains and emissive details keep their authored visuals,
         # but no polygon-edge overlay. Only opaque architecture gets 2px ink.
-        if not floor_depth_only and index not in [5, 6, 7]:
+        if not no_stroke and index not in [5, 6, 7]:
             _add_nexus_native_edge(draw)
 
 func _pad_center() -> void:

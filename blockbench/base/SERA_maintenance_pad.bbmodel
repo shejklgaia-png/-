@@ -11,17 +11,99 @@
   },
   "elements": [
     {
-      "name": "Pad low plinth",
+      "name": "Platform recessed foundation",
       "type": "cube",
       "from": [
-        -13.25,
-        0,
-        -13.25
+        -19,
+        -0.5,
+        -19
       ],
       "to": [
-        13.25,
-        2.2,
-        13.25
+        19,
+        0.7,
+        19
+      ],
+      "color": 0,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        0.1,
+        0
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000398",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform main raised beveled footing",
+      "type": "cube",
+      "from": [
+        -15.6,
+        0.1,
+        -15.6
+      ],
+      "to": [
+        15.6,
+        2.5,
+        15.6
       ],
       "color": 2,
       "rotation": [
@@ -31,174 +113,10 @@
       ],
       "origin": [
         0,
-        1.1,
-        0
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000001",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Raised pad",
-      "type": "cube",
-      "from": [
-        -11.35,
-        2.1,
-        -11.35
-      ],
-      "to": [
-        11.35,
-        3.3,
-        11.35
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        0,
-        2.7,
-        0
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000002",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Plinth armor 0",
-      "type": "cube",
-      "from": [
-        -2.488,
-        -0.1,
-        12.75
-      ],
-      "to": [
-        2.488,
-        2.7,
-        16.05
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        0,
         1.3,
-        14.4
+        0
       ],
-      "uuid": "8c340520-b00f-4000-8000-000000000003",
+      "uuid": "8c340522-b00f-4000-8000-000000000399",
       "faces": {
         "north": {
           "uv": [
@@ -257,30 +175,276 @@
       }
     },
     {
-      "name": "Plinth armor 1",
+      "name": "Platform top landing",
       "type": "cube",
       "from": [
-        3.023,
-        -0.1,
-        11.654
+        -12.5,
+        2.4,
+        -12.5
       ],
       "to": [
-        7.999,
-        2.7,
-        14.954
+        12.5,
+        3.85,
+        12.5
       ],
       "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        3.125,
+        0
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000400",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform center armor",
+      "type": "cube",
+      "from": [
+        -10.9,
+        3.88,
+        -10.9
+      ],
+      "to": [
+        10.9,
+        4.05,
+        10.9
+      ],
+      "color": 1,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        3.965,
+        0
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000401",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform faceted perimeter armor 0",
+      "type": "cube",
+      "from": [
+        -3.038,
+        -0.05,
+        15.2
+      ],
+      "to": [
+        3.038,
+        3.15,
+        18
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        1.55,
+        16.6
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000402",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform faceted perimeter armor 1",
+      "type": "cube",
+      "from": [
+        3.315,
+        -0.05,
+        13.936
+      ],
+      "to": [
+        9.39,
+        3.15,
+        16.736
+      ],
+      "color": 4,
       "rotation": [
         0,
         22.5,
         0
       ],
       "origin": [
-        5.511,
-        1.3,
-        13.304
+        6.353,
+        1.55,
+        15.336
       ],
-      "uuid": "8c340520-b00f-4000-8000-000000000004",
+      "uuid": "8c340522-b00f-4000-8000-000000000403",
       "faces": {
         "north": {
           "uv": [
@@ -339,30 +503,30 @@
       }
     },
     {
-      "name": "Plinth armor 2",
+      "name": "Platform faceted perimeter armor 2",
       "type": "cube",
       "from": [
-        7.694,
-        -0.1,
-        8.532
+        8.7,
+        -0.05,
+        10.338
       ],
       "to": [
-        12.67,
-        2.7,
-        11.832
+        14.776,
+        3.15,
+        13.138
       ],
-      "color": 3,
+      "color": 4,
       "rotation": [
         0,
         45,
         0
       ],
       "origin": [
-        10.182,
-        1.3,
-        10.182
+        11.738,
+        1.55,
+        11.738
       ],
-      "uuid": "8c340520-b00f-4000-8000-000000000005",
+      "uuid": "8c340522-b00f-4000-8000-000000000404",
       "faces": {
         "north": {
           "uv": [
@@ -421,30 +585,30 @@
       }
     },
     {
-      "name": "Plinth armor 3",
+      "name": "Platform faceted perimeter armor 3",
       "type": "cube",
       "from": [
-        10.816,
-        -0.1,
-        3.861
+        12.299,
+        -0.05,
+        4.953
       ],
       "to": [
-        15.792,
-        2.7,
-        7.161
+        18.374,
+        3.15,
+        7.753
       ],
-      "color": 3,
+      "color": 4,
       "rotation": [
         0,
         67.5,
         0
       ],
       "origin": [
-        13.304,
-        1.3,
-        5.511
+        15.337,
+        1.55,
+        6.353
       ],
-      "uuid": "8c340520-b00f-4000-8000-000000000006",
+      "uuid": "8c340522-b00f-4000-8000-000000000405",
       "faces": {
         "north": {
           "uv": [
@@ -503,30 +667,30 @@
       }
     },
     {
-      "name": "Plinth armor 4",
+      "name": "Platform faceted perimeter armor 4",
       "type": "cube",
       "from": [
-        11.912,
-        -0.1,
-        -1.65
+        13.562,
+        -0.05,
+        -1.4
       ],
       "to": [
-        16.888,
-        2.7,
-        1.65
+        19.638,
+        3.15,
+        1.4
       ],
-      "color": 3,
+      "color": 4,
       "rotation": [
         0,
         90,
         0
       ],
       "origin": [
-        14.4,
-        1.3,
+        16.6,
+        1.55,
         0
       ],
-      "uuid": "8c340520-b00f-4000-8000-000000000007",
+      "uuid": "8c340522-b00f-4000-8000-000000000406",
       "faces": {
         "north": {
           "uv": [
@@ -585,30 +749,30 @@
       }
     },
     {
-      "name": "Plinth armor 5",
+      "name": "Platform faceted perimeter armor 5",
       "type": "cube",
       "from": [
-        10.816,
-        -0.1,
-        -7.161
+        12.299,
+        -0.05,
+        -7.753
       ],
       "to": [
-        15.792,
-        2.7,
-        -3.861
+        18.374,
+        3.15,
+        -4.953
       ],
-      "color": 3,
+      "color": 4,
       "rotation": [
         0,
         112.5,
         0
       ],
       "origin": [
-        13.304,
-        1.3,
-        -5.511
+        15.337,
+        1.55,
+        -6.353
       ],
-      "uuid": "8c340520-b00f-4000-8000-000000000008",
+      "uuid": "8c340522-b00f-4000-8000-000000000407",
       "faces": {
         "north": {
           "uv": [
@@ -667,30 +831,30 @@
       }
     },
     {
-      "name": "Plinth armor 6",
+      "name": "Platform faceted perimeter armor 6",
       "type": "cube",
       "from": [
-        7.694,
-        -0.1,
-        -11.832
+        8.7,
+        -0.05,
+        -13.138
       ],
       "to": [
-        12.67,
-        2.7,
-        -8.532
+        14.776,
+        3.15,
+        -10.338
       ],
-      "color": 3,
+      "color": 4,
       "rotation": [
         0,
         135,
         0
       ],
       "origin": [
-        10.182,
-        1.3,
-        -10.182
+        11.738,
+        1.55,
+        -11.738
       ],
-      "uuid": "8c340520-b00f-4000-8000-000000000009",
+      "uuid": "8c340522-b00f-4000-8000-000000000408",
       "faces": {
         "north": {
           "uv": [
@@ -749,30 +913,30 @@
       }
     },
     {
-      "name": "Plinth armor 7",
+      "name": "Platform faceted perimeter armor 7",
       "type": "cube",
       "from": [
-        3.023,
-        -0.1,
-        -14.954
+        3.315,
+        -0.05,
+        -16.736
       ],
       "to": [
-        7.999,
-        2.7,
-        -11.654
+        9.39,
+        3.15,
+        -13.936
       ],
-      "color": 3,
+      "color": 4,
       "rotation": [
         0,
         157.5,
         0
       ],
       "origin": [
-        5.511,
-        1.3,
-        -13.304
+        6.353,
+        1.55,
+        -15.336
       ],
-      "uuid": "8c340520-b00f-4000-8000-000000000010",
+      "uuid": "8c340522-b00f-4000-8000-000000000409",
       "faces": {
         "north": {
           "uv": [
@@ -831,2149 +995,17 @@
       }
     },
     {
-      "name": "Plinth armor 8",
+      "name": "Platform faceted perimeter armor 8",
       "type": "cube",
       "from": [
-        -2.488,
-        -0.1,
-        -16.05
+        -3.038,
+        -0.05,
+        -18
       ],
       "to": [
-        2.488,
-        2.7,
-        -12.75
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        180,
-        0
-      ],
-      "origin": [
-        0,
-        1.3,
-        -14.4
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000011",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Plinth armor 9",
-      "type": "cube",
-      "from": [
-        -7.999,
-        -0.1,
-        -14.954
-      ],
-      "to": [
-        -3.023,
-        2.7,
-        -11.654
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        202.49999999999997,
-        0
-      ],
-      "origin": [
-        -5.511,
-        1.3,
-        -13.304
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000012",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Plinth armor 10",
-      "type": "cube",
-      "from": [
-        -12.67,
-        -0.1,
-        -11.832
-      ],
-      "to": [
-        -7.694,
-        2.7,
-        -8.532
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        225,
-        0
-      ],
-      "origin": [
-        -10.182,
-        1.3,
-        -10.182
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000013",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Plinth armor 11",
-      "type": "cube",
-      "from": [
-        -15.792,
-        -0.1,
-        -7.161
-      ],
-      "to": [
-        -10.816,
-        2.7,
-        -3.861
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        247.49999999999997,
-        0
-      ],
-      "origin": [
-        -13.304,
-        1.3,
-        -5.511
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000014",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Plinth armor 12",
-      "type": "cube",
-      "from": [
-        -16.888,
-        -0.1,
-        -1.65
-      ],
-      "to": [
-        -11.912,
-        2.7,
-        1.65
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        270,
-        0
-      ],
-      "origin": [
-        -14.4,
-        1.3,
-        0
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000015",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Plinth armor 13",
-      "type": "cube",
-      "from": [
-        -15.792,
-        -0.1,
-        3.861
-      ],
-      "to": [
-        -10.816,
-        2.7,
-        7.161
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        292.50000000000006,
-        0
-      ],
-      "origin": [
-        -13.304,
-        1.3,
-        5.511
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000016",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Plinth armor 14",
-      "type": "cube",
-      "from": [
-        -12.67,
-        -0.1,
-        8.532
-      ],
-      "to": [
-        -7.694,
-        2.7,
-        11.832
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        315,
-        0
-      ],
-      "origin": [
-        -10.182,
-        1.3,
-        10.182
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000017",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Plinth armor 15",
-      "type": "cube",
-      "from": [
-        -7.999,
-        -0.1,
-        11.654
-      ],
-      "to": [
-        -3.023,
-        2.7,
-        14.954
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        337.49999999999994,
-        0
-      ],
-      "origin": [
-        -5.511,
-        1.3,
-        13.304
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000018",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Segmented cyan status lights 0",
-      "type": "cube",
-      "from": [
-        -2.644,
-        2.45,
-        13.65
-      ],
-      "to": [
-        2.644,
+        3.038,
         3.15,
-        16.95
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        0,
-        2.8,
-        15.3
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000019",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Segmented cyan status lights 1",
-      "type": "cube",
-      "from": [
-        3.211,
-        2.45,
-        12.485
-      ],
-      "to": [
-        8.499,
-        3.15,
-        15.785
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        22.5,
-        0
-      ],
-      "origin": [
-        5.855,
-        2.8,
-        14.135
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000020",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Segmented cyan status lights 2",
-      "type": "cube",
-      "from": [
-        8.175,
-        2.45,
-        9.169
-      ],
-      "to": [
-        13.462,
-        3.15,
-        12.469
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        45,
-        0
-      ],
-      "origin": [
-        10.819,
-        2.8,
-        10.819
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000021",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Segmented cyan status lights 3",
-      "type": "cube",
-      "from": [
-        11.492,
-        2.45,
-        4.205
-      ],
-      "to": [
-        16.779,
-        3.15,
-        7.505
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        67.5,
-        0
-      ],
-      "origin": [
-        14.136,
-        2.8,
-        5.855
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000022",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Segmented cyan status lights 4",
-      "type": "cube",
-      "from": [
-        12.656,
-        2.45,
-        -1.65
-      ],
-      "to": [
-        17.944,
-        3.15,
-        1.65
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        90,
-        0
-      ],
-      "origin": [
-        15.3,
-        2.8,
-        0
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000023",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Segmented cyan status lights 5",
-      "type": "cube",
-      "from": [
-        11.492,
-        2.45,
-        -7.505
-      ],
-      "to": [
-        16.779,
-        3.15,
-        -4.205
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        112.5,
-        0
-      ],
-      "origin": [
-        14.136,
-        2.8,
-        -5.855
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000024",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Segmented cyan status lights 6",
-      "type": "cube",
-      "from": [
-        8.175,
-        2.45,
-        -12.469
-      ],
-      "to": [
-        13.462,
-        3.15,
-        -9.169
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        135,
-        0
-      ],
-      "origin": [
-        10.819,
-        2.8,
-        -10.819
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000025",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Segmented cyan status lights 7",
-      "type": "cube",
-      "from": [
-        3.211,
-        2.45,
-        -15.785
-      ],
-      "to": [
-        8.499,
-        3.15,
-        -12.485
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        157.5,
-        0
-      ],
-      "origin": [
-        5.855,
-        2.8,
-        -14.135
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000026",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Segmented cyan status lights 8",
-      "type": "cube",
-      "from": [
-        -2.644,
-        2.45,
-        -16.95
-      ],
-      "to": [
-        2.644,
-        3.15,
-        -13.65
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        180,
-        0
-      ],
-      "origin": [
-        0,
-        2.8,
-        -15.3
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000027",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Segmented cyan status lights 9",
-      "type": "cube",
-      "from": [
-        -8.499,
-        2.45,
-        -15.785
-      ],
-      "to": [
-        -3.211,
-        3.15,
-        -12.485
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        202.49999999999997,
-        0
-      ],
-      "origin": [
-        -5.855,
-        2.8,
-        -14.135
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000028",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Segmented cyan status lights 10",
-      "type": "cube",
-      "from": [
-        -13.462,
-        2.45,
-        -12.469
-      ],
-      "to": [
-        -8.175,
-        3.15,
-        -9.169
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        225,
-        0
-      ],
-      "origin": [
-        -10.819,
-        2.8,
-        -10.819
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000029",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Segmented cyan status lights 11",
-      "type": "cube",
-      "from": [
-        -16.779,
-        2.45,
-        -7.505
-      ],
-      "to": [
-        -11.492,
-        3.15,
-        -4.205
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        247.49999999999997,
-        0
-      ],
-      "origin": [
-        -14.136,
-        2.8,
-        -5.855
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000030",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Segmented cyan status lights 12",
-      "type": "cube",
-      "from": [
-        -17.944,
-        2.45,
-        -1.65
-      ],
-      "to": [
-        -12.656,
-        3.15,
-        1.65
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        270,
-        0
-      ],
-      "origin": [
-        -15.3,
-        2.8,
-        0
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000031",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Segmented cyan status lights 13",
-      "type": "cube",
-      "from": [
-        -16.779,
-        2.45,
-        4.205
-      ],
-      "to": [
-        -11.492,
-        3.15,
-        7.505
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        292.50000000000006,
-        0
-      ],
-      "origin": [
-        -14.136,
-        2.8,
-        5.855
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000032",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Segmented cyan status lights 14",
-      "type": "cube",
-      "from": [
-        -13.462,
-        2.45,
-        9.169
-      ],
-      "to": [
-        -8.175,
-        3.15,
-        12.469
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        315,
-        0
-      ],
-      "origin": [
-        -10.819,
-        2.8,
-        10.819
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000033",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Segmented cyan status lights 15",
-      "type": "cube",
-      "from": [
-        -8.499,
-        2.45,
-        12.485
-      ],
-      "to": [
-        -3.211,
-        3.15,
-        15.785
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        337.49999999999994,
-        0
-      ],
-      "origin": [
-        -5.855,
-        2.8,
-        14.135
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000034",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Service lock",
-      "type": "cube",
-      "from": [
-        -2,
-        2.55,
-        11
-      ],
-      "to": [
-        2,
-        3.65,
-        13.6
-      ],
-      "color": 4,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        0,
-        3.1,
-        12.3
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000035",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Service lock",
-      "type": "cube",
-      "from": [
-        10.3,
-        2.55,
-        -1.3
-      ],
-      "to": [
-        14.3,
-        3.65,
-        1.3
-      ],
-      "color": 4,
-      "rotation": [
-        0,
-        90,
-        0
-      ],
-      "origin": [
-        12.3,
-        3.1,
-        0
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000036",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Service lock",
-      "type": "cube",
-      "from": [
-        -2,
-        2.55,
-        -13.6
-      ],
-      "to": [
-        2,
-        3.65,
-        -11
+        -15.2
       ],
       "color": 4,
       "rotation": [
@@ -2983,10 +1015,10 @@
       ],
       "origin": [
         0,
-        3.1,
-        -12.3
+        1.55,
+        -16.6
       ],
-      "uuid": "8c340520-b00f-4000-8000-000000000037",
+      "uuid": "8c340522-b00f-4000-8000-000000000410",
       "faces": {
         "north": {
           "uv": [
@@ -3045,850 +1077,30 @@
       }
     },
     {
-      "name": "Service lock",
+      "name": "Platform faceted perimeter armor 9",
       "type": "cube",
       "from": [
-        -14.3,
-        2.55,
-        -1.3
+        -9.39,
+        -0.05,
+        -16.736
       ],
       "to": [
-        -10.3,
-        3.65,
-        1.3
+        -3.315,
+        3.15,
+        -13.936
       ],
       "color": 4,
-      "rotation": [
-        0,
-        270,
-        0
-      ],
-      "origin": [
-        -12.3,
-        3.1,
-        0
-      ],
-      "uuid": "8c340520-b00f-4000-8000-000000000038",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Radial rim service stud 0",
-      "type": "cube",
-      "from": [
-        -0.65,
-        2.9,
-        14.65
-      ],
-      "to": [
-        0.65,
-        3.5,
-        15.950000000000001
-      ],
-      "color": 6,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        0,
-        3.2,
-        15.3
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000206",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Radial rim service stud 1",
-      "type": "cube",
-      "from": [
-        5.205056515185873,
-        2.9,
-        13.485356847422688
-      ],
-      "to": [
-        6.505056515185874,
-        3.5,
-        14.785356847422689
-      ],
-      "color": 2,
-      "rotation": [
-        0,
-        22.5,
-        0
-      ],
-      "origin": [
-        5.85506,
-        3.2,
-        14.13536
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000207",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Radial rim service stud 2",
-      "type": "cube",
-      "from": [
-        10.168733752154177,
-        2.9,
-        10.168733752154179
-      ],
-      "to": [
-        11.468733752154177,
-        3.5,
-        11.46873375215418
-      ],
-      "color": 2,
-      "rotation": [
-        0,
-        45,
-        0
-      ],
-      "origin": [
-        10.81873,
-        3.2,
-        10.81873
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000208",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Radial rim service stud 3",
-      "type": "cube",
-      "from": [
-        13.485356847422688,
-        2.9,
-        5.205056515185874
-      ],
-      "to": [
-        14.785356847422689,
-        3.5,
-        6.505056515185875
-      ],
-      "color": 2,
-      "rotation": [
-        0,
-        67.5,
-        0
-      ],
-      "origin": [
-        14.13536,
-        3.2,
-        5.85506
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000209",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Radial rim service stud 4",
-      "type": "cube",
-      "from": [
-        14.65,
-        2.9,
-        -0.6499999999999991
-      ],
-      "to": [
-        15.950000000000001,
-        3.5,
-        0.6500000000000009
-      ],
-      "color": 6,
-      "rotation": [
-        0,
-        90,
-        0
-      ],
-      "origin": [
-        15.3,
-        3.2,
-        0
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000210",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Radial rim service stud 5",
-      "type": "cube",
-      "from": [
-        13.485356847422688,
-        2.9,
-        -6.505056515185873
-      ],
-      "to": [
-        14.785356847422689,
-        3.5,
-        -5.2050565151858725
-      ],
-      "color": 2,
-      "rotation": [
-        0,
-        112.5,
-        0
-      ],
-      "origin": [
-        14.13536,
-        3.2,
-        -5.85506
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000211",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Radial rim service stud 6",
-      "type": "cube",
-      "from": [
-        10.168733752154179,
-        2.9,
-        -11.468733752154177
-      ],
-      "to": [
-        11.46873375215418,
-        3.5,
-        -10.168733752154177
-      ],
-      "color": 2,
-      "rotation": [
-        0,
-        135,
-        0
-      ],
-      "origin": [
-        10.81873,
-        3.2,
-        -10.81873
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000212",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Radial rim service stud 7",
-      "type": "cube",
-      "from": [
-        5.205056515185875,
-        2.9,
-        -14.785356847422689
-      ],
-      "to": [
-        6.505056515185876,
-        3.5,
-        -13.485356847422688
-      ],
-      "color": 2,
-      "rotation": [
-        0,
-        157.5,
-        0
-      ],
-      "origin": [
-        5.85506,
-        3.2,
-        -14.13536
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000213",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Radial rim service stud 8",
-      "type": "cube",
-      "from": [
-        -0.6499999999999981,
-        2.9,
-        -15.950000000000001
-      ],
-      "to": [
-        0.6500000000000019,
-        3.5,
-        -14.65
-      ],
-      "color": 6,
-      "rotation": [
-        0,
-        180,
-        0
-      ],
-      "origin": [
-        0,
-        3.2,
-        -15.3
-      ],
-      "uuid": "8c340521-b00f-4000-8000-000000000214",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Radial rim service stud 9",
-      "type": "cube",
-      "from": [
-        -6.505056515185872,
-        2.9,
-        -14.78535684742269
-      ],
-      "to": [
-        -5.205056515185872,
-        3.5,
-        -13.48535684742269
-      ],
-      "color": 2,
       "rotation": [
         0,
         202.5,
         0
       ],
       "origin": [
-        -5.85506,
-        3.2,
-        -14.13536
+        -6.352,
+        1.55,
+        -15.336
       ],
-      "uuid": "8c340521-b00f-4000-8000-000000000215",
+      "uuid": "8c340522-b00f-4000-8000-000000000411",
       "faces": {
         "north": {
           "uv": [
@@ -3947,30 +1159,30 @@
       }
     },
     {
-      "name": "Radial rim service stud 10",
+      "name": "Platform faceted perimeter armor 10",
       "type": "cube",
       "from": [
-        -11.468733752154177,
-        2.9,
-        -11.468733752154181
+        -14.776,
+        -0.05,
+        -13.138
       ],
       "to": [
-        -10.168733752154177,
-        3.5,
-        -10.16873375215418
+        -8.7,
+        3.15,
+        -10.338
       ],
-      "color": 2,
+      "color": 4,
       "rotation": [
         0,
         225,
         0
       ],
       "origin": [
-        -10.81873,
-        3.2,
-        -10.81873
+        -11.738,
+        1.55,
+        -11.738
       ],
-      "uuid": "8c340521-b00f-4000-8000-000000000216",
+      "uuid": "8c340522-b00f-4000-8000-000000000412",
       "faces": {
         "north": {
           "uv": [
@@ -4029,30 +1241,30 @@
       }
     },
     {
-      "name": "Radial rim service stud 11",
+      "name": "Platform faceted perimeter armor 11",
       "type": "cube",
       "from": [
-        -14.785356847422685,
-        2.9,
-        -6.505056515185883
+        -18.374,
+        -0.05,
+        -7.753
       ],
       "to": [
-        -13.485356847422684,
-        3.5,
-        -5.205056515185882
+        -12.299,
+        3.15,
+        -4.953
       ],
-      "color": 2,
+      "color": 4,
       "rotation": [
         0,
         247.5,
         0
       ],
       "origin": [
-        -14.13536,
-        3.2,
-        -5.85506
+        -15.336,
+        1.55,
+        -6.353
       ],
-      "uuid": "8c340521-b00f-4000-8000-000000000217",
+      "uuid": "8c340522-b00f-4000-8000-000000000413",
       "faces": {
         "north": {
           "uv": [
@@ -4111,30 +1323,30 @@
       }
     },
     {
-      "name": "Radial rim service stud 12",
+      "name": "Platform faceted perimeter armor 12",
       "type": "cube",
       "from": [
-        -15.950000000000001,
-        2.9,
-        -0.6500000000000028
+        -19.638,
+        -0.05,
+        -1.4
       ],
       "to": [
-        -14.65,
-        3.5,
-        0.6499999999999972
+        -13.562,
+        3.15,
+        1.4
       ],
-      "color": 6,
+      "color": 4,
       "rotation": [
         0,
         270,
         0
       ],
       "origin": [
-        -15.3,
-        3.2,
+        -16.6,
+        1.55,
         0
       ],
-      "uuid": "8c340521-b00f-4000-8000-000000000218",
+      "uuid": "8c340522-b00f-4000-8000-000000000414",
       "faces": {
         "north": {
           "uv": [
@@ -4193,30 +1405,30 @@
       }
     },
     {
-      "name": "Radial rim service stud 13",
+      "name": "Platform faceted perimeter armor 13",
       "type": "cube",
       "from": [
-        -14.785356847422687,
-        2.9,
-        5.205056515185877
+        -18.374,
+        -0.05,
+        4.953
       ],
       "to": [
-        -13.485356847422686,
-        3.5,
-        6.505056515185878
+        -12.299,
+        3.15,
+        7.753
       ],
-      "color": 2,
+      "color": 4,
       "rotation": [
         0,
         292.5,
         0
       ],
       "origin": [
-        -14.13536,
-        3.2,
-        5.85506
+        -15.336,
+        1.55,
+        6.353
       ],
-      "uuid": "8c340521-b00f-4000-8000-000000000219",
+      "uuid": "8c340522-b00f-4000-8000-000000000415",
       "faces": {
         "north": {
           "uv": [
@@ -4275,30 +1487,30 @@
       }
     },
     {
-      "name": "Radial rim service stud 14",
+      "name": "Platform faceted perimeter armor 14",
       "type": "cube",
       "from": [
-        -11.468733752154181,
-        2.9,
-        10.168733752154175
+        -14.776,
+        -0.05,
+        10.338
       ],
       "to": [
-        -10.16873375215418,
-        3.5,
-        11.468733752154176
+        -8.7,
+        3.15,
+        13.138
       ],
-      "color": 2,
+      "color": 4,
       "rotation": [
         0,
         315,
         0
       ],
       "origin": [
-        -10.81873,
-        3.2,
-        10.81873
+        -11.738,
+        1.55,
+        11.738
       ],
-      "uuid": "8c340521-b00f-4000-8000-000000000220",
+      "uuid": "8c340522-b00f-4000-8000-000000000416",
       "faces": {
         "north": {
           "uv": [
@@ -4357,30 +1569,30 @@
       }
     },
     {
-      "name": "Radial rim service stud 15",
+      "name": "Platform faceted perimeter armor 15",
       "type": "cube",
       "from": [
-        -6.505056515185884,
-        2.9,
-        13.485356847422684
+        -9.39,
+        -0.05,
+        13.936
       ],
       "to": [
-        -5.205056515185883,
-        3.5,
-        14.785356847422685
+        -3.315,
+        3.15,
+        16.736
       ],
-      "color": 2,
+      "color": 4,
       "rotation": [
         0,
         337.5,
         0
       ],
       "origin": [
-        -5.85506,
-        3.2,
-        14.13536
+        -6.352,
+        1.55,
+        15.336
       ],
-      "uuid": "8c340521-b00f-4000-8000-000000000221",
+      "uuid": "8c340522-b00f-4000-8000-000000000417",
       "faces": {
         "north": {
           "uv": [
@@ -4439,19 +1651,19 @@
       }
     },
     {
-      "name": "Upper central hex display spine",
+      "name": "Platform rim azure segment 0",
       "type": "cube",
       "from": [
-        -7.7,
-        3.25,
-        -7.7
+        -3.065,
+        3.195,
+        15.875
       ],
       "to": [
-        7.7,
-        3.62,
-        7.7
+        3.065,
+        3.845,
+        17.625
       ],
-      "color": 2,
+      "color": 5,
       "rotation": [
         0,
         0,
@@ -4459,10 +1671,10 @@
       ],
       "origin": [
         0,
-        3.435,
-        0
+        3.52,
+        16.75
       ],
-      "uuid": "8c340521-b00f-4000-8000-000000000222",
+      "uuid": "8c340522-b00f-4000-8000-000000000418",
       "faces": {
         "north": {
           "uv": [
@@ -4521,30 +1733,30 @@
       }
     },
     {
-      "name": "Pad lateral lift track -1 0",
+      "name": "Platform rim azure segment 1",
       "type": "cube",
       "from": [
-        -13.4,
-        0.65,
-        -8
+        3.345,
+        3.195,
+        14.6
       ],
       "to": [
-        -12.8,
-        2.4,
-        -5
+        9.475,
+        3.845,
+        16.35
       ],
-      "color": 4,
+      "color": 5,
       "rotation": [
         0,
-        0,
+        22.5,
         0
       ],
       "origin": [
-        -13.1,
-        1.525,
-        -6.5
+        6.41,
+        3.52,
+        15.475
       ],
-      "uuid": "8c340521-b00f-4000-8000-000000000223",
+      "uuid": "8c340522-b00f-4000-8000-000000000419",
       "faces": {
         "north": {
           "uv": [
@@ -4603,30 +1815,30 @@
       }
     },
     {
-      "name": "Pad lateral lift track -1 1",
+      "name": "Platform rim azure segment 2",
       "type": "cube",
       "from": [
-        -13.4,
-        0.65,
-        -2.7
+        8.779,
+        3.195,
+        10.969
       ],
       "to": [
-        -12.8,
-        2.4,
-        0.2999999999999998
+        14.909,
+        3.845,
+        12.719
       ],
-      "color": 4,
+      "color": 5,
       "rotation": [
         0,
-        0,
+        45,
         0
       ],
       "origin": [
-        -13.1,
-        1.525,
-        -1.2
+        11.844,
+        3.52,
+        11.844
       ],
-      "uuid": "8c340521-b00f-4000-8000-000000000224",
+      "uuid": "8c340522-b00f-4000-8000-000000000420",
       "faces": {
         "north": {
           "uv": [
@@ -4685,30 +1897,30 @@
       }
     },
     {
-      "name": "Pad lateral lift track -1 2",
+      "name": "Platform rim azure segment 3",
       "type": "cube",
       "from": [
-        -13.4,
-        0.65,
-        2.5999999999999996
+        12.41,
+        3.195,
+        5.535
       ],
       "to": [
-        -12.8,
-        2.4,
-        5.6
+        18.54,
+        3.845,
+        7.285
       ],
-      "color": 4,
+      "color": 5,
       "rotation": [
         0,
-        0,
+        67.5,
         0
       ],
       "origin": [
-        -13.1,
-        1.525,
-        4.1
+        15.475,
+        3.52,
+        6.41
       ],
-      "uuid": "8c340521-b00f-4000-8000-000000000225",
+      "uuid": "8c340522-b00f-4000-8000-000000000421",
       "faces": {
         "north": {
           "uv": [
@@ -4767,30 +1979,30 @@
       }
     },
     {
-      "name": "Pad lateral lift track -1 3",
+      "name": "Platform rim azure segment 4",
       "type": "cube",
       "from": [
-        -13.4,
-        0.65,
-        7.899999999999999
+        13.685,
+        3.195,
+        -0.875
       ],
       "to": [
-        -12.8,
-        2.4,
-        10.899999999999999
+        19.815,
+        3.845,
+        0.875
       ],
-      "color": 4,
+      "color": 5,
       "rotation": [
         0,
-        0,
+        90,
         0
       ],
       "origin": [
-        -13.1,
-        1.525,
-        9.4
+        16.75,
+        3.52,
+        0
       ],
-      "uuid": "8c340521-b00f-4000-8000-000000000226",
+      "uuid": "8c340522-b00f-4000-8000-000000000422",
       "faces": {
         "north": {
           "uv": [
@@ -4849,30 +2061,30 @@
       }
     },
     {
-      "name": "Pad lateral lift track 1 0",
+      "name": "Platform rim azure segment 5",
       "type": "cube",
       "from": [
-        12.8,
-        0.65,
-        -8
+        12.41,
+        3.195,
+        -7.285
       ],
       "to": [
-        13.4,
-        2.4,
-        -5
+        18.54,
+        3.845,
+        -5.535
       ],
-      "color": 4,
+      "color": 5,
       "rotation": [
         0,
-        0,
+        112.5,
         0
       ],
       "origin": [
-        13.1,
-        1.525,
-        -6.5
+        15.475,
+        3.52,
+        -6.41
       ],
-      "uuid": "8c340521-b00f-4000-8000-000000000227",
+      "uuid": "8c340522-b00f-4000-8000-000000000423",
       "faces": {
         "north": {
           "uv": [
@@ -4931,30 +2143,30 @@
       }
     },
     {
-      "name": "Pad lateral lift track 1 1",
+      "name": "Platform rim azure segment 6",
       "type": "cube",
       "from": [
-        12.8,
-        0.65,
-        -2.7
+        8.779,
+        3.195,
+        -12.719
       ],
       "to": [
-        13.4,
-        2.4,
-        0.2999999999999998
+        14.909,
+        3.845,
+        -10.969
       ],
-      "color": 4,
+      "color": 5,
       "rotation": [
         0,
-        0,
+        135,
         0
       ],
       "origin": [
-        13.1,
-        1.525,
-        -1.2
+        11.844,
+        3.52,
+        -11.844
       ],
-      "uuid": "8c340521-b00f-4000-8000-000000000228",
+      "uuid": "8c340522-b00f-4000-8000-000000000424",
       "faces": {
         "north": {
           "uv": [
@@ -5013,30 +2225,30 @@
       }
     },
     {
-      "name": "Pad lateral lift track 1 2",
+      "name": "Platform rim azure segment 7",
       "type": "cube",
       "from": [
-        12.8,
-        0.65,
-        2.5999999999999996
+        3.345,
+        3.195,
+        -16.35
       ],
       "to": [
-        13.4,
-        2.4,
-        5.6
+        9.475,
+        3.845,
+        -14.6
       ],
-      "color": 4,
+      "color": 5,
       "rotation": [
         0,
-        0,
+        157.5,
         0
       ],
       "origin": [
-        13.1,
-        1.525,
-        4.1
+        6.41,
+        3.52,
+        -15.475
       ],
-      "uuid": "8c340521-b00f-4000-8000-000000000229",
+      "uuid": "8c340522-b00f-4000-8000-000000000425",
       "faces": {
         "north": {
           "uv": [
@@ -5095,30 +2307,2572 @@
       }
     },
     {
-      "name": "Pad lateral lift track 1 3",
+      "name": "Platform rim azure segment 8",
       "type": "cube",
       "from": [
-        12.8,
-        0.65,
-        7.899999999999999
+        -3.065,
+        3.195,
+        -17.625
       ],
       "to": [
-        13.4,
-        2.4,
-        10.899999999999999
+        3.065,
+        3.845,
+        -15.875
       ],
-      "color": 4,
+      "color": 5,
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "origin": [
+        0,
+        3.52,
+        -16.75
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000426",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform rim azure segment 9",
+      "type": "cube",
+      "from": [
+        -9.475,
+        3.195,
+        -16.35
+      ],
+      "to": [
+        -3.345,
+        3.845,
+        -14.6
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        202.5,
+        0
+      ],
+      "origin": [
+        -6.41,
+        3.52,
+        -15.475
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000427",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform rim azure segment 10",
+      "type": "cube",
+      "from": [
+        -14.909,
+        3.195,
+        -12.719
+      ],
+      "to": [
+        -8.779,
+        3.845,
+        -10.969
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        225,
+        0
+      ],
+      "origin": [
+        -11.844,
+        3.52,
+        -11.844
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000428",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform rim azure segment 11",
+      "type": "cube",
+      "from": [
+        -18.54,
+        3.195,
+        -7.285
+      ],
+      "to": [
+        -12.41,
+        3.845,
+        -5.535
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        247.5,
+        0
+      ],
+      "origin": [
+        -15.475,
+        3.52,
+        -6.41
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000429",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform rim azure segment 12",
+      "type": "cube",
+      "from": [
+        -19.815,
+        3.195,
+        -0.875
+      ],
+      "to": [
+        -13.685,
+        3.845,
+        0.875
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        270,
+        0
+      ],
+      "origin": [
+        -16.75,
+        3.52,
+        0
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000430",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform rim azure segment 13",
+      "type": "cube",
+      "from": [
+        -18.54,
+        3.195,
+        5.535
+      ],
+      "to": [
+        -12.41,
+        3.845,
+        7.285
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        292.5,
+        0
+      ],
+      "origin": [
+        -15.475,
+        3.52,
+        6.41
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000431",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform rim azure segment 14",
+      "type": "cube",
+      "from": [
+        -14.909,
+        3.195,
+        10.969
+      ],
+      "to": [
+        -8.779,
+        3.845,
+        12.719
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        315,
+        0
+      ],
+      "origin": [
+        -11.844,
+        3.52,
+        11.844
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000432",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform rim azure segment 15",
+      "type": "cube",
+      "from": [
+        -9.475,
+        3.195,
+        14.6
+      ],
+      "to": [
+        -3.345,
+        3.845,
+        16.35
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        337.5,
+        0
+      ],
+      "origin": [
+        -6.41,
+        3.52,
+        15.475
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000433",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform upper dark inset ring 0",
+      "type": "cube",
+      "from": [
+        -2.425,
+        3.835,
+        12.725
+      ],
+      "to": [
+        2.425,
+        4.085,
+        13.775
+      ],
+      "color": 0,
       "rotation": [
         0,
         0,
         0
       ],
       "origin": [
-        13.1,
-        1.525,
-        9.4
+        0,
+        3.96,
+        13.25
       ],
-      "uuid": "8c340521-b00f-4000-8000-000000000230",
+      "uuid": "8c340522-b00f-4000-8000-000000000434",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform upper dark inset ring 1",
+      "type": "cube",
+      "from": [
+        2.646,
+        3.835,
+        11.716
+      ],
+      "to": [
+        7.495,
+        4.085,
+        12.766
+      ],
+      "color": 0,
+      "rotation": [
+        0,
+        22.5,
+        0
+      ],
+      "origin": [
+        5.071,
+        3.96,
+        12.241
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000435",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform upper dark inset ring 2",
+      "type": "cube",
+      "from": [
+        6.944,
+        3.835,
+        8.844
+      ],
+      "to": [
+        11.794,
+        4.085,
+        9.894
+      ],
+      "color": 0,
+      "rotation": [
+        0,
+        45,
+        0
+      ],
+      "origin": [
+        9.369,
+        3.96,
+        9.369
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000436",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform upper dark inset ring 3",
+      "type": "cube",
+      "from": [
+        9.817,
+        3.835,
+        4.546
+      ],
+      "to": [
+        14.666,
+        4.085,
+        5.596
+      ],
+      "color": 0,
+      "rotation": [
+        0,
+        67.5,
+        0
+      ],
+      "origin": [
+        12.242,
+        3.96,
+        5.071
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000437",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform upper dark inset ring 4",
+      "type": "cube",
+      "from": [
+        10.825,
+        3.835,
+        -0.525
+      ],
+      "to": [
+        15.675,
+        4.085,
+        0.525
+      ],
+      "color": 0,
+      "rotation": [
+        0,
+        90,
+        0
+      ],
+      "origin": [
+        13.25,
+        3.96,
+        0
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000438",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform upper dark inset ring 5",
+      "type": "cube",
+      "from": [
+        9.817,
+        3.835,
+        -5.596
+      ],
+      "to": [
+        14.666,
+        4.085,
+        -4.546
+      ],
+      "color": 0,
+      "rotation": [
+        0,
+        112.5,
+        0
+      ],
+      "origin": [
+        12.242,
+        3.96,
+        -5.071
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000439",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform upper dark inset ring 6",
+      "type": "cube",
+      "from": [
+        6.944,
+        3.835,
+        -9.894
+      ],
+      "to": [
+        11.794,
+        4.085,
+        -8.844
+      ],
+      "color": 0,
+      "rotation": [
+        0,
+        135,
+        0
+      ],
+      "origin": [
+        9.369,
+        3.96,
+        -9.369
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000440",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform upper dark inset ring 7",
+      "type": "cube",
+      "from": [
+        2.646,
+        3.835,
+        -12.766
+      ],
+      "to": [
+        7.495,
+        4.085,
+        -11.716
+      ],
+      "color": 0,
+      "rotation": [
+        0,
+        157.5,
+        0
+      ],
+      "origin": [
+        5.071,
+        3.96,
+        -12.241
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000441",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform upper dark inset ring 8",
+      "type": "cube",
+      "from": [
+        -2.425,
+        3.835,
+        -13.775
+      ],
+      "to": [
+        2.425,
+        4.085,
+        -12.725
+      ],
+      "color": 0,
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "origin": [
+        0,
+        3.96,
+        -13.25
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000442",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform upper dark inset ring 9",
+      "type": "cube",
+      "from": [
+        -7.495,
+        3.835,
+        -12.766
+      ],
+      "to": [
+        -2.646,
+        4.085,
+        -11.716
+      ],
+      "color": 0,
+      "rotation": [
+        0,
+        202.5,
+        0
+      ],
+      "origin": [
+        -5.07,
+        3.96,
+        -12.241
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000443",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform upper dark inset ring 10",
+      "type": "cube",
+      "from": [
+        -11.794,
+        3.835,
+        -9.894
+      ],
+      "to": [
+        -6.944,
+        4.085,
+        -8.844
+      ],
+      "color": 0,
+      "rotation": [
+        0,
+        225,
+        0
+      ],
+      "origin": [
+        -9.369,
+        3.96,
+        -9.369
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000444",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform upper dark inset ring 11",
+      "type": "cube",
+      "from": [
+        -14.666,
+        3.835,
+        -5.596
+      ],
+      "to": [
+        -9.817,
+        4.085,
+        -4.546
+      ],
+      "color": 0,
+      "rotation": [
+        0,
+        247.5,
+        0
+      ],
+      "origin": [
+        -12.241,
+        3.96,
+        -5.071
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000445",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform upper dark inset ring 12",
+      "type": "cube",
+      "from": [
+        -15.675,
+        3.835,
+        -0.525
+      ],
+      "to": [
+        -10.825,
+        4.085,
+        0.525
+      ],
+      "color": 0,
+      "rotation": [
+        0,
+        270,
+        0
+      ],
+      "origin": [
+        -13.25,
+        3.96,
+        0
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000446",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform upper dark inset ring 13",
+      "type": "cube",
+      "from": [
+        -14.666,
+        3.835,
+        4.546
+      ],
+      "to": [
+        -9.817,
+        4.085,
+        5.596
+      ],
+      "color": 0,
+      "rotation": [
+        0,
+        292.5,
+        0
+      ],
+      "origin": [
+        -12.241,
+        3.96,
+        5.071
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000447",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform upper dark inset ring 14",
+      "type": "cube",
+      "from": [
+        -11.794,
+        3.835,
+        8.844
+      ],
+      "to": [
+        -6.944,
+        4.085,
+        9.894
+      ],
+      "color": 0,
+      "rotation": [
+        0,
+        315,
+        0
+      ],
+      "origin": [
+        -9.369,
+        3.96,
+        9.369
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000448",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform upper dark inset ring 15",
+      "type": "cube",
+      "from": [
+        -7.495,
+        3.835,
+        11.716
+      ],
+      "to": [
+        -2.646,
+        4.085,
+        12.766
+      ],
+      "color": 0,
+      "rotation": [
+        0,
+        337.5,
+        0
+      ],
+      "origin": [
+        -5.07,
+        3.96,
+        12.241
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000449",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform locking bolt 0",
+      "type": "cube",
+      "from": [
+        -0.62,
+        2.2,
+        17.38
+      ],
+      "to": [
+        0.62,
+        3.35,
+        18.62
+      ],
+      "color": 1,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        2.775,
+        18
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000450",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform locking bolt 1",
+      "type": "cube",
+      "from": [
+        12.108,
+        2.2,
+        12.108
+      ],
+      "to": [
+        13.348,
+        3.35,
+        13.348
+      ],
+      "color": 1,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        12.728,
+        2.775,
+        12.728
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000451",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform locking bolt 2",
+      "type": "cube",
+      "from": [
+        17.38,
+        2.2,
+        -0.62
+      ],
+      "to": [
+        18.62,
+        3.35,
+        0.62
+      ],
+      "color": 1,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        18,
+        2.775,
+        0
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000452",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform locking bolt 3",
+      "type": "cube",
+      "from": [
+        12.108,
+        2.2,
+        -13.348
+      ],
+      "to": [
+        13.348,
+        3.35,
+        -12.108
+      ],
+      "color": 1,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        12.728,
+        2.775,
+        -12.728
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000453",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform locking bolt 4",
+      "type": "cube",
+      "from": [
+        -0.62,
+        2.2,
+        -18.62
+      ],
+      "to": [
+        0.62,
+        3.35,
+        -17.38
+      ],
+      "color": 1,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        2.775,
+        -18
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000454",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform locking bolt 5",
+      "type": "cube",
+      "from": [
+        -13.348,
+        2.2,
+        -13.348
+      ],
+      "to": [
+        -12.108,
+        3.35,
+        -12.108
+      ],
+      "color": 1,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -12.728,
+        2.775,
+        -12.728
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000455",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform locking bolt 6",
+      "type": "cube",
+      "from": [
+        -18.62,
+        2.2,
+        -0.62
+      ],
+      "to": [
+        -17.38,
+        3.35,
+        0.62
+      ],
+      "color": 1,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -18,
+        2.775,
+        0
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000456",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      }
+    },
+    {
+      "name": "Platform locking bolt 7",
+      "type": "cube",
+      "from": [
+        -13.348,
+        2.2,
+        12.108
+      ],
+      "to": [
+        -12.108,
+        3.35,
+        13.348
+      ],
+      "color": 1,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -12.728,
+        2.775,
+        12.728
+      ],
+      "uuid": "8c340522-b00f-4000-8000-000000000457",
       "faces": {
         "north": {
           "uv": [
@@ -5176,46 +4930,6 @@
         }
       }
     }
-  ],
-  "outliner": [
-    "8c340520-b00f-4000-8000-000000000001",
-    "8c340520-b00f-4000-8000-000000000002",
-    "8c340520-b00f-4000-8000-000000000003",
-    "8c340520-b00f-4000-8000-000000000004",
-    "8c340520-b00f-4000-8000-000000000005",
-    "8c340520-b00f-4000-8000-000000000006",
-    "8c340520-b00f-4000-8000-000000000007",
-    "8c340520-b00f-4000-8000-000000000008",
-    "8c340520-b00f-4000-8000-000000000009",
-    "8c340520-b00f-4000-8000-000000000010",
-    "8c340520-b00f-4000-8000-000000000011",
-    "8c340520-b00f-4000-8000-000000000012",
-    "8c340520-b00f-4000-8000-000000000013",
-    "8c340520-b00f-4000-8000-000000000014",
-    "8c340520-b00f-4000-8000-000000000015",
-    "8c340520-b00f-4000-8000-000000000016",
-    "8c340520-b00f-4000-8000-000000000017",
-    "8c340520-b00f-4000-8000-000000000018",
-    "8c340520-b00f-4000-8000-000000000019",
-    "8c340520-b00f-4000-8000-000000000020",
-    "8c340520-b00f-4000-8000-000000000021",
-    "8c340520-b00f-4000-8000-000000000022",
-    "8c340520-b00f-4000-8000-000000000023",
-    "8c340520-b00f-4000-8000-000000000024",
-    "8c340520-b00f-4000-8000-000000000025",
-    "8c340520-b00f-4000-8000-000000000026",
-    "8c340520-b00f-4000-8000-000000000027",
-    "8c340520-b00f-4000-8000-000000000028",
-    "8c340520-b00f-4000-8000-000000000029",
-    "8c340520-b00f-4000-8000-000000000030",
-    "8c340520-b00f-4000-8000-000000000031",
-    "8c340520-b00f-4000-8000-000000000032",
-    "8c340520-b00f-4000-8000-000000000033",
-    "8c340520-b00f-4000-8000-000000000034",
-    "8c340520-b00f-4000-8000-000000000035",
-    "8c340520-b00f-4000-8000-000000000036",
-    "8c340520-b00f-4000-8000-000000000037",
-    "8c340520-b00f-4000-8000-000000000038"
   ],
   "textures": []
 }
