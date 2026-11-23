@@ -223,6 +223,44 @@ static func _signed_volume(mesh: Mesh) -> float:
     return total
 
 
+# Limit GPU corner-cap overhang on nearly straight, face-connected edges.
+# Only consulted while a combat outline mesh is built and then cached.
+# UV.y encodes the signed endpoint cap multiplier; no shader change is needed.
+static func _combat_endpoint_cap_scale(edge: Dictionary,
+        endpoint: Vector3, outgoing: Vector3,
+        incident: Dictionary) -> float:
+    var spokes: Array = incident.get(Edges._position_key(endpoint), [])
+    # Non-manifold intersections are ambiguous; retain the known-good cap.
+    if spokes.size() > 16:
+        return 1.0
+    var face_a: Vector3 = edge["face_a"]
+    var face_b: Vector3 = edge.get("face_b", Vector3.ZERO)
+    var scale: float = 1.0
+    for item in spokes:
+        var neighbor: Dictionary = item as Dictionary
+        var next_direction: Vector3 = neighbor["direction"]
+        var cos_angle: float = clampf(outgoing.dot(next_direction), -1.0, 1.0)
+        # Angles <=90 degrees still need the full old cap to close the tip.
+        if cos_angle >= 0.0:
+            continue
+        var other_a: Vector3 = neighbor["face_a"]
+        var other_b: Vector3 = neighbor["face_b"]
+        var same_face: bool = face_a.dot(other_a) > 0.9995 or (
+            other_b != Vector3.ZERO and face_a.dot(other_b) > 0.9995)
+        if face_b != Vector3.ZERO:
+            same_face = same_face or face_b.dot(other_a) > 0.9995 or (
+                other_b != Vector3.ZERO and face_b.dot(other_b) > 0.9995)
+        if not same_face:
+            continue
+        # Full-length cap at 90 degrees, shorter toward 180 degrees:
+        # exterior_width * cot(angle / 2), conservatively clamped so that
+        # a minimum overlap is retained for rasterization at straight joins.
+        var required_ratio: float = sqrt(maxf(0.0,
+            (1.0 + cos_angle) / maxf(1.0 - cos_angle, 0.0001)))
+        scale = minf(scale, clampf(required_ratio, 0.2, 1.0))
+    return scale
+
+
 static func _make_edges(mesh: Mesh, closed: bool,
         hard_only: bool = false,
         include_full_contour: bool = false) -> ArrayMesh:
@@ -243,6 +281,35 @@ static func _make_edges(mesh: Mesh, closed: bool,
         # Store the local edge midpoint at full float precision; the normal
         # and camera-facing test must not vary between its two endpoints.
         writer.set_custom_format(1, SurfaceTool.CUSTOM_RGBA_FLOAT)
+    # Build one adjacency index for cached combat meshes. The original
+    # ribbon topology and the 6-vertex drawing path remain untouched.
+    var incident: Dictionary = {}
+    if include_full_contour:
+        for candidate_value in extracted:
+            var candidate: Dictionary = candidate_value as Dictionary
+            var candidate_paired: bool = candidate.has("face_b") and (
+                int(candidate.get("count", 0)) == 2) and (
+                not bool(candidate.get("duplicate_triangle", false)))
+            var candidate_boundary: bool = not candidate.has("face_b") and (
+                int(candidate.get("count", 0)) == 1)
+            if not candidate_paired and not candidate_boundary:
+                continue
+            var start: Vector3 = candidate["a"]
+            var finish: Vector3 = candidate["b"]
+            var span: Vector3 = finish - start
+            if span.length_squared() < 0.000000001:
+                continue
+            var unit_span: Vector3 = span.normalized()
+            for endpoint in [[start, unit_span], [finish, -unit_span]]:
+                var key: String = Edges._position_key(endpoint[0])
+                if not incident.has(key):
+                    incident[key] = []
+                var spokes: Array = incident[key]
+                spokes.append({
+                    "direction": endpoint[1],
+                    "face_a": candidate["face_a"],
+                    "face_b": candidate.get("face_b", Vector3.ZERO)
+                })
     var emitted: int = 0
     for item in extracted:
         if emitted >= MAX_EDGES_PER_MESH:
@@ -296,11 +363,21 @@ static func _make_edges(mesh: Mesh, closed: bool,
         var encoded_b := Color(normal_b.x, normal_b.y, normal_b.z,
             1.0 if paired else 0.0)
         var midpoint: Vector3 = (a + b) * 0.5
-        # UV.x: side of the stroke; UV.y: endpoint (-1 start / +1 end).
-        # The latter drives short GPU end caps where edges meet at a corner,
-        # without generating a second mesh or additional draw calls.
-        for corner in [[a, -1.0, -1.0], [b, -1.0, 1.0], [b, 1.0, 1.0],
-                [a, -1.0, -1.0], [b, 1.0, 1.0], [a, 1.0, -1.0]]:
+        # Keep the PR #871 shader and triangles. Only encode smaller cap
+        # extensions at genuinely connected obtuse (>90 degree) joins.
+        # Unconnected, right-angle and acute corners retain the old cap.
+        var start_cap: float = 1.0
+        var end_cap: float = 1.0
+        if include_full_contour:
+            start_cap = _combat_endpoint_cap_scale(
+                edge, a, tangent, incident)
+            end_cap = _combat_endpoint_cap_scale(
+                edge, b, -tangent, incident)
+        # UV.x is stroke side. UV.y stores signed cap fraction; the shader
+        # still multiplies it by its existing outer pixel width (5px / 3px).
+        for corner in [[a, -1.0, -start_cap], [b, -1.0, end_cap],
+                [b, 1.0, end_cap], [a, -1.0, -start_cap],
+                [b, 1.0, end_cap], [a, 1.0, -start_cap]]:
             writer.set_color(encoded_a)
             writer.set_custom(0, encoded_b)
             if include_full_contour:
