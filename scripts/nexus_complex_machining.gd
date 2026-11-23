@@ -7,7 +7,7 @@ extends RefCounted
 ## changing Blockbench masters or their interaction silhouettes.
 
 static func build(room: Node3D, system_at: Vector3, training_at: Vector3,
-        gate_at: Vector3, gate_yaw: float) -> void:
+        gate_at: Vector3, gate_yaw: float, gate_scale: float = 1.0) -> void:
     var batches: Dictionary = {}
     # A circular maintenance mechanism with separate serrated drive race,
     # alternating fixing shoes and a shallow inlaid floating inner crown.
@@ -49,15 +49,15 @@ static func build(room: Node3D, system_at: Vector3, training_at: Vector3,
     # outside the bright aperture, retaining a clean empty gate opening.
     for side in [-1.0, 1.0]:
         _local_part(batches, "gusset", "steel", gate_at, gate_yaw,
-            Vector3(side * 1.94, 3.73, 0.91),
-            Vector3(0.30, 0.66, 0.33), 0.0, side < 0.0)
+            (Vector3(side * 1.94, 3.73, 0.91) * gate_scale),
+            (Vector3(0.30, 0.66, 0.33) * gate_scale), 0.0, side < 0.0)
         _local_part(batches, "hex_grille", "pale", gate_at, gate_yaw,
-            Vector3(side * 1.94, 2.25, 0.99),
-            Vector3(0.19, 0.44, 0.11))
+            (Vector3(side * 1.94, 2.25, 0.99) * gate_scale),
+            (Vector3(0.19, 0.44, 0.11) * gate_scale))
         for level in [1.16, 4.43]:
             _local_part(batches, "radial_brace", "steel", gate_at, gate_yaw,
-                Vector3(side * 1.82, float(level), 0.96),
-                Vector3(0.25, 0.16, 0.40))
+                (Vector3(side * 1.82, float(level), 0.96) * gate_scale),
+                (Vector3(0.25, 0.16, 0.40) * gate_scale))
     # Central tower: low relief ventilation arrays on both exposed cheeks.
     # The front-facing SERA logo and archive screens are intentionally clear.
     for side in [-1.0, 1.0]:
