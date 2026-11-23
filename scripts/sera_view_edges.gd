@@ -11,6 +11,8 @@ var _stroke_px: float = 3.0
 # Do not silently overwrite per-element actor widths when ViewEdges enters
 # a shared compositor; the setter is an EXPLICIT override only.
 var _stroke_explicit: bool = false
+var _all_widths_explicit: bool = false
+var _actor_widths_px: Vector3 = Vector3(-1.0, -1.0, -1.0)
 var _nexus_sera_contact_mode: bool = false
 var _numeric_outline_profile: int = 0
 var _compositor: Control
@@ -89,7 +91,10 @@ func _register() -> void:
         3 if _in_training_id_scene(actor) and not is_bittaran
         else _numeric_outline_profile)
     _compositor.call("set_scene_profile", profile)
-    if _stroke_explicit:
+    if _all_widths_explicit:
+        _compositor.call("set_actor_outline_widths",
+            _actor_widths_px.x, _actor_widths_px.y, _actor_widths_px.z)
+    elif _stroke_explicit:
         _compositor.call("set_stroke_px", _stroke_px)
 
 
@@ -108,8 +113,24 @@ func set_contour_enabled(enabled: bool) -> void:
 func set_stroke_px(width: float) -> void:
     _stroke_px = clampf(width, 0.0, 8.0)
     _stroke_explicit = true
+    if _all_widths_explicit:
+        _actor_widths_px.y = _stroke_px
     if is_instance_valid(_compositor):
         _compositor.call("set_stroke_px", _stroke_px)
+
+
+# Set character silhouette inside, outside and separate-mesh boundary
+# independently, in final output pixels. No other role/scene is changed.
+func set_outline_widths(inside_px: float, outside_px: float,
+        seam_px: float) -> void:
+    _actor_widths_px = Vector3(
+        clampf(inside_px, 0.0, 8.0), clampf(outside_px, 0.0, 8.0),
+        clampf(seam_px, 0.0, 8.0))
+    _all_widths_explicit = true
+    _stroke_px = _actor_widths_px.y
+    if is_instance_valid(_compositor):
+        _compositor.call("set_actor_outline_widths",
+            _actor_widths_px.x, _actor_widths_px.y, _actor_widths_px.z)
 
 # Only width presets differ: 0=normal/BASE/part, 1=Bittaran, 2=NEXUS.
 # Every profile keeps exactly the same depth-resolved RGB-ID algorithm.
