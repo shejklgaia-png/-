@@ -143,6 +143,9 @@ var boss_name_label: Label
 var victory_label: Label
 var debug_leg_panel: Panel
 var debug_leg_buttons: Dictionary = {}
+# Local render-FPS readout for the Bittaran battle only.
+var fps_label: Label
+var fps_update_remaining: float = 0.0
 var boss_death_particles: CPUParticles3D
 var boss_death_elapsed: float = -1.0
 var boss_far_side_screen_axis: bool = false
@@ -237,6 +240,7 @@ func _ready() -> void:
     victory_label = _make_boss_label(layer, "BITTARAN DEFEATED", 230.0, 26)
     victory_label.visible = false
     _build_debug_leg_buttons()
+    _build_fps_label(layer)
     _update_bittaran_lock_permissions()
 
 
@@ -319,6 +323,28 @@ func _build_debug_leg_buttons() -> void:
         row.add_child(button)
         debug_leg_buttons[id] = button
     _sync_debug_leg_buttons()
+
+
+# Lightweight render-FPS display in the right side of the existing debug
+# header. CanvasLayer 30 stays above the world and below nothing interactive.
+# Separate from the leg-break panel, so disabling its buttons keeps FPS shown.
+func _build_fps_label(layer: CanvasLayer) -> void:
+    fps_label = Label.new()
+    fps_label.name = "BittaranRenderFPS"
+    fps_label.text = "FPS --"
+    fps_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    layer.add_child(fps_label)
+    fps_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+    fps_label.offset_left = -135.0
+    fps_label.offset_right = -25.0
+    fps_label.offset_top = 280.0
+    fps_label.offset_bottom = 309.0
+    fps_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+    fps_label.add_theme_font_override(
+        "font", LaboTypography.tracked_data_font())
+    fps_label.add_theme_font_size_override("font_size", 16)
+    fps_label.add_theme_color_override("font_color", Color("#c8ebff"))
+    fps_update_remaining = 0.0
 
 
 func _sync_debug_leg_buttons() -> void:
@@ -2725,6 +2751,13 @@ func _reset_target_after_respawn() -> void:
 
 func _process(delta: float) -> void:
     super._process(delta)
+    # Engine FPS is the rendered frame rate, not the physics tick rate.
+    # Update four times per second to avoid per-frame text layout work.
+    if is_instance_valid(fps_label):
+        fps_update_remaining -= maxf(delta, 0.0)
+        if fps_update_remaining <= 0.0:
+            fps_update_remaining = 0.25
+            fps_label.text = "FPS %d" % Engine.get_frames_per_second()
     if boss_death_elapsed >= 0.0 and target_parts != null:
         boss_death_elapsed += maxf(0.0, delta)
         target_parts.call("set_death_visual",

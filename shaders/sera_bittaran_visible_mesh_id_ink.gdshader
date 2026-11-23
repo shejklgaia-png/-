@@ -10,9 +10,9 @@ uniform vec2 mesh_id_texel = vec2(0.0026041667);
 uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
 uniform vec4 ink_screen_bounds = vec4(0.0);
 // Kept separate from all shared BASE/NEXUS/training defaults.
-uniform float main_inside_px = 1.0;
-uniform float main_outside_px = 5.0;
-uniform float main_seam_px = 4.0;
+uniform float main_inside_px = 0.0;
+uniform float main_outside_px = 3.0;
+uniform float main_seam_px = 2.0;
 
 void vertex() {
     // Same depth-independent full-screen quad used by the established
@@ -40,8 +40,8 @@ bool same_id(vec3 a, vec3 b) {
         abs(a.b - b.b) < 0.0078;
 }
 
-// Only one side of an ID-to-ID contact paints four pixels.
-// Without an owner, two neighboring four-pixel bands become 8px thick.
+// Only one side of an ID-to-ID contact paints two pixels.
+// Without an owner, two neighboring 2px bands would overlap.
 bool owns_contact(vec3 a, vec3 b) {
     if (abs(a.b - b.b) > 0.0078) {
         return a.b > b.b;
@@ -65,27 +65,21 @@ void fragment() {
 
     bool draw_ink = false;
     if (role == 1) {
-        // Inner silhouette: 1px. Contact: 4px owned by just one
-        // mesh identity. The ID pass resolves depth and overlaps first.
-        for (int dy = -4; dy <= 4; dy++) {
-            for (int dx = -4; dx <= 4; dx++) {
+        // No inner silhouette: only visible ID-to-ID contacts use ink here.
+        // Assign the 2px contact to one side to prevent doubled thickness.
+        // The smaller 2px search reduces per-pixel GPU texture samples.
+        for (int dy = -2; dy <= 2; dy++) {
+            for (int dx = -2; dx <= 2; dx++) {
                 int distance_squared = dx * dx + dy * dy;
                 if (distance_squared == 0 ||
-                        !in_disk(distance_squared, max(main_inside_px, main_seam_px))) {
+                        !in_disk(distance_squared, main_seam_px)) {
                     continue;
                 }
                 vec3 neighbor = sample_id(uv +
                     vec2(float(dx), float(dy)) * mesh_id_texel);
-                int neighbor_role = role_of(neighbor);
-                if (neighbor_role == 0 &&
-                        in_disk(distance_squared, main_inside_px)) {
-                    draw_ink = true;
-                    break;
-                }
-                if (neighbor_role == 1 &&
+                if (role_of(neighbor) == 1 &&
                         !same_id(center, neighbor) &&
-                        owns_contact(center, neighbor) &&
-                        in_disk(distance_squared, main_seam_px)) {
+                        owns_contact(center, neighbor)) {
                     draw_ink = true;
                     break;
                 }
@@ -95,7 +89,7 @@ void fragment() {
             }
         }
     } else {
-        // 5px outside the visible silhouette, bounded to projected actors.
+        // 3px outside the visible silhouette, bounded to projected actors.
         // No full-screen background dilation on large mobile viewports.
         if (ink_screen_bounds.z <= ink_screen_bounds.x ||
                 ink_screen_bounds.w <= ink_screen_bounds.y ||
@@ -103,8 +97,8 @@ void fragment() {
                 uv.y < ink_screen_bounds.y || uv.y > ink_screen_bounds.w) {
             discard;
         }
-        for (int dy = -5; dy <= 5; dy++) {
-            for (int dx = -5; dx <= 5; dx++) {
+        for (int dy = -3; dy <= 3; dy++) {
+            for (int dx = -3; dx <= 3; dx++) {
                 int distance_squared = dx * dx + dy * dy;
                 if (distance_squared == 0 ||
                         !in_disk(distance_squared, main_outside_px)) {
