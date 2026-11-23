@@ -9,7 +9,9 @@ const ACTOR_SEAM_PX: float = 1.0
 const BASE_FACILITY_INSIDE_PX: float = 0.0
 const BASE_FACILITY_OUTSIDE_PX: float = 4.0
 const BASE_FACILITY_SEAM_PX: float = 3.0
-const BASE_FACILITY_CONVEX_PX: float = 2.0
+const BASE_FACILITY_CORNER_PX: float = 1.0
+const BASE_FACILITY_CONVEX_PX: float = BASE_FACILITY_CORNER_PX
+const BASE_FACILITY_CONCAVE_PX: float = BASE_FACILITY_CORNER_PX
 
 const BASE_CLUTTER_INSIDE_PX: float = 0.0
 const BASE_CLUTTER_OUTSIDE_PX: float = 3.0
@@ -19,7 +21,9 @@ const BASE_CLUTTER_CONVEX_PX: float = 1.0
 const NEXUS_INSIDE_PX: float = 0.0
 const NEXUS_OUTSIDE_PX: float = 3.0
 const NEXUS_SEAM_PX: float = 2.0
-const NEXUS_CONVEX_PX: float = 1.0
+const NEXUS_CORNER_PX: float = 1.0
+const NEXUS_CONVEX_PX: float = NEXUS_CORNER_PX
+const NEXUS_CONCAVE_PX: float = NEXUS_CORNER_PX
 
 static func apply_id_widths(material: ShaderMaterial) -> void:
     if material == null:
