@@ -2,6 +2,9 @@ extends RefCounted
 ## Numbered, exact-aspect SVGs projected onto existing BASE / NEXUS 3D screens.
 const Modules = preload("res://assets/base_command_modules.gd")
 const Architecture = preload("res://scripts/sera_base_architecture.gd")
+const MONITOR_SHADER = preload("res://assets/monitors/world_monitor.gdshader")
+const READOUT = preload("res://assets/monitors/telemetry.svg")
+const MONITOR_IDS = ["N01", "N02", "N03", "N04", "N05", "N06", "B01", "B02", "B03", "B04", "B05"]
 const BLOCKBENCH = [
     {"id":"N01","scene":"NEXUS","module":"system_console","part":"SYSTEM blue operational screen","offset":0.55},
     {"id":"N02","scene":"NEXUS","module":"system_console","part":"SYSTEM auxiliary angled slim right readout","offset":0.12},
@@ -38,14 +41,12 @@ static func _surface(host: Node3D, id: String, pose: Transform3D, size: Vector2)
     display.set_meta("sera_preserve_authored_material", true)
     display.set_meta("monitor_id", id)
     display.set_meta("monitor_resolution", texture.get_size())
-    var mat := StandardMaterial3D.new()
-    mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-    mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-    mat.albedo_color = Color.WHITE
-    mat.albedo_texture = texture
-    mat.emission_enabled = true
-    mat.emission_texture = texture
-    mat.emission_energy_multiplier = 0.28
+    var mat := ShaderMaterial.new()
+    mat.shader = MONITOR_SHADER
+    mat.set_shader_parameter("panel", texture)
+    mat.set_shader_parameter("readout", READOUT)
+    mat.set_shader_parameter("mode", MONITOR_IDS.find(id))
+    mat.set_shader_parameter("plans", preload("res://assets/monitors/blueprints.svg"))
     display.material_override = mat
     host.add_child(display)
 
