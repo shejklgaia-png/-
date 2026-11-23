@@ -230,7 +230,9 @@ func _setup_world() -> void:
     var world := WorldEnvironment.new()
     var env := Environment.new()
     env.background_mode = Environment.BG_COLOR
-    env.background_color = Color("#070b10")
+    # Keep BASE muted, but the former nearly-black sky swallowed #17212F ink.
+    # Blue-grey sky stays darker than NEXUS and makes silhouette edges visible.
+    env.background_color = Color("#607d8f")
     env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
     env.ambient_light_color = Color("#8da6c2")
     env.ambient_light_energy = 0.38
