@@ -9,7 +9,7 @@ uniform sampler2D mesh_id_texture : filter_nearest, repeat_disable;
 uniform vec2 mesh_id_texel = vec2(0.0026041667);
 uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
 uniform vec4 ink_screen_bounds = vec4(0.0);
-// Enlarged 4px outside scan applies ONLY to projected facility meshes.
+// The 4px outside scan is bounded to projected facility meshes.
 uniform vec4 facility_screen_bounds = vec4(0.0);
 uniform float main_inside_px = 1.0;
 uniform float main_outside_px = 3.0;
@@ -27,6 +27,11 @@ uniform float clutter_seam_px = 2.0;
 uniform float crate_inside_px = 1.0;
 uniform float crate_outside_px = 1.0;
 uniform float crate_seam_px = 1.0;
+// Live 3D equipment previews share the NEXUS 1/2/2 rule, distinct from
+// battle actor defaults. IRIS uses its own equivalent six-ID canvas pass.
+uniform float part_inside_px = 1.0;
+uniform float part_outside_px = 2.0;
+uniform float part_seam_px = 2.0;
 
 void vertex() {
     // QuadMesh defaults to a 1x1 rectangle; VERTEX.xy is -0.5..0.5.
@@ -46,11 +51,11 @@ vec3 sample_id(vec2 pixel_uv) {
 
 int role_of(vec3 id_value) {
     // G encodes render class: 1=actor, 2=facility, 3=small prop,
-    // 4=power GRID, 5=CRATE. R/B identify visible meshes/instances.
+    // 4=power GRID, 5=CRATE, 6=part preview. R/B identify visible meshes.
     if (id_value.g < 0.06) {
         return 0;
     }
-    return clamp(int(floor(id_value.g * 8.0 + 0.5)), 1, 5);
+    return clamp(int(floor(id_value.g * 8.0 + 0.5)), 1, 6);
 }
 
 bool same_visible_id(vec3 a, vec3 b) {
@@ -68,115 +73,136 @@ bool owns_contact(vec3 a, vec3 b) {
     return a.r > b.r + 0.0078;
 }
 
-vec2 neighbor_offset(int r, int d) {
-    float n = float(r);
-    if (d == 0) { return vec2(n, 0.0); }
-    if (d == 1) { return vec2(-n, 0.0); }
-    if (d == 2) { return vec2(0.0, n); }
-    if (d == 3) { return vec2(0.0, -n); }
-    if (d == 4) { return vec2(n, n); }
-    if (d == 5) { return vec2(-n, n); }
-    if (d == 6) { return vec2(n, -n); }
-    return vec2(-n, -n);
-}
-
-float fill_px(float distance_px, float stroke) {
-    return clamp((stroke + 0.5 - distance_px) / 0.5, 0.0, 1.0);
+// Use the same hard Euclidean pixel disk as NEXUS. Fractional alpha was
+// responsible for grey fringes, and eight-axis-only samples cause bulges.
+// A full disk is needed for 3px actor seams and 4px facility silhouettes.
+bool inside_radius(int distance_squared, float width_px) {
+    return float(distance_squared) <= width_px * width_px + 0.001;
 }
 
 void fragment() {
-    // Pixel coordinates must match the depth-resolved ID camera exactly.
     vec2 pixel_uv = SCREEN_UV;
     vec3 center = sample_id(pixel_uv);
     int center_role = role_of(center);
     float coverage = 0.0;
+
     if (center_role != 0) {
-        bool small = center_role == 3;
         bool facility = center_role == 2;
-        bool is_crate = center_role == 5;
-        float in_px = is_crate ? crate_inside_px :
-            (small ? clutter_inside_px :
-            (facility ? facility_inside_px : main_inside_px));
-        float seam_px = is_crate ? crate_seam_px :
-            (small ? clutter_seam_px :
-            (facility ? facility_seam_px : main_seam_px));
-        float to_empty = 99.0;
-        float to_contact = 99.0;
-        // Sample only the reachable 3px neighborhood. No ID readback.
-        for (int r = 1; r <= 3; r++) {
-            if (float(r) > max(in_px, seam_px) + 0.5) {
+        bool clutter = center_role == 3;
+        bool crate = center_role == 5;
+        bool part = center_role == 6;
+        float inner_width = part ? part_inside_px :
+            (crate ? crate_inside_px :
+            (clutter ? clutter_inside_px :
+            (facility ? facility_inside_px : main_inside_px)));
+        float seam_width = part ? part_seam_px :
+            (crate ? crate_seam_px :
+            (clutter ? clutter_seam_px :
+            (facility ? facility_seam_px : main_seam_px)));
+
+        bool inner_hit = false;
+        bool seam_hit = false;
+        float max_width = max(inner_width, seam_width);
+        for (int ring = 1; ring <= 3; ring++) {
+            if (float(ring) > max_width + 0.001) {
                 break;
             }
-            for (int d = 0; d < 8; d++) {
-                if (d >= 4 && float(r) * 1.414214 >
-                        max(in_px, seam_px) + 0.5) {
+            for (int dy = -ring; dy <= ring; dy++) {
+                for (int dx = -ring; dx <= ring; dx++) {
+                    if (max(abs(dx), abs(dy)) != ring) {
+                        continue;
+                    }
+                    int d2 = dx * dx + dy * dy;
+                    if (!inside_radius(d2, max_width)) {
+                        continue;
+                    }
+                    vec2 offset = vec2(float(dx), float(dy));
+                    vec3 other = sample_id(pixel_uv + offset * mesh_id_texel);
+                    int other_role = role_of(other);
+                    if (other_role == 0) {
+                        if (inside_radius(d2, inner_width)) {
+                            inner_hit = true;
+                        }
+                    } else if (!same_visible_id(center, other) &&
+                            owns_contact(center, other) &&
+                            inside_radius(d2, seam_width)) {
+                        // One owner per visible contact: no double-thick seam.
+                        seam_hit = true;
+                    }
+                    if (inner_hit && seam_hit) {
+                        break;
+                    }
+                }
+                if (inner_hit && seam_hit) {
                     break;
                 }
-                vec2 off = neighbor_offset(r, d);
-                vec3 neighbor = sample_id(pixel_uv + off * mesh_id_texel);
-                int next_role = role_of(neighbor);
-                float distance_px = length(off);
-                if (next_role == 0) {
-                    to_empty = min(to_empty, distance_px);
-                } else if (!same_visible_id(center, neighbor) &&
-                        owns_contact(center, neighbor)) {
-                    to_contact = min(to_contact, distance_px);
-                }
             }
-            if (to_empty <= 1.0 && to_contact <= 1.0) {
+            if (inner_hit && seam_hit) {
                 break;
             }
         }
-        coverage = max(fill_px(to_empty, in_px),
-            fill_px(to_contact, seam_px));
+        coverage = (inner_hit || seam_hit) ? 1.0 : 0.0;
     } else {
-        // Empty ID: draw outside ink ONLY near visible marked geometry.
-        // The screen bounds are conservatively projected from source AABBs.
-        if (pixel_uv.x >= ink_screen_bounds.x &&
-                pixel_uv.x <= ink_screen_bounds.z &&
-                pixel_uv.y >= ink_screen_bounds.y &&
-                pixel_uv.y <= ink_screen_bounds.w) {
-            bool near_facility = pixel_uv.x >= facility_screen_bounds.x &&
+        // The ground, backdrop and non-ink objects still write depth with
+        // role zero, so hidden actors do not emit ink through the floor.
+        // All outside ink stays near the projected screen bounds; no
+        // fullscreen ID dilation when the object is far off-screen.
+        bool near_visible = ink_screen_bounds.z > ink_screen_bounds.x &&
+            ink_screen_bounds.w > ink_screen_bounds.y &&
+            pixel_uv.x >= ink_screen_bounds.x &&
+            pixel_uv.x <= ink_screen_bounds.z &&
+            pixel_uv.y >= ink_screen_bounds.y &&
+            pixel_uv.y <= ink_screen_bounds.w;
+        if (near_visible) {
+            bool near_facility = facility_screen_bounds.z >
+                facility_screen_bounds.x && facility_screen_bounds.w >
+                facility_screen_bounds.y &&
+                pixel_uv.x >= facility_screen_bounds.x &&
                 pixel_uv.x <= facility_screen_bounds.z &&
                 pixel_uv.y >= facility_screen_bounds.y &&
                 pixel_uv.y <= facility_screen_bounds.w;
-            for (int r = 1; r <= 4; r++) {
-                if (r == 4 && !near_facility) {
+            for (int ring = 1; ring <= 4; ring++) {
+                if (ring == 4 && !near_facility) {
                     break;
                 }
-                for (int d = 0; d < 8; d++) {
-                    // Fourth-ring diagonals are 5.66px away; only the
-                    // four axis samples are needed for a 4px outside rim.
-                    if (d >= 4 && r == 4) {
-                        break;
+                for (int dy = -ring; dy <= ring; dy++) {
+                    for (int dx = -ring; dx <= ring; dx++) {
+                        if (max(abs(dx), abs(dy)) != ring) {
+                            continue;
+                        }
+                        int d2 = dx * dx + dy * dy;
+                        vec2 offset = vec2(float(dx), float(dy));
+                        int neighbor_role = role_of(sample_id(pixel_uv +
+                            offset * mesh_id_texel));
+                        if (neighbor_role == 0) {
+                            continue;
+                        }
+                        float outer_width = neighbor_role == 6 ?
+                            part_outside_px : (neighbor_role == 5 ?
+                            crate_outside_px : (neighbor_role == 3 ?
+                            clutter_outside_px : (neighbor_role == 2 ?
+                            facility_outside_px : main_outside_px)));
+                        if (inside_radius(d2, outer_width)) {
+                            coverage = 1.0;
+                            break;
+                        }
                     }
-                    vec2 off = neighbor_offset(r, d);
-                    vec3 neighbor = sample_id(pixel_uv + off * mesh_id_texel);
-                    int next_role = role_of(neighbor);
-                    if (next_role == 0) {
-                        continue;
-                    }
-                    float width_px = next_role == 5 ?
-                        crate_outside_px : (next_role == 3 ?
-                        clutter_outside_px : (next_role == 2 ?
-                        facility_outside_px : main_outside_px));
-                    coverage = max(coverage, fill_px(length(off), width_px));
-                    if (coverage >= 1.0) {
+                    if (coverage > 0.0) {
                         break;
                     }
                 }
-                if (coverage >= 1.0) {
+                if (coverage > 0.0) {
                     break;
                 }
             }
         }
     }
-    // Do not send a fullscreen mesh to alpha blending for zero-ink
-    // pixels. Some mobile Compatibility paths otherwise show dark fills
-    // where the intended outline has no coverage at all.
-    if (coverage <= 0.0) {
+
+    // A 0-alpha transparent fullscreen quad caused dark tinted screens on
+    // Compatibility devices. Never submit empty ink fragments for blending.
+    if (coverage < 0.5) {
         discard;
     }
     ALBEDO = ink_color.rgb;
-    ALPHA = coverage * ink_color.a;
+    ALPHA = ink_color.a;
 }
