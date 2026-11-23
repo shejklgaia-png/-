@@ -11,17 +11,17 @@
   },
   "elements": [
     {
-      "name": "training isolated tall armored floor foot",
+      "name": "TRAINING compact octagonal base",
       "type": "cube",
       "from": [
-        -8.1,
-        0,
-        -6.75
+        -6.85,
+        -0.05,
+        -5.85
       ],
       "to": [
-        8.1,
-        3.2,
-        6.75
+        6.85,
+        4.05,
+        5.85
       ],
       "color": 1,
       "rotation": [
@@ -31,10 +31,10 @@
       ],
       "origin": [
         0,
-        1.6,
+        2,
         0
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000001069",
+      "uuid": "8c340526-b00f-4000-8000-000000000515",
       "faces": {
         "north": {
           "uv": [
@@ -95,114 +95,30 @@
       "sera_nexus_selectable": true
     },
     {
-      "name": "training slanted dynamic base",
+      "name": "TRAINING upright armored body",
       "type": "cube",
       "from": [
-        -6.85,
-        2,
-        -6.3
+        -5.5,
+        2.45,
+        -5.5
       ],
       "to": [
-        6.85,
-        14,
-        3.9
+        5.5,
+        15.95,
+        2.7
       ],
       "color": 3,
       "rotation": [
         0,
         0,
-        -3
-      ],
-      "origin": [
-        0,
-        8,
-        -1.2
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000001070",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": true
-    },
-    {
-      "name": "training angular front spine",
-      "type": "cube",
-      "from": [
-        -5.15,
-        7.5,
-        2.2
-      ],
-      "to": [
-        5.15,
-        19.5,
-        6.2
-      ],
-      "color": 4,
-      "rotation": [
-        0,
-        0,
         0
       ],
       "origin": [
         0,
-        13.5,
-        4.2
+        9.2,
+        -1.4
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000001071",
+      "uuid": "8c340526-b00f-4000-8000-000000000516",
       "faces": {
         "north": {
           "uv": [
@@ -263,30 +179,30 @@
       "sera_nexus_selectable": true
     },
     {
-      "name": "training upright tall monitor casing",
+      "name": "TRAINING higher diagnostic monitor backing",
       "type": "cube",
       "from": [
-        -7.25,
-        15.1,
-        -6.15
+        -7.1,
+        11.7,
+        -4.9
       ],
       "to": [
-        7.25,
-        31.9,
-        0.15
+        4.1,
+        24.5,
+        -1.5
       ],
       "color": 2,
       "rotation": [
-        -20,
+        -17,
         0,
         0
       ],
       "origin": [
-        0,
-        23.5,
-        -3
+        -1.5,
+        18.1,
+        -3.2
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000001072",
+      "uuid": "8c340526-b00f-4000-8000-000000000517",
       "faces": {
         "north": {
           "uv": [
@@ -347,30 +263,30 @@
       "sera_nexus_selectable": true
     },
     {
-      "name": "training stepped polygon visor",
+      "name": "TRAINING monitor angular bezel",
       "type": "cube",
       "from": [
-        -8.7,
-        30.5,
-        -7.45
+        -6.6,
+        12.5,
+        -1.6
       ],
       "to": [
-        8.7,
-        33.9,
-        1.25
+        3.6,
+        23.5,
+        0.3
       ],
       "color": 4,
       "rotation": [
-        -20,
+        -17,
         0,
         0
       ],
       "origin": [
-        0,
-        32.2,
-        -3.1
+        -1.5,
+        18,
+        -0.65
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000001073",
+      "uuid": "8c340526-b00f-4000-8000-000000000518",
       "faces": {
         "north": {
           "uv": [
@@ -431,30 +347,30 @@
       "sera_nexus_selectable": true
     },
     {
-      "name": "training vertical cyan primary screen",
+      "name": "TRAINING deep cyan screen",
       "type": "cube",
       "from": [
-        -6.3,
-        16.8,
-        0.375
+        -5.9,
+        13.3,
+        0.14
       ],
       "to": [
-        6.3,
-        30.2,
-        0.825
+        2.9,
+        22.7,
+        0.8
       ],
       "color": 7,
       "rotation": [
-        -20,
+        -17,
         0,
         0
       ],
       "origin": [
-        0,
-        23.5,
-        0.6
+        -1.5,
+        18,
+        0.47
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000001074",
+      "uuid": "8c340526-b00f-4000-8000-000000000519",
       "faces": {
         "north": {
           "uv": [
@@ -515,17 +431,17 @@
       "sera_nexus_selectable": true
     },
     {
-      "name": "training status top notch",
+      "name": "TRAINING thin bright status eyebrow",
       "type": "cube",
       "from": [
-        -4.2,
-        33.265,
-        -0.3
+        -6.05,
+        24.1,
+        -0.6
       ],
       "to": [
-        4.2,
-        33.935,
-        0.7
+        3.05,
+        24.9,
+        1.3
       ],
       "color": 5,
       "rotation": [
@@ -534,11 +450,11 @@
         0
       ],
       "origin": [
-        0,
-        33.6,
-        0.2
+        -1.5,
+        24.5,
+        0.35
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000001075",
+      "uuid": "8c340526-b00f-4000-8000-000000000520",
       "faces": {
         "north": {
           "uv": [
@@ -599,366 +515,30 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "training diagnostic scan line 0",
+      "name": "TRAINING angled command keyboard",
       "type": "cube",
       "from": [
-        -6.5,
-        18.2,
-        0.785
+        -6.3,
+        10.75,
+        0.6
       ],
       "to": [
-        -0.5,
-        18.4,
-        1.035
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        -3.5,
-        18.3,
-        0.91
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000001076",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "training diagnostic scan line 2",
-      "type": "cube",
-      "from": [
-        -6.1,
-        21.2,
-        0.785
-      ],
-      "to": [
-        -0.9,
-        21.4,
-        1.035
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        -3.5,
-        21.3,
-        0.91
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000001078",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "training diagnostic scan line 4",
-      "type": "cube",
-      "from": [
-        -5.7,
-        24.2,
-        0.785
-      ],
-      "to": [
-        -1.3,
-        24.4,
-        1.035
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        -3.5,
-        24.3,
-        0.91
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000001080",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "training diagnostic scan line 6",
-      "type": "cube",
-      "from": [
-        -5.3,
-        27.2,
-        0.785
-      ],
-      "to": [
-        -1.7,
-        27.4,
-        1.035
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        -3.5,
-        27.3,
-        0.91
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000001082",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "training extended input ramp",
-      "type": "cube",
-      "from": [
-        -5.1,
-        12.7,
-        2.6
-      ],
-      "to": [
-        8.7,
-        14.7,
-        11.8
+        4.3,
+        12.85,
+        9
       ],
       "color": 3,
       "rotation": [
-        22,
+        20,
         0,
         0
       ],
       "origin": [
-        1.8,
-        13.7,
-        7.2
+        -1,
+        11.8,
+        4.8
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000001083",
+      "uuid": "8c340526-b00f-4000-8000-000000000521",
       "faces": {
         "north": {
           "uv": [
@@ -1019,114 +599,30 @@
       "sera_nexus_selectable": true
     },
     {
-      "name": "training tactile pad 0-0",
+      "name": "TRAINING nonmirrored upper controls 0",
       "type": "cube",
       "from": [
-        -4.075,
-        14.605,
-        6.5
-      ],
-      "to": [
-        -2.525,
-        14.895,
-        7.5
-      ],
-      "color": 5,
-      "rotation": [
-        22,
-        0,
-        0
-      ],
-      "origin": [
-        -3.3,
-        14.75,
+        -5.55,
+        12.55,
         7
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000001084",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "training tactile pad 0-2",
-      "type": "cube",
-      "from": [
-        0.425,
-        14.605,
-        6.5
-      ],
       "to": [
-        1.975,
-        14.895,
-        7.5
+        -4.25,
+        13.25,
+        8.6
       ],
       "color": 4,
       "rotation": [
-        22,
+        0,
         0,
         0
       ],
       "origin": [
-        1.2,
-        14.75,
-        7
+        -4.9,
+        12.9,
+        7.8
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000001086",
+      "uuid": "8c340526-b00f-4000-8000-000000000522",
       "faces": {
         "north": {
           "uv": [
@@ -1187,198 +683,114 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "training tactile pad 0-4",
+      "name": "TRAINING nonmirrored upper controls 1",
       "type": "cube",
       "from": [
-        4.925,
-        14.605,
-        6.5
+        -3.45,
+        12.55,
+        7
       ],
       "to": [
-        6.475,
-        14.895,
-        7.5
+        -2.15,
+        13.25,
+        8.6
       ],
       "color": 5,
       "rotation": [
-        22,
+        0,
         0,
         0
       ],
       "origin": [
-        5.7,
-        14.75,
+        -2.8,
+        12.9,
+        7.8
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000523",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "TRAINING nonmirrored upper controls 2",
+      "type": "cube",
+      "from": [
+        -1.35,
+        12.55,
         7
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000001088",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "training tactile pad 1-0",
-      "type": "cube",
-      "from": [
-        -4.075,
-        14.605,
-        8.3
-      ],
       "to": [
-        -2.525,
-        14.895,
-        9.3
-      ],
-      "color": 5,
-      "rotation": [
-        22,
-        0,
-        0
-      ],
-      "origin": [
-        -3.3,
-        14.75,
-        8.8
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000001089",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "training tactile pad 1-2",
-      "type": "cube",
-      "from": [
-        0.425,
-        14.605,
-        8.3
-      ],
-      "to": [
-        1.975,
-        14.895,
-        9.3
+        -0.05,
+        13.25,
+        8.6
       ],
       "color": 4,
       "rotation": [
-        22,
+        0,
         0,
         0
       ],
       "origin": [
-        1.2,
-        14.75,
-        8.8
+        -0.7,
+        12.9,
+        7.8
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000001091",
+      "uuid": "8c340526-b00f-4000-8000-000000000524",
       "faces": {
         "north": {
           "uv": [
@@ -1439,30 +851,30 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "training tactile pad 1-4",
+      "name": "TRAINING nonmirrored upper controls 3",
       "type": "cube",
       "from": [
-        4.925,
-        14.605,
-        8.3
+        0.75,
+        12.55,
+        7
       ],
       "to": [
-        6.475,
-        14.895,
-        9.3
+        2.05,
+        13.25,
+        8.6
       ],
-      "color": 5,
+      "color": 4,
       "rotation": [
-        22,
+        0,
         0,
         0
       ],
       "origin": [
-        5.7,
-        14.75,
-        8.8
+        1.4,
+        12.9,
+        7.8
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000001093",
+      "uuid": "8c340526-b00f-4000-8000-000000000525",
       "faces": {
         "north": {
           "uv": [
@@ -1523,30 +935,114 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "training staggered right side sensor rack",
+      "name": "TRAINING nonmirrored upper controls 4",
       "type": "cube",
       "from": [
-        7.6,
-        8.35,
-        -7.55
+        2.85,
+        12.55,
+        7
       ],
       "to": [
-        14.2,
-        28.85,
+        4.15,
+        13.25,
+        8.6
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        3.5,
+        12.9,
+        7.8
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000526",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "TRAINING right projecting sensor equipment tower",
+      "type": "cube",
+      "from": [
+        6.25,
+        5.55,
+        -5.15
+      ],
+      "to": [
+        9.75,
+        20.85,
         -0.45
       ],
-      "color": 2,
+      "color": 3,
       "rotation": [
         0,
         0,
         11
       ],
       "origin": [
-        10.9,
-        18.6,
-        -4
+        8,
+        13.2,
+        -2.8
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000001094",
+      "uuid": "8c340526-b00f-4000-8000-000000000527",
       "faces": {
         "north": {
           "uv": [
@@ -1607,17 +1103,17 @@
       "sera_nexus_selectable": true
     },
     {
-      "name": "training asymmetric side screen",
+      "name": "TRAINING right lateral data display",
       "type": "cube",
       "from": [
-        7.65,
-        17.05,
-        -0.25
+        6,
+        12.9,
+        0
       ],
       "to": [
-        14.35,
-        25.75,
-        0.55
+        10.2,
+        18.7,
+        1.2
       ],
       "color": 7,
       "rotation": [
@@ -1626,11 +1122,11 @@
         0
       ],
       "origin": [
-        11,
-        21.4,
-        0.15
+        8.1,
+        15.8,
+        0.6
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000001095",
+      "uuid": "8c340526-b00f-4000-8000-000000000528",
       "faces": {
         "north": {
           "uv": [
@@ -1691,17 +1187,17 @@
       "sera_nexus_selectable": true
     },
     {
-      "name": "training side sensor bar 0",
+      "name": "TRAINING lateral analyzer bar 0",
       "type": "cube",
       "from": [
-        8.45,
-        16.75,
-        0.575
+        6.7,
+        13.8,
+        1.15
       ],
       "to": [
-        13.15,
-        17.05,
-        0.825
+        9.5,
+        14.2,
+        1.55
       ],
       "color": 5,
       "rotation": [
@@ -1710,11 +1206,11 @@
         0
       ],
       "origin": [
-        10.8,
-        16.9,
-        0.7
+        8.1,
+        14,
+        1.35
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000001096",
+      "uuid": "8c340526-b00f-4000-8000-000000000529",
       "faces": {
         "north": {
           "uv": [
@@ -1775,17 +1271,17 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "training side sensor bar 2",
+      "name": "TRAINING lateral analyzer bar 1",
       "type": "cube",
       "from": [
-        8.45,
-        20.95,
-        0.575
+        6.7,
+        15.4,
+        1.15
       ],
       "to": [
-        13.15,
-        21.25,
-        0.825
+        9.5,
+        15.8,
+        1.55
       ],
       "color": 5,
       "rotation": [
@@ -1794,11 +1290,11 @@
         0
       ],
       "origin": [
-        10.8,
-        21.1,
-        0.7
+        8.1,
+        15.6,
+        1.35
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000001098",
+      "uuid": "8c340526-b00f-4000-8000-000000000530",
       "faces": {
         "north": {
           "uv": [
@@ -1859,30 +1355,198 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "training left pneumatic test module",
+      "name": "TRAINING lateral analyzer bar 2",
       "type": "cube",
       "from": [
-        -11.7,
-        3.5,
-        -8.2
+        6.7,
+        17,
+        1.15
       ],
       "to": [
-        -6.3,
-        19.5,
-        1.6
+        9.5,
+        17.4,
+        1.55
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        8.1,
+        17.2,
+        1.35
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000531",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "TRAINING left hydraulic locking rail",
+      "type": "cube",
+      "from": [
+        -8.7,
+        1.35,
+        -3.65
+      ],
+      "to": [
+        -6.5,
+        12.05,
+        1.25
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -7.6,
+        6.7,
+        -1.2
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000532",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "TRAINING separated side diagnostic arm",
+      "type": "cube",
+      "from": [
+        -10.15,
+        10.8,
+        -4.55
+      ],
+      "to": [
+        -8.05,
+        18.8,
+        -1.25
       ],
       "color": 3,
       "rotation": [
         0,
         0,
-        0
+        -23
       ],
       "origin": [
-        -9,
-        11.5,
-        -3.3
+        -9.1,
+        14.8,
+        -2.9
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000001100",
+      "uuid": "8c340526-b00f-4000-8000-000000000533",
       "faces": {
         "north": {
           "uv": [
@@ -1940,20 +1604,20 @@
         }
       },
       "sera_nexus_outline": true,
-      "sera_nexus_selectable": true
+      "sera_nexus_selectable": false
     },
     {
-      "name": "training hydraulic tubing 0",
+      "name": "TRAINING visible amber emergency switch",
       "type": "cube",
       "from": [
-        -13.1,
-        5.3,
-        -0.05
+        -9.15,
+        8,
+        1.25
       ],
       "to": [
-        -11.7,
-        6.7,
-        4.05
+        -7.05,
+        9.8,
+        2.55
       ],
       "color": 6,
       "rotation": [
@@ -1962,11 +1626,11 @@
         0
       ],
       "origin": [
-        -12.4,
-        6,
-        2
+        -8.1,
+        8.9,
+        1.9
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000001101",
+      "uuid": "8c340526-b00f-4000-8000-000000000534",
       "faces": {
         "north": {
           "uv": [
@@ -2027,17 +1691,17 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "training hydraulic tubing 1",
+      "name": "TRAINING equipment side vent",
       "type": "cube",
       "from": [
-        -13.1,
-        8.8,
-        -0.05
+        2.55,
+        1.9,
+        4.05
       ],
       "to": [
-        -11.7,
-        10.2,
-        4.05
+        5.85,
+        7.1,
+        5.15
       ],
       "color": 2,
       "rotation": [
@@ -2046,11 +1710,11 @@
         0
       ],
       "origin": [
-        -12.4,
-        9.5,
-        2
+        4.2,
+        4.5,
+        4.6
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000001102",
+      "uuid": "8c340526-b00f-4000-8000-000000000535",
       "faces": {
         "north": {
           "uv": [
@@ -2111,521 +1775,17 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "training hydraulic tubing 2",
+      "name": "TRAINING cooling louver 0",
       "type": "cube",
       "from": [
-        -13.1,
-        12.3,
-        -0.05
-      ],
-      "to": [
-        -11.7,
-        13.7,
-        4.05
-      ],
-      "color": 2,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        -12.4,
-        13,
-        2
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000001103",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "training hydraulic tubing 3",
-      "type": "cube",
-      "from": [
-        -13.1,
-        15.8,
-        -0.05
-      ],
-      "to": [
-        -11.7,
-        17.2,
-        4.05
-      ],
-      "color": 2,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        -12.4,
-        16.5,
-        2
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000001104",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "training diagnostic boom arm",
-      "type": "cube",
-      "from": [
-        -12.15,
-        24.85,
-        -8.464
-      ],
-      "to": [
-        -9.85,
-        27.15,
-        -1.536
-      ],
-      "color": 4,
-      "rotation": [
-        -35.264,
-        -135,
-        0
-      ],
-      "origin": [
-        -11,
-        26,
-        -5
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000001105",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "training diagnostic boom stabilizer",
-      "type": "cube",
-      "from": [
-        -13.5,
-        22.5,
-        -11.525
-      ],
-      "to": [
-        -12.5,
-        23.5,
-        -1.475
-      ],
-      "color": 6,
-      "rotation": [
-        84.289,
-        0,
-        0
-      ],
-      "origin": [
-        -13,
-        23,
-        -6.5
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000001106",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "training rear side heat exhaust",
-      "type": "cube",
-      "from": [
-        6.95,
-        1.5,
-        3.1
-      ],
-      "to": [
-        11.05,
-        8.5,
-        6.9
-      ],
-      "color": 4,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        9,
-        5,
-        5
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000001107",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "training cooling slat 0",
-      "type": "cube",
-      "from": [
-        7.4,
-        2.75,
-        7.1
-      ],
-      "to": [
-        10.6,
-        3.25,
-        7.5
-      ],
-      "color": 0,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        9,
         3,
-        7.3
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000001108",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "training cooling slat 2",
-      "type": "cube",
-      "from": [
-        7.4,
-        5.95,
-        7.1
+        3.23,
+        5.15
       ],
       "to": [
-        10.6,
-        6.45,
-        7.5
+        5.4,
+        3.58,
+        5.45
       ],
       "color": 0,
       "rotation": [
@@ -2634,11 +1794,11 @@
         0
       ],
       "origin": [
-        9,
-        6.2,
-        7.3
+        4.2,
+        3.405,
+        5.3
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000001110",
+      "uuid": "8c340526-b00f-4000-8000-000000000536",
       "faces": {
         "north": {
           "uv": [
@@ -2699,30 +1859,114 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "training emergency amber indicator",
+      "name": "TRAINING cooling louver 1",
       "type": "cube",
       "from": [
-        -9.75,
-        16.7,
-        1.55
+        3,
+        4.63,
+        5.15
       ],
       "to": [
-        -7.25,
-        19.3,
-        2.05
+        5.4,
+        4.98,
+        5.45
       ],
-      "color": 6,
+      "color": 0,
       "rotation": [
         0,
         0,
         0
       ],
       "origin": [
-        -8.5,
-        18,
-        1.8
+        4.2,
+        4.805,
+        5.3
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000001112",
+      "uuid": "8c340526-b00f-4000-8000-000000000537",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "TRAINING cooling louver 2",
+      "type": "cube",
+      "from": [
+        3,
+        6.03,
+        5.15
+      ],
+      "to": [
+        5.4,
+        6.38,
+        5.45
+      ],
+      "color": 0,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        4.2,
+        6.205,
+        5.3
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000538",
       "faces": {
         "north": {
           "uv": [

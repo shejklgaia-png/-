@@ -11,19 +11,19 @@
   },
   "elements": [
     {
-      "name": "octagonal subfloor plinth",
+      "name": "Maintenance circular anchor foundation",
       "type": "cube",
       "from": [
-        -17.5,
-        -0.25,
-        -17.5
+        -16.6,
+        0,
+        -16.6
       ],
       "to": [
-        17.5,
-        2.25,
-        17.5
+        16.6,
+        2,
+        16.6
       ],
-      "color": 0,
+      "color": 1,
       "rotation": [
         0,
         0,
@@ -34,7 +34,7 @@
         1,
         0
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000646",
+      "uuid": "8c340526-b00f-4000-8000-000000000307",
       "faces": {
         "north": {
           "uv": [
@@ -95,4049 +95,17 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "heavy chamfered ring armor 0",
+      "name": "Maintenance raised segmented core",
       "type": "cube",
       "from": [
-        -3.175,
-        0.225,
-        15.05
+        -12.75,
+        1.45,
+        -12.75
       ],
       "to": [
-        3.175,
-        3.375,
-        18.55
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        0,
-        1.8,
-        16.8
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000647",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "heavy chamfered ring armor 1",
-      "type": "cube",
-      "from": [
-        3.254,
-        0.225,
-        13.771
-      ],
-      "to": [
-        9.604,
-        3.375,
-        17.271
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        22.5,
-        0
-      ],
-      "origin": [
-        6.429,
-        1.8,
-        15.521
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000648",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "heavy chamfered ring armor 2",
-      "type": "cube",
-      "from": [
-        8.705,
-        0.225,
-        10.129
-      ],
-      "to": [
-        15.054,
-        3.375,
-        13.629
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        45,
-        0
-      ],
-      "origin": [
-        11.88,
-        1.8,
-        11.879
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000649",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "heavy chamfered ring armor 3",
-      "type": "cube",
-      "from": [
-        12.347,
-        0.225,
-        4.679
-      ],
-      "to": [
-        18.696,
-        3.375,
-        8.179
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        67.5,
-        0
-      ],
-      "origin": [
-        15.522,
-        1.8,
-        6.429
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000650",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "heavy chamfered ring armor 4",
-      "type": "cube",
-      "from": [
-        13.625,
-        0.225,
-        -1.75
-      ],
-      "to": [
-        19.975,
-        3.375,
-        1.75
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        90,
-        0
-      ],
-      "origin": [
-        16.8,
-        1.8,
-        0
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000651",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "heavy chamfered ring armor 5",
-      "type": "cube",
-      "from": [
-        12.347,
-        0.225,
-        -8.179
-      ],
-      "to": [
-        18.696,
-        3.375,
-        -4.679
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        112.5,
-        0
-      ],
-      "origin": [
-        15.522,
-        1.8,
-        -6.429
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000652",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "heavy chamfered ring armor 6",
-      "type": "cube",
-      "from": [
-        8.705,
-        0.225,
-        -13.629
-      ],
-      "to": [
-        15.054,
-        3.375,
-        -10.129
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        135,
-        0
-      ],
-      "origin": [
-        11.88,
-        1.8,
-        -11.879
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000653",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "heavy chamfered ring armor 7",
-      "type": "cube",
-      "from": [
-        3.254,
-        0.225,
-        -17.271
-      ],
-      "to": [
-        9.604,
-        3.375,
-        -13.771
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        157.5,
-        0
-      ],
-      "origin": [
-        6.429,
-        1.8,
-        -15.521
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000654",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "heavy chamfered ring armor 8",
-      "type": "cube",
-      "from": [
-        -3.175,
-        0.225,
-        -18.55
-      ],
-      "to": [
-        3.175,
-        3.375,
-        -15.05
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        180,
-        0
-      ],
-      "origin": [
-        0,
-        1.8,
-        -16.8
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000655",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "heavy chamfered ring armor 9",
-      "type": "cube",
-      "from": [
-        -9.604,
-        0.225,
-        -17.271
-      ],
-      "to": [
-        -3.254,
-        3.375,
-        -13.771
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        202.5,
-        0
-      ],
-      "origin": [
-        -6.429,
-        1.8,
-        -15.521
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000656",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "heavy chamfered ring armor 10",
-      "type": "cube",
-      "from": [
-        -15.054,
-        0.225,
-        -13.629
-      ],
-      "to": [
-        -8.705,
-        3.375,
-        -10.129
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        225,
-        0
-      ],
-      "origin": [
-        -11.879,
-        1.8,
-        -11.879
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000657",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "heavy chamfered ring armor 11",
-      "type": "cube",
-      "from": [
-        -18.696,
-        0.225,
-        -8.179
-      ],
-      "to": [
-        -12.347,
-        3.375,
-        -4.679
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        247.5,
-        0
-      ],
-      "origin": [
-        -15.521,
-        1.8,
-        -6.429
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000658",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "heavy chamfered ring armor 12",
-      "type": "cube",
-      "from": [
-        -19.975,
-        0.225,
-        -1.75
-      ],
-      "to": [
-        -13.625,
-        3.375,
-        1.75
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        270,
-        0
-      ],
-      "origin": [
-        -16.8,
-        1.8,
-        0
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000659",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "heavy chamfered ring armor 13",
-      "type": "cube",
-      "from": [
-        -18.696,
-        0.225,
-        4.679
-      ],
-      "to": [
-        -12.347,
-        3.375,
-        8.179
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        292.5,
-        0
-      ],
-      "origin": [
-        -15.521,
-        1.8,
-        6.429
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000660",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "heavy chamfered ring armor 14",
-      "type": "cube",
-      "from": [
-        -15.054,
-        0.225,
-        10.129
-      ],
-      "to": [
-        -8.705,
-        3.375,
-        13.629
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        315,
-        0
-      ],
-      "origin": [
-        -11.879,
-        1.8,
-        11.879
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000661",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "heavy chamfered ring armor 15",
-      "type": "cube",
-      "from": [
-        -9.604,
-        0.225,
-        13.771
-      ],
-      "to": [
-        -3.254,
-        3.375,
-        17.271
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        337.5,
-        0
-      ],
-      "origin": [
-        -6.429,
-        1.8,
-        15.521
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000662",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "cyan service rim segments 0",
-      "type": "cube",
-      "from": [
-        -3.156,
-        3.475,
-        15.75
-      ],
-      "to": [
-        3.156,
-        4.225,
-        17.65
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        0,
-        3.85,
-        16.7
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000663",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "cyan service rim segments 1",
-      "type": "cube",
-      "from": [
-        3.235,
-        3.475,
-        14.479
-      ],
-      "to": [
-        9.547,
-        4.225,
-        16.379
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        22.5,
-        0
-      ],
-      "origin": [
-        6.391,
-        3.85,
-        15.429
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000664",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "cyan service rim segments 2",
-      "type": "cube",
-      "from": [
-        8.653,
-        3.475,
-        10.859
-      ],
-      "to": [
-        14.964,
-        4.225,
-        12.759
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        45,
-        0
-      ],
-      "origin": [
-        11.809,
-        3.85,
-        11.809
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000665",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "cyan service rim segments 3",
-      "type": "cube",
-      "from": [
-        12.273,
-        3.475,
-        5.441
-      ],
-      "to": [
-        18.585,
-        4.225,
-        7.341
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        67.5,
-        0
-      ],
-      "origin": [
-        15.429,
-        3.85,
-        6.391
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000666",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "cyan service rim segments 4",
-      "type": "cube",
-      "from": [
-        13.544,
-        3.475,
-        -0.95
-      ],
-      "to": [
-        19.856,
-        4.225,
-        0.95
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        90,
-        0
-      ],
-      "origin": [
-        16.7,
-        3.85,
-        0
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000667",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "cyan service rim segments 5",
-      "type": "cube",
-      "from": [
-        12.273,
-        3.475,
-        -7.341
-      ],
-      "to": [
-        18.585,
-        4.225,
-        -5.441
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        112.5,
-        0
-      ],
-      "origin": [
-        15.429,
-        3.85,
-        -6.391
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000668",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "cyan service rim segments 6",
-      "type": "cube",
-      "from": [
-        8.653,
-        3.475,
-        -12.759
-      ],
-      "to": [
-        14.964,
-        4.225,
-        -10.859
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        135,
-        0
-      ],
-      "origin": [
-        11.809,
-        3.85,
-        -11.809
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000669",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "cyan service rim segments 7",
-      "type": "cube",
-      "from": [
-        3.235,
-        3.475,
-        -16.379
-      ],
-      "to": [
-        9.547,
-        4.225,
-        -14.479
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        157.5,
-        0
-      ],
-      "origin": [
-        6.391,
-        3.85,
-        -15.429
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000670",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "cyan service rim segments 8",
-      "type": "cube",
-      "from": [
-        -3.156,
-        3.475,
-        -17.65
-      ],
-      "to": [
-        3.156,
-        4.225,
-        -15.75
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        180,
-        0
-      ],
-      "origin": [
-        0,
-        3.85,
-        -16.7
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000671",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "cyan service rim segments 9",
-      "type": "cube",
-      "from": [
-        -9.547,
-        3.475,
-        -16.379
-      ],
-      "to": [
-        -3.235,
-        4.225,
-        -14.479
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        202.5,
-        0
-      ],
-      "origin": [
-        -6.391,
-        3.85,
-        -15.429
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000672",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "cyan service rim segments 10",
-      "type": "cube",
-      "from": [
-        -14.964,
-        3.475,
-        -12.759
-      ],
-      "to": [
-        -8.653,
-        4.225,
-        -10.859
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        225,
-        0
-      ],
-      "origin": [
-        -11.808,
-        3.85,
-        -11.809
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000673",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "cyan service rim segments 11",
-      "type": "cube",
-      "from": [
-        -18.585,
-        3.475,
-        -7.341
-      ],
-      "to": [
-        -12.273,
-        4.225,
-        -5.441
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        247.5,
-        0
-      ],
-      "origin": [
-        -15.429,
-        3.85,
-        -6.391
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000674",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "cyan service rim segments 12",
-      "type": "cube",
-      "from": [
-        -19.856,
-        3.475,
-        -0.95
-      ],
-      "to": [
-        -13.544,
-        4.225,
-        0.95
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        270,
-        0
-      ],
-      "origin": [
-        -16.7,
-        3.85,
-        0
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000675",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "cyan service rim segments 13",
-      "type": "cube",
-      "from": [
-        -18.585,
-        3.475,
-        5.441
-      ],
-      "to": [
-        -12.273,
-        4.225,
-        7.341
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        292.5,
-        0
-      ],
-      "origin": [
-        -15.429,
-        3.85,
-        6.391
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000676",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "cyan service rim segments 14",
-      "type": "cube",
-      "from": [
-        -14.964,
-        3.475,
-        10.859
-      ],
-      "to": [
-        -8.653,
-        4.225,
-        12.759
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        315,
-        0
-      ],
-      "origin": [
-        -11.808,
-        3.85,
-        11.809
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000677",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "cyan service rim segments 15",
-      "type": "cube",
-      "from": [
-        -9.547,
-        3.475,
-        14.479
-      ],
-      "to": [
-        -3.235,
-        4.225,
-        16.379
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        337.5,
-        0
-      ],
-      "origin": [
-        -6.391,
-        3.85,
-        15.429
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000678",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "dark interior ring 0",
-      "type": "cube",
-      "from": [
-        -2.627,
-        3.94,
-        13.3
-      ],
-      "to": [
-        2.627,
-        4.36,
-        14.5
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        0,
-        4.15,
-        13.9
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000679",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "dark interior ring 1",
-      "type": "cube",
-      "from": [
-        2.693,
-        3.94,
-        12.242
-      ],
-      "to": [
-        7.946,
-        4.36,
-        13.442
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        22.5,
-        0
-      ],
-      "origin": [
-        5.32,
-        4.15,
-        12.842
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000680",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "dark interior ring 2",
-      "type": "cube",
-      "from": [
-        7.202,
-        3.94,
-        9.229
-      ],
-      "to": [
-        12.455,
-        4.36,
-        10.429
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        45,
-        0
-      ],
-      "origin": [
-        9.829,
-        4.15,
-        9.829
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000681",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "dark interior ring 3",
-      "type": "cube",
-      "from": [
-        10.215,
-        3.94,
-        4.719
-      ],
-      "to": [
-        15.469,
-        4.36,
-        5.919
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        67.5,
-        0
-      ],
-      "origin": [
-        12.842,
-        4.15,
-        5.319
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000682",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "dark interior ring 4",
-      "type": "cube",
-      "from": [
-        11.273,
-        3.94,
-        -0.6
-      ],
-      "to": [
-        16.527,
-        4.36,
-        0.6
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        90,
-        0
-      ],
-      "origin": [
-        13.9,
-        4.15,
-        0
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000683",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "dark interior ring 5",
-      "type": "cube",
-      "from": [
-        10.215,
-        3.94,
-        -5.919
-      ],
-      "to": [
-        15.469,
-        4.36,
-        -4.719
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        112.5,
-        0
-      ],
-      "origin": [
-        12.842,
-        4.15,
-        -5.319
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000684",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "dark interior ring 6",
-      "type": "cube",
-      "from": [
-        7.202,
-        3.94,
-        -10.429
-      ],
-      "to": [
-        12.455,
-        4.36,
-        -9.229
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        135,
-        0
-      ],
-      "origin": [
-        9.829,
-        4.15,
-        -9.829
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000685",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "dark interior ring 7",
-      "type": "cube",
-      "from": [
-        2.693,
-        3.94,
-        -13.442
-      ],
-      "to": [
-        7.946,
-        4.36,
-        -12.242
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        157.5,
-        0
-      ],
-      "origin": [
-        5.32,
-        4.15,
-        -12.842
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000686",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "dark interior ring 8",
-      "type": "cube",
-      "from": [
-        -2.627,
-        3.94,
-        -14.5
-      ],
-      "to": [
-        2.627,
-        4.36,
-        -13.3
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        180,
-        0
-      ],
-      "origin": [
-        0,
-        4.15,
-        -13.9
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000687",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "dark interior ring 9",
-      "type": "cube",
-      "from": [
-        -7.946,
-        3.94,
-        -13.442
-      ],
-      "to": [
-        -2.693,
-        4.36,
-        -12.242
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        202.5,
-        0
-      ],
-      "origin": [
-        -5.319,
-        4.15,
-        -12.842
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000688",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "dark interior ring 10",
-      "type": "cube",
-      "from": [
-        -12.455,
-        3.94,
-        -10.429
-      ],
-      "to": [
-        -7.202,
-        4.36,
-        -9.229
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        225,
-        0
-      ],
-      "origin": [
-        -9.828,
-        4.15,
-        -9.829
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000689",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "dark interior ring 11",
-      "type": "cube",
-      "from": [
-        -15.469,
-        3.94,
-        -5.919
-      ],
-      "to": [
-        -10.215,
-        4.36,
-        -4.719
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        247.5,
-        0
-      ],
-      "origin": [
-        -12.842,
-        4.15,
-        -5.319
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000690",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "dark interior ring 12",
-      "type": "cube",
-      "from": [
-        -16.527,
-        3.94,
-        -0.6
-      ],
-      "to": [
-        -11.273,
-        4.36,
-        0.6
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        270,
-        0
-      ],
-      "origin": [
-        -13.9,
-        4.15,
-        0
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000691",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "dark interior ring 13",
-      "type": "cube",
-      "from": [
-        -15.469,
-        3.94,
-        4.719
-      ],
-      "to": [
-        -10.215,
-        4.36,
-        5.919
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        292.5,
-        0
-      ],
-      "origin": [
-        -12.842,
-        4.15,
-        5.319
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000692",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "dark interior ring 14",
-      "type": "cube",
-      "from": [
-        -12.455,
-        3.94,
-        9.229
-      ],
-      "to": [
-        -7.202,
-        4.36,
-        10.429
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        315,
-        0
-      ],
-      "origin": [
-        -9.828,
-        4.15,
-        9.829
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000693",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "dark interior ring 15",
-      "type": "cube",
-      "from": [
-        -7.946,
-        3.94,
-        12.242
-      ],
-      "to": [
-        -2.693,
-        4.36,
-        13.442
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        337.5,
-        0
-      ],
-      "origin": [
-        -5.319,
-        4.15,
-        12.842
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000694",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "gridded center landing",
-      "type": "cube",
-      "from": [
-        -12.5,
-        3.05,
-        -12.5
-      ],
-      "to": [
-        12.5,
-        4.15,
-        12.5
+        12.75,
+        3.95,
+        12.75
       ],
       "color": 2,
       "rotation": [
@@ -4147,10 +115,10 @@
       ],
       "origin": [
         0,
-        3.6,
+        2.7,
         0
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000695",
+      "uuid": "8c340526-b00f-4000-8000-000000000308",
       "faces": {
         "north": {
           "uv": [
@@ -4211,19 +179,19 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "platform articulated socket 0",
+      "name": "Maintenance matte grated center",
       "type": "cube",
       "from": [
-        -1.75,
-        1.55,
-        16.45
+        -11.4,
+        3.71,
+        -11.4
       ],
       "to": [
-        1.75,
-        3.85,
-        19.95
+        11.4,
+        4.51,
+        11.4
       ],
-      "color": 4,
+      "color": 1,
       "rotation": [
         0,
         0,
@@ -4231,98 +199,10 @@
       ],
       "origin": [
         0,
-        2.7,
-        18.2
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000696",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": [
-        0,
-        0,
-        0
-      ]
-    },
-    {
-      "name": "blue stage lock 0",
-      "type": "cube",
-      "from": [
-        -0.775,
-        3.675,
-        17.425
-      ],
-      "to": [
-        0.775,
-        4.325,
-        18.975
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        0,
+        4.11,
         0
       ],
-      "origin": [
-        0,
-        4,
-        18.2
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000697",
+      "uuid": "8c340526-b00f-4000-8000-000000000309",
       "faces": {
         "north": {
           "uv": [
@@ -4383,30 +263,30 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "platform articulated socket 2",
+      "name": "Maintenance bevel armor 0",
       "type": "cube",
       "from": [
-        11.119,
-        1.55,
-        11.119
+        -3.93,
+        0.05,
+        14.1
       ],
       "to": [
-        14.619,
-        3.85,
-        14.619
+        3.93,
+        3.15,
+        18.1
       ],
-      "color": 4,
+      "color": 3,
       "rotation": [
         0,
         0,
         0
       ],
       "origin": [
-        12.869,
-        2.7,
-        12.869
+        0,
+        1.6,
+        16.1
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000699",
+      "uuid": "8c340526-b00f-4000-8000-000000000310",
       "faces": {
         "north": {
           "uv": [
@@ -4464,121 +344,33 @@
         }
       },
       "sera_nexus_outline": true,
-      "sera_nexus_selectable": [
-        0,
-        45,
-        0
-      ]
-    },
-    {
-      "name": "blue stage lock 2",
-      "type": "cube",
-      "from": [
-        12.094,
-        3.675,
-        12.094
-      ],
-      "to": [
-        13.644,
-        4.325,
-        13.644
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        12.869,
-        4,
-        12.869
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000700",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
       "sera_nexus_selectable": false
     },
     {
-      "name": "platform articulated socket 4",
+      "name": "Maintenance bevel armor 1",
       "type": "cube",
       "from": [
-        16.45,
-        1.55,
-        -1.75
+        4.12,
+        0.05,
+        11.94
       ],
       "to": [
-        19.95,
-        3.85,
-        1.75
+        11.98,
+        3.15,
+        15.94
       ],
-      "color": 4,
+      "color": 3,
       "rotation": [
         0,
-        0,
+        30,
         0
       ],
       "origin": [
-        18.2,
-        2.7,
-        0
+        8.05,
+        1.6,
+        13.94
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000702",
+      "uuid": "8c340526-b00f-4000-8000-000000000311",
       "faces": {
         "north": {
           "uv": [
@@ -4636,121 +428,117 @@
         }
       },
       "sera_nexus_outline": true,
-      "sera_nexus_selectable": [
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Maintenance bevel armor 2",
+      "type": "cube",
+      "from": [
+        10.02,
+        0.05,
+        6.05
+      ],
+      "to": [
+        17.87,
+        3.15,
+        10.05
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        60,
+        0
+      ],
+      "origin": [
+        13.945,
+        1.6,
+        8.05
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000312",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Maintenance bevel armor 3",
+      "type": "cube",
+      "from": [
+        12.17,
+        0.05,
+        -2
+      ],
+      "to": [
+        20.03,
+        3.15,
+        2
+      ],
+      "color": 3,
+      "rotation": [
         0,
         90,
         0
-      ]
-    },
-    {
-      "name": "blue stage lock 4",
-      "type": "cube",
-      "from": [
-        17.425,
-        3.675,
-        -0.775
-      ],
-      "to": [
-        18.975,
-        4.325,
-        0.775
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        0,
-        0
       ],
       "origin": [
-        18.2,
-        4,
+        16.1,
+        1.6,
         0
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000703",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "platform articulated socket 6",
-      "type": "cube",
-      "from": [
-        11.119,
-        1.55,
-        -14.619
-      ],
-      "to": [
-        14.619,
-        3.85,
-        -11.119
-      ],
-      "color": 4,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        12.869,
-        2.7,
-        -12.869
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000705",
+      "uuid": "8c340526-b00f-4000-8000-000000000313",
       "faces": {
         "north": {
           "uv": [
@@ -4808,121 +596,33 @@
         }
       },
       "sera_nexus_outline": true,
-      "sera_nexus_selectable": [
-        0,
-        135,
-        0
-      ]
-    },
-    {
-      "name": "blue stage lock 6",
-      "type": "cube",
-      "from": [
-        12.094,
-        3.675,
-        -13.644
-      ],
-      "to": [
-        13.644,
-        4.325,
-        -12.094
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        12.869,
-        4,
-        -12.869
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000706",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
       "sera_nexus_selectable": false
     },
     {
-      "name": "platform articulated socket 8",
+      "name": "Maintenance bevel armor 4",
       "type": "cube",
       "from": [
-        -1.75,
-        1.55,
-        -19.95
+        10.02,
+        0.05,
+        -10.05
       ],
       "to": [
-        1.75,
-        3.85,
-        -16.45
+        17.87,
+        3.15,
+        -6.05
       ],
-      "color": 4,
+      "color": 3,
       "rotation": [
         0,
-        0,
+        120,
         0
       ],
       "origin": [
-        0,
-        2.7,
-        -18.2
+        13.945,
+        1.6,
+        -8.05
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000708",
+      "uuid": "8c340526-b00f-4000-8000-000000000314",
       "faces": {
         "north": {
           "uv": [
@@ -4980,121 +680,117 @@
         }
       },
       "sera_nexus_outline": true,
-      "sera_nexus_selectable": [
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Maintenance bevel armor 5",
+      "type": "cube",
+      "from": [
+        4.12,
+        0.05,
+        -15.94
+      ],
+      "to": [
+        11.98,
+        3.15,
+        -11.94
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        150,
+        0
+      ],
+      "origin": [
+        8.05,
+        1.6,
+        -13.94
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000315",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Maintenance bevel armor 6",
+      "type": "cube",
+      "from": [
+        -3.93,
+        0.05,
+        -18.1
+      ],
+      "to": [
+        3.93,
+        3.15,
+        -14.1
+      ],
+      "color": 3,
+      "rotation": [
         0,
         180,
         0
-      ]
-    },
-    {
-      "name": "blue stage lock 8",
-      "type": "cube",
-      "from": [
-        -0.775,
-        3.675,
-        -18.975
-      ],
-      "to": [
-        0.775,
-        4.325,
-        -17.425
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        0,
-        0
       ],
       "origin": [
         0,
-        4,
-        -18.2
+        1.6,
+        -16.1
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000709",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "platform articulated socket 10",
-      "type": "cube",
-      "from": [
-        -14.619,
-        1.55,
-        -14.619
-      ],
-      "to": [
-        -11.119,
-        3.85,
-        -11.119
-      ],
-      "color": 4,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        -12.869,
-        2.7,
-        -12.869
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000711",
+      "uuid": "8c340526-b00f-4000-8000-000000000316",
       "faces": {
         "north": {
           "uv": [
@@ -5152,121 +848,33 @@
         }
       },
       "sera_nexus_outline": true,
-      "sera_nexus_selectable": [
-        0,
-        225,
-        0
-      ]
-    },
-    {
-      "name": "blue stage lock 10",
-      "type": "cube",
-      "from": [
-        -13.644,
-        3.675,
-        -13.644
-      ],
-      "to": [
-        -12.094,
-        4.325,
-        -12.094
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        -12.869,
-        4,
-        -12.869
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000712",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
       "sera_nexus_selectable": false
     },
     {
-      "name": "platform articulated socket 12",
+      "name": "Maintenance bevel armor 7",
       "type": "cube",
       "from": [
-        -19.95,
-        1.55,
-        -1.75
+        -11.98,
+        0.05,
+        -15.94
       ],
       "to": [
-        -16.45,
-        3.85,
-        1.75
+        -4.12,
+        3.15,
+        -11.94
       ],
-      "color": 4,
+      "color": 3,
       "rotation": [
         0,
-        0,
+        210,
         0
       ],
       "origin": [
-        -18.2,
-        2.7,
-        0
+        -8.05,
+        1.6,
+        -13.94
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000714",
+      "uuid": "8c340526-b00f-4000-8000-000000000317",
       "faces": {
         "north": {
           "uv": [
@@ -5324,121 +932,117 @@
         }
       },
       "sera_nexus_outline": true,
-      "sera_nexus_selectable": [
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Maintenance bevel armor 8",
+      "type": "cube",
+      "from": [
+        -17.87,
+        0.05,
+        -10.05
+      ],
+      "to": [
+        -10.02,
+        3.15,
+        -6.05
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        240,
+        0
+      ],
+      "origin": [
+        -13.945,
+        1.6,
+        -8.05
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000318",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Maintenance bevel armor 9",
+      "type": "cube",
+      "from": [
+        -20.03,
+        0.05,
+        -2
+      ],
+      "to": [
+        -12.17,
+        3.15,
+        2
+      ],
+      "color": 3,
+      "rotation": [
         0,
         270,
         0
-      ]
-    },
-    {
-      "name": "blue stage lock 12",
-      "type": "cube",
-      "from": [
-        -18.975,
-        3.675,
-        -0.775
-      ],
-      "to": [
-        -17.425,
-        4.325,
-        0.775
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        0,
-        0
       ],
       "origin": [
-        -18.2,
-        4,
+        -16.1,
+        1.6,
         0
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000715",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "platform articulated socket 14",
-      "type": "cube",
-      "from": [
-        -14.619,
-        1.55,
-        11.119
-      ],
-      "to": [
-        -11.119,
-        3.85,
-        14.619
-      ],
-      "color": 4,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        -12.869,
-        2.7,
-        12.869
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000717",
+      "uuid": "8c340526-b00f-4000-8000-000000000319",
       "faces": {
         "north": {
           "uv": [
@@ -5496,24 +1100,188 @@
         }
       },
       "sera_nexus_outline": true,
-      "sera_nexus_selectable": [
-        0,
-        315,
-        0
-      ]
+      "sera_nexus_selectable": false
     },
     {
-      "name": "blue stage lock 14",
+      "name": "Maintenance bevel armor 10",
       "type": "cube",
       "from": [
-        -13.644,
-        3.675,
-        12.094
+        -17.87,
+        0.05,
+        6.05
       ],
       "to": [
-        -12.094,
-        4.325,
-        13.644
+        -10.02,
+        3.15,
+        10.05
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        300,
+        0
+      ],
+      "origin": [
+        -13.945,
+        1.6,
+        8.05
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000320",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Maintenance bevel armor 11",
+      "type": "cube",
+      "from": [
+        -11.98,
+        0.05,
+        11.94
+      ],
+      "to": [
+        -4.12,
+        3.15,
+        15.94
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        330,
+        0
+      ],
+      "origin": [
+        -8.05,
+        1.6,
+        13.94
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000321",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Maintenance luminous blue outer perimeter 0",
+      "type": "cube",
+      "from": [
+        -4.1,
+        2.85,
+        15.65
+      ],
+      "to": [
+        4.1,
+        4.05,
+        17.95
       ],
       "color": 5,
       "rotation": [
@@ -5522,11 +1290,11 @@
         0
       ],
       "origin": [
-        -12.869,
-        4,
-        12.869
+        0,
+        3.45,
+        16.8
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000718",
+      "uuid": "8c340526-b00f-4000-8000-000000000322",
       "faces": {
         "north": {
           "uv": [
@@ -5587,30 +1355,30 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "pad embedded lateral rail -1",
+      "name": "Maintenance luminous blue outer perimeter 1",
       "type": "cube",
       "from": [
-        -11.475,
-        3.425,
-        -10
+        4.3,
+        2.85,
+        13.4
       ],
       "to": [
-        -10.525,
-        4.375,
-        10
+        12.5,
+        4.05,
+        15.7
       ],
-      "color": 4,
+      "color": 5,
       "rotation": [
         0,
-        0,
+        30,
         0
       ],
       "origin": [
-        -11,
-        3.9,
-        0
+        8.4,
+        3.45,
+        14.55
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000720",
+      "uuid": "8c340526-b00f-4000-8000-000000000323",
       "faces": {
         "north": {
           "uv": [
@@ -5671,30 +1439,30 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "pad embedded lateral rail 1",
+      "name": "Maintenance luminous blue outer perimeter 2",
       "type": "cube",
       "from": [
-        10.525,
-        3.425,
-        -10
+        10.45,
+        2.85,
+        7.25
       ],
       "to": [
-        11.475,
-        4.375,
-        10
+        18.65,
+        4.05,
+        9.55
       ],
-      "color": 4,
+      "color": 5,
       "rotation": [
         0,
-        0,
+        60,
         0
       ],
       "origin": [
-        11,
-        3.9,
-        0
+        14.55,
+        3.45,
+        8.4
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000721",
+      "uuid": "8c340526-b00f-4000-8000-000000000324",
       "faces": {
         "north": {
           "uv": [
@@ -5752,6 +1520,1266 @@
         }
       },
       "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Maintenance luminous blue outer perimeter 3",
+      "type": "cube",
+      "from": [
+        12.7,
+        2.85,
+        -1.15
+      ],
+      "to": [
+        20.9,
+        4.05,
+        1.15
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        90,
+        0
+      ],
+      "origin": [
+        16.8,
+        3.45,
+        0
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000325",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Maintenance luminous blue outer perimeter 4",
+      "type": "cube",
+      "from": [
+        10.45,
+        2.85,
+        -9.55
+      ],
+      "to": [
+        18.65,
+        4.05,
+        -7.25
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        120,
+        0
+      ],
+      "origin": [
+        14.55,
+        3.45,
+        -8.4
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000326",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Maintenance luminous blue outer perimeter 5",
+      "type": "cube",
+      "from": [
+        4.3,
+        2.85,
+        -15.7
+      ],
+      "to": [
+        12.5,
+        4.05,
+        -13.4
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        150,
+        0
+      ],
+      "origin": [
+        8.4,
+        3.45,
+        -14.55
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000327",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Maintenance luminous blue outer perimeter 6",
+      "type": "cube",
+      "from": [
+        -4.1,
+        2.85,
+        -17.95
+      ],
+      "to": [
+        4.1,
+        4.05,
+        -15.65
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "origin": [
+        0,
+        3.45,
+        -16.8
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000328",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Maintenance luminous blue outer perimeter 7",
+      "type": "cube",
+      "from": [
+        -12.5,
+        2.85,
+        -15.7
+      ],
+      "to": [
+        -4.3,
+        4.05,
+        -13.4
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        210,
+        0
+      ],
+      "origin": [
+        -8.4,
+        3.45,
+        -14.55
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000329",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Maintenance luminous blue outer perimeter 8",
+      "type": "cube",
+      "from": [
+        -18.65,
+        2.85,
+        -9.55
+      ],
+      "to": [
+        -10.45,
+        4.05,
+        -7.25
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        240,
+        0
+      ],
+      "origin": [
+        -14.55,
+        3.45,
+        -8.4
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000330",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Maintenance luminous blue outer perimeter 9",
+      "type": "cube",
+      "from": [
+        -20.9,
+        2.85,
+        -1.15
+      ],
+      "to": [
+        -12.7,
+        4.05,
+        1.15
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        270,
+        0
+      ],
+      "origin": [
+        -16.8,
+        3.45,
+        0
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000331",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Maintenance luminous blue outer perimeter 10",
+      "type": "cube",
+      "from": [
+        -18.65,
+        2.85,
+        7.25
+      ],
+      "to": [
+        -10.45,
+        4.05,
+        9.55
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        300,
+        0
+      ],
+      "origin": [
+        -14.55,
+        3.45,
+        8.4
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000332",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Maintenance luminous blue outer perimeter 11",
+      "type": "cube",
+      "from": [
+        -12.5,
+        2.85,
+        13.4
+      ],
+      "to": [
+        -4.3,
+        4.05,
+        15.7
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        330,
+        0
+      ],
+      "origin": [
+        -8.4,
+        3.45,
+        14.55
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000333",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Maintenance hydraulic locking shoe 0",
+      "type": "cube",
+      "from": [
+        -1.25,
+        0.5,
+        16
+      ],
+      "to": [
+        1.25,
+        3.3,
+        19.8
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        1.9,
+        17.9
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000334",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Maintenance hydraulic locking shoe 1",
+      "type": "cube",
+      "from": [
+        14.25,
+        0.5,
+        7.05
+      ],
+      "to": [
+        16.75,
+        3.3,
+        10.85
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        60,
+        0
+      ],
+      "origin": [
+        15.5,
+        1.9,
+        8.95
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000335",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Maintenance hydraulic locking shoe 2",
+      "type": "cube",
+      "from": [
+        14.25,
+        0.5,
+        -10.85
+      ],
+      "to": [
+        16.75,
+        3.3,
+        -7.05
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        120,
+        0
+      ],
+      "origin": [
+        15.5,
+        1.9,
+        -8.95
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000336",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Maintenance hydraulic locking shoe 3",
+      "type": "cube",
+      "from": [
+        -1.25,
+        0.5,
+        -19.8
+      ],
+      "to": [
+        1.25,
+        3.3,
+        -16
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        180,
+        0
+      ],
+      "origin": [
+        0,
+        1.9,
+        -17.9
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000337",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Maintenance hydraulic locking shoe 4",
+      "type": "cube",
+      "from": [
+        -16.75,
+        0.5,
+        -10.85
+      ],
+      "to": [
+        -14.25,
+        3.3,
+        -7.05
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        240,
+        0
+      ],
+      "origin": [
+        -15.5,
+        1.9,
+        -8.95
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000338",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Maintenance hydraulic locking shoe 5",
+      "type": "cube",
+      "from": [
+        -16.75,
+        0.5,
+        7.05
+      ],
+      "to": [
+        -14.25,
+        3.3,
+        10.85
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        300,
+        0
+      ],
+      "origin": [
+        -15.5,
+        1.9,
+        8.95
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000339",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
       "sera_nexus_selectable": false
     }
   ],
