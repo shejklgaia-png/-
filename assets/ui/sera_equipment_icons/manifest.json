@@ -11,13 +11,13 @@
       "rig_set": "A",
       "source_model": "models/core/Standard.bbmodel",
       "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
-      "png_sha256": "711ad73e0522131b85db1a200ae7a2d50d752c4e46a7467dcc516571138b0205",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "png_sha256": "b47cf1c7476822957b5f7f162d44e22038f975b3ce0508f1ffeee259d35d4562",
+      "capture": "SERA Godot GL Compatibility / 4x sampled shading + final-pixel RGB ID and convex reconstruction",
       "variants": {
         "warehouse": {
           "path": "assets/ui/sera_equipment_icons/warehouse/H01.png",
           "size": 82,
-          "png_sha256": "593506fbe065fbba1a59340e2cd7a7d99530ebdd181c7a174d8e73c6a1558696",
+          "png_sha256": "52e3cf51d4ac948dc34c63ca356729a901f56988b09ea890dcc95c607692365c",
           "outline": {
             "inner": 1.0,
             "outer": 1.25,
@@ -28,7 +28,7 @@
         "craft": {
           "path": "assets/ui/sera_equipment_icons/craft/H01.png",
           "size": 96,
-          "png_sha256": "b6d8b155645a1bbf576ee713f39108f5f3a88a2826c99004f245d4f7b79e451b",
+          "png_sha256": "3c682eb4e70e2a44c7269ef3983d8a501c66835ae43bc699ccca476a2376caec",
           "outline": {
             "inner": 1.0,
             "outer": 1.5,
@@ -44,13 +44,13 @@
       "rig_set": "D",
       "source_model": "models/storage/カメラアイ頭部.bbmodel",
       "source_sha256": "8c60f62b2ec3ee814a136884092fcee18ab2e06faab84fdca5598f3fa25609de",
-      "png_sha256": "75916f573d3f9c1c12ec8ccfeaa29da4e774b0619b079e8bc9831936cf75c054",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "png_sha256": "e0a371f424f109451250778911cd351bce89dd014495e31468fc2ae9dee74f75",
+      "capture": "SERA Godot GL Compatibility / 4x sampled shading + final-pixel RGB ID and convex reconstruction",
       "variants": {
         "warehouse": {
           "path": "assets/ui/sera_equipment_icons/warehouse/H02.png",
           "size": 82,
-          "png_sha256": "2a919e43f1afa0c457d15e9b26eaa2835f61089011c200c25e8912e81b973b8e",
+          "png_sha256": "2bcbde79646c4e3b10235c4a4ecb36fc3c863019dad4467470aca59bb68f6f8e",
           "outline": {
             "inner": 1.0,
             "outer": 1.25,
@@ -61,7 +61,7 @@
         "craft": {
           "path": "assets/ui/sera_equipment_icons/craft/H02.png",
           "size": 96,
-          "png_sha256": "53e2e058bc380420bb929f6617c41e9eaee68f4b98915be71133d4bdd9e062a9",
+          "png_sha256": "cdf18d2b8ce9a58450e7ea43967429a3e21e8313cc76413a9b56d6ecd7b1196d",
           "outline": {
             "inner": 1.0,
             "outer": 1.5,
@@ -77,13 +77,13 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "0f2ee0cdedb479a920f2822ee9c0d9bdce45d877d74876742ab3bb25427d5135",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "png_sha256": "126587ec3e39776d01fbc382d386a8fa17c7ef454c8f0fa4cc03c42273f01dad",
+      "capture": "SERA Godot GL Compatibility / 4x sampled shading + final-pixel RGB ID and convex reconstruction",
       "variants": {
         "warehouse": {
           "path": "assets/ui/sera_equipment_icons/warehouse/H03.png",
           "size": 82,
-          "png_sha256": "7c18c6a05cfa175f01411aa1e9bbadc1797d083a74f883bffb8731997ecea984",
+          "png_sha256": "4890a0d4b92ba1cc962d093ba31f6e0a97c6d9efd19c0232c159b733af5b50fd",
           "outline": {
             "inner": 1.0,
             "outer": 1.25,
@@ -94,7 +94,7 @@
         "craft": {
           "path": "assets/ui/sera_equipment_icons/craft/H03.png",
           "size": 96,
-          "png_sha256": "55bda9162d254f1ba1b51a3ca7882bac31a82debb3a85a675c0fe8d506fd9a42",
+          "png_sha256": "cfab2ccb728ceb3d0d35cc37ade23cf6dac829e2e62ea287e13bb9830baf3317",
           "outline": {
             "inner": 1.0,
             "outer": 1.5,
@@ -110,13 +110,13 @@
       "rig_set": "C",
       "source_model": "models/storage/Head_C.bbmodel",
       "source_sha256": "fbd07abb2609152133875c20038b55891782379d27b591793081feff5ce4e307",
-      "png_sha256": "9e02634439a021336841c805b0974b406a4cb09c72bb3191f710ccfe161cb85b",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "png_sha256": "a04901268db98d58e6cc953cd2f2cc83eae6aff4a8a7e8d5afa55b315493c52f",
+      "capture": "SERA Godot GL Compatibility / 4x sampled shading + final-pixel RGB ID and convex reconstruction",
       "variants": {
         "warehouse": {
           "path": "assets/ui/sera_equipment_icons/warehouse/H04.png",
           "size": 82,
-          "png_sha256": "86ee61e21539dccced633b7868cb9bf7f75e83e22cf8dd0015a3cb01c72960c6",
+          "png_sha256": "5f80aae1ee5dce34ca0114dc245cae4e174349da872cf610776484af2466b5dc",
           "outline": {
             "inner": 1.0,
             "outer": 1.25,
@@ -127,7 +127,7 @@
         "craft": {
           "path": "assets/ui/sera_equipment_icons/craft/H04.png",
           "size": 96,
-          "png_sha256": "6d8c64035a2d4ce365ae1e0a42d1e10f9c08ad2efc2a2536f117f08b70520797",
+          "png_sha256": "0b1df50e8aedc838e721730706553ec94b4fd80cd7d57971d7b19878ba50aeba",
           "outline": {
             "inner": 1.0,
             "outer": 1.5,
@@ -143,13 +143,13 @@
       "rig_set": "A",
       "source_model": "models/core/Standard.bbmodel",
       "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
-      "png_sha256": "24c06ce6c1aed551ad22d54ed46662c4e3bce6ad5e9cd3efe4616e82e8e64f97",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "png_sha256": "96b12605e226de13ec6f14e3527afea90d8d1a69c8a277259c4d530b7f1ab21e",
+      "capture": "SERA Godot GL Compatibility / 4x sampled shading + final-pixel RGB ID and convex reconstruction",
       "variants": {
         "warehouse": {
           "path": "assets/ui/sera_equipment_icons/warehouse/T01.png",
           "size": 82,
-          "png_sha256": "4b47c6083d1d0f9c06cca81d494499d0b8aa32d8ea7b86a02a21df29e55b157b",
+          "png_sha256": "333b902ee191b5a84bdaa38957f73c0f96506dc4c985d979f4a4bbfd36cae797",
           "outline": {
             "inner": 1.0,
             "outer": 1.25,
@@ -160,7 +160,7 @@
         "craft": {
           "path": "assets/ui/sera_equipment_icons/craft/T01.png",
           "size": 96,
-          "png_sha256": "caa52b2fb78dc9be42aa5b40df8afeeb68051f9a98c3e28dca2491ec762b96c3",
+          "png_sha256": "384c6f411e86ac2a492339b03cf0f5e5e12105feabc734c930e44fe47c29372b",
           "outline": {
             "inner": 1.0,
             "outer": 1.5,
@@ -176,13 +176,13 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "beae06b364e6f7de6336dbc9bf113aaaad0b68fd18d476b2de97d12a7953801a",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "png_sha256": "dad251f53ab6cf370c812448ee9fb82205a670148326a9382c6a62f49097f0b9",
+      "capture": "SERA Godot GL Compatibility / 4x sampled shading + final-pixel RGB ID and convex reconstruction",
       "variants": {
         "warehouse": {
           "path": "assets/ui/sera_equipment_icons/warehouse/T02.png",
           "size": 82,
-          "png_sha256": "e1ec5e09069df30ac76c2d76eb9ece4fd2694f648172f4e2f4fb5dbbd526082a",
+          "png_sha256": "8972ff780bc7b19827ce06ea20255286054ef4f09cb16a46234aad589ee0fb51",
           "outline": {
             "inner": 1.0,
             "outer": 1.25,
@@ -193,7 +193,7 @@
         "craft": {
           "path": "assets/ui/sera_equipment_icons/craft/T02.png",
           "size": 96,
-          "png_sha256": "19c7ef92b5161c8e5f6207dfbb7c92e037a436561188035dc2bc9fb48c7272cb",
+          "png_sha256": "b950810f9b643bbca7828f209d33595c00b2abceb5c5e2730e486c293455b985",
           "outline": {
             "inner": 1.0,
             "outer": 1.5,
@@ -209,13 +209,13 @@
       "rig_set": "A",
       "source_model": "models/core/Standard.bbmodel",
       "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
-      "png_sha256": "86e4cbc66b08e0c250a89b2fbb5729fd700578c06bb7bbb902e5bef1d00a2abe",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "png_sha256": "340ce2b9146241e6eec0d2990573ffd47252305e44f97e116098d942a7aa6240",
+      "capture": "SERA Godot GL Compatibility / 4x sampled shading + final-pixel RGB ID and convex reconstruction",
       "variants": {
         "warehouse": {
           "path": "assets/ui/sera_equipment_icons/warehouse/A01.png",
           "size": 82,
-          "png_sha256": "2fc67ca6c43a9ef494c62c28fcdd0423f3cd3cd5f21c79e6b90ba4208d8ceecb",
+          "png_sha256": "d58d6d1d9399f05853c4996fc660636a31f68c614fc2f86e59dd145fd9390bd3",
           "outline": {
             "inner": 1.0,
             "outer": 1.25,
@@ -226,7 +226,7 @@
         "craft": {
           "path": "assets/ui/sera_equipment_icons/craft/A01.png",
           "size": 96,
-          "png_sha256": "bec71ac697a987257873f9653e3c8731a6d4ac477eb55f176a28c0d26ae13ca4",
+          "png_sha256": "8a020b6d5937872f492c601c7a506394f6d18255d88ca2c3ba7430ecc5bff36f",
           "outline": {
             "inner": 1.0,
             "outer": 1.5,
@@ -242,13 +242,13 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "001298b02dfbe7fa0e8dcc340d4a176c117281ee2bffd673a25154ec327a7297",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "png_sha256": "620de82421becb56d444f922c95353ebfe98d31afb1d382312a2af6affeee63d",
+      "capture": "SERA Godot GL Compatibility / 4x sampled shading + final-pixel RGB ID and convex reconstruction",
       "variants": {
         "warehouse": {
           "path": "assets/ui/sera_equipment_icons/warehouse/A02.png",
           "size": 82,
-          "png_sha256": "3d480a7ccf7e7132f3317e08c977118805a3e771e5da5e01011f874b1120b040",
+          "png_sha256": "368486b4a02d2bf62f73eca4adef337d537f8b1629d36b5f53e2989db210d0fe",
           "outline": {
             "inner": 1.0,
             "outer": 1.25,
@@ -259,7 +259,7 @@
         "craft": {
           "path": "assets/ui/sera_equipment_icons/craft/A02.png",
           "size": 96,
-          "png_sha256": "873ec6d012aa7ec19c0dc9e21879d07741ab7e7ce8cc95c876157d3a8c295327",
+          "png_sha256": "c6e167526322f2a754932b7afe2f39fd97d650810c3a98bb51065e4797422df4",
           "outline": {
             "inner": 1.0,
             "outer": 1.5,
@@ -275,13 +275,13 @@
       "rig_set": "A",
       "source_model": "models/core/Standard.bbmodel",
       "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
-      "png_sha256": "43f9e86562eb48b8e4ccd06e2592e6ff2f9851c9c350c25e1d0df631cf9db430",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "png_sha256": "398a70bb31038d1d621c4f21bcf29c7effb5e1716ab2795c1f5f2e2d98c89849",
+      "capture": "SERA Godot GL Compatibility / 4x sampled shading + final-pixel RGB ID and convex reconstruction",
       "variants": {
         "warehouse": {
           "path": "assets/ui/sera_equipment_icons/warehouse/L01.png",
           "size": 82,
-          "png_sha256": "6a1724ccbb68c074ea2a953383c749f80657f2d8eae06165cdb87fb3db578c38",
+          "png_sha256": "249035f88602cd4c8fdf0b67f56d788d279a8d5eb90b777c4767142297b7adf6",
           "outline": {
             "inner": 1.0,
             "outer": 1.25,
@@ -292,7 +292,7 @@
         "craft": {
           "path": "assets/ui/sera_equipment_icons/craft/L01.png",
           "size": 96,
-          "png_sha256": "235fe2d02247633fcc9e26fe3216d28b9ca29e6eb28916146540919407b1926a",
+          "png_sha256": "800ecd04f46731966adfd7522bdec24d763555c2e4dd917ed7e357d905b32edc",
           "outline": {
             "inner": 1.0,
             "outer": 1.5,
@@ -308,13 +308,13 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "4cf428a59b374bbc5703786ff239c7456742bf4c35e1f685a2a50d3ede10acba",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "png_sha256": "66e5fa06b016301b3a6a24a3a86fff3ffa93cd83bf735e85a0e344de326feba5",
+      "capture": "SERA Godot GL Compatibility / 4x sampled shading + final-pixel RGB ID and convex reconstruction",
       "variants": {
         "warehouse": {
           "path": "assets/ui/sera_equipment_icons/warehouse/L02.png",
           "size": 82,
-          "png_sha256": "122d68176a1a7c55eb80dfe63eb2745437050ac7f243384e2cb33760d27c48c8",
+          "png_sha256": "6e5be45c2e65044040891512b5341b83f20766acab334d4d27818052f2b22278",
           "outline": {
             "inner": 1.0,
             "outer": 1.25,
@@ -325,7 +325,7 @@
         "craft": {
           "path": "assets/ui/sera_equipment_icons/craft/L02.png",
           "size": 96,
-          "png_sha256": "5c432704d5cc164c6dfee25bb2c4c701cef8c02b2b4ba65bc658bd02239090e1",
+          "png_sha256": "0295c2a190eea9e2645462898395814c2ea58bc285b2116961c3cdd870b92819",
           "outline": {
             "inner": 1.0,
             "outer": 1.5,
@@ -341,13 +341,13 @@
       "rig_set": "C",
       "source_model": "models/core/BirdLeg.bbmodel",
       "source_sha256": "00086fb46da6d0af8f66ded01cd98f2a4656e46b648d240638505b7af7675599",
-      "png_sha256": "96f68733d0d113654a10b12a29b63b92f2ee2b69d381ca59afc0188b67c452d5",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "png_sha256": "f5106a7d7e28d322219aa45d79f46b9b55cd6af78fa01cd3bd4741ac79a81f05",
+      "capture": "SERA Godot GL Compatibility / 4x sampled shading + final-pixel RGB ID and convex reconstruction",
       "variants": {
         "warehouse": {
           "path": "assets/ui/sera_equipment_icons/warehouse/L03.png",
           "size": 82,
-          "png_sha256": "6d6fe59f588ea2beadeb6a042c00a7174e687090cc86271808c41f45197f71ad",
+          "png_sha256": "ec36603aa7c1bee575d1b907e65a4975cafa19ca1483cf3cdbbbec98bd4142b9",
           "outline": {
             "inner": 1.0,
             "outer": 1.25,
@@ -358,7 +358,7 @@
         "craft": {
           "path": "assets/ui/sera_equipment_icons/craft/L03.png",
           "size": 96,
-          "png_sha256": "927dbf9b8d14d913dbbdb713e5e0f694cebdf68c56433bd4c0ca34eda3d7fdab",
+          "png_sha256": "17588941352d389d7bfbde5904a2008db584adfe818cb61cc6d964d15d2bbeec",
           "outline": {
             "inner": 1.0,
             "outer": 1.5,
@@ -374,13 +374,13 @@
       "rig_set": "D",
       "source_model": "models/storage/LowerBody_D.bbmodel",
       "source_sha256": "94a6f95d2c7dd0fe69e47b8b94e0087e9f21b02118038afeaa62002a344203c5",
-      "png_sha256": "cf841eef85f862f855249b46761616b6c0afa8925952ae1a53346a684d6294ae",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "png_sha256": "df3278c88fea7962355b5a206ae600535418a2773e213fbdb323b420e360e8bc",
+      "capture": "SERA Godot GL Compatibility / 4x sampled shading + final-pixel RGB ID and convex reconstruction",
       "variants": {
         "warehouse": {
           "path": "assets/ui/sera_equipment_icons/warehouse/L04.png",
           "size": 82,
-          "png_sha256": "15ba8b374265ab131fefd4e209e8dedbf909237299b099249ed3a38589bc9ba5",
+          "png_sha256": "bd7b71c4da3c7b2ff702e9b0cbf797a7ef23c2f6c9b80e5b292a9a01bcaa40c6",
           "outline": {
             "inner": 1.0,
             "outer": 1.25,
@@ -391,7 +391,7 @@
         "craft": {
           "path": "assets/ui/sera_equipment_icons/craft/L04.png",
           "size": 96,
-          "png_sha256": "d101312ea079d375fb3cc123edd45c469961670df86c05728bb3ad2c008572a2",
+          "png_sha256": "0e31bcbb5f6d32658407b9b8c2278f390b7d9716ba643cd34e7c55938f9f6832",
           "outline": {
             "inner": 1.0,
             "outer": 1.5,
@@ -407,13 +407,13 @@
       "rig_set": "A",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "a911f0a6f2f7ad33a171fc197c395b9433cdc171b826546548fbf2d68f41f47b",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "png_sha256": "18876a063013cb752750bfdda32b664c1410e520e51022a09d1776183c9a4059",
+      "capture": "SERA Godot GL Compatibility / 4x sampled shading + final-pixel RGB ID and convex reconstruction",
       "variants": {
         "warehouse": {
           "path": "assets/ui/sera_equipment_icons/warehouse/B01.png",
           "size": 82,
-          "png_sha256": "dd9eb4abfe2c1cd4e3aec8f2fd21d4fa1b454cc2c9be4e606ca76949c865a233",
+          "png_sha256": "93251005ce87029d1759434dd6a88f55926aa99006ac4526c3fc82c3a69229bb",
           "outline": {
             "inner": 1.0,
             "outer": 1.25,
@@ -424,7 +424,7 @@
         "craft": {
           "path": "assets/ui/sera_equipment_icons/craft/B01.png",
           "size": 96,
-          "png_sha256": "a541cf8f041b1a1bcef739ff1ea1fa36ac8b2fc410e4687596a53c6e74ecccfe",
+          "png_sha256": "c60e172c9c39faf70894b4d02a4df23ef1e542ea8a21571ccbefa250d59e2769",
           "outline": {
             "inner": 1.0,
             "outer": 1.5,
@@ -440,13 +440,13 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "4b33ada9c6e012b54ac3d792fc4efd1bcfe864e3dee8e05fb1a6303ec8127805",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "png_sha256": "893aaef3470b8b500edfd6c0396d3a6c88e0f6bade7259c3cf5eac8ee6072e6c",
+      "capture": "SERA Godot GL Compatibility / 4x sampled shading + final-pixel RGB ID and convex reconstruction",
       "variants": {
         "warehouse": {
           "path": "assets/ui/sera_equipment_icons/warehouse/B02.png",
           "size": 82,
-          "png_sha256": "02f23f427f516739af913994a036d20db6f259bab7dab8262100d411d1187453",
+          "png_sha256": "c3a36469a9c9acd578d4c4e9b5180425013acc1c3b818070d9d194af7098082d",
           "outline": {
             "inner": 1.0,
             "outer": 1.25,
@@ -457,7 +457,7 @@
         "craft": {
           "path": "assets/ui/sera_equipment_icons/craft/B02.png",
           "size": 96,
-          "png_sha256": "6ecbc0d097e3675958922434d47e8491c44c84c9f712d941dec08eac22ec0361",
+          "png_sha256": "a032308fec31d04495e23abce0c99523de16b075831deffa98a6007817baf165",
           "outline": {
             "inner": 1.0,
             "outer": 1.5,
@@ -473,13 +473,13 @@
       "rig_set": "A",
       "source_model": "models/core/Standard.bbmodel",
       "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
-      "png_sha256": "1cbd95566b53eb6f5705fbae715c296814d7c7227a25c5189b87368683fc3f86",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "png_sha256": "09d7a33b9c080434a932c299b6d2606b8d14a9e27a94aba7f7eb9574772275c5",
+      "capture": "SERA Godot GL Compatibility / 4x sampled shading + final-pixel RGB ID and convex reconstruction",
       "variants": {
         "warehouse": {
           "path": "assets/ui/sera_equipment_icons/warehouse/WR01.png",
           "size": 82,
-          "png_sha256": "35c6cc88c958a6ce36736a1c84f170dee4bb050ea08549a599010cd665e55f08",
+          "png_sha256": "7293875141e28468b0d0c326b887bb475a5a056927f15ec204c7763259385cfb",
           "outline": {
             "inner": 1.0,
             "outer": 1.25,
@@ -490,7 +490,7 @@
         "craft": {
           "path": "assets/ui/sera_equipment_icons/craft/WR01.png",
           "size": 96,
-          "png_sha256": "376664cc8821e351c2dbe638cfbbe1dd6f098dc543b688b50073c2885b7756e9",
+          "png_sha256": "e8cd0b951833b386b9a873972b3a4797b5c1f31dff1cac2facca434bedc7838d",
           "outline": {
             "inner": 1.0,
             "outer": 1.5,
@@ -506,13 +506,13 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "cf334175ebb6bad592e2354275bbea15c907623da10c9b7892075a449d4b1aeb",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "png_sha256": "b11fdeff97c27ab79eb6d0911a3a84eed7bd37d300750e5b01a304959c905f81",
+      "capture": "SERA Godot GL Compatibility / 4x sampled shading + final-pixel RGB ID and convex reconstruction",
       "variants": {
         "warehouse": {
           "path": "assets/ui/sera_equipment_icons/warehouse/WR02.png",
           "size": 82,
-          "png_sha256": "829d085b078a82d09a01bfcd9fd263c5e9500cf589cb4391ca6a055805c48fc5",
+          "png_sha256": "bf1784ec0c7e9b1c6361f92e4860d847861f25829a9599b1642805df8e76aa42",
           "outline": {
             "inner": 1.0,
             "outer": 1.25,
@@ -523,7 +523,7 @@
         "craft": {
           "path": "assets/ui/sera_equipment_icons/craft/WR02.png",
           "size": 96,
-          "png_sha256": "44dcd56f0fb73a09af0ce0a0e6d000e5ed10a7256b850c7f5a17e7db3b7c72f8",
+          "png_sha256": "70aaf2f556c8b2b758dd7f4cf98f3c635363a933726fa27eaba45128bd7115c3",
           "outline": {
             "inner": 1.0,
             "outer": 1.5,
@@ -539,13 +539,13 @@
       "rig_set": "K",
       "source_model": "models/core/Katana.bbmodel",
       "source_sha256": "62f323d4fe08e931071ac418026e26538a111719d2803253f709239f379ce843",
-      "png_sha256": "8eab2cd84a3133a422f04e7c4c59a36cf4d5a4b53851b9aed8870937b8c45f28",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "png_sha256": "c53c905c3855c2b6654455ca80ae7148609d22af3ee8c20a0009e0bdc69a9ec3",
+      "capture": "SERA Godot GL Compatibility / 4x sampled shading + final-pixel RGB ID and convex reconstruction",
       "variants": {
         "warehouse": {
           "path": "assets/ui/sera_equipment_icons/warehouse/WR03.png",
           "size": 82,
-          "png_sha256": "f0298935778091ec6c4be8ec3828d19314665ec51dbc9a0bbe8d036fe5782ceb",
+          "png_sha256": "d05413645ad0938210172012b82097e318bad1700e344092c070d569551d11b9",
           "outline": {
             "inner": 1.0,
             "outer": 1.25,
@@ -556,7 +556,7 @@
         "craft": {
           "path": "assets/ui/sera_equipment_icons/craft/WR03.png",
           "size": 96,
-          "png_sha256": "fd6aedbd7889be08ef567349370cbad5070a61005fdc2c43df38528e879a80e3",
+          "png_sha256": "c23455496db7db354a489cd76afe8ca033053405e863446393361a682cfc7241",
           "outline": {
             "inner": 1.0,
             "outer": 1.5,
@@ -572,13 +572,13 @@
       "rig_set": "A",
       "source_model": "models/core/Standard.bbmodel",
       "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
-      "png_sha256": "8961b9c24fe885b5045ff15cbf4558b3f4e3e7765e1091f93ef149e106b838b3",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "png_sha256": "893f4fadc20f79634e378ea7883ec046fa71f9113a64eddedf8f3a6df7f981a8",
+      "capture": "SERA Godot GL Compatibility / 4x sampled shading + final-pixel RGB ID and convex reconstruction",
       "variants": {
         "warehouse": {
           "path": "assets/ui/sera_equipment_icons/warehouse/WL01.png",
           "size": 82,
-          "png_sha256": "f751d6ca09280bcf078870c469e2cbe493ebfaf53bb60b4fb71e93c0f7f30212",
+          "png_sha256": "db546a794383c4f45c022ae43a929789464299879ee4498d2c018728e8db8ebf",
           "outline": {
             "inner": 1.0,
             "outer": 1.25,
@@ -589,7 +589,7 @@
         "craft": {
           "path": "assets/ui/sera_equipment_icons/craft/WL01.png",
           "size": 96,
-          "png_sha256": "6f05a507132cc11caaab8af41634e4c6895265e92e5fdb432a65e9eb0d22045c",
+          "png_sha256": "4eb25b43315967baa5959eeb3401a0f7b2fc7c2b81fe39290687e55c66b3adb1",
           "outline": {
             "inner": 1.0,
             "outer": 1.5,
@@ -605,13 +605,13 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "dbc1dbc75c836bd194790f18a672f024ec0855b9c50aa9a58c23e9d213d529a6",
-      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink",
+      "png_sha256": "e32bd550588776b12581d4d8b9639273664fb12be9333e339eb3eb7ad550512f",
+      "capture": "SERA Godot GL Compatibility / 4x sampled shading + final-pixel RGB ID and convex reconstruction",
       "variants": {
         "warehouse": {
           "path": "assets/ui/sera_equipment_icons/warehouse/WL02.png",
           "size": 82,
-          "png_sha256": "e41e7a0c904712b934c77e4c54f2c3976a0383f071c88b45523ade36f810ecbe",
+          "png_sha256": "f2ffd8fcec6c7a5cd8ca7585702cc1d78abc744e553c05b4551ca244458be3c1",
           "outline": {
             "inner": 1.0,
             "outer": 1.25,
@@ -622,7 +622,7 @@
         "craft": {
           "path": "assets/ui/sera_equipment_icons/craft/WL02.png",
           "size": 96,
-          "png_sha256": "1bf265a0e1f5f9e0af83a64c3f2b8620a40c38286e3603be89e4f5b0c8d24493",
+          "png_sha256": "81e8e7d13225a1c608acb5486824472b237886898d3afdbb7efd58e275954c93",
           "outline": {
             "inner": 1.0,
             "outer": 1.5,
