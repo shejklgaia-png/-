@@ -170,10 +170,21 @@ func _ready() -> void:
     _startup_step("CRATE / SIGNAL CONFIRMED", 92)
     _create_hud()
     _startup_step("OS / INTERFACE ONLINE", 99)
+    # The mobile renderer needs actual PRESENTED frames with the entire
+    # facility/VFX/material set visible behind the loading CanvasLayer.
+    # A process_frame is emitted before drawing and cannot warm a late
+    # compiled transparent emission shader. The short 3-frame COMPLETE
+    # cut alone also left the cold-start luminaires much darker than after
+    # playing the five-second loading preview.
+    # Keep the loading overlay on-screen while the FIRST real 3D frames
+    # render. This does not simulate progress or alter any light/material.
+    _startup_step("DISPLAY / EMISSION SURFACES READY", 99)
+    for rendered_frame in range(18):
+        await RenderingServer.frame_post_draw
     SeraSave.mark_location("BASE")
     _startup_step("SYSTEM / BOOT COMPLETE", 100)
-    # process_frame fires before render: await exactly two actual presented
-    # frames of the fully online COMPLETE slate before uncovering BASE.
+    # The approved COMPLETE cut still remains exactly three frames; the
+    # emission warmup happens beforehand at the unchanged loading FPS.
     if console_screen != null:
         await Signal(console_screen, &"completion_cut_finished")
     startup_layer.queue_free()
