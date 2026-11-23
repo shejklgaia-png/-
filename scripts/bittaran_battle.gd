@@ -333,6 +333,7 @@ func _build_fps_label(layer: CanvasLayer) -> void:
     fps_label.name = "BittaranRenderFPS"
     fps_label.text = "FPS --"
     fps_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    layer.add_child(fps_label)
     fps_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
     fps_label.offset_left = -135.0
     fps_label.offset_right = -25.0
@@ -343,7 +344,6 @@ func _build_fps_label(layer: CanvasLayer) -> void:
         "font", LaboTypography.tracked_data_font())
     fps_label.add_theme_font_size_override("font_size", 16)
     fps_label.add_theme_color_override("font_color", Color("#c8ebff"))
-    layer.add_child(fps_label)
     fps_update_remaining = 0.0
 
 
