@@ -199,7 +199,7 @@ func _industrial_wall(s: SurfaceTool, kind: int) -> void:
         _front(s, Vector3(x, 3.15, -4.79), 1.72, 0.92, 0.095, ARMOR)
         _front(s, Vector3(x, 3.15, -4.65), 1.32, 0.48, 0.02, DARK)
         for i in range(5):
-            off := -0.48 + 0.24 * float(i)
+            var off := -0.48 + 0.24 * float(i)
             _strut(s, Vector3(x+off, 3.00, -4.57),
                 Vector3(x+off+0.07, 3.31, -4.57), 0.023, EDGE)
     for x in [-4.30, -2.20, 2.20, 4.30]:
