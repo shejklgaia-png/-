@@ -1,5 +1,6 @@
 extends RefCounted
 const IndustrialDetail = preload("res://scripts/sera_labo_industrial_details.gd")
+const DeckArchitecture = preload("res://scripts/sera_labo_deck_architecture.gd")
 ## SERA LABO / REFINE / STORAGE: independent, authored procedural 3D environments.
 ## No generated textures. Repeated fittings are two colored MultiMesh batches per mount.
 ## Coordinates keep the existing three camera compositions and CRATE work routes.
@@ -22,6 +23,7 @@ var _spool: Node3D
 var _lift: Node3D
 var _refinery_impellers: Array[Node3D] = []
 var _industrial_detail
+var _deck_architecture
 
 func build(stage) -> void:
     host = stage
@@ -43,6 +45,11 @@ func build(stage) -> void:
     # live 24fps displays, camera, CRATE routing and warehouse identifiers.
     _industrial_detail = IndustrialDetail.new()
     _industrial_detail.build(host.printer_group, host.converter_group,
+        host.warehouse_group)
+    # Real octagonal floor plates and exposed ceiling steelwork: one static
+    # surface per scene, retained alongside the prior facility detail pass.
+    _deck_architecture = DeckArchitecture.new()
+    _deck_architecture.build(host.printer_group, host.converter_group,
         host.warehouse_group)
 
 func animate(time: float, section: String) -> void:
@@ -231,36 +238,63 @@ func _light(parent: Node3D, name: String, at: Vector3, tint: Color, energy: floa
     parent.add_child(lamp)
 
 func _hall(parent: Node3D, theme: String) -> void:
-    # Layered industrial architecture: uneven bulkheads, relief seams, actual
-    # ceiling depth, safety lanes. Nothing is a flat image or shared room.
-    var primary := HULL
+    # Storage is a genuinely larger load-bearing envelope, not a zoomed
+    # camera inside the old room. FAB / REFINE retain their original geometry.
+    var storage: bool = theme == "storage"
+    var primary: Color = HULL
     if theme == "refine":
         primary = Color("#304551")
-    elif theme == "storage":
+    elif storage:
         primary = Color("#243b49")
-    _b(parent, Vector3(0, -0.22, -1.28), Vector3(12.0, 0.40, 9.7), primary)
-    _b(parent, Vector3(0, 2.30, -5.35), Vector3(12.0, 5.2, 0.32), SHADOW)
-    for x in [-5.72, 5.72]:
-        _b(parent, Vector3(x, 2.18, -1.35), Vector3(0.25, 4.80, 8.2), HULL)
-    for x in [-5.25, -2.70, -0.1, 2.65, 5.25]:
-        _b(parent, Vector3(x, 2.45, -5.09), Vector3(0.22, 4.85, 0.22), METAL)
-        _b(parent, Vector3(x, 2.45, -4.93), Vector3(0.065, 4.35, 0.045), DEEP)
+    var width: float = 18.0 if storage else 12.0
+    var depth: float = 13.5 if storage else 9.7
+    var center_z: float = -1.40 if storage else -1.28
+    var rear_z: float = -8.03 if storage else -5.35
+    var side_x: float = 8.76 if storage else 5.72
+    var side_length: float = 12.88 if storage else 8.2
+    _b(parent, Vector3(0, -0.22, center_z), Vector3(width, 0.40, depth), primary)
+    _b(parent, Vector3(0, 2.30, rear_z), Vector3(width, 5.2, 0.32), SHADOW)
+    for x in [-side_x, side_x]:
+        _b(parent, Vector3(x, 2.18, center_z),
+            Vector3(0.25, 4.80, side_length), HULL)
+    var rear_columns: Array = [-5.25, -2.70, -0.10, 2.65, 5.25]
+    if storage:
+        rear_columns = [-8.15, -5.45, -2.75, 0.0, 2.75, 5.45, 8.15]
+    for x in rear_columns:
+        _b(parent, Vector3(x, 2.45, rear_z+0.26),
+            Vector3(0.22, 4.85, 0.22), METAL)
+        _b(parent, Vector3(x, 2.45, rear_z+0.42),
+            Vector3(0.065, 4.35, 0.045), DEEP)
     for y in [0.71, 2.17, 3.88]:
-        _b(parent, Vector3(0, y, -5.02), Vector3(10.60, 0.095, 0.14), METAL)
-    for z in [-4.60, -2.60, -0.40, 1.70]:
-        _b(parent, Vector3(0, 4.65, z), Vector3(11.0, 0.23, 0.23), METAL)
-        _b(parent, Vector3(0, 4.51, z), Vector3(10.7, 0.045, 0.31), DEEP)
-        for x in [-4.80, 4.80]:
-            _line(parent, Vector3(x, 4.56, z - 0.75),
-                Vector3(x, 3.95, z + 0.10), 0.055, EDGE)
-    for x in [-4.18, -2.10, 0.03, 2.12, 4.18]:
-        _b(parent, Vector3(x, -0.005, -0.72), Vector3(0.020, 0.016, 7.7), METAL)
-    for z in [-3.65, -1.40, 0.85, 2.78]:
-        _b(parent, Vector3(0, -0.004, z), Vector3(11.25, 0.016, 0.018), METAL)
-    for x in [-3.80, 0.0, 3.80]:
-        _box(parent, "RecessedCeilingDiffuser", Vector3(x, 4.42, -1.15),
-            Vector3(1.15, 0.065, 0.22), WHITE, true)
-        _b(parent, Vector3(x, 4.48, -1.15), Vector3(1.33, 0.07, 0.35), DEEP)
+        _b(parent, Vector3(0, y, rear_z+0.33),
+            Vector3(width-1.40, 0.095, 0.14), METAL)
+    var roof_spans: Array = [-4.60, -2.60, -0.40, 1.70]
+    if storage:
+        roof_spans = [-7.20, -4.65, -2.10, 0.65, 3.30]
+    for z in roof_spans:
+        _b(parent, Vector3(0, 4.65, z),
+            Vector3(width-1.0, 0.23, 0.23), METAL)
+        _b(parent, Vector3(0, 4.51, z),
+            Vector3(width-1.30, 0.045, 0.31), DEEP)
+        var braced_x: Array = [-4.80, 4.80]
+        if storage:
+            braced_x = [-7.70, -3.85, 3.85, 7.70]
+        for x in braced_x:
+            _line(parent, Vector3(x, 4.56, z-0.75),
+                Vector3(x, 3.95, z+0.10), 0.055, EDGE)
+    # Visible ceiling diffusers use the original emissive material.
+    var diffuser_x: Array = [-3.80, 0.0, 3.80]
+    var diffuser_z: Array = [-1.15]
+    if storage:
+        diffuser_x = [-6.60, 0.0, 6.60]
+        diffuser_z = [-4.10, 1.10]
+    for z in diffuser_z:
+        for x in diffuser_x:
+            _box(parent, "RecessedCeilingDiffuser", Vector3(x, 4.42, z),
+                Vector3(1.15, 0.065, 0.22), WHITE, true)
+            _b(parent, Vector3(x, 4.48, z),
+                Vector3(1.33, 0.07, 0.35), DEEP)
+    # The new cast deck is generated separately and covers the old flat seams.
     _light(parent, "CoolRoomFill", Vector3(0.4, 3.65, 0.45),
         Color("#89c9e3"), 0.47)
 
@@ -480,55 +514,15 @@ func _build_storage() -> void:
     var room := _node(host, "WarehouseScene")
     host.warehouse_group = room
     _hall(room, "storage")
-    # Two real opposing cargo rack arrays leave the center passage navigable.
+    # Four substantial rack banks (two depths on each side) keep the center
+    # aisle open, doubling stored rack freight before counting side overstock.
     for side in [-1, 1]:
-        var bay := _node(room,
-            "CargoRackPort" if side < 0 else "CargoRackStarboard",
-            Vector3(-3.54, 0, -1.85) if side < 0
-            else Vector3(3.67, 0, -1.40))
-        bay.rotation.y = 0.12 if side < 0 else -0.10
-        _b(bay, Vector3(0, 2.24, -0.60),
-            Vector3(2.77, 4.52, 0.19), DEEP)
-        for x in [-1.34, 1.34]:
-            for z in [-0.51, 0.42]:
-                _b(bay, Vector3(x, 2.27, z),
-                    Vector3(0.15, 4.58, 0.16), EDGE)
-            _line(bay, Vector3(x, 0.38, -0.58),
-                Vector3(x, 4.16, 0.44), 0.054, METAL)
-        for shelf in range(4):
-            var y: float = 0.39 + shelf * 1.05
-            _b(bay, Vector3(0, y, 0.13),
-                Vector3(2.69, 0.13, 1.23), METAL)
-            _b(bay, Vector3(0, y + 0.08, 0.66),
-                Vector3(2.52, 0.04, 0.08), WARM)
-        for row in range(3):
-            for col in range(3):
-                var x: float = -0.84 + col * 0.84
-                var y: float = 0.78 + row * 1.05
-                var depth: float = 0.0 if (row + col) % 3 == 0 else -0.12
-                var tint: Color = Color("#67818c") if (row + col) % 2 == 0 else Color("#526975")
-                _b(bay, Vector3(x, y, depth),
-                    Vector3(0.67, 0.62, 0.76), tint)
-                _b(bay, Vector3(x, y + 0.13, depth + 0.39),
-                    Vector3(0.55, 0.05, 0.035), SHADOW)
-                _b(bay, Vector3(x, y - 0.08, depth + 0.40),
-                    Vector3(0.26, 0.09, 0.045), WARM)
-                for offset in [-0.27, 0.27]:
-                    _b(bay, Vector3(x + offset, y, depth + 0.39),
-                        Vector3(0.038, 0.56, 0.05), EDGE)
-        var tags: Array[String] = ["A01", "H02", "H01"]
-        if side > 0:
-            tags = ["A02", "B02", "B01"]
-        for row in range(3):
-            var y: float = 1.14 + row * 1.05
-            _b(bay, Vector3(-0.76, y, 0.73),
-                Vector3(1.15, 0.59, 0.08), HULL)
-            _label(bay, tags[row], Vector3(-0.76, y - 0.05, 0.785), 81)
-            _b(bay, Vector3(-0.29, y + 0.35, 0.76),
-                Vector3(0.15, 0.054, 0.042), WARM)
+        _build_cargo_rack(room, side, false)
+        _build_cargo_rack(room, side, true)
+    _build_bulk_cargo_rows(room)
     # Mechanically credible freight bulkhead: segmented shutter, header,
     # angled docking rails and a movable pallet elevator, not flat decoration.
-    var gate := _node(room, "RearFreightBulkhead", Vector3(-1.05, 0, -5.00))
+    var gate := _node(room, "RearFreightBulkhead", Vector3(-1.05, 0, -7.74))
     _b(gate, Vector3(0, 1.75, 0),
         Vector3(2.55, 3.52, 0.24), DEEP)
     for segment in range(11):
@@ -564,7 +558,7 @@ func _build_storage() -> void:
             Vector3(0.10, 0.26, 0.04), WARM)
     # Both warehouse displays remain live with their original modes.
     _screen(room, "InventoryMasterMonitor",
-        Vector3(1.50, 2.61, -4.82), Vector2(2.34, 1.40), 4)
+        Vector3(1.50, 2.61, -7.56), Vector2(2.34, 1.40), 4)
     _b(room, Vector3(1.52, 0.65, -0.75),
         Vector3(0.56, 1.30, 0.61), HULL)
     var scan := _node(room, "WarehouseScanningConsole", Vector3(1.52, 1.43, -0.85))
@@ -575,6 +569,107 @@ func _build_storage() -> void:
         Vector3(1.53, 1.10, -0.86))
     _box(host.warehouse_scanner, "ActiveScanLaser",
         Vector3(0, 0, 0), Vector3(0.14, 0.085, 0.22), CYAN, true)
-    _label(room, "STORAGE / 03", Vector3(-3.60, 4.01, -4.82), 36)
-    _light(room, "AisleColdFill", Vector3(0, 3.70, 0.40),
+    _label(room, "STORAGE / 03", Vector3(-3.60, 4.01, -7.55), 36)
+    _light(room, "AisleColdFill", Vector3(0, 3.70, -1.25),
         Color("#94b6d7"), 0.42)
+
+
+func _build_cargo_rack(room: Node3D, side: int, rear: bool) -> void:
+    # Keep the original named front racks for the machine-detail add-on.
+    # Rear racks have distinct stable names and occupy the expanded depth.
+    var rack_name: String = "CargoRackPort" if side < 0 else "CargoRackStarboard"
+    if rear:
+        rack_name += "Rear"
+    var x: float = -5.64 if side < 0 else 5.73
+    var z: float = -5.19 if rear else (-1.46 if side < 0 else -1.35)
+    var bay := _node(room, rack_name, Vector3(x, 0, z))
+    bay.rotation.y = 0.075 if side < 0 else -0.065
+    _b(bay, Vector3(0, 2.24, -0.60),
+        Vector3(2.77, 4.52, 0.19), DEEP)
+    for column_x in [-1.34, 1.34]:
+        for post_z in [-0.51, 0.42]:
+            _b(bay, Vector3(column_x, 2.27, post_z),
+                Vector3(0.15, 4.58, 0.16), EDGE)
+        _line(bay, Vector3(column_x, 0.38, -0.58),
+            Vector3(column_x, 4.16, 0.44), 0.054, METAL)
+    for shelf in range(4):
+        var shelf_y: float = 0.39 + shelf * 1.05
+        _b(bay, Vector3(0, shelf_y, 0.13),
+            Vector3(2.69, 0.13, 1.23), METAL)
+        _b(bay, Vector3(0, shelf_y + 0.08, 0.66),
+            Vector3(2.52, 0.04, 0.08), WARM)
+    for row in range(3):
+        for col in range(3):
+            var crate_x: float = -0.84 + col * 0.84
+            var crate_y: float = 0.78 + row * 1.05
+            var crate_z: float = 0.0 if (row + col) % 3 == 0 else -0.12
+            var tint: Color = Color("#67818c") if (row + col) % 2 == 0 else Color("#526975")
+            if rear:
+                tint = Color("#6b777c") if (row + col) % 2 == 0 else Color("#465d69")
+            _b(bay, Vector3(crate_x, crate_y, crate_z),
+                Vector3(0.67, 0.62, 0.76), tint)
+            _b(bay, Vector3(crate_x, crate_y + 0.13, crate_z + 0.39),
+                Vector3(0.55, 0.05, 0.035), SHADOW)
+            _b(bay, Vector3(crate_x, crate_y - 0.08, crate_z + 0.40),
+                Vector3(0.26, 0.09, 0.045), WARM)
+            for offset in [-0.27, 0.27]:
+                _b(bay, Vector3(crate_x + offset, crate_y, crate_z + 0.39),
+                    Vector3(0.038, 0.56, 0.05), EDGE)
+    var tags: Array[String] = ["A01", "H02", "H01"]
+    if side > 0:
+        tags = ["A02", "B02", "B01"]
+    if rear:
+        tags = ["C03", "D03", "C01"] if side < 0 else ["D04", "E02", "D01"]
+    for row in range(3):
+        var y: float = 1.14 + row * 1.05
+        _b(bay, Vector3(-0.76, y, 0.73),
+            Vector3(1.15, 0.59, 0.08), HULL)
+        _label(bay, tags[row], Vector3(-0.76, y - 0.05, 0.785),
+            70 if rear else 81)
+        _b(bay, Vector3(-0.29, y + 0.35, 0.76),
+            Vector3(0.15, 0.054, 0.042), WARM)
+
+func _build_bulk_cargo_rows(room: Node3D) -> void:
+    # 8 industrial overstock pallets carrying 2 visible cargo cassettes each.
+    # Located in the expanded margin outside the four original-scale racks;
+    # never invade the CRATE aisle, terminal, lift or freight-door approach.
+    var yard := _node(room, "WallSideOverstockPallets")
+    for side in [-1.0, 1.0]:
+        for slot in range(4):
+            var x: float = side * 7.74
+            var z: float = -5.93 + float(slot) * 2.25
+            var bay_tint: Color = Color("#657985") if slot%2 == 0 else Color("#576f78")
+            if side > 0:
+                bay_tint = Color("#6e7877") if slot%2 == 0 else Color("#4d6572")
+            _b(yard, Vector3(x, 0.18, z),
+                Vector3(1.25, 0.20, 1.20), DEEP)
+            for foot in [-0.41, 0.41]:
+                _b(yard, Vector3(x+foot, 0.065, z),
+                    Vector3(0.16, 0.13, 1.07), HULL)
+            for layer in range(2):
+                var y: float = 0.57 + float(layer) * 0.64
+                _b(yard, Vector3(x, y, z),
+                    Vector3(1.05, 0.55, 1.03), bay_tint)
+                _b(yard, Vector3(x, y + 0.27, z),
+                    Vector3(1.10, 0.048, 1.05), EDGE)
+                _b(yard, Vector3(x, y - 0.08, z + 0.535),
+                    Vector3(0.66, 0.07, 0.027), SHADOW)
+                for edge_x in [-0.42, 0.42]:
+                    _b(yard, Vector3(x+edge_x, y, z+0.53),
+                        Vector3(0.046, 0.50, 0.045), WARM)
+                _line(yard, Vector3(x-0.47, y-0.25, z+0.55),
+                    Vector3(x+0.47, y+0.25, z+0.55), 0.026, EDGE)
+    # Rear replenishment stacks have different silhouettes and keep a clear
+    # central portal between them.
+    for side in [-1.0, 1.0]:
+        var sx: float = side * 3.1
+        var zone := _node(room, "BulkOutbound_%d" % int(side), Vector3(sx, 0, -6.75))
+        _b(zone, Vector3(0, 0.13, 0), Vector3(1.85, 0.20, 1.20), HULL)
+        for j in range(3):
+            var x: float = -0.55 + float(j)*0.55
+            _b(zone, Vector3(x, 0.53, 0.0),
+                Vector3(0.46, 0.61, 0.84), Color("#657b87"))
+            _b(zone, Vector3(x, 0.89, 0.0),
+                Vector3(0.48, 0.09, 0.89), METAL)
+            _b(zone, Vector3(x, 0.51, 0.45),
+                Vector3(0.25, 0.10, 0.035), WARM)
