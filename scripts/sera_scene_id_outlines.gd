@@ -188,10 +188,12 @@ func _exit_tree() -> void:
 # Transparent-3D ink precedes smoke/glow/slash effects in render_priority,
 # whereas the old CanvasLayer ink always painted OVER those effects.
 func set_shared_scene_mode(enabled: bool) -> void:
-    # NEXUS full-body specifically requires the pre-existing RGB contact
-    # Canvas shader; do not overwrite it when another root registers.
+    # This compositor belongs to the Window, not to the current scene.
+    # After NEXUS exits its RGB contact mode must not block the next
+    # combat/BASE actor from selecting the shared role+RGB12 ID palette.
+    # Both modes are mutually exclusive, including across scene changes.
     if enabled and _nexus_sera_contact_mode:
-        return
+        _nexus_sera_contact_mode = false
     if _shared_scene_mode == enabled:
         return
     _shared_scene_mode = enabled
@@ -298,6 +300,15 @@ func unregister_root(owner: Node) -> void:
         visible = false
         if is_instance_valid(_screen_quad):
             _screen_quad.visible = false
+        # The CanvasLayer and compositor outlive the scene (they are children
+        # of the Window). Do not leak NEXUS RGB contact mode into combat.
+        _shared_scene_mode = false
+        _nexus_sera_contact_mode = false
+        _screen_material = null
+        # A new camera can have exactly the same transform and projection;
+        # force its settings back into the independent ID camera on entry.
+        _last_camera_projection = -1
+        _last_camera_mask = -1
         set_process(false)
 
 
