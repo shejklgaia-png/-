@@ -1371,9 +1371,9 @@ func _rescan() -> bool:
         if _shared_scene_mode and not is_occluder:
             _styled_sources[key] = true
         dirty = true
-    # Only world facility and clutter receive convex ink, never SERA,
-    # bosses, CRATE, or preview parts. One role-filtered MultiMesh draw per
-    # material/style, using the EXACT same solid sources as the RGB ID pass.
+    # Facility/building hard corners: convex + concave 1px. Small clutter:
+    # convex-only 1px. Actors, bosses, CRATE and part previews: neither.
+    # Reuse the exact RGB-ID sources and role-filtered MultiMesh batches.
     if is_instance_valid(_convex_ink):
         _convex_ink.call("sync_sources", desired, _active_scene_profile(),
             id_viewport.get_texture(), _output_px_per_id_pixel)
