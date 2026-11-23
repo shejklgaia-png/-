@@ -3159,55 +3159,42 @@ func _refresh_outline_debug(delta: float) -> void:
         return
     outline_debug_elapsed = 0.45
     var live: Node = _gpu_outline_diagnostics()
-    if live == null:
-        outline_debug_stats.text = (
-            "GPU輪郭制御: 未生成\n"
-            + "NEXUS全身SERAの表示状態を確認してください.")
-        return
-    var data: Dictionary = live.call("get_diagnostic_snapshot")
-    var count: int = int(data.get("active_sources", 0))
-    var draws: int = int(data.get("edge_draws", 0))
-    var missing: int = int(data.get("missing_draws", 0))
-    var stencil_data: Dictionary = {}
-    var depth_data: Dictionary = {}
+    var old_data: Dictionary = (
+        live.call("get_diagnostic_snapshot") if live != null else {})
+    var compositor: Node = get_viewport().get_node_or_null(
+        "SeraIDOutlineLayer/SeraIDOutlineControl")
+    var id_data: Dictionary = (
+        compositor.call("get_outline_metrics") if compositor != null else {})
+    var id_size: Vector2i = id_data.get("id_target_size", Vector2i.ZERO)
+    var hull_data: Dictionary = {}
     if is_instance_valid(sera_display_rig):
-        var stencil: Node = sera_display_rig.get_node_or_null("SeraStencilHull")
-        if stencil != null:
-            stencil_data = stencil.call("get_stencil_snapshot")
         var depth_hull: Node = sera_display_rig.get_node_or_null(
             "SeraDepthHullOutline")
         if depth_hull != null:
-            depth_data = depth_hull.call("get_outline_snapshot")
+            hull_data = depth_hull.call("get_outline_snapshot")
+    # Diagnostic values show the actual production renderer first.
+    # The old hull/ribbons are opt-in comparisons, not missing production ink.
     outline_debug_stats.text = (
-        "深度ハル: %d / 候補: %d  非対応: %d\n"
-        + "描画ハル: %d  ステンシル: %d  旧ハル: %d\n"
-        + "旧エッジ(診断): %d / %d  欠落: %d\n"
-        + "候補エッジ: %d  交差線: %d\n"
-        + "カメラ: %s  枠線設定: %s\n"
-        + "画素判定: %s  接合線キャッシュ: %s\n"
-        + "立方体: 値%d / カメラ%s\n"
-        + "法線比較: %s"
+        "本番 可視ID: %s / 材質: %s\\n"
+        + "ID複製: %d  解像度: %d×%d\\n"
+        + "更新要求: %d  ID衝突: %s\\n"
+        + "登録ルート: %d / 設定: %s\\n"
+        + "旧ハル(診断): %d / 候補: %d\\n"
+        + "旧エッジ(診断): %d / 欠落: %d\\n"
+        + "モード: %d"
     ) % [
-        int(depth_data.get("parts", 0)),
-        int(depth_data.get("candidates", 0)),
-        int(depth_data.get("unsupported", 0)),
-        int(depth_data.get("hulls", 0)),
-        0,
-        int(stencil_data.get("hulls", 0)),
-        count, draws, missing,
-        int(data.get("edge_segments", 0)),
-        int(data.get("contact_segments", 0)),
-        "OK" if bool(data.get("camera_present", false)) else "なし",
-        "ON" if bool(data.get("enabled", false)) else "OFF",
-        "GPU深度ハル" if bool(depth_data.get("active", false)) else (
-            "旧方式診断" if outline_debug_mode != 0
-            else "枠線OFF"),
-        "済" if bool(data.get("contacts_cached", false)) else "なし",
-        int(stencil_data.get("probe_ref", 0)),
-        "OK" if bool(stencil_data.get("probe_camera", false)) else "未確認",
-        "+8px" if int(stencil_data.get("signed_offset_px", 0)) == 8 else (
-            "-8px" if int(stencil_data.get("signed_offset_px", 0)) == -8
-            else "OFF")
+        "ON" if bool(id_data.get("overlay_visible", false)) else "OFF",
+        "OK" if bool(id_data.get("ink_shader_bound", false)) else "未接続",
+        int(id_data.get("id_copies", 0)), id_size.x, id_size.y,
+        int(id_data.get("redraw_requests", 0)),
+        "注意" if bool(id_data.get("palette_collision_possible", false)) else "なし",
+        int(id_data.get("roots", 0)),
+        "ON" if GraphicsSettings.get_enabled("character_outline") else "OFF",
+        int(hull_data.get("hulls", 0)),
+        int(hull_data.get("candidates", 0)),
+        int(old_data.get("edge_draws", 0)),
+        int(old_data.get("missing_draws", 0)),
+        outline_debug_mode
     ]
 
 func _layout_hud() -> void:
@@ -3751,8 +3738,9 @@ func _rotate_customization_preview(delta: Vector2) -> void:
         deg_to_rad(-55.0), deg_to_rad(55.0))
     # Rotation only: no translation, scale or center correction per gesture.
     _apply_customization_preview_transform()
-    _capture_sera_silhouette(sera_display_rig)
-    _update_projected_silhouettes()
+    # CUSTOMIZE's 2D selection silhouette is deliberately hidden here.
+    # The shared GPU-ID pass tracks source meshes without a per-drag CPU
+    # traversal of every visible Blockbench vertex.
 
 func _update_projected_silhouettes() -> void:
     if cam == null or outline == null:
