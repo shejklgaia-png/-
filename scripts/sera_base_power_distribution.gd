@@ -179,7 +179,9 @@ static func _locate_device(key: String, all_sites: Array[Dictionary],
     var goal: Vector2 = SCREEN_SAFE_ANCHORS[key]
     var rng := RandomNumberGenerator.new()
     rng.seed = _seed_for("SERA_POWER_VISIBLE_" + key)
-    var yaw: float = rng.randf_range(-PI, PI)
+    # Front terminals face the BASE camera while preserving +-45 degrees
+    # of stable per-unit random angle; ports no longer point into a wall.
+    var yaw: float = deg_to_rad(37.67 + rng.randf_range(-45.0, 45.0))
     # Start at the screenshot-approved gap. Keep small random differences
     # without jumping to the roof/behind another machine.
     for attempt in range(160):
@@ -265,12 +267,16 @@ static func _make_substation(items: Dictionary, world_at: Vector3,
     return {
         "input": world_at + turn * Vector3(-0.36, 0.40, 0.48),
         "output": world_at + turn * Vector3(0.36, 0.40, 0.48),
+        "input_gate": world_at + turn * Vector3(-0.36,
+            FLOOR_WIRE_Y, 1.40),
+        "output_gate": world_at + turn * Vector3(0.36,
+            FLOOR_WIRE_Y, 1.40),
         "world": world_at, "index": index
     }
 
 
 static func _facility_socket(items: Dictionary, key: String,
-        origin: Vector3, device_local: Vector3) -> Vector3:
+        origin: Vector3, device_local: Vector3) -> Dictionary:
     var half: Vector2 = _footprint(key)
     var near := Vector3(
         clampf(device_local.x, -half.x, half.x),
@@ -293,7 +299,13 @@ static func _facility_socket(items: Dictionary, key: String,
         Vector3.ZERO, Vector3(0.29, 0.28, 0.18))
     _device_port(items, "light", world_at, panel_basis,
         Vector3(0.0, 0.085, 0.096), Vector3(0.16, 0.055, 0.023))
-    return world_at + panel_basis * Vector3(0.0, 0.0, 0.12)
+    var normal: Vector3 = panel_basis * Vector3(0.0, 0.0, 1.0)
+    var gate: Vector3 = world_at + normal * 1.35
+    gate.y = FLOOR_WIRE_Y
+    return {
+        "port": world_at + normal * 0.12,
+        "gate": gate
+    }
 
 
 static func _material(tint: Color, luminous: bool = false) -> StandardMaterial3D:
