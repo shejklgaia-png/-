@@ -372,6 +372,7 @@ func _build_hangar() -> void:
     _add_module("data_bank", Vector3(22.0, 0.0, -9.0), deg_to_rad(24.0), 0.52)
     var cube := BoxMesh.new()
     cube.size = Vector3.ONE
+    var decorative_crease_poses: Array = []
     for palette_index in batches.keys():
         var poses: Array = batches[palette_index]
         var multi := MultiMesh.new()
@@ -380,6 +381,7 @@ func _build_hangar() -> void:
         multi.instance_count = poses.size()
         for index in range(poses.size()):
             multi.set_instance_transform(index, poses[index])
+            decorative_crease_poses.append(poses[index])
         var draw := MultiMeshInstance3D.new()
         draw.name = "BaseBlockbenchBatch_%02d" % int(palette_index)
         draw.set_meta("sera_outline_role", "clutter")
@@ -387,6 +389,28 @@ func _build_hangar() -> void:
         draw.material_override = _material(int(palette_index))
         draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         add_child(draw)
+    # Legacy modular small props use exactly the same clutter 1px convex
+    # corners as yard clutter and the new power devices.
+    var small_crease: ArrayMesh = BaseFacilityInk.crease_for("cube", cube)
+    if small_crease != null and not decorative_crease_poses.is_empty():
+        var crease_multi := MultiMesh.new()
+        crease_multi.transform_format = MultiMesh.TRANSFORM_3D
+        crease_multi.mesh = small_crease
+        crease_multi.instance_count = decorative_crease_poses.size()
+        for index in range(decorative_crease_poses.size()):
+            crease_multi.set_instance_transform(
+                index, decorative_crease_poses[index])
+        var crease_draw := MultiMeshInstance3D.new()
+        crease_draw.name = "BaseLegacyClutterConvex1px"
+        crease_draw.multimesh = crease_multi
+        crease_draw.material_override = (
+            BaseFacilityInk.clutter_crease_material())
+        crease_draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        crease_draw.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+        crease_draw.extra_cull_margin = 0.20
+        crease_draw.set_meta("FX_NO_OUTLINE", true)
+        add_child(crease_draw)
+
 
 func _build_nexus_building() -> void:
     # Rebuilt physical architecture retains the exact 3D screen-picking extents.
