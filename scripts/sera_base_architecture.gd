@@ -230,9 +230,21 @@ class Batch:
             if not motion_indices.is_empty():
                 motion_multimeshes[key] = multi
             for i in range(poses.size()):
-                multi.set_instance_transform(i, poses[i])
+                var pose: Transform3D = poses[i]
+                multi.set_instance_transform(i, pose)
+                # Only narrow WHITE architectural strips get protected ID
+                # role 7. Large white panels keep ordinary black outlines.
+                # This per-instance encoding adds no separate draw batch.
+                var width: float = pose.basis.x.length()
+                var height: float = pose.basis.y.length()
+                var depth: float = pose.basis.z.length()
+                var skinny: int = (int(width < 0.23) +
+                    int(height < 0.23) + int(depth < 0.23))
+                var is_white_light_line: bool = (tint == "white" and
+                    skinny >= 2 and maxf(width, maxf(height, depth)) >= 0.30)
                 multi.set_instance_custom_data(i, Color(
-                    0.25 if facility_indices.has(i) else 0.375,
+                    0.875 if is_white_light_line else (
+                        0.25 if facility_indices.has(i) else 0.375),
                     0.0, 0.0, 1.0))
             var surface := StandardMaterial3D.new()
             # Texture audit: the industrial steel/armor/oxide SVGs have

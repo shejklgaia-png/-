@@ -8,6 +8,11 @@ render_mode unshaded, cull_disabled, depth_draw_never;
 uniform vec4 ink_color : source_color = vec4(0.12549, 0.12549, 0.12549, 1.0);
 uniform float crease_px : hint_range(0.5, 6.0) = 2.0;
 uniform bool outlines_enabled = true;
+// Shared BASE ID buffer also marks protected luminous pixels as role 7.
+// This pass is only for the 2px front-facing physical crease ribbons.
+uniform sampler2D emissive_id_texture : filter_nearest, repeat_disable;
+uniform vec2 emissive_id_texel = vec2(0.0026041667);
+uniform bool emissive_mask_enabled = false;
 varying float edge_visible;
 
 void vertex() {
@@ -62,6 +67,35 @@ void fragment() {
     if (!outlines_enabled || edge_visible < 0.5) {
         discard;
     }
+    float alpha = ink_color.a;
+    if (emissive_mask_enabled) {
+        bool near_emission = false;
+        for (int dy = -2; dy <= 2; dy++) {
+            for (int dx = -2; dx <= 2; dx++) {
+                if (dx * dx + dy * dy > 4) {
+                    continue;
+                }
+                vec2 uv = SCREEN_UV + vec2(float(dx), float(dy)) *
+                    emissive_id_texel;
+                if (uv.x < 0.0 || uv.y < 0.0 ||
+                        uv.x >= 1.0 || uv.y >= 1.0) {
+                    continue;
+                }
+                vec3 id_value = texture(emissive_id_texture, uv).rgb;
+                int role = int(floor(id_value.g * 8.0 + 0.5));
+                if (role == 7) {
+                    near_emission = true;
+                    break;
+                }
+            }
+            if (near_emission) {
+                break;
+            }
+        }
+        if (near_emission) {
+            alpha *= 0.45;
+        }
+    }
     ALBEDO = ink_color.rgb;
-    ALPHA = 1.0;
+    ALPHA = alpha;
 }
