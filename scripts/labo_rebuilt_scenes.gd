@@ -105,6 +105,51 @@ func _ring(parent: Node3D, name: String, at: Vector3,
     mesh.rings = 28
     _mesh(parent, name, mesh, at, tint, bright)
 
+# Real eight-cut-corner panels for prominent CNC housings and monitor bezels.
+# This is an extruded indexed-shape equivalent, not layered rectangular decals.
+func _emit_triangle(tool: SurfaceTool, a: Vector3, b: Vector3,
+        c: Vector3) -> void:
+    tool.add_vertex(a)
+    tool.add_vertex(b)
+    tool.add_vertex(c)
+
+func _cut_corner_mesh(size: Vector3, bevel: float) -> ArrayMesh:
+    var hx: float = size.x * 0.5
+    var hy: float = size.y * 0.5
+    var hz: float = size.z * 0.5
+    var cut: float = minf(bevel, minf(hx, hy) * 0.75)
+    var rim: Array[Vector2] = [
+        Vector2(-hx + cut, -hy), Vector2(hx - cut, -hy),
+        Vector2(hx, -hy + cut), Vector2(hx, hy - cut),
+        Vector2(hx - cut, hy), Vector2(-hx + cut, hy),
+        Vector2(-hx, hy - cut), Vector2(-hx, -hy + cut)]
+    var tool := SurfaceTool.new()
+    tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+    for index in range(1, 7):
+        _emit_triangle(tool,
+            Vector3(rim[0].x, rim[0].y, hz),
+            Vector3(rim[index].x, rim[index].y, hz),
+            Vector3(rim[index + 1].x, rim[index + 1].y, hz))
+        _emit_triangle(tool,
+            Vector3(rim[0].x, rim[0].y, -hz),
+            Vector3(rim[index + 1].x, rim[index + 1].y, -hz),
+            Vector3(rim[index].x, rim[index].y, -hz))
+    for index in range(8):
+        var a: Vector2 = rim[index]
+        var b: Vector2 = rim[(index + 1) % 8]
+        var front_a := Vector3(a.x, a.y, hz)
+        var front_b := Vector3(b.x, b.y, hz)
+        var back_a := Vector3(a.x, a.y, -hz)
+        var back_b := Vector3(b.x, b.y, -hz)
+        _emit_triangle(tool, front_a, back_b, front_b)
+        _emit_triangle(tool, front_a, back_a, back_b)
+    tool.generate_normals()
+    return tool.commit()
+
+func _beveled_panel(parent: Node3D, name: String, at: Vector3,
+        size: Vector3, cut: float, tint: Color) -> MeshInstance3D:
+    return _mesh(parent, name, _cut_corner_mesh(size, cut), at, tint)
+
 func _b(parent: Node3D, at: Vector3, size: Vector3, tint: Color) -> void:
     _push(parent, "box", Transform3D(Basis.IDENTITY.scaled_local(size), at), tint)
 
@@ -155,8 +200,8 @@ func _screen(parent: Node3D, name: String, at: Vector3, size: Vector2,
         mode: int, angle: float = 0.0) -> void:
     var mount := _node(parent, name, at)
     mount.rotation.y = angle
-    _box(mount, "EnclosedDisplayCase", Vector3.ZERO,
-        Vector3(size.x + 0.15, size.y + 0.15, 0.16), METAL)
+    _beveled_panel(mount, "OctagonalDisplayHousing", Vector3.ZERO,
+        Vector3(size.x + 0.15, size.y + 0.15, 0.16), 0.095, METAL)
     _box(mount, "DisplayBezel", Vector3(0, 0, 0.09),
         Vector3(size.x + 0.06, size.y + 0.06, 0.025), DEEP)
     host._live_display(mount, name + "LiveSurface", 0.108, size, mode)
@@ -229,7 +274,8 @@ func _build_fabrication() -> void:
                 Vector3(0.07, 1.68, 0.027), DEEP)
         _line(machine, Vector3(x, 0.84, -0.85), Vector3(x, 2.42, 0.90), 0.035, EDGE)
     _b(machine, Vector3(0, 2.79, 0.02), Vector3(2.95, 0.34, 1.84), HULL)
-    _b(machine, Vector3(0, 2.54, 0.91), Vector3(2.81, 0.33, 0.18), METAL)
+    _beveled_panel(machine, "GantryCutCornerFascia",
+        Vector3(0, 2.54, 0.91), Vector3(2.81, 0.33, 0.18), 0.09, METAL)
     _b(machine, Vector3(0, 2.38, 0.95), Vector3(2.56, 0.075, 0.12), EDGE)
     for x in [-1.13, 1.13]:
         _box(machine, "WorkEnvelopeIlluminator", Vector3(x, 1.47, 0.80),
@@ -485,8 +531,8 @@ func _build_storage() -> void:
     for edge in [-1.23, 1.23]:
         _b(gate, Vector3(edge, 1.72, 0.26),
             Vector3(0.17, 3.50, 0.27), EDGE)
-    _b(gate, Vector3(0, 3.45, 0.20),
-        Vector3(2.80, 0.26, 0.31), METAL)
+    _beveled_panel(gate, "FreightHeaderArmor",
+        Vector3(0, 3.45, 0.20), Vector3(2.80, 0.26, 0.31), 0.08, METAL)
     for i in range(5):
         _b(gate, Vector3(-0.70 + i * 0.35, 3.44, 0.39),
             Vector3(0.18, 0.07, 0.025), WARM)
