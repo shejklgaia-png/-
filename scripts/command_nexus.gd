@@ -7,6 +7,7 @@ const NexusFloorPanels = preload("res://scripts/sera_nexus_floor_panels.gd")
 const NexusGeneratedArchitecture = preload("res://scripts/nexus_generated_architecture.gd")
 const NexusComplexMachining = preload("res://scripts/nexus_complex_machining.gd")
 const NexusSculptedFittings = preload("res://scripts/nexus_sculpted_fittings.gd")
+const NexusDeploymentWallDock = preload("res://scripts/nexus_deployment_wall_dock.gd")
 const NexusTrainingServiceModule = preload("res://scripts/nexus_training_service_module.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
@@ -37,7 +38,8 @@ const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 # Keep the front console bodies (including their sculpted side fittings) inside
 # the portrait overview's horizontal safe area. Leave a clear center sightline
 # to the SERA stage and keep the distant deployment gate in its existing slot.
-const GATE_ORIGIN: Vector3 = Vector3(3.45, 0.02, -20.35)
+const GATE_ORIGIN: Vector3 = Vector3(4.55, 0.80, -24.75)
+const GATE_SCALE: float = 1.35
 const SYSTEM_CONSOLE_ORIGIN: Vector3 = Vector3(-1.70, 0.0, 0.70)
 const TRAINING_CONSOLE_ORIGIN: Vector3 = Vector3(1.75, 0.0, 0.70)
 const SERA_STAGE_ORIGIN: Vector3 = Vector3(0.0, 0.0, -4.75)
@@ -297,8 +299,8 @@ var focus_views: Dictionary = {
         "fov": DisplayProfile.COMBAT_REFERENCE_VERTICAL_FOV},
     "DATA ARCHIVE": {"eye": Vector3(-4.75, 4.18, 0.65),
         "look": Vector3(-4.95, 3.90, -12.10), "fov": 61.0},
-    "DEPLOYMENT": {"eye": Vector3(4.95, 4.64, -1.20),
-        "look": GATE_ORIGIN + Vector3(0.0, 2.63, 0.0), "fov": 64.0}
+    "DEPLOYMENT": {"eye": Vector3(4.95, 5.90, -4.60),
+        "look": GATE_ORIGIN + Vector3(-1.35, 4.38, 0.0), "fov": 67.0}
 }
 
 # (left fraction, width fraction) of focus menu. Opposite each 3D object;
@@ -324,7 +326,7 @@ func _ready() -> void:
     _module("hangar_shell", Vector3.ZERO)
     _module("maintenance_pad", Vector3(0.0, 0.0, -4.75))
     _module("maintenance_canopy", Vector3(0.0, 8.0, -8.95))
-    _module("deployment_gate", GATE_ORIGIN, _gate_facing_yaw())
+    _module("deployment_gate", GATE_ORIGIN, _gate_facing_yaw(), GATE_SCALE)
     _module("archive_mezzanine", Vector3(-4.95, 0.0, -9.90))
     _module("data_bank", Vector3(-4.95, 2.48, -12.10))
     # Both terminals share their portrait-safe anchors with every generated
@@ -343,17 +345,25 @@ func _ready() -> void:
     # Build before the shared material/depth pass, without changing hit zones.
     NexusGeneratedArchitecture.build(
         self, SYSTEM_CONSOLE_ORIGIN, TRAINING_CONSOLE_ORIGIN,
-        GATE_ORIGIN, _gate_facing_yaw())
+        GATE_ORIGIN, _gate_facing_yaw(), GATE_SCALE)
     # Five reusable complex machine profiles, all opaque and depth-tested.
     # Detail instances never become touch targets or ID-outline sources.
     NexusComplexMachining.build(
         self, SYSTEM_CONSOLE_ORIGIN, TRAINING_CONSOLE_ORIGIN,
-        GATE_ORIGIN, _gate_facing_yaw())
+        GATE_ORIGIN, _gate_facing_yaw(), GATE_SCALE)
     # Organic, visibly curved castings use three shared procedural ArrayMeshes.
     # Their depth-only geometry never changes interactive Blockbench outlines.
     NexusSculptedFittings.build(
         self, SYSTEM_CONSOLE_ORIGIN, TRAINING_CONSOLE_ORIGIN,
-        GATE_ORIGIN, _gate_facing_yaw())
+        GATE_ORIGIN, _gate_facing_yaw(), GATE_SCALE)
+    # The enlarged portal physically seats into the rear wall. Its sloped
+    # approach and auxiliary console use the same rotated gate origin.
+    NexusDeploymentWallDock.build(self, GATE_ORIGIN,
+        _gate_facing_yaw(), GATE_SCALE)
+    var deployment_parts: Array = target_parts.get("DEPLOYMENT", [])
+    deployment_parts.append(NexusDeploymentWallDock.console_hit_corners(
+        GATE_ORIGIN, _gate_facing_yaw()))
+    target_parts["DEPLOYMENT"] = deployment_parts
     _deployment_gate_lightspill()
     _pad_center()
     # NEXUS equipment has 3/0/2+convex1; its displayed SERA remains
@@ -534,8 +544,8 @@ func _gate_facing_yaw() -> float:
     # The Blockbench gate faces along local +Z. Point that normal at SERA's stage,
     # not away from the camera (positive yaw would point to the right).
     var toward_sera: Vector3 = SERA_STAGE_ORIGIN - GATE_ORIGIN
-    # Keep the portal readable from the portrait overview, without rotating
-    # its wide beam into the right bulkhead.
+    # Keep the enlarged portal clear of the central tower in the overview.
+    # Its outer cheek remains inside the right-hand wall bay.
     return clampf(atan2(toward_sera.x, toward_sera.z),
         deg_to_rad(-16.0), deg_to_rad(16.0))
 
@@ -572,6 +582,7 @@ func _deployment_gate_lightspill() -> void:
     portal.name = "DeploymentGateLightspill"
     portal.position = GATE_ORIGIN
     portal.rotation.y = _gate_facing_yaw()
+    portal.scale = Vector3.ONE * GATE_SCALE
     add_child(portal)
 
     # Two static emissive planes simulate depth behind the open gate.

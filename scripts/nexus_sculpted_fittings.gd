@@ -14,7 +14,7 @@ const HIGHLIGHT: Color = Color("#d4e2e9")
 
 
 static func build(room: Node3D, system_at: Vector3,
-        training_at: Vector3, gate_at: Vector3, gate_yaw: float) -> void:
+        training_at: Vector3, gate_at: Vector3, gate_yaw: float, gate_scale: float = 1.0) -> void:
     var batches: Dictionary = {}
     # Twin front-service impellers replace the flat-box look of the lower
     # terminal panels. Both stay BELOW the display and the keyboard.
@@ -37,11 +37,11 @@ static func build(room: Node3D, system_at: Vector3,
     # positioned OUTSIDE its luminous opening, not across the aperture.
     for side in [-1.0, 1.0]:
         _place(batches, "actuator", "pale", gate_at, gate_yaw,
-            Vector3(side * 2.18, 2.58, 0.93),
-            Vector3(0.46, 3.71, 0.46), side < 0.0)
+            (Vector3(side * 2.18, 2.58, 0.93) * gate_scale),
+            (Vector3(0.46, 3.71, 0.46) * gate_scale), side < 0.0)
         _place(batches, "fairing", "steel", gate_at, gate_yaw,
-            Vector3(side * 2.25, 4.78, 0.89),
-            Vector3(0.56, 0.66, 0.40), side < 0.0)
+            (Vector3(side * 2.25, 4.78, 0.89) * gate_scale),
+            (Vector3(0.56, 0.66, 0.40) * gate_scale), side < 0.0)
 
     # Archive tower's side-mounted thermal spines are swept, hollow
     # castings; they do not cover the data displays or SERA wordmark.

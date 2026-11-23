@@ -8,7 +8,7 @@ extends RefCounted
 ## overlays sit inside those existing silhouettes and are depth occluders only.
 
 static func build(room: Node3D, system_at: Vector3,
-        training_at: Vector3, gate_at: Vector3, gate_yaw: float) -> void:
+        training_at: Vector3, gate_at: Vector3, gate_yaw: float, gate_scale: float = 1.0) -> void:
     var pieces: Dictionary = {}
 
     # SYSTEM: press-formed ribs along the lower cabinet and deliberately
@@ -63,19 +63,19 @@ static func build(room: Node3D, system_at: Vector3,
     for side_value in [-1, 1]:
         var side: float = float(side_value)
         _plate(pieces, "outer", gate_at, gate_yaw,
-            Vector3(side * 1.92, 2.45, 0.89), Vector2(0.16, 0.77))
+            (Vector3(side * 1.92, 2.45, 0.89) * gate_scale), (Vector2(0.16, 0.77) * gate_scale))
         _plate(pieces, "trim", gate_at, gate_yaw,
-            Vector3(side * 1.55, 4.85, 1.30), Vector2(0.46, 0.27))
+            (Vector3(side * 1.55, 4.85, 1.30) * gate_scale), (Vector2(0.46, 0.27) * gate_scale))
         _plate(pieces, "outer", gate_at, gate_yaw,
-            Vector3(side * 1.67, 0.74, 1.15), Vector2(0.37, 0.26))
+            (Vector3(side * 1.67, 0.74, 1.15) * gate_scale), (Vector2(0.37, 0.26) * gate_scale))
         _vent(pieces, gate_at, gate_yaw,
-            Vector3(side * 1.70, 1.56, 0.987), Vector2(0.18, 0.31))
+            (Vector3(side * 1.70, 1.56, 0.987) * gate_scale), (Vector2(0.18, 0.31) * gate_scale))
         _bar(pieces, "pin", gate_at, gate_yaw,
-            Vector3(side * 1.55, 4.86, 1.374),
-            Vector3(0.043, 0.040, 0.016))
+            (Vector3(side * 1.55, 4.86, 1.374) * gate_scale),
+            (Vector3(0.043, 0.040, 0.016) * gate_scale))
         _bar(pieces, "glow", gate_at, gate_yaw,
-            Vector3(side * 1.91, 3.10, 0.955),
-            Vector3(0.047, 0.14, 0.018))
+            (Vector3(side * 1.91, 3.10, 0.955) * gate_scale),
+            (Vector3(0.047, 0.14, 0.018) * gate_scale))
 
     # The existing twelve-piece canopy gets one low-poly annular bearing
     # inside its luminous rim. It adds a readable circular machine layer
