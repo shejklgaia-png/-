@@ -661,6 +661,9 @@ var strike_prev_blade: PackedVector3Array = PackedVector3Array()
 
 func _ready() -> void:
     set_meta("sera_graphics_outline_category", "character")
+    # ViewEdges may be used by NEXUS and BASE as well. Only the combat root
+    # enables the mesh-derived, depth-tested visible convex-corner pass.
+    set_meta("sera_combat_convex_ink", true)
     _motion_blur_option_enabled = GraphicsSettings.get_enabled("motion_blur")
     DisplayProfile.apply(get_window())
     FrameRateSettings.apply("combat")
