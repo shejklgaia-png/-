@@ -12,16 +12,15 @@ uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
 // emissive ID=7 surface. Other scenes retain completely opaque strokes.
 uniform float emissive_contact_alpha : hint_range(0.0, 1.0) = 1.0;
 uniform vec4 ink_screen_bounds = vec4(0.0);
-// The 4px outside scan is bounded to projected facility meshes.
-uniform vec4 facility_screen_bounds = vec4(0.0);
+// All shared-scene outer contours fit in a 3px Euclidean disk.
 uniform float main_inside_px = 1.0;
 uniform float main_outside_px = 3.0;
 uniform float main_seam_px = 3.0;
 // Dense BASE machinery used to flood small faces with 3px ID seams.
-// Facility contour: 1px inside and 4px outside with 1px contacts.
+// Facility contour: 1px inside and 3px outside with 1px contacts.
 // Clutter keeps its dedicated 1px inside/1px outside style.
 uniform float facility_inside_px = 1.0;
-uniform float facility_outside_px = 4.0;
+uniform float facility_outside_px = 3.0;
 uniform float facility_seam_px = 1.0;
 uniform float clutter_inside_px = 1.0;
 uniform float clutter_outside_px = 1.0;
@@ -79,7 +78,7 @@ bool owns_contact(vec3 a, vec3 b) {
 
 // Use the same hard Euclidean pixel disk as NEXUS. Fractional alpha was
 // responsible for grey fringes, and eight-axis-only samples cause bulges.
-// A full disk is needed for 3px actor seams and 4px facility silhouettes.
+// A full disk is needed for 3px actor seams and facility silhouettes.
 bool inside_radius(int distance_squared, float width_px) {
     return float(distance_squared) <= width_px * width_px + 0.001;
 }
@@ -89,7 +88,7 @@ void fragment() {
     vec3 center = sample_id(pixel_uv);
     int center_role = role_of(center);
     // Architectural emission and physical glowing lamp glass are opaque,
-    // but their ID pixels must not be blackened by neighboring 4px borders.
+    // but their ID pixels must not be blackened by neighboring facility borders.
     // Keep them in the same depth-resolved ID buffer; no extra viewport.
     if (center_role == 7) {
         discard;
@@ -165,17 +164,9 @@ void fragment() {
             pixel_uv.y >= ink_screen_bounds.y &&
             pixel_uv.y <= ink_screen_bounds.w;
         if (near_visible) {
-            bool near_facility = facility_screen_bounds.z >
-                facility_screen_bounds.x && facility_screen_bounds.w >
-                facility_screen_bounds.y &&
-                pixel_uv.x >= facility_screen_bounds.x &&
-                pixel_uv.x <= facility_screen_bounds.z &&
-                pixel_uv.y >= facility_screen_bounds.y &&
-                pixel_uv.y <= facility_screen_bounds.w;
-            for (int ring = 1; ring <= 4; ring++) {
-                if (ring == 4 && !near_facility) {
-                    break;
-                }
+            // 3px is the maximum outside width in every shared scene.
+            // No additional fourth ring or facility-only bounds pass.
+            for (int ring = 1; ring <= 3; ring++) {
                 for (int dy = -ring; dy <= ring; dy++) {
                     for (int dx = -ring; dx <= ring; dx++) {
                         if (max(abs(dx), abs(dy)) != ring) {
