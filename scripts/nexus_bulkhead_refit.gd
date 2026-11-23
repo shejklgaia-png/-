@@ -172,6 +172,27 @@ static func build(room: Node3D) -> void:
             Vector2(0.51, 9.00), Vector2(-0.51, 9.00)],
             station + 0.33, station + 0.43, alloy)
 
+    # Staggered wall-side actuator rails add an identifiable mechanical
+    # hierarchy to both long lateral surfaces without covering any consoles.
+    # Their sections are tapered extrusions, not a row of identical cuboids.
+    for side_value in [-1, 1]:
+        var side: float = float(side_value)
+        for station_data in [
+                {"z": -15.55, "bottom": 2.33, "top": 6.87},
+                {"z": -0.60, "bottom": 3.04, "top": 7.33},
+                {"z": 9.05, "bottom": 2.47, "top": 5.84}]:
+            var station: float = float(station_data["z"])
+            var low: float = float(station_data["bottom"])
+            var high: float = float(station_data["top"])
+            _cast(root, "ServiceWallHaunch%d_%.1f" % [
+                    side_value, station], [
+                Vector2(side * 9.12, low),
+                Vector2(side * 9.53, low + 0.62),
+                Vector2(side * 9.53, high - 0.46),
+                Vector2(side * 9.21, high),
+                Vector2(side * 8.96, high - 0.15)],
+                station - 0.32, station + 0.33, armor)
+
     # Left wall has two major unequal access panels; their inset sloping faces
     # visibly interrupt the original near-identical service grilles.
     _cast(root, "RearLeftServiceCartridge", [
