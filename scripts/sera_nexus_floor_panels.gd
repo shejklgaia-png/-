@@ -690,6 +690,9 @@ static func _submit(room: Node3D, batches: Dictionary) -> void:
     var simple_cube := BoxMesh.new()
     simple_cube.size = Vector3.ONE
     var armor := _chamfered_armor_mesh()
+    var wedge := _wedge_armor_mesh()
+    var ring := _arc_track_segment_mesh()
+    var vent := _service_vent_mesh()
     var cover := _access_cover_mesh()
     var disc := CylinderMesh.new()
     disc.top_radius = 0.5
@@ -705,6 +708,13 @@ static func _submit(room: Node3D, batches: Dictionary) -> void:
         if key.begins_with("armor_"):
             mesh_data = armor
             material_key = key.trim_prefix("armor_")
+        elif key.begins_with("wedge_"):
+            mesh_data = wedge
+            material_key = key.trim_prefix("wedge_")
+        elif key in ["arc_shell", "arc_highlight"]:
+            mesh_data = ring
+        elif key == "vent_cassette":
+            mesh_data = vent
         elif key == "cover":
             mesh_data = cover
             material_key = "access_cover"
@@ -721,7 +731,8 @@ static func _submit(room: Node3D, batches: Dictionary) -> void:
         instance.name = "Deck_" + key
         instance.multimesh = multimesh
         instance.material_override = _material(material_key,
-            key.begins_with("armor_") or key == "cover")
+            key.begins_with("armor_") or key.begins_with("wedge_")
+            or key in ["arc_shell", "arc_highlight", "vent_cassette", "cover"])
         instance.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         instance.set_meta("sera_outline_occluder_only", true)
         instance.set_meta("FX_NO_OUTLINE", true)
@@ -736,6 +747,22 @@ static func _material(finish: String, vertex_color: bool) -> StandardMaterial3D:
         "deck_deep": Color("#374e60"),
         "deck_light": Color("#4c6476"),
         "deck_side": Color("#344c5d"),
+        "deck_graphite": Color("#293a47"),
+        "deck_blue": Color("#3d586c"),
+        "deck_steel": Color("#587183"),
+        "deck_bright": Color("#697f8d"),
+        "arc_shell": Color("#8aa7b7"),
+        "arc_highlight": Color("#e2e8ea"),
+        "stage_lock": Color("#849ba7"),
+        "spine_well": Color("#0b1721"),
+        "spine_cheek": Color("#3f596a"),
+        "spine_edge": Color("#7b98a8"),
+        "spine_crossbar": Color("#5d7788"),
+        "spine_light_socket": Color("#173140"),
+        "spine_light": Color("#4cbedc"),
+        "crossing_pocket": Color("#243949"),
+        "crossing_lip": Color("#8499a4"),
+        "vent_cassette": Color("#b4c7d0"),
         "edge_engraving": Color("#607987"),
         "pinstripe": Color("#4a6675"),
         "reflection_fringe": Color("#476575"),
@@ -769,9 +796,8 @@ static func _material(finish: String, vertex_color: bool) -> StandardMaterial3D:
     mat.metallic = 0.56 if finish.begins_with("deck_") else 0.27
     mat.roughness = 0.36 if finish.begins_with("deck_") else 0.54
     mat.metallic_specular = 0.64 if finish.begins_with("deck_") else 0.50
-    if finish == "access_cover":
-        # Both sides of the sloped hatch rim must remain visible in the
-        # portrait GL Compatibility renderer, regardless of triangulation.
+    if finish in ["access_cover", "arc_shell", "arc_highlight", "vent_cassette"]:
+        # Sloped/open steel rims must survive winding differences on Android.
         mat.cull_mode = BaseMaterial3D.CULL_DISABLED
     if finish.begins_with("deck_"):
         mat.clearcoat_enabled = true
@@ -780,7 +806,7 @@ static func _material(finish: String, vertex_color: bool) -> StandardMaterial3D:
         # The top mesh uses intentional face/bevel normals; visibility must
         # not depend on its triangle winding in Android GL Compatibility.
         mat.cull_mode = BaseMaterial3D.CULL_DISABLED
-    if finish in ["lamp_glass", "lamp_glint"]:
+    if finish in ["lamp_glass", "lamp_glint", "spine_light"]:
         mat.emission_enabled = true
         mat.emission = tint
         mat.emission_energy_multiplier = 1.7 if finish == "lamp_glass" else 1.15
