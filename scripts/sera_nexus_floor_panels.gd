@@ -87,8 +87,11 @@ static func build(room: Node3D) -> void:
         for rail_z in [-8.0, 1.2, 12.1]:
             _service_lid(batches, side * 5.08, float(rail_z))
 
-    # The black trough is lower than the steel surface; top rails and grate
-    # bars remain within the opening rather than resting on a solid panel.
+    # Retain fitted metal shoulders on either side of each drainage slot.
+    # The underlying center-row opening spans the lane width for clipping,
+    # but only the narrow grille itself must remain visibly recessed.
+    _drain_shoulder(batches, -2.10, -1.62, 2.48)
+    _drain_shoulder(batches, 3.73, 4.17, 2.28)
     _maintenance_grille(batches, -1.86, 2.48, 0.43)
     _maintenance_grille(batches, 3.95, 2.28, 0.39)
 
@@ -226,6 +229,18 @@ static func _light(batches: Dictionary, x: float, z: float, width: float) -> voi
         Vector3(width * 0.83, 0.004, 0.025))
 
 
+
+static func _drain_shoulder(batches: Dictionary,
+        z0: float, z1: float, grille_width: float) -> void:
+    # Restrict the aperture to the actual framed equipment rather than
+    # leaving a black full-lane opening around a much narrower grating.
+    var half_grille: float = grille_width * 0.5 + 0.07
+    _armor_panel(batches, -1.80, -half_grille,
+        z0, z1, "deck_mid", 3, 100)
+    _armor_panel(batches, half_grille, 1.80,
+        z0, z1, "deck_deep", 3, 100)
+
+
 static func _maintenance_grille(batches: Dictionary,
         center_z: float, width: float, depth: float) -> void:
     # The plate generator leaves this area physically open. The dark bottom
@@ -251,7 +266,7 @@ static func _maintenance_grille(batches: Dictionary,
                 Vector3(px + 0.016, 0.150, center_z),
                 Vector3(0.010, 0.004, depth - 0.15))
     # Cross bars/fasteners reinforce the frame without making a giant ladder.
-    for dz in [-0.13, 0.13]:
+    for dz in [-0.125, -0.045, 0.045, 0.125]:
         _cube(batches, "drain_cross",
             Vector3(0.0, 0.139, center_z + float(dz)),
             Vector3(width - 0.18, 0.012, 0.026))
