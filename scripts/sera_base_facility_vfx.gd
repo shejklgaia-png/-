@@ -105,6 +105,8 @@ shader_type spatial;
 // RENDER_POLICY: FACILITY_VFX_FOREGROUND; depth_test=on
 render_mode unshaded, blend_add, cull_disabled, depth_draw_never, fog_disabled;
 uniform sampler2D soft_halo_mask : source_color, filter_linear, repeat_disable;
+// Raise the soft fringe without overexposing the sharp authored light core.
+uniform float halo_strength : hint_range(0.5, 3.0) = 1.8;
 varying vec4 halo_tint;
 void vertex() {
     halo_tint = INSTANCE_CUSTOM;
@@ -112,7 +114,7 @@ void vertex() {
 void fragment() {
     float mask = texture(soft_halo_mask, UV).a;
     ALBEDO = halo_tint.rgb;
-    ALPHA = halo_tint.a * mask;
+    ALPHA = clamp(halo_tint.a * mask * halo_strength, 0.0, 0.7);
 }
 """
 static var _soft_halo_texture: ImageTexture
@@ -218,6 +220,7 @@ static func _shared_soft_halo_material() -> ShaderMaterial:
     _soft_halo_material.render_priority = RENDER_ORDER.FACILITY_VFX_FOREGROUND
     _soft_halo_material.set_shader_parameter(
         "soft_halo_mask", _soft_halo_texture)
+    _soft_halo_material.set_shader_parameter("halo_strength", 1.8)
     return _soft_halo_material
 
 
@@ -313,7 +316,7 @@ func _finish_soft_halos() -> void:
         var face_angles: Vector3 = halo["angles"]
         instances.set_instance_transform(index, Transform3D(
             Basis.from_euler(face_angles).scaled(
-                Vector3(span.x, span.y, 1.0)),
+                Vector3(span.x * 1.12, span.y * 1.12, 1.0)),
             halo["at"]))
         instances.set_instance_custom_data(index, halo["color"])
     var batch := MultiMeshInstance3D.new()
