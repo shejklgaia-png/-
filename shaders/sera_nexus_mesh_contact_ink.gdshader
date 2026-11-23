@@ -140,10 +140,10 @@ void fragment() {
             }
             coverage = solid_coverage(room_distance, stroke_px);
         }
-        // Draw the SERA exterior even when the current ID is a room ID.
-        // A room ID often belongs to the wall behind the displayed SERA;
-        // skipping it made the exterior stroke visually ineffective.
-        if (coverage < 1.0) {
+        // Only extend the SERA outside silhouette onto actual background.
+        // Never stamp it on a visible NEXUS room surface: that makes ink
+        // appear to pass through floor panels, walls and stage geometry.
+        if (coverage < 1.0 && !room) {
             // The 2px SERA outline is an exact opaque Euclidean disk.
             // Sample both mixed directions (1,2), (3,4), etc. Previous
             // eight-direction-only sampling can make a thick stroke uneven.
