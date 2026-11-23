@@ -60,10 +60,10 @@ static func crease_material() -> ShaderMaterial:
     if _shared_crease_material == null:
         _shared_crease_material = ShaderMaterial.new()
         _shared_crease_material.shader = BASE_CREASE_SHADER
-        # Draw the 2px corners before smoke, fire, laser and light shafts.
+        # Pure black corners are rendered before smoke, fire, laser and shafts.
         _shared_crease_material.render_priority = -29
         _shared_crease_material.set_shader_parameter(
-            "ink_color", Color("#202020"))
+            "ink_color", Color("#000000"))
         _shared_crease_material.set_shader_parameter("crease_px", 2.0)
         _shared_crease_material.set_shader_parameter(
             "outlines_enabled", _outlines_enabled)

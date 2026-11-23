@@ -205,6 +205,9 @@ func set_shared_scene_mode(enabled: bool) -> void:
             1.0 / float(id_viewport.size.y)))
         _screen_material.set_shader_parameter(
             "ink_color", Color("#17212f"))
+        # CRATE can register before BASE's root. Resolve the actual scene
+        # color again whenever roots enter, independent of registration order.
+        _refresh_shared_ink_color()
         _screen_material.set_shader_parameter(
             "ink_screen_bounds", Vector4.ZERO)
         _screen_material.set_shader_parameter(
@@ -242,10 +245,29 @@ func _sync_screen_quad(camera: Camera3D) -> void:
     _screen_quad.visible = true
 
 
+func _refresh_shared_ink_color() -> void:
+    if _screen_material == null:
+        return
+    var base_scene: bool = false
+    for value in _root_refs.values():
+        var root_ref: WeakRef = value as WeakRef
+        var root: Node3D = (
+            root_ref.get_ref() as Node3D if root_ref != null else null)
+        if is_instance_valid(root) and str(root.get_meta(
+                "sera_graphics_outline_category", "")) == "base":
+            base_scene = true
+            break
+    # BASE silhouette/contacts are pure black. Battle and previews retain
+    # the #17212F ink; there is no change to NEXUS's Canvas compositor.
+    _screen_material.set_shader_parameter(
+        "ink_color", Color.BLACK if base_scene else Color("#17212f"))
+
+
 func register_root(root: Node3D, owner: Node) -> void:
     if not is_instance_valid(root) or not is_instance_valid(owner):
         return
     _root_refs[owner.get_instance_id()] = weakref(root)
+    _refresh_shared_ink_color()
     _scan_elapsed = 0.0
     visible = true
     set_process(true)
@@ -254,6 +276,7 @@ func register_root(root: Node3D, owner: Node) -> void:
 func unregister_root(owner: Node) -> void:
     if is_instance_valid(owner):
         _root_refs.erase(owner.get_instance_id())
+    _refresh_shared_ink_color()
     if _root_refs.is_empty():
         _clear_copies()
         id_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED

@@ -98,6 +98,27 @@ void fragment() {
 """
 static var _generator_gap_leak_shader: Shader
 
+# Runtime-generated 24x24 radial alpha tile, shared by every BASE facility.
+# One small MultiMesh draw per facility replaces fullscreen bloom/blur.
+const SOFT_HALO_SHADER: String = """
+shader_type spatial;
+// RENDER_POLICY: FACILITY_VFX_FOREGROUND; depth_test=on
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never, fog_disabled;
+uniform sampler2D soft_halo_mask : source_color, filter_linear, repeat_disable;
+varying vec4 halo_tint;
+void vertex() {
+    halo_tint = INSTANCE_CUSTOM;
+}
+void fragment() {
+    float mask = texture(soft_halo_mask, UV).a;
+    ALBEDO = halo_tint.rgb;
+    ALPHA = halo_tint.a * mask;
+}
+"""
+static var _soft_halo_texture: ImageTexture
+static var _soft_halo_material: ShaderMaterial
+var _soft_halos: Array[Dictionary] = []
+
 const FIRE_FLOOR_SHADER: String = """
 shader_type spatial;
 render_mode unshaded, blend_add, cull_disabled, depth_draw_never;
@@ -135,6 +156,7 @@ func setup(model: Node3D, key: String) -> void:
     transform = Transform3D(Basis(Vector3.UP, yaw).scaled(
         Vector3.ONE * _visual_scale), Vector3.ZERO)
     model.add_child(self)
+    _soft_halos.clear()
     if key == "SMELTER":
         # Furnace is the sole site retaining its original broad heat shafts,
         # chimney smoke and animated orange floor reflection.
@@ -144,12 +166,119 @@ func setup(model: Node3D, key: String) -> void:
         _furnace_lamp = model.get_node_or_null(
             "FurnaceHeatLight") as OmniLight3D
         sample_fire(0.0)
+        # Furnace entrance remains sharp; add only a faint broad glow.
+        _queue_soft_halo(Vector3(0.0, 1.45, 1.38),
+            Vector2(1.85, 1.32), Color("#ff9d65"), 0.17)
         set_process(true)
     else:
         # Remove side/entrance shafts entirely at every other BASE site.
         # Add purpose-built local luminaires at their work surfaces instead.
         _add_practical_lighting(key)
         set_process(false)
+    # The actual authored emissive architecture should emit soft light too,
+    # not only the VFX fixtures. Gather it once before building the batch.
+    _collect_authored_emission_halos()
+    # Always construct the same low-cost glow batch on the FIRST load and
+    # on later scene rebuilds. Never rely on a delayed post-process bloom.
+    _finish_soft_halos()
+
+func _queue_soft_halo(at: Vector3, span: Vector2, tint: Color,
+        opacity: float) -> void:
+    _soft_halos.append({
+        "at": at, "span": span, "color": Color(
+            tint.r, tint.g, tint.b, clampf(opacity, 0.0, 0.60))
+    })
+
+
+static func _shared_soft_halo_material() -> ShaderMaterial:
+    if _soft_halo_material != null:
+        return _soft_halo_material
+    if _soft_halo_texture == null:
+        # Tiny precomputed alpha tile: texture filtering supplies the blur,
+        # avoiding costly per-frame radial functions/fullscreen postprocessing.
+        var image := Image.create(24, 24, false, Image.FORMAT_RGBA8)
+        for y in range(24):
+            for x in range(24):
+                var point := (Vector2(float(x), float(y)) -
+                    Vector2(11.5, 11.5)) / 11.5
+                var intensity: float = pow(
+                    maxf(0.0, 1.0 - point.length_squared()), 2.8)
+                image.set_pixel(x, y, Color(1.0, 1.0, 1.0, intensity))
+        _soft_halo_texture = ImageTexture.create_from_image(image)
+    var shader := Shader.new()
+    shader.code = SOFT_HALO_SHADER
+    _soft_halo_material = ShaderMaterial.new()
+    _soft_halo_material.shader = shader
+    _soft_halo_material.render_priority = RENDER_ORDER.FACILITY_VFX_FOREGROUND
+    _soft_halo_material.set_shader_parameter(
+        "soft_halo_mask", _soft_halo_texture)
+    return _soft_halo_material
+
+
+func _collect_authored_emission_halos() -> void:
+    if not is_instance_valid(_model):
+        return
+    # Every body part already shares its MultiMesh material. Copy only the
+    # emissive coordinates into the SAME halo batch; no new real lights.
+    # Limit total translucent overdraw on Android overview scenes.
+    var remaining: int = maxi(0, 64 - _soft_halos.size())
+    for child in _model.get_children():
+        if remaining <= 0:
+            break
+        var source: MultiMeshInstance3D = child as MultiMeshInstance3D
+        if source == null or source.multimesh == null:
+            continue
+        var mat: StandardMaterial3D = source.material_override as StandardMaterial3D
+        if mat == null or not mat.emission_enabled:
+            continue
+        var many: int = mini(source.multimesh.instance_count, remaining)
+        for i in range(many):
+            var pose: Transform3D = source.multimesh.get_instance_transform(i)
+            var center: Vector3 = to_local(source.to_global(pose.origin))
+            # Use actual batched instance dimensions in the VFX local frame.
+            var width: float = (to_local(source.to_global(
+                pose.origin + pose.basis.x)) - center).length()
+            var height: float = (to_local(source.to_global(
+                pose.origin + pose.basis.y)) - center).length()
+            var depth: float = (to_local(source.to_global(
+                pose.origin + pose.basis.z)) - center).length()
+            var hue: Color = mat.emission
+            _queue_soft_halo(center + Vector3(
+                0.0, 0.0, depth * 0.50 + 0.035),
+                Vector2(clampf(width * 1.65, 0.20, 2.40),
+                    clampf(height * 2.8, 0.20, 1.60)),
+                hue, 0.12)
+            remaining -= 1
+
+
+func _finish_soft_halos() -> void:
+    if _soft_halos.is_empty():
+        return
+    var tile := QuadMesh.new()
+    tile.size = Vector2.ONE
+    var instances := MultiMesh.new()
+    instances.transform_format = MultiMesh.TRANSFORM_3D
+    instances.use_custom_data = true
+    instances.mesh = tile
+    instances.instance_count = _soft_halos.size()
+    for index in range(_soft_halos.size()):
+        var halo: Dictionary = _soft_halos[index]
+        var span: Vector2 = halo["span"]
+        instances.set_instance_transform(index, Transform3D(
+            Basis().scaled(Vector3(span.x, span.y, 1.0)),
+            halo["at"]))
+        instances.set_instance_custom_data(index, halo["color"])
+    var batch := MultiMeshInstance3D.new()
+    batch.name = "FacilitySoftEmissionHalos"
+    batch.set_meta("FX_NO_OUTLINE", true)
+    batch.multimesh = instances
+    batch.material_override = _shared_soft_halo_material()
+    batch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    batch.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+    # Transparent quads remain depth-tested, hiding behind solid housing.
+    add_child(batch)
+    _soft_halos.clear()
+
 
 func _make_surface(label: String, at: Vector3, span: Vector2,
         angles: Vector3, shader_source: String, hue: Color = Color.WHITE,
@@ -237,6 +366,14 @@ func _box(parent: Node3D, label: String, at: Vector3, dimensions: Vector3,
         surface.emission_energy_multiplier = 3.2
     piece.material_override = surface
     parent.add_child(piece)
+    if glow and label in ["FrontFacingLampGlass", "IlluminatedGap"]:
+        # Only the visible front glass gets a halo. Do not brighten hidden
+        # undersides or the Morse beacon while its lamp is blinking off.
+        var center: Vector3 = to_local(piece.global_position)
+        var front_z: float = center.z + dimensions.z * 0.50 + 0.035
+        _queue_soft_halo(Vector3(center.x, center.y, front_z),
+            Vector2(maxf(0.27, dimensions.x * 2.15),
+                maxf(0.25, dimensions.y * 3.7)), color, 0.22)
     return piece
 
 
@@ -463,6 +600,8 @@ func _add_practical_lighting(key: String) -> void:
                 Vector3(0.0, 0.34, 5.89), Vector2(1.42, 5.80),
                 Vector3(-PI * 0.5, 0.0, 0.0),
                 NEXUS_SHUTTER_BEAM_SHADER, Color("#bbecff"), false)
+            _queue_soft_halo(Vector3(0.0, 0.39, 3.065),
+                Vector2(2.28, 0.63), Color("#bceaff"), 0.24)
         "RECYCLER":
             for side in [-1.0, 1.0]:
                 _work_lamp("ProtectedCrusherWorklamp",
@@ -505,6 +644,12 @@ func _add_practical_lighting(key: String) -> void:
             # independent of whether the recessed emissive boxes survive
             # the low-resolution BASE overview.
             _generator_visible_gap_leaks()
+            # One broad soft edge per main luminous cavity; their precise
+            # ten hard light gaps remain separately readable in front.
+            _queue_soft_halo(Vector3(-0.27, 1.45, 1.185),
+                Vector2(1.93, 1.35), Color("#8fdcff"), 0.18)
+            _queue_soft_halo(Vector3(1.22, 1.89, 0.618),
+                Vector2(0.74, 0.87), Color("#b2edff"), 0.15)
         "STORAGE":
             # Two independent protected industrial fixtures make circular
             # warm landing pools in front of the loading opening.
@@ -547,10 +692,15 @@ func _add_practical_lighting(key: String) -> void:
             _work_lamp("ExistingLabTaskLampHousing",
                 Vector3(0.0, 2.28, 1.31),
                 Vector3(0.52, 0.15, 0.28), Color("#ffe0af"))
+            _queue_soft_halo(Vector3(0.0, 1.56, 1.83),
+                Vector2(0.95, 0.85), Color("#ffe6c3"), 0.10)
         "BUILD_TERMINAL":
             _work_lamp("ExistingTerminalPanelLampHousing",
                 Vector3(0.0, 2.23, 0.54),
                 Vector3(0.48, 0.14, 0.27), Color("#a9e1ff"))
+            # Static monitor glass: soft backlight, not an extra real lamp.
+            _queue_soft_halo(Vector3(0.0, 1.78, 0.81),
+                Vector2(1.12, 1.04), Color("#9bdfff"), 0.20)
 
 
 func _smoke_quad_material() -> StandardMaterial3D:
