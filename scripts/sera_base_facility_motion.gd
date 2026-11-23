@@ -112,6 +112,8 @@ func sample_at(seconds: float) -> void:
     var crane_slew: float = 0.0
     var crane_lift: float = 0.0
     var crane_grip: float = 0.0
+    var scrap_shift := Vector3.ZERO
+    var scrap_rock: float = 0.0
     var crane_center := Vector3.ZERO
     var crane_rotation := Basis.IDENTITY
     if facility_key == "SCRAP_COLLECTOR":
@@ -119,6 +121,8 @@ func sample_at(seconds: float) -> void:
         crane_slew = CollectorConveyor.slew_at(crane_phase)
         crane_lift = CollectorConveyor.lift_at(crane_phase)
         crane_grip = CollectorConveyor.grip_at(crane_phase)
+        scrap_shift = CollectorConveyor.scrap_offset_at(crane_phase)
+        scrap_rock = CollectorConveyor.scrap_rock_at(crane_phase)
         crane_center = _at(CollectorConveyor.CRANE_PIVOT)
         crane_rotation = Basis(_axis(Vector3.UP), crane_slew)
     for name_variant in _parts.keys():
@@ -160,14 +164,18 @@ func sample_at(seconds: float) -> void:
                             CollectorConveyor.BELT_START_X + shifted -
                             belt_local.x, 0.0, 0.0))
                     elif feature == "FreshCollectorPickupScrap":
-                        # One parcel rides in from screen left and waits at
-                        # the pickup gate. The carried parcel replaces it.
-                        var advance: float = (
-                            CollectorConveyor.BELT_PICKUP_X -
-                            CollectorConveyor.BELT_START_X) * clampf(
-                            crane_phase / 3.10, 0.0, 1.0)
-                        pose.origin += _at(Vector3(advance, 0.0, 0.0))
-                        if crane_phase >= 3.52:
+                        # Both visible fragments share ONE common rigid
+                        # pose: belt travel, a short rise onto the metal
+                        # plate, a single clunk/rock, and damped settling.
+                        pose.origin += _at(scrap_shift)
+                        if absf(scrap_rock) > 0.00001:
+                            pose = _spin_about(pose,
+                                _at(Vector3(
+                                    CollectorConveyor.BELT_START_X, 1.02,
+                                    CollectorConveyor.BELT_Z) + scrap_shift),
+                                _axis(Vector3.FORWARD), scrap_rock)
+                        # Swap to the attached payload ONLY once closed.
+                        if crane_phase >= 3.72:
                             pose.basis = rest.basis.scaled_local(
                                 Vector3.ONE * 0.0001)
                     elif feature in ["FreshCollectorSuspendedCable",
@@ -211,7 +219,7 @@ func sample_at(seconds: float) -> void:
                             elif feature == "FreshCollectorCranePayload":
                                 # Never show two copies at the handoff.
                                 # Once released, fall into the real hopper.
-                                if crane_phase < 3.52 or crane_phase >= 6.54:
+                                if crane_phase < 3.72 or crane_phase >= 6.54:
                                     pose.basis = rest.basis.scaled_local(
                                         Vector3.ONE * 0.0001)
                                 elif crane_phase > 6.14:
