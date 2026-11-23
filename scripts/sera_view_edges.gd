@@ -62,16 +62,16 @@ func _register() -> void:
     _compositor.call("register_root", actor, self)
     # NEXUS full-body uses the dedicated RGB-ID canvas, while other
     # scenes retain the shared pre-VFX spatial compositor.
+    # Select Bittaran's dedicated shader before enabling the shared path,
+    # avoiding a SHARED_INK -> battle shader swap on the first scene frame.
+    # Convex/crease geometry is never created for this battle.
+    _compositor.call("set_bittaran_id_mode",
+        _in_bittaran_id_scene(actor))
     if _nexus_sera_contact_mode:
         _compositor.call("set_nexus_sera_contact_mode", true)
     else:
         _compositor.call("set_shared_scene_mode", true)
     _compositor.call("set_stroke_px", _stroke_px)
-    # One shared RGB mesh-ID pass for the entire Bittaran viewport. Only this
-    # scene selects the dedicated 1px-in / 5px-out / 4px-contact ink shader.
-    # No topological hard-edge or convex-corner ribbon is generated.
-    _compositor.call("set_bittaran_id_mode",
-        _in_bittaran_id_scene(actor))
 
 
 func set_contour_enabled(enabled: bool) -> void:
