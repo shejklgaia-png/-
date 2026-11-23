@@ -44,7 +44,14 @@ class Batch:
             st = SurfaceTool.new()
             st.begin(Mesh.PRIMITIVE_TRIANGLES)
             surfaces[style] = st
-        for p in [a, b, c]:
+        # Helpers define OUTWARD normals with (b - a).cross(c - a).
+        # Godot treats CLOCKWISE triangles (viewed from outside) as
+        # front-facing. The former a,b,c order therefore exposed the
+        # interior and culled large portions of the visible armor.
+        # Reverse only the submitted winding, NOT the authored normal:
+        # lighting stays exterior-facing and default back-face culling
+        # remains enabled (no costly double-sided material workaround).
+        for p in [a, c, b]:
             st.set_normal(n)
             st.add_vertex(p)
 
