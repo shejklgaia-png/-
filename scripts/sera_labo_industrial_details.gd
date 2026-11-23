@@ -212,7 +212,8 @@ func _industrial_wall(s: SurfaceTool, kind: int) -> void:
     var vent_z: float = -4.65
     var slat_z: float = -4.57
     if enlarged:
-        section_x = [-6.15, -3.2, 0.0, 3.2, 6.15]
+        # Preserve a readable clear lintel and monitor bay between vents.
+        section_x = [-6.15, -3.65, 3.65, 6.15]
         rear_z = -7.58
         vent_z = -7.44
         slat_z = -7.36
