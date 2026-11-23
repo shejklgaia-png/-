@@ -20,6 +20,7 @@ const BaseClutter = preload("res://scripts/sera_base_clutter.gd")
 const BaseLayoutPreview = preload("res://scripts/sera_base_layout_preview.gd")
 const JunkGeometry = preload("res://scripts/sera_base_junk_geometry.gd")
 const BaseFloorDetail = preload("res://scripts/sera_base_floor_detail.gd")
+const BaseFloorLighting = preload("res://scripts/sera_base_floor_lighting.gd")
 const BaseDeckLayout = preload("res://scripts/sera_base_deck_layout.gd")
 const BasePolygon = preload("res://scripts/sera_base_polygon_meshes.gd")
 const WEATHERED_STEEL_PATH: String = "res://assets/base/industrial_steel_grunge.svg"
@@ -348,7 +349,9 @@ func _create_grid_plates(floor: Node3D) -> Array[Dictionary]:
             mat.uv1_scale = Vector3(
                 0.93 + 0.07 * float(palette_index % 3),
                 0.96 + 0.06 * float(palette_index / 3), 1.0)
-        draw.material_override = mat
+        # Keep the six original draw batches and authored SVG/bevels, but
+        # apply broad world-space illumination only to their floor surfaces.
+        draw.material_override = BaseFloorLighting.deck_material(mat)
         draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         floor.add_child(draw)
     return panels
@@ -363,6 +366,10 @@ func _build_hangar() -> void:
         Vector3(256.0, 0.30, 256.0), Color("#12171b"))
     var panels: Array[Dictionary] = _create_grid_plates(floor)
     BaseFloorDetail.decorate(floor, panels)
+    # Two small instanced batches: facility contact shade and floor bounce.
+    # They are separate FX and never enter the visible-mesh-ID outline pass.
+    BaseFloorLighting.add_floor_accents(
+        floor, NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS)
     # Keep legacy decorative models away from interactive equipment footprints.
     # Decorative Blockbench props occupy the frame edges, never machinery
     # foundations or raw touch pick volumes in the orthographic composition.
