@@ -27,6 +27,7 @@ const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
 const DisplayProfile = preload("res://scripts/sera_display_profile.gd")
 const NexusSelectionOutline = preload("res://scripts/nexus_selection_outline.gd")
 const CUSTOMIZE_BACKDROP_SHADER = preload("res://shaders/nexus_customize_radial_glow.gdshader")
+const NEXUS_PREVIEW_BACKDROP_COLOR: Color = Color("#afc4d1")
 const NEXUS_EDGE_SHADER = preload("res://shaders/nexus_polygon_edges.gdshader")
 const NEXUS_EDGE_WIDTH_PIXELS: float = 2.0
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
@@ -348,7 +349,7 @@ func _environment() -> void:
     var world := WorldEnvironment.new()
     var env := Environment.new()
     env.background_mode = Environment.BG_COLOR
-    env.background_color = Color("#0a0e18")
+    env.background_color = NEXUS_PREVIEW_BACKDROP_COLOR
     env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
     env.ambient_light_color = Color("#8190b2")
     env.ambient_light_energy = 0.85
@@ -1728,7 +1729,7 @@ func _create_single_part_preview() -> void:
     customize_part_preview_fullscreen_layer.mouse_filter = Control.MOUSE_FILTER_STOP
     customize_part_preview_fullscreen_layer.z_index = 90
     var fullscreen_style := StyleBoxFlat.new()
-    fullscreen_style.bg_color = Color("#263f4d")
+    fullscreen_style.bg_color = NEXUS_PREVIEW_BACKDROP_COLOR
     customize_part_preview_fullscreen_layer.add_theme_stylebox_override(
         "panel", fullscreen_style)
     customize_part_preview_fullscreen_layer.visible = false
@@ -3276,10 +3277,10 @@ func _create_customization_glow() -> void:
     quad.size = Vector2.ONE
     var material := ShaderMaterial.new()
     material.shader = CUSTOMIZE_BACKDROP_SHADER
-    material.set_shader_parameter("base_tint", Color("#294755"))
-    material.set_shader_parameter("grid_tint", Color("#193241"))
-    material.set_shader_parameter("grid_strength", 0.77)
-    material.set_shader_parameter("base_opacity", 0.96)
+    material.set_shader_parameter("base_tint", NEXUS_PREVIEW_BACKDROP_COLOR)
+    material.set_shader_parameter("grid_tint", Color("#7894a3"))
+    material.set_shader_parameter("grid_strength", 0.32)
+    material.set_shader_parameter("base_opacity", 1.0)
     var backdrop := MeshInstance3D.new()
     backdrop.name = "CustomizePortraitGridBackdrop"
     backdrop.mesh = quad
