@@ -1,14 +1,14 @@
 extends Node
-## Shared secondary pass for ONLY front/front convex hard corners.
-## The canonical RGB12 ID compositor remains the exclusive source of
-## silhouettes and disconnected-mesh contacts. One cached geometry per Mesh,
-## one instanced draw per role; never instantiate one draw node per prop.
+## Shared front-facing hard-corner pass: buildings have convex + concave
+## 1px; small clutter has convex-only 1px; actors have none.
+## RGB12 visible IDs retain ownership of silhouettes and mesh contacts.
+## Cache separately per mesh and signed-corner mode.
 const Crease = preload("res://scripts/sera_base_facility_crease_geometry.gd")
 const INK = preload("res://shaders/sera_scene_convex_ink.gdshader")
 const Standards = preload("res://scripts/sera_outline_standard.gd")
 
 var _draws: Dictionary = {}  # source-instance:style -> {source,draw,mesh,indices,dynamic}
-var _geometry_cache: Dictionary = {}  # mesh RID instance -> ArrayMesh
+var _geometry_cache: Dictionary = {}  # mesh ID + concave mode -> ArrayMesh
 var _materials: Dictionary = {}
 var _scale: Vector2 = Vector2.ONE
 var _id_texture: Texture2D
@@ -33,8 +33,8 @@ static func _style(role: int, scene_profile: int) -> int:
     if role != 2 and role != 3:
         return 0
     if scene_profile == 2:
-        return 1  # NEXUS inner solids: convex 1px
-    return 2 if role == 2 else 3 # BASE facility 2 / clutter 1
+        return 1 if role == 2 else 4  # NEXUS facility both / clutter convex
+    return 2 if role == 2 else 3  # BASE facility both / clutter convex
 
 
 func _material(style: int) -> ShaderMaterial:
@@ -44,16 +44,18 @@ func _material(style: int) -> ShaderMaterial:
     mat.shader = INK
     mat.render_priority = -29  # after visible RGB-ID ink (-30), before VFX
     mat.set_shader_parameter("ink_color",
-        Color("#17212f") if style == 1 else Color.BLACK)
-    var width_px: float = Standards.BASE_FACILITY_CONVEX_PX
+        Color("#17212f") if style == 1 or style == 4 else Color.BLACK)
+    var width_px: float = Standards.BASE_FACILITY_CORNER_PX
     if style == 1:
+        width_px = Standards.NEXUS_CORNER_PX
+    elif style == 4:
         width_px = Standards.NEXUS_CONVEX_PX
     elif style == 3:
         width_px = Standards.BASE_CLUTTER_CONVEX_PX
-    mat.set_shader_parameter("convex_width_px", width_px)
+    mat.set_shader_parameter("corner_width_px", width_px)
     mat.set_shader_parameter("output_px_per_render_pixel", _scale)
     mat.set_shader_parameter("outlines_enabled", true)
-    mat.set_shader_parameter("protect_emission", style != 1)
+    mat.set_shader_parameter("protect_emission", style != 1 and style != 4)
     if _id_texture != null:
         mat.set_shader_parameter("emissive_id_texture", _id_texture)
     _materials[style] = mat
@@ -74,12 +76,13 @@ func set_render_context(profile: int, texture: Texture2D,
             mat.set_shader_parameter("emissive_id_texture", _id_texture)
 
 
-func _cached_geometry(mesh: Mesh) -> ArrayMesh:
+func _cached_geometry(mesh: Mesh, include_concave: bool) -> ArrayMesh:
     if mesh == null:
         return null
-    var key: int = mesh.get_instance_id()
+    # Shared geometry may appear in both facility and clutter batches.
+    var key: String = "%d:%d" % [mesh.get_instance_id(), int(include_concave)]
     if not _geometry_cache.has(key):
-        _geometry_cache[key] = Crease.build_convex_only(mesh)
+        _geometry_cache[key] = Crease.build_corner_edges(mesh, include_concave)
     return _geometry_cache[key] as ArrayMesh
 
 
@@ -150,12 +153,13 @@ func sync_sources(desired: Dictionary, profile: int, texture: Texture2D,
 
         if instance_groups.is_empty():
             continue
-        var ribbon: ArrayMesh = _cached_geometry(source_mesh)
-        if ribbon == null:
-            continue
         for style_value in instance_groups.keys():
             var style: int = int(style_value)
             var selected: PackedInt32Array = instance_groups[style]
+            var ribbon: ArrayMesh = _cached_geometry(
+                source_mesh, style == 1 or style == 2)
+            if ribbon == null:
+                continue
             var key: String = "%d:%d" % [source.get_instance_id(), style]
             wanted[key] = true
             var existing: Dictionary = _draws.get(key, {})
