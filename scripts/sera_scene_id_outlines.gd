@@ -479,39 +479,12 @@ func set_stroke_px(px: float) -> void:
 
 # NEXUS keeps the proven RGB contact-ID mask, but composites the ink in
 # transparent 3D BEFORE the gate/glow effects instead of over them as Canvas.
+# Backwards-compatible entry point: selecting the old NEXUS contact mode
+# must NEVER turn on another ID palette, Canvas-only stencil, or shader.
+# It now selects only the canonical NEXUS numeric 1/2/2 and 2px widths.
 func set_nexus_sera_contact_mode(enabled: bool) -> void:
-    if enabled and _shared_scene_mode:
-        # Keep the proven RGB contact palette, not the generic RGB12 palette.
-        set_shared_scene_mode(false)
-    if _nexus_sera_contact_mode == enabled:
-        return
-    _nexus_sera_contact_mode = enabled
-    if is_instance_valid(ink):
-        var material: ShaderMaterial = ink.material as ShaderMaterial
-        material.shader = NEXUS_CONTACT_INK if enabled else INK
-        # Rebind all shared uniforms when replacing a shader resource.
-        material.set_shader_parameter("mesh_id_texture", id_viewport.get_texture())
-        material.set_shader_parameter("mesh_id_texel", Vector2(
-            1.0 / float(id_viewport.size.x), 1.0 / float(id_viewport.size.y)))
-        material.set_shader_parameter("ink_color", Color("#17212f"))
-        material.set_shader_parameter("stroke_px", _ink_stroke)
-        if enabled:
-            # NEXUS SERA: opaque 1px inside + 2px outside, strict
-            # 2px one-sided seams. Architecture ink remains unchanged at 2px.
-            material.set_shader_parameter("sera_inner_px", 1.0)
-            material.set_shader_parameter("sera_outer_px", 2.0)
-            material.set_shader_parameter("sera_seam_px", 2.0)
-            material.set_shader_parameter("sera_screen_bounds", Vector4.ZERO)
-    # Preserve the depth-resolved RGB contact mask and exact NEXUS widths.
-    # Only move ink composition ahead of transparent room/glow effects.
-    if enabled:
-        # Do not reintroduce the near-plane transparent 3D screen quad.
-        # Composite the same RGB-contact ID ink in CanvasLayer 1 instead.
-        _screen_material = null
-    if is_instance_valid(_screen_quad):
-        _screen_quad.visible = false
-    _clear_copies()
-    _scan_elapsed = 0.0
+    _nexus_sera_contact_mode = false
+    set_scene_profile(2 if enabled else 0)
 
 
 func _process(delta: float) -> void:
