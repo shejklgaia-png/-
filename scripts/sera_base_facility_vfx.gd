@@ -860,7 +860,7 @@ func _add_practical_lighting(key: String) -> void:
             # Exposed turbine has one elevated service lamp aimed directly
             # at its rotor; blue cabinet gaps are independent emissive slots.
             _directed_searchlight("RotorServiceSearchlight",
-                Vector3(-1.10, 3.19, 0.78),
+                Vector3(-1.10, 3.19, -0.22),
                 Vector3(-0.27, 1.43, 1.19),
                 Vector3(0.42, 0.20, 0.34), Color("#a9e7ff"),
                 1.65, 3.70, 37.0, 0.91, 0.22)
@@ -886,7 +886,7 @@ func _add_practical_lighting(key: String) -> void:
                 _directed_searchlight(
                     "LoadingBayLeftSearchlight" if side < 0.0
                     else "LoadingBayRightSearchlight",
-                    Vector3(side * 0.72, 2.83, 1.31),
+                    Vector3(side * 1.11, 2.79, 1.11),
                     Vector3(side * 0.70, 0.45, 1.78),
                     Vector3(0.46, 0.19, 0.36), Color("#ffdda6"),
                     1.65, 3.95, 35.0, 1.02, 0.26)
@@ -897,7 +897,7 @@ func _add_practical_lighting(key: String) -> void:
             # Separate tracking/recognition and collected-bin functions.
             # Both lamps visibly end at the same point the spot illuminates.
             _directed_searchlight("ScrapPickupSearchlight",
-                Vector3(-0.70, 3.17, 0.92),
+                Vector3(-0.38, 3.15, -0.18),
                 Vector3(0.23, 1.05, 0.23),
                 Vector3(0.41, 0.21, 0.36), Color("#b9e8ff"),
                 1.90, 3.65, 34.0, 1.05, 0.28)
@@ -916,7 +916,7 @@ func _add_practical_lighting(key: String) -> void:
             # Aim the gantry lamp down onto the fabrication bed. The warm
             # task light is distinct from the cool cyan indicator strips.
             _directed_searchlight("FabricationBedSearchlight",
-                Vector3(0.0, 3.06, 1.18),
+                Vector3(0.0, 3.12, -0.05),
                 Vector3(0.10, 1.13, 1.35),
                 Vector3(0.56, 0.23, 0.34), Color("#ffe3b8"),
                 1.48, 3.36, 37.0, 0.84, 0.22)
@@ -926,7 +926,7 @@ func _add_practical_lighting(key: String) -> void:
             # Aim the fixture at the actual interaction keys, not across
             # the terminal's holographic display or into empty space.
             _directed_searchlight("BlueprintConsoleSearchlight",
-                Vector3(-0.76, 2.94, 0.44),
+                Vector3(-0.76, 2.85, -0.16),
                 Vector3(0.0, 1.18, 0.79),
                 Vector3(0.44, 0.20, 0.33), Color("#acdfff"),
                 1.08, 3.18, 37.0, 0.80, 0.21)
@@ -937,7 +937,7 @@ func _add_practical_lighting(key: String) -> void:
             # A separate, mounted maintenance projector highlights the
             # front slag intake without replacing the flame reflection.
             _directed_searchlight("FurnaceServiceSearchlight",
-                Vector3(-1.02, 2.83, 1.31),
+                Vector3(-0.86, 2.73, 0.92),
                 Vector3(-0.25, 1.24, 1.18),
                 Vector3(0.38, 0.18, 0.31), Color("#ffd5a6"),
                 1.15, 3.25, 38.0, 0.82, 0.17)
