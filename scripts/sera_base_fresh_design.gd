@@ -230,16 +230,17 @@ static func _labo(g: Variant) -> void:
 static func _collector(g: Variant) -> void:
     # Small excavator arm on a rotating carriage; claw hangs above scrap skip.
     _pad(g, 2.33, 2.24)
-    # The original wide low pedestal crossed the left foundation rim:
-    # -0.78 - 1.13 / 2 = -1.345m, versus the slab's -1.165m edge.
-    # Keep its loaded bearing above, but pull the low pedestal fully inboard.
+    # Keep the low base inboard of the yellow edge and center its motor on
+    # the shifted upper slewing mechanism, not the old external footprint.
     g.poly("FreshCollectorTurntable", "cargo_case",
-        Vector3(-0.70, 0.65, -0.46),
+        Vector3(-0.70, 0.65, -0.46) + CollectorConveyor.CRANE_OFFSET,
         Vector3(0.78, 0.57, 0.90), "slate")
     g.poly("FreshCollectorWinchMotor", "bevel",
-        Vector3(-0.74, 1.08, -0.40), Vector3(0.83, 0.50, 0.72), "gold")
+        Vector3(-0.74, 1.08, -0.40) + CollectorConveyor.CRANE_OFFSET,
+        Vector3(0.83, 0.50, 0.72), "gold")
     g.box("FreshCollectorMotorGlow",
-        Vector3(-0.75, 1.10, 0.00), Vector3(0.39, 0.12, 0.07), "blue_light")
+        Vector3(-0.75, 1.10, 0.00) + CollectorConveyor.CRANE_OFFSET,
+        Vector3(0.39, 0.12, 0.07), "blue_light")
     g.poly("FreshCollectorSortPan", "hopper",
         Vector3(0.36, 0.66, 0.68), Vector3(1.78, 0.75, 1.36), "armor")
     # The generated hopper has an actual open throat; no flat cover slab.
@@ -261,7 +262,7 @@ static func _collector(g: Variant) -> void:
     # entire rig shares the same material-batched MultiMeshes as the belt.
     CollectorCrane.build(g)
     g.box("FreshCollectorHazardLamp",
-        Vector3(-0.99, 1.44, -0.21),
+        Vector3(-0.99, 1.44, -0.21) + CollectorConveyor.CRANE_OFFSET,
         Vector3(0.23, 0.19, 0.12), "amber_light")
 
 

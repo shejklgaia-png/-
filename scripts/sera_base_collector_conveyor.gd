@@ -9,8 +9,11 @@ const BELT_START_X: float = -5.70
 const BELT_PICKUP_X: float = -1.50
 const BELT_Z: float = 1.59
 const BELT_SPEED: float = 1.3548387  # 4.20m / 3.10s
-const PICKUP_ANGLE: float = -1.1519173063162575  # -66 degrees about Y
-const CRANE_PIVOT: Vector3 = Vector3(-0.78, 1.07, -0.48)
+# The physical slewing bearing, boom, hook and carried cargo share this
+# inboard offset. Keep the belt fixed; retarget pickup yaw to meet its gate.
+const CRANE_OFFSET: Vector3 = Vector3(0.18, 0.0, 0.08)
+const PICKUP_ANGLE: float = -1.2217304763960306  # -70 degrees
+const CRANE_PIVOT: Vector3 = Vector3(-0.78, 1.07, -0.48) + CRANE_OFFSET
 const HOIST_CABLE_LENGTH: float = 0.70
 
 static func phase_at(seconds: float) -> float:
@@ -155,9 +158,9 @@ static func build(g: Variant) -> void:
         Vector3(0.24, 0.14, 0.24), "edge")
     # Staged at the unslewed claw rest point; only displayed while held.
     g.poly_tilt("FreshCollectorCranePayload", "cargo_case",
-        Vector3(0.76, 1.19, 1.04),
+        Vector3(0.76, 1.19, 1.04) + CRANE_OFFSET,
         Vector3(0.46, 0.25, 0.41), "rust",
         Vector3(0.16, 0.22, 0.10))
     g.poly("FreshCollectorCranePayload", "gear",
-        Vector3(0.69, 1.33, 1.09),
+        Vector3(0.69, 1.33, 1.09) + CRANE_OFFSET,
         Vector3(0.24, 0.14, 0.24), "edge")
