@@ -35,7 +35,7 @@ def download(url: str, limit: int) -> bytes:
 
 
 def check_font(data: bytes, name: str) -> None:
-    if len(data) < 100 or data[:4] not in (b"OTTO", b"\\x00\\x01\\x00\\x00", b"true"):
+    if len(data) < 100 or data[:4] not in (b"OTTO", bytes((0, 1, 0, 0)), b"true"):
         raise RuntimeError("Invalid font signature: " + name)
 
 
