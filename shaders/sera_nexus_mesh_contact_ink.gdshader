@@ -1,5 +1,5 @@
 shader_type canvas_item;
-// NEXUS: 1px inner / 2px outer, fully opaque, depth-resolved silhouette.
+// NEXUS: 1px inner / 5px outer, fully opaque, depth-resolved silhouette.
 // Use an exact Euclidean pixel radius; no fractional grey anti-alias fringe.
 // Visible mesh-to-mesh contact seams are 1px, on one mesh only.
 // No obscured contours or camera-facing geometric convex creases are drawn.
@@ -11,7 +11,7 @@ uniform vec2 mesh_id_texel = vec2(0.0026041667, 0.0026041667);
 uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
 uniform float stroke_px : hint_range(1.0, 3.0) = 2.0; // NEXUS architecture
 uniform float sera_inner_px : hint_range(0.0, 3.0) = 1.0;
-uniform float sera_outer_px : hint_range(0.0, 3.0) = 2.0;
+uniform float sera_outer_px : hint_range(0.0, 8.0) = 5.0;
 uniform float sera_seam_px : hint_range(0.5, 3.0) = 1.0;
 // xmin, ymin, xmax, ymax in viewport UV; zero-sized when SERA absent.
 uniform vec4 sera_screen_bounds = vec4(0.0);
@@ -116,42 +116,73 @@ void fragment() {
         coverage = max(sera_coverage(inner_distance, sera_inner_px),
             sera_coverage(seam_distance, sera_seam_px));
     } else {
-        // The outer 2px is solid, using the same Euclidean pixel radius at
-        // every angle. Do not paint it over another visible architecture ID.
-        // Skip extra sampling outside the projected SERA screen bounds.
-        bool near_sera = UV.x >= sera_screen_bounds.x &&
-            UV.y >= sera_screen_bounds.y &&
-            UV.x <= sera_screen_bounds.z &&
-            UV.y <= sera_screen_bounds.w;
+        // Architecture ink keeps its original 2px eight-direction search.
+        // When an opaque room ID is present, SERA outside ink must NOT
+        // overdraw it, regardless of the SERA exterior radius.
         bool room = center_id.r >= 0.06;
-        if (near_sera || room) {
-            float outside_width = sera_outer_px;
-            float outside_distance = 99.0;
+        if (room) {
             float room_distance = 99.0;
             for (int radius = 1; radius <= 2; radius++) {
                 for (int direction = 0; direction < 8; direction++) {
                     vec2 offset = sample_offset(radius, direction);
                     float distance_px = length(offset);
-                    if (distance_px > max(stroke_px, outside_width) + 0.001) {
+                    if (distance_px > stroke_px + 0.001) {
                         continue;
                     }
-                    // Radius-2 diagonal distance sqrt(8) exceeds 2px.
-                    // Distances are already filtered by the radius above.
                     vec3 neighbor_id = id_at(UV + offset * mesh_id_texel);
-                    if (near_sera && !room && is_sera(neighbor_id)) {
-                        outside_distance = min(outside_distance, distance_px);
-                    }
-                    if (room && room_mismatch(center_id, neighbor_id)) {
+                    if (room_mismatch(center_id, neighbor_id)) {
                         room_distance = min(room_distance, distance_px);
                     }
                 }
-                if (room_distance <= 1.0 && (!near_sera ||
-                        outside_distance <= 1.0)) {
+                if (room_distance <= 1.0) {
                     break;
                 }
             }
-            coverage = max(solid_coverage(room_distance, stroke_px),
-                sera_coverage(outside_distance, outside_width));
+            coverage = solid_coverage(room_distance, stroke_px);
+        } else {
+            // The 5px SERA outline is an exact opaque Euclidean disk.
+            // Sample both mixed directions (1,2), (3,4), etc. Previous
+            // eight-direction-only sampling made a 5px stroke uneven.
+            // Work only inside the projected and padded SERA bounds.
+            bool near_sera = UV.x >= sera_screen_bounds.x &&
+                UV.y >= sera_screen_bounds.y &&
+                UV.x <= sera_screen_bounds.z &&
+                UV.y <= sera_screen_bounds.w;
+            if (near_sera) {
+                float radius_squared = sera_outer_px * sera_outer_px;
+                // Search nearest neighborhoods first and stop on the first
+                // visible SERA ID; all outside pixels are fully opaque.
+                for (int ring = 1; ring <= 5; ring++) {
+                    if (float(ring - 1) >= sera_outer_px) {
+                        break;
+                    }
+                    for (int dy = -5; dy <= 5; dy++) {
+                        if (abs(dy) > ring) {
+                            continue;
+                        }
+                        for (int dx = -5; dx <= 5; dx++) {
+                            if (max(abs(dx), abs(dy)) != ring) {
+                                continue;
+                            }
+                            int distance_squared = dx * dx + dy * dy;
+                            if (float(distance_squared) > radius_squared + 0.001) {
+                                continue;
+                            }
+                            vec2 offset = vec2(float(dx), float(dy));
+                            if (is_sera(id_at(UV + offset * mesh_id_texel))) {
+                                coverage = 1.0;
+                                break;
+                            }
+                        }
+                        if (coverage >= 1.0) {
+                            break;
+                        }
+                    }
+                    if (coverage >= 1.0) {
+                        break;
+                    }
+                }
+            }
         }
     }
     COLOR = vec4(ink_color.rgb, ink_color.a * coverage);
