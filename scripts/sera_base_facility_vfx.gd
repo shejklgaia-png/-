@@ -186,12 +186,13 @@ func setup(model: Node3D, key: String) -> void:
     _finish_soft_halos()
 
 func _queue_soft_halo(at: Vector3, span: Vector2, tint: Color,
-        opacity: float) -> void:
+        opacity: float, face_angles: Vector3 = Vector3.ZERO) -> void:
     if _soft_halos.size() >= MAX_SOFT_HALO_PATCHES:
         return
     _soft_halos.append({
-        "at": at, "span": span, "color": Color(
-            tint.r, tint.g, tint.b, clampf(opacity, 0.0, 0.60))
+        "at": at, "span": span, "angles": face_angles,
+        "color": Color(tint.r, tint.g, tint.b,
+            clampf(opacity, 0.0, 0.60))
     })
 
 
@@ -228,22 +229,30 @@ func _collect_authored_emission_halos() -> void:
     # Limit total translucent overdraw on Android overview scenes.
     var remaining: int = maxi(
         0, MAX_SOFT_HALO_PATCHES - _soft_halos.size())
+    # Prioritize real emitting architecture. Only after allocating every
+    # physical light core, fill remaining space with narrow white accents.
+    var ordered_sources: Array[MultiMeshInstance3D] = []
     for child in _model.get_children():
-        if remaining <= 0:
-            break
         var source: MultiMeshInstance3D = child as MultiMeshInstance3D
         if source == null or source.multimesh == null:
             continue
         var mat: StandardMaterial3D = source.material_override as StandardMaterial3D
-        if mat == null:
+        if mat != null and mat.emission_enabled:
+            ordered_sources.append(source)
+    for child in _model.get_children():
+        var source: MultiMeshInstance3D = child as MultiMeshInstance3D
+        if source == null or source.multimesh == null or (
+                not source.name.ends_with("_white")):
             continue
-        # The authored white thin strips are luminous details in the
-        # approved BASE view, even when they use a neutral steel material.
-        # Large white panels remain ordinary paint, never extra bloom.
+        var mat: StandardMaterial3D = source.material_override as StandardMaterial3D
+        if mat != null and not mat.emission_enabled:
+            ordered_sources.append(source)
+    for source in ordered_sources:
+        if remaining <= 0:
+            break
+        var mat: StandardMaterial3D = source.material_override as StandardMaterial3D
         var emissive: bool = mat.emission_enabled
-        var white_detail: bool = source.name.ends_with("_white")
-        if not emissive and not white_detail:
-            continue
+        var white_detail: bool = not emissive
         var many: int = source.multimesh.instance_count
         for i in range(many):
             var pose: Transform3D = source.multimesh.get_instance_transform(i)
@@ -266,12 +275,23 @@ func _collect_authored_emission_halos() -> void:
                 mat.emission if emissive else Color("#d6f1ff"))
             var thickness: float = (
                 1.8 if is_line else 1.55)
-            _queue_soft_halo(center + Vector3(
-                0.0, 0.0, depth * 0.50 + 0.035),
-                Vector2(clampf(width * thickness, 0.19, 2.35),
+            # Roof strips are flat on XZ. A standing XY glow quad would
+            # become hidden by their solid roof face in an overhead camera.
+            var roof_strip: bool = (height < 0.16 and depth >= 0.12 and
+                (width >= 0.30 or depth >= 0.30))
+            var center_light: Vector3 = center + (
+                Vector3(0.0, height * 0.50 + 0.035, 0.0) if roof_strip
+                else Vector3(0.0, 0.0, depth * 0.50 + 0.035))
+            var halo_span: Vector2 = (
+                Vector2(clampf(width * 1.65, 0.19, 2.35),
+                    clampf(depth * 1.8, 0.19, 1.48)) if roof_strip
+                else Vector2(clampf(width * thickness, 0.19, 2.35),
                     clampf(height * (2.6 if is_line else 2.25),
-                        0.19, 1.48)),
-                hue, 0.16 if is_line else 0.10)
+                        0.19, 1.48)))
+            _queue_soft_halo(center_light, halo_span, hue,
+                0.16 if is_line else 0.10,
+                Vector3(-PI * 0.5, 0.0, 0.0) if roof_strip
+                else Vector3.ZERO)
             remaining -= 1
             if remaining <= 0:
                 break
@@ -290,8 +310,10 @@ func _finish_soft_halos() -> void:
     for index in range(_soft_halos.size()):
         var halo: Dictionary = _soft_halos[index]
         var span: Vector2 = halo["span"]
+        var face_angles: Vector3 = halo["angles"]
         instances.set_instance_transform(index, Transform3D(
-            Basis().scaled(Vector3(span.x, span.y, 1.0)),
+            Basis.from_euler(face_angles).scaled(
+                Vector3(span.x, span.y, 1.0)),
             halo["at"]))
         instances.set_instance_custom_data(index, halo["color"])
     var batch := MultiMeshInstance3D.new()
