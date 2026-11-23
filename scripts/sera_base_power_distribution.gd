@@ -3,8 +3,10 @@ extends RefCounted
 ## GENERATOR control terminal, then to each consumer's exterior socket.
 ## Placement is seeded and stable, independent of time/frame rate.
 ## Solid equipment and cables use the same role-3 visible-ID ink as clutter:
-## inner 1px, outer 1px, contacts 2px. No added lights or GPU simulation.
+## inner 1px, outer 1px, contacts 1px, convex corners 1px.
+## No added lights or GPU simulation.
 const BaseClutter = preload("res://scripts/sera_base_clutter.gd")
+const BaseFacilityInk = preload("res://scripts/sera_base_facility_outlines.gd")
 const PowerBoard = preload("res://scripts/sera_base_power_board.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
 
@@ -178,6 +180,9 @@ static func _build_devices(parent: Node3D, items: Dictionary) -> void:
     }
     var cube := BoxMesh.new()
     cube.size = Vector3.ONE
+    # A single 1px convex-angle pass across all non-emissive substation
+    # housings, plugs and breaker modules; no per-box overlay meshes.
+    var solid_crease_poses: Array = []
     for palette in colors.keys():
         var transforms: Array = items[palette]
         if transforms.is_empty():
@@ -191,6 +196,8 @@ static func _build_devices(parent: Node3D, items: Dictionary) -> void:
         for i in range(transforms.size()):
             var pose: Transform3D = transforms[i]
             multi.set_instance_transform(i, pose)
+            if palette != "light":
+                solid_crease_poses.append(pose)
             low = low.min(pose.origin - Vector3(1.2, 1.2, 1.2))
             high = high.max(pose.origin + Vector3(1.2, 1.2, 1.2))
         multi.custom_aabb = AABB(low, high - low)
@@ -210,6 +217,23 @@ static func _build_devices(parent: Node3D, items: Dictionary) -> void:
             draw.set_meta("sera_outline_occluder_only", true)
             draw.set_meta("sera_outline_emissive_protect", true)
         parent.add_child(draw)
+    var corner_mesh: ArrayMesh = BaseFacilityInk.crease_for("cube", cube)
+    if corner_mesh != null and not solid_crease_poses.is_empty():
+        var corners := MultiMesh.new()
+        corners.transform_format = MultiMesh.TRANSFORM_3D
+        corners.mesh = corner_mesh
+        corners.instance_count = solid_crease_poses.size()
+        for i in range(solid_crease_poses.size()):
+            corners.set_instance_transform(i, solid_crease_poses[i])
+        var ink := MultiMeshInstance3D.new()
+        ink.name = "PowerDistributorConvex1px"
+        ink.multimesh = corners
+        ink.material_override = BaseFacilityInk.clutter_crease_material()
+        ink.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        ink.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+        ink.extra_cull_margin = 0.20
+        ink.set_meta("FX_NO_OUTLINE", true)
+        parent.add_child(ink)
 
 
 static func _cable_curve(from_at: Vector3, to_at: Vector3,
