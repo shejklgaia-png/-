@@ -230,8 +230,12 @@ static func _labo(g: Variant) -> void:
 static func _collector(g: Variant) -> void:
     # Small excavator arm on a rotating carriage; claw hangs above scrap skip.
     _pad(g, 2.33, 2.24)
-    g.poly("FreshCollectorTurntable", "bevel",
-        Vector3(-0.78, 0.65, -0.48), Vector3(1.13, 0.57, 1.10), "slate")
+    # The original wide low pedestal crossed the left foundation rim:
+    # -0.78 - 1.13 / 2 = -1.345m, versus the slab's -1.165m edge.
+    # Keep its loaded bearing above, but pull the low pedestal fully inboard.
+    g.poly("FreshCollectorTurntable", "cargo_case",
+        Vector3(-0.70, 0.65, -0.46),
+        Vector3(0.78, 0.57, 0.90), "slate")
     g.poly("FreshCollectorWinchMotor", "bevel",
         Vector3(-0.74, 1.08, -0.40), Vector3(0.83, 0.50, 0.72), "gold")
     g.box("FreshCollectorMotorGlow",
