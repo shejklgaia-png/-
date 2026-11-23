@@ -140,19 +140,81 @@ func sample_at(seconds: float) -> void:
                         pose.basis = rest.basis.scaled_local(
                             Vector3(1.0, progress, 1.0))
                 "SCRAP_COLLECTOR":
-                    var hoist: float = 0.16 * sin(time * 1.17)
-                    var sway: float = 0.06 * sin(time * 0.70)
-                    if feature == "FreshCollectorSuspendedCable":
-                        pose.origin += _at(Vector3(sway * 0.5, hoist * 0.5, 0))
-                        pose.basis = rest.basis.scaled_local(
-                            Vector3(1.0, 1.0 - hoist / 0.70, 1.0))
-                    else:
-                        pose.origin += _at(Vector3(sway, hoist, 0))
-                        if feature == "FreshCollectorOpenGrip":
-                            var grip: float = 0.20 * sin(time * 1.17 + 0.7)
-                            var side: float = -1.0 if i % 2 == 0 else 1.0
-                            pose.basis = Basis(
-                                _axis(Vector3.FORWARD), grip * side) * rest.basis
+                    if feature in CRANE_SLEW_FEATURES:
+                        # All sculpted upper boom parts share one genuine
+                        # turntable pivot, including their hydraulic plumbing.
+                        pose = _spin_about(rest, crane_center,
+                            _axis(Vector3.UP), crane_slew)
+                    elif feature == "FreshCollectorConveyorFlight":
+                        # A moving wide tread pattern on the static belt.
+                        var belt_local: Vector3 = Basis(
+                            Vector3.UP, -_body_yaw) * rest.origin / _model_scale
+                        var belt_span: float = (
+                            CollectorConveyor.BELT_PICKUP_X -
+                            CollectorConveyor.BELT_START_X)
+                        var shifted: float = fposmod(
+                            belt_local.x - CollectorConveyor.BELT_START_X +
+                            time * CollectorConveyor.BELT_SPEED, belt_span)
+                        pose.origin += _at(Vector3(
+                            CollectorConveyor.BELT_START_X + shifted -
+                            belt_local.x, 0.0, 0.0))
+                    elif feature == "FreshCollectorPickupScrap":
+                        # One parcel rides in from screen left and waits at
+                        # the pickup gate. The carried parcel replaces it.
+                        var advance: float = (
+                            CollectorConveyor.BELT_PICKUP_X -
+                            CollectorConveyor.BELT_START_X) * clampf(
+                            crane_phase / 3.10, 0.0, 1.0)
+                        pose.origin += _at(Vector3(advance, 0.0, 0.0))
+                        if crane_phase >= 3.52:
+                            pose.basis = rest.basis.scaled_local(
+                                Vector3.ONE * 0.0001)
+                    elif feature in ["FreshCollectorSuspendedCable",
+                            "FreshCollectorClawHead",
+                            "FreshCollectorJawHinge", "FreshCollectorOpenGrip",
+                            "FreshCollectorCranePayload"]:
+                        # Hook, jaws and payload inherit the boom's real yaw.
+                        pose = _spin_about(rest, crane_center,
+                            _axis(Vector3.UP), crane_slew)
+                        if feature == "FreshCollectorSuspendedCable":
+                            # Cable top stays attached to the final sheave:
+                            # only its lower end follows the hoisting winch.
+                            pose.origin += _at(
+                                Vector3(0.0, crane_lift * 0.5, 0.0))
+                            pose.basis = pose.basis.scaled_local(
+                                Vector3(1.0,
+                                    (CollectorConveyor.HOIST_CABLE_LENGTH -
+                                    crane_lift) /
+                                    CollectorConveyor.HOIST_CABLE_LENGTH,
+                                    1.0))
+                        else:
+                            pose.origin += _at(Vector3(0.0, crane_lift, 0.0))
+                            if feature == "FreshCollectorOpenGrip":
+                                # Two submeshes per jaw share the actual pin.
+                                var side: float = (
+                                    -1.0 if i % 2 == 0 else 1.0)
+                                var row: float = (
+                                    -1.0 if posmod(i, 4) < 2 else 1.0)
+                                var jaw_pin := Vector3(
+                                    0.76 + side * 0.24, 1.72,
+                                    1.04 + row * 0.21)
+                                var jaw_world: Vector3 = (
+                                    crane_center + crane_rotation *
+                                    (_at(jaw_pin) - crane_center) +
+                                    _at(Vector3(0.0, crane_lift, 0.0)))
+                                pose = _spin_about(pose, jaw_world,
+                                    crane_rotation * _axis(Vector3.FORWARD),
+                                    side * crane_grip)
+                            elif feature == "FreshCollectorCranePayload":
+                                # Never show two copies at the handoff.
+                                # Once released, fall into the real hopper.
+                                if crane_phase < 3.52 or crane_phase >= 6.54:
+                                    pose.basis = rest.basis.scaled_local(
+                                        Vector3.ONE * 0.0001)
+                                elif crane_phase > 6.14:
+                                    pose.origin += _at(Vector3(0.0,
+                                        -0.42 * smoothstep(
+                                            6.14, 6.54, crane_phase), 0.0))
                 "SMELTER":
                     if feature == "FreshSmelterFlameTongue":
                         # Irregular phase offsets prevent all four heat tongues
