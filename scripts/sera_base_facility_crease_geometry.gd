@@ -170,9 +170,9 @@ static func build_convex_only(mesh: Mesh) -> ArrayMesh:
         var nb: Vector3 = edge["face_b"]
         if tangent.dot(na.cross(nb)) * outward_sign <= 0.00001:
             continue
-        # The existing front/front shader expects its two inward normals
-        # in COLOR.rgb and CUSTOM0.xyz, with COLOR.a as hard crease flag.
-        # Copy the legacy mesh encoding exactly to preserve mobile depth.
+        # The convex-only shader expects the two OUTWARD normals in
+        # COLOR.rgb and CUSTOM0.xyz. The hard-crease bit is COLOR.a.
+        # Its depth-tested ribbons cannot draw a separate mesh boundary.
         var a_out: Vector3 = na * outward_sign
         var b_out: Vector3 = nb * outward_sign
         var face_a := Color(a_out.x * 0.5 + 0.5,
