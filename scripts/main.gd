@@ -1316,7 +1316,8 @@ func _build_camera() -> void:
     camera_target_render_position = target.global_position
     camera_focus_follow_xz = _desired_camera_follow_focus_xz()
     camera.keep_aspect = Camera3D.KEEP_HEIGHT
-    camera.fov = DisplayProfile.vertical_fov(61.0,
+    camera.fov = DisplayProfile.vertical_fov(
+        DisplayProfile.COMBAT_REFERENCE_VERTICAL_FOV,
         get_viewport().get_visible_rect().size)  # Original horizontal framing
     camera.near = 0.08
     camera.far = 200.0
