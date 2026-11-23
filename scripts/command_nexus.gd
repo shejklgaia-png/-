@@ -4564,9 +4564,9 @@ func _tap_at(point: Vector2) -> void:
             if _polygon_bounds(poly).grow(9.0).has_point(point):
                 _select_target(candidate)
                 return
-    # Overview has no nested menu. A tap on non-selectable surroundings
-    # returns to the outdoor base, matching the Android Back hierarchy.
-    _navigate_back()
+    # Ignore taps on non-interactive room geometry or empty floor.
+    # Exiting NEXUS requires the explicit EXIT TO BASE control or Android Back.
+    return
 
 func _enter_base() -> void:
     if camera_angle_editor != null and camera_angle_editor.active:
