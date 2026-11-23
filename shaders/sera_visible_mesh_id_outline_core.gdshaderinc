@@ -31,7 +31,15 @@ vec3 sera_sample_visible_id(vec2 uv) {
     if (uv.x < 0.0 || uv.x >= 1.0 || uv.y < 0.0 || uv.y >= 1.0) {
         return vec3(0.0);
     }
-    return texture(mesh_id_texture, uv).rgb;
+    // Sample the exact integer ID texel. Spatial SCREEN_UV and CanvasItem
+    // UV can have slightly different fractional centers after scaling, and
+    // float UV/nearest sampling around a mesh seam can switch between two
+    // IDs at different boundaries. texelFetch has no filtering, mip or
+    // half-texel sampling ambiguity and uses the target's TRUE dimensions.
+    ivec2 id_size = textureSize(mesh_id_texture, 0);
+    ivec2 pixel = clamp(ivec2(floor(uv * vec2(id_size))),
+        ivec2(0), id_size - ivec2(1));
+    return texelFetch(mesh_id_texture, pixel, 0).rgb;
 }
 
 int sera_role_of(vec3 id_value) {

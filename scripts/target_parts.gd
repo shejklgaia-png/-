@@ -204,6 +204,11 @@ func _add_part(id: String, display: String, center: Vector3,
         color: Color) -> void:
     var pivot := Node3D.new()
     pivot.name = id
+    # Only the moving VirtualTarget body is physics interpolated.
+    # The hit wobble below runs per-render-frame and must not create a
+    # second interpolation history on each articulated head/leg pivot.
+    # Godot still propagates the parent's interpolated world transform.
+    pivot.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
     pivot.position = center
     add_child(pivot)
     var shell: StandardMaterial3D = _make_material(color)
