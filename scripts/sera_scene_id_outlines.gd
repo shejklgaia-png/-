@@ -4,7 +4,6 @@ extends Control
 ## foreground VFX. One shared ID viewport, no CPU pixel reads or source edits.
 # Reuse the proven IRIS resources, with no reimplementation of their code.
 const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
-const BaseFacilityInk = preload("res://scripts/sera_base_facility_outlines.gd")
 const ID_CLOSED = preload("res://shaders/sera_iris_mesh_id_closed.gdshader")
 const ID_OPEN = preload("res://shaders/sera_iris_mesh_id_open.gdshader")
 const MULTI_ID_CLOSED = preload("res://shaders/sera_scene_multimesh_iris_id_closed.gdshader")
@@ -14,8 +13,9 @@ const NEXUS_CONTACT_INK = preload("res://shaders/sera_nexus_mesh_contact_ink.gds
 const NEXUS_SPATIAL_INK = preload("res://shaders/sera_nexus_mesh_contact_spatial_ink.gdshader")
 const NEXUS_CONTACT_CLOSED = preload("res://shaders/sera_nexus_mesh_contact_closed.gdshader")
 const NEXUS_CONTACT_OPEN = preload("res://shaders/sera_nexus_mesh_contact_open.gdshader")
-const SHARED_INK = preload("res://shaders/sera_scene_visible_ink_3d.gdshader")
-const BITTARAN_ID_INK = preload("res://shaders/sera_bittaran_visible_mesh_id_ink.gdshader")
+const SHARED_INK = preload("res://shaders/sera_bittaran_visible_mesh_id_ink.gdshader")
+# Same Shader resource, not a visually similar replacement.
+const BITTARAN_ID_INK = SHARED_INK
 const SHARED_CANVAS_INK = preload("res://shaders/sera_scene_visible_ink_canvas.gdshader")
 const SHARED_ID_CLOSED = preload("res://shaders/sera_scene_visible_id_closed.gdshader")
 const SHARED_ID_OPEN = preload("res://shaders/sera_scene_visible_id_open.gdshader")
@@ -59,6 +59,8 @@ var _shared_scene_mode: bool = false
 # Only the Bittaran battle uses a 3px outside / 2px mesh-ID contact shader.
 # Shared ID depth/camera/copies remain identical to other combat scenes.
 var _bittaran_id_mode: bool = false
+# Only numeric widths vary: 0=BASE/normal/preview, 1=Bittaran, 2=NEXUS.
+var _requested_scene_profile: int = 0
 # In combat, read the interpolated render pose only from late _process.
 # The Bittaran battle and the articulated SERA rig finish their own _process
 # before our process_priority=10000. Capturing at frame_pre_draw happened
@@ -159,17 +161,14 @@ func _refresh_combat_viewport_mode() -> void:
     # existing scheduling to avoid changing preview/BASE behavior.
     # Let player, boss, authored joints and camera finish their idle-frame
     # updates before copying their displayed (interpolated) source poses.
-    process_priority = 10000 if combat else 0
+    process_priority = 10000 # Final _process sync for every 3D scene.
     if not is_instance_valid(id_viewport):
         return
     if _root_refs.is_empty():
         id_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
-    elif combat:
-        # UPDATE_ONCE requests the NEXT frame, causing visible contours to
-        # trail an actor whose physics-interpolated pose changes this frame.
-        id_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
     else:
-        id_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+        # Bittaran's continuous RGB12 ID rendering in every active viewport.
+        id_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 
 
 func get_outline_metrics() -> Dictionary:
@@ -196,6 +195,8 @@ func get_outline_metrics() -> Dictionary:
                 NEXUS_CONTACT_INK if _nexus_sera_contact_mode else
                 (SHARED_CANVAS_INK if _part_preview_canvas_mode else INK))),
         "bittaran_mesh_id_mode": _bittaran_id_mode,
+        "canonical_id_shader": true,
+        "scene_width_profile": _active_scene_profile(),
         "bittaran_pose_frame": _bittaran_pose_frame,
         "bittaran_pose_dirty_frame": _bittaran_pose_dirty_frame,
         "shared_vfx_safe_3d_ink": _shared_scene_mode,
@@ -291,9 +292,10 @@ func set_shared_scene_mode(enabled: bool) -> void:
     _shared_scene_mode = enabled
     if enabled:
         _screen_material = ShaderMaterial.new()
-        _screen_material.shader = (
-            BITTARAN_ID_INK if _bittaran_id_mode else SHARED_INK)
+        _screen_material.shader = SHARED_INK
         _screen_material.render_priority = -30
+        _screen_material.set_shader_parameter(
+            "scene_profile", _active_scene_profile())
         _screen_material.set_shader_parameter(
             "mesh_id_texture", id_viewport.get_texture())
         _screen_material.set_shader_parameter("mesh_id_texel", Vector2(
@@ -321,14 +323,14 @@ func set_shared_scene_mode(enabled: bool) -> void:
     _scan_elapsed = 0.0
 
 
-# The only Bittaran ID pose commit is made from this late idle-frame
-# callback, *after* the source rig and Bittaran camera _process handlers.
+# The SAME ID pose commit is made from late _process in every 3D scene,
+# after each scene's original camera and articulated model handlers.
 # Capture camera projection, shake offsets and every actor's interpolated
 # render transform in one consecutive pass, before either viewport renders.
 # The ID target stays UPDATE_ALWAYS and the completed-frame SubViewport
 # continues presenting the combined image through its existing dependency.
 # This fixes mismatched CPU sampling times, not a possible GPU texture lag.
-func _commit_bittaran_render_pose(
+func _commit_visible_render_pose(
         source_camera: Camera3D, mesh_changed: bool) -> void:
     var frame: int = Engine.get_process_frames()
     if _bittaran_pose_frame == frame:
@@ -348,26 +350,33 @@ func _commit_bittaran_render_pose(
 # Select the dedicated Bittaran ID-contacts compositor without changing the
 # shared-ID source pass, depth resolve or the other scenes' shader settings.
 # This is intentionally NOT a topology-based convex/crease detector.
+func _active_scene_profile() -> int:
+    return 1 if _bittaran_id_mode else _requested_scene_profile
+
+
+func set_scene_profile(profile: int) -> void:
+    # Only numeric widths/color vary: same shader, RGB IDs and pose pipeline.
+    var requested: int = clampi(profile, 0, 2)
+    if _requested_scene_profile == requested:
+        return
+    _requested_scene_profile = requested
+    if _screen_material != null:
+        _screen_material.set_shader_parameter(
+            "scene_profile", _active_scene_profile())
+        _refresh_shared_ink_color()
+    _scan_elapsed = 0.0
+
+
 func set_bittaran_id_mode(enabled: bool) -> void:
     if _bittaran_id_mode == enabled:
         return
     _bittaran_id_mode = enabled
-    # Never register a render-server signal here: all interpolation reads
-    # now happen in the final regular _process for the active combat scene.
     _bittaran_pose_frame = -1
     _bittaran_pose_dirty_frame = -1
-    if _shared_scene_mode and _screen_material != null:
-        _screen_material.shader = (
-            BITTARAN_ID_INK if enabled else SHARED_INK)
+    if _screen_material != null:
         _screen_material.set_shader_parameter(
-            "mesh_id_texture", id_viewport.get_texture())
-        _screen_material.set_shader_parameter("mesh_id_texel", Vector2(
-            1.0 / float(id_viewport.size.x),
-            1.0 / float(id_viewport.size.y)))
-        _screen_material.set_shader_parameter("ink_color", Color("#17212f"))
-        _set_shared_screen_bounds(Vector4.ZERO)
+            "scene_profile", _active_scene_profile())
         _refresh_shared_ink_color()
-    # Force a fresh projected bound/ID redraw on mode transition.
     _scan_elapsed = 0.0
     _last_camera_projection = -1
 
@@ -410,26 +419,14 @@ func _refresh_shared_ink_color() -> void:
                 "sera_graphics_outline_category", "")) == "base":
             base_scene = true
             break
-    # BASE silhouette/contacts are pure black. Battle and previews retain
-    # the #17212F ink; there is no change to NEXUS's Canvas compositor.
+    # BASE keeps black ink, NEXUS keeps blue-grey. Color only, same shader.
+    base_scene = base_scene and _active_scene_profile() != 2
     _screen_material.set_shader_parameter(
         "ink_color", Color.BLACK if base_scene else Color("#17212f"))
-    # Keep standard silhouette ink solid black except within 2 rendered
-    # pixels of an emissive ID=7 surface. No extra mask or viewport.
-    if _shared_scene_mode:
-        _screen_material.set_shader_parameter(
-            "emissive_contact_alpha", 0.45 if base_scene else 1.0)
-        # Bind the SAME ID viewport to physical 2px front creases. Both ink
-        # passes now fade only beside real protected emission pixels.
-        var crease_material: ShaderMaterial = BaseFacilityInk.crease_material()
-        crease_material.set_shader_parameter(
-            "emissive_mask_enabled", base_scene)
-        if base_scene:
-            crease_material.set_shader_parameter(
-                "emissive_id_texture", id_viewport.get_texture())
-            crease_material.set_shader_parameter("emissive_id_texel",
-                Vector2(1.0 / float(id_viewport.size.x),
-                    1.0 / float(id_viewport.size.y)))
+    # The reserved ID role 7 keeps emitter protection in the SINGLE ink
+    # shader. No physical crease material is created or updated.
+    _screen_material.set_shader_parameter(
+        "emissive_contact_alpha", 0.45 if base_scene else 1.0)
 
 
 func register_root(root: Node3D, owner: Node) -> void:
@@ -461,6 +458,7 @@ func unregister_root(owner: Node) -> void:
         _shared_scene_mode = false
         _nexus_sera_contact_mode = false
         _bittaran_id_mode = false
+        _requested_scene_profile = 0
         _bittaran_pose_frame = -1
         _bittaran_pose_dirty_frame = -1
         _screen_material = null
@@ -481,39 +479,12 @@ func set_stroke_px(px: float) -> void:
 
 # NEXUS keeps the proven RGB contact-ID mask, but composites the ink in
 # transparent 3D BEFORE the gate/glow effects instead of over them as Canvas.
+# Backwards-compatible entry point: selecting the old NEXUS contact mode
+# must NEVER turn on another ID palette, Canvas-only stencil, or shader.
+# It now selects only the canonical NEXUS numeric 1/2/2 and 2px widths.
 func set_nexus_sera_contact_mode(enabled: bool) -> void:
-    if enabled and _shared_scene_mode:
-        # Keep the proven RGB contact palette, not the generic RGB12 palette.
-        set_shared_scene_mode(false)
-    if _nexus_sera_contact_mode == enabled:
-        return
-    _nexus_sera_contact_mode = enabled
-    if is_instance_valid(ink):
-        var material: ShaderMaterial = ink.material as ShaderMaterial
-        material.shader = NEXUS_CONTACT_INK if enabled else INK
-        # Rebind all shared uniforms when replacing a shader resource.
-        material.set_shader_parameter("mesh_id_texture", id_viewport.get_texture())
-        material.set_shader_parameter("mesh_id_texel", Vector2(
-            1.0 / float(id_viewport.size.x), 1.0 / float(id_viewport.size.y)))
-        material.set_shader_parameter("ink_color", Color("#17212f"))
-        material.set_shader_parameter("stroke_px", _ink_stroke)
-        if enabled:
-            # NEXUS SERA: opaque 1px inside + 2px outside, strict
-            # 2px one-sided seams. Architecture ink remains unchanged at 2px.
-            material.set_shader_parameter("sera_inner_px", 1.0)
-            material.set_shader_parameter("sera_outer_px", 2.0)
-            material.set_shader_parameter("sera_seam_px", 2.0)
-            material.set_shader_parameter("sera_screen_bounds", Vector4.ZERO)
-    # Preserve the depth-resolved RGB contact mask and exact NEXUS widths.
-    # Only move ink composition ahead of transparent room/glow effects.
-    if enabled:
-        # Do not reintroduce the near-plane transparent 3D screen quad.
-        # Composite the same RGB-contact ID ink in CanvasLayer 1 instead.
-        _screen_material = null
-    if is_instance_valid(_screen_quad):
-        _screen_quad.visible = false
-    _clear_copies()
-    _scan_elapsed = 0.0
+    _nexus_sera_contact_mode = false
+    set_scene_profile(2 if enabled else 0)
 
 
 func _process(delta: float) -> void:
@@ -549,30 +520,22 @@ func _process(delta: float) -> void:
         _sync_screen_quad(source_camera)
     elif is_instance_valid(_screen_quad):
         _screen_quad.visible = false
-    # Bittaran captures the final animated/render-interpolated pose at
-    # process priority 10000. Never read a second set of transforms from
-    # RenderingServer.frame_pre_draw. Other screens keep their established
-    # dirty-only ID update path, without changing their rendered behavior.
+    # Exactly the Bittaran late _process pose capture for each shared-ID
+    # scene; the part preview only differs in how the final pixels are shown.
     var dirty: bool = false
-    if not _bittaran_id_mode:
-        dirty = _sync_camera(source_camera)
     _scan_elapsed -= delta
     if _scan_elapsed <= 0.0:
         _scan_elapsed = SCAN_INTERVAL
-        dirty = _rescan() or dirty
-    if _bittaran_id_mode:
-        _commit_bittaran_render_pose(source_camera, dirty)
+        dirty = _rescan()
+    if _shared_scene_mode:
+        _commit_visible_render_pose(source_camera, dirty)
     else:
+        dirty = _sync_camera(source_camera) or dirty
         dirty = _sync_copies() or dirty
         if dirty:
-            if _shared_scene_mode:
-                _update_shared_screen_bounds(source_camera)
-            elif _nexus_sera_contact_mode:
+            if _nexus_sera_contact_mode:
                 _update_nexus_sera_screen_bounds(source_camera)
-            # Normal combat's continuously rendered ID target remains active.
-            # All non-combat viewports keep the existing dirty-only redraw.
-            if not _combat_scene_mode:
-                id_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
+            id_viewport.render_target_update_mode = SubViewport.UPDATE_ONCE
             _redraw_requests += 1
 
 
@@ -723,10 +686,6 @@ func _sync_camera(source_camera: Camera3D) -> bool:
         if _screen_material != null:
             _screen_material.set_shader_parameter("mesh_id_texel", Vector2(
                 1.0 / float(desired.x), 1.0 / float(desired.y)))
-        if _shared_scene_mode:
-            BaseFacilityInk.crease_material().set_shader_parameter(
-                "emissive_id_texel", Vector2(
-                    1.0 / float(desired.x), 1.0 / float(desired.y)))
         dirty = true
     if _last_camera != source_camera.global_transform or (
             _last_camera_fov != source_camera.fov) or (

@@ -4,10 +4,6 @@ extends Node3D
 const Modules = preload("res://assets/base_command_modules.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
-const LiveMeshEdges = preload("res://scripts/sera_nexus_live_mesh_edges.gd")
-const DepthHullOutline = preload(
-    "res://scripts/sera_nexus_depth_hull_outline.gd")
-const StencilHull = preload("res://scripts/sera_nexus_stencil_hull.gd")
 const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const TrainingDefaults = preload("res://scripts/training_defaults.gd")
@@ -30,16 +26,12 @@ const CUSTOMIZE_BACKDROP_SHADER = preload("res://shaders/nexus_customize_radial_
 const NEXUS_PREVIEW_BACKDROP_COLOR: Color = Color("#afc4d1")
 # Room fallback only; keep the bright equipment-preview backdrop unchanged.
 const NEXUS_ROOM_BACKDROP_COLOR: Color = Color("#17212c")
-const NEXUS_EDGE_SHADER = preload("res://shaders/nexus_polygon_edges.gdshader")
-const NEXUS_EDGE_WIDTH_PIXELS: float = 2.0
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 
 const GATE_ORIGIN: Vector3 = Vector3(5.10, 0.02, -15.50)
 const SERA_STAGE_ORIGIN: Vector3 = Vector3(0.0, 0.0, -4.75)
 
 var batch_data: Dictionary = {}
-# Native geometry overlays; no architectural lines are rendered by an ID viewport.
-var nexus_native_edge_sources: Array[GeometryInstance3D] = []
 var hud: Control
 var cam: Camera3D
 var outline: Control
@@ -317,16 +309,16 @@ func _ready() -> void:
     _render_batches()
     _deployment_gate_lightspill()
     _pad_center()
-    # Preserve the NEXUS architecture's authored 2px corners and light
-    # silhouette passes while shading the actual opaque mesh surfaces.
+    # All NEXUS architecture and SERA contours now use the exact Bittaran
+    # RGB12 visible-ID pass. Only the pre-existing 2px/1-2-2 widths differ.
     SharedMaterialShading.apply_to_subtree(self)
     _sera_display()
     _camera()
-    # The only retained ID viewport belongs to the displayed SERA. The room
-    # is native depth-tested geometry; its ID copies are occluders, not ink.
+    # One RGB12 ID viewport for the entire NEXUS (architecture + SERA).
+    # The numeric preset preserves architecture 2px and SERA 1/2/2.
     var id_outline := SeraViewEdges.new()
     id_outline.name = "ViewEdges"
-    id_outline.set_nexus_sera_contact_mode(true)
+    id_outline.set_outline_profile(2)
     id_outline.set_stroke_px(2.0)
     add_child(id_outline)
     _create_customization_glow()
@@ -535,38 +527,9 @@ func _mat(index: int) -> StandardMaterial3D:
         mat.emission_energy_multiplier = 1.05 if index == 7 else 1.75
     return mat
 
-# Opaque NEXUS architecture uses the original 3D geometry's depth-tested
-# 2px overlay. There is no room-edge postprocess, ID ink or second viewport.
-# Keep SeraRig and its visible-mesh-ID contour strictly separate.
-func _nexus_edge_material(geometry_mode: int = 0) -> ShaderMaterial:
-    var edge := ShaderMaterial.new()
-    edge.shader = NEXUS_EDGE_SHADER
-    edge.render_priority = RENDER_ORDER.NEXUS_SURFACE_EDGES
-    edge.set_shader_parameter("edge_tint", Color("#17212f"))
-    edge.set_shader_parameter("width_px", NEXUS_EDGE_WIDTH_PIXELS)
-    edge.set_shader_parameter("geometry_mode", geometry_mode)
-    return edge
-
-func _add_nexus_native_edge(source: GeometryInstance3D,
-        geometry_mode: int = 0) -> void:
-    # Material overlay draws the actual front-facing geometry under native
-    # opaque depth testing. No silhouette screen quad or duplicate world.
-    var edge: ShaderMaterial = _nexus_edge_material(geometry_mode)
-    source.set_meta("nexus_native_edge_material", edge)
-    nexus_native_edge_sources.append(source)
-    if GraphicsSettings.get_enabled("base_outline"):
-        source.material_overlay = edge
-
-func _refresh_nexus_native_edges() -> void:
-    # Graphics option applies to native architectural overlays, separately
-    # from the SERA ID outlines. Keep the materials allocated while disabled.
-    var enabled: bool = GraphicsSettings.get_enabled("base_outline")
-    for source in nexus_native_edge_sources:
-        if not is_instance_valid(source):
-            continue
-        var edge: Material = source.get_meta(
-            "nexus_native_edge_material") as Material
-        source.material_overlay = edge if enabled else null
+# Native per-mesh polygon-edge material overlays were removed: the one
+# shared RGB12 visible-ID buffer is now the ONLY source of visible lines.
+# All geometry selection and touch data remain on their original meshes.
 
 func _render_batches() -> void:
     var cube := BoxMesh.new()
@@ -586,17 +549,17 @@ func _render_batches() -> void:
         draw.name = ("NexusDetailBatch_%02d" % index
             if no_stroke else "BlockbenchBatch_%02d" % index)
         draw.multimesh = multi
-        # All room solids write the SERA mask's depth as no-ink occluders.
-        # No room surface is allowed to generate RGB-ID contour pixels.
-        draw.set_meta("sera_outline_occluder_only", true)
+        # Only meshes with an original 2px architectural line receive ID
+        # role=facility. Unstroked/emissive details remain depth occluders.
+        if not no_stroke and index not in [5, 6, 7]:
+            draw.set_meta("sera_outline_role", "facility")
+        else:
+            draw.set_meta("sera_outline_occluder_only", true)
         var material: StandardMaterial3D = _mat(index)
         draw.material_override = material
         draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         add_child(draw)
-        # Floors, drains and emissive details keep their authored visuals,
-        # but no polygon-edge overlay. Only opaque architecture gets 2px ink.
-        if not no_stroke and index not in [5, 6, 7]:
-            _add_nexus_native_edge(draw)
+        # No legacy material_overlay: the shared ID shader applies 2px.
 
 func _pad_center() -> void:
     var surface := MeshInstance3D.new()
@@ -610,9 +573,8 @@ func _pad_center() -> void:
     surface.position = Vector3(0.0, 0.33, -4.75)
     var pad_material: StandardMaterial3D = _mat(2)
     surface.material_override = pad_material
-    surface.set_meta("sera_outline_occluder_only", true)
+    surface.set_meta("sera_outline_role", "facility")
     add_child(surface)
-    _add_nexus_native_edge(surface, 1)
 
 func _sera_display() -> void:
     # Do not alter the authored combat animations. The base uses a neutral
@@ -627,10 +589,8 @@ func _sera_display() -> void:
     rig.scale = Vector3.ONE * 1.35
     rig.rotation.y = PI
     stand.add_child(rig)
-    # Room and character share the SAME NEXUS RGB-ID depth pass. The rig
-    # receives per-mesh green/blue IDs, while architecture uses red-only IDs.
-    # This makes room contours respect SERA occlusion, with no extra viewport.
-    rig.set_meta("sera_nexus_id_contact_only", true)
+    # Room and SERA now share the exact same RGB12 visible-ID pass.
+    # The parent NEXUS ViewEdges owns both; avoid registering the rig twice.
     var rig_id_outline: Node = rig.get_node_or_null("ViewEdges")
     if is_instance_valid(rig_id_outline):
         rig_id_outline.call("set_contour_enabled", false)
@@ -665,20 +625,8 @@ func _sera_display() -> void:
     _remember_nexus_arm_rest_pose(rig)
     _fit_nexus_arms_to_lower_body()
     _capture_sera_silhouette(rig)
-    # The production contour uses the existing scene ID compositor. Keep the
-    # previous depth hull as an explicitly disabled comparison diagnostic:
-    # creating it must not generate opaque black geometry in normal mode.
-    var depth_hull: Node3D = DepthHullOutline.new()
-    depth_hull.call("configure", rig)
-    depth_hull.call("set_diagnostic_mode", 2)
-    rig.add_child(depth_hull)
-    # Retain the previous edge/stencil implementations for diagnostics only.
-    var live_edges: Node3D = LiveMeshEdges.new()
-    live_edges.call("configure", rig)
-    rig.add_child(live_edges)
-    var stencil_hull: Node3D = StencilHull.new()
-    stencil_hull.call("configure", rig)
-    rig.add_child(stencil_hull)
+    # No depth-hull, GPU ribbon or stencil comparison meshes are created:
+    # they would be a second outline pipeline beside the canonical RGB ID.
 
 func _remember_nexus_arm_rest_pose(rig: Node3D) -> void:
     # Called only once, immediately AFTER applying the authored NEXUSpose.
@@ -2494,8 +2442,8 @@ func _tap_fps_option_control(point: Vector2) -> void:
                     "SeraIDOutlineLayer/SeraIDOutlineControl")
                 if is_instance_valid(compositor):
                     compositor.call("refresh_graphics_preferences")
-                if scope == "base_outline":
-                    _refresh_nexus_native_edges()
+                # NEXUS architectural outlines use the same compositor,
+                # which refresh_graphics_preferences above already updates.
                 _refresh_fps_option_controls()
             else:
                 system_fps_note.text = "グラフィック設定の保存に失敗しました。"

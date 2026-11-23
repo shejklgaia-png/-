@@ -16,8 +16,6 @@ const DisplayProfile = preload("res://scripts/sera_display_profile.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
 const BaseFacilityInk = preload("res://scripts/sera_base_facility_outlines.gd")
 const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
-const OUTLINE_TEST_SAFE_SHADER = preload("res://shaders/base_facility_silhouette_edges.gdshader")
-const OUTLINE_TEST_RIBBON_SHADER = preload("res://shaders/base_facility_silhouette_edges.gdshader")
 const BaseClutter = preload("res://scripts/sera_base_clutter.gd")
 const BaseLayoutPreview = preload("res://scripts/sera_base_layout_preview.gd")
 const JunkGeometry = preload("res://scripts/sera_base_junk_geometry.gd")
@@ -121,8 +119,9 @@ var _frame_budget: RefCounted
 
 func _ready() -> void:
     set_meta("sera_graphics_outline_category", "base")
-    BaseFacilityInk.set_outlines_enabled(
-        GraphicsSettings.get_enabled("base_outline"))
+    # Keep the legacy physical corner-ink material disabled; only the
+    # same depth-resolved visible mesh-ID compositor as Bittaran may draw ink.
+    BaseFacilityInk.set_outlines_enabled(false)
     DisplayProfile.apply(get_window())
     _frame_budget = BaseFrameBudget.new()
     _frame_budget.start(get_viewport())
@@ -372,7 +371,6 @@ func _build_hangar() -> void:
     _add_module("data_bank", Vector3(22.0, 0.0, -9.0), deg_to_rad(24.0), 0.52)
     var cube := BoxMesh.new()
     cube.size = Vector3.ONE
-    var decorative_crease_poses: Array = []
     for palette_index in batches.keys():
         var poses: Array = batches[palette_index]
         var multi := MultiMesh.new()
@@ -381,7 +379,6 @@ func _build_hangar() -> void:
         multi.instance_count = poses.size()
         for index in range(poses.size()):
             multi.set_instance_transform(index, poses[index])
-            decorative_crease_poses.append(poses[index])
         var draw := MultiMeshInstance3D.new()
         draw.name = "BaseBlockbenchBatch_%02d" % int(palette_index)
         draw.set_meta("sera_outline_role", "clutter")
@@ -389,27 +386,6 @@ func _build_hangar() -> void:
         draw.material_override = _material(int(palette_index))
         draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         add_child(draw)
-    # Legacy modular small props use exactly the same clutter 1px convex
-    # corners as yard clutter and the new power devices.
-    var small_crease: ArrayMesh = BaseFacilityInk.crease_for("cube", cube)
-    if small_crease != null and not decorative_crease_poses.is_empty():
-        var crease_multi := MultiMesh.new()
-        crease_multi.transform_format = MultiMesh.TRANSFORM_3D
-        crease_multi.mesh = small_crease
-        crease_multi.instance_count = decorative_crease_poses.size()
-        for index in range(decorative_crease_poses.size()):
-            crease_multi.set_instance_transform(
-                index, decorative_crease_poses[index])
-        var crease_draw := MultiMeshInstance3D.new()
-        crease_draw.name = "BaseLegacyClutterConvex1px"
-        crease_draw.multimesh = crease_multi
-        crease_draw.material_override = (
-            BaseFacilityInk.clutter_crease_material())
-        crease_draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-        crease_draw.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
-        crease_draw.extra_cull_margin = 0.20
-        crease_draw.set_meta("FX_NO_OUTLINE", true)
-        add_child(crease_draw)
 
 
 func _build_nexus_building() -> void:
@@ -765,13 +741,13 @@ func _create_layout_tools() -> void:
     _layout_tool_button("ロード演出 25%", "LoadingPreviewLowButton",
         _play_loading_preview.bind(LoadingConsole.PREVIEW_RENDER_SCALE_2))
     outline_probe_button = _layout_tool_button(
-        "輪郭検査 v1", "OutlineProbeButton", _cycle_outline_probe)
+        "輪郭ID：状態", "OutlineProbeButton", _cycle_outline_probe)
     nexus_material_probe_button = _layout_tool_button(
         "NEXUS材質：通常", "NexusMaterialProbeButton",
         _cycle_nexus_material_probe)
     layout_status = Label.new()
     layout_status.name = "LayoutStatus"
-    layout_status.text = "OUTLINE-DIAG v1"
+    layout_status.text = "VISIBLE-ID / ON"
     layout_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
     layout_status.add_theme_font_override("font", LaboSkin.ui_font())
     layout_status.add_theme_font_size_override("font_size", 11)
@@ -781,39 +757,30 @@ func _create_layout_tools() -> void:
 
 
 func _cycle_outline_probe() -> void:
-    # Diagnostic only. Do not change models, animated MultiMesh batches,
-    # NEXUS 2px corner lines or the SERA/Bittaran 3px shader path.
+    # The diagnostic uses the production ID compositor only. It MUST NOT
+    # reactivate a different polygon-edge/crease shader.
     if scene_changing or power_view_active or (
             facility_system != null and bool(facility_system.call("is_menu_open"))):
         return
     outline_probe_mode = (outline_probe_mode + 1) % 3
-    var mat: ShaderMaterial = BaseFacilityInk.material()
-    if outline_probe_mode == 0:
-        mat.shader = OUTLINE_TEST_SAFE_SHADER
-        mat.set_shader_parameter("ink_color", Color("#000000"))
-        mat.set_shader_parameter("force_all_edges", false)
-        outline_probe_button.text = "輪郭検査 v1"
-        layout_status.text = "OUTLINE-DIAG v1"
-    elif outline_probe_mode == 1:
-        # Pink with the SAME contour selection; only line color changes.
-        mat.shader = OUTLINE_TEST_SAFE_SHADER
-        mat.set_shader_parameter("ink_color", Color("#ff00ff"))
-        mat.set_shader_parameter("force_all_edges", false)
-        outline_probe_button.text = "輪郭：紫/輪郭"
-        layout_status.text = "CONTOUR / PINK"
-    else:
-        # Diagnostic draws all topological edges with the SAME ribbon
-        # geometry. Never fill triangles; restored on the third tap.
-        mat.shader = OUTLINE_TEST_RIBBON_SHADER
-        mat.set_shader_parameter("ink_color", Color("#ff00ff"))
-        mat.set_shader_parameter("force_all_edges", true)
-        outline_probe_button.text = "輪郭：紫/全辺"
-        layout_status.text = "ALL EDGES / PINK"
-    mat.set_shader_parameter("stroke_px", 4.0)
-    print("SERA_BASE_OUTLINE_DIAG mode=%d shader=%s" % [
-        outline_probe_mode, mat.shader.resource_path])
-
-
+    var compositor: Node = get_viewport().get_node_or_null(
+        "SeraIDOutlineLayer/SeraIDOutlineControl")
+    if not is_instance_valid(compositor):
+        layout_status.text = "VISIBLE-ID / OFF"
+        return
+    var info: Dictionary = compositor.call("get_outline_metrics")
+    var dims: Vector2i = info.get("id_target_size", Vector2i.ZERO)
+    match outline_probe_mode:
+        0:
+            outline_probe_button.text = "輪郭ID：状態"
+            layout_status.text = ("ID / ON" if bool(
+                info.get("overlay_visible", false)) else "ID / OFF")
+        1:
+            outline_probe_button.text = "輪郭ID：解像度"
+            layout_status.text = "%d×%d" % [dims.x, dims.y]
+        2:
+            outline_probe_button.text = "輪郭ID：複製"
+            layout_status.text = "ID MESH %d" % int(info.get("id_copies", 0))
 
 
 func _cycle_nexus_material_probe() -> void:
