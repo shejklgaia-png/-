@@ -76,6 +76,8 @@ void fragment() {
 """
 static var _pool_shader: Shader
 static var _nexus_shutter_beam_shader: Shader
+static var _shaft_shader: Shader
+static var _fire_floor_shader: Shader
 
 # A screen-readable additive slit interior, exclusively for the GENERATOR.
 # The brightest filament stays at each gap center; feathered edges create
@@ -397,6 +399,16 @@ func _make_surface(label: String, at: Vector3, span: Vector2,
             _nexus_shutter_beam_shader = Shader.new()
             _nexus_shutter_beam_shader.code = NEXUS_SHUTTER_BEAM_SHADER
         shader = _nexus_shutter_beam_shader
+    elif shader_source == SHAFT_SHADER:
+        if _shaft_shader == null:
+            _shaft_shader = Shader.new()
+            _shaft_shader.code = SHAFT_SHADER
+        shader = _shaft_shader
+    elif shader_source == FIRE_FLOOR_SHADER:
+        if _fire_floor_shader == null:
+            _fire_floor_shader = Shader.new()
+            _fire_floor_shader.code = FIRE_FLOOR_SHADER
+        shader = _fire_floor_shader
     else:
         shader = Shader.new()
         shader.code = shader_source
