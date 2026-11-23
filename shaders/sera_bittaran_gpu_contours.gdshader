@@ -37,7 +37,7 @@ void vertex() {
 
     if (!paired) {
         // Real open mesh boundaries, including separate plate/wing meshes.
-        visible = not silhouette_only && abs(facing_a) > 0.035;
+        visible = !silhouette_only && abs(facing_a) > 0.035;
         // An open boundary may also be the outer silhouette of a plate:
         // use the 1px inward / 3px outward profile on its visible rim.
         outer_px = seam_px;
@@ -51,7 +51,7 @@ void vertex() {
         // a tiny rotation; keep the same silhouette edge rather than flicker.
         bool grazing = min(abs(facing_a), abs(facing_b)) < 0.085 &&
             strongest > 0.20 && dot(normal_a, normal_b) < 0.95 &&
-            (not silhouette_only || facing_a * facing_b <= 0.0);
+            (!silhouette_only || facing_a * facing_b <= 0.0);
         // Both faces facing the camera are internal corners.
         // Do not draw them even if this legacy GPU path is restored.
         visible = front_back || grazing;
