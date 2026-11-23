@@ -8,7 +8,7 @@ const LOOP_SECONDS: float = 8.0
 const BELT_START_X: float = -5.70
 const BELT_PICKUP_X: float = -1.30
 const BELT_Z: float = 1.28
-const BELT_SPEED: float = 1.5597015  # 4.18m in 2.68s, before the ramp
+const BELT_SPEED: float = 1.52238806  # 4.08m to ramp in 2.68s
 # In the oblique camera, moving local -X/-Z shifts the shaft upper-left.
 # The octave-bearing center is isolated behind the yellow hopper rim.
 # The shorter boom and the retracted belt pickup meet at this new position.
@@ -80,6 +80,13 @@ const SCRAP_RAMP_START: float = 2.68
 const SCRAP_RAMP_FINISH: float = 2.96
 const SCRAP_SETTLE_FINISH: float = 3.16
 const SCRAP_PLATE_RISE: float = 0.14
+const SCRAP_BELT_Y: float = 1.02
+const SCRAP_PICKUP_LIFT: float = -0.17
+# The parked cargo and the carried cargo must have exactly the same
+# center when the 3.72s pickup handoff occurs. Previously the carried
+# cargo spawned 0.14m too low and penetrated the elevated landing pad.
+const SCRAP_CARRY_REST_Y: float = (
+    SCRAP_BELT_Y + SCRAP_PLATE_RISE - SCRAP_PICKUP_LIFT)
 
 
 static func grip_at(phase: float) -> float:
@@ -110,7 +117,9 @@ static func grip_at(phase: float) -> float:
 
 static func scrap_offset_at(phase: float) -> Vector3:
     # 0–2.68s: regular belt transport; the scrap approaches the ramp lip.
-    var approach: float = BELT_PICKUP_X - 0.22 - BELT_START_X
+    # Ramp travel adds precisely 0.32m, landing at BELT_PICKUP_X.
+    # The previous value left the scrap 0.10m beyond the claw center.
+    var approach: float = BELT_PICKUP_X - 0.32 - BELT_START_X
     if phase < SCRAP_RAMP_START:
         return Vector3(BELT_SPEED * phase, 0.0, 0.0)
     if phase < SCRAP_RAMP_FINISH:
@@ -227,18 +236,21 @@ static func build(g: Variant) -> void:
     # The same salvage parcel first rides the belt, is hidden when the jaws
     # close, and becomes the crane payload; no duplicated visible cargo.
     g.poly_tilt("FreshCollectorPickupScrap", "cargo_case",
-        Vector3(BELT_START_X, 1.02, BELT_Z),
+        Vector3(BELT_START_X, SCRAP_BELT_Y, BELT_Z),
         Vector3(0.46, 0.25, 0.41), "rust",
         Vector3(0.16, 0.22, 0.10))
     g.poly("FreshCollectorPickupScrap", "gear",
-        Vector3(BELT_START_X - 0.07, 1.16, BELT_Z + 0.05),
+        Vector3(BELT_START_X - 0.07, SCRAP_BELT_Y + 0.14,
+            BELT_Z + 0.05),
         Vector3(0.24, 0.14, 0.24), "edge")
     # Staged at the unslewed claw rest point; only displayed while held.
     g.poly_tilt("FreshCollectorCranePayload", "cargo_case",
-        Vector3(CRANE_TIP_X, 1.19, CRANE_TIP_Z) + CRANE_OFFSET,
+        Vector3(CRANE_TIP_X, SCRAP_CARRY_REST_Y, CRANE_TIP_Z) +
+            CRANE_OFFSET,
         Vector3(0.46, 0.25, 0.41), "rust",
         Vector3(0.16, 0.22, 0.10))
     g.poly("FreshCollectorCranePayload", "gear",
-        Vector3(CRANE_TIP_X - 0.07, 1.33,
+        Vector3(CRANE_TIP_X - 0.07,
+            SCRAP_CARRY_REST_Y + 0.14,
             CRANE_TIP_Z + 0.05) + CRANE_OFFSET,
         Vector3(0.24, 0.14, 0.24), "edge")
