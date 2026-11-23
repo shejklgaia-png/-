@@ -376,10 +376,13 @@ static func _make_edges(mesh: Mesh, closed: bool,
         # show only front/front hard edges as additional visible seams.
         # Coplanar triangulation lines and non-manifold pairs are excluded
         # by the extractor and the paired condition above.
-        var emit_crease: bool = (paired and (
-            bool(edge.get("crease", false)) if include_full_contour else (
-            signed_convex and (not hard_only or
-                bool(edge.get("crease", false))))))
+        var emit_crease: bool = false
+        if paired:
+            if include_full_contour:
+                emit_crease = bool(edge.get("crease", false))
+            else:
+                emit_crease = signed_convex and (
+                    not hard_only or bool(edge.get("crease", false)))
         var encoded_a := Color(
             normal_a.x * 0.5 + 0.5, normal_a.y * 0.5 + 0.5,
             normal_a.z * 0.5 + 0.5,
