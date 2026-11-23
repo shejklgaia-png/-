@@ -47,11 +47,12 @@ static func _generate_site(key: String, slab: Rect2,
     var all_props: Array[Dictionary] = Clutter.default_props_for(key)
     if all_props.is_empty() or slab.size.x < 1.0:
         return []
-    # Reposition the 76 primary groups first. The 76 compact satellite
-    # models are packed next to their relocated parents after approval.
+    # Relocate authored primary groups; regenerate dense satellite props and
+    # filled scrap crates after choosing the new collision-free positions.
     var approved: Array[Dictionary] = []
-    for i in range(int(all_props.size() / 2)):
-        approved.append(all_props[i])
+    for part in all_props:
+        if not bool(part.get("satellite", false)):
+            approved.append(part)
     # Reject complete arrangements that do not fit, rather than overlap,
     # shrink or delete an object. Large cargo goes first to avoid starvation.
     var order: Array[int] = []
@@ -108,9 +109,11 @@ static func _generate_site(key: String, slab: Rect2,
                 valid = false
                 break
         if valid:
+            Clutter._append_scrap_crates(key, output)
             Clutter._append_satellite_props(key, output)
-            if output.size() == all_props.size():
-                return output
+            # Packing may omit individual props when the slab is too tight;
+            # never replace overlap avoidance with a forced target count.
+            return output
     return []
 
 
