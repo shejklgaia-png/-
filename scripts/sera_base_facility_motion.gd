@@ -171,7 +171,8 @@ func sample_at(seconds: float) -> void:
                         if absf(scrap_rock) > 0.00001:
                             pose = _spin_about(pose,
                                 _at(Vector3(
-                                    CollectorConveyor.BELT_START_X, 1.02,
+                                    CollectorConveyor.BELT_START_X,
+                                    CollectorConveyor.SCRAP_BELT_Y,
                                     CollectorConveyor.BELT_Z) + scrap_shift),
                                 _axis(Vector3.FORWARD), scrap_rock)
                         # Swap to the attached payload ONLY once closed.
@@ -213,8 +214,12 @@ func sample_at(seconds: float) -> void:
                                     crane_center + crane_rotation *
                                     (_at(jaw_pin) - crane_center) +
                                     _at(Vector3(0.0, crane_lift, 0.0)))
+                                # Godot's FORWARD is local -Z: it would
+                                # rotate both finger pairs inward when the
+                                # controller requests OPEN. Positive local
+                                # Z (BACK) makes side*angle spread fingers.
                                 pose = _spin_about(pose, jaw_world,
-                                    crane_rotation * _axis(Vector3.FORWARD),
+                                    crane_rotation * _axis(Vector3.BACK),
                                     side * crane_grip)
                             elif feature == "FreshCollectorCranePayload":
                                 # Never show two copies at the handoff.
