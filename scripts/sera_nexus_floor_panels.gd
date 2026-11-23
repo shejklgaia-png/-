@@ -1,9 +1,9 @@
 extends RefCounted
 ## NEXUS industrial deck — structural redesign based on the supplied concept.
 ##
-## Seven interlocking plate lanes, physically recessed access grilles, beveled
-## armor, bolts and optical accents. Unlike the old 3-column floor this uses
-## offset plate joints and a real 8-corner top profile, not giant flat boxes.
+## Spatially distinct cast-metal zones: rear freight deck, annular maintenance
+## dais, command forecourt, and heavy asymmetrical near-field armor. Genuine
+## channel cutouts, staggered wedge panels and solid machined rail geometry.
 ## Opaque static MultiMeshes, depth testing ON, no extra viewports or lights.
 ## The original Blockbench foundation/props/camera/input stay in place.
 
@@ -11,6 +11,7 @@ const DECK_BACK: float = -27.25
 const DECK_FRONT: float = 24.35
 const DECK_MIDDLE: float = (DECK_BACK + DECK_FRONT) * 0.5
 const PLATE_TOP: float = 0.159
+const SERVICE_SPINE_START: float = 7.25
 const GRILLE_OPENINGS: Array = [
     Vector2(-2.10, -1.62),
     Vector2(3.73, 4.17)
@@ -42,20 +43,20 @@ static func build(room: Node3D) -> void:
         var z: float = DECK_BACK + float(LANE_OFFSETS[lane])
         var index: int = 0
         while z < DECK_FRONT - 0.24:
-            # Compress the near/middle deck rhythm so the portrait view does
-            # not read as a long empty runway between the stage and terminals.
-            var pitch: float = 2.56 if z < -12.0 else 1.82
-            if z > -5.0:
-                pitch = 1.48
-            if z > 1.5:
-                pitch = 1.28
-            if z > 9.0:
-                pitch = 1.38
-            pitch += float((index * 3 + lane * 5) % 4) * 0.08
+            # Four clearly different structural scales, not a repeated carpet
+            # of almost-identical short rectangles across the whole floor.
+            var pitch: float = 3.10 if z < -11.0 else 2.24
+            if z > -3.0:
+                pitch = 1.73
+            if z > 6.3:
+                pitch = 2.76
+            if z > 13.7:
+                pitch = 3.58
+            pitch += float((index * 3 + lane * 5) % 4) * 0.13
             var a: float = maxf(z + 0.025, DECK_BACK + 0.06)
             var b: float = minf(z + pitch - 0.025, DECK_FRONT - 0.06)
             if b > a + 0.50:
-                var shade: String = _plate_finish(lane, index)
+                var shade: String = _plate_finish(lane, index, (a + b) * 0.5)
                 if lane == 3:
                     _center_panel_with_drains(batches, x0, x1, a, b, shade, index)
                 else:
@@ -115,20 +116,32 @@ static func build(room: Node3D) -> void:
     for z_value in [-1.10, 1.85, 7.70]:
         _cross_reinforcement(batches, float(z_value))
 
+    # Large-scale landmarks are layered above the panel field. Their stamped
+    # steel height stays below the existing maintenance stage and consoles.
+    _signature_deck_features(batches)
     _submit(room, batches)
 
 
-static func _plate_finish(lane: int, index: int) -> String:
-    var mix: int = (lane * 7 + index * 3) % 11
+static func _plate_finish(lane: int, index: int, z: float) -> String:
+    # Meaningful material regions replace random-looking shade variation.
+    # The center approach reflects practical overhead lights; side service
+    # strips stay matte dark, and the distant freight deck is graphite.
+    var phase: int = (index + lane * 2) % 6
+    if z < -11.0:
+        return "deck_graphite" if phase < 4 else "deck_deep"
+    if z < -2.60:
+        if lane == 3:
+            return "deck_steel" if phase < 4 else "deck_mid"
+        return "deck_mid" if phase < 3 else "deck_graphite"
+    if z < 7.25:
+        if lane == 3:
+            return "deck_steel" if phase < 4 else "deck_light"
+        return "deck_side" if lane in [1, 5] else "deck_mid"
     if lane == 3:
-        return "deck_mid" if mix < 6 else "deck_deep"
-    if lane == 1 or lane == 5:
-        return "deck_side" if mix < 8 else "deck_light"
-    if mix < 3:
-        return "deck_light"
-    if mix < 7:
-        return "deck_mid"
-    return "deck_deep"
+        return "deck_bright" if phase < 2 else "deck_steel"
+    if lane in [0, 6]:
+        return "deck_graphite" if phase < 3 else "deck_blue"
+    return "deck_side" if phase < 4 else "deck_mid"
 
 
 static func _center_panel_with_drains(batches: Dictionary,
@@ -152,11 +165,29 @@ static func _center_panel_with_drains(batches: Dictionary,
         if piece.y - piece.x > 0.34:
             # Split most center slabs into two fabricated panels, but keep
             # occasional uninterrupted main plates to avoid a rigid grid.
-            if index % 4 != 0:
+            # From the foreground forward, the old unbroken center slab
+            # becomes a genuine open maintenance channel, not a dark decal.
+            if piece.y > SERVICE_SPINE_START:
+                if piece.x < SERVICE_SPINE_START:
+                    var near_end: float = minf(piece.y, SERVICE_SPINE_START)
+                    if near_end - piece.x > 0.20:
+                        _armor_panel(batches, x0, x1,
+                            piece.x, near_end, finish, 3, index)
+                var far_start: float = maxf(piece.x, SERVICE_SPINE_START)
+                if piece.y - far_start > 0.24:
+                    _armor_panel(batches, x0, -0.38,
+                        far_start, piece.y, finish, 3, index)
+                    _armor_panel(batches, 0.38, x1,
+                        far_start, piece.y,
+                        _plate_finish(3, index + 2,
+                            (far_start + piece.y) * 0.5), 3, index + 1)
+            elif index % 4 != 0:
                 _armor_panel(batches, x0, -0.032,
                     piece.x, piece.y, finish, 3, index)
                 _armor_panel(batches, 0.032, x1,
-                    piece.x, piece.y, _plate_finish(3, index + 2), 3, index + 1)
+                    piece.x, piece.y,
+                    _plate_finish(3, index + 2, (piece.x + piece.y) * 0.5),
+                    3, index + 1)
             else:
                 _armor_panel(batches, x0, x1,
                     piece.x, piece.y, finish, 3, index)
@@ -173,15 +204,23 @@ static func _armor_panel(batches: Dictionary, x0: float, x1: float,
     # panel, with steel sidewalls behind the beveled upper armor shell.
     _cube(batches, "plate_skirt", Vector3(cx, 0.099, cz),
         Vector3(width - 0.018, 0.044, length - 0.018))
-    _beveled_plate(batches, finish, Vector3(cx, 0.0, cz),
-        Vector3(width - 0.026, 1.0, length - 0.026))
+    # Foreground side plates have a boldly clipped leading corner; their
+    # outer silhouette is a separate shape, not another surface marking.
+    if lane in [0, 6] and z0 >= 6.30 and index % 2 == 0:
+        var size_x: float = width - 0.026
+        if lane == 0:
+            size_x = -size_x
+        _append(batches, "wedge_" + finish, Transform3D(
+            Basis().scaled_local(Vector3(size_x, 1.0, length - 0.026)),
+            Vector3(cx, 0.0, cz)))
+    else:
+        _beveled_plate(batches, finish, Vector3(cx, 0.0, cz),
+            Vector3(width - 0.026, 1.0, length - 0.026))
 
-    if length > 1.0:
-        # Tiny dark bolt sockets followed by a silver screw head. Their pitch
-        # reflects the plate construction, not a noisy rivet grid.
-        for x in [x0 + 0.15, x1 - 0.15]:
-            for z in [z0 + 0.16, z1 - 0.16]:
-                _bolt(batches, float(x), float(z))
+    # Sparse fastening: fewer decorative microdetails, more readable mass.
+    if length > 1.35 and (lane + index) % 3 == 0:
+        for x in [x0 + 0.17, x1 - 0.17]:
+            _bolt(batches, float(x), z0 + 0.19)
 
     # Narrow inset tooling lines, two-stage panel labels and locking ribs.
     # Keep the interior clear: the bevel and seams should carry the detail.
