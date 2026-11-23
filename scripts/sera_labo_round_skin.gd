@@ -5,17 +5,21 @@ static var _card_cache: Dictionary = {}
 static var _tab_cache: Dictionary = {}
 static var _segment_cache: Dictionary = {}
 static var _panel_cache: StyleBoxTexture
-## Original SIL OFL 1.1 Japanese TTF fonts are vendored in assets/fonts/.
-## No OS fallback or runtime network access: Android GitSync works offline.
-## UDEV Gothic: readable Japanese page names, items and interaction labels.
-## Moralerspace Neon: mixed Japanese stats, codes, engineering readouts.
-const JP_FONT_PATH: String = "res://assets/fonts/UDEVGothic-Regular.ttf"
-const JP_TITLE_FONT_PATH: String = "res://assets/fonts/UDEVGothic-Bold.ttf"
-const JP_STATS_FONT_PATH: String = "res://assets/fonts/MoralerspaceNeon-Regular.ttf"
+## Angular SERA typography: locally installed licensed Makinas 4 (Square/Flat)
+## plus OFL Chakra Petch. Makinas assets must never be committed to the public
+## repository. One-time local setup installs them; runtime stays offline.
+## If the files are absent, use the original bundled UDEV/Moralerspace fonts.
+const JP_FONT_PATH: String = "res://assets/fonts/Makinas4Flat.otf"
+const JP_TITLE_FONT_PATH: String = "res://assets/fonts/Makinas4Square.otf"
+const NAV_FONT_PATH: String = "res://assets/fonts/ChakraPetch-SemiBold.ttf"
+const DATA_FONT_PATH: String = "res://assets/fonts/ChakraPetch-Medium.ttf"
+const JP_STATS_FONT_PATH: String = DATA_FONT_PATH
 const JP_UI_FONT_PATH: String = JP_FONT_PATH
 const JP_CONTROL_FONT_PATH: String = JP_TITLE_FONT_PATH
-const NAV_FONT_PATH: String = "res://assets/fonts/MoralerspaceNeon-Bold.ttf"
-const DATA_FONT_PATH: String = JP_STATS_FONT_PATH
+const FALLBACK_JP_PATH: String = "res://assets/fonts/UDEVGothic-Regular.ttf"
+const FALLBACK_TITLE_PATH: String = "res://assets/fonts/UDEVGothic-Bold.ttf"
+const FALLBACK_STATS_PATH: String = "res://assets/fonts/MoralerspaceNeon-Regular.ttf"
+const FALLBACK_NAV_PATH: String = "res://assets/fonts/MoralerspaceNeon-Bold.ttf"
 static var _jp_source: FontFile
 static var _jp_title_source: FontFile
 static var _jp_stats_source: FontFile
@@ -66,8 +70,22 @@ static func _font_from_raw(path: String, required_glyph: int) -> FontFile:
     return face
 
 
+static func _fallback_path(path: String) -> String:
+    match path:
+        JP_FONT_PATH:
+            return FALLBACK_JP_PATH
+        JP_TITLE_FONT_PATH:
+            return FALLBACK_TITLE_PATH
+        NAV_FONT_PATH:
+            return FALLBACK_NAV_PATH
+        DATA_FONT_PATH:
+            return FALLBACK_STATS_PATH
+        _:
+            return ""
+
+
 static func _load_bundled_font(path: String, required_glyph: int) -> FontFile:
-    # Seven roles share four immutable TTF source objects, cached by path.
+    # Reuse immutable source FontFile objects across all role variations.
     if _bundled_face_cache.has(path):
         return _bundled_face_cache[path] as FontFile
     var raw_exists: bool = FileAccess.file_exists(path)
@@ -95,6 +113,15 @@ static func _load_bundled_font(path: String, required_glyph: int) -> FontFile:
         "YES" if imported_exists else "NO",
         "YES" if font != null and font.has_char(required_glyph) else "NO"
     ])
+    if font == null:
+        var fallback_path: String = _fallback_path(path)
+        if not fallback_path.is_empty():
+            var fallback: FontFile = _load_bundled_font(fallback_path, required_glyph)
+            if fallback != null:
+                _font_load_status[path] = "LOCAL_FONT_MISSING / fallback=" + fallback_path
+                _bundled_face_cache[path] = fallback
+                push_warning("SERA_ANGULAR_FONT_NOT_INSTALLED: " + path + " -> " + fallback_path)
+                return fallback
     _font_load_status[path] = details
     if font == null:
         push_error("SERA_FONT_LOAD_FAILED: " + path + " / " + details)
@@ -134,10 +161,10 @@ static func _jp_weight(weight: int) -> FontVariation:
     return result
 
 
-## UDEV Gothic Bold: titles, equipment and controls.
-## UDEV Gothic Regular: Japanese materials and body.
-## Moralerspace Neon Regular/Bold: Japanese-capable stats, Latin navigation,
-## codes and combat telemetry. No source font is instantiated per UI card.
+## Makinas 4 Square: Japanese headings, equipment and buttons.
+## Makinas 4 Flat: readable Japanese body text and material names.
+## Chakra Petch SemiBold / Medium: Latin navigation, stats, model IDs.
+## Japanese fallback on Latin technical roles prevents missing kanji.
 static func _title_face() -> FontFile:
     if _jp_title_source == null:
         _jp_title_source = _load_bundled_font(JP_TITLE_FONT_PATH, 0x88C5)
@@ -146,7 +173,7 @@ static func _title_face() -> FontFile:
 
 static func _stats_face() -> FontFile:
     if _jp_stats_source == null:
-        _jp_stats_source = _load_bundled_font(JP_STATS_FONT_PATH, 0x65E5)
+        _jp_stats_source = _load_bundled_font(JP_STATS_FONT_PATH, 0x41)
     return _jp_stats_source
 
 
@@ -201,6 +228,7 @@ static func control_font() -> FontVariation:
 static func stats_font() -> FontVariation:
     if _stats_font == null:
         _stats_font = _variation_from_face(_stats_face())
+        _stats_font.fallbacks = [_jp_face()]
     return _stats_font
 
 
@@ -208,6 +236,7 @@ static func tracked_display_font() -> FontVariation:
     if _tracked_display == null:
         _tracked_display = FontVariation.new()
         _tracked_display.base_font = display_font()
+        _tracked_display.fallbacks = [_title_face()]
         _tracked_display.spacing_glyph = 1
     return _tracked_display
 
@@ -216,6 +245,7 @@ static func tracked_data_font() -> FontVariation:
     if _tracked_data == null:
         _tracked_data = FontVariation.new()
         _tracked_data.base_font = data_font()
+        _tracked_data.fallbacks = [_jp_face()]
         _tracked_data.spacing_glyph = 1
     return _tracked_data
 
@@ -485,7 +515,7 @@ static func common_theme() -> Theme:
         theme.set_stylebox(state, "Button", style("normal" if state == "focus" else state))
     theme.default_font = ui_font()
     theme.default_font_size = 18
-    theme.set_font("font", "Button", ui_font())
+    theme.set_font("font", "Button", control_font())
     theme.set_font("font", "Label", ui_font())
     theme.set_font("font", "SpinBox", data_font())
     theme.set_font("font", "LineEdit", data_font())

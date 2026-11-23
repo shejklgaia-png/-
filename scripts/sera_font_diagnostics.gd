@@ -1,5 +1,5 @@
 extends RefCounted
-## On-demand LAB font diagnostics. Bundled WOFF2 face identity and glyph checks.
+## On-demand font diagnostics: locally installed angular fonts and bundled fallbacks.
 ## The optional OS candidate remains for troubleshooting older builds.
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const JP_TEXT: String = "装備 精製 倉庫 日本語 漢字"
@@ -86,7 +86,7 @@ static func _path_result(name: String, weight: int) -> String:
 
 static func report() -> String:
     var lines: PackedStringArray = []
-    lines.append("SERA FONT DIAG v548 / MIXED FONTS")
+    lines.append("SERA FONT DIAG / ANGULAR FONT ROLES")
     lines.append("Godot: " + str(Engine.get_version_info().get("string", "?")))
     lines.append("Platform: " + OS.get_name())
     lines.append("Locale: " + OS.get_locale())
@@ -102,7 +102,7 @@ static func report() -> String:
             break
     lines.append("Named families: " +
         (", ".join(matched) if not matched.is_empty() else "(none listed)"))
-    lines.append("Font mode: bundled original OFL TTF / RAW_BYTES > IMPORTED_RESOURCE")
+    lines.append("Font mode: local Makinas OTF + Chakra Petch TTF, bundled UDEV/Moralerspace fallback")
     lines.append("Note: has_char does NOT prove visible pixels.")
     lines.append("---")
     for entry: Dictionary in roles():
@@ -124,7 +124,7 @@ static func report() -> String:
                 _check_char(embedded, 0x65E5) + "/" +
                 _check_char(embedded, 0x6F22) + "/" +
                 _check_char(embedded, 0x30AB))
-            if name.begins_with("JP ") and embedded.has_char(0x65E5):
+            if name.begins_with("JP ") and font.has_char(0x65E5):
                 lines.append("  JAPANESE FONT: PASS")
             elif name.begins_with("JP "):
                 lines.append("  JAPANESE FONT: FAIL")
@@ -153,7 +153,8 @@ static func report() -> String:
             _check_char(font, 0x30AB))
     lines.append("---")
     lines.append("Expected JP glyphs: Y/Y/Y/Y for all JP roles.")
-    lines.append("Roles: TITLE/EQUIPMENT/CONTROL=UDEV Gothic; BODY=UDEV Gothic; STATS/LATIN/DATA=Moralerspace Neon")
+    lines.append("Roles: TITLE/EQUIPMENT/CONTROL=Makinas Square; BODY=Makinas Flat; STATS/LATIN/DATA=Chakra Petch")
+    lines.append("Uninstalled local fonts use existing UDEV/Moralerspace assets.")
     lines.append("Latin/mono faces may legitimately lack Japanese glyphs.")
     lines.append("Inspect LIVE SAMPLES for actual rendered differences.")
     return "\n".join(lines)
