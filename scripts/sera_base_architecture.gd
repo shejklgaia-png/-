@@ -192,6 +192,9 @@ class Batch:
         var outline_meshes_by_bucket: Dictionary = {}
         var outline_crease_meshes_by_bucket: Dictionary = {}
         var outline_links_by_bucket: Dictionary = {}
+        # One clutter convex-corner batch per geometry (regardless of tint)
+        # instead of a separate 1px pass per small prop or material.
+        var clutter_creases_by_geometry: Dictionary = {}
         for key_variant in keys:
             var key: String = str(key_variant)
             var names: PackedStringArray = key.split("|")
@@ -247,6 +250,16 @@ class Batch:
                     0.875 if is_white_light_line else (
                         0.25 if facility_indices.has(i) else 0.375),
                     0.0, 0.0, 1.0))
+                # Clutter is role 3 in the shared ID pass. Only its real
+                # front/front >=80deg convex corners receive a 1px ribbon;
+                # building corners stay on their independent 2px batch.
+                if not facility_indices.has(i) and not is_white_light_line and (
+                        tint not in ["blue_light", "lab_cyan", "amber_light",
+                        "amber", "glass", "generator_emitter",
+                        "terminal_monitor"]):
+                    if not clutter_creases_by_geometry.has(geometry):
+                        clutter_creases_by_geometry[geometry] = []
+                    (clutter_creases_by_geometry[geometry] as Array).append(pose)
             var surface := StandardMaterial3D.new()
             # Texture audit: the industrial steel/armor/oxide SVGs have
             # near-white substrates, not black pixels. The BASE NEXUS front
@@ -411,6 +424,33 @@ class Batch:
                         crease_draw.set_meta("FX_NO_OUTLINE", true)
                         host.add_child(crease_draw)
                         outline_crease_meshes_by_bucket[key] = crease_multi
+        # Clutter convex ink is drawn after solids and before VFX. Each
+        # geometry is shared across all tints for the lowest draw overhead.
+        for shape in clutter_creases_by_geometry.keys():
+            var crease_poses: Array = clutter_creases_by_geometry[shape]
+            if crease_poses.is_empty():
+                continue
+            var geom: String = str(shape)
+            var physical: Mesh = polygon_meshes[geom]
+            var tiny_edges: ArrayMesh = BaseFacilityInk.crease_for(
+                geom, physical)
+            if tiny_edges == null:
+                continue
+            var tiny_multi := MultiMesh.new()
+            tiny_multi.transform_format = MultiMesh.TRANSFORM_3D
+            tiny_multi.mesh = tiny_edges
+            tiny_multi.instance_count = crease_poses.size()
+            for i in range(crease_poses.size()):
+                tiny_multi.set_instance_transform(i, crease_poses[i])
+            var tiny_draw := MultiMeshInstance3D.new()
+            tiny_draw.name = "ClutterConvex1px_" + geom
+            tiny_draw.multimesh = tiny_multi
+            tiny_draw.material_override = BaseFacilityInk.clutter_crease_material()
+            tiny_draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+            tiny_draw.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+            tiny_draw.extra_cull_margin = 0.20
+            tiny_draw.set_meta("FX_NO_OUTLINE", true)
+            host.add_child(tiny_draw)
         host.set_meta("unique_model_features", features.duplicate())
         if not outline_entries.is_empty():
             host.set_meta("outline_solid_entries", outline_entries.duplicate())
