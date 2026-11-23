@@ -155,3 +155,12 @@ CI項目の確認・修正・適用は行わず、CI、Godot、Android等のテ�
 - 旧GPUの端点キャップや投影角補正は現在のID単独方式では呼び出さない。GPU輪郭コード自体は過去版に戻し、必要な他機能のために残している。
 - **限界**：別SubViewportにIDを描く仕組みなので、端末ごとのGPUフレーム遅延が完全に消えたことを保証するものではない。描画結果・追従性・FPSは変更後実機で未確認。
 - CI項目／テスト設定・関連ファイルの確認・変更、CI／Godot／Android等のテスト実行はユーザー指示に従って行っていない。
+
+## 2026-11-23：ID専用輪郭の最終姿勢同期を高優先度 _process に一本化（最新）
+- ID単独方式へ復帰したPR #887の実機確認で、セラ・ビットタランの輪郭線にまだ追従遅延が残る。調査の結果、従来のPR #883は`RenderingServer.frame_pre_draw`で`get_global_transform_interpolated()`を呼び出していたが、これは通常の`_process()`の補間姿勢取得から外れるため、描画更新段階の姿勢一致を保証できなかった。
+- ビットタラン戦の`SeraSceneIDOutlines`に限り、`RenderingServer.frame_pre_draw`の接続・コールバックを撤去し、`process_priority=10000`の**末尾`_process()`で姿勢コピーを確定**させる。既存のSeraRig（優先度-1）とmain/Bittaranカメラ（通常優先度0）のアニメーション・フレーム更新後に、`_commit_bittaran_render_pose()`でカメラのTransform・画角・h/v振動、各MeshInstance3Dの補間済みTransform、メッシュ変更、必要なID外周AABBを一括反映する。
+- `_commit_bittaran_render_pose`は`Engine.get_process_frames()`による1フレーム1回のガードを持つ。IDテクスチャは既存の`SubViewport.UPDATE_ALWAYS`を維持し、CompletedBattleFrameの完成映像テクスチャへ合成する。フレーム保持用の追加SubViewport・CPU readback・同期フェンス・固定1フレームの遅延は設けない。
+- 診断用`get_outline_metrics()`は旧`bittaran_pre_draw_frame`と`bittaran_snapshot_dirty_frame`を廃止し、`bittaran_pose_frame`と`bittaran_pose_dirty_frame`へ変更（実画面のGPUフレーム番号ではなく、_processで採取した時刻情報）。戦闘シーン終了やモード解除時に両値をクリア。
+- ID外周内0px/外3px、ID境界2px、凸角OFF、RGB可視IDの深度解決、戦闘HUD/FPS表示、カメラ揺れ強度、物理補間設定、NEXUS/BASE/通常訓練/装備画面はすべて不変。
+- **限界**：今回の変更はモデルとIDコピーの**CPU側姿勢サンプリング時点の統一**であり、GL Compatibilityの複数SubViewportで、ID画像と通常画像がGPU上で厳密に同じタイムスタンプで完成する保証はない。後者のフレーム不一致による線の遅延が残る可能性がある。変更後の実機描画・FPS・操作遅延は未確認。
+- CI項目・設定・テストファイルの確認/変更、およびCI・Godot・Android等のテスト実行はユーザー指示により行っていない。
