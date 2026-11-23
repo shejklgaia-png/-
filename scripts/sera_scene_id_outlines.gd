@@ -42,6 +42,7 @@ var _source_refs: Dictionary = {}
 var _next_id: int = 1
 var _id_allocations: Dictionary = {} # source id -> {first, count}
 var _free_ranges: Array[Dictionary] = []
+var _base_scene: WeakRef
 var _scan_elapsed: float = 0.0
 var _last_camera: Transform3D = Transform3D.IDENTITY
 var _last_camera_fov: float = -1.0
@@ -507,6 +508,11 @@ func _refresh_shared_ink_color() -> void:
 func register_root(root: Node3D, owner: Node) -> void:
     if not is_instance_valid(root) or not is_instance_valid(owner):
         return
+    if root.get_meta("sera_graphics_outline_category", "") == "base":
+        _base_scene = weakref(root)
+        if not get_tree().node_added.is_connected(_base_geometry_changed):
+            get_tree().node_added.connect(_base_geometry_changed)
+            get_tree().node_removed.connect(_base_geometry_changed)
     _root_refs[owner.get_instance_id()] = weakref(root)
     _refresh_part_preview_canvas_mode()
     _refresh_combat_viewport_mode()
@@ -516,9 +522,22 @@ func register_root(root: Node3D, owner: Node) -> void:
     set_process(true)
 
 
+func _base_geometry_changed(node: Node) -> void:
+    if _scan_elapsed == 0.0 or not (node is MeshInstance3D or node is MultiMeshInstance3D):
+        return
+    var base := _base_scene.get_ref() as Node3D
+    if is_instance_valid(base) and base.is_ancestor_of(node):
+        _scan_elapsed = 0.0
+
 func unregister_root(owner: Node) -> void:
     if is_instance_valid(owner):
+        var ref := _root_refs.get(owner.get_instance_id()) as WeakRef
+        if _base_scene != null and ref != null and ref.get_ref() == _base_scene.get_ref():
+            get_tree().node_added.disconnect(_base_geometry_changed)
+            get_tree().node_removed.disconnect(_base_geometry_changed)
+            _base_scene = null
         _root_refs.erase(owner.get_instance_id())
+        _scan_elapsed = 0.0
     _refresh_part_preview_canvas_mode()
     _refresh_combat_viewport_mode()
     _refresh_shared_ink_color()
@@ -678,7 +697,8 @@ func _process(delta: float) -> void:
     # Exactly the Bittaran late _process pose capture for each shared-ID
     # scene; the part preview only differs in how the final pixels are shown.
     var dirty: bool = false
-    _scan_elapsed -= delta
+    if _base_scene == null or not is_instance_valid(_base_scene.get_ref()):
+        _scan_elapsed -= delta
     if _scan_elapsed <= 0.0:
         _scan_elapsed = SCAN_INTERVAL
         dirty = _rescan()
