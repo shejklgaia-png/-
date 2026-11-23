@@ -233,18 +233,20 @@ static func _combat_endpoint_corner(edge: Dictionary,
     var spokes: Array = incident.get(Edges._position_key(endpoint), [])
     # Non-manifold intersections are ambiguous; retain the known-good cap.
     if spokes.size() > 16:
-        return {"scale": 1.0, "neighbor": Vector3.ZERO}
+        return {"scale": 1.0, "neighbor": Vector3.ZERO, "kind": 0.0}
     var face_a: Vector3 = edge["face_a"]
     var face_b: Vector3 = edge.get("face_b", Vector3.ZERO)
     var scale: float = 1.0
-    var best_cos: float = 0.0
+    # Select one other welded edge sharing a real face. A 90-degree corner
+    # was previously treated as unconnected and kept its full inner cap.
+    var best_cos: float = 1.0
     var best_neighbor: Vector3 = Vector3.ZERO
     for item in spokes:
         var neighbor: Dictionary = item as Dictionary
         var next_direction: Vector3 = neighbor["direction"]
         var cos_angle: float = clampf(outgoing.dot(next_direction), -1.0, 1.0)
-        # Angles <=90 degrees still need the full old cap to close the tip.
-        if cos_angle >= 0.0:
+        # Exclude this edge itself and duplicate same-direction spokes.
+        if cos_angle > 0.999:
             continue
         var other_a: Vector3 = neighbor["face_a"]
         var other_b: Vector3 = neighbor["face_b"]
@@ -255,16 +257,23 @@ static func _combat_endpoint_corner(edge: Dictionary,
                 other_b != Vector3.ZERO and face_b.dot(other_b) > 0.9995)
         if not same_face:
             continue
-        # Full-length cap at 90 degrees, shorter toward 180 degrees:
-        # exterior_width * cot(angle / 2), conservatively clamped so that
-        # a minimum overlap is retained for rasterization at straight joins.
-        var required_ratio: float = sqrt(maxf(0.0,
-            (1.0 + cos_angle) / maxf(1.0 - cos_angle, 0.0001)))
-        scale = minf(scale, clampf(required_ratio, 0.2, 1.0))
+        # Preserve the prior external-cap behavior for obtuse corners.
+        # Right and acute joints keep an unmodified full outer extension.
+        if cos_angle < 0.0:
+            var required_ratio: float = sqrt(maxf(0.0,
+                (1.0 + cos_angle) / maxf(1.0 - cos_angle, 0.0001)))
+            scale = minf(scale, clampf(required_ratio, 0.2, 1.0))
         if cos_angle < best_cos:
             best_cos = cos_angle
             best_neighbor = next_direction
-    return {"scale": scale, "neighbor": best_neighbor}
+    # CUSTOM2.w: 1 = legacy projected outer-cap adjustment (>90 deg);
+    # 0.5 = new inside-only trim for face-connected right/acute corners.
+    # 0 = isolated endpoint, preserve its original square cap.
+    var connection_kind: float = 0.0
+    if best_neighbor != Vector3.ZERO:
+        connection_kind = 1.0 if best_cos < -0.001 else 0.5
+    return {"scale": scale, "neighbor": best_neighbor,
+        "kind": connection_kind}
 
 
 static func _make_edges(mesh: Mesh, closed: bool,
@@ -379,6 +388,8 @@ static func _make_edges(mesh: Mesh, closed: bool,
         var end_cap: float = 1.0
         var start_neighbor: Vector3 = Vector3.ZERO
         var end_neighbor: Vector3 = Vector3.ZERO
+        var start_kind: float = 0.0
+        var end_kind: float = 0.0
         if include_full_contour:
             var start_corner: Dictionary = _combat_endpoint_corner(
                 edge, a, tangent, incident)
@@ -388,14 +399,16 @@ static func _make_edges(mesh: Mesh, closed: bool,
             end_cap = float(end_corner["scale"])
             start_neighbor = start_corner["neighbor"]
             end_neighbor = end_corner["neighbor"]
+            start_kind = float(start_corner["kind"])
+            end_kind = float(end_corner["kind"])
         # UV.x is stroke side. UV.y keeps the 3D fallback cap fraction.
         # Per-endpoint CUSTOM2 provides a camera-projected alternative.
-        for corner in [[a, -1.0, -start_cap, start_neighbor],
-                [b, -1.0, end_cap, end_neighbor],
-                [b, 1.0, end_cap, end_neighbor],
-                [a, -1.0, -start_cap, start_neighbor],
-                [b, 1.0, end_cap, end_neighbor],
-                [a, 1.0, -start_cap, start_neighbor]]:
+        for corner in [[a, -1.0, -start_cap, start_neighbor, start_kind],
+                [b, -1.0, end_cap, end_neighbor, end_kind],
+                [b, 1.0, end_cap, end_neighbor, end_kind],
+                [a, -1.0, -start_cap, start_neighbor, start_kind],
+                [b, 1.0, end_cap, end_neighbor, end_kind],
+                [a, 1.0, -start_cap, start_neighbor, start_kind]]:
             writer.set_color(encoded_a)
             writer.set_custom(0, encoded_b)
             if include_full_contour:
@@ -404,7 +417,7 @@ static func _make_edges(mesh: Mesh, closed: bool,
                 var next_edge: Vector3 = corner[3]
                 writer.set_custom(2, Color(
                     next_edge.x, next_edge.y, next_edge.z,
-                    1.0 if next_edge.length_squared() > 0.1 else 0.0))
+                    float(corner[4])))
             writer.set_normal(tangent)
             writer.set_uv(Vector2(float(corner[1]), float(corner[2])))
             writer.add_vertex(corner[0])
