@@ -1,5 +1,5 @@
 shader_type canvas_item;
-// NEXUS: 1px inner / 5px outer, fully opaque, depth-resolved silhouette.
+// NEXUS: 1px inner / 2px outer, fully opaque, depth-resolved silhouette.
 // Use an exact Euclidean pixel radius; no fractional grey anti-alias fringe.
 // Visible mesh-to-mesh contact seams are 1px, on one mesh only.
 // No obscured contours or camera-facing geometric convex creases are drawn.
@@ -11,7 +11,7 @@ uniform vec2 mesh_id_texel = vec2(0.0026041667, 0.0026041667);
 uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
 uniform float stroke_px : hint_range(1.0, 3.0) = 2.0; // NEXUS architecture
 uniform float sera_inner_px : hint_range(0.0, 3.0) = 1.0;
-uniform float sera_outer_px : hint_range(0.0, 8.0) = 5.0;
+uniform float sera_outer_px : hint_range(0.0, 8.0) = 2.0;
 uniform float sera_seam_px : hint_range(0.5, 3.0) = 1.0;
 // xmin, ymin, xmax, ymax in viewport UV; zero-sized when SERA absent.
 uniform vec4 sera_screen_bounds = vec4(0.0);
@@ -118,7 +118,7 @@ void fragment() {
     } else {
         // Render architecture borders at 2px when a room ID is present.
         // The room also covers the wall BEHIND SERA, so room ID must not
-        // prevent the nearby 5px SERA silhouette from being drawn.
+        // prevent the nearby 2px SERA silhouette from being drawn.
         bool room = center_id.r >= 0.06;
         if (room) {
             float room_distance = 99.0;
@@ -142,11 +142,11 @@ void fragment() {
         }
         // Draw the SERA exterior even when the current ID is a room ID.
         // A room ID often belongs to the wall behind the displayed SERA;
-        // skipping it made the 5px setting visually ineffective.
+        // skipping it made the exterior stroke visually ineffective.
         if (coverage < 1.0) {
-            // The 5px SERA outline is an exact opaque Euclidean disk.
+            // The 2px SERA outline is an exact opaque Euclidean disk.
             // Sample both mixed directions (1,2), (3,4), etc. Previous
-            // eight-direction-only sampling made a 5px stroke uneven.
+            // eight-direction-only sampling can make a thick stroke uneven.
             // Work only inside the projected and padded SERA bounds.
             bool near_sera = UV.x >= sera_screen_bounds.x &&
                 UV.y >= sera_screen_bounds.y &&
@@ -156,7 +156,7 @@ void fragment() {
                 float radius_squared = sera_outer_px * sera_outer_px;
                 // Search nearest neighborhoods first and stop on the first
                 // visible SERA ID; all outside pixels are fully opaque.
-                for (int ring = 1; ring <= 5; ring++) {
+                for (int ring = 1; ring <= 2; ring++) {
                     if (float(ring - 1) >= sera_outer_px) {
                         break;
                     }
