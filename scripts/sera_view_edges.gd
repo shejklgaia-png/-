@@ -82,7 +82,7 @@ func set_contour_enabled(enabled: bool) -> void:
         if is_instance_valid(_compositor):
             _compositor.call("unregister_root", self)
         _compositor = null
-        else:
+    else:
         _register()
 
 
