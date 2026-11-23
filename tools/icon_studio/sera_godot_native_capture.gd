@@ -116,6 +116,8 @@ func _capture() -> void:
 
     var portrait := Node3D.new()
     portrait.name = "PortraitHeadD"
+    portrait.set_meta("sera_nexus_id_contact_only", true)
+    portrait.set_meta("sera_graphics_outline_category", "part")
     world.add_child(portrait)
     var spin := Node3D.new()
     spin.name = "PresetRotationAndPan"
@@ -181,6 +183,13 @@ func _capture() -> void:
     ink.call("set_stroke_px", 3.0)
     portrait.add_child(ink)
     await process_frame
+    var native_compositor: Node = viewport.get_node_or_null(
+        "SeraIDOutlineLayer/SeraIDOutlineControl")
+    if native_compositor == null:
+        _fail("HEAD D NEXUS ID compositor was not registered")
+        return
+    native_compositor.set("_part_outline_enabled", true)
+    native_compositor.set("_scan_elapsed", 0.0)
     for _frame in range(5):
         await RenderingServer.frame_post_draw
 
