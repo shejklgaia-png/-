@@ -78,6 +78,7 @@ static var _pool_shader: Shader
 static var _nexus_shutter_beam_shader: Shader
 static var _shaft_shader: Shader
 static var _fire_floor_shader: Shader
+static var _smoke_material: StandardMaterial3D
 
 # A screen-readable additive slit interior, exclusively for the GENERATOR.
 # The brightest filament stays at each gap center; feathered edges create
@@ -976,6 +977,9 @@ func _add_practical_lighting(key: String) -> void:
 
 
 func _smoke_quad_material() -> StandardMaterial3D:
+    # Chimney smoke uses the same immutable alpha tile after scene rebuilds.
+    if _smoke_material != null:
+        return _smoke_material
     var img := Image.create(32, 32, false, Image.FORMAT_RGBA8)
     for y in range(32):
         for x in range(32):
@@ -993,7 +997,8 @@ func _smoke_quad_material() -> StandardMaterial3D:
     mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
     mat.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
     mat.render_priority = RENDER_ORDER.FACILITY_VFX_FOREGROUND
-    return mat
+    _smoke_material = mat
+    return _smoke_material
 
 func _add_smoke() -> void:
     var stack_group := Node3D.new()
