@@ -81,15 +81,15 @@ var customize_body_rotate_cue: Control
 # NEXUS-only, opt-in diagnostic for the active same-frame GPU contours.
 # Unlike the removed ID-mask probe, this operates on the actual SERA mesh.
 const OUTLINE_DIAGNOSTIC_MODES: Array[String] = [
-    "通常 (深度ハル)", "深度ハル外周", "全エッジ", "開放境界", "接合線", "深度無視",
+    "通常 (可視ID)", "旧深度ハル", "全エッジ", "開放境界", "接合線", "深度無視",
     "対象メッシュ", "マスク表示", "ハル単独", "深度ハル強調",
     "立方体＝", "立方体≠", "全身＝", "面反転",
     "法線＋8px", "法線－8px", "深度なし全エッジ",
     "17一致", "書込停止≠17"
 ]
 const OUTLINE_DIAGNOSTIC_EXPLAINS: Array[String] = [
-    "平滑化ハルをGPU深度テストで描画。ステンシルなし、外周3px。",
-    "青緑: 本番の深度テスト付き反転ハルの外周を強調表示。",
+    "NEXUS建築とセラを同一の可視RGB-ID深度パスで描画。外周は内1px＋外2px。",
+    "青緑: 比較用の旧3D反転ハル。通常の可視ID方式とは別の診断表示。",
     "黄: 生成済みの全エッジ。視点による非表示を解除。",
     "橙: 開放境界のみ。閉じた装甲には通常ありません。",
     "紫: メッシュ同士の交差から生成した接合線のみ。",
@@ -545,9 +545,10 @@ func _sera_display() -> void:
     rig.scale = Vector3.ONE * 1.35
     rig.rotation.y = PI
     stand.add_child(rig)
-    # Character contours now share the exact source render frame; the room
-    # still uses its existing viewport-level ID outlines independently.
-    rig.set_meta("sera_skip_common_id_outline", true)
+    # Room and character share the SAME NEXUS RGB-ID depth pass. The rig
+    # receives per-mesh green/blue IDs, while architecture uses red-only IDs.
+    # This makes room contours respect SERA occlusion, with no extra viewport.
+    rig.set_meta("sera_nexus_id_contact_only", true)
     var rig_id_outline: Node = rig.get_node_or_null("ViewEdges")
     if is_instance_valid(rig_id_outline):
         rig_id_outline.call("set_contour_enabled", false)
@@ -582,11 +583,12 @@ func _sera_display() -> void:
     _remember_nexus_arm_rest_pose(rig)
     _fit_nexus_arms_to_lower_body()
     _capture_sera_silhouette(rig)
-    # Reuse the existing position-welded smooth hull baker. Unlike the
-    # retired stencil masks, the production hull passes the GPU depth test.
-    # No separate camera, mask texture, SubViewport or per-frame CPU edges.
+    # The production contour uses the existing scene ID compositor. Keep the
+    # previous depth hull as an explicitly disabled comparison diagnostic:
+    # creating it must not generate opaque black geometry in normal mode.
     var depth_hull: Node3D = DepthHullOutline.new()
     depth_hull.call("configure", rig)
+    depth_hull.call("set_diagnostic_mode", 2)
     rig.add_child(depth_hull)
     # Retain the previous edge/stencil implementations for diagnostics only.
     var live_edges: Node3D = LiveMeshEdges.new()
@@ -636,9 +638,8 @@ func _apply_nexus_pose(rig: Node3D) -> bool:
 
 
 func _capture_sera_silhouette(rig: Node3D) -> void:
-    # Capture only the meshes currently visible after A/B/C part selection.
-    # Keep each mesh separate: a bone-level AABB connects unrelated armor
-    # pieces and cannot trace B's round head or future custom equipment.
+    # Capture only authored opaque geometry; outline/debug/VFX copies must
+    # never affect preview fit, selection shapes, or drag-time CPU work.
     var visible_parts: Array = []
     _collect_sera_geometry(rig, visible_parts)
     target_parts["CUSTOMIZE"] = visible_parts
@@ -675,6 +676,10 @@ func _mesh_outline_local_vertices(mesh: Mesh) -> PackedVector3Array:
     return local_vertices
 
 func _collect_sera_geometry(node: Node, visible_parts: Array) -> void:
+    if bool(node.get_meta("sera_generated_live_edge", false)) or (
+            bool(node.get_meta("FX_NO_OUTLINE", false))) or (
+            bool(node.get_meta("sera_no_view_edges", false))):
+        return
     if node is MeshInstance3D:
         var piece: MeshInstance3D = node as MeshInstance3D
         # Ignore hidden variants and the separate sword slash effect.
@@ -3089,7 +3094,7 @@ func _set_gpu_outline_debug_mode(mode: int) -> void:
         var depth_hull: Node = sera_display_rig.get_node_or_null(
             "SeraDepthHullOutline")
         if depth_hull != null:
-            depth_hull.call("set_diagnostic_mode", outline_debug_mode)
+            depth_hull.call("set_diagnostic_mode", 2 if outline_debug_mode == 0 else outline_debug_mode)
     for i in range(outline_debug_mode_buttons.size()):
         var button: Panel = outline_debug_mode_buttons[i]
         button.add_theme_stylebox_override(
