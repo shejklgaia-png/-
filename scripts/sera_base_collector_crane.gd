@@ -4,6 +4,38 @@ extends RefCounted
 ## Existing "FreshCollector..." hoist/jaw animation groups are preserved.
 ## Cargo-case/gear/drum/gusset/hood are real shared polygon meshes.
 
+const CollectorConveyor = preload("res://scripts/sera_base_collector_conveyor.gd")
+
+
+# One-time geometry adapter: all crane parts move together, including the
+# bearing, bolts, hydraulic hoses, gripper and suspended rope. No 3D nodes
+# or per-frame transformations are created by this authoring-time wrapper.
+class ShiftedBatch:
+    var _source: Variant
+    var _offset: Vector3
+
+    func _init(source: Variant, offset: Vector3) -> void:
+        _source = source
+        _offset = offset
+
+    func poly(feature: String, kind: String, at: Vector3,
+            size: Vector3, tint: String = "armor",
+            yaw: float = 0.0) -> void:
+        _source.poly(feature, kind, at + _offset, size, tint, yaw)
+
+    func poly_tilt(feature: String, kind: String, at: Vector3,
+            size: Vector3, tint: String, angles: Vector3) -> void:
+        _source.poly_tilt(feature, kind, at + _offset, size, tint, angles)
+
+    func box(feature: String, at: Vector3, size: Vector3,
+            tint: String = "armor", yaw: float = 0.0) -> void:
+        _source.box(feature, at + _offset, size, tint, yaw)
+
+    func rod(feature: String, start: Vector3, finish: Vector3,
+            diameter: float, tint: String = "trim") -> void:
+        _source.rod(feature, start + _offset, finish + _offset,
+            diameter, tint)
+
 
 static func _beam(g: Variant, feature: String, a: Vector3, b: Vector3,
         width: float, depth: float, tint: String,
@@ -27,6 +59,10 @@ static func _axle(g: Variant, feature: String, center: Vector3,
 
 
 static func build(g: Variant) -> void:
+    # Move the complete multi-part crane away from the yellow table edge.
+    # Keep its original mechanical relationships and use one shared offset
+    # with the runtime swivel pivot and the separate suspended cargo.
+    g = ShiftedBatch.new(g, CollectorConveyor.CRANE_OFFSET)
     var foot := Vector3(-0.78, 1.25, -0.43)
     var elbow := Vector3(-0.35, 2.97, -0.31)
     var tip := Vector3(0.76, 2.59, 1.04)
