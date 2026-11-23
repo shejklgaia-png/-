@@ -48,7 +48,7 @@ CAMERA_AUTO_FIT = float(PRESET_RENDER["auto_fit"])
 ANGLES = {slot: OBLIQUE_POSE for slot in (
     "head", "torso", "arms", "legs", "booster", "weapon_r", "weapon_l")}
 KEY = b"SERA_ICON_MANIFEST_V1"
-PNG_SIGNATURE = b"\\x89PNG\\r\\n\\x1a\\n"
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 # Each image is an independent Godot framebuffer capture at the final UI size.
 # Widths here must match CAPTURE_PROFILES in sera_all_native_capture.gd.
 CAPTURE_PROFILES = {
