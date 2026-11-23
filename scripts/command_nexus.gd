@@ -3980,13 +3980,18 @@ func _navigate_back() -> void:
 func _input(event: InputEvent) -> void:
     # Always honor the exit area, including a camera tween that has not
     # completed yet. This bypasses the in_transition lock intentionally.
-    var exit_press: bool = (
-        (event is InputEventScreenTouch and event.pressed) or
-        (event is InputEventMouseButton and event.pressed
-            and event.button_index == MOUSE_BUTTON_LEFT))
+    var exit_press: bool = false
+    var exit_tap: Vector2 = Vector2.ZERO
+    if event is InputEventScreenTouch:
+        if event.pressed:
+            exit_press = true
+            exit_tap = event.position
+    elif event is InputEventMouseButton:
+        if event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+            exit_press = true
+            exit_tap = event.position
     if exit_press and explore_panel != null and explore_panel.visible:
-        var tap_pos: Vector2 = event.position
-        if Rect2(explore_panel.position, explore_panel.size).has_point(tap_pos):
+        if Rect2(explore_panel.position, explore_panel.size).has_point(exit_tap):
             _enter_base()
             get_viewport().set_input_as_handled()
             return
