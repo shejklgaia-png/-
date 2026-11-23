@@ -1,7 +1,8 @@
 extends RefCounted
 ## Materials use a 3x4 transparent WebP atlas. Equipment uses one 512px
-## Godot-native captured PNG per real blueprint; no mock-up portraits are
-## registered as live equipment. Composition is cached once per blueprint.
+## Godot-native photographed PNGs: full 512px, warehouse 82px and craft
+## catalog 96px, each with independent screen-native outline strokes.
+## Composition is cached once per blueprint+display profile.
 const ATLAS_PATH: String = "res://assets/ui/sera_matte_icon_atlas.webp" # Retired; diagnostics only.
 const NATIVE_EQUIPMENT_DIRECTORY: String = "res://assets/ui/sera_equipment_icons"
 # Approved per-blueprint model screenshots; Base64 holds original PNG bytes,
@@ -168,10 +169,20 @@ static func material_icon_sized(material_id: String, size: int) -> Texture2D:
     _material_sized_cache[key] = tile
     return tile
 
-static func _native_equipment_icon(blueprint_id: String) -> Texture2D:
-    # PNGs are generated off-device by the real GL Compatibility SeraRig
-    # capture. Android Editor can decode the source if import cache is missing.
-    var path: String = NATIVE_EQUIPMENT_DIRECTORY + "/" + blueprint_id + ".png"
+static func _native_equipment_icon(blueprint_id: String,
+        profile: String = "full") -> Texture2D:
+    # PNGs are generated off-device at each UI's actual visual resolution.
+    # Preserve the 512px master for large panels / other NEXUS consumers.
+    var side: int = 512
+    var filename: String = blueprint_id + ".png"
+    match profile:
+        "warehouse":
+            side = 82
+            filename = "warehouse/" + filename
+        "craft":
+            side = 96
+            filename = "craft/" + filename
+    var path: String = NATIVE_EQUIPMENT_DIRECTORY + "/" + filename
     var bitmap: Image = null
     # Decode source PNG first on Android/editor. Avoid false missing .ctex
     # errors from stale import caches; packaged builds can use imported texture.
@@ -184,10 +195,10 @@ static func _native_equipment_icon(blueprint_id: String) -> Texture2D:
         var res: Resource = ResourceLoader.load(path, "Texture2D")
         if res is Texture2D:
             bitmap = (res as Texture2D).get_image()
-    if bitmap == null or bitmap.get_width() != 512 or bitmap.get_height() != 512:
+    if bitmap == null or bitmap.get_width() != side or bitmap.get_height() != side:
         return null
-    # Final 2D composition is already cached per blueprint. Retaining this
-    # separate 512px source texture wastes about 19 MiB for 19 parts.
+    # Reuse one composited texture per blueprint+profile. Never duplicate
+    # 512px images for the 82px/96px LABO card lists.
     return ImageTexture.create_from_image(bitmap)
 
 
@@ -210,19 +221,27 @@ static func _approved_equipment_icon(blueprint_id: String) -> Texture2D:
     return texture
 
 
-static func equipment_icon(blueprint_id: String) -> Texture2D:
-    # One 2D blend per blueprint; never a per-item runtime SubViewport.
-    # Only real model captures are valid for equipment (H02's approved PNG
-    # remains a compatibility fallback until the native batch is checked in).
-    if _presented_equipment_cache.has(blueprint_id):
-        return _presented_equipment_cache[blueprint_id] as Texture2D
-    var source: Texture2D = _native_equipment_icon(blueprint_id)
+static func equipment_icon(blueprint_id: String,
+        profile: String = "full") -> Texture2D:
+    # One 2D blend per model + display profile; no runtime 3D capture.
+    # The small source is already photographed by Godot at exactly 82/96px,
+    # so the full 512px outline is NEVER shrunk onto tiny cards.
+    var selected_profile: String = profile if profile in [
+        "full", "warehouse", "craft"] else "full"
+    var cache_key: String = blueprint_id + ":" + selected_profile
+    if _presented_equipment_cache.has(cache_key):
+        return _presented_equipment_cache[cache_key] as Texture2D
+    var source: Texture2D = _native_equipment_icon(
+        blueprint_id, selected_profile)
+    if source == null and selected_profile != "full":
+        # Compatibility while clients synchronize the newly captured images.
+        source = _native_equipment_icon(blueprint_id)
     if source == null and blueprint_id == "H02":
         source = _approved_equipment_icon(blueprint_id)
     if source == null:
         return null
     var presented: Texture2D = IconBackground.composite(source)
-    _presented_equipment_cache[blueprint_id] = presented
+    _presented_equipment_cache[cache_key] = presented
     return presented
 
 static func icon_for(item_id: String) -> Texture2D:

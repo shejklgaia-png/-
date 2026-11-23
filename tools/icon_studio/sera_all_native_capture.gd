@@ -1,7 +1,8 @@
 extends SceneTree
 ## Offline only: photograph all existing live SeraRig parts using the
 ## user-approved H02 Godot preset, with the current NEXUS mesh-ID ink.
-## Capture-only profile: silhouette inside 1 / outside 4, convex 3, seams 2.
+## Capture profiles: full 512px, warehouse native 82px, craft native 96px.
+## Small thumbnails use screen-native strokes, never a scaled 512px outline.
 const RigScript = preload("res://scripts/sera_rig.gd")
 const EdgeScript = preload("res://scripts/sera_view_edges.gd")
 const ConvexGeometry = preload("res://scripts/sera_base_facility_crease_geometry.gd")
@@ -14,6 +15,17 @@ const ICON_INNER_PX: float = 1.0
 const ICON_OUTER_PX: float = 4.0
 const ICON_CONVEX_PX: float = 3.0
 const ICON_SEAM_PX: float = 2.0
+# These are photographed independently by Godot at their FINAL thumbnail
+# resolutions; never downsample the full-resolution thick NEXUS silhouette.
+# Warehouse drops dense subpixel seams to keep narrow silhouettes readable.
+const CAPTURE_PROFILES = [
+    {"name": "full", "pixels": 512, "inner": 1.0, "outer": 4.0,
+        "convex": 3.0, "seam": 2.0},
+    {"name": "warehouse", "pixels": 82, "inner": 1.0, "outer": 1.25,
+        "convex": 0.75, "seam": 0.75},
+    {"name": "craft", "pixels": 96, "inner": 1.0, "outer": 1.5,
+        "convex": 1.0, "seam": 1.0},
+]
 # The one canonical user preset fixes yaw/pitch/roll/scale/pan for every slot.
 # Each icon retains its own authentic source mesh/material and blueprint ID.
 const CAMERA_PRESET_PATH: String = "res://assets/ui/sera_icon_presets/H02.json"
@@ -140,6 +152,14 @@ func _run() -> void:
     if DirAccess.make_dir_recursive_absolute(out_dir) != OK:
         _fail("Cannot create offline generated equipment icon directory")
         return
+    for profile_spec in CAPTURE_PROFILES:
+        var profile_name: String = str(profile_spec["name"])
+        if profile_name == "full":
+            continue
+        if DirAccess.make_dir_recursive_absolute(
+                out_dir.path_join(profile_name)) != OK:
+            _fail("Cannot create offline icon profile " + profile_name)
+            return
     var count: int = 0
     for blueprint in Catalog.ORDER:
         var id: String = str(blueprint)
@@ -238,8 +258,9 @@ func _run() -> void:
             _fail(id + ": NEXUS ID compositor was not registered")
             return
         native_compositor.set("_part_outline_enabled", true)
-        # Swap only the private capture viewport's ink material. The live
-        # NEXUS shader and its 1px/2px widths are never changed.
+        # The same real 3D rig is captured separately for three UI sizes.
+        # Runtime NEXUS shaders remain untouched; only this SubViewport has
+        # an icon-specific visible-ID material and convex corner ribbons.
         var icon_material: ShaderMaterial = native_compositor.get(
             "_screen_material") as ShaderMaterial
         var icon_id_viewport: SubViewport = native_compositor.get(
@@ -251,62 +272,79 @@ func _run() -> void:
             icon_material.shader = IconContactInk
         icon_material.set_shader_parameter(
             "mesh_id_texture", icon_id_viewport.get_texture())
-        icon_material.set_shader_parameter("mesh_id_texel", Vector2(
-            1.0 / float(icon_id_viewport.size.x),
-            1.0 / float(icon_id_viewport.size.y)))
         icon_material.set_shader_parameter("ink_color", Color("#17212f"))
-        icon_material.set_shader_parameter("sera_inner_px", ICON_INNER_PX)
-        icon_material.set_shader_parameter("sera_outer_px", ICON_OUTER_PX)
-        icon_material.set_shader_parameter("sera_seam_px", ICON_SEAM_PX)
-        native_compositor.set("_scan_elapsed", 0.0)
-        # The compositor is deferred and has a separate ID SubViewport.
-        # Render several frames before capturing the final composited color.
-        for _frame in range(5):
-            await RenderingServer.frame_post_draw
-        var screenshot: Image = viewport.get_texture().get_image()
-        if screenshot == null or screenshot.is_empty():
-            _fail(id + ": framebuffer missing")
-            return
-        screenshot.convert(Image.FORMAT_RGBA8)
-        if screenshot.get_width() != PIXELS or screenshot.get_height() != PIXELS:
-            _fail(id + ": wrong render size")
-            return
-        var painted: int = 0
-        for y in range(0, PIXELS, 4):
-            for x in range(0, PIXELS, 4):
-                if screenshot.get_pixel(x, y).a > 0.25:
-                    painted += 1
-        if painted < 20 or screenshot.get_pixel(0, 0).a > 0.05:
-            _fail(id + ": blank or opaque screenshot; painted=" + str(painted))
-            return
-        var output: String = out_dir.path_join(id + ".png")
-        screenshot = _equalize_transparent_margins(screenshot, auto_fit)
-        if screenshot == null or screenshot.is_empty():
-            _fail(id + ": cannot fit transparent margins")
-            return
-        if screenshot.save_png(output) != OK:
-            _fail(id + ": screenshot file could not be saved")
-            return
-        print("SERA_NATIVE_EQUIPMENT_ICON_PASS id=%s meshes=%d pixels=%d" %
-            [id, mesh_count, painted])
+
+        for profile_spec in CAPTURE_PROFILES:
+            var profile_name: String = str(profile_spec["name"])
+            var target_px: int = int(profile_spec["pixels"])
+            viewport.size = Vector2i(target_px, target_px)
+            # _sync_camera refreshes ID viewport dimensions/texel size for
+            # this profile. Explicitly invalidate the cached scan after
+            # each resize so geometry contact IDs are freshly drawn.
+            icon_material.set_shader_parameter(
+                "sera_inner_px", float(profile_spec["inner"]))
+            icon_material.set_shader_parameter(
+                "sera_outer_px", float(profile_spec["outer"]))
+            icon_material.set_shader_parameter(
+                "sera_seam_px", float(profile_spec["seam"]))
+            convex_material.set_shader_parameter(
+                "crease_px", float(profile_spec["convex"]))
+            native_compositor.set("_scan_elapsed", 0.0)
+            for _frame in range(6):
+                await RenderingServer.frame_post_draw
+
+            var screenshot: Image = viewport.get_texture().get_image()
+            if screenshot == null or screenshot.is_empty():
+                _fail(id + "/" + profile_name + ": framebuffer missing")
+                return
+            screenshot.convert(Image.FORMAT_RGBA8)
+            if screenshot.get_width() != target_px or (
+                    screenshot.get_height() != target_px):
+                _fail(id + "/" + profile_name + ": wrong render size")
+                return
+            var painted: int = 0
+            var sample_stride: int = 4 if target_px >= 512 else 2
+            for y in range(0, target_px, sample_stride):
+                for x in range(0, target_px, sample_stride):
+                    if screenshot.get_pixel(x, y).a > 0.25:
+                        painted += 1
+            if painted < 20 or screenshot.get_pixel(0, 0).a > 0.05:
+                _fail(id + "/" + profile_name +
+                    ": blank or opaque screenshot; painted=" + str(painted))
+                return
+            screenshot = _equalize_transparent_margins(
+                screenshot, auto_fit, target_px)
+            if screenshot == null or screenshot.is_empty():
+                _fail(id + "/" + profile_name +
+                    ": cannot fit transparent margins")
+                return
+            var output: String = out_dir.path_join(id + ".png")
+            if profile_name != "full":
+                output = out_dir.path_join(profile_name).path_join(id + ".png")
+            if screenshot.save_png(output) != OK:
+                _fail(id + "/" + profile_name +
+                    ": screenshot file could not be saved")
+                return
+            print("SERA_NATIVE_EQUIPMENT_ICON_PASS id=%s profile=%s px=%d meshes=%d pixels=%d" %
+                [id, profile_name, target_px, mesh_count, painted])
         count += 1
         portrait.queue_free()
         await process_frame
     if count != 19:
         _fail("Expected all nineteen live model captures")
         return
-    print("SERA_NATIVE_EQUIPMENT_BATCH_PASS count=19 NEXUS_pose=true approved_preset=true")
+    print("SERA_NATIVE_EQUIPMENT_BATCH_PASS count=19 profiles=3 images=57 NEXUS_pose=true approved_preset=true")
     quit(0)
 
 # Pixel-alpha crop is applied after the real native render, not to the
 # authoritative 3D mesh. The four *occupied* margins are identical to ±1px.
-func _equalize_transparent_margins(source: Image, auto_fit: float) -> Image:
-    var left: int = PIXELS
+func _equalize_transparent_margins(source: Image, auto_fit: float, pixels: int) -> Image:
+    var left: int = pixels
     var right: int = -1
-    var top: int = PIXELS
+    var top: int = pixels
     var bottom: int = -1
-    for y in range(PIXELS):
-        for x in range(PIXELS):
+    for y in range(pixels):
+        for x in range(pixels):
             var alpha: float = source.get_pixel(x, y).a
             if alpha > 0.10:
                 left = mini(left, x)
@@ -319,7 +357,7 @@ func _equalize_transparent_margins(source: Image, auto_fit: float) -> Image:
     var height: int = bottom - top + 1
     # An authored auto_fit of 0.76 occupies at most 76% of the 512px canvas.
     # This preserves symmetric transparent margins without an arbitrary zoom.
-    var target_side: int = roundi(PIXELS * auto_fit)
+    var target_side: int = roundi(pixels * auto_fit)
     var factor: float = minf(float(target_side) / float(width),
         float(target_side) / float(height))
     var output_width: int = clampi(roundi(float(width) * factor), 1, target_side)
@@ -327,9 +365,9 @@ func _equalize_transparent_margins(source: Image, auto_fit: float) -> Image:
     var crop: Image = source.get_region(Rect2i(left, top, width, height))
     crop.resize(output_width, output_height, Image.INTERPOLATE_LANCZOS)
     var composed: Image = Image.create(
-        PIXELS, PIXELS, false, Image.FORMAT_RGBA8)
+        pixels, pixels, false, Image.FORMAT_RGBA8)
     composed.fill(Color.TRANSPARENT)
     composed.blit_rect(crop, Rect2i(0, 0, output_width, output_height),
-        Vector2i((PIXELS - output_width) / 2,
-            (PIXELS - output_height) / 2))
+        Vector2i((pixels - output_width) / 2,
+            (pixels - output_height) / 2))
     return composed

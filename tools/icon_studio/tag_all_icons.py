@@ -49,6 +49,16 @@ ANGLES = {slot: OBLIQUE_POSE for slot in (
     "head", "torso", "arms", "legs", "booster", "weapon_r", "weapon_l")}
 KEY = b"SERA_ICON_MANIFEST_V1"
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+# Each image is an independent Godot framebuffer capture at the final UI size.
+# Widths here must match CAPTURE_PROFILES in sera_all_native_capture.gd.
+CAPTURE_PROFILES = {
+    "full": {"pixels": 512, "inner": 1.0, "outer": 4.0,
+             "convex": 3.0, "seam": 2.0},
+    "warehouse": {"pixels": 82, "inner": 1.0, "outer": 1.25,
+                  "convex": 0.75, "seam": 0.75},
+    "craft": {"pixels": 96, "inner": 1.0, "outer": 1.5,
+              "convex": 1.0, "seam": 1.0},
+}
 
 
 def _chunk(kind: bytes, data: bytes) -> bytes:
@@ -56,8 +66,11 @@ def _chunk(kind: bytes, data: bytes) -> bytes:
             struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF))
 
 
-def annotate_one(id_: str, entry: dict) -> dict:
-    path = TARGET / (id_ + ".png")
+def annotate_one(id_: str, entry: dict, profile_name: str = "full") -> dict:
+    profile = CAPTURE_PROFILES[profile_name]
+    pixels = int(profile["pixels"])
+    path = (TARGET / (id_ + ".png") if profile_name == "full"
+            else TARGET / profile_name / (id_ + ".png"))
     source_path = entry["source_model"]
     model_path = ROOT / source_path
     model_bytes = model_path.read_bytes()
@@ -79,6 +92,7 @@ def annotate_one(id_: str, entry: dict) -> dict:
             "rig_set": entry["rig_set"],
         },
         "render": {
+            "profile": profile_name,
             "engine": PRESET_RENDER["engine"],
             "camera": "orthographic_front",
             "model_rotation_deg": dict(zip(("x", "y", "z"), angles)),
@@ -90,14 +104,15 @@ def annotate_one(id_: str, entry: dict) -> dict:
             "outline": {
                 "enabled": True,
                 "color": "#17212F",
-                "silhouette_inner_px": 1,
-                "silhouette_outer_px": 4,
-                "convex_px": 3,
-                "mesh_contact_px": 2,
+                "silhouette_inner_px": profile["inner"],
+                "silhouette_outer_px": profile["outer"],
+                "convex_px": profile["convex"],
+                "mesh_contact_px": profile["seam"],
                 "crease_degrees": 80,
-                "rendered_at_px": 512,
+                "rendered_at_px": pixels,
             },
-            "image": PRESET_RENDER["image"],
+            "image": {**PRESET_RENDER["image"], "width": pixels,
+                      "height": pixels},
             "mesh_transform": "Installed SeraRig MeshInstance3D global transforms",
             "texture_source": "Original in-game SeraRig mesh/material",
         },
@@ -111,8 +126,9 @@ def annotate_one(id_: str, entry: dict) -> dict:
     if not png.startswith(PNG_SIGNATURE) or png[12:16] != b"IHDR":
         raise ValueError(f"{id_}: invalid Godot capture PNG")
     w, h, depth, color, _, _, _ = struct.unpack(">IIBBBBB", png[16:29])
-    if (w, h, depth, color) != (512, 512, 8, 6):
-        raise ValueError(f"{id_}: native screenshot is not RGBA 512")
+    if (w, h, depth, color) != (pixels, pixels, 8, 6):
+        raise ValueError(
+            f"{id_}/{profile_name}: native screenshot is not RGBA {pixels}")
     payload = KEY + b"\x00" + json.dumps(
         record, ensure_ascii=True, separators=(",", ":")).encode("ascii")
     ihdr_end = 8 + 12 + struct.unpack(">I", png[8:12])[0]
@@ -138,14 +154,30 @@ def annotate_all() -> None:
         ).hexdigest()
         manifest["items"][id_]["capture"] = (
             "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink")
+        variants = {}
+        for profile_name in ("warehouse", "craft"):
+            profile = CAPTURE_PROFILES[profile_name]
+            annotate_one(id_, entry, profile_name)
+            png_path = TARGET / profile_name / (id_ + ".png")
+            variants[profile_name] = {
+                "path": "assets/ui/sera_equipment_icons/"
+                        + profile_name + "/" + id_ + ".png",
+                "size": int(profile["pixels"]),
+                "png_sha256": hashlib.sha256(png_path.read_bytes()).hexdigest(),
+                "outline": {key: profile[key] for key in (
+                    "inner", "outer", "convex", "seam")},
+            }
+        manifest["items"][id_]["variants"] = variants
     manifest["count"] = len(records)
+    manifest["display_profiles"] = {
+        key: value for key, value in CAPTURE_PROFILES.items()}
     manifest["capture_preset"] = "assets/ui/sera_icon_presets/H02.json"
     manifest["outline_pipeline"] = (
         "ICON ONLY: silhouette inner 1px outer 4px; convex corners 3px; mesh seams 2px")
     MANIFEST_PATH.write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8")
-    print("SERA_NATIVE_EQUIPMENT_METADATA_UPDATED parts=", len(records))
+    print("SERA_NATIVE_EQUIPMENT_METADATA_UPDATED parts=", len(records), "images=", len(records) * len(CAPTURE_PROFILES))
 
 
 if __name__ == "__main__":

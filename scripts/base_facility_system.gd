@@ -1850,7 +1850,7 @@ func _apply_card_icon(card: Button, item_id: String, equipment: bool = false) ->
         return
     if diagnostic_button.visible:
         _diag_step("icon " + item_id + " loading")
-    var texture: Texture2D = (IconAtlas.equipment_icon(item_id)
+    var texture: Texture2D = (IconAtlas.equipment_icon(item_id, "craft")
         if equipment else IconAtlas.material_icon(item_id))
     # Native root Button receives input and background, not the bitmap.
     # The independent, clipped TextureRect is guaranteed to fit the card.
@@ -2484,7 +2484,7 @@ func _render_prototype_detail() -> void:
     make.pressed.connect(_invoke_scroll_action.bind(
         _confirm_selected_prototype, actions_scroll))
     modal_actions.add_child(make)
-    _add_item_tile(IconAtlas.equipment_icon(selected_prototype),
+    _add_item_tile(IconAtlas.equipment_icon(selected_prototype, "craft"),
         str(spec["name"]),
         "PrototypePreview_" + selected_prototype)
     _configure_page_scroll(0, true)

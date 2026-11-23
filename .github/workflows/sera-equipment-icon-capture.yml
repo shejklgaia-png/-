@@ -1,4 +1,4 @@
-name: SERA Equipment PNG Recapture (assets only)
+name: SERA Equipment PNG Recapture - Full/Warehouse/Craft (assets only)
 # This workflow generates real PNG assets. It deliberately runs no CI tests.
 on:
   workflow_dispatch:
@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/sera-equipment-icon-capture.yml'
       - 'tools/icon_studio/sera_all_native_capture.gd'
+      - 'tools/icon_studio/tag_all_icons.py'
       - 'shaders/sera_icon_capture_visible_id_ink.gdshader'
       - 'shaders/sera_icon_capture_convex_ink.gdshader'
 
@@ -19,7 +20,7 @@ concurrency:
 
 jobs:
   capture:
-    name: Capture and commit 19 native equipment PNGs (no tests)
+    name: Capture and commit 57 native equipment PNGs (no tests)
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -52,7 +53,7 @@ jobs:
           "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" \
             --headless --editor --path . --import --quit
 
-      - name: Photograph all 19 equipment parts with the current NEXUS ID renderer
+      - name: Photograph 19 models in three native UI sizes
         env:
           GODOT_BIN: ${{ runner.temp }}/godot/Godot_v4.7.2-stable_linux.x86_64
           LIBGL_ALWAYS_SOFTWARE: '1'
@@ -61,26 +62,30 @@ jobs:
           xvfb-run -a -s '-screen 0 1024x1024x24' \
             python3 tools/icon_studio/recapture_all_icons.py
 
-      - name: Publish generated PNGs and manifest to main
+      - name: Publish full and two UI-specific PNG sets plus manifest to main
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add assets/ui/sera_equipment_icons/*.png \
+                  assets/ui/sera_equipment_icons/warehouse/*.png \
+                  assets/ui/sera_equipment_icons/craft/*.png \
                   assets/ui/sera_equipment_icons/manifest.json
           if git diff --cached --quiet; then
             echo 'All native equipment PNGs already match main.'
           else
-            git commit -m 'SERA: recapture all 19 equipment icons at 1-4-3-2px'
+            git commit -m 'SERA: recapture 19 full, warehouse and craft icon sets at native UI pixels'
             git push origin HEAD:main
           fi
 
       - name: Preserve generated PNGs as a workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: sera-equipment-native-id-icons-19
+          name: sera-equipment-native-id-icons-57
           path: |
             assets/ui/sera_equipment_icons/*.png
+            assets/ui/sera_equipment_icons/warehouse/*.png
+            assets/ui/sera_equipment_icons/craft/*.png
             assets/ui/sera_equipment_icons/manifest.json
           if-no-files-found: error
           retention-days: 14

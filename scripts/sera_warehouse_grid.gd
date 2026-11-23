@@ -346,7 +346,7 @@ func _bind_card(card: Button, index: int) -> void:
     else:
         marker.color = Color("#68bec8")
         trace.color = Color("#a2e3e7")
-        art.texture = Icons.equipment_icon(str(entry.get("blueprint", "")))
+        art.texture = Icons.equipment_icon(str(entry.get("blueprint", "")), "warehouse")
         art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
         var equipment_side: float = minf(82.0, minf(_card_width * 0.36, 86.0))
         art.position = Vector2(12.0, 10.0)
