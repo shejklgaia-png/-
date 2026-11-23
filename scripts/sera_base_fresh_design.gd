@@ -157,7 +157,7 @@ static func _labo(g: Variant) -> void:
             Vector3(side * 0.95, 2.67, 0.98), 0.12, "armor_light")
         g.box("FreshLabPrinterLegLight",
             Vector3(side * 0.95, 2.15, 1.10),
-            Vector3(0.075, 0.72, 0.07), "blue_light")
+            Vector3(0.075, 0.72, 0.07), "lab_cyan")
     g.rod("FreshLabOpenPrinterBridge",
         Vector3(-1.00, 2.64, 0.97),
         Vector3(1.00, 2.64, 0.97), 0.20, "edge")
@@ -198,7 +198,7 @@ static func _labo(g: Variant) -> void:
     for i in range(3):
         g.box("FreshLabTelemetry",
             Vector3(1.46, 1.21 + i * 0.11, 1.70),
-            Vector3(0.34, 0.035, 0.025), "blue_light")
+            Vector3(0.34, 0.035, 0.025), "lab_cyan")
     # Rear utility fixtures glow through the front gap and visibly
     # separate the fabrication opening from its canopy at gameplay scale.
     g.box("FreshLabWarmWorkLight",
@@ -213,7 +213,7 @@ static func _labo(g: Variant) -> void:
             Vector3(0.18, 1.65, 0.17), "armor_light")
         g.box("FreshLabFrontMachineGlow",
             Vector3(side * 1.13, 1.55, 1.51),
-            Vector3(0.07, 1.11, 0.06), "blue_light")
+            Vector3(0.07, 1.11, 0.06), "lab_cyan")
     for side in [-1.0, 1.0]:
         g.poly("FreshLabPartsBin", "bevel",
             Vector3(side * 1.53, 0.70, 0.20),
