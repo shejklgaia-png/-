@@ -499,6 +499,189 @@ static func _mesh_triangle(vertices: PackedVector3Array,
     colors.append(col_c)
 
 
+static func _signature_deck_features(batches: Dictionary) -> void:
+    # A real broken annular track around the SERA maintenance pad. These are
+    # stamped metal arc segments; the foreground opening forms an approach
+    # instead of boxing the displayed character inside a complete circle.
+    for i in range(48):
+        if i >= 8 and i <= 15:
+            continue
+        var angle: float = TAU * float(i) / 48.0
+        var finish: String = "arc_highlight" if i % 6 == 0 else "arc_shell"
+        _append(batches, finish, Transform3D(
+            Basis(Vector3.UP, -angle),
+            Vector3(0.0, PLATE_TOP + 0.006, -4.75)))
+        if i % 4 == 0:
+            var theta: float = angle + TAU / 96.0
+            _cube(batches, "stage_lock",
+                Vector3(cos(theta) * 2.53, PLATE_TOP + 0.010,
+                    -4.75 + sin(theta) * 2.53),
+                Vector3(0.12, 0.018, 0.33), -theta)
+    # Deep open service spine: the center-row plates were cut away in the
+    # build loop, exposing this darker recessed mechanical backbone.
+    var spine_length: float = DECK_FRONT - SERVICE_SPINE_START - 0.45
+    var spine_center: float = (SERVICE_SPINE_START + DECK_FRONT - 0.45) * 0.5
+    _cube(batches, "spine_well", Vector3(0.0, 0.108, spine_center),
+        Vector3(0.71, 0.025, spine_length))
+    for side in [-1.0, 1.0]:
+        _cube(batches, "spine_cheek",
+            Vector3(side * 0.35, PLATE_TOP - 0.014, spine_center),
+            Vector3(0.065, 0.018, spine_length))
+        _cube(batches, "spine_edge",
+            Vector3(side * 0.40, PLATE_TOP + 0.003, spine_center),
+            Vector3(0.017, 0.008, spine_length))
+    # Detachable cross braces and occasional inset status windows, not a
+    # continuous luminous ribbon that would flatten the material palette.
+    for z in [8.75, 12.40, 17.10, 21.80]:
+        _cube(batches, "spine_crossbar",
+            Vector3(0, PLATE_TOP - 0.014, float(z)),
+            Vector3(0.64, 0.029, 0.11))
+        _cube(batches, "spine_light_socket",
+            Vector3(0, 0.126, float(z) + 0.26),
+            Vector3(0.38, 0.012, 0.20))
+        _cube(batches, "spine_light",
+            Vector3(0, 0.134, float(z) + 0.26),
+            Vector3(0.26, 0.006, 0.065))
+    # Industrial crossing bays define the command forecourt separately from
+    # the near-field floor. Avoid a wall-to-wall horizontal repeated line.
+    for z in [5.90, 14.55]:
+        for side in [-1.0, 1.0]:
+            _cube(batches, "crossing_pocket",
+                Vector3(side * 2.35, PLATE_TOP + 0.007, float(z)),
+                Vector3(2.16, 0.014, 0.25))
+            _cube(batches, "crossing_lip",
+                Vector3(side * 2.35, PLATE_TOP + 0.016, float(z) - 0.10),
+                Vector3(1.80, 0.011, 0.040))
+    # Two low-relief service ventilation cassettes per near side. Each
+    # physical fin is part of one shared mesh, never its own draw instance.
+    for z in [9.85, 18.15]:
+        for side in [-1.0, 1.0]:
+            _append(batches, "vent_cassette", Transform3D(
+                Basis().scaled_local(Vector3(0.78, 1.0, 1.48)),
+                Vector3(side * 5.03, PLATE_TOP + 0.012, float(z))))
+
+
+static func _wedge_armor_mesh() -> ArrayMesh:
+    # Massive diagonal shear-cut plate: asymmetric visible outer silhouette,
+    # inset polygon face and a deep 3D chamfer against the recessed skirt.
+    var perimeter: Array[Vector2] = [
+        Vector2(-0.50, -0.45), Vector2(-0.43, -0.50),
+        Vector2(0.15, -0.50), Vector2(0.50, -0.10),
+        Vector2(0.50, 0.43), Vector2(0.43, 0.50),
+        Vector2(-0.45, 0.50), Vector2(-0.50, 0.44)
+    ]
+    var vertices := PackedVector3Array()
+    var normals := PackedVector3Array()
+    var colors := PackedColorArray()
+    for i in range(perimeter.size()):
+        var a: Vector2 = perimeter[i]
+        var b: Vector2 = perimeter[(i + 1) % perimeter.size()]
+        var ia: Vector2 = a * 0.905
+        var ib: Vector2 = b * 0.905
+        var high_a := Vector3(ia.x, PLATE_TOP + 0.001, ia.y)
+        var high_b := Vector3(ib.x, PLATE_TOP + 0.001, ib.y)
+        var low_a := Vector3(a.x, 0.121, a.y)
+        var low_b := Vector3(b.x, 0.121, b.y)
+        var edge: Color = Color("#abbcc8") if i % 3 == 0 else Color("#728b9c")
+        _mesh_triangle(vertices, normals, colors,
+            Vector3(0, PLATE_TOP + 0.001, 0), high_a, high_b,
+            Color.WHITE, Color.WHITE, Color.WHITE, true)
+        _mesh_triangle(vertices, normals, colors,
+            low_a, high_a, high_b, edge, edge, Color("#d6e0e8"))
+        _mesh_triangle(vertices, normals, colors,
+            low_a, high_b, low_b, edge, Color("#d6e0e8"),
+            Color("#506878"))
+    var output := ArrayMesh.new()
+    var arrays: Array = []
+    arrays.resize(Mesh.ARRAY_MAX)
+    arrays[Mesh.ARRAY_VERTEX] = vertices
+    arrays[Mesh.ARRAY_NORMAL] = normals
+    arrays[Mesh.ARRAY_COLOR] = colors
+    output.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+    return output
+
+
+static func _arc_track_segment_mesh() -> ArrayMesh:
+    # A 7.5-degree segment of an actual extruded concentric steel track:
+    # top shelf, angled inner shoulder, dark inner wall and outer steel rim.
+    var verts := PackedVector3Array()
+    var norms := PackedVector3Array()
+    var cols := PackedColorArray()
+    var step: float = TAU / 48.0
+    for j in range(2):
+        var a: float = step * float(j) * 0.5
+        var b: float = step * float(j + 1) * 0.5
+        var a0 := Vector3(cos(a) * 1.93, 0.008, sin(a) * 1.93)
+        var b0 := Vector3(cos(b) * 1.93, 0.008, sin(b) * 1.93)
+        var a1 := Vector3(cos(a) * 2.27, 0.022, sin(a) * 2.27)
+        var b1 := Vector3(cos(b) * 2.27, 0.022, sin(b) * 2.27)
+        _mesh_quad(verts, norms, cols,
+            a0, b0, b1, a1, Color("#9bb2bf"))
+        _mesh_quad(verts, norms, cols,
+            Vector3(a0.x, -0.014, a0.z),
+            Vector3(b0.x, -0.014, b0.z), b0, a0, Color("#263a4a"))
+        _mesh_quad(verts, norms, cols,
+            a1, b1, Vector3(b1.x, -0.014, b1.z),
+            Vector3(a1.x, -0.014, a1.z), Color("#476274"))
+        var crown_a := Vector3(cos(a) * 2.19, 0.027, sin(a) * 2.19)
+        var crown_b := Vector3(cos(b) * 2.19, 0.027, sin(b) * 2.19)
+        _mesh_quad(verts, norms, cols,
+            crown_a, crown_b, b1, a1, Color("#c4d3da"))
+    return _mesh_from_arrays(verts, norms, cols)
+
+
+static func _service_vent_mesh() -> ArrayMesh:
+    # The channels are physically open between the inclined solid fins.
+    var verts := PackedVector3Array()
+    var norms := PackedVector3Array()
+    var cols := PackedColorArray()
+    for i in range(7):
+        var z: float = -0.40 + float(i) * 0.133
+        _mesh_quad(verts, norms, cols,
+            Vector3(-0.44, 0.005, z - 0.045),
+            Vector3(0.44, 0.005, z - 0.045),
+            Vector3(0.44, 0.039, z + 0.016),
+            Vector3(-0.44, 0.039, z + 0.016),
+            Color("#8da6b3") if i % 3 == 0 else Color("#567184"))
+        _mesh_quad(verts, norms, cols,
+            Vector3(-0.44, 0.039, z + 0.016),
+            Vector3(0.44, 0.039, z + 0.016),
+            Vector3(0.44, 0.012, z + 0.042),
+            Vector3(-0.44, 0.012, z + 0.042),
+            Color("#314a5b"))
+    # Two continuous cast end-rails frame the slats.
+    for side in [-1.0, 1.0]:
+        _mesh_quad(verts, norms, cols,
+            Vector3(side * 0.48 - 0.016, 0.012, -0.49),
+            Vector3(side * 0.48 + 0.016, 0.012, -0.49),
+            Vector3(side * 0.48 + 0.016, 0.012, 0.49),
+            Vector3(side * 0.48 - 0.016, 0.012, 0.49),
+            Color("#abc0cc"))
+    return _mesh_from_arrays(verts, norms, cols)
+
+
+static func _mesh_quad(verts: PackedVector3Array,
+        norms: PackedVector3Array, cols: PackedColorArray,
+        a: Vector3, b: Vector3, c: Vector3, d: Vector3,
+        color: Color) -> void:
+    _mesh_triangle(verts, norms, cols, a, b, c,
+        color, color, color)
+    _mesh_triangle(verts, norms, cols, a, c, d,
+        color, color, color)
+
+
+static func _mesh_from_arrays(verts: PackedVector3Array,
+        norms: PackedVector3Array, cols: PackedColorArray) -> ArrayMesh:
+    var arrays: Array = []
+    arrays.resize(Mesh.ARRAY_MAX)
+    arrays[Mesh.ARRAY_VERTEX] = verts
+    arrays[Mesh.ARRAY_NORMAL] = norms
+    arrays[Mesh.ARRAY_COLOR] = cols
+    var mesh := ArrayMesh.new()
+    mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+    return mesh
+
+
 static func _submit(room: Node3D, batches: Dictionary) -> void:
     var root := Node3D.new()
     root.name = "NexusDeckReferenceV3"
