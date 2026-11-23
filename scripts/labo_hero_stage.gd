@@ -2,6 +2,7 @@ extends Node3D
 const DISPLAY_SHADER = preload("res://assets/monitors/labo_display.gdshader")
 enum Display { PRINT, FLOW, PURITY, RECYCLE, INVENTORY, SCANNER }
 const InteriorFittings = preload("res://scripts/labo_interior_fittings.gd")
+const RebuiltScenes = preload("res://scripts/labo_rebuilt_scenes.gd")
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const CrateModel = preload("res://scripts/sera_crate_model.gd")
 const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
@@ -27,6 +28,7 @@ var converter_group: Node3D
 var warehouse_group: Node3D
 var converter_crystals: Array[Node3D] = []
 var _materials: Dictionary = {}
+var rebuilt_scenes: RefCounted
 
 func _paint(tint: Color, emissive: bool = false) -> StandardMaterial3D:
     var key: String = tint.to_html(true) + str(emissive)
@@ -631,20 +633,9 @@ func _ready() -> void:
     add_child(sun)
     # Build each entirely independent room. Large photographic obstructions
     # from the previous close-up experiment are intentionally NOT instantiated.
-    _build_printer()
-    _build_print_room()
-    _build_terminal()
-    _build_converter()
-    _build_conversion_room()
-    _build_warehouse()
-    _build_warehouse_room()
+    rebuilt_scenes = RebuiltScenes.new()
+    rebuilt_scenes.build(self)
     _build_crate()
-    warehouse_scanner = Node3D.new()
-    warehouse_scanner.name = "TravelingInventoryScanner"
-    warehouse_scanner.position = Vector3(1.53, 1.10, -0.86)
-    warehouse_group.add_child(warehouse_scanner)
-    _block(warehouse_scanner, "ScanHead", Vector3.ZERO,
-        Vector3(0.16, 0.10, 0.24), Color("#50b6cd"), true)
     # LAB manufacturing / recycling / storage use independent 3D scenes.
     # Retain emitted lights and no separate surface pass for solid shading.
     SharedMaterialShading.apply_to_subtree(self)
@@ -724,6 +715,7 @@ func _enter(state: String) -> void:
 func _process(delta: float) -> void:
     clock += delta
     state_time += delta
+    rebuilt_scenes.animate(clock, current_section)
     match current_section:
         "LABO":
             _animate_manufacturing(delta)
