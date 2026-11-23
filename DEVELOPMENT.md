@@ -1,3 +1,10 @@
+## 2026-11-24 — NEXUS TRAINING端末の平板側面を機能整備ユニットへ置換
+- 端末右側のTRAINING right projecting sensor equipment tower（箱型の側面センサー支柱）と、下部のTRAINING equipment side vent＋3本の旧冷却バーを描画のみ除外。Blockbench原本と assets/base_command_modules.gd の定義・選択範囲は維持し、command_nexus.gd の _module() では元のタッチ用コーナーを引き続き登録。
+- 新規 scripts/nexus_training_service_module.gd によって頂点ベースの一体ArrayMeshへ置換。八角断面の段付きセンサー外殻、左右の八角面取り点検ハッチ（段付き枠＋凹み）、6枚ずつの斜め冷却フィン、10分割の円環ヒンジ、アンバー安全ラッチ、斜め支持ウェブを造形。
+- 下部前面の箱型通気部は6枚の実立体フィン＋シアンインジケータ＋アンバーラッチを持つ面取りカセットとし、後方へすぼむ立体取付壁でキャビネット本体につなぐ。
+- タワーはBlockbench指定のZ軸11°傾斜を維持し、回転しない下部通気部とは別に変換。新メッシュもNEXUS施設用の可視ID輪郭対象に登録。既存モニター・UI・カメラ・入力・セーブは変更なし。
+- 不透明単一ArrayMesh／単一MeshInstance3D／追加ライト・毎フレーム更新なし。実機での見え方・干渉・Android性能は未確認。ユーザー指定に従いCI項目へのアクセス・修正およびテスト実行はせず、ソースと差分のみ確認。
+
 ## 2026-11-24 — NEXUS内部の曲面鋳造メッシュと機械ディティールを拡充
 - `scripts/nexus_sculpted_fittings.gd` を新設。箱の積み上げではなく、16角・二段面取りの中空吸気リング＋7枚の傾斜羽根、S字に曲がる10角油圧アクチュエータ、中央を実際に開口させた曲面成形フィンをArrayMeshで生成する。
 - SYSTEM／TRAINING端末の下部機構とサイドカバー、DEPLOYMENTゲートの開口外側の油圧支柱、DATA ARCHIVE側面の冷却フィンを追加。既存のモニター・入力パネル・ゲート開口・プレイヤー展示部を遮らない座標を選定。

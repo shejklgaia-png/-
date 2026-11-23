@@ -7,6 +7,7 @@ const NexusFloorPanels = preload("res://scripts/sera_nexus_floor_panels.gd")
 const NexusGeneratedArchitecture = preload("res://scripts/nexus_generated_architecture.gd")
 const NexusComplexMachining = preload("res://scripts/nexus_complex_machining.gd")
 const NexusSculptedFittings = preload("res://scripts/nexus_sculpted_fittings.gd")
+const NexusTrainingServiceModule = preload("res://scripts/nexus_training_service_module.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
 const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
@@ -330,6 +331,10 @@ func _ready() -> void:
     _module("system_console", SYSTEM_CONSOLE_ORIGIN, deg_to_rad(18.0))
     _module("training_console", TRAINING_CONSOLE_ORIGIN, deg_to_rad(-14.0))
     _render_batches()
+    # Replace TRAINING rectangular side tower and flat vent with a single
+    # sculpted mechanical casting. Original selectable bounds stay authored.
+    NexusTrainingServiceModule.build(
+        self, TRAINING_CONSOLE_ORIGIN, deg_to_rad(-14.0))
     # Replace only the floor surface, retaining the authored foundation,
     # all structures, console hit areas and the original NEXUS ID pipeline.
     NexusFloorPanels.build(self)
@@ -482,6 +487,10 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
                     for iz in [-0.5, 0.5]:
                         corners.append(transform * Vector3(ix, iy, iz))
             silhouette_parts.append(corners)
+        # The old hit/selection corners above remain authoritative. Only the
+        # three-dimensional BOX render is replaced by the machined unit.
+        if name == "training_console" and _is_replaced_training_side_part(String(part[0])):
+            continue
         var index: int = int(part[3])
         # Small trims, deck seams, LEDs and other decorative surfaces have
         # no independent 2px polygon edge. Only authored primary armor does.
@@ -495,6 +504,12 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
         target_parts[selected_shape] = silhouette_parts
     WorldMonitors.attach_blockbench(self,name,at,yaw,scale_factor,height_factor,"NEXUS")
 
+
+
+func _is_replaced_training_side_part(part_name: String) -> bool:
+    return part_name == "TRAINING right projecting sensor equipment tower" or (
+        part_name == "TRAINING equipment side vent") or (
+        part_name.begins_with("TRAINING cooling louver "))
 
 
 func _is_replaced_nexus_deck_part(part_name: String) -> bool:
