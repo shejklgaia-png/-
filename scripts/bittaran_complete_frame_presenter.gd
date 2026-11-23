@@ -1,7 +1,7 @@
 extends Control
-## Bittaran-only completed-frame screen. The live world, mesh-ID pass,
-## contour composite, effects and battle HUD are rendered into one
-## SubViewport. Only its finished color target is presented to the window.
+## Shared Bittaran/training completed-frame screen. The live world,
+## depth-resolved mesh-ID pass, contour composite, VFX and battle HUD are
+## rendered into one SubViewport; the window sees only that finished image.
 const DisplayProfile = preload("res://scripts/sera_display_profile.gd")
 
 @onready var battle_viewport: SubViewport = (
