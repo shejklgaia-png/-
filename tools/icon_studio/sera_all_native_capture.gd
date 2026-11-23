@@ -140,6 +140,11 @@ func _run() -> void:
 
         var portrait := Node3D.new()
         portrait.name = "Portrait_" + id
+        # Identify the cloned real meshes exactly as NEXUS contact targets.
+        # Without this meta the compositor assigns generic IDs rather than
+        # unique RGB contact IDs, dropping seams between adjacent meshes.
+        portrait.set_meta("sera_nexus_id_contact_only", true)
+        portrait.set_meta("sera_graphics_outline_category", "part")
         scene.add_child(portrait)
         var spin := Node3D.new()
         portrait.add_child(spin)
@@ -195,6 +200,15 @@ func _run() -> void:
         ink.call("set_stroke_px", 3.0)
         portrait.add_child(ink)
         await process_frame
+        # Offline assets must not inherit the user's in-game 'outlines off'
+        # preference; force only this private 512px capture compositor on.
+        var native_compositor: Node = viewport.get_node_or_null(
+            "SeraIDOutlineLayer/SeraIDOutlineControl")
+        if native_compositor == null:
+            _fail(id + ": NEXUS ID compositor was not registered")
+            return
+        native_compositor.set("_part_outline_enabled", true)
+        native_compositor.set("_scan_elapsed", 0.0)
         # The compositor is deferred and has a separate ID SubViewport.
         # Render several frames before capturing the final composited color.
         for _frame in range(5):
