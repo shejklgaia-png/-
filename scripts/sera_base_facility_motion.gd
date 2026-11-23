@@ -1,4 +1,5 @@
 extends Node
+const CollectorConveyor = preload("res://scripts/sera_base_collector_conveyor.gd")
 ## BASE equipment: eight deterministic production-loop motions of actual existing
 ## authored MultiMesh instances. No additional 3D draw nodes, colliders or lights.
 ## Animated positions are in the same local coordinates as the authored model.
@@ -11,14 +12,39 @@ const MOTION_FEATURES: Dictionary = {
     "LABO": ["FreshLabPrinterServo", "FreshLabPrinterHotHead",
         "FreshLabPrinterTip", "FreshLabPrintedShell"],
     "SCRAP_COLLECTOR": ["FreshCollectorSuspendedCable", "FreshCollectorClawHead",
-        "FreshCollectorJawHinge", "FreshCollectorOpenGrip"],
+        "FreshCollectorJawHinge", "FreshCollectorOpenGrip",
+        "FreshCollectorConveyorFlight", "FreshCollectorPickupScrap",
+        "FreshCollectorCranePayload"],
     "SMELTER": ["FreshSmelterFlameTongue", "FreshSmelterLowFire"],
     "RECYCLER": ["FreshRecyclerRoller", "FreshRecyclerTooth"],
     "GENERATOR": ["FreshGeneratorRotorBlade"],
     "STORAGE": ["FreshStorageLoadingLift"],
     "BUILD_TERMINAL": ["FreshTerminalBlueprintRows", "FreshTerminalMastLamp"],
 }
+# Bearing and pinion stay fixed while the machine above the slewing ring
+# rotates together. The existing 30 Hz MultiMesh animation cap is retained.
+const CRANE_SLEW_FEATURES = [
+    "FreshCollectorWinchMotor", "FreshCollectorMotorGlow",
+    "CollectorCraneTurntableSkirt", "CollectorCranePivotCheek",
+    "CollectorCraneBaseWeb", "CollectorCraneLowerPin", "CollectorCranePivotLock",
+    "CollectorCranePrimaryCasting", "CollectorCraneSecondaryCasting",
+    "CollectorCranePrimaryCapRail", "CollectorCraneStickCapRail",
+    "CollectorCraneDiagonalStiffener", "CollectorCraneStickWeb",
+    "CollectorCraneElbowGuard", "CollectorCraneElbowShaft",
+    "CollectorCraneElbowWasher", "CollectorCraneLiftCylinder",
+    "CollectorCraneLiftPiston", "CollectorCraneLiftSeal",
+    "CollectorCraneStickCylinder", "CollectorCraneStickPiston",
+    "CollectorCranePressureHose", "CollectorCraneStickHose",
+    "CollectorCraneSheave", "CollectorCraneSheaveAxle",
+    "CollectorCraneSheaveFork", "CollectorCraneSheaveGuard",
+]
 const TICK_SECONDS: float = 1.0 / 30.0
+
+static func animated_features_for(key: String) -> Array:
+    var features: Array = (MOTION_FEATURES.get(key, []) as Array).duplicate()
+    if key == "SCRAP_COLLECTOR":
+        features.append_array(CRANE_SLEW_FEATURES)
+    return features
 
 var _model: Node3D
 var facility_key: String = ""
@@ -30,7 +56,7 @@ var _accumulator: float = 0.0
 
 func bind_to(model: Node3D, key: String) -> void:
     var source: Dictionary = model.get_meta("motion_entries", {})
-    var expected: Array = MOTION_FEATURES.get(key, [])
+    var expected: Array = animated_features_for(key)
     for feature in expected:
         if not source.has(feature) or (source[feature] as Array).is_empty():
             push_error("SERA_BASE_MOTION_MISSING: " + key + "/" + str(feature))
@@ -81,6 +107,19 @@ func sample_at(seconds: float) -> void:
     # This exact public sampler is used during normal _process and by live
     # Godot CI to compare real MultiMesh poses at multiple animation times.
     var time: float = maxf(0.0, seconds)
+    var crane_phase: float = 0.0
+    var crane_slew: float = 0.0
+    var crane_lift: float = 0.0
+    var crane_grip: float = 0.0
+    var crane_center := Vector3.ZERO
+    var crane_rotation := Basis.IDENTITY
+    if facility_key == "SCRAP_COLLECTOR":
+        crane_phase = CollectorConveyor.phase_at(time)
+        crane_slew = CollectorConveyor.slew_at(crane_phase)
+        crane_lift = CollectorConveyor.lift_at(crane_phase)
+        crane_grip = CollectorConveyor.grip_at(crane_phase)
+        crane_center = _at(CollectorConveyor.CRANE_PIVOT)
+        crane_rotation = Basis(_axis(Vector3.UP), crane_slew)
     for name_variant in _parts.keys():
         var feature: String = str(name_variant)
         var records: Array = _parts[feature]
