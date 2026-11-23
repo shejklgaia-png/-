@@ -24,6 +24,14 @@ static func build(room: Node3D, training_at: Vector3, yaw: float) -> void:
         _side_cooling_channel(faces, side)
         _latch_and_hinges(faces, side)
         _diagonal_foot(faces, side)
+    # Preserve the original Blockbench tower's 11-degree Z inclination.
+    # Its selection/hit cuboid still uses precisely that same authored tilt.
+    var source_pivot := Vector3(0.80, 1.320, -0.280)
+    var source_tilt := Basis(Vector3.BACK, deg_to_rad(11.0))
+    for face in faces:
+        for i in range(3):
+            face[i] = source_pivot + source_tilt * (face[i] - source_pivot)
+    # Lower side vent was a separate, UNROTATED Blockbench element.
     _lower_front_vent(faces)
 
     var vertices := PackedVector3Array()
