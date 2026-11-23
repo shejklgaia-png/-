@@ -791,7 +791,7 @@ func _update_shared_screen_bounds(camera: Camera3D) -> void:
         # Bound the SAME pose; bounding the raw physics pose can clip the
         # silhouette during fast steps, articulated attacks or camera pans.
         # Use the SAME composite pose as the ID pixel generator, so fast
-        # player steps or the target bob never clip the outer 3px search.
+        # steps and articulated joints never clip the new 4px outer ink.
         var bounds_pose: Transform3D = source.global_transform
         if _combat_scene_mode:
             var id_copy: Node3D = _copies.get(key) as Node3D
@@ -813,7 +813,14 @@ func _update_shared_screen_bounds(camera: Camera3D) -> void:
     if near_plane:
         _set_shared_screen_bounds(Vector4(0.0, 0.0, 1.0, 1.0))
     elif found:
-        var margin := Vector2(6.0, 6.0)
+        # The old fixed 6-ID-pixel padding could clip 4 DISPLAY-pixel
+        # silhouettes when the completed frame is displayed at <1x scale.
+        var smallest_scale: float = maxf(0.125, minf(
+            _output_px_per_id_pixel.x, _output_px_per_id_pixel.y))
+        var display_outer_px: float = 4.0
+        var margin_in_id_px: float = maxf(6.0,
+            display_outer_px / smallest_scale + 1.0)
+        var margin := Vector2(margin_in_id_px, margin_in_id_px)
         var lower: Vector2 = ((low - margin) / screen_size).clamp(
             Vector2.ZERO, Vector2.ONE)
         var upper: Vector2 = ((high + margin) / screen_size).clamp(
