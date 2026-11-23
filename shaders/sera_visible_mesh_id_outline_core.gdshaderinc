@@ -21,32 +21,33 @@ uniform float actor_inside_override_px = -1.0;
 uniform float actor_outside_override_px = -1.0;
 uniform float actor_seam_override_px = -1.0;
 // Each scene's actor profile is independently configurable, not hardcoded.
+// Global actor standard in all scenes (combat, CRATE, NEXUS, previews).
 uniform float bittaran_inside_px = 0.0;
-uniform float bittaran_outside_px = 3.0;
-uniform float bittaran_seam_px = 1.0;
-uniform float nexus_actor_inside_px = 1.0;
-uniform float nexus_actor_outside_px = 2.0;
+uniform float bittaran_outside_px = 4.0;
+uniform float bittaran_seam_px = 2.0;
+uniform float nexus_actor_inside_px = 0.0;
+uniform float nexus_actor_outside_px = 4.0;
 uniform float nexus_actor_seam_px = 2.0;
-uniform float training_inside_px = 1.0;
-uniform float training_outside_px = 3.0;
-uniform float training_seam_px = 1.0;
-uniform float nexus_facility_outside_px = 2.0;
+uniform float training_inside_px = 0.0;
+uniform float training_outside_px = 4.0;
+uniform float training_seam_px = 2.0;
+uniform float nexus_facility_outside_px = 3.0;
 uniform float nexus_facility_seam_px = 2.0;
 // Existing per-element settings. None of these change the ID processing path.
-uniform float main_inside_px = 1.0;
-uniform float main_outside_px = 3.0;
-uniform float main_seam_px = 3.0;
+uniform float main_inside_px = 0.0;
+uniform float main_outside_px = 4.0;
+uniform float main_seam_px = 2.0;
 uniform float facility_inside_px = 0.0;
-uniform float facility_outside_px = 3.0;
-uniform float facility_seam_px = 2.0;
+uniform float facility_outside_px = 4.0;
+uniform float facility_seam_px = 3.0;
 uniform float clutter_inside_px = 0.0;
-uniform float clutter_outside_px = 1.0;
+uniform float clutter_outside_px = 3.0;
 uniform float clutter_seam_px = 1.0;
-uniform float crate_inside_px = 1.0;
-uniform float crate_outside_px = 1.0;
-uniform float crate_seam_px = 1.0;
-uniform float part_inside_px = 1.0;
-uniform float part_outside_px = 2.0;
+uniform float crate_inside_px = 0.0;
+uniform float crate_outside_px = 4.0;
+uniform float crate_seam_px = 2.0;
+uniform float part_inside_px = 0.0;
+uniform float part_outside_px = 4.0;
 uniform float part_seam_px = 2.0;
 
 vec3 sera_sample_visible_id(vec2 uv) {
@@ -117,6 +118,7 @@ float sera_inner_width(int role) {
     }
     if (role == 2) { return facility_inside_px; }
     if (role == 3) { return clutter_inside_px; }
+    if (role == 4) { return facility_inside_px; }
     if (role == 5) { return crate_inside_px; }
     if (role == 6) { return part_inside_px; }
     if (role == 1 && scene_profile == 1) { return bittaran_inside_px; }
@@ -133,7 +135,11 @@ float sera_outer_width(int role) {
         if (scene_profile == 2) { return nexus_facility_outside_px; }
         return facility_outside_px;
     }
-    if (role == 3) { return clutter_outside_px; }
+    if (role == 3) {
+        return scene_profile == 2 ?
+            nexus_facility_outside_px : clutter_outside_px;
+    }
+    if (role == 4) { return facility_outside_px; }
     if (role == 5) { return crate_outside_px; }
     if (role == 6) { return part_outside_px; }
     if (role == 1 && scene_profile == 1) { return bittaran_outside_px; }
@@ -150,7 +156,11 @@ float sera_seam_width(int role) {
         if (scene_profile == 2) { return nexus_facility_seam_px; }
         return facility_seam_px;
     }
-    if (role == 3) { return clutter_seam_px; }
+    if (role == 3) {
+        return scene_profile == 2 ?
+            nexus_facility_seam_px : clutter_seam_px;
+    }
+    if (role == 4) { return facility_seam_px; }
     if (role == 5) { return crate_seam_px; }
     if (role == 6) { return part_seam_px; }
     if (role == 1 && scene_profile == 1) { return bittaran_seam_px; }

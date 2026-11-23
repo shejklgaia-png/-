@@ -125,6 +125,9 @@ static func build(parent: Node3D) -> Node3D:
 
     var cable := Node3D.new()
     cable.name = "WindingPowerCable"
+    # Cables/plugs use BASE clutter 3/0/1 + convex1, not the GRID
+    # equipment's 4/0/3 + convex2 inherited from the board root.
+    cable.set_meta("sera_outline_role", "clutter")
     stage.add_child(cable)
     _tube(cable, "PowerCableOuter", 0.145, Color("#161d28"))
     _tube(cable, "PowerCableSignalStripe", 0.034,

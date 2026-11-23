@@ -14,6 +14,8 @@ const NEXUS_SPATIAL_INK = preload("res://shaders/sera_nexus_mesh_contact_spatial
 const NEXUS_CONTACT_CLOSED = preload("res://shaders/sera_nexus_mesh_contact_closed.gdshader")
 const NEXUS_CONTACT_OPEN = preload("res://shaders/sera_nexus_mesh_contact_open.gdshader")
 const SHARED_INK = preload("res://shaders/sera_bittaran_visible_mesh_id_ink.gdshader")
+const ConvexInk = preload("res://scripts/sera_scene_convex_ink.gd")
+const OutlineStandard = preload("res://scripts/sera_outline_standard.gd")
 # Same Shader resource, not a visually similar replacement.
 const BITTARAN_ID_INK = SHARED_INK
 const SHARED_CANVAS_INK = preload("res://shaders/sera_scene_visible_ink_canvas.gdshader")
@@ -62,10 +64,12 @@ var _contact_ids: Dictionary = {}
 var _free_contact_ids: Array[int] = []
 var _next_contact_id: int = 1
 var _shared_scene_mode: bool = false
-# Only the Bittaran battle uses a 3px outside / 2px mesh-ID contact shader.
-# Shared ID depth/camera/copies remain identical to other combat scenes.
+# Bittaran, training, BASE, NEXUS and previews now all use the single
+# documented actor 4/0/2, facility 4/0/3, clutter 3/0/1, NEXUS 3/0/2
+# standard. Scene profiles change role-2/3 widths only.
 var _bittaran_id_mode: bool = false
-# Only numeric widths vary: 0=BASE/normal/preview, 1=Bittaran, 2=NEXUS.
+# Numeric profile selects environment: 0=BASE/default, 1=Bittaran,
+# 2=NEXUS room, 3=training. Character widths stay universally 4/0/2.
 var _requested_scene_profile: int = 0
 # In combat, read the interpolated render pose only from late _process.
 # The Bittaran battle and the articulated SERA rig finish their own _process
@@ -82,6 +86,7 @@ var _combat_scene_mode: bool = false
 var _screen_quad: MeshInstance3D
 var _screen_material: ShaderMaterial
 var _screen_camera: Camera3D
+var _convex_ink: Node
 var _styled_sources: Dictionary = {} # Visible IDs, excludes background depth masks.
 var _pose_stamps: Dictionary = {}
 # Reuse one interpolated parent pose for ALL of that parent's visible parts
@@ -145,6 +150,8 @@ func _refresh_part_preview_canvas_mode() -> void:
         var mat: ShaderMaterial = ink.material as ShaderMaterial
         if mat != null:
             mat.shader = SHARED_CANVAS_INK if preview else INK
+            if preview:
+                OutlineStandard.apply_id_widths(mat)
             mat.set_shader_parameter("mesh_id_texture", id_viewport.get_texture())
             mat.set_shader_parameter("mesh_id_texel", Vector2(
                 1.0 / float(id_viewport.size.x),
@@ -218,6 +225,11 @@ func get_outline_metrics() -> Dictionary:
         "bittaran_mesh_id_mode": _bittaran_id_mode,
         "canonical_id_shader": true,
         "scene_width_profile": _active_scene_profile(),
+        "convex_draw_batches": int(_convex_ink.call("get_draw_count")) if (
+            is_instance_valid(_convex_ink)) else 0,
+        "base_facility_convex_px": OutlineStandard.BASE_FACILITY_CONVEX_PX,
+        "base_clutter_convex_px": OutlineStandard.BASE_CLUTTER_CONVEX_PX,
+        "nexus_environment_convex_px": OutlineStandard.NEXUS_CONVEX_PX,
         "display_px_per_id_texel": _output_px_per_id_pixel,
         "actor_inside_override_px": _actor_inside_override_px,
         "actor_outside_override_px": _actor_outside_override_px,
@@ -253,6 +265,9 @@ func _ready() -> void:
     mouse_filter = Control.MOUSE_FILTER_IGNORE
     set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     source_viewport = get_viewport()
+    _convex_ink = ConvexInk.new()
+    _convex_ink.name = "SeraVisibleIDConvexOnly"
+    add_child(_convex_ink)
     id_viewport = SubViewport.new()
     id_viewport.name = "SeraVisibleIDs"
     id_viewport.size = Vector2i(384, 384)
@@ -323,6 +338,7 @@ func set_shared_scene_mode(enabled: bool) -> void:
     if enabled:
         _screen_material = ShaderMaterial.new()
         _screen_material.shader = SHARED_INK
+        OutlineStandard.apply_id_widths(_screen_material)
         _screen_material.render_priority = -30
         _screen_material.set_shader_parameter(
             "scene_profile", _active_scene_profile())
@@ -349,6 +365,8 @@ func set_shared_scene_mode(enabled: bool) -> void:
         # CanvasLayer overlay because the Compatibility 3D quad can vanish.
         var canvas_mat: ShaderMaterial = ink.material as ShaderMaterial
         canvas_mat.shader = SHARED_CANVAS_INK if _part_preview_canvas_mode else INK
+        if _part_preview_canvas_mode:
+            OutlineStandard.apply_id_widths(canvas_mat)
         canvas_mat.set_shader_parameter("mesh_id_texture", id_viewport.get_texture())
         canvas_mat.set_shader_parameter("mesh_id_texel", Vector2(
             1.0 / float(id_viewport.size.x), 1.0 / float(id_viewport.size.y)))
@@ -574,25 +592,19 @@ func _apply_actor_width_overrides() -> void:
 func _effective_actor_inside_px() -> float:
     if _actor_inside_override_px >= 0.0:
         return _actor_inside_override_px
-    match _active_scene_profile():
-        1: return 0.0
-        2, 3: return 1.0
-    return 1.0
+    return OutlineStandard.ACTOR_INSIDE_PX
 
 
 func _effective_actor_outside_px() -> float:
     if _actor_outside_override_px >= 0.0:
         return _actor_outside_override_px
-    return 2.0 if _active_scene_profile() == 2 else 3.0
+    return OutlineStandard.ACTOR_OUTSIDE_PX
 
 
 func _effective_actor_seam_px() -> float:
     if _actor_seam_override_px >= 0.0:
         return _actor_seam_override_px
-    match _active_scene_profile():
-        1, 3: return 1.0
-        2: return 2.0
-    return 3.0
+    return OutlineStandard.ACTOR_SEAM_PX
 
 
 # Compute what one ID target texel occupies on the FINAL display.
@@ -606,6 +618,9 @@ func _refresh_output_pixel_scale() -> void:
     if scale.is_equal_approx(_output_px_per_id_pixel):
         return
     _output_px_per_id_pixel = scale
+    if is_instance_valid(_convex_ink):
+        _convex_ink.call("set_render_context",
+            _active_scene_profile(), id_viewport.get_texture(), scale)
     if _screen_material != null:
         _screen_material.set_shader_parameter(
             "output_px_per_id_pixel", scale)
@@ -669,6 +684,8 @@ func _process(delta: float) -> void:
         dirty = _rescan()
     if _shared_scene_mode:
         _commit_visible_render_pose(source_camera, dirty)
+        if is_instance_valid(_convex_ink):
+            _convex_ink.call("sync_animated_multimeshes")
     else:
         dirty = _sync_camera(source_camera) or dirty
         dirty = _sync_copies() or dirty
@@ -776,7 +793,7 @@ func _update_shared_screen_bounds(camera: Camera3D) -> void:
         # Bound the SAME pose; bounding the raw physics pose can clip the
         # silhouette during fast steps, articulated attacks or camera pans.
         # Use the SAME composite pose as the ID pixel generator, so fast
-        # player steps or the target bob never clip the outer 3px search.
+        # steps and articulated joints never clip the new 4px outer ink.
         var bounds_pose: Transform3D = source.global_transform
         if _combat_scene_mode:
             var id_copy: Node3D = _copies.get(key) as Node3D
@@ -798,7 +815,14 @@ func _update_shared_screen_bounds(camera: Camera3D) -> void:
     if near_plane:
         _set_shared_screen_bounds(Vector4(0.0, 0.0, 1.0, 1.0))
     elif found:
-        var margin := Vector2(6.0, 6.0)
+        # The old fixed 6-ID-pixel padding could clip 4 DISPLAY-pixel
+        # silhouettes when the completed frame is displayed at <1x scale.
+        var smallest_scale: float = maxf(0.125, minf(
+            _output_px_per_id_pixel.x, _output_px_per_id_pixel.y))
+        var display_outer_px: float = 4.0
+        var margin_in_id_px: float = maxf(6.0,
+            display_outer_px / smallest_scale + 1.0)
+        var margin := Vector2(margin_in_id_px, margin_in_id_px)
         var lower: Vector2 = ((low - margin) / screen_size).clamp(
             Vector2.ZERO, Vector2.ONE)
         var upper: Vector2 = ((high + margin) / screen_size).clamp(
@@ -920,6 +944,12 @@ static func _outline_role(node: Node) -> int:
             "grid": return 4
             "crate": return 5
             "part": return 6
+        # The displayed/active SERA inherits a NEXUS/BASE facility root.
+        # Its closer character category MUST take priority over that root,
+        # otherwise the player becomes a role-2 facility (and gains convex).
+        if str(cursor.get_meta("sera_graphics_outline_category", "")) == (
+                "character"):
+            return 1
         cursor = cursor.get_parent()
     return 1
 
@@ -1239,6 +1269,12 @@ func _rescan() -> bool:
         if _shared_scene_mode and not is_occluder:
             _styled_sources[key] = true
         dirty = true
+    # Only world facility and clutter receive convex ink, never SERA,
+    # bosses, CRATE, or preview parts. One role-filtered MultiMesh draw per
+    # material/style, using the EXACT same solid sources as the RGB ID pass.
+    if is_instance_valid(_convex_ink):
+        _convex_ink.call("sync_sources", desired, _active_scene_profile(),
+            id_viewport.get_texture(), _output_px_per_id_pixel)
     return dirty
 
 
@@ -1334,6 +1370,8 @@ func _clear_copies() -> void:
     _source_refs.clear()
     _styled_sources.clear()
     _pose_stamps.clear()
+    if is_instance_valid(_convex_ink):
+        _convex_ink.call("clear")
     _combat_anchor_pose_cache.clear()
     _combat_anchor_pose_frame = -1
     _id_allocations.clear()
