@@ -72,9 +72,14 @@ int sera_role_of(vec3 id_value) {
     return clamp(int(floor(id_value.g * 8.0 + 0.5)), 1, 7);
 }
 
-int sera_contact_key(vec3 id_value) {
-    ivec3 bytes = ivec3(floor(id_value * 255.0 + 0.5));
-    return bytes.g * 65536 + bytes.b * 256 + bytes.r;
+// Compare sampled channels separately so mesh identity does not depend on a
+// packed 24-bit ordering key on mobile renderers.
+bool sera_contact_owner(vec3 a, vec3 b) {
+    ivec3 lhs = ivec3(floor(a * 255.0 + 0.5));
+    ivec3 rhs = ivec3(floor(b * 255.0 + 0.5));
+    if (lhs.g != rhs.g) { return lhs.g > rhs.g; }
+    if (lhs.b != rhs.b) { return lhs.b > rhs.b; }
+    return lhs.r > rhs.r;
 }
 
 // Nearest-neighbor ID rendering has a finite pixel footprint. A requested
@@ -172,7 +177,9 @@ float sera_visible_id_ink_alpha(vec2 uv) {
         float seam_px = sera_seam_width(role);
         bool player_pixel = role == 1 && center.g > 0.14;
         float contact_px = player_pixel ? max(seam_px, sera_outer_width(role)) : seam_px;
-        int center_key = sera_contact_key(center);
+        bool character_mesh = role == 1 || role == 5 || role == 6;
+        ivec2 id_size = textureSize(mesh_id_texture, 0);
+        ivec2 center_pixel = ivec2(floor(uv * vec2(id_size)));
         // The Bittaran pass uses a 1px 4-neighbor disk for its contacts,
         // but wider scene-specific contacts use the SAME disk predicate.
         int search_radius = sera_search_radius(max(inner_px, contact_px));
@@ -182,16 +189,32 @@ float sera_visible_id_ink_alpha(vec2 uv) {
                         !sera_in_disk(dx, dy, max(inner_px, contact_px))) {
                     continue;
                 }
-                vec3 neighbor = sera_sample_visible_id(uv +
-                    vec2(float(dx), float(dy)) * mesh_id_texel);
+                ivec2 at_pixel = center_pixel + ivec2(dx, dy);
+                vec3 neighbor = vec3(0.0);
+                if (all(greaterThanEqual(at_pixel, ivec2(0))) &&
+                        all(lessThan(at_pixel, id_size))) {
+                    neighbor = texelFetch(mesh_id_texture, at_pixel, 0).rgb;
+                }
                 int other_role = sera_role_of(neighbor);
                 if (other_role == 0 &&
                         sera_in_disk(dx, dy, inner_px)) {
                     draw_ink = true;
                     break;
                 }
+                // For the standard 2px internal seam, each visible mesh
+                // contributes one side. Only the red/blue mesh ID matters.
+                bool same_actor_class = character_mesh && role == other_role &&
+                    (role != 1 || player_pixel == (neighbor.g > 0.14));
+                if (same_actor_class && seam_px >= 2.0) {
+                    if (any(greaterThan(abs(center.rb - neighbor.rb), vec2(0.5 / 255.0))) &&
+                            sera_in_disk(dx, dy, seam_px * 0.5)) {
+                        draw_ink = true;
+                        break;
+                    }
+                    continue;
+                }
                 if (other_role > 0 && other_role != 7 &&
-                        center_key > sera_contact_key(neighbor) &&
+                        sera_contact_owner(center, neighbor) &&
                         sera_in_disk(dx, dy, (player_pixel && other_role == 1 &&
                             neighbor.g <= 0.14) ? contact_px : seam_px)) {
                     draw_ink = true;
