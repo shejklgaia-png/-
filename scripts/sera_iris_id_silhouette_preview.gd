@@ -20,6 +20,10 @@ var _original_ink_visibility: Dictionary = {}
 var _last_camera_transform: Transform3D = Transform3D.IDENTITY
 var _last_camera_size: float = -1.0
 var _last_camera_projection: int = -1
+var _last_camera_fov: float = -1.0
+var _last_camera_near: float = -1.0
+var _last_camera_far: float = -1.0
+var _last_camera_aspect: int = -1
 var _id_redraw_requests: int = 0
 var _last_cpu_sync_us: int = 0
 
@@ -162,11 +166,19 @@ func _sync_id_pass() -> void:
         return
     if _last_camera_transform != src_camera.global_transform or (
             _last_camera_size != src_camera.size) or (
-            _last_camera_projection != src_camera.projection):
+            _last_camera_projection != src_camera.projection) or (
+            _last_camera_fov != src_camera.fov) or (
+            _last_camera_near != src_camera.near) or (
+            _last_camera_far != src_camera.far) or (
+            _last_camera_aspect != src_camera.keep_aspect):
         dirty = true
         _last_camera_transform = src_camera.global_transform
         _last_camera_size = src_camera.size
         _last_camera_projection = src_camera.projection
+        _last_camera_fov = src_camera.fov
+        _last_camera_near = src_camera.near
+        _last_camera_far = src_camera.far
+        _last_camera_aspect = src_camera.keep_aspect
         id_camera.projection = src_camera.projection
         id_camera.size = src_camera.size
         id_camera.fov = src_camera.fov
