@@ -141,8 +141,12 @@ void vertex() {
     // Keep a subpixel inside overlap for raster stability. Unconnected end
     // caps remain square, so isolated/open boundaries cannot lose their rim.
     float endpoint_extension_px = cap_scale * cap_length;
-    if (CUSTOM2.w > 0.5 && UV.x * inward_sign > 0.0) {
-        endpoint_extension_px = min(endpoint_extension_px, 0.75);
+    // All face-connected corners (CUSTOM2.w = 0.5 or 1) share the same
+    // source MeshInstance3D. Keep the outer cap untouched; eliminate most
+    // interior overlap from the two incoming ribbons at their common tip.
+    // CUSTOM2.w = 0 is an isolated tip, which keeps its square cap.
+    if (CUSTOM2.w > 0.25 && UV.x * inward_sign > 0.0) {
+        endpoint_extension_px = min(endpoint_extension_px, 0.35);
     }
     clip.xy += edge_dir * vec2(2.0 / VIEWPORT_SIZE.x,
         2.0 / VIEWPORT_SIZE.y) * (sign(UV.y) *
