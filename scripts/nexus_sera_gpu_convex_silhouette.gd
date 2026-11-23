@@ -9,6 +9,11 @@ const SCAN_SECONDS: float = 0.65
 const MAX_EDGES_PER_MESH: int = 8000
 # Only internal convex ridges use this width; visible-ID owns the outer 4px.
 const PREVIEW_MATCHED_STROKE_PX: float = 4.0
+# Reuse the same topology/depth shader in combat with thinner creases.
+# The NEXUS defaults remain unchanged for existing users of this helper.
+var ink_stroke_px: float = PREVIEW_MATCHED_STROKE_PX
+var ink_render_priority: int = 110
+var overlay_name: String = EDGE_NAME
 
 var _elapsed: float = 0.0
 var _overlays: Dictionary = {} # source instance ID -> {source, overlay, mesh, closed}
@@ -20,8 +25,8 @@ func _ready() -> void:
     _material = ShaderMaterial.new()
     _material.shader = INK_SHADER
     _material.set_shader_parameter("ink_color", Color("#17212f"))
-    _material.set_shader_parameter("stroke_px", PREVIEW_MATCHED_STROKE_PX)
-    _material.render_priority = 110
+    _material.set_shader_parameter("stroke_px", ink_stroke_px)
+    _material.render_priority = ink_render_priority
     _scan()
     set_process(true)
 
@@ -130,7 +135,7 @@ func _scan() -> void:
             continue
         if not is_instance_valid(overlay):
             overlay = MeshInstance3D.new()
-            overlay.name = EDGE_NAME
+            overlay.name = overlay_name
             overlay.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
             overlay.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
             overlay.extra_cull_margin = 0.02
