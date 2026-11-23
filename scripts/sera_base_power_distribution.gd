@@ -388,42 +388,156 @@ static func _build_devices(parent: Node3D, items: Dictionary) -> void:
         parent.add_child(ink)
 
 
-static func _cable_curve(from_at: Vector3, to_at: Vector3,
-        seed: int, long_feed: bool) -> PackedVector3Array:
-    var delta := Vector3(to_at.x - from_at.x, 0.0, to_at.z - from_at.z)
-    var length: float = delta.length()
-    var direction: Vector3 = (
-        delta / length if length > 0.001 else Vector3.FORWARD)
-    var side := Vector3(-direction.z, 0.0, direction.x)
-    var bend: float = (1.0 if seed % 2 == 0 else -1.0) * (
-        minf(1.65, length * 0.10) if long_feed else minf(0.32, length * 0.11))
-    var near_start: Vector3 = Vector3(from_at.x, FLOOR_WIRE_Y, from_at.z) + (
-        direction * minf(0.90, length * 0.18))
-    var near_end: Vector3 = Vector3(to_at.x, FLOOR_WIRE_Y, to_at.z) - (
-        direction * minf(0.70, length * 0.15))
-    var middle: Vector3 = near_start.lerp(near_end, 0.5) + side * bend
-    var controls: Array[Vector3] = [
-        from_at, near_start, middle, near_end, to_at]
-    var output := PackedVector3Array()
-    for seg in range(controls.size() - 1):
-        var a: Vector3 = controls[maxi(0, seg - 1)]
-        var b: Vector3 = controls[seg]
-        var c: Vector3 = controls[seg + 1]
-        var d: Vector3 = controls[mini(controls.size() - 1, seg + 2)]
-        var steps: int = maxi(3, ceili(b.distance_to(c) / WIRE_STEP))
-        for index in range(steps):
-            var t: float = float(index) / float(steps)
-            var t2: float = t * t
-            var t3: float = t2 * t
-            var p: Vector3 = 0.5 * ((2.0 * b) + (-a + c) * t +
-                (2.0 * a - 5.0 * b + 4.0 * c - d) * t2 +
-                (-a + 3.0 * b - 3.0 * c + d) * t3)
-            # Keep low external cable spans above the patchwork deck.
-            if seg > 0 and seg < controls.size() - 2:
-                p.y = maxf(FLOOR_WIRE_Y, p.y)
-            output.append(p)
-    output.append(to_at)
-    return output
+# Pathfinding uses one temporary lightweight AStarGrid2D at scene build
+# time. Closed model footprints, every clutter group and each new substation
+# are rasterized once. All final cables remain ordinary static ArrayMesh.
+static func _cell_of(pos: Vector2) -> Vector2i:
+    return Vector2i(roundi(pos.x / WIRE_GRID),
+        roundi(pos.y / WIRE_GRID))
+
+
+static func _point_of(id: Vector2i) -> Vector3:
+    return Vector3(float(id.x) * WIRE_GRID, FLOOR_WIRE_Y,
+        float(id.y) * WIRE_GRID)
+
+
+static func _mark_site(grid: AStarGrid2D, site: Dictionary) -> void:
+    var center: Vector3 = site["at"]
+    var half: Vector2 = _footprint(str(site["id"]))
+    var full_radius: float = half.length() + 0.65
+    var lower: Vector2i = _cell_of(
+        Vector2(center.x - full_radius, center.z - full_radius))
+    var upper: Vector2i = _cell_of(
+        Vector2(center.x + full_radius, center.z + full_radius))
+    for x in range(lower.x, upper.x + 1):
+        for z in range(lower.y, upper.y + 1):
+            var id := Vector2i(x, z)
+            if not ROUTE_BOUNDS.has_point(id):
+                continue
+            if _inside_site(Vector2(float(x) * WIRE_GRID,
+                    float(z) * WIRE_GRID), site, 0.48):
+                grid.set_point_solid(id, true)
+
+
+static func _mark_circle(grid: AStarGrid2D, center: Vector2,
+        radius: float) -> void:
+    var lower: Vector2i = _cell_of(center - Vector2.ONE * radius)
+    var upper: Vector2i = _cell_of(center + Vector2.ONE * radius)
+    var r2: float = radius * radius
+    for x in range(lower.x, upper.x + 1):
+        for z in range(lower.y, upper.y + 1):
+            var id := Vector2i(x, z)
+            if not ROUTE_BOUNDS.has_point(id):
+                continue
+            if Vector2(float(x) * WIRE_GRID,
+                    float(z) * WIRE_GRID).distance_squared_to(center) < r2:
+                grid.set_point_solid(id, true)
+
+
+static func _obstacle_grid(sites: Array[Dictionary],
+        props: Array[Dictionary], devices: Array[Vector2]) -> AStarGrid2D:
+    var grid := AStarGrid2D.new()
+    grid.region = ROUTE_BOUNDS
+    grid.cell_size = Vector2.ONE * WIRE_GRID
+    grid.diagonal_mode = (
+        AStarGrid2D.DIAGONAL_MODE_ONLY_IF_NO_OBSTACLES)
+    grid.update()
+    for site in sites:
+        _mark_site(grid, site)
+    for prop in props:
+        _mark_circle(grid, prop["at"], float(prop["radius"]) + 0.21)
+    for device in devices:
+        _mark_circle(grid, device, 0.83)
+    return grid
+
+
+static func _segment_open(grid: AStarGrid2D, a: Vector3,
+        b: Vector3) -> bool:
+    var distance: float = a.distance_to(b)
+    var samples: int = maxi(1, ceili(distance / (WIRE_GRID * 0.28)))
+    for i in range(samples + 1):
+        var point: Vector3 = a.lerp(b, float(i) / float(samples))
+        var id: Vector2i = _cell_of(_xz(point))
+        if not ROUTE_BOUNDS.has_point(id) or grid.is_point_solid(id):
+            return false
+    return true
+
+
+static func _nearest_open(grid: AStarGrid2D,
+        point: Vector3) -> Vector2i:
+    var wanted: Vector2i = _cell_of(_xz(point))
+    if ROUTE_BOUNDS.has_point(wanted) and not grid.is_point_solid(wanted):
+        return wanted
+    var best := Vector2i(100000, 100000)
+    var best_dist: float = INF
+    for radius in range(1, 13):
+        for x in range(wanted.x - radius, wanted.x + radius + 1):
+            for z in range(wanted.y - radius, wanted.y + radius + 1):
+                var cell := Vector2i(x, z)
+                if maxi(abs(cell.x - wanted.x),
+                        abs(cell.y - wanted.y)) != radius:
+                    continue
+                if not ROUTE_BOUNDS.has_point(cell) or (
+                        grid.is_point_solid(cell)):
+                    continue
+                var position: Vector3 = _point_of(cell)
+                if not _segment_open(grid, point, position):
+                    continue
+                var dist: float = point.distance_squared_to(position)
+                if dist < best_dist:
+                    best = cell
+                    best_dist = dist
+        if best_dist < INF:
+            return best
+    return wanted
+
+
+static func _push_path_point(result: PackedVector3Array,
+        point: Vector3) -> void:
+    if result.is_empty() or result[result.size() - 1].distance_to(point) > 0.045:
+        result.append(point)
+
+
+static func _routed_cable(grid: AStarGrid2D, from_at: Vector3,
+        from_gate: Vector3, to_gate: Vector3,
+        to_at: Vector3, label: String) -> PackedVector3Array:
+    var begin: Vector2i = _nearest_open(grid, from_gate)
+    var finish: Vector2i = _nearest_open(grid, to_gate)
+    if not ROUTE_BOUNDS.has_point(begin) or (
+            not ROUTE_BOUNDS.has_point(finish)):
+        push_warning("BASE power cable out of route bounds: " + label)
+        return PackedVector3Array()
+    if grid.is_point_solid(begin) or grid.is_point_solid(finish):
+        push_warning("BASE power cable gate blocked: " + label)
+        return PackedVector3Array()
+    var ids: Array[Vector2i] = grid.get_id_path(begin, finish)
+    if ids.is_empty():
+        push_warning("BASE power cable route blocked: " + label)
+        return PackedVector3Array()
+    var points := PackedVector3Array()
+    _push_path_point(points, from_at)
+    _push_path_point(points, Vector3(from_at.x, FLOOR_WIRE_Y, from_at.z))
+    _push_path_point(points, from_gate)
+    _push_path_point(points, _point_of(begin))
+    # Compress the path only where a straight section stays entirely free.
+    # Catmull-Rom was overshooting corners and crossing metal foundations.
+    var index: int = 0
+    while index < ids.size() - 1:
+        var next: int = ids.size() - 1
+        while next > index + 1 and not _segment_open(grid,
+                _point_of(ids[index]), _point_of(ids[next])):
+            next -= 1
+        _push_path_point(points, _point_of(ids[next]))
+        index = next
+    _push_path_point(points, to_gate)
+    _push_path_point(points, Vector3(to_at.x, FLOOR_WIRE_Y, to_at.z))
+    _push_path_point(points, to_at)
+    # A nonzero cell weight discourages later power lines from lying
+    # directly atop the same geometric cable (but permits intersections).
+    for id in ids:
+        if ROUTE_BOUNDS.has_point(id) and not grid.is_point_solid(id):
+            grid.set_point_weight_scale(id, 1.65)
+    return points
 
 
 static func _append_tube(mesh_arrays: Dictionary, points: PackedVector3Array,
