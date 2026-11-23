@@ -10,7 +10,7 @@ const TURN_STEP := 5.0
 const HEIGHT_STEP := 0.10
 const SAFE_MARGIN := 10.0
 
-var host: Node3D
+var host
 var active := false
 var selected := ""
 var entries: Dictionary = {}
@@ -205,7 +205,8 @@ func _press(where: Vector2, finger: int, mouse: bool) -> void:
     if not selected.is_empty():
         var keys: Dictionary = _gizmo_boxes()
         for operation in keys.keys():
-            if (keys[operation] as Rect2).has_point(where):
+            var button_rect: Rect2 = keys[operation]
+            if button_rect.has_point(where):
                 var pose: Dictionary = entries[selected]
                 if operation == "rot_l" or operation == "rot_r":
                     var step: float = -TURN_STEP if operation == "rot_l" else TURN_STEP
@@ -306,7 +307,8 @@ func _bounds(vertices: PackedVector2Array) -> Rect2:
 func _current_delta(entry: Dictionary) -> Transform3D:
     var pose := Transform3D(
         Basis(Vector3.UP, float(entry["yaw"])), entry["position"])
-    return pose * (entry["base"] as Transform3D).affine_inverse()
+    var base_pose: Transform3D = entry["base"]
+    return pose * base_pose.affine_inverse()
 
 
 func _set_pose(key: String, at: Vector3, yaw: float) -> void:
@@ -410,7 +412,7 @@ func _gizmo_boxes() -> Dictionary:
     if camera == null:
         return {}
     var at: Vector3 = entries[selected]["position"]
-    var center := camera.unproject_position(at)
+    var center: Vector2 = camera.unproject_position(at)
     center.x = clampf(center.x, 110.0, size.x - 135.0)
     center.y = clampf(center.y + 86.0, 145.0, size.y - 134.0)
     return {
