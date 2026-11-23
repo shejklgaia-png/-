@@ -15,7 +15,8 @@ static func suppresses_authored_part(label: String) -> bool:
             "Deep overhead girder 0",
             "Girder inset lower spine 0",
             "Heavy upper runner 1",
-            "Service mezzanine horizontal duct 1"]:
+            "Service mezzanine horizontal duct 1",
+            "Continuous enclosing bulkhead 1"]:
         return true
     if label.begins_with("Overhead electrical relay housing ") or (
             label.begins_with("Overhead electrical cyan core ")):
@@ -65,6 +66,23 @@ static func build(room: Node3D) -> void:
         Vector2(2.54, 8.42), Vector2(9.65, 8.42),
         Vector2(10.02, 9.00), Vector2(10.02, 10.22),
         Vector2(2.54, 10.22)], -28.10, -27.42, gunmetal)
+
+    # Rebuild the RIGHT side wall as three cast sections. Its former
+    # unbroken inner face ran through the gate's outer armor; recess ONLY the
+    # gate bay from x=8.94 to x=9.58. The near and far wall sections retain
+    # the original hangar envelope and the new right jamb provides continuity.
+    _cast(root, "RightWallBehindGate", [
+        Vector2(8.96, 0.0), Vector2(9.98, 0.0),
+        Vector2(9.98, 9.80), Vector2(8.96, 9.80)],
+        -28.50, -26.60, dark)
+    _cast(root, "RightWallRecessedLaunchBay", [
+        Vector2(9.58, 0.0), Vector2(9.98, 0.0),
+        Vector2(9.98, 9.80), Vector2(9.58, 9.80)],
+        -26.60, -19.50, gunmetal)
+    _cast(root, "RightWallForwardStation", [
+        Vector2(8.96, 0.0), Vector2(9.98, 0.0),
+        Vector2(9.98, 9.80), Vector2(8.96, 9.80)],
+        -19.50, 12.50, dark)
 
     # The wall's front-face vertical machinery tracks form angled chamfered
     # reveals outside, not inside, the open departure tunnel.
