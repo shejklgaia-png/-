@@ -59,6 +59,11 @@ var _shared_scene_mode: bool = false
 # Only the Bittaran battle uses a 5px outside / 4px mesh-ID contact shader.
 # Shared ID depth/camera/copies remain identical to other combat scenes.
 var _bittaran_id_mode: bool = false
+# The pre-draw signal is the last common boundary before the RenderingServer
+# updates the ID child viewport and the main viewport that consumes it.
+# The normal _process path remains a safe fallback on all render backends.
+var _bittaran_pre_draw_frame: int = -1
+var _bittaran_snapshot_dirty_frame: int = -1
 # Only independent equipment preview SubViewports use 2D shared-ID ink.
 var _part_preview_canvas_mode: bool = false
 # Combat needs the interpolated pose every render frame, not the last physics tick.
@@ -150,7 +155,9 @@ func _refresh_combat_viewport_mode() -> void:
     # Capture the *final* render pose after both have advanced, not the pose
     # from the beginning of this frame. Non-combat viewports keep their
     # existing scheduling to avoid changing preview/BASE behavior.
-    process_priority = 100 if combat else 0
+    # Let player, boss, authored joints, camera and effects finish their
+    # render-frame updates before capturing the visible mesh-ID source pose.
+    process_priority = 10000 if combat else 0
     if not is_instance_valid(id_viewport):
         return
     if _root_refs.is_empty():
@@ -187,6 +194,8 @@ func get_outline_metrics() -> Dictionary:
                 NEXUS_CONTACT_INK if _nexus_sera_contact_mode else
                 (SHARED_CANVAS_INK if _part_preview_canvas_mode else INK))),
         "bittaran_mesh_id_mode": _bittaran_id_mode,
+        "bittaran_pre_draw_frame": _bittaran_pre_draw_frame,
+        "bittaran_snapshot_dirty_frame": _bittaran_snapshot_dirty_frame,
         "shared_vfx_safe_3d_ink": _shared_scene_mode,
         "nexus_contact_vfx_safe_3d_ink": false,
         "front_effects_cover_ink": (_shared_scene_mode and not _part_preview_canvas_mode),
@@ -261,6 +270,9 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
+    # A viewport-owned compositor can outlive one scene. Disconnect before
+    # its camera/source meshes are freed, avoiding stale pre-draw callbacks.
+    _disconnect_bittaran_pre_draw()
     # The 3D quad lives under the source Camera3D, not under this canvas.
     if is_instance_valid(_screen_quad):
         _screen_quad.queue_free()
@@ -310,6 +322,40 @@ func set_shared_scene_mode(enabled: bool) -> void:
     _scan_elapsed = 0.0
 
 
+func _disconnect_bittaran_pre_draw() -> void:
+    if RenderingServer.frame_pre_draw.is_connected(
+            _on_bittaran_frame_pre_draw):
+        RenderingServer.frame_pre_draw.disconnect(
+            _on_bittaran_frame_pre_draw)
+
+
+# Final render-boundary commit for the Bittaran visible-ID path.
+# `_process` has already synced the model/camera as a fallback. At this
+# signal Godot has finished this frame's scene updates, but has not yet
+# refreshed the render targets. Copy only any LAST-MOMENT pose/projection
+# changes into the ID pass before the parent viewport samples its texture.
+# No await, CPU readback, forced redraw, screen buffer, or extra frame.
+func _on_bittaran_frame_pre_draw() -> void:
+    if not _bittaran_id_mode or _root_refs.is_empty() or (
+            not is_inside_tree()) or (
+            not is_instance_valid(id_viewport)) or (
+            not is_instance_valid(source_viewport)):
+        return
+    var source_camera: Camera3D = source_viewport.get_camera_3d()
+    if not is_instance_valid(source_camera):
+        return
+    var dirty: bool = _sync_camera(source_camera)
+    dirty = _sync_copies() or dirty
+    if dirty:
+        _update_shared_screen_bounds(source_camera)
+        _bittaran_snapshot_dirty_frame = Engine.get_process_frames()
+    # A child ID viewport is a texture dependency of the parent's 3D
+    # silhouette composite. Both are requested in the same render tick.
+    if id_viewport.render_target_update_mode != SubViewport.UPDATE_ALWAYS:
+        id_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+    _bittaran_pre_draw_frame = Engine.get_process_frames()
+
+
 # Select the dedicated Bittaran ID-contacts compositor without changing the
 # shared-ID source pass, depth resolve or the other scenes' shader settings.
 # This is intentionally NOT a topology-based convex/crease detector.
@@ -317,6 +363,15 @@ func set_bittaran_id_mode(enabled: bool) -> void:
     if _bittaran_id_mode == enabled:
         return
     _bittaran_id_mode = enabled
+    if enabled:
+        if not RenderingServer.frame_pre_draw.is_connected(
+                _on_bittaran_frame_pre_draw):
+            RenderingServer.frame_pre_draw.connect(
+                _on_bittaran_frame_pre_draw)
+    else:
+        _disconnect_bittaran_pre_draw()
+        _bittaran_pre_draw_frame = -1
+        _bittaran_snapshot_dirty_frame = -1
     if _shared_scene_mode and _screen_material != null:
         _screen_material.shader = (
             BITTARAN_ID_INK if enabled else SHARED_INK)
@@ -422,6 +477,9 @@ func unregister_root(owner: Node) -> void:
         _shared_scene_mode = false
         _nexus_sera_contact_mode = false
         _bittaran_id_mode = false
+        _disconnect_bittaran_pre_draw()
+        _bittaran_pre_draw_frame = -1
+        _bittaran_snapshot_dirty_frame = -1
         _screen_material = null
         # A new camera can have exactly the same transform and projection;
         # force its settings back into the independent ID camera on entry.
