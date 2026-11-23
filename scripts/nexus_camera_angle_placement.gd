@@ -121,8 +121,9 @@ func _sync_ui() -> void:
         var id: String = str(id_value)
         var panel: Panel = _buttons[id]
         var show_panel: bool = (
-            (id == "open" and not active and _can_open()) or
-            (id != "open" and active))
+            id != "open" and active)
+        # The standalone 'アングル正規配置' entry is always owned by the
+        # working NEXUS HUD; the editing buttons remain in this overlay.
         panel.visible = show_panel
         if show_panel:
             var rect: Rect2 = _button_rect(id)
@@ -146,8 +147,12 @@ func _button_rect(id: String) -> Rect2:
     var h: float = size.y
     match id:
         "open":
-            return Rect2(Vector2(maxf(16.0, w - 212.0), 18.0),
-                Vector2(196.0, 50.0))
+            if host != null:
+                var entry_button: Button = host.get("angle_entry_button") as Button
+                if entry_button != null:
+                    return Rect2(entry_button.position, entry_button.size)
+            return Rect2(Vector2(maxf(16.0, w - 228.0), 36.0),
+                Vector2(208.0, 54.0))
         "exit":
             return Rect2(Vector2(15.0, 18.0), Vector2(116.0, 48.0))
         "copy":
