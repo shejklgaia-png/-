@@ -13,8 +13,7 @@ const MOTION_FEATURES: Dictionary = {
         "FreshLabPrinterTip", "FreshLabPrintedShell"],
     "SCRAP_COLLECTOR": ["FreshCollectorSuspendedCable", "FreshCollectorClawHead",
         "FreshCollectorJawHinge", "FreshCollectorOpenGrip",
-        "FreshCollectorConveyorFlight", "FreshCollectorPickupScrap",
-        "FreshCollectorCranePayload"],
+        "FreshCollectorConveyorFlight", "FreshCollectorPickupScrap"],
     "SMELTER": ["FreshSmelterFlameTongue", "FreshSmelterLowFire"],
     "RECYCLER": ["FreshRecyclerRoller", "FreshRecyclerTooth"],
     "GENERATOR": ["FreshGeneratorRotorBlade"],
@@ -164,24 +163,45 @@ func sample_at(seconds: float) -> void:
                             CollectorConveyor.BELT_START_X + shifted -
                             belt_local.x, 0.0, 0.0))
                     elif feature == "FreshCollectorPickupScrap":
-                        # Both visible fragments share ONE common rigid
-                        # pose: belt travel, a short rise onto the metal
-                        # plate, a single clunk/rock, and damped settling.
-                        pose.origin += _at(scrap_shift)
-                        if absf(scrap_rock) > 0.00001:
-                            pose = _spin_about(pose,
-                                _at(Vector3(
-                                    CollectorConveyor.BELT_START_X, 1.02,
-                                    CollectorConveyor.BELT_Z) + scrap_shift),
-                                _axis(Vector3.FORWARD), scrap_rock)
-                        # Swap to the attached payload ONLY once closed.
-                        if crane_phase >= 3.72:
-                            pose.basis = rest.basis.scaled_local(
-                                Vector3.ONE * 0.0001)
+                        # One continuous two-part parcel, never exchanged
+                        # for a separate payload. Before gripping it rides
+                        # the belt, jolts up the ramp and settles.
+                        if crane_phase < 3.72:
+                            pose.origin += _at(scrap_shift)
+                            if absf(scrap_rock) > 0.00001:
+                                pose = _spin_about(pose,
+                                    _at(Vector3(
+                                        CollectorConveyor.BELT_START_X,
+                                        CollectorConveyor.SCRAP_BELT_Y,
+                                        CollectorConveyor.BELT_Z) + scrap_shift),
+                                    # +Z pitches the leading (+X) edge
+                                    # upward while climbing the ramp.
+                                    _axis(Vector3.BACK), scrap_rock)
+                        else:
+                            # Anchor the exact last resting pose to the
+                            # crane, rotating around its real slewing axis.
+                            # At the instant of capture, angle and height
+                            # deltas are zero: no jump or mesh swapping.
+                            var settled: Vector3 = (
+                                CollectorConveyor.scrap_offset_at(
+                                    CollectorConveyor.SCRAP_SETTLE_FINISH))
+                            pose.origin += _at(settled)
+                            pose = _spin_about(pose, crane_center,
+                                _axis(Vector3.UP),
+                                crane_slew - CollectorConveyor.PICKUP_ANGLE)
+                            pose.origin += _at(Vector3(0.0,
+                                crane_lift -
+                                CollectorConveyor.SCRAP_PICKUP_LIFT, 0.0))
+                            if crane_phase > 6.14:
+                                pose.origin += _at(Vector3(0.0,
+                                    -0.42 * smoothstep(
+                                        6.14, 6.54, crane_phase), 0.0))
+                            if crane_phase >= 6.54:
+                                pose.basis = pose.basis.scaled_local(
+                                    Vector3.ONE * 0.0001)
                     elif feature in ["FreshCollectorSuspendedCable",
                             "FreshCollectorClawHead",
-                            "FreshCollectorJawHinge", "FreshCollectorOpenGrip",
-                            "FreshCollectorCranePayload"]:
+                            "FreshCollectorJawHinge", "FreshCollectorOpenGrip"]:
                         # Hook, jaws and payload inherit the boom's real yaw.
                         pose = _spin_about(rest, crane_center,
                             _axis(Vector3.UP), crane_slew)
@@ -213,19 +233,13 @@ func sample_at(seconds: float) -> void:
                                     crane_center + crane_rotation *
                                     (_at(jaw_pin) - crane_center) +
                                     _at(Vector3(0.0, crane_lift, 0.0)))
+                                # Godot's FORWARD is local -Z: it would
+                                # rotate both finger pairs inward when the
+                                # controller requests OPEN. Positive local
+                                # Z (BACK) makes side*angle spread fingers.
                                 pose = _spin_about(pose, jaw_world,
-                                    crane_rotation * _axis(Vector3.FORWARD),
+                                    crane_rotation * _axis(Vector3.BACK),
                                     side * crane_grip)
-                            elif feature == "FreshCollectorCranePayload":
-                                # Never show two copies at the handoff.
-                                # Once released, fall into the real hopper.
-                                if crane_phase < 3.72 or crane_phase >= 6.54:
-                                    pose.basis = rest.basis.scaled_local(
-                                        Vector3.ONE * 0.0001)
-                                elif crane_phase > 6.14:
-                                    pose.origin += _at(Vector3(0.0,
-                                        -0.42 * smoothstep(
-                                            6.14, 6.54, crane_phase), 0.0))
                 "SMELTER":
                     if feature == "FreshSmelterFlameTongue":
                         # Irregular phase offsets prevent all four heat tongues
