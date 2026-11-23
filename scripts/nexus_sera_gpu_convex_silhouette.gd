@@ -22,7 +22,8 @@ var hard_creases_only: bool = false
 # Battle-only GPU mode: silhouette and disjoint mesh borders (no convex ridges).
 # Off by default to preserve NEXUS/icon consumers of this controller.
 var enable_combat_gpu_full_edges: bool = false
-var silhouette_stroke_px: float = 3.0
+var silhouette_inside_px: float = 1.0
+var silhouette_outside_px: float = 3.0
 var seam_stroke_px: float = 3.0
 var scan_interval_seconds: float = SCAN_SECONDS
 
@@ -37,7 +38,8 @@ func _ready() -> void:
     _material.shader = GPU_FULL_EDGES if enable_combat_gpu_full_edges else INK_SHADER
     _material.set_shader_parameter("ink_color", Color("#17212f"))
     if enable_combat_gpu_full_edges:
-        _material.set_shader_parameter("silhouette_px", silhouette_stroke_px)
+        _material.set_shader_parameter("silhouette_inside_px", silhouette_inside_px)
+        _material.set_shader_parameter("silhouette_outside_px", silhouette_outside_px)
         _material.set_shader_parameter("seam_px", seam_stroke_px)
     else:
         _material.set_shader_parameter("stroke_px", ink_stroke_px)

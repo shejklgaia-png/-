@@ -5,7 +5,10 @@ shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_never;
 
 uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
-uniform float silhouette_px : hint_range(0.5, 6.0) = 3.0;
+// On-screen pixel distances measured from the actual mesh contour.
+uniform float silhouette_inside_px : hint_range(0.0, 6.0) = 1.0;
+uniform float silhouette_outside_px : hint_range(0.0, 6.0) = 3.0;
+// Open edges are also the boundaries of separately authored mesh parts.
 uniform float seam_px : hint_range(0.5, 6.0) = 3.0;
 varying float edge_visible;
 
@@ -17,16 +20,20 @@ void vertex() {
         ? vec3(0.0, 0.0, 1.0) : normalize(-view_position);
     float facing_a = dot(normal_a, view_ray);
     bool paired = CUSTOM0.w >= 0.5;
-    float width_px = silhouette_px;
+    float inner_px = silhouette_inside_px;
+    float outer_px = silhouette_outside_px;
     bool visible = false;
+    float facing_b = -1.0;
 
     if (!paired) {
         // Real open mesh boundaries, including separate plate/wing meshes.
         visible = abs(facing_a) > 0.035;
-        width_px = seam_px;
+        // An open boundary may also be the outer silhouette of a plate:
+        // use the 1px inward / 3px outward profile on its visible rim.
+        outer_px = seam_px;
     } else {
         vec3 normal_b = normalize(nmat * CUSTOM0.xyz);
-        float facing_b = dot(normal_b, view_ray);
+        facing_b = dot(normal_b, view_ray);
         float strongest = max(abs(facing_a), abs(facing_b));
         bool front_back = (facing_a > 0.025 && facing_b < -0.025) ||
             (facing_b > 0.025 && facing_a < -0.025);
@@ -37,7 +44,6 @@ void vertex() {
         // Both faces facing the camera is an internal convex corner.
         // Never emit it for SERA, any enemy or CRATE.
         visible = front_back || grazing;
-        width_px = silhouette_px;
     }
     edge_visible = visible ? 1.0 : 0.0;
 
@@ -54,8 +60,38 @@ void vertex() {
         line_vec = vec2(1.0, 0.0);
     }
     vec2 side = normalize(vec2(-line_vec.y, line_vec.x));
-    clip.xy += side * vec2(1.0 / VIEWPORT_SIZE.x,
-        1.0 / VIEWPORT_SIZE.y) * width_px * clip.w * UV.x;
+
+    // Find which screen-space half-plane lies INSIDE the source polygon.
+    // The first edge tangent follows the original triangle winding:
+    // cross(face_a, tangent) points into face A. Face B uses the reversed
+    // tangent around the shared edge. This avoids a screen-center heuristic
+    // that fails for limbs, rotated armor and camera shake.
+    vec3 inward = cross(normal_a, tangent);
+    if (paired && facing_b > facing_a) {
+        vec3 normal_b = normalize(nmat * CUSTOM0.xyz);
+        inward = -cross(normal_b, tangent);
+    }
+    float inward_length = length(inward);
+    float inward_sign = 1.0;
+    if (inward_length > 0.00001) {
+        vec4 inside_tip = PROJECTION_MATRIX *
+            vec4(view_position + inward / inward_length * 0.10, 1.0);
+        vec2 projected_inside = (inside_tip.xy /
+            max(inside_tip.w, 0.00001) -
+            clip.xy / max(clip.w, 0.00001)) * VIEWPORT_SIZE;
+        if (dot(projected_inside, projected_inside) > 0.000001) {
+            inward_sign = dot(projected_inside, side) >= 0.0 ? 1.0 : -1.0;
+        }
+    }
+
+    // UV.x chooses one of the two edges of the ribbon. The half heading
+    // into the opaque mesh covers 1 real screen pixel; the opposite half
+    // extends 3 real pixels into the background. Clip space spans -1..+1,
+    // so an offset of one DISPLAY pixel needs the factor 2.0 here.
+    float signed_offset_px = UV.x * (
+        UV.x * inward_sign > 0.0 ? inner_px : outer_px);
+    clip.xy += side * vec2(2.0 / VIEWPORT_SIZE.x,
+        2.0 / VIEWPORT_SIZE.y) * signed_offset_px * clip.w;
     POSITION = clip;
 }
 

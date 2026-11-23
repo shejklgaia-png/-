@@ -1,3 +1,10 @@
+## 2026-11-23 — ビットタラン戦のシルエットを画面内1px・外3pxへ変更
+
+- ビットタランとプレイヤー（セラ・装備）に限定してGPU外周輪郭の非対称線幅を導入。内側1実画面px・外側3実画面px。開放メッシュ境界にも同じ内外幅を適用。
+- `sera_bittaran_gpu_contours.gdshader` で隣接面の法線／稜線ベクトルからモデル面の内側方向を投影、GPUで内外2方向を選び、NDCの画素係数2で正確なオフセットを計算。カメラの移動／揺れ、モデルモーションでも輪郭は同じ投影行列で追従。
+- `sera_view_edges.gd` と `nexus_sera_gpu_convex_silhouette.gd` のビットタラン用uniformを `silhouette_inside_px`/`silhouette_outside_px` へ整理。凸角OFF、別メッシュ境界・GPU深度テスト・FX・モデルを維持。
+- 他の戦闘/NEXUS/BASE/CRATEの輪郭、保存・設定、CI/テスト項目には変更なし。CI・Godot・Androidのテストは実行せず、実機の内外線幅は未確認。
+
 ## 2026-11-23 — 敵・セラ・クレートの凸角描画を停止（外周・メッシュ境界のみ）
 
 - 指示によりキャラクター3種（敵・SERA・CRATE）では同一メッシュの凸角線を描画しない。

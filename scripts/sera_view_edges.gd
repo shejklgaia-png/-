@@ -66,7 +66,8 @@ func _register() -> void:
             var gpu: Node3D = VisibleConvexInk.new()
             gpu.name = "SeraBittaranGPUContourController"
             gpu.set("enable_combat_gpu_full_edges", true)
-            gpu.set("silhouette_stroke_px", 3.0)
+            gpu.set("silhouette_inside_px", 1.0)
+            gpu.set("silhouette_outside_px", 3.0)
             gpu.set("seam_stroke_px", 3.0)
             gpu.set("ink_render_priority", -29)
             gpu.set("overlay_name", "SeraBittaranGPUContour")
