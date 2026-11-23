@@ -207,6 +207,7 @@ var system_confirm_blink_bright: bool = true
 # Reuse the same display rig, without reparenting it: SeraRig has external
 # afterimage nodes whose lifetime is tied to _exit_tree. Set its world transform
 # from camera space instead; no duplicate model, SubViewport or draw batch.
+var nexus_room_visuals: Array[Node3D] = []
 var sera_display_stand: Node3D
 var sera_display_rig: Node3D
 var sera_original_transform: Transform3D
@@ -340,6 +341,12 @@ func _ready() -> void:
     # NEXUS equipment has 3/0/2+convex1; its displayed SERA remains
     # universal character 4/0/2, all in the exact shared visible RGB-ID pass.
     SharedMaterialShading.apply_to_subtree(self)
+    _wall_mark()
+    # Capture the visible room roots before adding the exhibit and preview renderer.
+    # Source visibility also controls their copies in the shared RGB-ID pass.
+    for child in get_children():
+        if child is Node3D and not (child is Light3D) and child.visible:
+            nexus_room_visuals.append(child)
     _sera_display()
     _camera()
     # One RGB12 ID viewport for the entire NEXUS (architecture + SERA).
@@ -351,7 +358,6 @@ func _ready() -> void:
     id_outline.set_outline_profile(2)
     add_child(id_outline)
     _create_customization_glow()
-    _wall_mark()
     _hud()
     # The rejected 2D bounding-box contour is not created in NEXUS.
     # The new depth hull shares the real 3D scene and its current camera.
@@ -1221,6 +1227,8 @@ func _set_customize_mode(mode: int) -> void:
     if in_transition:
         _layout_hud()
         return
+    for room_visual in nexus_room_visuals:
+        room_visual.hide()
     if mode == 0:
         if is_instance_valid(sera_display_rig):
             sera_display_rig.visible = true
@@ -4481,6 +4489,8 @@ func _return_to_overview() -> void:
     # Hide the matte blue-grey grid on the Back press itself,
     # before either the model or camera Tween gets its first frame.
     if focused_target == "CUSTOMIZE":
+        for room_visual in nexus_room_visuals:
+            room_visual.show()
         if is_instance_valid(sera_display_rig):
             sera_display_rig.visible = true
         if customize_glow_quad != null:
