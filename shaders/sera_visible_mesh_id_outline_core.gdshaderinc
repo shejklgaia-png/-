@@ -105,6 +105,20 @@ bool sera_in_disk(int dx, int dy, float desired_display_px) {
         desired_display_px * desired_display_px + 0.001;
 }
 
+// A visible mesh contact is a topological pixel boundary, not a circular
+// interior crease. Eight-connected neighbors must count: a 45-degree seam
+// may have no horizontal/vertical ID change at the current texel.
+// Use a square ONLY for ID-to-ID contacts. Outer silhouette stays circular.
+bool sera_in_contact_footprint(int dx, int dy, float total_seam_px) {
+    if (total_seam_px < 0.001) { return false; }
+    float half_width = total_seam_px * 0.5;
+    vec2 pixel_scale = min(output_px_per_id_pixel,
+        vec2(max(half_width, 0.5)));
+    float reach_x = abs(float(dx)) * pixel_scale.x;
+    float reach_y = abs(float(dy)) * pixel_scale.y;
+    return max(reach_x, reach_y) <= max(half_width, 0.5) + 0.001;
+}
+
 float sera_inner_width(int role) {
     if (role == 1 && actor_inside_override_px >= 0.0) {
         return actor_inside_override_px;
@@ -184,7 +198,15 @@ float sera_visible_id_ink_alpha(vec2 uv) {
         int search_radius = sera_search_radius(max(inner_px, contact_px));
         for (int dy = -search_radius; dy <= search_radius; dy++) {
             for (int dx = -search_radius; dx <= search_radius; dx++) {
-                if ((dx == 0 && dy == 0) ||
+                if (dx == 0 && dy == 0) {
+                    continue;
+                }
+                // Include diagonal immediate neighbors even for 1px/2px
+                // contacts. The circular scan previously skipped them and
+                // intermittently dropped visibly slanted armor junctions.
+                bool diagonal_contact = abs(dx) == 1 && abs(dy) == 1 &&
+                    seam_px > 0.001;
+                if (!diagonal_contact &&
                         !sera_in_disk(dx, dy, max(inner_px, contact_px))) {
                     continue;
                 }
@@ -212,7 +234,7 @@ float sera_visible_id_ink_alpha(vec2 uv) {
                     ivec2 this_mesh = ivec2(floor(center.rb * 255.0 + 0.5));
                     ivec2 next_mesh = ivec2(floor(neighbor.rb * 255.0 + 0.5));
                     if (any(notEqual(this_mesh, next_mesh)) &&
-                            sera_in_disk(dx, dy, seam_px * 0.5)) {
+                            sera_in_contact_footprint(dx, dy, seam_px)) {
                         draw_ink = true;
                         break;
                     }
