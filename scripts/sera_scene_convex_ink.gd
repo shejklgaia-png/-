@@ -114,8 +114,11 @@ func sync_sources(desired: Dictionary, profile: int, texture: Texture2D,
                 source_mesh = original_multi.mesh
         if source_mesh == null:
             continue
-        var ribbon: ArrayMesh = _cached_geometry(source_mesh)
-        if ribbon == null:
+        # Filter actors/CRATE/parts BEFORE costly topology extraction.
+        var default_role: int = _role(source)
+        var mixed_roles: bool = original_multi != null and bool(
+            source.get_meta("sera_outline_instanced_roles", false))
+        if not mixed_roles and _style(default_role, profile) == 0:
             continue
         var instance_groups: Dictionary = {}
         if original_multi != null:
@@ -139,6 +142,11 @@ func sync_sources(desired: Dictionary, profile: int, texture: Texture2D,
                 continue
             instance_groups[style] = PackedInt32Array()
 
+        if instance_groups.is_empty():
+            continue
+        var ribbon: ArrayMesh = _cached_geometry(source_mesh)
+        if ribbon == null:
+            continue
         for style_value in instance_groups.keys():
             var style: int = int(style_value)
             var selected: PackedInt32Array = instance_groups[style]
@@ -228,6 +236,10 @@ func sync_animated_multimeshes() -> void:
                 source.multimesh.get_instance_transform(source_index))
             if draw.multimesh.get_instance_transform(target_index) != current_pose:
                 draw.multimesh.set_instance_transform(target_index, current_pose)
+
+
+func get_draw_count() -> int:
+    return _draws.size()
 
 
 func clear() -> void:
