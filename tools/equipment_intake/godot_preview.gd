@@ -49,7 +49,7 @@ func _ready() -> void:
     var env := Environment.new()
     env.background_mode = Environment.BG_COLOR
     env.background_color = (
-        Color("#bfd0db") if nexus_brighter_backdrop else IconBackdrop.SOLID_COLOR)
+        Color("#afc4d1") if nexus_brighter_backdrop else IconBackdrop.SOLID_COLOR)
     env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
     env.ambient_light_color = Color("#bbc9e1")
     env.ambient_light_energy = 0.60
