@@ -11,8 +11,8 @@
       "rig_set": "A",
       "source_model": "models/core/Standard.bbmodel",
       "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
-      "png_sha256": "ff564d92fa6df1fb19e97a1c0dbda634d82c8e8d83c5fb107f91880af86ba393",
-      "capture": "SERA Godot GL Compatibility / NEXUS visible mesh-ID contact"
+      "png_sha256": "575cc095f2cba0513ffa18b9a6577e5a29bbaac2b49e58418e4e37a532c08b0e",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
     },
     "H02": {
       "name": "アイリス",
@@ -20,8 +20,8 @@
       "rig_set": "D",
       "source_model": "models/storage/カメラアイ頭部.bbmodel",
       "source_sha256": "8c60f62b2ec3ee814a136884092fcee18ab2e06faab84fdca5598f3fa25609de",
-      "png_sha256": "bab8addae75af0126054b9cdfc050e93b592cacfb4e88eed960bffd310bedae9",
-      "capture": "SERA Godot GL Compatibility / NEXUS visible mesh-ID contact"
+      "png_sha256": "3cf5f140e3f25685b24feb59930da2cb3e35fbf9b3349fab88b0a1f7d66669bc",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
     },
     "H03": {
       "name": "重装頭部",
@@ -29,8 +29,8 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "0d03f74772de853e7c33c48793767c84b0f51677822110c2e96b38ff4a4b652a",
-      "capture": "SERA Godot GL Compatibility / NEXUS visible mesh-ID contact"
+      "png_sha256": "2ded55156da75a515be5ab633eaf6abe56b24327271e5f5040f662b9a3d009b3",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
     },
     "H04": {
       "name": "軽量頭部",
@@ -38,8 +38,8 @@
       "rig_set": "C",
       "source_model": "models/storage/Head_C.bbmodel",
       "source_sha256": "fbd07abb2609152133875c20038b55891782379d27b591793081feff5ce4e307",
-      "png_sha256": "f7c4e161bc53311a7c395ca3d1bff151b51d108e4c4948490e2b51f7897ff982",
-      "capture": "SERA Godot GL Compatibility / NEXUS visible mesh-ID contact"
+      "png_sha256": "8acba6640d6db6851324c8f6cca4f72975fc6eb3f66a9480b4c12025165831af",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
     },
     "T01": {
       "name": "標準胴体",
@@ -47,8 +47,8 @@
       "rig_set": "A",
       "source_model": "models/core/Standard.bbmodel",
       "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
-      "png_sha256": "a4e8f8cf07e7dc1df9649c9e5d73e55216ba68fbdd7069ba04607dd32fbc3da9",
-      "capture": "SERA Godot GL Compatibility / NEXUS visible mesh-ID contact"
+      "png_sha256": "5532e5dc504ab4333afc32f19643739ddbe591ac735779720b9eafb3739c598a",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
     },
     "T02": {
       "name": "重装胴体",
@@ -56,8 +56,8 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "16d97df4b8e7404a435b4875fb0ed7ea414272a0f8b71cf53f1eff6a2ea2928a",
-      "capture": "SERA Godot GL Compatibility / NEXUS visible mesh-ID contact"
+      "png_sha256": "4968f4fdbc39673c629c17749277261efd866fe002cf49c981ae28db4fbf2557",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
     },
     "A01": {
       "name": "標準腕部",
@@ -65,8 +65,8 @@
       "rig_set": "A",
       "source_model": "models/core/Standard.bbmodel",
       "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
-      "png_sha256": "82003571c2e29f3bb545a0694427274fb05d224ad1f86683b708ae1c54f44d3e",
-      "capture": "SERA Godot GL Compatibility / NEXUS visible mesh-ID contact"
+      "png_sha256": "7420f7b2652ecb3c5c1a1f06c228cc199aa9e724265cb3c7b645ec8f990d4ce4",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
     },
     "A02": {
       "name": "重装腕部",
@@ -74,8 +74,8 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "b4f90f5c2ffe15f2d766e6c9376387c368cbc613274610f8d94db68f6319f06c",
-      "capture": "SERA Godot GL Compatibility / NEXUS visible mesh-ID contact"
+      "png_sha256": "93b4e6de258a238346e55f89474e208481edc12c40bce20c555bbe91538ed72c",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
     },
     "L01": {
       "name": "標準脚部",
@@ -83,8 +83,8 @@
       "rig_set": "A",
       "source_model": "models/core/Standard.bbmodel",
       "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
-      "png_sha256": "fd0e5e40f2693736e470e6d595f4af50d625b23c75ea4756f974568c3b85dd09",
-      "capture": "SERA Godot GL Compatibility / NEXUS visible mesh-ID contact"
+      "png_sha256": "d8312023f7c2c149492db75e05078936f10c17eeef4dc9ed454fdd828174d833",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
     },
     "L02": {
       "name": "重装脚部B",
@@ -92,8 +92,8 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "8cef6cd5fd0e41e26c8fb157765abb453115f04abfee59ec2d4b5ad7b1617976",
-      "capture": "SERA Godot GL Compatibility / NEXUS visible mesh-ID contact"
+      "png_sha256": "745f556dd6746f4e82448c563555a444daf185ac807ef31ef0594b25e80662b4",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
     },
     "L03": {
       "name": "鳥脚",
@@ -101,8 +101,8 @@
       "rig_set": "C",
       "source_model": "models/core/BirdLeg.bbmodel",
       "source_sha256": "00086fb46da6d0af8f66ded01cd98f2a4656e46b648d240638505b7af7675599",
-      "png_sha256": "de88aee000951dbdc1ef18d473049ae4b3512dc8d3f0d6e36b9d23f1ed90c98f",
-      "capture": "SERA Godot GL Compatibility / NEXUS visible mesh-ID contact"
+      "png_sha256": "2ea45eeaec5d05dc40f0a0aabadfb42a6a340d0eb3cf82d00d0fb7c78022c56c",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
     },
     "L04": {
       "name": "重装脚部D",
@@ -110,8 +110,8 @@
       "rig_set": "D",
       "source_model": "models/storage/LowerBody_D.bbmodel",
       "source_sha256": "94a6f95d2c7dd0fe69e47b8b94e0087e9f21b02118038afeaa62002a344203c5",
-      "png_sha256": "54c1683b6b62e834fed12a6b3bb66aab0e9786c269c9f1483573166f68d12957",
-      "capture": "SERA Godot GL Compatibility / NEXUS visible mesh-ID contact"
+      "png_sha256": "b6b0fe7ae1bdc054ac42e397e321c0c54b9a03c9744ce335ce9b9e4a96d76e6a",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
     },
     "B01": {
       "name": "標準ブースター",
@@ -119,8 +119,8 @@
       "rig_set": "A",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "edc92fb7670a82241ce681ef4c1142070c38d5e96fb8ce5b7e439ecb74daa910",
-      "capture": "SERA Godot GL Compatibility / NEXUS visible mesh-ID contact"
+      "png_sha256": "e913f3bea5e7a73d7155b9f6ad535135a05fa6f65a590f64cc45d037eb85b7fe",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
     },
     "B02": {
       "name": "重装ブースター",
@@ -128,8 +128,8 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "ac83aa86f1a5fc32119fb109d326f40d815609e5114eac85157fbd2712c9d248",
-      "capture": "SERA Godot GL Compatibility / NEXUS visible mesh-ID contact"
+      "png_sha256": "eb97201a8289a37643a8deff57051face9bab701f31175ecd134a0841066bcd8",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
     },
     "WR01": {
       "name": "標準ブレード",
@@ -137,8 +137,8 @@
       "rig_set": "A",
       "source_model": "models/core/Standard.bbmodel",
       "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
-      "png_sha256": "0d270f92da5e7ea8d18273a9d337576a7de83f345051820d0ab46ec5882f634f",
-      "capture": "SERA Godot GL Compatibility / NEXUS visible mesh-ID contact"
+      "png_sha256": "d51421ecc3bea55cf3cb5bb3480c47d954beec4b420dbd0a7d59694cdba36a87",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
     },
     "WR02": {
       "name": "重装ブレード",
@@ -146,8 +146,8 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "bd8b391e95bcb7aaec5e2ec165981b7145a0b9470328a3ce775f34fa612186c1",
-      "capture": "SERA Godot GL Compatibility / NEXUS visible mesh-ID contact"
+      "png_sha256": "2c1f78ff58c6b8c653d1c161ab3d112fe3ad8661b27fc6e4b3f99dd06d447116",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
     },
     "WR03": {
       "name": "カタナ",
@@ -155,8 +155,8 @@
       "rig_set": "K",
       "source_model": "models/core/Katana.bbmodel",
       "source_sha256": "62f323d4fe08e931071ac418026e26538a111719d2803253f709239f379ce843",
-      "png_sha256": "ae67296662f4be454c99ec972adeeefa24e17787177297606bdebfdbc1e61a55",
-      "capture": "SERA Godot GL Compatibility / NEXUS visible mesh-ID contact"
+      "png_sha256": "8f150cd6511c1272c29611c3465ae83381d8924cd8193b10d9e76756333b3022",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
     },
     "WL01": {
       "name": "標準シールド",
@@ -164,8 +164,8 @@
       "rig_set": "A",
       "source_model": "models/core/Standard.bbmodel",
       "source_sha256": "0ad152fe5d7f81b11da28490fe8ecd47e4d70db42999fe1a84cdc6045755f03b",
-      "png_sha256": "64e2f3bca864f9227f49ef6d0f5d57003e3a55329432e5aff671c5172d04d814",
-      "capture": "SERA Godot GL Compatibility / NEXUS visible mesh-ID contact"
+      "png_sha256": "a02430e666f1f48ad4049d64ed8d874bae1c74d4fb673bd3b3321890757ee364",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
     },
     "WL02": {
       "name": "強化シールド",
@@ -173,10 +173,10 @@
       "rig_set": "B",
       "source_model": "models/core/Equipment.bbmodel",
       "source_sha256": "5ac4b9f0c7e8e16194f04e759f55aabe41e8e75166cc39d38dc0fba27f2e3bf0",
-      "png_sha256": "f5ea146993c9f43361874881a7269ab7d6da190a6a4f37d93b4d26f18de47529",
-      "capture": "SERA Godot GL Compatibility / NEXUS visible mesh-ID contact"
+      "png_sha256": "9e120a8daa12b3d3e11f1e88b9bd89f74ee4d5282234e30e3a0ea5d57aa2fd1a",
+      "capture": "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink"
     }
   },
   "capture_preset": "assets/ui/sera_icon_presets/H02.json",
-  "outline_pipeline": "NEXUS mesh-ID depth contact: 1px interior, 2px exterior, 2px seams"
+  "outline_pipeline": "ICON ONLY: silhouette inner 1px outer 4px; convex corners 3px; mesh seams 2px"
 }
