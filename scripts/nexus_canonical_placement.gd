@@ -225,7 +225,8 @@ func _press(where: Vector2, finger: int, mouse: bool) -> void:
     if picked.is_empty():
         return
     var state: Dictionary = entries[picked]
-    var floor_point: Variant = _ray_plane(where, (state["position"] as Vector3).y)
+    var picked_position: Vector3 = state["position"]
+    var floor_point: Variant = _ray_plane(where, picked_position.y)
     if floor_point != null:
         drag_ground = floor_point
         drag_origin = state["position"]
@@ -343,8 +344,10 @@ func _set_pose(key: String, at: Vector3, yaw: float) -> void:
     if key != "DEPLOYMENT" and not (entry["focus"] as Dictionary).is_empty():
         var base_focus: Dictionary = entry["focus"]
         var view: Dictionary = host.focus_views[key]
-        view["eye"] = delta * (base_focus["eye"] as Vector3)
-        view["look"] = delta * (base_focus["look"] as Vector3)
+        var focus_eye: Vector3 = base_focus["eye"]
+        var focus_look: Vector3 = base_focus["look"]
+        view["eye"] = delta * focus_eye
+        view["look"] = delta * focus_look
         host.focus_views[key] = view
     # The view contours are hidden during edit; only recalculate on exit.
     queue_redraw()
