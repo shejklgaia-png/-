@@ -3851,17 +3851,22 @@ func _update_projected_silhouettes() -> void:
     elif target_parts.has(focused_target):
         contours[focused_target] = _project_model_contour(focused_target)
     outline.set("polygons", contours)
-    # These outlines are drawn in 2D on top of the 3D view. Clip ONLY the
-    # distant gate's visible stroke against the nearer SERA body so its border
-    # cannot show through SERA. Clip POLYLINES rather than polygons: clipping
-    # polygons would create an unwanted border along SERA's silhouette.
+    # The 2D selection ink must respect foreground occlusion too: otherwise
+    # the distant gate can draw its selectable border straight through the
+    # moved SYSTEM/TRAINING terminals. This is only outline clipping; model
+    # and touch regions still use their unchanged world-depth geometry.
+    # Clip POLYLINES rather than filled polygons to avoid artificial borders
+    # where a nearer silhouette hides the portal.
     var visible_strokes: Dictionary = {}
     if contours.has("DEPLOYMENT"):
-        var sera_masks: Array = contours.get("CUSTOMIZE", [])
-        if sera_masks.is_empty():
-            sera_masks = _project_model_contour("CUSTOMIZE")
+        var gate_occluders: Array = []
+        for nearer in ["CUSTOMIZE", "SYSTEM", "TRAINING"]:
+            var projected: Array = contours.get(nearer, [])
+            if projected.is_empty():
+                projected = _project_model_contour(nearer)
+            gate_occluders.append_array(projected)
         visible_strokes["DEPLOYMENT"] = _clip_gate_strokes(
-            contours["DEPLOYMENT"], sera_masks)
+            contours["DEPLOYMENT"], gate_occluders)
     outline.set("clipped_strokes", visible_strokes)
 
 func _clip_gate_strokes(gate_shapes: Array, occluders: Array) -> Array[PackedVector2Array]:
