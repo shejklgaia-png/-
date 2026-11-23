@@ -16,8 +16,6 @@ const DisplayProfile = preload("res://scripts/sera_display_profile.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
 const BaseFacilityInk = preload("res://scripts/sera_base_facility_outlines.gd")
 const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
-const OUTLINE_TEST_SAFE_SHADER = preload("res://shaders/base_facility_silhouette_edges.gdshader")
-const OUTLINE_TEST_RIBBON_SHADER = preload("res://shaders/base_facility_silhouette_edges.gdshader")
 const BaseClutter = preload("res://scripts/sera_base_clutter.gd")
 const BaseLayoutPreview = preload("res://scripts/sera_base_layout_preview.gd")
 const JunkGeometry = preload("res://scripts/sera_base_junk_geometry.gd")
@@ -743,13 +741,13 @@ func _create_layout_tools() -> void:
     _layout_tool_button("ロード演出 25%", "LoadingPreviewLowButton",
         _play_loading_preview.bind(LoadingConsole.PREVIEW_RENDER_SCALE_2))
     outline_probe_button = _layout_tool_button(
-        "輪郭検査 v1", "OutlineProbeButton", _cycle_outline_probe)
+        "輪郭ID：状態", "OutlineProbeButton", _cycle_outline_probe)
     nexus_material_probe_button = _layout_tool_button(
         "NEXUS材質：通常", "NexusMaterialProbeButton",
         _cycle_nexus_material_probe)
     layout_status = Label.new()
     layout_status.name = "LayoutStatus"
-    layout_status.text = "OUTLINE-DIAG v1"
+    layout_status.text = "VISIBLE-ID / ON"
     layout_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
     layout_status.add_theme_font_override("font", LaboSkin.ui_font())
     layout_status.add_theme_font_size_override("font_size", 11)
