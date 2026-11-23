@@ -466,7 +466,7 @@ func _placement_launcher_button(caption: String, id: String) -> Button:
     frame.border_color = Color("#6dc8e9")
     frame.set_border_width_all(2)
     frame.set_corner_radius_all(4)
-    var hover: StyleBoxFlat = frame.duplicate()
+    var hover: StyleBoxFlat = frame.duplicate() as StyleBoxFlat
     hover.bg_color = Color("#28566b")
     b.add_theme_stylebox_override("normal", frame)
     b.add_theme_stylebox_override("hover", hover)
