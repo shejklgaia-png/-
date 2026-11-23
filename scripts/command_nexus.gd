@@ -447,6 +447,8 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
             selected_shape = "DEPLOYMENT"
     var silhouette_parts: Array = target_parts.get(selected_shape, [])
     for part in Modules.MODULES[name]:
+        if WorldMonitors.replaces_screen_marks(str(part[0])):
+            continue
         # The floor foundation remains as authored. Suppress only the old
         # tiles, stripes, light sockets and grate boxes replaced by the new
         # depth-occluding reference deck, avoiding double/z-fighting surfaces.
