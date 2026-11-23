@@ -14,6 +14,9 @@ const PREVIEW_MATCHED_STROKE_PX: float = 4.0
 var ink_stroke_px: float = PREVIEW_MATCHED_STROKE_PX
 var ink_render_priority: int = 110
 var overlay_name: String = EDGE_NAME
+# Icon capture also restricts visible front creases to hard (>=80°) edges.
+# Optional for combat only; NEXUS retains its existing geometry by default.
+var hard_creases_only: bool = false
 
 var _elapsed: float = 0.0
 var _overlays: Dictionary = {} # source instance ID -> {source, overlay, mesh, closed}
@@ -151,13 +154,14 @@ func _scan() -> void:
 
 
 func _cached_geometry(source: Mesh, closed: bool) -> Mesh:
-    var key: String = "%d/%d" % [source.get_instance_id(), int(closed)]
+    var key: String = "%d/%d/%d" % [source.get_instance_id(), int(closed),
+        int(hard_creases_only)]
     if _geometry_cache.has(key):
         var entry: Dictionary = _geometry_cache[key]
         var previous: WeakRef = entry.get("source") as WeakRef
         if previous != null and previous.get_ref() == source:
             return entry.get("result") as Mesh
-    var result: Mesh = _make_edges(source, closed)
+    var result: Mesh = _make_edges(source, closed, hard_creases_only)
     _geometry_cache[key] = {"source": weakref(source), "result": result}
     return result
 
@@ -188,7 +192,8 @@ static func _signed_volume(mesh: Mesh) -> float:
     return total
 
 
-static func _make_edges(mesh: Mesh, closed: bool) -> ArrayMesh:
+static func _make_edges(mesh: Mesh, closed: bool,
+        hard_only: bool = false) -> ArrayMesh:
     var extracted: Array = Edges._extract_edges(mesh)
     if extracted.is_empty():
         return null
@@ -222,6 +227,8 @@ static func _make_edges(mesh: Mesh, closed: bool) -> ArrayMesh:
         # The shared visible-ID pass owns every open boundary and silhouette.
         # Do not build GPU ribbons that can only duplicate those contours.
         if not paired:
+            continue
+        if hard_only and not bool(edge.get("crease", false)):
             continue
         if closed:
             var convex_bend: float = tangent.dot(normal_a.cross(normal_b))
