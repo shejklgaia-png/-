@@ -3175,12 +3175,12 @@ func _refresh_outline_debug(delta: float) -> void:
     # Diagnostic values show the actual production renderer first.
     # The old hull/ribbons are opt-in comparisons, not missing production ink.
     outline_debug_stats.text = (
-        "本番 可視ID: %s / 材質: %s\\n"
-        + "ID複製: %d  解像度: %d×%d\\n"
-        + "更新要求: %d  ID衝突: %s\\n"
-        + "登録ルート: %d / 設定: %s\\n"
-        + "旧ハル(診断): %d / 候補: %d\\n"
-        + "旧エッジ(診断): %d / 欠落: %d\\n"
+        "本番 可視ID: %s / 材質: %s\n"
+        + "ID複製: %d  解像度: %d×%d\n"
+        + "更新要求: %d  ID衝突: %s\n"
+        + "登録ルート: %d / 設定: %s\n"
+        + "旧ハル(診断): %d / 候補: %d\n"
+        + "旧エッジ(診断): %d / 欠落: %d\n"
         + "モード: %d"
     ) % [
         "ON" if bool(id_data.get("overlay_visible", false)) else "OFF",
