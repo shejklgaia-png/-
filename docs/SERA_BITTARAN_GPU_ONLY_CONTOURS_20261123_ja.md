@@ -132,3 +132,4 @@ CI項目の確認・修正・適用は行わず、CI、Godot、Android等のテ�
 - 前段の`frame_pre_draw`最終姿勢同期、既存の可視RGB ID画素抽出、**シルエット内0px/外3px・境界2px・凸角OFF**、FPSラベル、カメラ振動同期は変更しない。他のNEXUS・拠点・通常戦闘・単体プレビューは旧経路を維持する。
 - **設計上の制約**：これは**色付き戦闘フレームの完成後にその1枚だけを提示するレンダーターゲット方式**であり、Android/GL Compatibility上で全GPUタスクを同期フェンスで待機し、IDテクスチャが必ず同一フレームのものだと証明する「GPU完成バリア」ではない。ID内部のパスで残存するズレや端末依存の追加1フレーム遅延は排除・計測できていない。また色付きSubViewportへのオフスクリーン描画と外側へのテクスチャ転送が増えるため、GPU帯域とFPSへの影響はあり得る。
 - ユーザー指定に従いCI項目・設定・テストファイルの確認・変更、およびCI/Godot/Android等のテスト実行は行っていない。実機で入力・表示・音声・追従・FPSの確認が必要。
+- 縦長画面でSubViewportの初期サイズ720×1280から表示サイズが変わるケースにも備え、`scripts/bittaran_complete_frame_presenter.gd`をラッパーのControlへ付与する。子3D戦闘が`_ready()`に入る前に`DisplayProfile.apply(get_window())`を実行し、`CompletedBattleFrame.size_changed`時には実際の表示サイズと同じ`DisplayProfile.vertical_fov(61°, size)`を1回だけ反映する。従来のXperia縦長比率・クラシック比率の画角を維持するための処理で、入力座標やピクセル幅の倍率変更は行わない。
