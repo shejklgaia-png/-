@@ -286,7 +286,8 @@ var focus_views: Dictionary = {
     "SYSTEM": {"eye": Vector3(-3.10, 3.05, 8.60),
         "look": SYSTEM_CONSOLE_ORIGIN + Vector3(0.0, 1.25, 0.0), "fov": 68.0},
     "CUSTOMIZE": {"eye": Vector3(-4.50, 3.80, 5.00),
-        "look": Vector3(-1.70, 2.00, -4.75), "fov": 67.0},
+        "look": Vector3(-1.70, 2.00, -4.75),
+        "fov": DisplayProfile.COMBAT_REFERENCE_VERTICAL_FOV},
     "DATA ARCHIVE": {"eye": Vector3(-4.75, 4.18, 0.65),
         "look": Vector3(-4.95, 3.90, -12.10), "fov": 61.0},
     "DEPLOYMENT": {"eye": Vector3(4.95, 4.64, -1.20),
@@ -3481,20 +3482,17 @@ func _create_customization_glow() -> void:
     cam.add_child(backdrop)
     customize_glow_quad = backdrop
 
-# Preserve vertical framing while switching the shared 3D portrait camera.
-func _set_customization_camera_projection(enabled: bool) -> void:
+# Full-body customization shares the battle perspective and reference FOV.
+# Keep the existing entry/exit hooks, but never flatten the exhibit into
+# orthographic projection: camera distance now yields real depth perspective.
+func _set_customization_camera_projection(_enabled: bool) -> void:
     if cam == null:
         return
-    if enabled:
-        var depth: float = maxf(0.1, -customize_preview_position.z)
-        cam.size = 2.0 * depth * tan(deg_to_rad(cam.fov) * 0.5)
-        cam.projection = Camera3D.PROJECTION_ORTHOGONAL
-    else:
-        cam.projection = Camera3D.PROJECTION_PERSPECTIVE
+    cam.projection = Camera3D.PROJECTION_PERSPECTIVE
 
 
 # Cover the portrait viewport with a dark, depth-tested blue-grey matte.
-# Use orthographic dimensions only while the customized model is stationary.
+# Scale the existing backdrop to the current camera depth/FOV.
 func _update_customization_glow() -> void:
     if not customize_preview_active or customize_glow_quad == null or cam == null or hud == null:
         return
