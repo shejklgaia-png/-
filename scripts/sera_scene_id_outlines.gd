@@ -261,6 +261,11 @@ func _refresh_shared_ink_color() -> void:
     # the #17212F ink; there is no change to NEXUS's Canvas compositor.
     _screen_material.set_shader_parameter(
         "ink_color", Color.BLACK if base_scene else Color("#17212f"))
+    # Keep standard silhouette ink solid black except within 2 rendered
+    # pixels of an emissive ID=7 surface. No extra mask or viewport.
+    if _shared_scene_mode:
+        _screen_material.set_shader_parameter(
+            "emissive_contact_alpha", 0.45 if base_scene else 1.0)
 
 
 func register_root(root: Node3D, owner: Node) -> void:
@@ -781,14 +786,19 @@ func _rescan() -> bool:
                     _graphics_outline_allowed(part))
                 # Even with character ink OFF, its solid meshes still occlude
                 # room IDs. Otherwise NEXUS edges draw through the character.
+                # Some real lamp glass lives below FX_NO_OUTLINE nodes.
+                # It is physically opaque, so keep it in the ID depth pass
+                # as ROLE 7 even though its VFX subtree is not outlined.
+                var protect_emission: bool = (_shared_scene_mode and
+                    bool(part.get_meta(
+                        "sera_outline_emissive_protect", false)) and
+                    part is GeometryInstance3D and
+                    _solid_material(part as GeometryInstance3D))
                 var occluding: bool = (not eligible and (
-                    _background_occluder(part) or valid_geometry))
-                # Background occluders are ID=0. Emitting opaque surfaces
-                # instead use the protected role 7, so their own pixels
-                # remain fully visible under surrounding BASE black ink.
-                var protect_emission: bool = (occluding and _shared_scene_mode
-                    and bool(part.get_meta(
-                        "sera_outline_emissive_protect", false)))
+                    _background_occluder(part) or valid_geometry or
+                    protect_emission))
+                # Non-emissive FX and floor remain excluded/ID0; the
+                # protected lamps keep their actual depth without black ink.
                 if eligible or occluding:
                     desired[node.get_instance_id()] = {
                         "node": part, "occluder": occluding,
