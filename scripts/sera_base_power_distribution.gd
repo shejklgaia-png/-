@@ -610,7 +610,7 @@ static func _wire_data() -> Dictionary:
 
 
 static func build(parent: Node3D, nexus_origin: Vector3,
-        specs: Array) -> Node3D:
+        specs: Array, camera: Camera3D = null) -> Node3D:
     var network := Node3D.new()
     network.name = "BasePowerDistribution"
     network.set_meta("sera_outline_role", "clutter")
@@ -623,48 +623,87 @@ static func build(parent: Node3D, nexus_origin: Vector3,
     var all_sites: Array[Dictionary] = [{
         "id": "NEXUS", "at": nexus_origin}]
     all_sites.append_array(specs)
-    # Reuse the GENERATOR->GRID input plug instead of inventing a second
-    # unrelated power supply. The control panel feeds one visible manifold.
-    var hub: Vector3 = PowerBoard.cable_point(0.0)
-    # Existing board cable connects at y=0.23. Seat the new manifold on
-    # the metal deck, while its distribution plugs remain at that height.
-    hub.y = 0.0
-    var zero := Basis.IDENTITY
-    _device_port(items, "rubber", hub, zero,
-        Vector3(0.0, -0.10, 0.0), Vector3(1.46, 0.12, 0.82))
-    _device_port(items, "metal", hub, zero,
-        Vector3(0.0, 0.28, 0.0), Vector3(1.38, 0.62, 0.70))
-    _device_port(items, "rim", hub, zero,
-        Vector3(0.0, 0.62, 0.0), Vector3(1.48, 0.10, 0.76))
+    var props: Array[Dictionary] = _prop_obstacles(all_sites)
+    var placed: Array[Vector2] = []
+    # In the screenshot, the old GRID plug was behind the generator housing.
+    # Move the visible seven-port manifold to the foreground gap, then
+    # route one short exposed lead FROM that original live cable endpoint.
+    var hub_pose: Dictionary = _locate_device(
+        "GENERATOR", all_sites, props, placed, camera)
+    if hub_pose.is_empty():
+        return network
+    var hub: Vector3 = hub_pose["at"]
+    var hub_turn := Basis(Vector3.UP, float(hub_pose["yaw"]))
+    placed.append(_xz(hub))
+    _device_port(items, "rubber", hub, hub_turn,
+        Vector3(0.0, 0.04, 0.0), Vector3(1.46, 0.12, 0.82))
+    _device_port(items, "metal", hub, hub_turn,
+        Vector3(0.0, 0.36, 0.0), Vector3(1.38, 0.62, 0.70))
+    _device_port(items, "rim", hub, hub_turn,
+        Vector3(0.0, 0.70, 0.0), Vector3(1.48, 0.10, 0.76))
+    _device_port(items, "socket", hub, hub_turn,
+        Vector3(0.0, 0.36, -0.405), Vector3(0.23, 0.19, 0.12))
     for i in range(7):
-        _device_port(items, "socket", hub, zero,
-            Vector3((float(i) - 3.0) * 0.18, 0.26, 0.397),
-            Vector3(0.15, 0.18, 0.08))
-    _device_port(items, "light", hub, zero,
-        Vector3(0.0, 0.68, 0.0), Vector3(0.60, 0.025, 0.38))
-    var serial: int = 0
+        _device_port(items, "socket", hub, hub_turn,
+            Vector3((float(i) - 3.0) * 0.18, 0.32, 0.405),
+            Vector3(0.15, 0.18, 0.09))
+    _device_port(items, "light", hub, hub_turn,
+        Vector3(0.0, 0.77, 0.0), Vector3(0.60, 0.025, 0.38))
+    var endpoints: Array[Dictionary] = []
     for site in all_sites:
         var key: String = str(site["id"])
         if key == "GENERATOR":
             continue
         var origin: Vector3 = site["at"]
-        var pose: Dictionary = _locate_device(key, origin, all_sites)
+        var pose: Dictionary = _locate_device(
+            key, all_sites, props, placed, camera)
+        if pose.is_empty():
+            continue
+        var world_at: Vector3 = pose["at"]
+        placed.append(_xz(world_at))
         var device: Dictionary = _make_substation(items,
-            pose["at"], float(pose["yaw"]), serial)
-        var terminal: Vector3 = _facility_socket(items, key, origin,
-            pose["local"])
-        var feed_start: Vector3 = hub + Vector3(
-            (float(serial) - 3.0) * 0.18, 0.26, 0.47)
-        var feed: PackedVector3Array = _cable_curve(
-            feed_start, device["input"], _seed_for(key), true)
-        var delivery: PackedVector3Array = _cable_curve(
-            device["output"], terminal, _seed_for(key) + 1, false)
-        for route in [feed, delivery]:
-            _append_tube(wires, route, 0.087, 0.0)
-            _append_tube(traces, route, 0.026, 0.069)
-        serial += 1
+            world_at, float(pose["yaw"]), endpoints.size())
+        var receiver: Dictionary = _facility_socket(
+            items, key, origin, pose["local"])
+        endpoints.append({"key": key, "device": device,
+            "socket": receiver})
+    # All assets now exist in world space and the route grid reserves the
+    # rotated facilities, existing clutter AND new small power stations.
+    var route_grid: AStarGrid2D = _obstacle_grid(
+        all_sites, props, placed)
+    var old_plug: Vector3 = PowerBoard.cable_point(0.0)
+    var board_gate: Vector3 = old_plug + Vector3(1.10, 0.0, 0.05)
+    board_gate.y = FLOOR_WIRE_Y
+    var hub_in: Vector3 = hub + hub_turn * Vector3(
+        0.0, 0.36, -0.49)
+    var hub_in_gate: Vector3 = hub + hub_turn * Vector3(
+        0.0, FLOOR_WIRE_Y, -1.48)
+    var junction: PackedVector3Array = _routed_cable(
+        route_grid, old_plug, board_gate, hub_in_gate,
+        hub_in, "GENERATOR TO MANIFOLD")
+    _append_tube(wires, junction, 0.087, 0.0)
+    _append_tube(traces, junction, 0.026, 0.069)
+    for i in range(endpoints.size()):
+        var record: Dictionary = endpoints[i]
+        var key: String = str(record["key"])
+        var device: Dictionary = record["device"]
+        var receiver: Dictionary = record["socket"]
+        var offset: float = (float(i) - 3.0) * 0.18
+        var feed_at: Vector3 = hub + hub_turn * Vector3(
+            offset, 0.32, 0.50)
+        var feed_gate: Vector3 = hub + hub_turn * Vector3(
+            offset, FLOOR_WIRE_Y, 1.48)
+        var feed: PackedVector3Array = _routed_cable(
+            route_grid, feed_at, feed_gate, device["input_gate"],
+            device["input"], key + " FEED")
+        var delivery: PackedVector3Array = _routed_cable(
+            route_grid, device["output"], device["output_gate"],
+            receiver["gate"], receiver["port"], key + " DELIVERY")
+        for cable in [feed, delivery]:
+            _append_tube(wires, cable, 0.087, 0.0)
+            _append_tube(traces, cable, 0.026, 0.069)
     _build_devices(network, items)
     _finish_cables(network, wires, traces)
-    # No physics/cable simulation; positions and tubes are built only on load
-    # (or when the user explicitly requests a clutter layout reshuffle).
+    # Recomputed only at scene construction / user-requested layout reset:
+    # no pathfinding or coordinate randomization in the render loop.
     return network
