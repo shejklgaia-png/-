@@ -371,18 +371,11 @@ static func _make_edges(mesh: Mesh, closed: bool,
         normal_a = (normal_a * outward_sign).normalized()
         if paired:
             normal_b = (normal_b * outward_sign).normalized()
-        # The existing edge extractor marks genuine >=80-degree
-        # face-to-face creases. In combat, retain this bit so the GPU can
-        # show only front/front hard edges as additional visible seams.
-        # Coplanar triangulation lines and non-manifold pairs are excluded
-        # by the extractor and the paired condition above.
-        var emit_crease: bool = false
-        if paired:
-            if include_full_contour:
-                emit_crease = bool(edge.get("crease", false))
-            else:
-                emit_crease = signed_convex and (
-                    not hard_only or bool(edge.get("crease", false)))
+        # This topology mode never draws front-facing hard/convex corners.
+        # Only the pre-existing NEXUS/icon convex legacy mode may use them.
+        var emit_crease: bool = (not include_full_contour and paired
+            and signed_convex and (
+                not hard_only or bool(edge.get("crease", false))))
         var encoded_a := Color(
             normal_a.x * 0.5 + 0.5, normal_a.y * 0.5 + 0.5,
             normal_a.z * 0.5 + 0.5,

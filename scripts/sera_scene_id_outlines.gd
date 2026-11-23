@@ -15,6 +15,7 @@ const NEXUS_SPATIAL_INK = preload("res://shaders/sera_nexus_mesh_contact_spatial
 const NEXUS_CONTACT_CLOSED = preload("res://shaders/sera_nexus_mesh_contact_closed.gdshader")
 const NEXUS_CONTACT_OPEN = preload("res://shaders/sera_nexus_mesh_contact_open.gdshader")
 const SHARED_INK = preload("res://shaders/sera_scene_visible_ink_3d.gdshader")
+const BITTARAN_ID_INK = preload("res://shaders/sera_bittaran_visible_mesh_id_ink.gdshader")
 const SHARED_CANVAS_INK = preload("res://shaders/sera_scene_visible_ink_canvas.gdshader")
 const SHARED_ID_CLOSED = preload("res://shaders/sera_scene_visible_id_closed.gdshader")
 const SHARED_ID_OPEN = preload("res://shaders/sera_scene_visible_id_open.gdshader")
@@ -55,6 +56,9 @@ var _contact_ids: Dictionary = {}
 var _free_contact_ids: Array[int] = []
 var _next_contact_id: int = 1
 var _shared_scene_mode: bool = false
+# Only the Bittaran battle uses a 5px outside / 4px mesh-ID contact shader.
+# Shared ID depth/camera/copies remain identical to other combat scenes.
+var _bittaran_id_mode: bool = false
 # Only independent equipment preview SubViewports use 2D shared-ID ink.
 var _part_preview_canvas_mode: bool = false
 # Combat needs the interpolated pose every render frame, not the last physics tick.
@@ -175,12 +179,14 @@ func get_outline_metrics() -> Dictionary:
         "ink_rect_size": ink.size if is_instance_valid(ink) else Vector2.ZERO,
         "ink_shader_bound": (is_instance_valid(_screen_quad) and
             _screen_material != null and
-            _screen_material.shader == SHARED_INK) if (
+            _screen_material.shader == (
+                BITTARAN_ID_INK if _bittaran_id_mode else SHARED_INK)) if (
             _shared_scene_mode and not _part_preview_canvas_mode) else (
             is_instance_valid(ink) and ink.material is ShaderMaterial and
             (ink.material as ShaderMaterial).shader == (
                 NEXUS_CONTACT_INK if _nexus_sera_contact_mode else
                 (SHARED_CANVAS_INK if _part_preview_canvas_mode else INK))),
+        "bittaran_mesh_id_mode": _bittaran_id_mode,
         "shared_vfx_safe_3d_ink": _shared_scene_mode,
         "nexus_contact_vfx_safe_3d_ink": false,
         "front_effects_cover_ink": (_shared_scene_mode and not _part_preview_canvas_mode),
@@ -274,7 +280,8 @@ func set_shared_scene_mode(enabled: bool) -> void:
     _shared_scene_mode = enabled
     if enabled:
         _screen_material = ShaderMaterial.new()
-        _screen_material.shader = SHARED_INK
+        _screen_material.shader = (
+            BITTARAN_ID_INK if _bittaran_id_mode else SHARED_INK)
         _screen_material.render_priority = -30
         _screen_material.set_shader_parameter(
             "mesh_id_texture", id_viewport.get_texture())
@@ -301,6 +308,29 @@ func set_shared_scene_mode(enabled: bool) -> void:
         _screen_quad.visible = false
     _clear_copies()
     _scan_elapsed = 0.0
+
+
+# Select the dedicated Bittaran ID-contacts compositor without changing the
+# shared-ID source pass, depth resolve or the other scenes' shader settings.
+# This is intentionally NOT a topology-based convex/crease detector.
+func set_bittaran_id_mode(enabled: bool) -> void:
+    if _bittaran_id_mode == enabled:
+        return
+    _bittaran_id_mode = enabled
+    if _shared_scene_mode and _screen_material != null:
+        _screen_material.shader = (
+            BITTARAN_ID_INK if enabled else SHARED_INK)
+        _screen_material.set_shader_parameter(
+            "mesh_id_texture", id_viewport.get_texture())
+        _screen_material.set_shader_parameter("mesh_id_texel", Vector2(
+            1.0 / float(id_viewport.size.x),
+            1.0 / float(id_viewport.size.y)))
+        _screen_material.set_shader_parameter("ink_color", Color("#17212f"))
+        _set_shared_screen_bounds(Vector4.ZERO)
+        _refresh_shared_ink_color()
+    # Force a fresh projected bound/ID redraw on mode transition.
+    _scan_elapsed = 0.0
+    _last_camera_projection = -1
 
 
 func _sync_screen_quad(camera: Camera3D) -> void:
@@ -391,6 +421,7 @@ func unregister_root(owner: Node) -> void:
         # of the Window). Do not leak NEXUS RGB contact mode into combat.
         _shared_scene_mode = false
         _nexus_sera_contact_mode = false
+        _bittaran_id_mode = false
         _screen_material = null
         # A new camera can have exactly the same transform and projection;
         # force its settings back into the independent ID camera on entry.
