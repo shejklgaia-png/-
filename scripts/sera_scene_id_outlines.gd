@@ -142,6 +142,11 @@ func _refresh_combat_viewport_mode() -> void:
             combat = true
             break
     _combat_scene_mode = combat
+    # The actor rig evaluates before the main combat camera (priority 0).
+    # Capture the *final* render pose after both have advanced, not the pose
+    # from the beginning of this frame. Non-combat viewports keep their
+    # existing scheduling to avoid changing preview/BASE behavior.
+    process_priority = 100 if combat else 0
     if not is_instance_valid(id_viewport):
         return
     if _root_refs.is_empty():
@@ -583,12 +588,21 @@ func _update_shared_screen_bounds(camera: Camera3D) -> void:
         if not is_instance_valid(source) or not source.is_visible_in_tree():
             continue
         var box: AABB = source.get_aabb()
+        # The ID mesh uses an interpolated render-space pose in combat.
+        # Bound the SAME pose; bounding the raw physics pose can clip the
+        # silhouette during fast steps, articulated attacks or camera pans.
+        # Resolve the pose once per mesh instead of eight times per corner.
+        var bounds_pose: Transform3D = source.global_transform
+        if _combat_scene_mode:
+            var id_copy: Node3D = _copies.get(key) as Node3D
+            bounds_pose = (id_copy.global_transform if is_instance_valid(id_copy)
+                else source.get_global_transform_interpolated())
         for x in [0.0, 1.0]:
             for y in [0.0, 1.0]:
                 for z in [0.0, 1.0]:
                     var corner: Vector3 = box.position + box.size * (
                         Vector3(x, y, z))
-                    var point3: Vector3 = source.global_transform * corner
+                    var point3: Vector3 = bounds_pose * corner
                     if camera.is_position_behind(point3):
                         near_plane = true
                         continue
@@ -1054,6 +1068,11 @@ func _sync_copies() -> bool:
         if clone.visible != show_id:
             clone.visible = show_id
             dirty = true
+        # Hidden meshes cannot contribute pixels to the ID buffer. Defer
+        # transform/mesh synchronization until visible again; the first
+        # visible frame still updates both before rendering.
+        if not show_id:
+            continue
         # Combat actors can inherit interpolation from a physics-driven parent
         # even when their animation rig is updated per render frame. Match the
         # exact transform the opaque mesh will draw at this frame.
