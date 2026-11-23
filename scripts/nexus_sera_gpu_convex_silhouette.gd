@@ -318,7 +318,8 @@ static func _make_edges(mesh: Mesh, closed: bool,
                 not bool(candidate.get("duplicate_triangle", false)))
             var candidate_boundary: bool = not candidate.has("face_b") and (
                 int(candidate.get("count", 0)) == 1)
-            if not candidate_paired and not candidate_boundary:
+            if not candidate_paired and (
+                    silhouette_only or not candidate_boundary):
                 continue
             var start: Vector3 = candidate["a"]
             var finish: Vector3 = candidate["b"]
