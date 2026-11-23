@@ -129,6 +129,13 @@ static func _terminal_gates_open(key: String, at: Vector2, yaw: float,
         var pos: Vector3 = Vector3(at.x, 0.0, at.y) + turn * offset
         if not _open_location(_xz(pos), sites, props, placed, 0.46):
             return false
+        # A clear socket end alone is insufficient: every centimetre from
+        # the face of the cabinet to the cable's floor exit must stay free.
+        var port_offset: Vector3 = Vector3(offset.x, 0.0,
+            0.50 if offset.z > 0.0 else -0.49)
+        var port: Vector3 = Vector3(at.x, 0.0, at.y) + turn * port_offset
+        if not _cable_clear_of_props(_xz(port), _xz(pos), props):
+            return false
     return true
 
 
@@ -219,7 +226,6 @@ static func _locate_device(key: String, all_sites: Array[Dictionary],
             if str(entry["id"]) == key:
                 site = entry
                 break
-        var center: Vector3 = site["at"]
         var world := Vector3(test.x, 0.0, test.y)
         var local: Vector2 = _local_point(test, site)
         return {"at": world, "local": Vector3(local.x, 0.0, local.y),
@@ -644,6 +650,8 @@ static func _append_tube(mesh_arrays: Dictionary, points: PackedVector3Array,
 
 static func _finish_cables(parent: Node3D,
         main_wires: Dictionary, stripes: Dictionary) -> void:
+    if (main_wires["vertices"] as PackedVector3Array).is_empty():
+        return
     var mesh := ArrayMesh.new()
     for record in [
             {"data": main_wires, "color": Color("#36434d")},
