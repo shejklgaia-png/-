@@ -1,4 +1,5 @@
 extends RefCounted
+const CollectorCrane = preload("res://scripts/sera_base_collector_crane.gd")
 ## SERA BASE FRESH_20261122 — image-reference industrial re-authoring of eight facilities.
 ## Reference: front-facing bunker, canvas workshop, furnace, shredder, Geometry belongs to the
 ## exposed generator, freight racks, grabber crane and blueprint terminal.
@@ -248,41 +249,8 @@ static func _collector(g: Variant) -> void:
                 0.28 + float(i / 5) * 0.48),
             Vector3(0.16, 0.13, 0.25), "rust" if i % 3 else "edge",
             Vector3(0.12 * (i % 3), 0.23 * i, 0.08 * i))
-    # Distinct rising boom silhouette, visibly separate from the skip.
-    g.rod("FreshCollectorTallBoom", Vector3(-0.78, 1.28, -0.43),
-        Vector3(-0.35, 2.97, -0.31), 0.34, "gold")
-    g.rod("FreshCollectorTallBoom", Vector3(-0.35, 2.97, -0.31),
-        Vector3(0.76, 2.59, 1.04), 0.28, "gold")
-    g.poly_tilt("FreshCollectorBoomWeb", "gusset",
-        Vector3(-0.75, 1.87, -0.39),
-        Vector3(0.34, 0.76, 0.19), "slate",
-        Vector3(0, 0, -0.14))
-    g.poly("FreshCollectorBoomPivot", "bevel",
-        Vector3(-0.35, 2.98, -0.31),
-        Vector3(0.42, 0.42, 0.45), "slate")
-    g.rod("FreshCollectorHydraulicRam",
-        Vector3(-0.80, 1.78, -0.44),
-        Vector3(-0.27, 2.69, -0.29), 0.13, "edge")
-    g.rod("FreshCollectorHydraulicRam",
-        Vector3(-0.13, 2.79, -0.26),
-        Vector3(0.56, 2.59, 0.71), 0.11, "edge")
-    g.box("FreshCollectorPulley",
-        Vector3(0.76, 2.59, 1.04),
-        Vector3(0.40, 0.36, 0.39), "slate")
-    g.rod("FreshCollectorSuspendedCable",
-        Vector3(0.76, 2.54, 1.04),
-        Vector3(0.76, 1.84, 1.04), 0.070, "dark")
-    g.poly("FreshCollectorClawHead", "bevel",
-        Vector3(0.76, 1.82, 1.04),
-        Vector3(0.58, 0.38, 0.52), "armor_light")
-    for side in [-1.0, 1.0]:
-        g.rod("FreshCollectorJawHinge",
-            Vector3(0.76 + side * 0.28, 1.80, 1.04),
-            Vector3(0.76 + side * 0.43, 1.43, 1.16), 0.11, "edge")
-        g.poly_tilt("FreshCollectorOpenGrip", "bevel",
-            Vector3(0.76 + side * 0.52, 1.32, 1.20),
-            Vector3(0.20, 0.73, 0.25), "armor_light",
-            Vector3(0.15, 0.0, side * 0.34))
+    # Detailed sculpted crane keeps the existing moving cable and jaw names.
+    CollectorCrane.build(g)
     g.box("FreshCollectorHazardLamp",
         Vector3(-0.99, 1.44, -0.21),
         Vector3(0.23, 0.19, 0.12), "amber_light")
