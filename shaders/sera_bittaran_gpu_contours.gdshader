@@ -7,7 +7,7 @@ render_mode unshaded, cull_disabled, depth_draw_never;
 uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
 // On-screen pixel distances measured from the actual mesh contour.
 uniform float silhouette_inside_px : hint_range(0.0, 6.0) = 1.0;
-uniform float silhouette_outside_px : hint_range(0.0, 6.0) = 3.0;
+uniform float silhouette_outside_px : hint_range(0.0, 6.0) = 5.0;
 // Open edges are also the boundaries of separately authored mesh parts.
 uniform float seam_px : hint_range(0.5, 6.0) = 3.0;
 varying float edge_visible;
