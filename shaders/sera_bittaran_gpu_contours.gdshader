@@ -29,9 +29,6 @@ void vertex() {
     float inner_px = silhouette_inside_px;
     float outer_px = silhouette_outside_px;
     bool visible = false;
-    // Existing paired >=80-degree hard edge, visible on BOTH front faces.
-    // This is a seam candidate, not a general internal polygon outline.
-    bool hard_front = false;
     float facing_b = -1.0;
 
     if (!paired) {
@@ -50,19 +47,9 @@ void vertex() {
         // a tiny rotation; keep the same silhouette edge rather than flicker.
         bool grazing = min(abs(facing_a), abs(facing_b)) < 0.085 &&
             strongest > 0.20 && dot(normal_a, normal_b) < 0.95;
-        // For this battle, additionally render genuine front-facing hard
-        // edges as same-mesh seams. The flag comes from the cached 80-degree
-        // topology extractor. Both faces must face the viewer, so no hidden
-        // ridges, coplanar triangle splits or generic shallow creases appear.
-        hard_front = COLOR.a > 0.5 &&
-            facing_a > 0.08 && facing_b > 0.08;
-        visible = front_back || grazing || hard_front;
-        if (hard_front) {
-            // Internal hard seams are symmetric, unlike the 1px/5px outer
-            // silhouette. Width tracks the existing 4px seam setting.
-            inner_px = seam_px * 0.5;
-            outer_px = seam_px * 0.5;
-        }
+        // Both faces facing the camera are internal corners.
+        // Do not draw them even if this legacy GPU path is restored.
+        visible = front_back || grazing;
     }
     edge_visible = visible ? 1.0 : 0.0;
 
