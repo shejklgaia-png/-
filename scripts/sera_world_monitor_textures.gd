@@ -21,6 +21,11 @@ const FACILITIES = [
     {"id":"B04","key":"GENERATOR","at":Vector3(1.22,1.88,0.41),"size":Vector2(0.52,0.55),"face":0.19},
     {"id":"B05","key":"BUILD_TERMINAL","at":Vector3(0,1.94,0.46),"size":Vector2(1.49,0.99),"face":0.12}
 ]
+static func replaces_screen_marks(part_name: String) -> bool:
+    return (part_name.begins_with("Archive console telemetry bar ") or
+        part_name.begins_with("SYSTEM display thin telemetry ") or
+        part_name.begins_with("TRAINING lateral analyzer bar "))
+
 static func _v(a: Array) -> Vector3:
     return Vector3(float(a[0]),float(a[1]),float(a[2]))
 
