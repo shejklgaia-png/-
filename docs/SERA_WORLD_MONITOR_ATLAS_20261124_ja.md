@@ -1,20 +1,20 @@
 # BASE / NEXUS モニター画像台帳（2026-11-24）
 
-現行シーンで実際に描画される3Dモニター11面をナンバリング。画像はそれぞれ個別のSVG（width/height/viewBox一致）です。従前の表示面は単色の3D立方体で、そもそもテクスチャのピクセル解像度設定は存在しません。以下はモデル縦横比に合わせて新規設定した解像度です。
+現行シーンで実際に描画される3Dモニター11面をナンバリング。画像はそれぞれ個別のSVGで、出力ピクセル寸法の整数比が対象3D画面の縦横比と完全一致します（元SVGの描画座標系はviewBoxに保持）。従前の表示面は単色の3D立方体で、そもそもテクスチャのピクセル解像度設定は存在しません。以下はモデル縦横比に合わせて新規設定した解像度です。
 
 | ID | シーン | 用途 | 生成画像 | 元モデル表示面比 |
 |---|---|---|---|---|
-| N01 | NEXUS | SYSTEM 主画面 / CORE LINK | 512×240 | 15.6:7.3 |
-| N02 | NEXUS | SYSTEM 補助画面 / OS STATUS | 256×196 | 4.7:3.6 |
-| N03 | NEXUS | TRAINING メイン / TARGET | 240×256 | 8.8:9.4 |
-| N04 | NEXUS | TRAINING 側面 / TRACK | 184×256 | 4.2:5.8 |
-| N05 | NEXUS | DATA ARCHIVE 左 / CORE MEMORY | 320×252 | 9.4:7.4 |
-| N06 | NEXUS | DATA ARCHIVE 右 / OS INDEX | 320×252 | 9.4:7.4 |
-| B01 | BASE | アーカイブ左 / FIELD LOG | 320×252 | 9.4:7.4 |
-| B02 | BASE | アーカイブ右 / STORAGE | 320×252 | 9.4:7.4 |
+| N01 | NEXUS | SYSTEM 主画面 / CORE LINK | 468×219 | 15.6:7.3 |
+| N02 | NEXUS | SYSTEM 補助画面 / OS STATUS | 282×216 | 4.7:3.6 |
+| N03 | NEXUS | TRAINING メイン / TARGET | 220×235 | 8.8:9.4 |
+| N04 | NEXUS | TRAINING 側面 / TRACK | 189×261 | 4.2:5.8 |
+| N05 | NEXUS | DATA ARCHIVE 左 / CORE MEMORY | 329×259 | 9.4:7.4 |
+| N06 | NEXUS | DATA ARCHIVE 右 / OS INDEX | 329×259 | 9.4:7.4 |
+| B01 | BASE | アーカイブ左 / FIELD LOG | 329×259 | 9.4:7.4 |
+| B02 | BASE | アーカイブ右 / STORAGE | 329×259 | 9.4:7.4 |
 | B03 | BASE | LAB製作端末 / PRINT | 176×160 | 0.44:0.40 |
-| B04 | BASE | 電力制御端末 / POWER | 240×256 | 0.52:0.55 |
-| B05 | BASE | 建設端末 / BUILD GRID | 384×256 | 1.49:0.99 |
+| B04 | BASE | 電力制御端末 / POWER | 260×275 | 0.52:0.55 |
+| B05 | BASE | 建設端末 / BUILD GRID | 447×297 | 1.49:0.99 |
 
 実装: `assets/monitors/{id}.svg` と `scripts/sera_world_monitor_textures.gd`。元モデルの前面へシーン固有の位置・回転・スケールで微小オフセット付きQuadMeshを置きます。元の筐体、タップ判定、RGB-ID枠線は保持します。元から発光していた診断線が画像を隠さないよう、画像面はその前に配置しています。
 
