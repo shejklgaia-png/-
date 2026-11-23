@@ -135,9 +135,18 @@ void vertex() {
             }
         }
     }
+    // The outside of a connected contour needs its full cap to cover
+    // polygon corners; the INSIDE does not. Extending both sides equally
+    // creates thick black tabs where adjacent ribbons overlap on armor.
+    // Keep a subpixel inside overlap for raster stability. Unconnected end
+    // caps remain square, so isolated/open boundaries cannot lose their rim.
+    float endpoint_extension_px = cap_scale * cap_length;
+    if (CUSTOM2.w > 0.5 && UV.x * inward_sign > 0.0) {
+        endpoint_extension_px = min(endpoint_extension_px, 0.75);
+    }
     clip.xy += edge_dir * vec2(2.0 / VIEWPORT_SIZE.x,
-        2.0 / VIEWPORT_SIZE.y) * (sign(UV.y) * cap_scale *
-        cap_length) * clip.w;
+        2.0 / VIEWPORT_SIZE.y) * (sign(UV.y) *
+        endpoint_extension_px) * clip.w;
     POSITION = clip;
 }
 
