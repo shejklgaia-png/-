@@ -107,9 +107,16 @@ static func build(g: Variant) -> void:
     g.poly("FreshCollectorBeltSprocket", "gear",
         Vector3(-1.62, 0.73, 0.28),
         Vector3(0.32, 0.14, 0.32), "gold")
-    g.poly("FreshCollectorPickupGate", "hood",
-        Vector3(BELT_PICKUP_X - 0.08, 1.00, BELT_Z),
-        Vector3(0.34, 0.30, 1.84), "caution")
+    # Two side-only terminal guides leave the moving scrap and claw fully
+    # visible; there is no solid full-width block over the pickup parcel.
+    for side in [-1.0, 1.0]:
+        g.poly("FreshCollectorPickupSideGuide", "gusset",
+            Vector3(BELT_PICKUP_X - 0.05, 1.06,
+                BELT_Z + side * 0.80),
+            Vector3(0.28, 0.29, 0.15), "caution")
+    g.box("FreshCollectorPickupUnderstop",
+        Vector3(BELT_PICKUP_X + 0.11, 0.72, BELT_Z),
+        Vector3(0.12, 0.11, 1.60), "edge")
 
     # Moving transverse tread bars communicate a continuous physical belt
     # without animating the entire static conveyor or creating many nodes.
