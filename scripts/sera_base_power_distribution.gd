@@ -155,16 +155,21 @@ static func _visible_at_camera(at: Vector2, camera: Camera3D,
         all_sites: Array[Dictionary]) -> bool:
     if not is_instance_valid(camera):
         return true
-    var top := Vector3(at.x, 0.94, at.y)
-    if camera.is_position_behind(top):
-        return false
-    var pixel: Vector2 = camera.unproject_position(top)
     var view: Vector2 = camera.get_viewport().get_visible_rect().size
-    # Reserve a small on-screen margin for the entire 1.16m housing. The
-    # screenshot has black top/bottom bars and right-side HUD buttons.
-    if pixel.x < view.x * 0.07 or pixel.x > view.x * 0.93 or (
-            pixel.y < view.y * 0.07 or pixel.y > view.y * 0.95):
-        return false
+    # Check the actual housing volume, not just its top-center pixel.
+    # A center-only check can accept a unit whose base or side clips the
+    # letterbox / right-side HUD, especially near the screen margins.
+    # The 1.16 x 0.96 x 0.95m bounds match _make_substation().
+    for dx in [-0.58, 0.58]:
+        for dz in [-0.48, 0.48]:
+            for y in [0.0, 0.95]:
+                var corner := Vector3(at.x + dx, y, at.y + dz)
+                if camera.is_position_behind(corner):
+                    return false
+                var pixel: Vector2 = camera.unproject_position(corner)
+                if pixel.x < view.x * 0.07 or pixel.x > view.x * 0.93 or (
+                        pixel.y < view.y * 0.07 or pixel.y > view.y * 0.95):
+                    return false
     # A ground-clear device can still be hidden by the silhouette of a tall
     # building in this oblique camera; check approximate projected roof-to-
     # base rectangles against all physically CLOSER facilities.
