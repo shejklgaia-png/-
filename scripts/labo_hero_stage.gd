@@ -57,6 +57,7 @@ func _live_display(parent: Node3D, label: String, front_z: float, size: Vector2,
     var material := ShaderMaterial.new()
     material.shader = DISPLAY_SHADER
     material.set_shader_parameter("mode", mode)
+    material.set_shader_parameter("fps", 24.0)
     panel.name = label
     panel.position.z = front_z
     panel.mesh = quad
