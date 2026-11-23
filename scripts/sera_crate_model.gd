@@ -181,8 +181,8 @@ static func _bevel(b: Batch, style: String, p: Vector3,
         for step in range(3):
             var lo: Array = rings[step]
             var hi: Array = rings[step + 1]
-            var shape_lo: Array[Vector2] = lo[0]
-            var shape_hi: Array[Vector2] = hi[0]
+            var shape_lo: Array = lo[0]
+            var shape_hi: Array = hi[0]
             var z0: float = lo[1]
             var z1: float = hi[1]
             b.quad(style,
@@ -204,12 +204,12 @@ static func _disk_x(b: Batch, style: String, p: Vector3,
         var z0: float = p.z + sin(a) * radius
         var z1: float = p.z + sin(c) * radius
         b.triangle(style, Vector3(x0, p.y, p.z),
-            Vector3(x0, y0, z0), Vector3(x0, y1, z1))
+            Vector3(x0, y1, z1), Vector3(x0, y0, z0))
         b.triangle(style, Vector3(x1, p.y, p.z),
-            Vector3(x1, y1, z1), Vector3(x1, y0, z0))
-        b.quad(style, Vector3(x0, y1, z1),
-            Vector3(x0, y0, z0), Vector3(x1, y0, z0),
-            Vector3(x1, y1, z1))
+            Vector3(x1, y0, z0), Vector3(x1, y1, z1))
+        b.quad(style, Vector3(x0, y0, z0),
+            Vector3(x0, y1, z1), Vector3(x1, y1, z1),
+            Vector3(x1, y0, z0))
 
 
 static func _rod(b: Batch, style: String, a: Vector3,
@@ -227,7 +227,7 @@ static func _rod(b: Batch, style: String, a: Vector3,
         var ang1: float = TAU * float(i + 1) / float(segments)
         var v0: Vector3 = (first * cos(ang0) + second * sin(ang0)) * radius
         var v1: Vector3 = (first * cos(ang1) + second * sin(ang1)) * radius
-        b.quad(style, a + v0, c + v0, c + v1, a + v1)
+        b.quad(style, a + v0, a + v1, c + v1, c + v0)
         b.triangle(style, a, a + v1, a + v0)
         b.triangle(style, c, c + v0, c + v1)
 
