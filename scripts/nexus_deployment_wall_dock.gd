@@ -82,18 +82,35 @@ static func build(room: Node3D, gate_at: Vector3,
         _box(boxes, "trim", Vector3(0.0, center_y, float(z)),
             Vector3(3.12, 0.037, 0.067))
 
+    # Gate-wall hardware stays fixed. The auxiliary DEPLOYMENT console is
+    # placed under its own pivot so canonical editing moves ONLY the kiosk,
+    # not the fixed gate arch, approach ramp, lights or bulkhead.
+    _flush_boxes(root, boxes, {
+        "steel": steel, "iron": iron, "trim": trim,
+        "cyan": cyan, "amber": amber
+    })
+    var console_anchor := Node3D.new()
+    console_anchor.name = "DeploymentConsolePlacementAnchor"
+    console_anchor.position = Vector3(2.82, 0.0, 5.30)
+    root.add_child(console_anchor)
+    var console_geometry := Node3D.new()
+    console_geometry.name = "ConsoleStaticGeometry"
+    console_geometry.position = -console_anchor.position
+    console_anchor.add_child(console_geometry)
+    var console_boxes: Dictionary = {}
+
     # Side launch terminal. The old tall black prism reached local z=5.95,
     # but its cyan readout was only at z=5.80 (INSIDE opaque metal), so the
     # overview showed a featureless dark rectangle. Rebuild the entire console
     # as a stepped die-cast kiosk, with a forward-tilted display whose front
     # surface always clears the armored housing by at least 0.10m.
-    _prism(root, "LaunchConsolePedestal",
+    _prism(console_geometry, "LaunchConsolePedestal",
         PackedVector2Array([
             Vector2(-0.70, -0.78), Vector2(-0.68, 0.10),
             Vector2(-0.49, 0.38), Vector2(0.15, 0.41),
             Vector2(0.38, 0.15), Vector2(0.45, -0.78)]),
         0.42, 2.82, 5.15, iron)
-    _prism(root, "LaunchConsoleBeveledMonitor",
+    _prism(console_geometry, "LaunchConsoleBeveledMonitor",
         PackedVector2Array([
             Vector2(5.08, 0.49), Vector2(5.10, 1.44),
             Vector2(5.33, 1.79), Vector2(6.04, 1.80),
@@ -101,7 +118,7 @@ static func build(room: Node3D, gate_at: Vector3,
         0.66, 2.82, 0.0, steel)
     for side_value in [-1, 1]:
         var side: float = float(side_value)
-        _prism(root, "MonitorCastSideArm%d" % side_value,
+        _prism(console_geometry, "MonitorCastSideArm%d" % side_value,
             PackedVector2Array([
                 Vector2(5.18, 0.60), Vector2(5.17, 1.45),
                 Vector2(5.39, 1.73), Vector2(5.72, 1.69),
@@ -115,44 +132,44 @@ static func build(room: Node3D, gate_at: Vector3,
     dark_glass.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
     dark_glass.metallic = 0.0
     dark_glass.roughness = 1.0
-    _display_face(root, "ForwardAngledScreenBezel",
+    _display_face(console_geometry, "ForwardAngledScreenBezel",
         2.82, 1.19, 0.83, 1.68, 0.00, bezel)
-    _display_face(root, "IlluminatedInstrumentGlass",
+    _display_face(console_geometry, "IlluminatedInstrumentGlass",
         2.82, 1.04, 0.94, 1.58, 0.035, dark_glass)
-    _display_instruments(root)
+    _display_instruments(console_geometry)
 
     # Real support, hinge, keyboard, raised tactile buttons, side LEDs, and
     # floor-level armored foot. Shared box batches keep draw calls bounded.
-    _box(boxes, "steel", Vector3(2.82, -0.67, 5.21),
+    _box(console_boxes, "steel", Vector3(2.82, -0.67, 5.21),
         Vector3(1.15, 0.17, 0.95))
-    _box(boxes, "trim", Vector3(2.82, -0.58, 5.64),
+    _box(console_boxes, "trim", Vector3(2.82, -0.58, 5.64),
         Vector3(1.18, 0.058, 0.07))
-    _box(boxes, "steel", Vector3(2.82, 0.29, 5.28),
+    _box(console_boxes, "steel", Vector3(2.82, 0.29, 5.28),
         Vector3(0.52, 0.44, 0.38))
-    _box(boxes, "trim", Vector3(2.82, 0.48, 5.39),
+    _box(console_boxes, "trim", Vector3(2.82, 0.48, 5.39),
         Vector3(0.64, 0.16, 0.47))
-    _box(boxes, "iron", Vector3(2.82, 0.67, 6.28),
+    _box(console_boxes, "iron", Vector3(2.82, 0.67, 6.28),
         Vector3(1.19, 0.16, 0.41))
-    _box(boxes, "trim", Vector3(2.82, 0.77, 6.45),
+    _box(console_boxes, "trim", Vector3(2.82, 0.77, 6.45),
         Vector3(1.06, 0.045, 0.19))
     for i in range(5):
         var key_x: float = 2.43 + float(i) * 0.195
-        _box(boxes, "iron", Vector3(key_x, 0.805, 6.46),
+        _box(console_boxes, "iron", Vector3(key_x, 0.805, 6.46),
             Vector3(0.123, 0.035, 0.095))
-    _box(boxes, "cyan", Vector3(2.43, 0.827, 6.46),
+    _box(console_boxes, "cyan", Vector3(2.43, 0.827, 6.46),
         Vector3(0.093, 0.014, 0.070))
-    _box(boxes, "amber", Vector3(3.21, 0.827, 6.46),
+    _box(console_boxes, "amber", Vector3(3.21, 0.827, 6.46),
         Vector3(0.093, 0.014, 0.070))
     for side_value in [-1, 1]:
         var side: float = float(side_value)
-        _box(boxes, "iron", Vector3(2.82 + side * 0.68, 1.29, 6.08),
+        _box(console_boxes, "iron", Vector3(2.82 + side * 0.68, 1.29, 6.08),
             Vector3(0.11, 0.63, 0.17))
-        _box(boxes, "cyan", Vector3(2.82 + side * 0.69, 1.38, 6.31),
+        _box(console_boxes, "cyan", Vector3(2.82 + side * 0.69, 1.38, 6.31),
             Vector3(0.046, 0.21, 0.055))
-        _box(boxes, "amber", Vector3(2.82 + side * 0.46, 0.62, 6.43),
+        _box(console_boxes, "amber", Vector3(2.82 + side * 0.46, 0.62, 6.43),
             Vector3(0.11, 0.045, 0.085))
 
-    _flush_boxes(root, boxes, {
+    _flush_boxes(console_geometry, console_boxes, {
         "steel": steel, "iron": iron, "trim": trim,
         "cyan": cyan, "amber": amber
     })
