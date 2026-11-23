@@ -364,6 +364,10 @@ func _box(parent: Node3D, label: String, at: Vector3, dimensions: Vector3,
         surface.emission_enabled = true
         surface.emission = color
         surface.emission_energy_multiplier = 3.2
+        # Glowing opaque glass must cover ID ink, not become ID=0 space
+        # into which adjacent 4px facility contours can spread.
+        piece.set_meta("sera_outline_occluder_only", true)
+        piece.set_meta("sera_outline_emissive_protect", true)
     piece.material_override = surface
     parent.add_child(piece)
     if glow and label in ["FrontFacingLampGlass", "IlluminatedGap"]:

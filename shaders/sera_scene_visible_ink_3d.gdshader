@@ -51,11 +51,12 @@ vec3 sample_id(vec2 pixel_uv) {
 
 int role_of(vec3 id_value) {
     // G encodes render class: 1=actor, 2=facility, 3=small prop,
-    // 4=power GRID, 5=CRATE, 6=part preview. R/B identify visible meshes.
+    // 4=GRID, 5=CRATE, 6=part preview; 7=emissive protection.
+    // The reserved role 7 is a visible depth surface but NEVER ink.
     if (id_value.g < 0.06) {
         return 0;
     }
-    return clamp(int(floor(id_value.g * 8.0 + 0.5)), 1, 6);
+    return clamp(int(floor(id_value.g * 8.0 + 0.5)), 1, 7);
 }
 
 bool same_visible_id(vec3 a, vec3 b) {
@@ -84,6 +85,12 @@ void fragment() {
     vec2 pixel_uv = SCREEN_UV;
     vec3 center = sample_id(pixel_uv);
     int center_role = role_of(center);
+    // Architectural emission and physical glowing lamp glass are opaque,
+    // but their ID pixels must not be blackened by neighboring 4px borders.
+    // Keep them in the same depth-resolved ID buffer; no extra viewport.
+    if (center_role == 7) {
+        discard;
+    }
     float coverage = 0.0;
 
     if (center_role != 0) {
@@ -123,7 +130,8 @@ void fragment() {
                         if (inside_radius(d2, inner_width)) {
                             inner_hit = true;
                         }
-                    } else if (!same_visible_id(center, other) &&
+                    } else if (other_role != 7 &&
+                            !same_visible_id(center, other) &&
                             owns_contact(center, other) &&
                             inside_radius(d2, seam_width)) {
                         // One owner per visible contact: no double-thick seam.
@@ -174,7 +182,7 @@ void fragment() {
                         vec2 offset = vec2(float(dx), float(dy));
                         int neighbor_role = role_of(sample_id(pixel_uv +
                             offset * mesh_id_texel));
-                        if (neighbor_role == 0) {
+                        if (neighbor_role == 0 || neighbor_role == 7) {
                             continue;
                         }
                         float outer_width = neighbor_role == 6 ?
