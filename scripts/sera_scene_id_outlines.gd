@@ -14,6 +14,7 @@ const NEXUS_SPATIAL_INK = preload("res://shaders/sera_nexus_mesh_contact_spatial
 const NEXUS_CONTACT_CLOSED = preload("res://shaders/sera_nexus_mesh_contact_closed.gdshader")
 const NEXUS_CONTACT_OPEN = preload("res://shaders/sera_nexus_mesh_contact_open.gdshader")
 const SHARED_INK = preload("res://shaders/sera_bittaran_visible_mesh_id_ink.gdshader")
+const ConvexInk = preload("res://scripts/sera_scene_convex_ink.gd")
 # Same Shader resource, not a visually similar replacement.
 const BITTARAN_ID_INK = SHARED_INK
 const SHARED_CANVAS_INK = preload("res://shaders/sera_scene_visible_ink_canvas.gdshader")
@@ -82,6 +83,7 @@ var _combat_scene_mode: bool = false
 var _screen_quad: MeshInstance3D
 var _screen_material: ShaderMaterial
 var _screen_camera: Camera3D
+var _convex_ink: Node
 var _styled_sources: Dictionary = {} # Visible IDs, excludes background depth masks.
 var _pose_stamps: Dictionary = {}
 # Reuse one interpolated parent pose for ALL of that parent's visible parts
@@ -218,6 +220,11 @@ func get_outline_metrics() -> Dictionary:
         "bittaran_mesh_id_mode": _bittaran_id_mode,
         "canonical_id_shader": true,
         "scene_width_profile": _active_scene_profile(),
+        "convex_draw_batches": _convex_ink.get_draw_count() if (
+            is_instance_valid(_convex_ink)) else 0,
+        "base_facility_convex_px": 2.0,
+        "base_clutter_convex_px": 1.0,
+        "nexus_environment_convex_px": 1.0,
         "display_px_per_id_texel": _output_px_per_id_pixel,
         "actor_inside_override_px": _actor_inside_override_px,
         "actor_outside_override_px": _actor_outside_override_px,
@@ -253,6 +260,9 @@ func _ready() -> void:
     mouse_filter = Control.MOUSE_FILTER_IGNORE
     set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     source_viewport = get_viewport()
+    _convex_ink = ConvexInk.new()
+    _convex_ink.name = "SeraVisibleIDConvexOnly"
+    add_child(_convex_ink)
     id_viewport = SubViewport.new()
     id_viewport.name = "SeraVisibleIDs"
     id_viewport.size = Vector2i(384, 384)
@@ -574,25 +584,19 @@ func _apply_actor_width_overrides() -> void:
 func _effective_actor_inside_px() -> float:
     if _actor_inside_override_px >= 0.0:
         return _actor_inside_override_px
-    match _active_scene_profile():
-        1: return 0.0
-        2, 3: return 1.0
-    return 1.0
+    return 0.0
 
 
 func _effective_actor_outside_px() -> float:
     if _actor_outside_override_px >= 0.0:
         return _actor_outside_override_px
-    return 2.0 if _active_scene_profile() == 2 else 3.0
+    return 4.0
 
 
 func _effective_actor_seam_px() -> float:
     if _actor_seam_override_px >= 0.0:
         return _actor_seam_override_px
-    match _active_scene_profile():
-        1, 3: return 1.0
-        2: return 2.0
-    return 3.0
+    return 2.0
 
 
 # Compute what one ID target texel occupies on the FINAL display.
@@ -606,6 +610,9 @@ func _refresh_output_pixel_scale() -> void:
     if scale.is_equal_approx(_output_px_per_id_pixel):
         return
     _output_px_per_id_pixel = scale
+    if is_instance_valid(_convex_ink):
+        _convex_ink.call("set_render_context",
+            _active_scene_profile(), id_viewport.get_texture(), scale)
     if _screen_material != null:
         _screen_material.set_shader_parameter(
             "output_px_per_id_pixel", scale)
@@ -669,6 +676,8 @@ func _process(delta: float) -> void:
         dirty = _rescan()
     if _shared_scene_mode:
         _commit_visible_render_pose(source_camera, dirty)
+        if is_instance_valid(_convex_ink):
+            _convex_ink.call("sync_animated_multimeshes")
     else:
         dirty = _sync_camera(source_camera) or dirty
         dirty = _sync_copies() or dirty
@@ -1239,6 +1248,12 @@ func _rescan() -> bool:
         if _shared_scene_mode and not is_occluder:
             _styled_sources[key] = true
         dirty = true
+    # Only world facility and clutter receive convex ink, never SERA,
+    # bosses, CRATE, or preview parts. One role-filtered MultiMesh draw per
+    # material/style, using the EXACT same solid sources as the RGB ID pass.
+    if is_instance_valid(_convex_ink):
+        _convex_ink.call("sync_sources", desired, _active_scene_profile(),
+            id_viewport.get_texture(), _output_px_per_id_pixel)
     return dirty
 
 
@@ -1334,6 +1349,8 @@ func _clear_copies() -> void:
     _source_refs.clear()
     _styled_sources.clear()
     _pose_stamps.clear()
+    if is_instance_valid(_convex_ink):
+        _convex_ink.call("clear")
     _combat_anchor_pose_cache.clear()
     _combat_anchor_pose_frame = -1
     _id_allocations.clear()
