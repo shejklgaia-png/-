@@ -1,6 +1,6 @@
 extends SceneTree
 ## Offline only: photograph all existing live SeraRig parts using the
-## user-approved H02 Godot preset, without per-slot camera overrides.
+## user-approved H02 Godot preset, with the current NEXUS mesh-ID ink.
 const RigScript = preload("res://scripts/sera_rig.gd")
 const EdgeScript = preload("res://scripts/sera_view_edges.gd")
 const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
@@ -186,13 +186,19 @@ func _run() -> void:
             return
         spin.scale = Vector3.ONE * (2.0 * auto_fit * model_scale / span)
         spin.position = pan_clip
+        # The native NEXUS view now uses a depth-resolved RGB mesh-ID
+        # compositor. Enable that exact mode BEFORE registering this root;
+        # the legacy inverted-hull shader is not the current icon pipeline.
         var ink: Node3D = EdgeScript.new()
         ink.name = "ViewEdges"
+        ink.call("set_nexus_sera_contact_mode", true)
+        ink.call("set_stroke_px", 3.0)
         portrait.add_child(ink)
         await process_frame
-        await RenderingServer.frame_post_draw
-        await RenderingServer.frame_post_draw
-        await RenderingServer.frame_post_draw
+        # The compositor is deferred and has a separate ID SubViewport.
+        # Render several frames before capturing the final composited color.
+        for _frame in range(5):
+            await RenderingServer.frame_post_draw
         var screenshot: Image = viewport.get_texture().get_image()
         if screenshot == null or screenshot.is_empty():
             _fail(id + ": framebuffer missing")
