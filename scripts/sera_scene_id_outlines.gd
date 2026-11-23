@@ -635,12 +635,13 @@ func _update_shared_screen_bounds(camera: Camera3D) -> void:
         # The ID mesh uses an interpolated render-space pose in combat.
         # Bound the SAME pose; bounding the raw physics pose can clip the
         # silhouette during fast steps, articulated attacks or camera pans.
-        # Resolve the pose once per mesh instead of eight times per corner.
+        # Use the SAME composite pose as the ID pixel generator, so fast
+        # player steps or the target bob never clip the outer 3px search.
         var bounds_pose: Transform3D = source.global_transform
         if _combat_scene_mode:
             var id_copy: Node3D = _copies.get(key) as Node3D
             bounds_pose = (id_copy.global_transform if is_instance_valid(id_copy)
-                else source.get_global_transform_interpolated())
+                else _visible_combat_pose(source))
         for x in [0.0, 1.0]:
             for y in [0.0, 1.0]:
                 for z in [0.0, 1.0]:
@@ -1101,6 +1102,27 @@ func _rescan() -> bool:
     return dirty
 
 
+# Resolve the same world-space render transform as the visible model.
+# Player/target roots advance at physics cadence, but child armor, joints
+# and equipment animate each _process. Sampling each child through its own
+# physics history can interpolate render-frequency animation a second time.
+# Instead interpolate the nearest physics-driven ANCHOR once, then apply
+# the complete current-frame local pose of every descendant relative to
+# that anchor. This is the same rule for SERA and the training target.
+static func _visible_combat_pose(source: Node3D) -> Transform3D:
+    var anchor: Node3D = source
+    while is_instance_valid(anchor):
+        if anchor.physics_interpolation_mode == (
+                Node.PHYSICS_INTERPOLATION_MODE_ON):
+            var relative_pose: Transform3D = (
+                anchor.global_transform.affine_inverse() *
+                source.global_transform)
+            return anchor.get_global_transform_interpolated() * relative_pose
+        anchor = anchor.get_parent() as Node3D
+    # An entirely render-updated hierarchy has no physics interpolation.
+    return source.global_transform
+
+
 func _sync_copies() -> bool:
     var dirty: bool = false
     for key in _copies.keys():
@@ -1122,11 +1144,11 @@ func _sync_copies() -> bool:
         # visible frame still updates both before rendering.
         if not show_id:
             continue
-        # Combat actors can inherit interpolation from a physics-driven parent
-        # even when their animation rig is updated per render frame. Match the
-        # exact transform the opaque mesh will draw at this frame.
+        # Combat source meshes inherit a smoothly interpolated body pose,
+        # but their animated joints are already at the CURRENT render frame.
+        # Recreate that composite pose without interpolating the joint twice.
         var render_transform: Transform3D = (
-            source.get_global_transform_interpolated() if _combat_scene_mode
+            _visible_combat_pose(source) if _combat_scene_mode
             else source.global_transform)
         if clone.global_transform != render_transform:
             clone.global_transform = render_transform
