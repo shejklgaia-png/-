@@ -4986,3 +4986,10 @@
 - `shaders/sera_nexus_mesh_contact_spatial_ink.gdshader`を追加。従来のNEXUS用内側1px・外側2px・接合2px、建築2pxのRGB-ID輪郭演算、IDの深度遮蔽、色`#17212f`を保持。被覆していない画素は`discard`し、互換レンダラーの透過面着色を防止。
 - `scripts/sera_scene_id_outlines.gd`ではNEXUSの描画Quadを共有3D描画方式と同じCamera3D子に設置し、カメラ移動、ID解像度、輪郭スクリーン範囲および線幅を追従更新。BASE・戦闘・GRIDの輪郭シェーダー、全身のSERAメッシュ、モデル原本、装備やUIの動作は変更しない。
 - CI項目の確認・修正・適用、静的検査、Godot/実機テストの実行は行わない。Android実機での重なり・輝度・負荷は未確認。
+
+
+## 2026-11-23 — NEXUS可視ID外周の室内面への上書き抑止
+
+- 実機画像で床・台座周辺に線が残る問題に対し、NEXUS RGB-ID輪郭合成の「セラ外周2pxの近傍補完」を `!room`（可視室内メッシュIDではない画素）に制限。手前の床・壁・台座などのroom ID領域へセラ輪郭が無条件に塗られる経路を閉じる。
+- 現行の透明3D合成シェーダー `sera_nexus_mesh_contact_spatial_ink.gdshader` と互換Canvasシェーダー `sera_nexus_mesh_contact_ink.gdshader` の判定を同じにした。室内構造の2px枠線とセラの内1px・外2px・接合2px、既存RGB-ID深度、光の重ね順は保持。
+- 背景に部屋IDがある部分のセラ外周補完が狭くなる可能性はある。Godot/Android実機の表示確認・性能計測を実行していないため、画面上の完全な解消は未確認。ユーザー指定によりCI項目の閲覧・変更およびテスト実行を行わない。
