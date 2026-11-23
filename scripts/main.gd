@@ -975,7 +975,9 @@ func _build_world() -> void:
     world.name = "WorldEnvironment"
     var env := Environment.new()
     env.background_mode = Environment.BG_COLOR
-    env.background_color = Color("131b29")
+    # Dark navy matched the outline ink too closely; the moderate blue-grey
+    # backdrop keeps battle/training silhouettes legible without changing light.
+    env.background_color = Color("#70899a")
     env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
     env.ambient_light_color = Color("bbc9e1")
     env.ambient_light_energy = 0.60
