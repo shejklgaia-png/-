@@ -435,7 +435,7 @@ func _add_entrance(key: String) -> void:
         SHAFT_SHADER, Color(tint.r, tint.g, tint.b, 0.70), true)
 
 
-# Each luminaire is an actual small 3D object at the real work location.
+# Each aimed luminaire is an actual 3D object above its work location.
 # The parent VFX node is intentionally outside the outline ID pass.
 # All of these fixtures are static; there is no per-frame repositioning.
 func _box(parent: Node3D, label: String, at: Vector3, dimensions: Vector3,
@@ -460,7 +460,7 @@ func _box(parent: Node3D, label: String, at: Vector3, dimensions: Vector3,
         surface.emission = color
         surface.emission_energy_multiplier = 3.2
         # Glowing opaque glass must cover ID ink, not become ID=0 space
-        # into which adjacent 4px facility contours can spread.
+        # into which adjacent 3px facility contours can spread.
         piece.set_meta("sera_outline_occluder_only", true)
         piece.set_meta("sera_outline_emissive_protect", true)
     piece.material_override = surface
@@ -495,12 +495,6 @@ func _work_lamp(label: String, at: Vector3, target: Vector3,
         Vector3(0.0, dimensions.y * 0.42, lip_depth),
         Vector3(dimensions.x * 0.96, dimensions.y * 0.14, 0.065),
         Color("#566d7b"))
-    _box(lamp, "LensLeftShield",
-        Vector3(-dimensions.x * 0.45, 0.0, lip_depth),
-        Vector3(0.050, dimensions.y * 0.78, 0.070), Color("#283944"))
-    _box(lamp, "LensRightShield",
-        Vector3(dimensions.x * 0.45, 0.0, lip_depth),
-        Vector3(0.050, dimensions.y * 0.78, 0.070), Color("#283944"))
     _box(lamp, "AimedSearchlightLens",
         Vector3(0.0, 0.0, lip_depth - 0.031),
         Vector3(dimensions.x * 0.78, dimensions.y * 0.66, 0.026),
