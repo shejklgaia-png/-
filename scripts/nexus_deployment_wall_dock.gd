@@ -191,6 +191,7 @@ static func _display_face(root: Node3D, label: String,
     var d := Vector3(left, top_y, _display_depth(top_y, forward))
     _tri(tool, a, b, c)
     _tri(tool, a, c, d)
+    tool.generate_normals()
     var mesh := MeshInstance3D.new()
     mesh.name = label
     mesh.mesh = tool.commit()
@@ -270,10 +271,12 @@ static func _screen_stroke(tool: SurfaceTool, a: Vector2, b: Vector2,
 
 static func _screen_tri(tool: SurfaceTool, a: Vector2, b: Vector2,
         c: Vector2, tint: Color) -> void:
-    for pos in [a, b, c]:
-        tool.set_color(tint)
-        tool.add_vertex(Vector3(
-            pos.x, pos.y, _display_depth(pos.y, 0.085)))
+    tool.set_color(tint)
+    tool.add_vertex(Vector3(a.x, a.y, _display_depth(a.y, 0.085)))
+    tool.set_color(tint)
+    tool.add_vertex(Vector3(b.x, b.y, _display_depth(b.y, 0.085)))
+    tool.set_color(tint)
+    tool.add_vertex(Vector3(c.x, c.y, _display_depth(c.y, 0.085)))
 
 
 static func _material(color: Color, glow: bool = false) -> StandardMaterial3D:
