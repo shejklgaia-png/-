@@ -8,6 +8,7 @@ const NexusGeneratedArchitecture = preload("res://scripts/nexus_generated_archit
 const NexusComplexMachining = preload("res://scripts/nexus_complex_machining.gd")
 const NexusSculptedFittings = preload("res://scripts/nexus_sculpted_fittings.gd")
 const NexusDeploymentWallDock = preload("res://scripts/nexus_deployment_wall_dock.gd")
+const NexusCanonicalPlacement = preload("res://scripts/nexus_canonical_placement.gd")
 const NexusBulkheadRefit = preload("res://scripts/nexus_bulkhead_refit.gd")
 const NexusRoomMotion = preload("res://scripts/nexus_room_motion.gd")
 const NexusTrainingServiceModule = preload("res://scripts/nexus_training_service_module.gd")
@@ -289,6 +290,11 @@ const BOSS_ENTRIES = [{"name": "ビットタラン  /  BITTARAN", "scene": BITTA
 # scene into a silhouette; no duplicated render meshes or additional 3D draw calls.
 # Each entry holds world-space 3D vertex clusters, one per visible mesh.
 var target_parts: Dictionary = {}
+# Canonical placement keeps exact source part instances in the shared render
+# batches so touching a console never drags the wall or another nearby model.
+var canonical_core_refs: Dictionary = {}
+var canonical_render_batches: Dictionary = {}
+var placement_editor
 # Reuse each mesh's actual authored vertices when reprojecting a changed outfit.
 var customize_silhouette_vertex_cache: Dictionary = {}
 
@@ -402,6 +408,25 @@ func _ready() -> void:
     add_child(id_outline)
     _create_customization_glow()
     _hud()
+    # The editable equipment includes the two front consoles, the archive
+    # monitor module, and ONLY the auxiliary DEPLOYMENT kiosk.
+    var gate_yaw: float = _gate_facing_yaw()
+    var gate_console_at: Vector3 = GATE_ORIGIN + Basis(
+        Vector3.UP, gate_yaw) * Vector3(2.82, 0.0, 5.30)
+    var placement_specs := {
+        "SYSTEM": {"module": "system_console",
+            "position": SYSTEM_CONSOLE_ORIGIN, "yaw": deg_to_rad(18.0)},
+        "TRAINING": {"module": "training_console",
+            "position": TRAINING_CONSOLE_ORIGIN, "yaw": deg_to_rad(-14.0)},
+        "DATA ARCHIVE": {"module": "data_bank",
+            "position": Vector3(-4.95, 2.48, -12.10), "yaw": 0.0},
+        "DEPLOYMENT": {"module": "DeploymentConsolePlacementAnchor",
+            "position": gate_console_at, "yaw": gate_yaw}
+    }
+    placement_editor = NexusCanonicalPlacement.new()
+    hud.add_child(placement_editor)
+    placement_editor.configure(self, placement_specs,
+        canonical_core_refs, canonical_render_batches)
     # The rejected 2D bounding-box contour is not created in NEXUS.
     # The new depth hull shares the real 3D scene and its current camera.
     SeraSave.mark_location("NEXUS")
@@ -539,6 +564,11 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
         var batch_key: int = index + 100 if no_stroke else index
         var instances: Array = batch_data.get(batch_key, [])
         instances.append(transform)
+        if selected_shape in ["SYSTEM", "TRAINING", "DATA ARCHIVE"]:
+            var refs: Array = canonical_core_refs.get(selected_shape, [])
+            refs.append({"batch_key": batch_key, "index": instances.size() - 1,
+                "transform": transform})
+            canonical_core_refs[selected_shape] = refs
         batch_data[batch_key] = instances
     if not selected_shape.is_empty():
         target_parts[selected_shape] = silhouette_parts
@@ -686,6 +716,7 @@ func _render_batches() -> void:
         draw.name = ("NexusDetailBatch_%02d" % index
             if no_stroke else "BlockbenchBatch_%02d" % index)
         draw.multimesh = multi
+        canonical_render_batches[batch_key] = multi
         # Only meshes with an original 2px architectural line receive ID
         # role=facility. Unstroked/emissive details remain depth occluders.
         if not no_stroke and index not in [5, 6, 7]:
@@ -4190,6 +4221,9 @@ func _on_android_back() -> void:
     _navigate_back()
 
 func _navigate_back() -> void:
+    if placement_editor != null and placement_editor.active:
+        placement_editor.close_mode()
+        return
     if customize_part_preview_fullscreen_active:
         _set_single_part_preview_fullscreen(false)
         return
@@ -4207,6 +4241,11 @@ func _navigate_back() -> void:
         _return_to_overview()
 
 func _input(event: InputEvent) -> void:
+    # Canonical placement takes precedence over ALL existing actions, including
+    # EXIT TO BASE, focus menus, animations, debug taps, and equipment pickers.
+    if placement_editor != null and placement_editor.route_input(event):
+        get_viewport().set_input_as_handled()
+        return
     # Always honor the exit area, including a camera tween that has not
     # completed yet. This bypasses the in_transition lock intentionally.
     var exit_press: bool = false
@@ -4449,6 +4488,8 @@ func _tap_at(point: Vector2) -> void:
     _navigate_back()
 
 func _enter_base() -> void:
+    if placement_editor != null and placement_editor.active:
+        placement_editor.close_mode()
     # Explicit EXIT TO BASE must not be blocked by an interrupted tween.
     if focus_tween != null and focus_tween.is_running():
         focus_tween.kill()
