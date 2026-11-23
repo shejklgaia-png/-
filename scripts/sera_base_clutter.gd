@@ -134,8 +134,8 @@ const LOOSE_SCRAP_KINDS = [
 ]
 const PILE_MAX_COUNT: int = 8
 const PILE_PATTERN_COUNT: int = 4
-const SCRAP_CRATES_PER_SITE: int = 3
-const DENSE_SATELLITES_PER_PRIMARY: int = 2
+const SCRAP_CRATES_PER_SITE: int = 2
+const SATELLITES_PER_PRIMARY: int = 1
 
 
 static func is_loose_pile(kind: String) -> bool:
@@ -250,22 +250,22 @@ static func _best_enlarged_yaw(key: String, items: Array[Dictionary],
 
 
 static func _enlarge_dressing(key: String, items: Array[Dictionary]) -> void:
-    # The seven enlarged stations need bolder, collision-checked yard props:
-    # free-standing up to 34%, stacked up to 26%, compact accents up to 20%. Preserve each supported stack as one
-    # proportional assembly; no per-frame scaling or extra MeshInstances.
+    # Fewer, more legible yard props: free-standing up to 44%, stacked up
+    # to 34%, authored compact accents up to 28%. Keep each multi-part
+    # assembly proportional and reject growth if any footprint collides.
     for i in range(items.size()):
         var item: Dictionary = items[i]
-        var limit: float = 1.34
+        var limit: float = 1.44
         if bool(item.get("accent", false)):
-            limit = 1.20
+            limit = 1.28
         elif int(item.get("stack", 1)) > 1:
-            limit = 1.26
+            limit = 1.34
         # Keep each station's one deliberately small primary silhouette as
         # visual punctuation beside the larger stacks (legacy rhythm rule).
-        # It may grow a little, but must remain at or below 0.87 world scale.
+        # It may grow a little, but must remain at or below 0.95 world scale.
         if not bool(item.get("accent", false)) and float(item["scale"]) <= 0.87:
-            limit = minf(limit, 0.87 / float(item["scale"]))
-        for step in range(17, 0, -1):
+            limit = minf(limit, 0.95 / float(item["scale"]))
+        for step in range(23, 0, -1):
             var candidate: float = 1.0 + float(step) * 0.02
             if candidate > limit + 0.001:
                 continue
@@ -342,10 +342,10 @@ static func default_props_for(key: String) -> Array[Dictionary]:
     _append_satellite_props(key, items)
     return items
 
-# Exactly one additional physically modeled object is placed beside each of
-# the 76 approved clusters. The original clusters / yaw / stack sizes remain
-# untouched. Satellites are small material-batched 3D meshes, not extra nodes,
-# decals, duplicated draw calls, or merely visual counts.
+# Place at most one larger, physically modeled satellite beside each of the
+# 76 primary clusters instead of two. All existing authored positions stay
+# fixed; collision checking may skip a satellite when no space is available.
+# Satellites share the existing material batches rather than extra nodes.
 # Placement happens AFTER primary enlargement so every satellite respects the
 # final world-space collision silhouette and all facility entry lanes.
 static func _satellite_clear(key: String, item: Dictionary,
@@ -395,19 +395,19 @@ static func _append_satellite_props(key: String, items: Array[Dictionary]) -> vo
     var spacing: float = 0.39
     var grid_side: int = floori((half * 2.0 - 0.38) / spacing) + 1
     var cell_count: int = grid_side * grid_side
-    for i in range(primary_count * DENSE_SATELLITES_PER_PRIMARY):
+    for i in range(primary_count * SATELLITES_PER_PRIMARY):
         # The 24 already authored compact shapes provide a coherent assortment.
         # Each is a genuine multi-primitive 3D model and is reused without
         # making 76 new mesh resources or separate material batches.
         var kind: String = COMPACT_KINDS[posmod(
             site_seed + i * 7, COMPACT_KINDS.size())]
-        var satellite := _item(kind, 0.0, 0.0, 0.68)
+        var satellite := _item(kind, 0.0, 0.0, 0.78)
         satellite["accent"] = true
         satellite["satellite"] = true
         satellite["yaw_deg"] = float(22 + posmod(site_seed + i * 13, 4) * 8)
         var parent_at: Vector2 = items[posmod(i, primary_count)]["at"]
         var found: bool = false
-        for small_scale in [0.62, 0.54, 0.46, 0.38]:
+        for small_scale in [0.78, 0.70, 0.64, 0.58]:
             satellite["scale"] = float(small_scale)
             # Prefer real little assemblies tucked in beside a large machine.
             for j in range(offsets.size()):
@@ -477,7 +477,7 @@ static func _append_scrap_crates(key: String, items: Array[Dictionary]) -> void:
         crate["yaw_deg"] = float(15 + posmod(seed + slot * 19, 5) * 11)
         var origin: Vector2 = items[posmod(slot * 3 + 1, primary_count)]["at"]
         var found: bool = false
-        for scale in [0.86, 0.77, 0.68]:
+        for scale in [0.96, 0.88, 0.80]:
             crate["scale"] = float(scale)
             for delta in offsets:
                 crate["at"] = origin + delta
