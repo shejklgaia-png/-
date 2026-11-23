@@ -783,11 +783,16 @@ func _rescan() -> bool:
                 # room IDs. Otherwise NEXUS edges draw through the character.
                 var occluding: bool = (not eligible and (
                     _background_occluder(part) or valid_geometry))
-                # When a graphics option disables ink, preserve that solid
-                # geometry as ID=0 depth, blocking hidden contours behind it.
+                # Background occluders are ID=0. Emitting opaque surfaces
+                # instead use the protected role 7, so their own pixels
+                # remain fully visible under surrounding BASE black ink.
+                var protect_emission: bool = (occluding and _shared_scene_mode
+                    and bool(part.get_meta(
+                        "sera_outline_emissive_protect", false)))
                 if eligible or occluding:
                     desired[node.get_instance_id()] = {
                         "node": part, "occluder": occluding,
+                        "protected_emission": protect_emission,
                         "contact": eligible and contact_geometry
                     }
             for child in node.get_children():
@@ -817,6 +822,8 @@ func _rescan() -> bool:
             continue
         var entry: Dictionary = desired[key]
         var is_occluder: bool = bool(entry["occluder"])
+        var is_protected_emission: bool = bool(
+            entry.get("protected_emission", false))
         var is_contact: bool = bool(entry.get("contact", false))
         var source: Node3D = entry["node"] as Node3D
         var instance_count: int = 1
@@ -886,9 +893,13 @@ func _rescan() -> bool:
         if _shared_scene_mode:
             var role: int = _outline_role(source)
             if is_occluder:
-                # Keep depth occlusion without drawing contours on FX/ground.
+                # ID role 7 protects luminous solid cores from the 4px
+                # facility outer stroke; other occluders remain zero-ID
+                # depth-only, as before. No second visible ID pass.
                 mat.shader = SHARED_ID_CLOSED if closed else SHARED_ID_OPEN
-                mat.set_shader_parameter("encoded_id", Vector3.ZERO)
+                mat.set_shader_parameter("encoded_id", (
+                    Vector3(0.0, 7.0 / 8.0, 0.0) if is_protected_emission
+                    else Vector3.ZERO))
             elif source is MultiMeshInstance3D:
                 mat.shader = SHARED_MULTI_CLOSED if closed else SHARED_MULTI_OPEN
                 mat.set_shader_parameter("mesh_id_base", identification)
