@@ -297,36 +297,75 @@ static func _make_substation(items: Dictionary, world_at: Vector3,
     }
 
 
+static func _cable_clear_of_props(from_at: Vector2,
+        to_at: Vector2, props: Array[Dictionary]) -> bool:
+    var segment: Vector2 = to_at - from_at
+    var squared: float = segment.length_squared()
+    if squared < 0.00001:
+        return true
+    for entry in props:
+        var pos: Vector2 = entry["at"]
+        var t: float = clampf((pos - from_at).dot(segment) / squared,
+            0.0, 1.0)
+        var nearest: Vector2 = from_at + segment * t
+        var radius: float = float(entry["radius"]) + 0.23
+        if nearest.distance_squared_to(pos) < radius * radius:
+            return false
+    return true
+
+
 static func _facility_socket(items: Dictionary, key: String,
-        origin: Vector3, device_local: Vector3) -> Dictionary:
+        origin: Vector3, device_local: Vector3,
+        props: Array[Dictionary]) -> Dictionary:
     var half: Vector2 = _footprint(key)
     var near := Vector3(
-        clampf(device_local.x, -half.x, half.x),
-        0.60, clampf(device_local.z, -half.y, half.y))
-    # Place the receiving socket on the actual nearest side of the building.
+        clampf(device_local.x, -half.x, half.x), 0.60,
+        clampf(device_local.z, -half.y, half.y))
+    # The chosen side is nearest the new device, but its actual receiver
+    # point slides ALONG that wall to stay out of nearby loose scrap.
     var panel_angle: float = 0.0
-    if absf(device_local.x / half.x) > absf(device_local.z / half.y):
-        near.x = signf(device_local.x) * half.x
+    var side_on_x: bool = (absf(device_local.x / half.x) >
+        absf(device_local.z / half.y))
+    if side_on_x:
+        near.x = signf(device_local.x) * (half.x + 0.20)
         panel_angle = PI * 0.5 * signf(device_local.x)
     else:
-        near.z = signf(device_local.z) * half.y
+        near.z = signf(device_local.z) * (half.y + 0.20)
         if device_local.z < 0.0:
             panel_angle = PI
     var body_yaw := Basis(Vector3.UP,
         BaseArchitecture.facility_yaw_radians(key))
     var panel_basis := Basis(Vector3.UP,
         BaseArchitecture.facility_yaw_radians(key) + panel_angle)
-    var world_at: Vector3 = origin + body_yaw * near
-    _device_port(items, "socket", world_at, panel_basis,
-        Vector3.ZERO, Vector3(0.29, 0.28, 0.18))
-    _device_port(items, "light", world_at, panel_basis,
-        Vector3(0.0, 0.085, 0.096), Vector3(0.16, 0.055, 0.023))
     var normal: Vector3 = panel_basis * Vector3(0.0, 0.0, 1.0)
-    var gate: Vector3 = world_at + normal * 1.35
-    gate.y = FLOOR_WIRE_Y
+    var chosen_world: Vector3 = origin + body_yaw * near
+    var chosen_gate: Vector3 = chosen_world + normal * 1.50
+    chosen_gate.y = FLOOR_WIRE_Y
+    for drift in [0.0, 0.46, -0.46, 0.92, -0.92, 1.33, -1.33]:
+        var sample: Vector3 = near
+        var shifted: float = float(drift)
+        if side_on_x:
+            sample.z = clampf(near.z + shifted,
+                -half.y + 0.25, half.y - 0.25)
+        else:
+            sample.x = clampf(near.x + shifted,
+                -half.x + 0.25, half.x - 0.25)
+        var world_at: Vector3 = origin + body_yaw * sample
+        var gate: Vector3 = world_at + normal * 1.50
+        gate.y = FLOOR_WIRE_Y
+        if not _cable_clear_of_props(_xz(world_at),
+                _xz(gate), props):
+            continue
+        chosen_world = world_at
+        chosen_gate = gate
+        break
+    _device_port(items, "socket", chosen_world, panel_basis,
+        Vector3.ZERO, Vector3(0.29, 0.28, 0.18))
+    _device_port(items, "light", chosen_world, panel_basis,
+        Vector3(0.0, 0.085, 0.096), Vector3(0.16, 0.055, 0.023))
     return {
-        "port": world_at + normal * 0.12,
-        "gate": gate
+        "port": chosen_world + normal * 0.12,
+        "gate": chosen_gate
     }
 
 
@@ -686,7 +725,7 @@ static func build(parent: Node3D, nexus_origin: Vector3,
         var device: Dictionary = _make_substation(items,
             world_at, float(pose["yaw"]), endpoints.size())
         var receiver: Dictionary = _facility_socket(
-            items, key, origin, pose["local"])
+            items, key, origin, pose["local"], props)
         endpoints.append({"key": key, "device": device,
             "socket": receiver})
     # All assets now exist in world space and the route grid reserves the
