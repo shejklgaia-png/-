@@ -61,7 +61,7 @@ static func build(room: Node3D) -> void:
         for i in range(18):
             var hazard_z: float = -7.0 + float(i) * 1.77
             _box(batches, "amber", Vector3(side * 4.43, 0.129, hazard_z),
-                Vector3(0.38, 0.014, 0.68), deg_to_rad(side * 29.0))
+                Vector3(0.28, 0.014, 0.52), deg_to_rad(side * 29.0))
 
         # Cool-white light bars are physically recessed in blue-grey sockets.
         # No light nodes or transparency are introduced on the deck.
