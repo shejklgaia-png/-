@@ -1,8 +1,8 @@
 extends Node3D
-## NEXUS-only production contour: smooth inverted hull with native GPU depth
-## testing. No stencil, mask textures, SubViewport, separate camera or CPU
-## per-frame edge calculations. The hull copy is a CHILD of the original
-## equipment MeshInstance3D and inherits its transforms in the SAME frame.
+## NEXUS-only production contour: real 3D normal-expanded smoothed inverted
+## hull with native GPU depth testing. No stencil, mask, extra viewport,
+## screen-XY-only movement, separate camera or per-frame CPU edge work.
+## Each hull is a child of its original MeshInstance3D for same-frame pose.
 const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
 const HullGeometry = preload("res://scripts/sera_nexus_smooth_hull_geometry.gd")
 const CLOSED_SHADER = preload(
@@ -118,12 +118,13 @@ func _release_links() -> void:
 func _create_hull(source: MeshInstance3D,
         baked: ArrayMesh) -> MeshInstance3D:
     var hull := MeshInstance3D.new()
-    hull.name = "SeraDepthHull_3px"
+    hull.name = "SeraDepthHull_3D_3px"
     hull.set_meta("sera_generated_live_edge", true)
     hull.set_meta("FX_NO_OUTLINE", true)
     hull.mesh = baked
-    # SeraRig's sealed Blockbench armor has reversed front winding;
-    # open/two-sided pieces must not be forced into the closed cull mode.
+    # Sealed Blockbench meshes have opposite front winding. Open pieces
+    # use a distinct back-face-only material with rear view-depth bias:
+    # the former cull_disabled pass painted black polygons inside the body.
     var closed: bool = bool(source.get_meta("sera_single_sided", false))
     hull.material_override = (
         _closed_material if closed else _open_material)
@@ -211,7 +212,9 @@ func get_outline_snapshot() -> Dictionary:
         "mode": _mode,
         "active": _active(),
         "outline_px": 3.0,
-        "pipeline": "smoothed_inverted_hull_native_depth",
+        "pipeline": "3d_normal_expanded_hull_native_depth",
+        "vertex_growth": "smoothed_normals_3d",
+        "open_mesh_culling": "back_only_with_rear_bias",
         "stencil_required": false,
         "viewport_copies": 0
     }
