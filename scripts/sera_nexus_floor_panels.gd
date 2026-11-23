@@ -547,6 +547,10 @@ static func _material(finish: String, vertex_color: bool) -> StandardMaterial3D:
     mat.metallic = 0.56 if finish.begins_with("deck_") else 0.27
     mat.roughness = 0.36 if finish.begins_with("deck_") else 0.54
     mat.metallic_specular = 0.64 if finish.begins_with("deck_") else 0.50
+    if finish == "access_cover":
+        # Both sides of the sloped hatch rim must remain visible in the
+        # portrait GL Compatibility renderer, regardless of triangulation.
+        mat.cull_mode = BaseMaterial3D.CULL_DISABLED
     if finish.begins_with("deck_"):
         mat.clearcoat_enabled = true
         mat.clearcoat = 0.32
