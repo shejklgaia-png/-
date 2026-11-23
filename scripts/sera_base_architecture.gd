@@ -298,6 +298,9 @@ class Batch:
                         float(variation / 4) * 0.27, 0.0)
             if tint in ["blue_light", "amber_light", "amber",
                     "generator_emitter", "terminal_monitor"]:
+                # Emitters are self-luminous, not lights reacting to nearby
+                # spotlights. Keep a stable sharp core from the first frame.
+                surface.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
                 surface.emission_enabled = true
                 surface.emission = Color(COLORS[tint])
                 if tint == "generator_emitter":
@@ -331,6 +334,10 @@ class Batch:
                 # Emissive visual details can occlude opaque contours, but
                 # must never receive ink themselves.
                 draw.set_meta("sera_outline_occluder_only", true)
+                # Use protected ID role 7 (depth-resolved but no ink).
+                # Otherwise the black 4px facility outline grows ONTO
+                # narrow emitter slots, making their core appear crushed.
+                draw.set_meta("sera_outline_emissive_protect", true)
             host.add_child(draw)
             if selected_by_bucket.has(key):
                 var edge_mesh: ArrayMesh = BaseFacilityInk.overlay_for(
