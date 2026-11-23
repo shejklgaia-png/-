@@ -42,10 +42,16 @@ static func build(room: Node3D) -> void:
         var z: float = DECK_BACK + float(LANE_OFFSETS[lane])
         var index: int = 0
         while z < DECK_FRONT - 0.24:
-            var pitch: float = 2.72 if z < -12.0 else 2.12
+            # Compress the near/middle deck rhythm so the portrait view does
+            # not read as a long empty runway between the stage and terminals.
+            var pitch: float = 2.56 if z < -12.0 else 1.82
+            if z > -5.0:
+                pitch = 1.48
             if z > 1.5:
-                pitch = 1.54
-            pitch += float((index * 3 + lane * 5) % 4) * 0.105
+                pitch = 1.28
+            if z > 9.0:
+                pitch = 1.38
+            pitch += float((index * 3 + lane * 5) % 4) * 0.08
             var a: float = maxf(z + 0.025, DECK_BACK + 0.06)
             var b: float = minf(z + pitch - 0.025, DECK_FRONT - 0.06)
             if b > a + 0.50:
@@ -82,6 +88,9 @@ static func build(room: Node3D) -> void:
             _light(batches, side * 6.62, float(light_z), 0.95)
         for light_z in [-5.6, 2.4, 10.7, 18.1]:
             _light(batches, side * 2.85, float(light_z), 0.49)
+        # Short reference-style guidance lights break up the empty approach.
+        for light_z in [-1.0, 6.8, 13.6]:
+            _light(batches, side * 3.12, float(light_z), 0.38)
 
         # Thin flush reinforcement rails interrupt the monotone side fields.
         for rail_z in [-8.0, 1.2, 12.1]:
@@ -94,6 +103,17 @@ static func build(room: Node3D) -> void:
     _drain_shoulder(batches, 3.73, 4.17, 2.28)
     _maintenance_grille(batches, -1.86, 2.48, 0.43)
     _maintenance_grille(batches, 3.95, 2.28, 0.39)
+
+    # Low-profile inspection bays and offset reinforcement cleats bring
+    # industrial density into the long gap between the SERA pad and monitors.
+    # Keep the stage's central 1.37m radius completely unobstructed.
+    for z_value in [-3.30, -0.35, 2.30, 6.25, 9.45]:
+        var z: float = float(z_value)
+        for sign_value in [-1, 1]:
+            var side: float = float(sign_value)
+            _inspection_bay(batches, side * 2.50, z + side * 0.36)
+    for z_value in [-1.10, 1.85, 7.70]:
+        _cross_reinforcement(batches, float(z_value))
 
     _submit(room, batches)
 
@@ -228,6 +248,35 @@ static func _light(batches: Dictionary, x: float, z: float, width: float) -> voi
     _cube(batches, "lamp_glint", Vector3(x, PLATE_TOP + 0.024, z - 0.04),
         Vector3(width * 0.83, 0.004, 0.025))
 
+
+
+static func _inspection_bay(batches: Dictionary,
+        x: float, z: float) -> void:
+    # Dark gasket + inset cover + hardware; each element sits close to the
+    # plate top, without the tall step of an independent equipment pedestal.
+    _cube(batches, "bay_gasket", Vector3(x, PLATE_TOP + 0.003, z),
+        Vector3(0.61, 0.006, 0.34))
+    _cube(batches, "bay_metal", Vector3(x, PLATE_TOP + 0.009, z),
+        Vector3(0.52, 0.006, 0.25))
+    _cube(batches, "bay_slot", Vector3(x, PLATE_TOP + 0.013, z),
+        Vector3(0.26, 0.003, 0.025))
+    for side_value in [-1, 1]:
+        _cube(batches, "bolt_metal",
+            Vector3(x + float(side_value) * 0.20, PLATE_TOP + 0.016, z),
+            Vector3(0.028, 0.004, 0.028))
+
+
+static func _cross_reinforcement(batches: Dictionary, z: float) -> void:
+    # Bracketed steel ties are short and flush; they interrupt the direction
+    # of the long seams without a full-width horizontal bar.
+    for side_value in [-1, 1]:
+        var side: float = float(side_value)
+        _cube(batches, "tie_recess",
+            Vector3(side * 1.33, PLATE_TOP + 0.004, z),
+            Vector3(0.55, 0.006, 0.092))
+        _cube(batches, "tie_metal",
+            Vector3(side * 1.33, PLATE_TOP + 0.009, z),
+            Vector3(0.47, 0.005, 0.038))
 
 
 static func _drain_shoulder(batches: Dictionary,
@@ -430,7 +479,12 @@ static func _material(finish: String, vertex_color: bool) -> StandardMaterial3D:
         "drain_frame": Color("#536b79"),
         "drain_rib": Color("#304c5c"),
         "drain_rib_glint": Color("#6c899a"),
-        "drain_cross": Color("#223644")
+        "drain_cross": Color("#223644"),
+        "bay_gasket": Color("#1c303e"),
+        "bay_metal": Color("#405b6b"),
+        "bay_slot": Color("#1a3240"),
+        "tie_recess": Color("#294252"),
+        "tie_metal": Color("#637d8c")
     }
     var mat := StandardMaterial3D.new()
     var tint: Color = palette.get(finish, Color("#354858"))
