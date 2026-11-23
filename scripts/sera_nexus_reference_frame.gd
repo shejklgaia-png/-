@@ -1,16 +1,17 @@
-extends Control
+extends Node2D
 # Decorative COMMAND NEXUS header/footer matching the reference image.
 # Kept outside all 3D hit areas, with no input interception or extra viewport.
 const Skin = preload("res://scripts/sera_labo_round_skin.gd")
 
 func _ready() -> void:
-    mouse_filter = Control.MOUSE_FILTER_IGNORE
-    resized.connect(queue_redraw)
+    # Node2D's canvas drawing does not participate in Control hit testing.
+    get_viewport().size_changed.connect(queue_redraw)
 
 func _fill(points: PackedVector2Array, tint: Color) -> void:
     draw_colored_polygon(points, tint)
 
 func _draw() -> void:
+    var size: Vector2 = get_viewport_rect().size
     var w: float = size.x
     var h: float = size.y
     if w <= 0.0 or h <= 0.0:

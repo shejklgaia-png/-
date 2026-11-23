@@ -50,6 +50,9 @@ var _display_height_factor: float = 1.0
 var focus_tween: Tween
 var focused_target: String = ""
 var in_transition: bool = false
+# Protect raw-input navigation from an interrupted camera/preview tween.
+var nexus_transition_elapsed: float = 0.0
+const NEXUS_TRANSITION_STALL_SECONDS: float = 1.35
 var back_panel: Panel
 var back_arrow: Label
 var explore_panel: Panel
@@ -340,6 +343,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
     SeraSave.record_game_time(delta)
+    _recover_nexus_transition_if_stalled(delta)
     _refresh_outline_debug(delta)
     _update_system_confirmation_blink(delta)
     _update_training_start_pulse(delta)
@@ -349,6 +353,26 @@ func _process(delta: float) -> void:
         if archive_refresh_elapsed >= 1.0:
             archive_refresh_elapsed = 0.0
             _refresh_archive_records()
+
+# A focus tween normally finishes in 0.18s. On rare failures the former
+# in_transition guard blocked ALL taps permanently, including EXIT TO BASE.
+# Complete the intended menu transition after a generous safety interval.
+func _recover_nexus_transition_if_stalled(delta: float) -> void:
+    if not in_transition:
+        nexus_transition_elapsed = 0.0
+        return
+    nexus_transition_elapsed += delta
+    if nexus_transition_elapsed < NEXUS_TRANSITION_STALL_SECONDS:
+        return
+    nexus_transition_elapsed = 0.0
+    if focus_tween != null and focus_tween.is_running():
+        focus_tween.kill()
+    in_transition = false
+    if focused_target.is_empty():
+        _overview_arrived()
+    else:
+        _focus_arrived(focused_target)
+
 
 func _environment() -> void:
     var world := WorldEnvironment.new()
@@ -810,6 +834,12 @@ func _hud() -> void:
     # remain above the ink even when both scenes draw in the same viewport.
     canvas.layer = 2
     add_child(canvas)
+    # A Node2D has no GUI mouse filter and cannot intercept tap/drag events.
+    # Draw the decorative frame behind the interactive HUD, not as a
+    # viewport-wide Control child of the button hierarchy.
+    var reference_frame: Node2D = NexusReferenceFrame.new()
+    reference_frame.name = "NexusReferenceFrame"
+    canvas.add_child(reference_frame)
     hud = Control.new()
     hud.name = "NexusOverlay"
     hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -817,14 +847,6 @@ func _hud() -> void:
     # Share LABO font roles/theme without adding per-card shaders or draw passes.
     hud.theme = LaboSkin.common_theme()
     hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-
-    # Decorative, non-interactive portrait header/footer from the source art.
-    # Put it behind all tap targets and above the 3D architecture.
-    var reference_frame: Control = NexusReferenceFrame.new()
-    reference_frame.name = "NexusReferenceFrame"
-    reference_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    hud.add_child(reference_frame)
-    reference_frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
     outline = NexusSelectionOutline.new()
     outline.name = "SelectableSilhouettes"
@@ -3956,6 +3978,23 @@ func _navigate_back() -> void:
         _return_to_overview()
 
 func _input(event: InputEvent) -> void:
+    # Always honor the exit area, including a camera tween that has not
+    # completed yet. This bypasses the in_transition lock intentionally.
+    var exit_press: bool = false
+    var exit_tap: Vector2 = Vector2.ZERO
+    if event is InputEventScreenTouch:
+        if event.pressed:
+            exit_press = true
+            exit_tap = event.position
+    elif event is InputEventMouseButton:
+        if event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+            exit_press = true
+            exit_tap = event.position
+    if exit_press and explore_panel != null and explore_panel.visible:
+        if Rect2(explore_panel.position, explore_panel.size).has_point(exit_tap):
+            _enter_base()
+            get_viewport().set_input_as_handled()
+            return
     if _route_fullscreen_preview_input(event):
         get_viewport().set_input_as_handled()
         return
@@ -4176,8 +4215,13 @@ func _tap_at(point: Vector2) -> void:
     _navigate_back()
 
 func _enter_base() -> void:
-    if in_transition:
-        return
+    # Explicit EXIT TO BASE must not be blocked by an interrupted tween.
+    if focus_tween != null and focus_tween.is_running():
+        focus_tween.kill()
+    if customize_entrance_tween != null and customize_entrance_tween.is_running():
+        customize_entrance_tween.kill()
+    in_transition = false
+    nexus_transition_elapsed = 0.0
     # No walkable NEXUS scene; exit straight back to the exterior base hub.
     SeraSave.requested_nexus_target = ""
     var err: Error = get_tree().change_scene_to_file(BASE_SCENE)
