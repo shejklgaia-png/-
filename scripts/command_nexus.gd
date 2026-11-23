@@ -329,13 +329,13 @@ func _ready() -> void:
     NexusFloorPanels.build(self)
     _deployment_gate_lightspill()
     _pad_center()
-    # All NEXUS architecture and SERA contours now use the exact Bittaran
-    # RGB12 visible-ID pass. Only the pre-existing 2px/1-2-2 widths differ.
+    # NEXUS equipment has 3/0/2+convex1; its displayed SERA remains
+    # universal character 4/0/2, all in the exact shared visible RGB-ID pass.
     SharedMaterialShading.apply_to_subtree(self)
     _sera_display()
     _camera()
     # One RGB12 ID viewport for the entire NEXUS (architecture + SERA).
-    # The numeric preset preserves architecture 2px and SERA 1/2/2.
+    # The numeric preset selects NEXUS equipment only, not actor widths.
     var id_outline := SeraViewEdges.new()
     id_outline.name = "ViewEdges"
     # Architecture gets NEXUS 3/0/2 + convex1; the displayed SERA
