@@ -33,7 +33,6 @@ const NEXUS_ROOM_BACKDROP_COLOR: Color = Color("#17212c")
 const NEXUS_EDGE_SHADER = preload("res://shaders/nexus_polygon_edges.gdshader")
 const NEXUS_EDGE_WIDTH_PIXELS: float = 2.0
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
-const NexusReferenceFrame = preload("res://scripts/sera_nexus_reference_frame.gd")
 
 const GATE_ORIGIN: Vector3 = Vector3(5.10, 0.02, -15.50)
 const SERA_STAGE_ORIGIN: Vector3 = Vector3(0.0, 0.0, -4.75)
@@ -834,12 +833,6 @@ func _hud() -> void:
     # remain above the ink even when both scenes draw in the same viewport.
     canvas.layer = 2
     add_child(canvas)
-    # A Node2D has no GUI mouse filter and cannot intercept tap/drag events.
-    # Draw the decorative frame behind the interactive HUD, not as a
-    # viewport-wide Control child of the button hierarchy.
-    var reference_frame: Node2D = NexusReferenceFrame.new()
-    reference_frame.name = "NexusReferenceFrame"
-    canvas.add_child(reference_frame)
     hud = Control.new()
     hud.name = "NexusOverlay"
     hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -847,6 +840,35 @@ func _hud() -> void:
     # Share LABO font roles/theme without adding per-card shaders or draw passes.
     hud.theme = LaboSkin.common_theme()
     hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    # CanvasLayer is not a Control container. Explicit viewport sizing avoids
+    # an invisible 0x0 HUD on Android when entering this scene.
+    hud.size = get_viewport().get_visible_rect().size
+    hud.resized.connect(_layout_hud)
+
+    # Keep the minimum navigation controls available even if a later
+    # menu/preview initialization raises a runtime error.
+    explore_panel = Panel.new()
+    explore_panel.name = "ExitToBase"
+    explore_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    explore_panel.add_theme_stylebox_override("panel", _menu_style())
+    hud.add_child(explore_panel)
+    explore_label = Label.new()
+    explore_label.text = "EXIT TO BASE"
+    explore_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    explore_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    explore_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    explore_label.add_theme_font_size_override("font_size", 19)
+    explore_label.add_theme_color_override("font_color", Color("#ddfaff"))
+    explore_panel.add_child(explore_label)
+    # The basic exit control is sized before more complex menu work begins.
+    var hud_view: Vector2 = hud.size
+    var hud_margin: float = maxf(16.0, hud_view.x * 0.04)
+    explore_panel.position = Vector2(hud_margin, hud_view.y - hud_margin - 66.0)
+    explore_panel.size = Vector2(minf(190.0, hud_view.x * 0.43), 66.0)
+    explore_label.position = Vector2.ZERO
+    explore_label.size = explore_panel.size
+    explore_panel.visible = true
+    VersionIndicator.attach(hud)
 
     outline = NexusSelectionOutline.new()
     outline.name = "SelectableSilhouettes"
@@ -922,24 +944,9 @@ func _hud() -> void:
     _create_deployment_controls()
     _create_system_controls()
     _create_archive_records()
-    explore_panel = Panel.new()
-    explore_panel.name = "ExitToBase"
-    explore_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    explore_panel.add_theme_stylebox_override("panel", _menu_style())
-    hud.add_child(explore_panel)
-    explore_label = Label.new()
-    explore_label.text = "EXIT TO BASE"
-    explore_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    explore_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    explore_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    explore_label.add_theme_font_size_override("font_size", 19)
-    explore_label.add_theme_color_override("font_color", Color("#ddfaff"))
-    explore_panel.add_child(explore_label)
     _apply_labo_typography()
     _refresh_customization_stats()
     _create_outline_debug()
-    VersionIndicator.attach(hud)
-    hud.resized.connect(_layout_hud)
     _layout_hud()
     _update_projected_silhouettes()
 
@@ -3289,9 +3296,22 @@ func _refresh_outline_debug(delta: float) -> void:
     ]
 
 func _layout_hud() -> void:
-    if hud == null or back_panel == null or focus_panel == null:
+    if hud == null:
         return
+    # Recover from missing layout information before touching any menus.
     var view := hud.size
+    if view.x <= 1.0 or view.y <= 1.0:
+        hud.size = get_viewport().get_visible_rect().size
+        view = hud.size
+    if explore_panel != null and explore_label != null:
+        var nav_margin: float = maxf(16.0, view.x * 0.04)
+        explore_panel.position = Vector2(nav_margin, view.y - nav_margin - 66.0)
+        explore_panel.size = Vector2(minf(190.0, view.x * 0.43), 66.0)
+        explore_label.position = Vector2.ZERO
+        explore_label.size = explore_panel.size
+        explore_panel.visible = true
+    if back_panel == null or focus_panel == null:
+        return
     var margin := maxf(16.0, view.x * 0.04)
     _layout_outline_debug(view)
     # Dedicated raw-touch hit area: GUI mouse emulation remains off.
