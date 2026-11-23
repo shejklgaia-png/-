@@ -190,6 +190,9 @@ static func _build_devices(parent: Node3D, items: Dictionary) -> void:
             colors[palette], palette == "light")
         draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         draw.set_meta("sera_outline_role", "clutter")
+        # Native StandardMaterial3D is needed for the shared visible-ID
+        # compositor to classify each solid instanced device as role 3.
+        draw.set_meta("sera_preserve_authored_material", true)
         if palette == "light":
             # Light cores are physically opaque and keep role 7 so a black
             # clutter outline cannot cover their tiny luminous surface.
