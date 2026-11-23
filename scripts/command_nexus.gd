@@ -5,6 +5,7 @@ const Modules = preload("res://assets/base_command_modules.gd")
 const WorldMonitors = preload("res://scripts/sera_world_monitor_textures.gd")
 const NexusFloorPanels = preload("res://scripts/sera_nexus_floor_panels.gd")
 const NexusGeneratedArchitecture = preload("res://scripts/nexus_generated_architecture.gd")
+const NexusComplexMachining = preload("res://scripts/nexus_complex_machining.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
 const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
@@ -334,6 +335,11 @@ func _ready() -> void:
     # Shared low-poly castings sit inside existing Blockbench silhouettes.
     # Build before the shared material/depth pass, without changing hit zones.
     NexusGeneratedArchitecture.build(
+        self, SYSTEM_CONSOLE_ORIGIN, TRAINING_CONSOLE_ORIGIN,
+        GATE_ORIGIN, _gate_facing_yaw())
+    # Five reusable complex machine profiles, all opaque and depth-tested.
+    # Detail instances never become touch targets or ID-outline sources.
+    NexusComplexMachining.build(
         self, SYSTEM_CONSOLE_ORIGIN, TRAINING_CONSOLE_ORIGIN,
         GATE_ORIGIN, _gate_facing_yaw())
     _deployment_gate_lightspill()
