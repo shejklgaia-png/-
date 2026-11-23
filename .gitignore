@@ -20,3 +20,16 @@ models/storage/.trashed-*
 build/apk/
 dist/
 *.keystore
+
+# Makinas is licensed for embedding in games but may not be redistributed
+# as a standalone font in SERA's PUBLIC GitHub source repository.
+# Install these originals locally from the author's official download.
+assets/fonts/Makinas4Flat.otf
+assets/fonts/Makinas4Square.otf
+assets/fonts/Makinas4Flat.otf.import
+assets/fonts/Makinas4Square.otf.import
+# OFL Chakra Petch is fetched by the same local preparation script.
+assets/fonts/ChakraPetch-Medium.ttf
+assets/fonts/ChakraPetch-SemiBold.ttf
+assets/fonts/ChakraPetch-Medium.ttf.import
+assets/fonts/ChakraPetch-SemiBold.ttf.import
