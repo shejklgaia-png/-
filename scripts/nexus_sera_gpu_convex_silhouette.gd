@@ -238,6 +238,11 @@ static func _make_edges(mesh: Mesh, closed: bool,
     var writer := SurfaceTool.new()
     writer.begin(Mesh.PRIMITIVE_TRIANGLES)
     writer.set_custom_format(0, SurfaceTool.CUSTOM_RGBA_FLOAT)
+    if include_full_contour:
+        # Each ribbon's six vertices need the SAME view-facing decision.
+        # Store the local edge midpoint at full float precision; the normal
+        # and camera-facing test must not vary between its two endpoints.
+        writer.set_custom_format(1, SurfaceTool.CUSTOM_RGBA_FLOAT)
     var emitted: int = 0
     for item in extracted:
         if emitted >= MAX_EDGES_PER_MESH:
@@ -290,12 +295,19 @@ static func _make_edges(mesh: Mesh, closed: bool,
             1.0 if emit_crease else 0.0)
         var encoded_b := Color(normal_b.x, normal_b.y, normal_b.z,
             1.0 if paired else 0.0)
-        for corner in [[a, -1.0], [b, -1.0], [b, 1.0],
-                [a, -1.0], [b, 1.0], [a, 1.0]]:
+        var midpoint: Vector3 = (a + b) * 0.5
+        # UV.x: side of the stroke; UV.y: endpoint (-1 start / +1 end).
+        # The latter drives short GPU end caps where edges meet at a corner,
+        # without generating a second mesh or additional draw calls.
+        for corner in [[a, -1.0, -1.0], [b, -1.0, 1.0], [b, 1.0, 1.0],
+                [a, -1.0, -1.0], [b, 1.0, 1.0], [a, 1.0, -1.0]]:
             writer.set_color(encoded_a)
             writer.set_custom(0, encoded_b)
+            if include_full_contour:
+                writer.set_custom(1, Color(
+                    midpoint.x, midpoint.y, midpoint.z, 0.0))
             writer.set_normal(tangent)
-            writer.set_uv(Vector2(float(corner[1]), 0.0))
+            writer.set_uv(Vector2(float(corner[1]), float(corner[2])))
             writer.add_vertex(corner[0])
         emitted += 1
     if emitted == 0:

@@ -10,14 +10,20 @@ uniform float silhouette_inside_px : hint_range(0.0, 6.0) = 1.0;
 uniform float silhouette_outside_px : hint_range(0.0, 6.0) = 5.0;
 // Open edges are also the boundaries of separately authored mesh parts.
 uniform float seam_px : hint_range(0.5, 6.0) = 3.0;
+// Extend each screen-space edge to close gaps where two thick ribbons meet.
+uniform float corner_cap_px : hint_range(0.0, 6.0) = 5.0;
 varying float edge_visible;
 
 void vertex() {
     vec3 view_position = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;
+    // Using each vertex to decide front/back made visible ink taper or
+    // disappear at one end of a long edge. CUSTOM1 stores one identical
+    // midpoint for all six vertices of that edge.
+    vec3 mid_view = (MODELVIEW_MATRIX * vec4(CUSTOM1.xyz, 1.0)).xyz;
     mat3 nmat = transpose(inverse(mat3(MODELVIEW_MATRIX)));
     vec3 normal_a = normalize(nmat * (COLOR.rgb * 2.0 - vec3(1.0)));
     vec3 view_ray = PROJECTION_MATRIX[3][3] > 0.5
-        ? vec3(0.0, 0.0, 1.0) : normalize(-view_position);
+        ? vec3(0.0, 0.0, 1.0) : normalize(-mid_view);
     float facing_a = dot(normal_a, view_ray);
     bool paired = CUSTOM0.w >= 0.5;
     float inner_px = silhouette_inside_px;
@@ -92,6 +98,14 @@ void vertex() {
         UV.x * inward_sign > 0.0 ? inner_px : outer_px);
     clip.xy += side * vec2(2.0 / VIEWPORT_SIZE.x,
         2.0 / VIEWPORT_SIZE.y) * signed_offset_px * clip.w;
+    // Adjacent ribbons were separate open-ended rectangles; their external
+    // 5px stroke left triangular pinholes at sharp polygon corners. A short
+    // square end cap overlaps those ends on the GPU in the SAME camera pass.
+    // UV.y is -1 at A and +1 at B. It does not change the 1px/5px width.
+    vec2 edge_dir = normalize(line_vec);
+    float cap_length = min(corner_cap_px, outer_px);
+    clip.xy += edge_dir * vec2(2.0 / VIEWPORT_SIZE.x,
+        2.0 / VIEWPORT_SIZE.y) * (UV.y * cap_length) * clip.w;
     POSITION = clip;
 }
 
