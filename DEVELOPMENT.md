@@ -4978,3 +4978,11 @@
 - Androidフォールバックの `assets/sera_camera_eye_head_data.gd` を正本から再生成。H02撮影プリセットのモデルSHA-256を更新し、カメラ設定・輪郭3px・H02装備性能は維持。ローダーやNEXUS ID輪郭シェーダーへの色の上書きは追加しない。
 - `tools/camera_eye_head_self_check.py` にPython標準ライブラリだけでPNG_RGBAを復号するパレット検査を追加。既存の `tools/iris_h02_craft_self_check.py` は新原本指紋を検査し、撮影済み旧アイコン画像の履歴メタデータは旧指紋のまま保持。
 - 旧撮影済みH02 PNGは再撮影前の歴史的な成果物として保持し、ライトグレーの新たな承認済みアイコンと偽装しない。CI/Android実機の最終3D色確認は未実行。
+
+
+## 2026-11-23 — NEXUS室内輪郭の発光透過・重なり修正
+
+- NEXUSの共通可視RGB-IDによる不透明メッシュ深度解決は維持し、輪郭の最終合成だけをCanvasLayer最前面から、透明3Dの低優先度パス（`render_priority=-30`）へ移動。手前の入口漏光・半透明演出が室内輪郭線に上書きされる見え方を解消する方向へ修正。
+- `shaders/sera_nexus_mesh_contact_spatial_ink.gdshader`を追加。従来のNEXUS用内側1px・外側2px・接合2px、建築2pxのRGB-ID輪郭演算、IDの深度遮蔽、色`#17212f`を保持。被覆していない画素は`discard`し、互換レンダラーの透過面着色を防止。
+- `scripts/sera_scene_id_outlines.gd`ではNEXUSの描画Quadを共有3D描画方式と同じCamera3D子に設置し、カメラ移動、ID解像度、輪郭スクリーン範囲および線幅を追従更新。BASE・戦闘・GRIDの輪郭シェーダー、全身のSERAメッシュ、モデル原本、装備やUIの動作は変更しない。
+- CI項目の確認・修正・適用、静的検査、Godot/実機テストの実行は行わない。Android実機での重なり・輝度・負荷は未確認。
