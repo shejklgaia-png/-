@@ -8,8 +8,10 @@ const EdgeScript = preload("res://scripts/sera_view_edges.gd")
 const ConvexGeometry = preload("res://scripts/sera_base_facility_crease_geometry.gd")
 const IconContactInk = preload("res://shaders/sera_icon_capture_visible_id_ink.gdshader")
 const IconConvexInk = preload("res://shaders/sera_icon_capture_convex_ink.gdshader")
+const PixelReconstruction = preload("res://tools/icon_studio/sera_pixel_outline_reconstruction.gd")
 const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
 const PIXELS: int = 512
+const SUPERSAMPLE: int = 4
 # Capture-only widths, never applied to live BASE/NEXUS/battle rendering.
 const ICON_INNER_PX: float = 1.0
 const ICON_OUTER_PX: float = 4.0
@@ -191,6 +193,7 @@ func _run() -> void:
         var high := Vector3(-10000, -10000, -10000)
         var corners: Array[Vector3] = []
         var mesh_count: int = 0
+        var convex_nodes: Array[MeshInstance3D] = []
         for raw in pieces:
             var source: MeshInstance3D = raw as MeshInstance3D
             if source == null or source.mesh == null:
@@ -218,6 +221,7 @@ func _run() -> void:
                 convex.set_meta("sera_skip_common_id_outline", true)
                 convex.set_meta("FX_NO_OUTLINE", true)
                 center_shift.add_child(convex)
+                convex_nodes.append(convex)
             var bounds: AABB = part.mesh.get_aabb()
             for index in range(8):
                 var point: Vector3 = part.transform * bounds.get_endpoint(index)
@@ -277,30 +281,58 @@ func _run() -> void:
         for profile_spec in CAPTURE_PROFILES:
             var profile_name: String = str(profile_spec["name"])
             var target_px: int = int(profile_spec["pixels"])
-            viewport.size = Vector2i(target_px, target_px)
-            # _sync_camera refreshes ID viewport dimensions/texel size for
-            # this profile. Explicitly invalidate the cached scan after
-            # each resize so geometry contact IDs are freshly drawn.
+            var capture_px: int = target_px * SUPERSAMPLE
+            viewport.size = Vector2i(capture_px, capture_px)
+            # The color/depth/mesh-ID render uses four times the final
+            # resolution. Stroke geometry is provisional; final ink is
+            # reconstructed from the visible IDs at the TARGET pixel grid.
             icon_material.set_shader_parameter(
-                "sera_inner_px", float(profile_spec["inner"]))
+                "sera_inner_px", float(profile_spec["inner"]) * SUPERSAMPLE)
             icon_material.set_shader_parameter(
-                "sera_outer_px", float(profile_spec["outer"]))
+                "sera_outer_px", float(profile_spec["outer"]) * SUPERSAMPLE)
             icon_material.set_shader_parameter(
-                "sera_seam_px", float(profile_spec["seam"]))
+                "sera_seam_px", float(profile_spec["seam"]) * SUPERSAMPLE)
             convex_material.set_shader_parameter(
-                "crease_px", float(profile_spec["convex"]))
+                "crease_px", float(profile_spec["convex"]) * SUPERSAMPLE)
+
+            # Capture original mesh shading without ink for clean per-pixel
+            # color and alpha. No 3D changes are made to the real equipment.
+            icon_material.set_shader_parameter("ink_color", Color(0, 0, 0, 0))
+            for ribbon in convex_nodes:
+                ribbon.visible = false
             native_compositor.set("_scan_elapsed", 0.0)
             for _frame in range(6):
                 await RenderingServer.frame_post_draw
-
-            var screenshot: Image = viewport.get_texture().get_image()
-            if screenshot == null or screenshot.is_empty():
-                _fail(id + "/" + profile_name + ": framebuffer missing")
+            var bare: Image = viewport.get_texture().get_image()
+            var ids: Image = icon_id_viewport.get_texture().get_image()
+            if bare == null or ids == null or bare.is_empty() or ids.is_empty():
+                _fail(id + "/" + profile_name + ": source or ID frame missing")
                 return
-            screenshot.convert(Image.FORMAT_RGBA8)
-            if screenshot.get_width() != target_px or (
-                    screenshot.get_height() != target_px):
-                _fail(id + "/" + profile_name + ": wrong render size")
+            if bare.get_size() != Vector2i(capture_px, capture_px) or (
+                    ids.get_size() != bare.get_size()):
+                _fail(id + "/" + profile_name + ": high-resolution ID size mismatch")
+                return
+            bare.convert(Image.FORMAT_RGBA8)
+            ids.convert(Image.FORMAT_RGBA8)
+
+            # One additional inked native pass preserves the authored
+            # camera-visible convex ribbons. Edges are never resized after
+            # being finalized at the output PNG's integer-pixel resolution.
+            icon_material.set_shader_parameter("ink_color", Color("#17212f"))
+            for ribbon in convex_nodes:
+                ribbon.visible = true
+            native_compositor.set("_scan_elapsed", 0.0)
+            for _frame in range(6):
+                await RenderingServer.frame_post_draw
+            var inked: Image = viewport.get_texture().get_image()
+            if inked == null or inked.is_empty() or inked.get_size() != bare.get_size():
+                _fail(id + "/" + profile_name + ": ink frame missing")
+                return
+            inked.convert(Image.FORMAT_RGBA8)
+            var screenshot: Image = PixelReconstruction.reconstruct(
+                bare, inked, ids, target_px, auto_fit, profile_spec)
+            if screenshot == null or screenshot.is_empty():
+                _fail(id + "/" + profile_name + ": reconstruction failed")
                 return
             var painted: int = 0
             var sample_stride: int = 4 if target_px >= 512 else 2
@@ -312,21 +344,15 @@ func _run() -> void:
                 _fail(id + "/" + profile_name +
                     ": blank or opaque screenshot; painted=" + str(painted))
                 return
-            screenshot = _equalize_transparent_margins(
-                screenshot, auto_fit, target_px)
-            if screenshot == null or screenshot.is_empty():
-                _fail(id + "/" + profile_name +
-                    ": cannot fit transparent margins")
-                return
             var output: String = out_dir.path_join(id + ".png")
             if profile_name != "full":
                 output = out_dir.path_join(profile_name).path_join(id + ".png")
             if screenshot.save_png(output) != OK:
                 _fail(id + "/" + profile_name +
-                    ": screenshot file could not be saved")
+                    ": reconstructed PNG could not be saved")
                 return
-            print("SERA_NATIVE_EQUIPMENT_ICON_PASS id=%s profile=%s px=%d meshes=%d pixels=%d" %
-                [id, profile_name, target_px, mesh_count, painted])
+            print("SERA_NATIVE_EQUIPMENT_ICON id=%s profile=%s px=%d super=%d meshes=%d painted=%d" %
+                [id, profile_name, target_px, SUPERSAMPLE, mesh_count, painted])
         count += 1
         portrait.queue_free()
         await process_frame
