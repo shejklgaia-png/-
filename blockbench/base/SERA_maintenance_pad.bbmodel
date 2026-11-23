@@ -11,17 +11,17 @@
   },
   "elements": [
     {
-      "name": "Platform recessed foundation",
+      "name": "octagonal subfloor plinth",
       "type": "cube",
       "from": [
-        -19,
-        -0.5,
-        -19
+        -17.5,
+        -0.25,
+        -17.5
       ],
       "to": [
-        19,
-        0.7,
-        19
+        17.5,
+        2.25,
+        17.5
       ],
       "color": 0,
       "rotation": [
@@ -31,10 +31,10 @@
       ],
       "origin": [
         0,
-        0.1,
+        1,
         0
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000398",
+      "uuid": "8c340523-b00f-4000-8000-000000000646",
       "faces": {
         "north": {
           "uv": [
@@ -90,102 +90,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform main raised beveled footing",
+      "name": "heavy chamfered ring armor 0",
       "type": "cube",
       "from": [
-        -15.6,
-        0.1,
-        -15.6
+        -3.175,
+        0.225,
+        15.05
       ],
       "to": [
-        15.6,
-        2.5,
-        15.6
-      ],
-      "color": 2,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        0,
-        1.3,
-        0
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000399",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Platform top landing",
-      "type": "cube",
-      "from": [
-        -12.5,
-        2.4,
-        -12.5
-      ],
-      "to": [
-        12.5,
-        3.85,
-        12.5
+        3.175,
+        3.375,
+        18.55
       ],
       "color": 3,
       "rotation": [
@@ -195,10 +115,10 @@
       ],
       "origin": [
         0,
-        3.125,
-        0
+        1.8,
+        16.8
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000400",
+      "uuid": "8c340523-b00f-4000-8000-000000000647",
       "faces": {
         "north": {
           "uv": [
@@ -254,197 +174,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform center armor",
+      "name": "heavy chamfered ring armor 1",
       "type": "cube",
       "from": [
-        -10.9,
-        3.88,
-        -10.9
+        3.254,
+        0.225,
+        13.771
       ],
       "to": [
-        10.9,
-        4.05,
-        10.9
+        9.604,
+        3.375,
+        17.271
       ],
-      "color": 1,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        0,
-        3.965,
-        0
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000401",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Platform faceted perimeter armor 0",
-      "type": "cube",
-      "from": [
-        -3.038,
-        -0.05,
-        15.2
-      ],
-      "to": [
-        3.038,
-        3.15,
-        18
-      ],
-      "color": 4,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        0,
-        1.55,
-        16.6
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000402",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Platform faceted perimeter armor 1",
-      "type": "cube",
-      "from": [
-        3.315,
-        -0.05,
-        13.936
-      ],
-      "to": [
-        9.39,
-        3.15,
-        16.736
-      ],
-      "color": 4,
+      "color": 3,
       "rotation": [
         0,
         22.5,
         0
       ],
       "origin": [
-        6.353,
-        1.55,
-        15.336
+        6.429,
+        1.8,
+        15.521
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000403",
+      "uuid": "8c340523-b00f-4000-8000-000000000648",
       "faces": {
         "north": {
           "uv": [
@@ -500,33 +258,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform faceted perimeter armor 2",
+      "name": "heavy chamfered ring armor 2",
       "type": "cube",
       "from": [
-        8.7,
-        -0.05,
-        10.338
+        8.705,
+        0.225,
+        10.129
       ],
       "to": [
-        14.776,
-        3.15,
-        13.138
+        15.054,
+        3.375,
+        13.629
       ],
-      "color": 4,
+      "color": 3,
       "rotation": [
         0,
         45,
         0
       ],
       "origin": [
-        11.738,
-        1.55,
-        11.738
+        11.88,
+        1.8,
+        11.879
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000404",
+      "uuid": "8c340523-b00f-4000-8000-000000000649",
       "faces": {
         "north": {
           "uv": [
@@ -582,33 +342,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform faceted perimeter armor 3",
+      "name": "heavy chamfered ring armor 3",
       "type": "cube",
       "from": [
-        12.299,
-        -0.05,
-        4.953
+        12.347,
+        0.225,
+        4.679
       ],
       "to": [
-        18.374,
-        3.15,
-        7.753
+        18.696,
+        3.375,
+        8.179
       ],
-      "color": 4,
+      "color": 3,
       "rotation": [
         0,
         67.5,
         0
       ],
       "origin": [
-        15.337,
-        1.55,
-        6.353
+        15.522,
+        1.8,
+        6.429
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000405",
+      "uuid": "8c340523-b00f-4000-8000-000000000650",
       "faces": {
         "north": {
           "uv": [
@@ -664,33 +426,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform faceted perimeter armor 4",
+      "name": "heavy chamfered ring armor 4",
       "type": "cube",
       "from": [
-        13.562,
-        -0.05,
-        -1.4
+        13.625,
+        0.225,
+        -1.75
       ],
       "to": [
-        19.638,
-        3.15,
-        1.4
+        19.975,
+        3.375,
+        1.75
       ],
-      "color": 4,
+      "color": 3,
       "rotation": [
         0,
         90,
         0
       ],
       "origin": [
-        16.6,
-        1.55,
+        16.8,
+        1.8,
         0
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000406",
+      "uuid": "8c340523-b00f-4000-8000-000000000651",
       "faces": {
         "north": {
           "uv": [
@@ -746,33 +510,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform faceted perimeter armor 5",
+      "name": "heavy chamfered ring armor 5",
       "type": "cube",
       "from": [
-        12.299,
-        -0.05,
-        -7.753
+        12.347,
+        0.225,
+        -8.179
       ],
       "to": [
-        18.374,
-        3.15,
-        -4.953
+        18.696,
+        3.375,
+        -4.679
       ],
-      "color": 4,
+      "color": 3,
       "rotation": [
         0,
         112.5,
         0
       ],
       "origin": [
-        15.337,
-        1.55,
-        -6.353
+        15.522,
+        1.8,
+        -6.429
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000407",
+      "uuid": "8c340523-b00f-4000-8000-000000000652",
       "faces": {
         "north": {
           "uv": [
@@ -828,33 +594,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform faceted perimeter armor 6",
+      "name": "heavy chamfered ring armor 6",
       "type": "cube",
       "from": [
-        8.7,
-        -0.05,
-        -13.138
+        8.705,
+        0.225,
+        -13.629
       ],
       "to": [
-        14.776,
-        3.15,
-        -10.338
+        15.054,
+        3.375,
+        -10.129
       ],
-      "color": 4,
+      "color": 3,
       "rotation": [
         0,
         135,
         0
       ],
       "origin": [
-        11.738,
-        1.55,
-        -11.738
+        11.88,
+        1.8,
+        -11.879
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000408",
+      "uuid": "8c340523-b00f-4000-8000-000000000653",
       "faces": {
         "north": {
           "uv": [
@@ -910,33 +678,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform faceted perimeter armor 7",
+      "name": "heavy chamfered ring armor 7",
       "type": "cube",
       "from": [
-        3.315,
-        -0.05,
-        -16.736
+        3.254,
+        0.225,
+        -17.271
       ],
       "to": [
-        9.39,
-        3.15,
-        -13.936
+        9.604,
+        3.375,
+        -13.771
       ],
-      "color": 4,
+      "color": 3,
       "rotation": [
         0,
         157.5,
         0
       ],
       "origin": [
-        6.353,
-        1.55,
-        -15.336
+        6.429,
+        1.8,
+        -15.521
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000409",
+      "uuid": "8c340523-b00f-4000-8000-000000000654",
       "faces": {
         "north": {
           "uv": [
@@ -992,22 +762,24 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform faceted perimeter armor 8",
+      "name": "heavy chamfered ring armor 8",
       "type": "cube",
       "from": [
-        -3.038,
-        -0.05,
-        -18
+        -3.175,
+        0.225,
+        -18.55
       ],
       "to": [
-        3.038,
-        3.15,
-        -15.2
+        3.175,
+        3.375,
+        -15.05
       ],
-      "color": 4,
+      "color": 3,
       "rotation": [
         0,
         180,
@@ -1015,10 +787,10 @@
       ],
       "origin": [
         0,
-        1.55,
-        -16.6
+        1.8,
+        -16.8
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000410",
+      "uuid": "8c340523-b00f-4000-8000-000000000655",
       "faces": {
         "north": {
           "uv": [
@@ -1074,33 +846,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform faceted perimeter armor 9",
+      "name": "heavy chamfered ring armor 9",
       "type": "cube",
       "from": [
-        -9.39,
-        -0.05,
-        -16.736
+        -9.604,
+        0.225,
+        -17.271
       ],
       "to": [
-        -3.315,
-        3.15,
-        -13.936
+        -3.254,
+        3.375,
+        -13.771
       ],
-      "color": 4,
+      "color": 3,
       "rotation": [
         0,
         202.5,
         0
       ],
       "origin": [
-        -6.352,
-        1.55,
-        -15.336
+        -6.429,
+        1.8,
+        -15.521
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000411",
+      "uuid": "8c340523-b00f-4000-8000-000000000656",
       "faces": {
         "north": {
           "uv": [
@@ -1156,33 +930,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform faceted perimeter armor 10",
+      "name": "heavy chamfered ring armor 10",
       "type": "cube",
       "from": [
-        -14.776,
-        -0.05,
-        -13.138
+        -15.054,
+        0.225,
+        -13.629
       ],
       "to": [
-        -8.7,
-        3.15,
-        -10.338
+        -8.705,
+        3.375,
+        -10.129
       ],
-      "color": 4,
+      "color": 3,
       "rotation": [
         0,
         225,
         0
       ],
       "origin": [
-        -11.738,
-        1.55,
-        -11.738
+        -11.879,
+        1.8,
+        -11.879
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000412",
+      "uuid": "8c340523-b00f-4000-8000-000000000657",
       "faces": {
         "north": {
           "uv": [
@@ -1238,33 +1014,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform faceted perimeter armor 11",
+      "name": "heavy chamfered ring armor 11",
       "type": "cube",
       "from": [
-        -18.374,
-        -0.05,
-        -7.753
+        -18.696,
+        0.225,
+        -8.179
       ],
       "to": [
-        -12.299,
-        3.15,
-        -4.953
+        -12.347,
+        3.375,
+        -4.679
       ],
-      "color": 4,
+      "color": 3,
       "rotation": [
         0,
         247.5,
         0
       ],
       "origin": [
-        -15.336,
-        1.55,
-        -6.353
+        -15.521,
+        1.8,
+        -6.429
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000413",
+      "uuid": "8c340523-b00f-4000-8000-000000000658",
       "faces": {
         "north": {
           "uv": [
@@ -1320,33 +1098,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform faceted perimeter armor 12",
+      "name": "heavy chamfered ring armor 12",
       "type": "cube",
       "from": [
-        -19.638,
-        -0.05,
-        -1.4
+        -19.975,
+        0.225,
+        -1.75
       ],
       "to": [
-        -13.562,
-        3.15,
-        1.4
+        -13.625,
+        3.375,
+        1.75
       ],
-      "color": 4,
+      "color": 3,
       "rotation": [
         0,
         270,
         0
       ],
       "origin": [
-        -16.6,
-        1.55,
+        -16.8,
+        1.8,
         0
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000414",
+      "uuid": "8c340523-b00f-4000-8000-000000000659",
       "faces": {
         "north": {
           "uv": [
@@ -1402,33 +1182,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform faceted perimeter armor 13",
+      "name": "heavy chamfered ring armor 13",
       "type": "cube",
       "from": [
-        -18.374,
-        -0.05,
-        4.953
+        -18.696,
+        0.225,
+        4.679
       ],
       "to": [
-        -12.299,
-        3.15,
-        7.753
+        -12.347,
+        3.375,
+        8.179
       ],
-      "color": 4,
+      "color": 3,
       "rotation": [
         0,
         292.5,
         0
       ],
       "origin": [
-        -15.336,
-        1.55,
-        6.353
+        -15.521,
+        1.8,
+        6.429
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000415",
+      "uuid": "8c340523-b00f-4000-8000-000000000660",
       "faces": {
         "north": {
           "uv": [
@@ -1484,33 +1266,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform faceted perimeter armor 14",
+      "name": "heavy chamfered ring armor 14",
       "type": "cube",
       "from": [
-        -14.776,
-        -0.05,
-        10.338
+        -15.054,
+        0.225,
+        10.129
       ],
       "to": [
-        -8.7,
-        3.15,
-        13.138
+        -8.705,
+        3.375,
+        13.629
       ],
-      "color": 4,
+      "color": 3,
       "rotation": [
         0,
         315,
         0
       ],
       "origin": [
-        -11.738,
-        1.55,
-        11.738
+        -11.879,
+        1.8,
+        11.879
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000416",
+      "uuid": "8c340523-b00f-4000-8000-000000000661",
       "faces": {
         "north": {
           "uv": [
@@ -1566,33 +1350,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform faceted perimeter armor 15",
+      "name": "heavy chamfered ring armor 15",
       "type": "cube",
       "from": [
-        -9.39,
-        -0.05,
-        13.936
+        -9.604,
+        0.225,
+        13.771
       ],
       "to": [
-        -3.315,
-        3.15,
-        16.736
+        -3.254,
+        3.375,
+        17.271
       ],
-      "color": 4,
+      "color": 3,
       "rotation": [
         0,
         337.5,
         0
       ],
       "origin": [
-        -6.352,
-        1.55,
-        15.336
+        -6.429,
+        1.8,
+        15.521
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000417",
+      "uuid": "8c340523-b00f-4000-8000-000000000662",
       "faces": {
         "north": {
           "uv": [
@@ -1648,20 +1434,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform rim azure segment 0",
+      "name": "cyan service rim segments 0",
       "type": "cube",
       "from": [
-        -3.065,
-        3.195,
-        15.875
+        -3.156,
+        3.475,
+        15.75
       ],
       "to": [
-        3.065,
-        3.845,
-        17.625
+        3.156,
+        4.225,
+        17.65
       ],
       "color": 5,
       "rotation": [
@@ -1671,10 +1459,10 @@
       ],
       "origin": [
         0,
-        3.52,
-        16.75
+        3.85,
+        16.7
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000418",
+      "uuid": "8c340523-b00f-4000-8000-000000000663",
       "faces": {
         "north": {
           "uv": [
@@ -1730,20 +1518,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform rim azure segment 1",
+      "name": "cyan service rim segments 1",
       "type": "cube",
       "from": [
-        3.345,
-        3.195,
-        14.6
+        3.235,
+        3.475,
+        14.479
       ],
       "to": [
-        9.475,
-        3.845,
-        16.35
+        9.547,
+        4.225,
+        16.379
       ],
       "color": 5,
       "rotation": [
@@ -1752,11 +1542,11 @@
         0
       ],
       "origin": [
-        6.41,
-        3.52,
-        15.475
+        6.391,
+        3.85,
+        15.429
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000419",
+      "uuid": "8c340523-b00f-4000-8000-000000000664",
       "faces": {
         "north": {
           "uv": [
@@ -1812,20 +1602,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform rim azure segment 2",
+      "name": "cyan service rim segments 2",
       "type": "cube",
       "from": [
-        8.779,
-        3.195,
-        10.969
+        8.653,
+        3.475,
+        10.859
       ],
       "to": [
-        14.909,
-        3.845,
-        12.719
+        14.964,
+        4.225,
+        12.759
       ],
       "color": 5,
       "rotation": [
@@ -1834,11 +1626,11 @@
         0
       ],
       "origin": [
-        11.844,
-        3.52,
-        11.844
+        11.809,
+        3.85,
+        11.809
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000420",
+      "uuid": "8c340523-b00f-4000-8000-000000000665",
       "faces": {
         "north": {
           "uv": [
@@ -1894,20 +1686,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform rim azure segment 3",
+      "name": "cyan service rim segments 3",
       "type": "cube",
       "from": [
-        12.41,
-        3.195,
-        5.535
+        12.273,
+        3.475,
+        5.441
       ],
       "to": [
-        18.54,
-        3.845,
-        7.285
+        18.585,
+        4.225,
+        7.341
       ],
       "color": 5,
       "rotation": [
@@ -1916,11 +1710,11 @@
         0
       ],
       "origin": [
-        15.475,
-        3.52,
-        6.41
+        15.429,
+        3.85,
+        6.391
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000421",
+      "uuid": "8c340523-b00f-4000-8000-000000000666",
       "faces": {
         "north": {
           "uv": [
@@ -1976,20 +1770,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform rim azure segment 4",
+      "name": "cyan service rim segments 4",
       "type": "cube",
       "from": [
-        13.685,
-        3.195,
-        -0.875
+        13.544,
+        3.475,
+        -0.95
       ],
       "to": [
-        19.815,
-        3.845,
-        0.875
+        19.856,
+        4.225,
+        0.95
       ],
       "color": 5,
       "rotation": [
@@ -1998,11 +1794,11 @@
         0
       ],
       "origin": [
-        16.75,
-        3.52,
+        16.7,
+        3.85,
         0
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000422",
+      "uuid": "8c340523-b00f-4000-8000-000000000667",
       "faces": {
         "north": {
           "uv": [
@@ -2058,20 +1854,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform rim azure segment 5",
+      "name": "cyan service rim segments 5",
       "type": "cube",
       "from": [
-        12.41,
-        3.195,
-        -7.285
+        12.273,
+        3.475,
+        -7.341
       ],
       "to": [
-        18.54,
-        3.845,
-        -5.535
+        18.585,
+        4.225,
+        -5.441
       ],
       "color": 5,
       "rotation": [
@@ -2080,11 +1878,11 @@
         0
       ],
       "origin": [
-        15.475,
-        3.52,
-        -6.41
+        15.429,
+        3.85,
+        -6.391
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000423",
+      "uuid": "8c340523-b00f-4000-8000-000000000668",
       "faces": {
         "north": {
           "uv": [
@@ -2140,20 +1938,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform rim azure segment 6",
+      "name": "cyan service rim segments 6",
       "type": "cube",
       "from": [
-        8.779,
-        3.195,
-        -12.719
+        8.653,
+        3.475,
+        -12.759
       ],
       "to": [
-        14.909,
-        3.845,
-        -10.969
+        14.964,
+        4.225,
+        -10.859
       ],
       "color": 5,
       "rotation": [
@@ -2162,11 +1962,11 @@
         0
       ],
       "origin": [
-        11.844,
-        3.52,
-        -11.844
+        11.809,
+        3.85,
+        -11.809
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000424",
+      "uuid": "8c340523-b00f-4000-8000-000000000669",
       "faces": {
         "north": {
           "uv": [
@@ -2222,20 +2022,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform rim azure segment 7",
+      "name": "cyan service rim segments 7",
       "type": "cube",
       "from": [
-        3.345,
-        3.195,
-        -16.35
+        3.235,
+        3.475,
+        -16.379
       ],
       "to": [
-        9.475,
-        3.845,
-        -14.6
+        9.547,
+        4.225,
+        -14.479
       ],
       "color": 5,
       "rotation": [
@@ -2244,11 +2046,11 @@
         0
       ],
       "origin": [
-        6.41,
-        3.52,
-        -15.475
+        6.391,
+        3.85,
+        -15.429
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000425",
+      "uuid": "8c340523-b00f-4000-8000-000000000670",
       "faces": {
         "north": {
           "uv": [
@@ -2304,20 +2106,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform rim azure segment 8",
+      "name": "cyan service rim segments 8",
       "type": "cube",
       "from": [
-        -3.065,
-        3.195,
-        -17.625
+        -3.156,
+        3.475,
+        -17.65
       ],
       "to": [
-        3.065,
-        3.845,
-        -15.875
+        3.156,
+        4.225,
+        -15.75
       ],
       "color": 5,
       "rotation": [
@@ -2327,10 +2131,10 @@
       ],
       "origin": [
         0,
-        3.52,
-        -16.75
+        3.85,
+        -16.7
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000426",
+      "uuid": "8c340523-b00f-4000-8000-000000000671",
       "faces": {
         "north": {
           "uv": [
@@ -2386,20 +2190,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform rim azure segment 9",
+      "name": "cyan service rim segments 9",
       "type": "cube",
       "from": [
-        -9.475,
-        3.195,
-        -16.35
+        -9.547,
+        3.475,
+        -16.379
       ],
       "to": [
-        -3.345,
-        3.845,
-        -14.6
+        -3.235,
+        4.225,
+        -14.479
       ],
       "color": 5,
       "rotation": [
@@ -2408,11 +2214,11 @@
         0
       ],
       "origin": [
-        -6.41,
-        3.52,
-        -15.475
+        -6.391,
+        3.85,
+        -15.429
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000427",
+      "uuid": "8c340523-b00f-4000-8000-000000000672",
       "faces": {
         "north": {
           "uv": [
@@ -2468,20 +2274,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform rim azure segment 10",
+      "name": "cyan service rim segments 10",
       "type": "cube",
       "from": [
-        -14.909,
-        3.195,
-        -12.719
+        -14.964,
+        3.475,
+        -12.759
       ],
       "to": [
-        -8.779,
-        3.845,
-        -10.969
+        -8.653,
+        4.225,
+        -10.859
       ],
       "color": 5,
       "rotation": [
@@ -2490,11 +2298,11 @@
         0
       ],
       "origin": [
-        -11.844,
-        3.52,
-        -11.844
+        -11.808,
+        3.85,
+        -11.809
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000428",
+      "uuid": "8c340523-b00f-4000-8000-000000000673",
       "faces": {
         "north": {
           "uv": [
@@ -2550,20 +2358,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform rim azure segment 11",
+      "name": "cyan service rim segments 11",
       "type": "cube",
       "from": [
-        -18.54,
-        3.195,
-        -7.285
+        -18.585,
+        3.475,
+        -7.341
       ],
       "to": [
-        -12.41,
-        3.845,
-        -5.535
+        -12.273,
+        4.225,
+        -5.441
       ],
       "color": 5,
       "rotation": [
@@ -2572,11 +2382,11 @@
         0
       ],
       "origin": [
-        -15.475,
-        3.52,
-        -6.41
+        -15.429,
+        3.85,
+        -6.391
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000429",
+      "uuid": "8c340523-b00f-4000-8000-000000000674",
       "faces": {
         "north": {
           "uv": [
@@ -2632,20 +2442,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform rim azure segment 12",
+      "name": "cyan service rim segments 12",
       "type": "cube",
       "from": [
-        -19.815,
-        3.195,
-        -0.875
+        -19.856,
+        3.475,
+        -0.95
       ],
       "to": [
-        -13.685,
-        3.845,
-        0.875
+        -13.544,
+        4.225,
+        0.95
       ],
       "color": 5,
       "rotation": [
@@ -2654,11 +2466,11 @@
         0
       ],
       "origin": [
-        -16.75,
-        3.52,
+        -16.7,
+        3.85,
         0
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000430",
+      "uuid": "8c340523-b00f-4000-8000-000000000675",
       "faces": {
         "north": {
           "uv": [
@@ -2714,20 +2526,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform rim azure segment 13",
+      "name": "cyan service rim segments 13",
       "type": "cube",
       "from": [
-        -18.54,
-        3.195,
-        5.535
+        -18.585,
+        3.475,
+        5.441
       ],
       "to": [
-        -12.41,
-        3.845,
-        7.285
+        -12.273,
+        4.225,
+        7.341
       ],
       "color": 5,
       "rotation": [
@@ -2736,11 +2550,11 @@
         0
       ],
       "origin": [
-        -15.475,
-        3.52,
-        6.41
+        -15.429,
+        3.85,
+        6.391
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000431",
+      "uuid": "8c340523-b00f-4000-8000-000000000676",
       "faces": {
         "north": {
           "uv": [
@@ -2796,20 +2610,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform rim azure segment 14",
+      "name": "cyan service rim segments 14",
       "type": "cube",
       "from": [
-        -14.909,
-        3.195,
-        10.969
+        -14.964,
+        3.475,
+        10.859
       ],
       "to": [
-        -8.779,
-        3.845,
-        12.719
+        -8.653,
+        4.225,
+        12.759
       ],
       "color": 5,
       "rotation": [
@@ -2818,11 +2634,11 @@
         0
       ],
       "origin": [
-        -11.844,
-        3.52,
-        11.844
+        -11.808,
+        3.85,
+        11.809
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000432",
+      "uuid": "8c340523-b00f-4000-8000-000000000677",
       "faces": {
         "north": {
           "uv": [
@@ -2878,20 +2694,22 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform rim azure segment 15",
+      "name": "cyan service rim segments 15",
       "type": "cube",
       "from": [
-        -9.475,
-        3.195,
-        14.6
+        -9.547,
+        3.475,
+        14.479
       ],
       "to": [
-        -3.345,
-        3.845,
-        16.35
+        -3.235,
+        4.225,
+        16.379
       ],
       "color": 5,
       "rotation": [
@@ -2900,11 +2718,11 @@
         0
       ],
       "origin": [
-        -6.41,
-        3.52,
-        15.475
+        -6.391,
+        3.85,
+        15.429
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000433",
+      "uuid": "8c340523-b00f-4000-8000-000000000678",
       "faces": {
         "north": {
           "uv": [
@@ -2960,22 +2778,24 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform upper dark inset ring 0",
+      "name": "dark interior ring 0",
       "type": "cube",
       "from": [
-        -2.425,
-        3.835,
-        12.725
+        -2.627,
+        3.94,
+        13.3
       ],
       "to": [
-        2.425,
-        4.085,
-        13.775
+        2.627,
+        4.36,
+        14.5
       ],
-      "color": 0,
+      "color": 1,
       "rotation": [
         0,
         0,
@@ -2983,10 +2803,10 @@
       ],
       "origin": [
         0,
-        3.96,
-        13.25
+        4.15,
+        13.9
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000434",
+      "uuid": "8c340523-b00f-4000-8000-000000000679",
       "faces": {
         "north": {
           "uv": [
@@ -3042,33 +2862,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform upper dark inset ring 1",
+      "name": "dark interior ring 1",
       "type": "cube",
       "from": [
-        2.646,
-        3.835,
-        11.716
+        2.693,
+        3.94,
+        12.242
       ],
       "to": [
-        7.495,
-        4.085,
-        12.766
+        7.946,
+        4.36,
+        13.442
       ],
-      "color": 0,
+      "color": 1,
       "rotation": [
         0,
         22.5,
         0
       ],
       "origin": [
-        5.071,
-        3.96,
-        12.241
+        5.32,
+        4.15,
+        12.842
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000435",
+      "uuid": "8c340523-b00f-4000-8000-000000000680",
       "faces": {
         "north": {
           "uv": [
@@ -3124,33 +2946,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform upper dark inset ring 2",
+      "name": "dark interior ring 2",
       "type": "cube",
       "from": [
-        6.944,
-        3.835,
-        8.844
+        7.202,
+        3.94,
+        9.229
       ],
       "to": [
-        11.794,
-        4.085,
-        9.894
+        12.455,
+        4.36,
+        10.429
       ],
-      "color": 0,
+      "color": 1,
       "rotation": [
         0,
         45,
         0
       ],
       "origin": [
-        9.369,
-        3.96,
-        9.369
+        9.829,
+        4.15,
+        9.829
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000436",
+      "uuid": "8c340523-b00f-4000-8000-000000000681",
       "faces": {
         "north": {
           "uv": [
@@ -3206,33 +3030,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform upper dark inset ring 3",
+      "name": "dark interior ring 3",
       "type": "cube",
       "from": [
-        9.817,
-        3.835,
-        4.546
+        10.215,
+        3.94,
+        4.719
       ],
       "to": [
-        14.666,
-        4.085,
-        5.596
+        15.469,
+        4.36,
+        5.919
       ],
-      "color": 0,
+      "color": 1,
       "rotation": [
         0,
         67.5,
         0
       ],
       "origin": [
-        12.242,
-        3.96,
-        5.071
+        12.842,
+        4.15,
+        5.319
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000437",
+      "uuid": "8c340523-b00f-4000-8000-000000000682",
       "faces": {
         "north": {
           "uv": [
@@ -3288,33 +3114,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform upper dark inset ring 4",
+      "name": "dark interior ring 4",
       "type": "cube",
       "from": [
-        10.825,
-        3.835,
-        -0.525
+        11.273,
+        3.94,
+        -0.6
       ],
       "to": [
-        15.675,
-        4.085,
-        0.525
+        16.527,
+        4.36,
+        0.6
       ],
-      "color": 0,
+      "color": 1,
       "rotation": [
         0,
         90,
         0
       ],
       "origin": [
-        13.25,
-        3.96,
+        13.9,
+        4.15,
         0
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000438",
+      "uuid": "8c340523-b00f-4000-8000-000000000683",
       "faces": {
         "north": {
           "uv": [
@@ -3370,33 +3198,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform upper dark inset ring 5",
+      "name": "dark interior ring 5",
       "type": "cube",
       "from": [
-        9.817,
-        3.835,
-        -5.596
+        10.215,
+        3.94,
+        -5.919
       ],
       "to": [
-        14.666,
-        4.085,
-        -4.546
+        15.469,
+        4.36,
+        -4.719
       ],
-      "color": 0,
+      "color": 1,
       "rotation": [
         0,
         112.5,
         0
       ],
       "origin": [
-        12.242,
-        3.96,
-        -5.071
+        12.842,
+        4.15,
+        -5.319
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000439",
+      "uuid": "8c340523-b00f-4000-8000-000000000684",
       "faces": {
         "north": {
           "uv": [
@@ -3452,33 +3282,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform upper dark inset ring 6",
+      "name": "dark interior ring 6",
       "type": "cube",
       "from": [
-        6.944,
-        3.835,
-        -9.894
+        7.202,
+        3.94,
+        -10.429
       ],
       "to": [
-        11.794,
-        4.085,
-        -8.844
+        12.455,
+        4.36,
+        -9.229
       ],
-      "color": 0,
+      "color": 1,
       "rotation": [
         0,
         135,
         0
       ],
       "origin": [
-        9.369,
-        3.96,
-        -9.369
+        9.829,
+        4.15,
+        -9.829
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000440",
+      "uuid": "8c340523-b00f-4000-8000-000000000685",
       "faces": {
         "north": {
           "uv": [
@@ -3534,33 +3366,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform upper dark inset ring 7",
+      "name": "dark interior ring 7",
       "type": "cube",
       "from": [
-        2.646,
-        3.835,
-        -12.766
+        2.693,
+        3.94,
+        -13.442
       ],
       "to": [
-        7.495,
-        4.085,
-        -11.716
+        7.946,
+        4.36,
+        -12.242
       ],
-      "color": 0,
+      "color": 1,
       "rotation": [
         0,
         157.5,
         0
       ],
       "origin": [
-        5.071,
-        3.96,
-        -12.241
+        5.32,
+        4.15,
+        -12.842
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000441",
+      "uuid": "8c340523-b00f-4000-8000-000000000686",
       "faces": {
         "north": {
           "uv": [
@@ -3616,22 +3450,24 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform upper dark inset ring 8",
+      "name": "dark interior ring 8",
       "type": "cube",
       "from": [
-        -2.425,
-        3.835,
-        -13.775
+        -2.627,
+        3.94,
+        -14.5
       ],
       "to": [
-        2.425,
-        4.085,
-        -12.725
+        2.627,
+        4.36,
+        -13.3
       ],
-      "color": 0,
+      "color": 1,
       "rotation": [
         0,
         180,
@@ -3639,10 +3475,10 @@
       ],
       "origin": [
         0,
-        3.96,
-        -13.25
+        4.15,
+        -13.9
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000442",
+      "uuid": "8c340523-b00f-4000-8000-000000000687",
       "faces": {
         "north": {
           "uv": [
@@ -3698,33 +3534,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform upper dark inset ring 9",
+      "name": "dark interior ring 9",
       "type": "cube",
       "from": [
-        -7.495,
-        3.835,
-        -12.766
+        -7.946,
+        3.94,
+        -13.442
       ],
       "to": [
-        -2.646,
-        4.085,
-        -11.716
+        -2.693,
+        4.36,
+        -12.242
       ],
-      "color": 0,
+      "color": 1,
       "rotation": [
         0,
         202.5,
         0
       ],
       "origin": [
-        -5.07,
-        3.96,
-        -12.241
+        -5.319,
+        4.15,
+        -12.842
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000443",
+      "uuid": "8c340523-b00f-4000-8000-000000000688",
       "faces": {
         "north": {
           "uv": [
@@ -3780,33 +3618,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform upper dark inset ring 10",
+      "name": "dark interior ring 10",
       "type": "cube",
       "from": [
-        -11.794,
-        3.835,
-        -9.894
+        -12.455,
+        3.94,
+        -10.429
       ],
       "to": [
-        -6.944,
-        4.085,
-        -8.844
+        -7.202,
+        4.36,
+        -9.229
       ],
-      "color": 0,
+      "color": 1,
       "rotation": [
         0,
         225,
         0
       ],
       "origin": [
-        -9.369,
-        3.96,
-        -9.369
+        -9.828,
+        4.15,
+        -9.829
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000444",
+      "uuid": "8c340523-b00f-4000-8000-000000000689",
       "faces": {
         "north": {
           "uv": [
@@ -3862,33 +3702,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform upper dark inset ring 11",
+      "name": "dark interior ring 11",
       "type": "cube",
       "from": [
-        -14.666,
-        3.835,
-        -5.596
+        -15.469,
+        3.94,
+        -5.919
       ],
       "to": [
-        -9.817,
-        4.085,
-        -4.546
+        -10.215,
+        4.36,
+        -4.719
       ],
-      "color": 0,
+      "color": 1,
       "rotation": [
         0,
         247.5,
         0
       ],
       "origin": [
-        -12.241,
-        3.96,
-        -5.071
+        -12.842,
+        4.15,
+        -5.319
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000445",
+      "uuid": "8c340523-b00f-4000-8000-000000000690",
       "faces": {
         "north": {
           "uv": [
@@ -3944,33 +3786,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform upper dark inset ring 12",
+      "name": "dark interior ring 12",
       "type": "cube",
       "from": [
-        -15.675,
-        3.835,
-        -0.525
+        -16.527,
+        3.94,
+        -0.6
       ],
       "to": [
-        -10.825,
-        4.085,
-        0.525
+        -11.273,
+        4.36,
+        0.6
       ],
-      "color": 0,
+      "color": 1,
       "rotation": [
         0,
         270,
         0
       ],
       "origin": [
-        -13.25,
-        3.96,
+        -13.9,
+        4.15,
         0
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000446",
+      "uuid": "8c340523-b00f-4000-8000-000000000691",
       "faces": {
         "north": {
           "uv": [
@@ -4026,33 +3870,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform upper dark inset ring 13",
+      "name": "dark interior ring 13",
       "type": "cube",
       "from": [
-        -14.666,
-        3.835,
-        4.546
+        -15.469,
+        3.94,
+        4.719
       ],
       "to": [
-        -9.817,
-        4.085,
-        5.596
+        -10.215,
+        4.36,
+        5.919
       ],
-      "color": 0,
+      "color": 1,
       "rotation": [
         0,
         292.5,
         0
       ],
       "origin": [
-        -12.241,
-        3.96,
-        5.071
+        -12.842,
+        4.15,
+        5.319
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000447",
+      "uuid": "8c340523-b00f-4000-8000-000000000692",
       "faces": {
         "north": {
           "uv": [
@@ -4108,33 +3954,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform upper dark inset ring 14",
+      "name": "dark interior ring 14",
       "type": "cube",
       "from": [
-        -11.794,
-        3.835,
-        8.844
+        -12.455,
+        3.94,
+        9.229
       ],
       "to": [
-        -6.944,
-        4.085,
-        9.894
+        -7.202,
+        4.36,
+        10.429
       ],
-      "color": 0,
+      "color": 1,
       "rotation": [
         0,
         315,
         0
       ],
       "origin": [
-        -9.369,
-        3.96,
-        9.369
+        -9.828,
+        4.15,
+        9.829
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000448",
+      "uuid": "8c340523-b00f-4000-8000-000000000693",
       "faces": {
         "north": {
           "uv": [
@@ -4190,33 +4038,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform upper dark inset ring 15",
+      "name": "dark interior ring 15",
       "type": "cube",
       "from": [
-        -7.495,
-        3.835,
-        11.716
+        -7.946,
+        3.94,
+        12.242
       ],
       "to": [
-        -2.646,
-        4.085,
-        12.766
+        -2.693,
+        4.36,
+        13.442
       ],
-      "color": 0,
+      "color": 1,
       "rotation": [
         0,
         337.5,
         0
       ],
       "origin": [
-        -5.07,
-        3.96,
-        12.241
+        -5.319,
+        4.15,
+        12.842
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000449",
+      "uuid": "8c340523-b00f-4000-8000-000000000694",
       "faces": {
         "north": {
           "uv": [
@@ -4272,22 +4122,24 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform locking bolt 0",
+      "name": "gridded center landing",
       "type": "cube",
       "from": [
-        -0.62,
-        2.2,
-        17.38
+        -12.5,
+        3.05,
+        -12.5
       ],
       "to": [
-        0.62,
-        3.35,
-        18.62
+        12.5,
+        4.15,
+        12.5
       ],
-      "color": 1,
+      "color": 2,
       "rotation": [
         0,
         0,
@@ -4295,10 +4147,10 @@
       ],
       "origin": [
         0,
-        2.775,
-        18
+        3.6,
+        0
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000450",
+      "uuid": "8c340523-b00f-4000-8000-000000000695",
       "faces": {
         "north": {
           "uv": [
@@ -4354,268 +4206,24 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform locking bolt 1",
+      "name": "platform articulated socket 0",
       "type": "cube",
       "from": [
-        12.108,
-        2.2,
-        12.108
+        -1.75,
+        1.55,
+        16.45
       ],
       "to": [
-        13.348,
-        3.35,
-        13.348
+        1.75,
+        3.85,
+        19.95
       ],
-      "color": 1,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        12.728,
-        2.775,
-        12.728
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000451",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Platform locking bolt 2",
-      "type": "cube",
-      "from": [
-        17.38,
-        2.2,
-        -0.62
-      ],
-      "to": [
-        18.62,
-        3.35,
-        0.62
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        18,
-        2.775,
-        0
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000452",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Platform locking bolt 3",
-      "type": "cube",
-      "from": [
-        12.108,
-        2.2,
-        -13.348
-      ],
-      "to": [
-        13.348,
-        3.35,
-        -12.108
-      ],
-      "color": 1,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        12.728,
-        2.775,
-        -12.728
-      ],
-      "uuid": "8c340522-b00f-4000-8000-000000000453",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      }
-    },
-    {
-      "name": "Platform locking bolt 4",
-      "type": "cube",
-      "from": [
-        -0.62,
-        2.2,
-        -18.62
-      ],
-      "to": [
-        0.62,
-        3.35,
-        -17.38
-      ],
-      "color": 1,
+      "color": 4,
       "rotation": [
         0,
         0,
@@ -4623,10 +4231,10 @@
       ],
       "origin": [
         0,
-        2.775,
-        -18
+        2.7,
+        18.2
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000454",
+      "uuid": "8c340523-b00f-4000-8000-000000000696",
       "faces": {
         "north": {
           "uv": [
@@ -4682,33 +4290,39 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        0,
+        0
+      ]
     },
     {
-      "name": "Platform locking bolt 5",
+      "name": "blue stage lock 0",
       "type": "cube",
       "from": [
-        -13.348,
-        2.2,
-        -13.348
+        -0.775,
+        3.675,
+        17.425
       ],
       "to": [
-        -12.108,
-        3.35,
-        -12.108
+        0.775,
+        4.325,
+        18.975
       ],
-      "color": 1,
+      "color": 5,
       "rotation": [
         0,
         0,
         0
       ],
       "origin": [
-        -12.728,
-        2.775,
-        -12.728
+        0,
+        4,
+        18.2
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000455",
+      "uuid": "8c340523-b00f-4000-8000-000000000697",
       "faces": {
         "north": {
           "uv": [
@@ -4764,33 +4378,35 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     },
     {
-      "name": "Platform locking bolt 6",
+      "name": "platform articulated socket 1",
       "type": "cube",
       "from": [
-        -18.62,
-        2.2,
-        -0.62
+        5.215,
+        1.55,
+        15.065
       ],
       "to": [
-        -17.38,
-        3.35,
-        0.62
+        8.715,
+        3.85,
+        18.565
       ],
-      "color": 1,
+      "color": 4,
       "rotation": [
         0,
         0,
         0
       ],
       "origin": [
-        -18,
-        2.775,
-        0
+        6.965,
+        2.7,
+        16.815
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000456",
+      "uuid": "8c340523-b00f-4000-8000-000000000698",
       "faces": {
         "north": {
           "uv": [
@@ -4846,33 +4462,39 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        22.5,
+        0
+      ]
     },
     {
-      "name": "Platform locking bolt 7",
+      "name": "platform articulated socket 2",
       "type": "cube",
       "from": [
-        -13.348,
-        2.2,
-        12.108
+        11.119,
+        1.55,
+        11.119
       ],
       "to": [
-        -12.108,
-        3.35,
-        13.348
+        14.619,
+        3.85,
+        14.619
       ],
-      "color": 1,
+      "color": 4,
       "rotation": [
         0,
         0,
         0
       ],
       "origin": [
-        -12.728,
-        2.775,
-        12.728
+        12.869,
+        2.7,
+        12.869
       ],
-      "uuid": "8c340522-b00f-4000-8000-000000000457",
+      "uuid": "8c340523-b00f-4000-8000-000000000699",
       "faces": {
         "north": {
           "uv": [
@@ -4928,7 +4550,1913 @@
           ],
           "texture": null
         }
-      }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        45,
+        0
+      ]
+    },
+    {
+      "name": "blue stage lock 2",
+      "type": "cube",
+      "from": [
+        12.094,
+        3.675,
+        12.094
+      ],
+      "to": [
+        13.644,
+        4.325,
+        13.644
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        12.869,
+        4,
+        12.869
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000700",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "platform articulated socket 3",
+      "type": "cube",
+      "from": [
+        15.065,
+        1.55,
+        5.215
+      ],
+      "to": [
+        18.565,
+        3.85,
+        8.715
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        16.815,
+        2.7,
+        6.965
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000701",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        67.5,
+        0
+      ]
+    },
+    {
+      "name": "platform articulated socket 4",
+      "type": "cube",
+      "from": [
+        16.45,
+        1.55,
+        -1.75
+      ],
+      "to": [
+        19.95,
+        3.85,
+        1.75
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        18.2,
+        2.7,
+        0
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000702",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        90,
+        0
+      ]
+    },
+    {
+      "name": "blue stage lock 4",
+      "type": "cube",
+      "from": [
+        17.425,
+        3.675,
+        -0.775
+      ],
+      "to": [
+        18.975,
+        4.325,
+        0.775
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        18.2,
+        4,
+        0
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000703",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "platform articulated socket 5",
+      "type": "cube",
+      "from": [
+        15.065,
+        1.55,
+        -8.715
+      ],
+      "to": [
+        18.565,
+        3.85,
+        -5.215
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        16.815,
+        2.7,
+        -6.965
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000704",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        112.5,
+        0
+      ]
+    },
+    {
+      "name": "platform articulated socket 6",
+      "type": "cube",
+      "from": [
+        11.119,
+        1.55,
+        -14.619
+      ],
+      "to": [
+        14.619,
+        3.85,
+        -11.119
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        12.869,
+        2.7,
+        -12.869
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000705",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        135,
+        0
+      ]
+    },
+    {
+      "name": "blue stage lock 6",
+      "type": "cube",
+      "from": [
+        12.094,
+        3.675,
+        -13.644
+      ],
+      "to": [
+        13.644,
+        4.325,
+        -12.094
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        12.869,
+        4,
+        -12.869
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000706",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "platform articulated socket 7",
+      "type": "cube",
+      "from": [
+        5.215,
+        1.55,
+        -18.565
+      ],
+      "to": [
+        8.715,
+        3.85,
+        -15.065
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        6.965,
+        2.7,
+        -16.815
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000707",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        157.5,
+        0
+      ]
+    },
+    {
+      "name": "platform articulated socket 8",
+      "type": "cube",
+      "from": [
+        -1.75,
+        1.55,
+        -19.95
+      ],
+      "to": [
+        1.75,
+        3.85,
+        -16.45
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        2.7,
+        -18.2
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000708",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        180,
+        0
+      ]
+    },
+    {
+      "name": "blue stage lock 8",
+      "type": "cube",
+      "from": [
+        -0.775,
+        3.675,
+        -18.975
+      ],
+      "to": [
+        0.775,
+        4.325,
+        -17.425
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        4,
+        -18.2
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000709",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "platform articulated socket 9",
+      "type": "cube",
+      "from": [
+        -8.715,
+        1.55,
+        -18.565
+      ],
+      "to": [
+        -5.215,
+        3.85,
+        -15.065
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -6.965,
+        2.7,
+        -16.815
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000710",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        202.5,
+        0
+      ]
+    },
+    {
+      "name": "platform articulated socket 10",
+      "type": "cube",
+      "from": [
+        -14.619,
+        1.55,
+        -14.619
+      ],
+      "to": [
+        -11.119,
+        3.85,
+        -11.119
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -12.869,
+        2.7,
+        -12.869
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000711",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        225,
+        0
+      ]
+    },
+    {
+      "name": "blue stage lock 10",
+      "type": "cube",
+      "from": [
+        -13.644,
+        3.675,
+        -13.644
+      ],
+      "to": [
+        -12.094,
+        4.325,
+        -12.094
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -12.869,
+        4,
+        -12.869
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000712",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "platform articulated socket 11",
+      "type": "cube",
+      "from": [
+        -18.565,
+        1.55,
+        -8.715
+      ],
+      "to": [
+        -15.065,
+        3.85,
+        -5.215
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -16.815,
+        2.7,
+        -6.965
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000713",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        247.5,
+        0
+      ]
+    },
+    {
+      "name": "platform articulated socket 12",
+      "type": "cube",
+      "from": [
+        -19.95,
+        1.55,
+        -1.75
+      ],
+      "to": [
+        -16.45,
+        3.85,
+        1.75
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -18.2,
+        2.7,
+        0
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000714",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        270,
+        0
+      ]
+    },
+    {
+      "name": "blue stage lock 12",
+      "type": "cube",
+      "from": [
+        -18.975,
+        3.675,
+        -0.775
+      ],
+      "to": [
+        -17.425,
+        4.325,
+        0.775
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -18.2,
+        4,
+        0
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000715",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "platform articulated socket 13",
+      "type": "cube",
+      "from": [
+        -18.565,
+        1.55,
+        5.215
+      ],
+      "to": [
+        -15.065,
+        3.85,
+        8.715
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -16.815,
+        2.7,
+        6.965
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000716",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        292.5,
+        0
+      ]
+    },
+    {
+      "name": "platform articulated socket 14",
+      "type": "cube",
+      "from": [
+        -14.619,
+        1.55,
+        11.119
+      ],
+      "to": [
+        -11.119,
+        3.85,
+        14.619
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -12.869,
+        2.7,
+        12.869
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000717",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        315,
+        0
+      ]
+    },
+    {
+      "name": "blue stage lock 14",
+      "type": "cube",
+      "from": [
+        -13.644,
+        3.675,
+        12.094
+      ],
+      "to": [
+        -12.094,
+        4.325,
+        13.644
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -12.869,
+        4,
+        12.869
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000718",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "platform articulated socket 15",
+      "type": "cube",
+      "from": [
+        -8.715,
+        1.55,
+        15.065
+      ],
+      "to": [
+        -5.215,
+        3.85,
+        18.565
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -6.965,
+        2.7,
+        16.815
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000719",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": [
+        0,
+        337.5,
+        0
+      ]
+    },
+    {
+      "name": "pad embedded lateral rail -1",
+      "type": "cube",
+      "from": [
+        -11.475,
+        3.425,
+        -10
+      ],
+      "to": [
+        -10.525,
+        4.375,
+        10
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -11,
+        3.9,
+        0
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000720",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "pad embedded lateral rail 1",
+      "type": "cube",
+      "from": [
+        10.525,
+        3.425,
+        -10
+      ],
+      "to": [
+        11.475,
+        4.375,
+        10
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        11,
+        3.9,
+        0
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000000721",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
     }
   ],
   "textures": []

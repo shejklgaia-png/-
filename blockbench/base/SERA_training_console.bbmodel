@@ -1,0 +1,3711 @@
+{
+  "meta": {
+    "format_version": "4.10",
+    "model_format": "free",
+    "box_uv": false
+  },
+  "name": "SERA_training_console",
+  "resolution": {
+    "width": 16,
+    "height": 16
+  },
+  "elements": [
+    {
+      "name": "training isolated tall armored floor foot",
+      "type": "cube",
+      "from": [
+        -8.1,
+        0,
+        -6.75
+      ],
+      "to": [
+        8.1,
+        3.2,
+        6.75
+      ],
+      "color": 1,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        1.6,
+        0
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001069",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": true
+    },
+    {
+      "name": "training slanted dynamic base",
+      "type": "cube",
+      "from": [
+        -6.85,
+        2,
+        -6.3
+      ],
+      "to": [
+        6.85,
+        14,
+        3.9
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        -3
+      ],
+      "origin": [
+        0,
+        8,
+        -1.2
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001070",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": true
+    },
+    {
+      "name": "training angular front spine",
+      "type": "cube",
+      "from": [
+        -5.15,
+        7.5,
+        2.2
+      ],
+      "to": [
+        5.15,
+        19.5,
+        6.2
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        13.5,
+        4.2
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001071",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": true
+    },
+    {
+      "name": "training upright tall monitor casing",
+      "type": "cube",
+      "from": [
+        -7.25,
+        15.1,
+        -6.15
+      ],
+      "to": [
+        7.25,
+        31.9,
+        0.15
+      ],
+      "color": 2,
+      "rotation": [
+        -20,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        23.5,
+        -3
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001072",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": true
+    },
+    {
+      "name": "training stepped polygon visor",
+      "type": "cube",
+      "from": [
+        -8.7,
+        30.5,
+        -7.45
+      ],
+      "to": [
+        8.7,
+        33.9,
+        1.25
+      ],
+      "color": 4,
+      "rotation": [
+        -20,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        32.2,
+        -3.1
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001073",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": true
+    },
+    {
+      "name": "training vertical cyan primary screen",
+      "type": "cube",
+      "from": [
+        -6.3,
+        16.8,
+        0.375
+      ],
+      "to": [
+        6.3,
+        30.2,
+        0.825
+      ],
+      "color": 7,
+      "rotation": [
+        -20,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        23.5,
+        0.6
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001074",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": true
+    },
+    {
+      "name": "training status top notch",
+      "type": "cube",
+      "from": [
+        -4.2,
+        33.265,
+        -0.3
+      ],
+      "to": [
+        4.2,
+        33.935,
+        0.7
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        33.6,
+        0.2
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001075",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training diagnostic scan line 0",
+      "type": "cube",
+      "from": [
+        -6.5,
+        18.2,
+        0.785
+      ],
+      "to": [
+        -0.5,
+        18.4,
+        1.035
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -3.5,
+        18.3,
+        0.91
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001076",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training diagnostic scan line 1",
+      "type": "cube",
+      "from": [
+        -6.3,
+        19.7,
+        0.785
+      ],
+      "to": [
+        -0.7,
+        19.9,
+        1.035
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -3.5,
+        19.8,
+        0.91
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001077",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training diagnostic scan line 2",
+      "type": "cube",
+      "from": [
+        -6.1,
+        21.2,
+        0.785
+      ],
+      "to": [
+        -0.9,
+        21.4,
+        1.035
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -3.5,
+        21.3,
+        0.91
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001078",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training diagnostic scan line 3",
+      "type": "cube",
+      "from": [
+        -5.9,
+        22.7,
+        0.785
+      ],
+      "to": [
+        -1.1,
+        22.9,
+        1.035
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -3.5,
+        22.8,
+        0.91
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001079",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training diagnostic scan line 4",
+      "type": "cube",
+      "from": [
+        -5.7,
+        24.2,
+        0.785
+      ],
+      "to": [
+        -1.3,
+        24.4,
+        1.035
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -3.5,
+        24.3,
+        0.91
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001080",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training diagnostic scan line 5",
+      "type": "cube",
+      "from": [
+        -5.5,
+        25.7,
+        0.785
+      ],
+      "to": [
+        -1.5,
+        25.9,
+        1.035
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -3.5,
+        25.8,
+        0.91
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001081",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training diagnostic scan line 6",
+      "type": "cube",
+      "from": [
+        -5.3,
+        27.2,
+        0.785
+      ],
+      "to": [
+        -1.7,
+        27.4,
+        1.035
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -3.5,
+        27.3,
+        0.91
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001082",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training extended input ramp",
+      "type": "cube",
+      "from": [
+        -5.1,
+        12.7,
+        2.6
+      ],
+      "to": [
+        8.7,
+        14.7,
+        11.8
+      ],
+      "color": 3,
+      "rotation": [
+        22,
+        0,
+        0
+      ],
+      "origin": [
+        1.8,
+        13.7,
+        7.2
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001083",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": true
+    },
+    {
+      "name": "training tactile pad 0-0",
+      "type": "cube",
+      "from": [
+        -4.075,
+        14.605,
+        6.5
+      ],
+      "to": [
+        -2.525,
+        14.895,
+        7.5
+      ],
+      "color": 5,
+      "rotation": [
+        22,
+        0,
+        0
+      ],
+      "origin": [
+        -3.3,
+        14.75,
+        7
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001084",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training tactile pad 0-1",
+      "type": "cube",
+      "from": [
+        -1.825,
+        14.605,
+        6.5
+      ],
+      "to": [
+        -0.275,
+        14.895,
+        7.5
+      ],
+      "color": 4,
+      "rotation": [
+        22,
+        0,
+        0
+      ],
+      "origin": [
+        -1.05,
+        14.75,
+        7
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001085",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training tactile pad 0-2",
+      "type": "cube",
+      "from": [
+        0.425,
+        14.605,
+        6.5
+      ],
+      "to": [
+        1.975,
+        14.895,
+        7.5
+      ],
+      "color": 4,
+      "rotation": [
+        22,
+        0,
+        0
+      ],
+      "origin": [
+        1.2,
+        14.75,
+        7
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001086",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training tactile pad 0-3",
+      "type": "cube",
+      "from": [
+        2.675,
+        14.605,
+        6.5
+      ],
+      "to": [
+        4.225,
+        14.895,
+        7.5
+      ],
+      "color": 4,
+      "rotation": [
+        22,
+        0,
+        0
+      ],
+      "origin": [
+        3.45,
+        14.75,
+        7
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001087",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training tactile pad 0-4",
+      "type": "cube",
+      "from": [
+        4.925,
+        14.605,
+        6.5
+      ],
+      "to": [
+        6.475,
+        14.895,
+        7.5
+      ],
+      "color": 5,
+      "rotation": [
+        22,
+        0,
+        0
+      ],
+      "origin": [
+        5.7,
+        14.75,
+        7
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001088",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training tactile pad 1-0",
+      "type": "cube",
+      "from": [
+        -4.075,
+        14.605,
+        8.3
+      ],
+      "to": [
+        -2.525,
+        14.895,
+        9.3
+      ],
+      "color": 5,
+      "rotation": [
+        22,
+        0,
+        0
+      ],
+      "origin": [
+        -3.3,
+        14.75,
+        8.8
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001089",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training tactile pad 1-1",
+      "type": "cube",
+      "from": [
+        -1.825,
+        14.605,
+        8.3
+      ],
+      "to": [
+        -0.275,
+        14.895,
+        9.3
+      ],
+      "color": 4,
+      "rotation": [
+        22,
+        0,
+        0
+      ],
+      "origin": [
+        -1.05,
+        14.75,
+        8.8
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001090",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training tactile pad 1-2",
+      "type": "cube",
+      "from": [
+        0.425,
+        14.605,
+        8.3
+      ],
+      "to": [
+        1.975,
+        14.895,
+        9.3
+      ],
+      "color": 4,
+      "rotation": [
+        22,
+        0,
+        0
+      ],
+      "origin": [
+        1.2,
+        14.75,
+        8.8
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001091",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training tactile pad 1-3",
+      "type": "cube",
+      "from": [
+        2.675,
+        14.605,
+        8.3
+      ],
+      "to": [
+        4.225,
+        14.895,
+        9.3
+      ],
+      "color": 4,
+      "rotation": [
+        22,
+        0,
+        0
+      ],
+      "origin": [
+        3.45,
+        14.75,
+        8.8
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001092",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training tactile pad 1-4",
+      "type": "cube",
+      "from": [
+        4.925,
+        14.605,
+        8.3
+      ],
+      "to": [
+        6.475,
+        14.895,
+        9.3
+      ],
+      "color": 5,
+      "rotation": [
+        22,
+        0,
+        0
+      ],
+      "origin": [
+        5.7,
+        14.75,
+        8.8
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001093",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training staggered right side sensor rack",
+      "type": "cube",
+      "from": [
+        7.6,
+        8.35,
+        -7.55
+      ],
+      "to": [
+        14.2,
+        28.85,
+        -0.45
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        11
+      ],
+      "origin": [
+        10.9,
+        18.6,
+        -4
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001094",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": true
+    },
+    {
+      "name": "training asymmetric side screen",
+      "type": "cube",
+      "from": [
+        7.65,
+        17.05,
+        -0.25
+      ],
+      "to": [
+        14.35,
+        25.75,
+        0.55
+      ],
+      "color": 7,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        11,
+        21.4,
+        0.15
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001095",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": true
+    },
+    {
+      "name": "training side sensor bar 0",
+      "type": "cube",
+      "from": [
+        8.45,
+        16.75,
+        0.575
+      ],
+      "to": [
+        13.15,
+        17.05,
+        0.825
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        10.8,
+        16.9,
+        0.7
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001096",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training side sensor bar 1",
+      "type": "cube",
+      "from": [
+        8.45,
+        18.85,
+        0.575
+      ],
+      "to": [
+        13.15,
+        19.15,
+        0.825
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        10.8,
+        19,
+        0.7
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001097",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training side sensor bar 2",
+      "type": "cube",
+      "from": [
+        8.45,
+        20.95,
+        0.575
+      ],
+      "to": [
+        13.15,
+        21.25,
+        0.825
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        10.8,
+        21.1,
+        0.7
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001098",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training side sensor bar 3",
+      "type": "cube",
+      "from": [
+        8.45,
+        23.05,
+        0.575
+      ],
+      "to": [
+        13.15,
+        23.35,
+        0.825
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        10.8,
+        23.2,
+        0.7
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001099",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training left pneumatic test module",
+      "type": "cube",
+      "from": [
+        -11.7,
+        3.5,
+        -8.2
+      ],
+      "to": [
+        -6.3,
+        19.5,
+        1.6
+      ],
+      "color": 3,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -9,
+        11.5,
+        -3.3
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001100",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": true
+    },
+    {
+      "name": "training hydraulic tubing 0",
+      "type": "cube",
+      "from": [
+        -13.1,
+        5.3,
+        -0.05
+      ],
+      "to": [
+        -11.7,
+        6.7,
+        4.05
+      ],
+      "color": 6,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -12.4,
+        6,
+        2
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001101",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training hydraulic tubing 1",
+      "type": "cube",
+      "from": [
+        -13.1,
+        8.8,
+        -0.05
+      ],
+      "to": [
+        -11.7,
+        10.2,
+        4.05
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -12.4,
+        9.5,
+        2
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001102",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training hydraulic tubing 2",
+      "type": "cube",
+      "from": [
+        -13.1,
+        12.3,
+        -0.05
+      ],
+      "to": [
+        -11.7,
+        13.7,
+        4.05
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -12.4,
+        13,
+        2
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001103",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training hydraulic tubing 3",
+      "type": "cube",
+      "from": [
+        -13.1,
+        15.8,
+        -0.05
+      ],
+      "to": [
+        -11.7,
+        17.2,
+        4.05
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -12.4,
+        16.5,
+        2
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001104",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training diagnostic boom arm",
+      "type": "cube",
+      "from": [
+        -12.15,
+        24.85,
+        -8.464
+      ],
+      "to": [
+        -9.85,
+        27.15,
+        -1.536
+      ],
+      "color": 4,
+      "rotation": [
+        -35.264,
+        -135,
+        0
+      ],
+      "origin": [
+        -11,
+        26,
+        -5
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001105",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training diagnostic boom stabilizer",
+      "type": "cube",
+      "from": [
+        -13.5,
+        22.5,
+        -11.525
+      ],
+      "to": [
+        -12.5,
+        23.5,
+        -1.475
+      ],
+      "color": 6,
+      "rotation": [
+        84.289,
+        0,
+        0
+      ],
+      "origin": [
+        -13,
+        23,
+        -6.5
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001106",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training rear side heat exhaust",
+      "type": "cube",
+      "from": [
+        6.95,
+        1.5,
+        3.1
+      ],
+      "to": [
+        11.05,
+        8.5,
+        6.9
+      ],
+      "color": 4,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        9,
+        5,
+        5
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001107",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training cooling slat 0",
+      "type": "cube",
+      "from": [
+        7.4,
+        2.75,
+        7.1
+      ],
+      "to": [
+        10.6,
+        3.25,
+        7.5
+      ],
+      "color": 0,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        9,
+        3,
+        7.3
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001108",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training cooling slat 1",
+      "type": "cube",
+      "from": [
+        7.4,
+        4.35,
+        7.1
+      ],
+      "to": [
+        10.6,
+        4.85,
+        7.5
+      ],
+      "color": 0,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        9,
+        4.6,
+        7.3
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001109",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training cooling slat 2",
+      "type": "cube",
+      "from": [
+        7.4,
+        5.95,
+        7.1
+      ],
+      "to": [
+        10.6,
+        6.45,
+        7.5
+      ],
+      "color": 0,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        9,
+        6.2,
+        7.3
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001110",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training cooling slat 3",
+      "type": "cube",
+      "from": [
+        7.4,
+        7.55,
+        7.1
+      ],
+      "to": [
+        10.6,
+        8.05,
+        7.5
+      ],
+      "color": 0,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        9,
+        7.8,
+        7.3
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001111",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "training emergency amber indicator",
+      "type": "cube",
+      "from": [
+        -9.75,
+        16.7,
+        1.55
+      ],
+      "to": [
+        -7.25,
+        19.3,
+        2.05
+      ],
+      "color": 6,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -8.5,
+        18,
+        1.8
+      ],
+      "uuid": "8c340523-b00f-4000-8000-000000001112",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    }
+  ],
+  "textures": []
+}
