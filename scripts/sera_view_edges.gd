@@ -85,8 +85,8 @@ func _register() -> void:
     # All scene elements use Bittaran's exact shared RGB12 ID pipeline.
     # This selects only existing widths; no NEXUS-specific ID/ink shader.
     _compositor.call("set_shared_scene_mode", true)
-    # Training keeps its 1px INSIDE and 3px OUTSIDE, but its independent
-    # mesh-seam radius is 1px, matching Bittaran. All other profiles persist.
+    # Every character/boss/CRATE now uses 4 outside, 0 inside, 2 seams.
+    # Training and Bittaran retain their scene IDs for world-only settings.
     var profile: int = (
         3 if _in_training_id_scene(actor) and not is_bittaran
         else _numeric_outline_profile)
