@@ -22,9 +22,6 @@ var hard_creases_only: bool = false
 # Battle-only GPU mode: silhouette and disjoint mesh borders (no convex ridges).
 # Off by default to preserve NEXUS/icon consumers of this controller.
 var enable_combat_gpu_full_edges: bool = false
-# Hybrid Bittaran: no disjoint/open mesh seam ribbons. The shared visible-ID
-# pass alone owns actual mesh-to-mesh contacts in this scene.
-var combat_silhouette_only: bool = false
 var silhouette_inside_px: float = 1.0
 var silhouette_outside_px: float = 5.0
 var seam_stroke_px: float = 4.0
@@ -44,8 +41,6 @@ func _ready() -> void:
         _material.set_shader_parameter("silhouette_inside_px", silhouette_inside_px)
         _material.set_shader_parameter("silhouette_outside_px", silhouette_outside_px)
         _material.set_shader_parameter("seam_px", seam_stroke_px)
-        _material.set_shader_parameter(
-            "silhouette_only", combat_silhouette_only)
     else:
         _material.set_shader_parameter("stroke_px", ink_stroke_px)
     _material.render_priority = ink_render_priority
@@ -188,18 +183,16 @@ func _scan() -> void:
 
 
 func _cached_geometry(source: Mesh, closed: bool) -> Mesh:
-    var key: String = "%d/%d/%d/%d/%d" % [
+    var key: String = "%d/%d/%d/%d" % [
         source.get_instance_id(), int(closed),
-        int(hard_creases_only), int(enable_combat_gpu_full_edges),
-        int(combat_silhouette_only)]
+        int(hard_creases_only), int(enable_combat_gpu_full_edges)]
     if _geometry_cache.has(key):
         var entry: Dictionary = _geometry_cache[key]
         var previous: WeakRef = entry.get("source") as WeakRef
         if previous != null and previous.get_ref() == source:
             return entry.get("result") as Mesh
     var result: Mesh = _make_edges(
-        source, closed, hard_creases_only, enable_combat_gpu_full_edges,
-        combat_silhouette_only)
+        source, closed, hard_creases_only, enable_combat_gpu_full_edges)
     _geometry_cache[key] = {"source": weakref(source), "result": result}
     return result
 
@@ -285,8 +278,7 @@ static func _combat_endpoint_corner(edge: Dictionary,
 
 static func _make_edges(mesh: Mesh, closed: bool,
         hard_only: bool = false,
-        include_full_contour: bool = false,
-        silhouette_only: bool = false) -> ArrayMesh:
+        include_full_contour: bool = false) -> ArrayMesh:
     var extracted: Array = Edges._extract_edges(mesh)
     if extracted.is_empty():
         return null
@@ -318,8 +310,7 @@ static func _make_edges(mesh: Mesh, closed: bool,
                 not bool(candidate.get("duplicate_triangle", false)))
             var candidate_boundary: bool = not candidate.has("face_b") and (
                 int(candidate.get("count", 0)) == 1)
-            if not candidate_paired and (
-                    silhouette_only or not candidate_boundary):
+            if not candidate_paired and not candidate_boundary:
                 continue
             var start: Vector3 = candidate["a"]
             var finish: Vector3 = candidate["b"]
@@ -362,10 +353,7 @@ static func _make_edges(mesh: Mesh, closed: bool,
         var boundary: bool = not edge.has("face_b") and (
             int(edge.get("count", 0)) == 1)
         if include_full_contour:
-            # The Bittaran hybrid renders only true paired front/back
-            # silhouette edges; unpaired edges are mesh-local boundaries
-            # and belong to the ID contact pass, not the GPU silhouette.
-            if not paired and (silhouette_only or not boundary):
+            if not paired and not boundary:
                 continue
         else:
             if not paired:

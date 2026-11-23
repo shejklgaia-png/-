@@ -1,6 +1,5 @@
 shader_type spatial;
-// Bittaran hybrid: GPU ribbons draw external front/back silhouettes only.
-// The existing ID texture/shader owns the separate-mesh contact borders.
+// Bittaran battle: GPU ribbons draw silhouettes and separate-mesh borders ONLY.
 // The source mesh and ribbon share parent transforms and the SAME Camera3D.
 // Hardware depth occludes hidden edges; never needs ID framebuffer / camera.
 render_mode unshaded, cull_disabled, depth_draw_never;
@@ -11,9 +10,6 @@ uniform float silhouette_inside_px : hint_range(0.0, 6.0) = 1.0;
 uniform float silhouette_outside_px : hint_range(0.0, 6.0) = 5.0;
 // Open edges are also the boundaries of separately authored mesh parts.
 uniform float seam_px : hint_range(0.5, 6.0) = 4.0;
-// Disables open-mesh boundaries and both-front grazing ridges in hybrid mode.
-// Geometry generation also omits open edges to lower GPU vertex traffic.
-uniform bool silhouette_only = false;
 // Extend each screen-space edge to close gaps where two thick ribbons meet.
 uniform float corner_cap_px : hint_range(0.0, 6.0) = 5.0;
 varying float edge_visible;
@@ -37,7 +33,7 @@ void vertex() {
 
     if (!paired) {
         // Real open mesh boundaries, including separate plate/wing meshes.
-        visible = !silhouette_only && abs(facing_a) > 0.035;
+        visible = abs(facing_a) > 0.035;
         // An open boundary may also be the outer silhouette of a plate:
         // use the 1px inward / 3px outward profile on its visible rim.
         outer_px = seam_px;
@@ -50,8 +46,7 @@ void vertex() {
         // A face precisely tangent to the camera changes facing sign within
         // a tiny rotation; keep the same silhouette edge rather than flicker.
         bool grazing = min(abs(facing_a), abs(facing_b)) < 0.085 &&
-            strongest > 0.20 && dot(normal_a, normal_b) < 0.95 &&
-            (!silhouette_only || facing_a * facing_b <= 0.0);
+            strongest > 0.20 && dot(normal_a, normal_b) < 0.95;
         // Both faces facing the camera are internal corners.
         // Do not draw them even if this legacy GPU path is restored.
         visible = front_back || grazing;
