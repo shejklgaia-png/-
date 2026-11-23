@@ -1,5 +1,5 @@
 shader_type spatial;
-// Bittaran battle only: one GPU ribbon per relevant topological mesh edge.
+// Bittaran battle: GPU ribbons draw silhouettes and separate-mesh borders ONLY.
 // The source mesh and ribbon share parent transforms and the SAME Camera3D.
 // Hardware depth occludes hidden edges; never needs ID framebuffer / camera.
 render_mode unshaded, cull_disabled, depth_draw_never;
@@ -7,7 +7,6 @@ render_mode unshaded, cull_disabled, depth_draw_never;
 uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
 uniform float silhouette_px : hint_range(0.5, 6.0) = 3.0;
 uniform float seam_px : hint_range(0.5, 6.0) = 3.0;
-uniform float crease_px : hint_range(0.5, 6.0) = 2.0;
 varying float edge_visible;
 
 void vertex() {
@@ -35,10 +34,10 @@ void vertex() {
         // a tiny rotation; keep the same silhouette edge rather than flicker.
         bool grazing = min(abs(facing_a), abs(facing_b)) < 0.085 &&
             strongest > 0.20 && dot(normal_a, normal_b) < 0.95;
-        bool convex = COLOR.a > 0.5 &&
-            facing_a > 0.025 && facing_b > 0.025;
-        visible = front_back || grazing || convex;
-        width_px = (front_back || grazing) ? silhouette_px : crease_px;
+        // Both faces facing the camera is an internal convex corner.
+        // Never emit it for SERA, any enemy or CRATE.
+        visible = front_back || grazing;
+        width_px = silhouette_px;
     }
     edge_visible = visible ? 1.0 : 0.0;
 
