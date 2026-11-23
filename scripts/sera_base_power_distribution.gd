@@ -36,55 +36,195 @@ static func _footprint(key: String) -> Vector2:
     return Vector2(2.00, 2.00)
 
 
-static func _locate_device(key: String, origin: Vector3,
-        all_sites: Array[Dictionary]) -> Dictionary:
+# Approximate free foreground positions read from the supplied 658px BASE
+# screenshot, inverted with the actual overhead camera orientation. These
+# are WORLD X/Z targets, not guessed independent random radial positions.
+# The stable random seed only jitters a candidate around each safe target.
+# Screenshot centers (px): NEXUS 265,590; SMELTER 235,707; RECYCLER 393,718;
+# STORAGE 207,949; GENERATOR 593,964; LABO 320,1080;
+# SCRAP_COLLECTOR 262,1255; BUILD_TERMINAL 586,1267.
+const SCREEN_SAFE_ANCHORS: Dictionary = {
+    "NEXUS": Vector2(-11.06, -13.15),
+    "SMELTER": Vector2(-6.72, -5.95),
+    "RECYCLER": Vector2(-2.21, -8.44),
+    "STORAGE": Vector2(2.35, 8.25),
+    "GENERATOR": Vector2(13.63, 1.52),
+    "LABO": Vector2(11.72, 13.46),
+    "SCRAP_COLLECTOR": Vector2(17.88, 24.49),
+    "BUILD_TERMINAL": Vector2(26.68, 18.79),
+}
+
+const WIRE_GRID: float = 0.82
+const ROUTE_BOUNDS: Rect2i = Rect2i(-55, -50, 111, 105)
+
+
+static func _xz(point: Vector3) -> Vector2:
+    return Vector2(point.x, point.z)
+
+
+static func _local_point(world_at: Vector2, site: Dictionary) -> Vector2:
+    var site_at: Vector3 = site["at"]
+    var rel := Vector3(world_at.x - site_at.x, 0.0,
+        world_at.y - site_at.z)
+    var unturn := Basis(Vector3.UP,
+        -BaseArchitecture.facility_yaw_radians(str(site["id"])))
+    var local: Vector3 = unturn * rel
+    return Vector2(local.x, local.z)
+
+
+static func _inside_site(world_at: Vector2,
+        site: Dictionary, margin: float) -> bool:
+    var local: Vector2 = _local_point(world_at, site)
+    var half: Vector2 = _footprint(str(site["id"]))
+    return absf(local.x) < half.x + margin and (
+        absf(local.y) < half.y + margin)
+
+
+static func _prop_obstacles(sites: Array[Dictionary]) -> Array[Dictionary]:
+    var result: Array[Dictionary] = []
+    for site in sites:
+        var key: String = str(site["id"])
+        var origin: Vector3 = site["at"]
+        var spin := Basis(Vector3.UP,
+            BaseArchitecture.facility_yaw_radians(key))
+        for prop in BaseClutter.props_for(key):
+            var spot: Vector2 = prop["at"]
+            var world: Vector3 = origin + spin * Vector3(spot.x, 0.0, spot.y)
+            var size: Vector2 = BaseClutter.bounds_for(str(prop["kind"])) * (
+                float(prop.get("scale", 1.0)))
+            # Rotate conservatively: the occupied radius is the longest
+            # footprint diagonal, not merely an unrotated axis distance.
+            var radius: float = size.length() * 0.52 + 0.25
+            result.append({"at": _xz(world), "radius": radius})
+    return result
+
+
+static func _open_location(at: Vector2, all_sites: Array[Dictionary],
+        props: Array[Dictionary], placed: Array[Vector2],
+        margin: float = 0.64) -> bool:
+    for site in all_sites:
+        if _inside_site(at, site, margin):
+            return false
+    for prop in props:
+        var center: Vector2 = prop["at"]
+        var radius: float = float(prop["radius"]) + 0.66
+        if at.distance_squared_to(center) < radius * radius:
+            return false
+    for other in placed:
+        if at.distance_squared_to(other) < 2.05 * 2.05:
+            return false
+    return true
+
+
+static func _height_of(key: String) -> float:
+    match key:
+        "NEXUS": return 6.7
+        "SMELTER": return 5.7
+        "LABO": return 4.6
+        "GENERATOR": return 4.2
+        "STORAGE": return 3.3
+        "RECYCLER": return 3.6
+        "SCRAP_COLLECTOR": return 3.3
+        "BUILD_TERMINAL": return 3.1
+    return 3.5
+
+
+static func _visible_at_camera(at: Vector2, camera: Camera3D,
+        all_sites: Array[Dictionary]) -> bool:
+    if not is_instance_valid(camera):
+        return true
+    var top := Vector3(at.x, 0.94, at.y)
+    if camera.is_position_behind(top):
+        return false
+    var pixel: Vector2 = camera.unproject_position(top)
+    var view: Vector2 = camera.get_viewport().get_visible_rect().size
+    # Reserve a small on-screen margin for the entire 1.16m housing. The
+    # screenshot has black top/bottom bars and right-side HUD buttons.
+    if pixel.x < view.x * 0.07 or pixel.x > view.x * 0.93 or (
+            pixel.y < view.y * 0.07 or pixel.y > view.y * 0.95):
+        return false
+    # A ground-clear device can still be hidden by the silhouette of a tall
+    # building in this oblique camera; check approximate projected roof-to-
+    # base rectangles against all physically CLOSER facilities.
+    var device_world := Vector3(at.x, 0.48, at.y)
+    var device_distance: float = camera.global_position.distance_to(device_world)
+    var middle_screen: Vector2 = camera.unproject_position(device_world)
+    for site in all_sites:
+        var center: Vector3 = site["at"]
+        if camera.global_position.distance_to(
+                center + Vector3.UP * 1.6) >= device_distance - 0.35:
+            continue
+        var half: Vector2 = _footprint(str(site["id"]))
+        var yaw := Basis(Vector3.UP,
+            BaseArchitecture.facility_yaw_radians(str(site["id"])))
+        var low := Vector2(100000.0, 100000.0)
+        var high := Vector2(-100000.0, -100000.0)
+        for dx in [-1.0, 1.0]:
+            for dz in [-1.0, 1.0]:
+                for h in [0.0, _height_of(str(site["id"]))]:
+                    var corner: Vector3 = center + yaw * Vector3(
+                        dx * half.x, h, dz * half.y)
+                    var screen: Vector2 = camera.unproject_position(corner)
+                    low = low.min(screen)
+                    high = high.max(screen)
+        if Rect2(low - Vector2.ONE * 4.0,
+                high - low + Vector2.ONE * 8.0).has_point(middle_screen):
+            return false
+    return true
+
+
+static func _locate_device(key: String, all_sites: Array[Dictionary],
+        props: Array[Dictionary], placed: Array[Vector2],
+        camera: Camera3D) -> Dictionary:
+    var goal: Vector2 = SCREEN_SAFE_ANCHORS[key]
     var rng := RandomNumberGenerator.new()
-    rng.seed = _seed_for("SERA_POWER_" + key)
+    rng.seed = _seed_for("SERA_POWER_VISIBLE_" + key)
     var yaw: float = rng.randf_range(-PI, PI)
-    var half: Vector2 = _footprint(key)
-    # Keep the main door/active work area in local +Z open.
-    var props: Array[Dictionary] = BaseClutter.props_for(key)
-    var body_yaw := Basis(Vector3.UP, BaseArchitecture.facility_yaw_radians(key))
-    for attempt in range(96):
-        var phi: float = rng.randf_range(-PI, PI)
-        var rx: float = half.x + rng.randf_range(0.95, 2.30)
-        var rz: float = half.y + rng.randf_range(0.90, 2.00)
-        var local := Vector3(cos(phi) * rx, 0.0, sin(phi) * rz)
-        # The 1.05m substation must stand clear of the physical building.
-        if absf(local.x) < half.x + 0.65 and (
-                absf(local.z) < half.y + 0.65):
+    # Start at the screenshot-approved gap. Keep small random differences
+    # without jumping to the roof/behind another machine.
+    for attempt in range(160):
+        var turn: float = rng.randf_range(-PI, PI)
+        var radius: float = (
+            0.0 if attempt == 0 else (
+            0.25 + float(attempt / 16) * 0.38 +
+            rng.randf_range(0.0, 0.48)))
+        var test: Vector2 = goal + Vector2(cos(turn), sin(turn)) * radius
+        if not _open_location(test, all_sites, props, placed):
             continue
-        if local.z > half.y - 0.15 and absf(local.x) < 2.05:
+        if not _visible_at_camera(test, camera, all_sites):
             continue
-        var blocked: bool = false
-        for prop in props:
-            var p: Vector2 = prop["at"]
-            var dims: Vector2 = BaseClutter.bounds_for(str(prop["kind"]))
-            var pad: float = 0.82 + maxf(dims.x, dims.y) * (
-                float(prop.get("scale", 1.0)) * 0.70)
-            if Vector2(local.x, local.z).distance_to(p) < pad:
-                blocked = true
+        var site: Dictionary = {}
+        for entry in all_sites:
+            if str(entry["id"]) == key:
+                site = entry
                 break
-        if blocked:
-            continue
-        var world_at: Vector3 = origin + body_yaw * local
-        for site in all_sites:
-            if str(site["id"]) == key:
+        var center: Vector3 = site["at"]
+        var world := Vector3(test.x, 0.0, test.y)
+        var local: Vector2 = _local_point(test, site)
+        return {"at": world, "local": Vector3(local.x, 0.0, local.y),
+            "yaw": yaw, "screen_center": camera.unproject_position(
+                world + Vector3.UP * 0.94) if is_instance_valid(camera)
+                else Vector2.ZERO}
+    # Never fall back inside machinery or off screen. Search a bounded
+    # expanded foreground arc; an unplaceable unit is reported, not hidden.
+    for ring in range(10, 30):
+        for sample in range(32):
+            var phi: float = TAU * float(sample) / 32.0
+            var test: Vector2 = goal + Vector2(cos(phi), sin(phi)) * (
+                float(ring) * 0.33)
+            if not _open_location(test, all_sites, props, placed):
                 continue
-            var other: Vector3 = site["at"]
-            var other_half: Vector2 = _footprint(str(site["id"]))
-            var minimum: float = maxf(other_half.x, other_half.y) + 1.45
-            if Vector2(world_at.x, world_at.z).distance_to(
-                    Vector2(other.x, other.z)) < minimum:
-                blocked = true
-                break
-        if blocked:
-            continue
-        return {"at": world_at, "local": local, "yaw": yaw}
-    # Deterministic fallback beside the rear wall, never the front doorway.
-    var fallback := Vector3(-half.x - 1.20, 0.0, -half.y * 0.45)
-    return {"at": origin + body_yaw * fallback,
-        "local": fallback, "yaw": yaw}
+            if not _visible_at_camera(test, camera, all_sites):
+                continue
+            for site in all_sites:
+                if str(site["id"]) != key:
+                    continue
+                var local: Vector2 = _local_point(test, site)
+                return {"at": Vector3(test.x, 0.0, test.y),
+                    "local": Vector3(local.x, 0.0, local.y),
+                    "yaw": yaw}
+    push_warning("BASE power unit cannot be placed safely for " + key)
+    return {}
 
 
 static func _device_port(items: Dictionary, color: String,
