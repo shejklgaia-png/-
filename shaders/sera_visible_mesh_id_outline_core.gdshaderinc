@@ -17,7 +17,21 @@ uniform int scene_profile = 0;
 uniform vec2 output_px_per_id_pixel = vec2(1.0);
 // The legacy set_stroke_px() explicitly adjusts actor OUTSIDE width alone,
 // never automatically replacing seam/inside or other-role presets.
+uniform float actor_inside_override_px = -1.0;
 uniform float actor_outside_override_px = -1.0;
+uniform float actor_seam_override_px = -1.0;
+// Each scene's actor profile is independently configurable, not hardcoded.
+uniform float bittaran_inside_px = 0.0;
+uniform float bittaran_outside_px = 3.0;
+uniform float bittaran_seam_px = 1.0;
+uniform float nexus_actor_inside_px = 1.0;
+uniform float nexus_actor_outside_px = 2.0;
+uniform float nexus_actor_seam_px = 2.0;
+uniform float training_inside_px = 1.0;
+uniform float training_outside_px = 3.0;
+uniform float training_seam_px = 1.0;
+uniform float nexus_facility_outside_px = 2.0;
+uniform float nexus_facility_seam_px = 2.0;
 // Existing per-element settings. None of these change the ID processing path.
 uniform float main_inside_px = 1.0;
 uniform float main_outside_px = 3.0;
@@ -98,13 +112,16 @@ bool sera_in_disk(int dx, int dy, float desired_display_px) {
 }
 
 float sera_inner_width(int role) {
+    if (role == 1 && actor_inside_override_px >= 0.0) {
+        return actor_inside_override_px;
+    }
     if (role == 2) { return facility_inside_px; }
     if (role == 3) { return clutter_inside_px; }
     if (role == 5) { return crate_inside_px; }
     if (role == 6) { return part_inside_px; }
-    if (role == 1 && scene_profile == 1) { return 0.0; }
-    if (role == 1 && scene_profile == 2) { return 1.0; }
-    if (role == 1 && scene_profile == 3) { return 1.0; }
+    if (role == 1 && scene_profile == 1) { return bittaran_inside_px; }
+    if (role == 1 && scene_profile == 2) { return nexus_actor_inside_px; }
+    if (role == 1 && scene_profile == 3) { return training_inside_px; }
     return main_inside_px;
 }
 
@@ -113,25 +130,32 @@ float sera_outer_width(int role) {
         return actor_outside_override_px;
     }
     if (role == 2) {
-        return scene_profile == 2 ? 2.0 : facility_outside_px;
+        return scene_profile == 2 ?
+            nexus_facility_outside_px : facility_outside_px;
     }
     if (role == 3) { return clutter_outside_px; }
     if (role == 5) { return crate_outside_px; }
     if (role == 6) { return part_outside_px; }
-    if (role == 1 && scene_profile == 2) { return 2.0; }
+    if (role == 1 && scene_profile == 1) { return bittaran_outside_px; }
+    if (role == 1 && scene_profile == 2) { return nexus_actor_outside_px; }
+    if (role == 1 && scene_profile == 3) { return training_outside_px; }
     return main_outside_px;
 }
 
 float sera_seam_width(int role) {
+    if (role == 1 && actor_seam_override_px >= 0.0) {
+        return actor_seam_override_px;
+    }
     if (role == 2) {
-        return scene_profile == 2 ? 2.0 : facility_seam_px;
+        return scene_profile == 2 ?
+            nexus_facility_seam_px : facility_seam_px;
     }
     if (role == 3) { return clutter_seam_px; }
     if (role == 5) { return crate_seam_px; }
     if (role == 6) { return part_seam_px; }
-    if (role == 1 && scene_profile == 1) { return 1.0; }
-    if (role == 1 && scene_profile == 2) { return 2.0; }
-    if (role == 1 && scene_profile == 3) { return 1.0; }
+    if (role == 1 && scene_profile == 1) { return bittaran_seam_px; }
+    if (role == 1 && scene_profile == 2) { return nexus_actor_seam_px; }
+    if (role == 1 && scene_profile == 3) { return training_seam_px; }
     return main_seam_px;
 }
 
@@ -184,10 +208,12 @@ float sera_visible_id_ink_alpha(vec2 uv) {
                 uv.y < ink_screen_bounds.y || uv.y > ink_screen_bounds.w) {
             return 0.0;
         }
-        float largest_outer_px = max(max(main_outside_px,
-            facility_outside_px), max(max(clutter_outside_px,
+        float largest_outer_px = max(max(max(main_outside_px,
+            bittaran_outside_px), max(nexus_actor_outside_px,
+            training_outside_px)), max(max(facility_outside_px,
+            nexus_facility_outside_px), max(max(clutter_outside_px,
             crate_outside_px), max(part_outside_px,
-            max(3.0, actor_outside_override_px))));
+            actor_outside_override_px))));
         int outer_search = sera_search_radius(largest_outer_px);
         for (int dy = -outer_search; dy <= outer_search; dy++) {
             for (int dx = -outer_search; dx <= outer_search; dx++) {
