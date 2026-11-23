@@ -4,7 +4,6 @@ extends Control
 const EquipmentPreview = preload("res://tools/equipment_intake/godot_preview.gd")
 const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
 const RotateMark = preload("res://scripts/sera_rotatable_mark.gd")
-const IrisIDContour = preload("res://scripts/sera_iris_id_silhouette_preview.gd")
 const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
 const IrisPolygonLight = preload("res://shaders/sera_iris_polygon_light.gdshader")
 const IrisPolygonLightClosed = preload("res://shaders/sera_iris_polygon_light_closed.gdshader")
@@ -26,9 +25,9 @@ var preview_host: SubViewportContainer
 var ready_for_commands: bool = false
 var current_blueprint: String = ""
 var active_preview: bool = false
-## Opt-in ONLY for NEXUS. LABO/STORAGE keep the original 3D renderer.
+## NEXUS keeps the brighter preview backdrop but ALL part previews,
+## including IRIS, use the same Bittaran RGB12 visible-ID contour compositor.
 var enable_nexus_iris_id_contour: bool = false
-var _iris_contour: Control
 var selected_parts: Dictionary = {}
 var _request_serial: int = 0
 var _pressed_mouse: bool = false
@@ -450,8 +449,6 @@ func show_part(blueprint: String, selections: Dictionary = {}) -> void:
         _material_toggle.visible = fullscreen and _is_iris_preview()
     if is_instance_valid(_material_panel):
         _material_panel.visible = fullscreen and _material_editor_open and _is_iris_preview()
-    if is_instance_valid(_iris_contour):
-        _iris_contour.call("set_active", false)
     _set_shared_outline_enabled(GraphicsSettings.get_enabled("part_outline"))
     selected_parts = selections.duplicate(true)
     active_preview = true
@@ -490,19 +487,10 @@ func _load_part(request: int) -> void:
             "zoom": 1.0, "outlinePx": 3.0},
         "seq": request
     })
-    if enable_nexus_iris_id_contour and current_blueprint == "H02" and (
-            request == _request_serial) and GraphicsSettings.get_enabled("part_outline"):
-        # Preserve the exact proven HEAD D ID contour; don't draw the
-        # shared ID mask over the same six meshes a second time.
-        _set_shared_outline_enabled(false)
-        if not is_instance_valid(_iris_contour):
-            _iris_contour = IrisIDContour.new()
-            add_child(_iris_contour)
-            # Keep the rotation cue above this non-interactive ink layer.
-            move_child(_iris_contour, 1)
-        _iris_contour.call("set_active", true, preview_scene, render_viewport)
-    else:
-        _set_shared_outline_enabled(GraphicsSettings.get_enabled("part_outline"))
+    # HEAD D/IRIS no longer uses a six-ID custom Canvas mask. Exactly the
+    # same RGB12 IDs, depth resolve, contact owner and 1/2/2 width preset
+    # as every other part are displayed by SeraSceneIDOutlines.
+    _set_shared_outline_enabled(GraphicsSettings.get_enabled("part_outline"))
     _apply_iris_shading()
 
 func set_preview_active(enabled: bool) -> void:
@@ -515,8 +503,6 @@ func set_preview_active(enabled: bool) -> void:
         _touch_starts.clear()
         _ui_mode_touches.clear()
         _last_tap_time = 0
-        if is_instance_valid(_iris_contour):
-            _iris_contour.call("set_active", false)
         _request_serial += 1
         _pressed_mouse = false
         if is_instance_valid(preview_scene):
