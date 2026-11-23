@@ -281,8 +281,12 @@ func _hall(parent: Node3D, theme: String) -> void:
     for y in [0.71, 2.17, 3.88]:
         _b(parent, Vector3(0, y, rear_z+0.33),
             Vector3(width-1.40, 0.095, 0.14), METAL)
+    # FAB foreground crossbeams used to dominate the 30% header: keep its
+    # truss spans deeper in the room while preserving the refinery/store.
     var roof_spans: Array = [-4.60, -2.60, -0.40, 1.70]
-    if storage:
+    if theme == "fabricate":
+        roof_spans = [-4.65, -2.70]
+    elif storage:
         roof_spans = [-7.20, -4.65, -2.10, 0.65, 3.30]
     for z in roof_spans:
         _b(parent, Vector3(0, 4.65, z),
@@ -298,7 +302,10 @@ func _hall(parent: Node3D, theme: String) -> void:
     # Visible ceiling diffusers use the original emissive material.
     var diffuser_x: Array = [-3.80, 0.0, 3.80]
     var diffuser_z: Array = [-1.15]
-    if storage:
+    if theme == "fabricate":
+        diffuser_x = [-3.45, 3.45]
+        diffuser_z = [-2.85]
+    elif storage:
         diffuser_x = [-6.60, 0.0, 6.60]
         diffuser_z = [-4.10, 1.10]
     for z in diffuser_z:
