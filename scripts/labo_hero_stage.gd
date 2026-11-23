@@ -1,4 +1,6 @@
 extends Node3D
+const DISPLAY_SHADER = preload("res://assets/monitors/labo_display.gdshader")
+enum Display { PRINT, FLOW, PURITY, RECYCLE, INVENTORY, SCANNER }
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const CrateModel = preload("res://scripts/sera_crate_model.gd")
 const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
@@ -184,22 +186,7 @@ func _build_conversion_room() -> void:
     room.add_child(recycle)
     _block(recycle, "RecycleScreenFrame", Vector3.ZERO,
         Vector3(1.72, 1.26, 0.14), Color("#5b7989"))
-    _block(recycle, "RecycleDisplay", Vector3(0, 0, 0.085),
-        Vector3(1.49, 1.03, 0.035), Color("#134155"))
-    # Reference shows a bright triangular recycling pictogram.
-    # Build it from three short 3D bars instead of a flat UI decal.
-    var triangle_points: Array[Vector2] = [
-        Vector2(-0.43, -0.31), Vector2(0.43, -0.31),
-        Vector2(0, 0.39)]
-    for i in range(3):
-        var p1: Vector2 = triangle_points[i]
-        var p2: Vector2 = triangle_points[(i+1)%3]
-        var center: Vector2 = (p1+p2)*0.5
-        var stroke: MeshInstance3D = _block(recycle, "RecyclingTriangleEdge",
-            Vector3(center.x, center.y, 0.116),
-            Vector3(p1.distance_to(p2), 0.07, 0.024),
-            Color("#66e7e6"), true)
-        stroke.rotation.z = (p2-p1).angle()
+    _live_display(recycle, "RecycleDisplay", 0.103, Vector2(1.49, 1.03), Display.RECYCLE)
     _sign(recycle, "RECYCLE", Vector3(0, -0.47, 0.114), 25)
     for step in range(7):
         _block(room, "RefineryStairRiser",
@@ -250,16 +237,7 @@ func _build_warehouse_room() -> void:
     room.add_child(monitor)
     _block(monitor, "StockMonitorOuterFrame", Vector3.ZERO,
         Vector3(2.48, 1.58, 0.19), Color("#7592a0"))
-    _block(monitor, "StockMonitorGlass", Vector3(0, 0, 0.13),
-        Vector3(2.23, 1.33, 0.02), Color("#17465b"))
-    for i in range(5):
-        _block(monitor, "InventoryDiagnosticLine",
-            Vector3(0.58, 0.53-float(i)*0.23, 0.155),
-            Vector3(0.56, 0.035, 0.012), Color("#5baabd"), true)
-    _block(monitor, "HeadShellDiagram", Vector3(-0.54, 0.15, 0.153),
-        Vector3(0.61, 0.33, 0.018), Color("#52b9d0"), true)
-    _block(monitor, "DiagramSideRail", Vector3(-0.55, -0.23, 0.16),
-        Vector3(0.90, 0.028, 0.012), Color("#65d0e0"), true)
+    _live_display(monitor, "StockMonitorGlass", 0.142, Vector2(2.23, 1.33), Display.INVENTORY)
     _block(room, "WarehouseTerminalColumn", Vector3(1.53, 0.61, -0.75),
         Vector3(0.46, 1.18, 0.49), Color("#4c6674"))
     var terminal := Node3D.new()
@@ -269,10 +247,7 @@ func _build_warehouse_room() -> void:
     room.add_child(terminal)
     _block(terminal, "TerminalFrame", Vector3.ZERO,
         Vector3(1.02, 0.67, 0.15), Color("#637f8d"))
-    _block(terminal, "TerminalScreen", Vector3(0, 0, 0.09),
-        Vector3(0.86, 0.50, 0.021), Color("#27617c"))
-    _block(terminal, "TerminalStatus", Vector3(0, 0.03, 0.105),
-        Vector3(0.64, 0.17, 0.011), Color("#6bd0e2"), true)
+    _live_display(terminal, "TerminalScreen", 0.102, Vector2(0.86, 0.50), Display.SCANNER)
 
 # A: enlarged printer, 60% of visual width as in the reference.
 # Printer, arm and workpiece share the same *local* machine coordinates.
@@ -385,6 +360,22 @@ func _build_printer() -> void:
             Vector3(-4.83+float(k)*0.50, 0.68, 1.74),
             Vector3(0.19, 0.07, 0.04), Color("#b3c2c8"))
 
+func _live_display(parent: Node3D, label: String, front_z: float, size: Vector2, mode: int) -> void:
+    var panel := MeshInstance3D.new()
+    var quad := QuadMesh.new()
+    quad.size = size
+    var material := ShaderMaterial.new()
+    material.shader = DISPLAY_SHADER
+    material.set_shader_parameter("mode", mode)
+    panel.name = label
+    panel.position.z = front_z
+    panel.mesh = quad
+    panel.material_override = material
+    panel.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    panel.set_meta("FX_NO_OUTLINE", true)
+    panel.set_meta("sera_preserve_authored_material", true)
+    parent.add_child(panel)
+
 func _build_terminal() -> void:
     var console := Node3D.new()
     console.name = "PrinterInspectionStation"
@@ -402,13 +393,7 @@ func _build_terminal() -> void:
     console.add_child(screen)
     _block(screen, "ScreenOuterCase", Vector3.ZERO,
         Vector3(1.05, 0.74, 0.08), Color("#6f8997"))
-    _block(screen, "TechnicalDisplay", Vector3(0, 0, 0.055),
-        Vector3(0.92, 0.61, 0.023), Color("#175268"))
-    for j in range(3):
-        _block(screen, "StatusGraph", Vector3(0.19, 0.21-float(j)*0.16, 0.074),
-            Vector3(0.39, 0.024, 0.008), Color("#6ec3d6"), true)
-    _block(screen, "HeadDraft", Vector3(-0.25, 0.03, 0.076),
-        Vector3(0.31, 0.22, 0.01), Color("#79d8e7"), true)
+    _live_display(screen, "TechnicalDisplay", 0.068, Vector2(0.92, 0.61), Display.PRINT)
 
 func _build_crate() -> void:
     # Exact same factory and mesh as the roaming robot in the base.
@@ -563,12 +548,8 @@ func _build_converter() -> void:
         controller.add_child(display)
         _block(display, "PanelMetalFrame", Vector3.ZERO,
             Vector3(0.85, 0.58, 0.12), Color("#a2b7c0"))
-        _block(display, "PanelGlass", Vector3(0, 0, 0.078),
-            Vector3(0.72, 0.44, 0.02), Color("#225970"))
-        for k in range(3):
-            _block(display, "LinePlot",
-                Vector3(-0.19, 0.15-float(k)*0.11, 0.095),
-                Vector3(0.28, 0.027, 0.01), Color("#70cfe0"), true)
+        _live_display(display, "PanelGlass", 0.089, Vector2(0.72, 0.44),
+            Display.FLOW if idx == 0 else Display.PURITY)
 
 # C: loaded racks face the central aisle, with two different banks and
 # individually readable H01/H02/A01 and B01/B02/A02 storage IDs.
