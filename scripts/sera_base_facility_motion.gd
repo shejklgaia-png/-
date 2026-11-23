@@ -174,7 +174,9 @@ func sample_at(seconds: float) -> void:
                                         CollectorConveyor.BELT_START_X,
                                         CollectorConveyor.SCRAP_BELT_Y,
                                         CollectorConveyor.BELT_Z) + scrap_shift),
-                                    _axis(Vector3.FORWARD), scrap_rock)
+                                    # +Z pitches the leading (+X) edge
+                                    # upward while climbing the ramp.
+                                    _axis(Vector3.BACK), scrap_rock)
                         else:
                             # Anchor the exact last resting pose to the
                             # crane, rotating around its real slewing axis.
