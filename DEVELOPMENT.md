@@ -1,3 +1,9 @@
+## 2026-11-23 — Repair asset-only equipment icon capture for current NEXUS
+
+- Identified the previously failed automated 57-PNG generation (run 45160855480): `_screen_material` is deliberately null with the current NEXUS CanvasLayer contact compositor, so H01 failed before images could be published.
+- Rewired the offline Godot capture to get the native `id_viewport` and `ink` TextureRect, make only the capture ink transparent, and use the ID pixels for final-resolution reconstruction. Convex ribbon remains a separate native render pass.
+- Kept all gameplay/NEXUS shaders, model originals, 19 IDs and 3 output profiles unchanged. This is a production asset-generation repair only, without CI/test inspection, edits or execution.
+
 ## 2026-11-23 — Offline equipment PNG contour reconstruction
 
 - Updated `tools/icon_studio/sera_all_native_capture.gd` to capture 19 authored SeraRig equipment models in three display profiles at 4× framebuffer resolution and perform final-pixel outlines after fitting (no post-ink Lanczos resize).
