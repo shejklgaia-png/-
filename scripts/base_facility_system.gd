@@ -174,52 +174,55 @@ func _cylinder(parent: Node3D, title: String, at: Vector3, radius: float,
 
 func _build_facilities() -> void:
     for spec in FACILITY_SPECS:
-        var key: String = str(spec["id"])
-        var root_node := Node3D.new()
-        root_node.name = key
-        # Include foundation, rotor, and independently authored geometry in
-        # one BASE facility classification (4/0/3 + convex2).
-        root_node.set_meta("sera_outline_role", "facility")
-        root_node.position = spec["at"]
-        add_child(root_node)
-        facility_nodes[key] = root_node
-        var foundation: MeshInstance3D = _box(root_node, "Foundation", Vector3(0, 0.16, 0),
-            Vector3(float((spec["size"] as Vector3).x), 0.32,
-                float((spec["size"] as Vector3).z)), Color("#46535c"))
-        foundation.rotation.y = BaseArchitecture.facility_yaw_radians(key)
-        # All seven stations now have separately authored industrial geometry.
-        BaseArchitecture.build_facility(root_node, key)
-        WorldMonitors.attach_facility(root_node,key)
-        # Keep the generator's existing rotor animation after the geometry swap.
-        if key == "GENERATOR":
-            generator_rotor = Node3D.new()
-            generator_rotor.name = "EnergyRotor"
-            var rotor_yaw: float = BaseArchitecture.facility_yaw_radians(key)
-            generator_rotor.position = Basis(Vector3.UP, rotor_yaw) * Vector3(-0.60, 2.15, -0.34)
-            generator_rotor.rotation.y = rotor_yaw
-            root_node.add_child(generator_rotor)
-            _box(generator_rotor, "RotorHub", Vector3.ZERO,
-                Vector3(0.22, 0.15, 0.22), Color("#576d79"))
-            for spoke in range(4):
-                var spin: float = float(spoke) * PI * 0.5
-                var vane: MeshInstance3D = _box(generator_rotor, "RotorBlade",
-                    Basis(Vector3.UP, spin) * Vector3(0.22, 0, 0),
-                    Vector3(0.30, 0.05, 0.09), Color("#8db7c4"))
-                vane.rotation.y = spin
-        var sign := Label3D.new()
-        sign.name = "FacilitySign"
-        sign.text = str(spec["name"])
-        sign.font = LaboSkin.ui_font()
-        # The HUD owns the sole name label in the FOV-free BASE overview.
-        # Keep the 3D sign node for prefab hierarchy/diagnostics, but avoid
-        # two superimposed captions at small portrait screen sizes.
-        sign.visible = false
-        sign.font_size = 70
-        sign.pixel_size = 0.006
-        sign.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-        sign.modulate = Color("#c0eff9")
-        sign.position = Vector3(0.0, float((spec["size"] as Vector3).y) + 0.28, 0.0)
-        root_node.add_child(sign)
+        _build_station(spec)
+
+func _build_station(spec: Dictionary) -> void:
+    var key: String = str(spec["id"])
+    var root_node := Node3D.new()
+    root_node.name = key
+    # Include foundation, rotor, and independently authored geometry in
+    # one BASE facility classification (4/0/3 + convex2).
+    root_node.set_meta("sera_outline_role", "facility")
+    root_node.position = spec["at"]
+    add_child(root_node)
+    facility_nodes[key] = root_node
+    var foundation: MeshInstance3D = _box(root_node, "Foundation", Vector3(0, 0.16, 0),
+        Vector3(float((spec["size"] as Vector3).x), 0.32,
+            float((spec["size"] as Vector3).z)), Color("#46535c"))
+    foundation.rotation.y = BaseArchitecture.facility_yaw_radians(key)
+    # All seven stations now have separately authored industrial geometry.
+    BaseArchitecture.build_facility(root_node, key)
+    # Keep the generator's existing rotor animation after the geometry swap.
+    if key == "GENERATOR":
+        generator_rotor = Node3D.new()
+        generator_rotor.name = "EnergyRotor"
+        var rotor_yaw: float = BaseArchitecture.facility_yaw_radians(key)
+        generator_rotor.position = Basis(Vector3.UP, rotor_yaw) * Vector3(-0.60, 2.15, -0.34)
+        generator_rotor.rotation.y = rotor_yaw
+        root_node.add_child(generator_rotor)
+        _box(generator_rotor, "RotorHub", Vector3.ZERO,
+            Vector3(0.22, 0.15, 0.22), Color("#576d79"))
+        for spoke in range(4):
+            var spin: float = float(spoke) * PI * 0.5
+            var vane: MeshInstance3D = _box(generator_rotor, "RotorBlade",
+                Basis(Vector3.UP, spin) * Vector3(0.22, 0, 0),
+                Vector3(0.30, 0.05, 0.09), Color("#8db7c4"))
+            vane.rotation.y = spin
+    var sign := Label3D.new()
+    sign.name = "FacilitySign"
+    sign.text = str(spec["name"])
+    sign.font = LaboSkin.ui_font()
+    # The HUD owns the sole name label in the FOV-free BASE overview.
+    # Keep the 3D sign node for prefab hierarchy/diagnostics, but avoid
+    # two superimposed captions at small portrait screen sizes.
+    sign.visible = false
+    sign.font_size = 70
+    sign.pixel_size = 0.006
+    sign.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+    sign.modulate = Color("#c0eff9")
+    sign.position = Vector3(0.0, float((spec["size"] as Vector3).y) + 0.28, 0.0)
+    root_node.add_child(sign)
+    WorldMonitors.attach_facility(root_node, key)
 
 func _build_labo(parent: Node3D) -> void:
     _box(parent, "LaboratoryHall", Vector3(0, 1.70, 0),
