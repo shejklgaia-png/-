@@ -259,6 +259,8 @@ func _add_module(name: String, at: Vector3, yaw: float = 0.0,
         return
     var facing := Basis(Vector3.UP, yaw)
     for item in Modules.MODULES[name]:
+        if WorldMonitors.replaces_screen_marks(str(item[0])):
+            continue
         var stretch := Vector3(1.0, height_factor, 1.0)
         var low: Vector3 = _vec(item[1]) * Modules.UNIT * factor * stretch
         var high: Vector3 = _vec(item[2]) * Modules.UNIT * factor * stretch
