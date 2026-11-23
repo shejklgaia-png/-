@@ -2,6 +2,7 @@ extends Node3D
 # v147: move exhibition SERA twice as fast (0.14 s) and finalize only after concurrent camera arrival.
 # Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
+const NexusFloorPanels = preload("res://scripts/sera_nexus_floor_panels.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
 const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
@@ -307,6 +308,9 @@ func _ready() -> void:
     _module("system_console", Vector3(-2.45, 0.0, 1.45), deg_to_rad(18.0))
     _module("training_console", Vector3(2.38, 0.0, 0.55), deg_to_rad(-14.0))
     _render_batches()
+    # Replace only the floor surface, retaining the authored foundation,
+    # all structures, console hit areas and the original NEXUS ID pipeline.
+    NexusFloorPanels.build(self)
     _deployment_gate_lightspill()
     _pad_center()
     # All NEXUS architecture and SERA contours now use the exact Bittaran
@@ -412,6 +416,11 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
             selected_shape = "DEPLOYMENT"
     var silhouette_parts: Array = target_parts.get(selected_shape, [])
     for part in Modules.MODULES[name]:
+        # The floor foundation remains as authored. Suppress only the old
+        # tiles, stripes, light sockets and grate boxes replaced by the new
+        # depth-occluding reference deck, avoiding double/z-fighting surfaces.
+        if name == "hangar_shell" and _is_replaced_nexus_deck_part(String(part[0])):
+            continue
         var stretch := Vector3(1.0, height_factor, 1.0)
         var lo: Vector3 = _vec(part[1]) * Modules.UNIT * scale_factor * stretch
         var hi: Vector3 = _vec(part[2]) * Modules.UNIT * scale_factor * stretch
@@ -439,6 +448,24 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
         batch_data[batch_key] = instances
     if not selected_shape.is_empty():
         target_parts[selected_shape] = silhouette_parts
+
+
+
+func _is_replaced_nexus_deck_part(part_name: String) -> bool:
+    for prefix in [
+            "Deck darker lateral service inset",
+            "Broad forged deck panel",
+            "Panel access reveal",
+            "Transverse center walkway seam",
+            "Longitudinal recessed floor tramline",
+            "Longitudinal floor amber protection lane",
+            "Hazard dash",
+            "Floor blue guide chassis",
+            "Floor inset luminaire",
+            "Wide maintenance drain"]:
+        if part_name.begins_with(prefix):
+            return true
+    return false
 
 
 func _gate_facing_yaw() -> float:
