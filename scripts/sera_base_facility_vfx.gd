@@ -100,6 +100,7 @@ void fragment() {
 }
 """
 static var _generator_gap_leak_shader: Shader
+static var _generator_gap_leak_material: ShaderMaterial
 
 # A visible projector shaft is NOT a real volumetric light pass: three
 # crossed, tapered planes use the same forward vector as SpotLight3D. Their
@@ -714,9 +715,12 @@ func _generator_visible_gap_leaks() -> void:
         _generator_gap_leak_shader = Shader.new()
         _generator_gap_leak_shader.code = GENERATOR_GAP_LEAK_SHADER
 
-    var glow_material := ShaderMaterial.new()
-    glow_material.shader = _generator_gap_leak_shader
-    glow_material.render_priority = RENDER_ORDER.FACILITY_VFX_FOREGROUND
+    # Immutable across rebuilds: one material for all ten batched faces.
+    if _generator_gap_leak_material == null:
+        _generator_gap_leak_material = ShaderMaterial.new()
+        _generator_gap_leak_material.shader = _generator_gap_leak_shader
+        _generator_gap_leak_material.render_priority = (
+            RENDER_ORDER.FACILITY_VFX_FOREGROUND)
 
     var unit_quad := QuadMesh.new()
     unit_quad.size = Vector2.ONE
@@ -760,7 +764,7 @@ func _generator_visible_gap_leaks() -> void:
     strip_batch.name = "GeneratorVisibleGapLeakBatch"
     strip_batch.set_meta("FX_NO_OUTLINE", true)
     strip_batch.multimesh = instances
-    strip_batch.material_override = glow_material
+    strip_batch.material_override = _generator_gap_leak_material
     strip_batch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     add_child(strip_batch)
 
