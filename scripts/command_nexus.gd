@@ -493,9 +493,9 @@ func _mat(index: int) -> StandardMaterial3D:
         mat.emission_energy_multiplier = 1.05 if index == 7 else 1.75
     return mat
 
-# The 2px gray edges belong to static NEXUS architecture only.
-# A depth-tested next pass is composited BEFORE CanvasLayer selection glows.
-# No SeraRig material, mesh or animation is ever passed to this helper.
+# Opaque NEXUS architecture uses the original 3D geometry's depth-tested
+# 2px overlay. There is no room-edge postprocess, ID ink or second viewport.
+# Keep SeraRig and its visible-mesh-ID contour strictly separate.
 func _nexus_edge_material(geometry_mode: int = 0) -> ShaderMaterial:
     var edge := ShaderMaterial.new()
     edge.shader = NEXUS_EDGE_SHADER
