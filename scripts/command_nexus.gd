@@ -501,9 +501,15 @@ func _sync_placement_launchers() -> void:
     var view: Vector2 = get_viewport().get_visible_rect().size
     # Keep these in the same DESIGN coordinate system as the SubViewport HUD.
     # They do not depend on an editor state poll or a one-shot redraw event.
-    placement_entry_button.position = Vector2(20.0, 36.0)
+    # Keep both launchers BELOW the portrait viewport's upper inset.
+    # The former y=36 placement could be clipped by the phone-safe HUD.
+    # Place the focused camera control opposite the menu (left for SYSTEM,
+    # right for TRAINING) so it stays unobscured and visibly tappable.
+    placement_entry_button.position = Vector2(20.0, 112.0)
     placement_entry_button.size = Vector2(156.0, 54.0)
-    angle_entry_button.position = Vector2(maxf(16.0, view.x - 228.0), 36.0)
+    var angle_x: float = 18.0 if focused_target in [
+        "SYSTEM", "DATA ARCHIVE"] else maxf(16.0, view.x - 228.0)
+    angle_entry_button.position = Vector2(angle_x, 112.0)
     angle_entry_button.size = Vector2(208.0, 54.0)
     var in_overview: bool = focused_target.is_empty()
     placement_entry_button.visible = in_overview and (
@@ -1071,7 +1077,7 @@ func _hud() -> void:
     placement_entry_button = _placement_launcher_button("正規配置", "NexusPlaceEntry")
     angle_entry_button = _placement_launcher_button(
         "アングル正規配置", "NexusAngleEntry")
-    placement_entry_button.position = Vector2(20.0, 36.0)
+    placement_entry_button.position = Vector2(20.0, 112.0)
     placement_entry_button.size = Vector2(156.0, 54.0)
     placement_entry_button.visible = true
     angle_entry_button.visible = false
