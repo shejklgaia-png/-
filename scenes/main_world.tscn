@@ -1,0 +1,13 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/main.gd" id="1_main"]
+[ext_resource type="Script" path="res://scripts/stage_bgm.gd" id="2_stage_bgm"]
+
+; Training keeps the original Node3D world and authored StageBGM. This is
+; instanced INSIDE the same CompletedBattleFrame used by the Bittaran battle,
+; so visible RGB12 ID, player, red target, hit FX and HUD present together.
+[node name="SeraPrototype" type="Node3D"]
+script = ExtResource("1_main")
+
+[node name="StageBGM" type="Node" parent="."]
+script = ExtResource("2_stage_bgm")
