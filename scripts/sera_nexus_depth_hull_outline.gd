@@ -48,20 +48,19 @@ func _ready() -> void:
     set_process(true)
 
 func _process(delta: float) -> void:
+    # Loading graphics preferences reads the config file. Poll only at the
+    # same 0.35s cadence as equipment changes, never every rendered frame.
+    _elapsed -= delta
+    if _elapsed > 0.0:
+        return
+    _elapsed = RESCAN_SECONDS
     var setting: bool = GraphicsSettings.get_enabled("character_outline")
     if setting != _enabled:
         _enabled = setting
-        _elapsed = 0.0
-        if not _active():
-            _release_links()
-    if not _active():
-        if not _links.is_empty():
-            _release_links()
-        return
-    _elapsed -= delta
-    if _elapsed <= 0.0:
-        _elapsed = RESCAN_SECONDS
+    if _active():
         _refresh_links()
+    elif not _links.is_empty():
+        _release_links()
 
 func set_diagnostic_mode(mode: int) -> void:
     _mode = clampi(mode, 0, 18)
