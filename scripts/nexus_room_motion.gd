@@ -135,7 +135,7 @@ func _build_canopy_cyan_optics() -> void:
     add_child(_canopy_cyan_rotor)
     var normal: Array[Transform3D] = []
     var markers: Array[Transform3D] = []
-    var source := Modules.MODULES["maintenance_canopy"]
+    var source: Array = Modules.MODULES["maintenance_canopy"]
     var canopy_origin := Vector3(0.0, 8.0, -8.95)
     for part in source:
         var label: String = str(part[0])
