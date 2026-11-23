@@ -51,7 +51,7 @@ static func material() -> ShaderMaterial:
         _shared_silhouette_material.render_priority = RENDER_ORDER.DEPTH_TESTED_EMISSIVE
         _shared_silhouette_material.set_shader_parameter(
             "ink_color", Color("#000000"))
-        _shared_silhouette_material.set_shader_parameter("stroke_px", 4.0)
+        _shared_silhouette_material.set_shader_parameter("stroke_px", 3.0)
         _shared_silhouette_material.set_shader_parameter(
             "outlines_enabled", _outlines_enabled)
     return _shared_silhouette_material
