@@ -14,6 +14,14 @@ const HEAD_LOCK_UPWARD_EXTENSION_METERS: float = 1.0
 # so BODY (which always intersects the center line) won before HEAD.
 # Extend the head-only virtual box toward the authored +Z face of the boss.
 const HEAD_LOCK_FORWARD_EXTENSION_METERS: float = 0.85
+# The old head pivot (Z=1.85) embedded its rear NeckMount at Z=1.43
+# and SensorHousing at Z=1.51 into the red BODY front surface (Z=1.70).
+# Even though the parts are opaque, the core could appear between frame
+# pieces at animated/camera-dependent angles. Move the ENTIRE head pivot,
+# including lock volume, hit AABB and generated movement collision shapes,
+# not just the visual boxes. Rear-most surface is now Z=1.71.
+const HEAD_VISUAL_FRONT_CLEARANCE_METERS: float = 0.28
+const HEAD_ATTACH_Z: float = 1.85 + HEAD_VISUAL_FRONT_CLEARANCE_METERS
 # v304: separate CAMERA/AUTO volume for each of six selectable modules.
 # A 15% size increase wraps the entire part rather than each tiny metal
 # strut independently. No contact, melee or movement shape uses this size.
@@ -86,7 +94,7 @@ func _ready() -> void:
     # Torso is 2m wide/high and 3.4m long (front/rear Z = +/-1.7m).
     # Four enlarged 2m-tall arm/leg frames attach along the sides.
     # Their outward guards are mirrored across X and front/rear Z.
-    _add_part("head", "HEAD", Vector3(0.0, -0.44, 1.85),
+    _add_part("head", "HEAD", Vector3(0.0, -0.44, HEAD_ATTACH_Z),
         Vector3(1.48, 0.82, 0.96), Vector3(0.0, -0.03, 0.37),
         100.0, 0.20, 0.10, "change", Color("da755a"))
     # v302: the limb's model pivot is the center of its full 2m-high
