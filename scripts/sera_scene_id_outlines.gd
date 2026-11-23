@@ -56,12 +56,12 @@ var _contact_ids: Dictionary = {}
 var _free_contact_ids: Array[int] = []
 var _next_contact_id: int = 1
 var _shared_scene_mode: bool = false
-# Only the Bittaran battle uses a 5px outside / 4px mesh-ID contact shader.
+# Only the Bittaran battle uses a 3px outside / 2px mesh-ID contact shader.
 # Shared ID depth/camera/copies remain identical to other combat scenes.
 var _bittaran_id_mode: bool = false
 # The pre-draw signal is the last common boundary before the RenderingServer
 # updates the ID child viewport and the main viewport that consumes it.
-# The normal _process path remains a safe fallback on all render backends.
+# The existing non-Bittaran _process path remains unchanged.
 var _bittaran_pre_draw_frame: int = -1
 var _bittaran_snapshot_dirty_frame: int = -1
 var _bittaran_pending_rebuild: bool = false
@@ -330,11 +330,10 @@ func _disconnect_bittaran_pre_draw() -> void:
             _on_bittaran_frame_pre_draw)
 
 
-# Final render-boundary commit for the Bittaran visible-ID path.
-# `_process` has already synced the model/camera as a fallback. At this
-# signal Godot has finished this frame's scene updates, but has not yet
-# refreshed the render targets. Copy only any LAST-MOMENT pose/projection
-# changes into the ID pass before the parent viewport samples its texture.
+# Single render-boundary commit for the Bittaran visible-ID path.
+# The scene's _process methods have finished updating the model and camera.
+# Transfer their final interpolated transforms / projection to the ID pass
+# before the RenderingServer refreshes the ID texture and parent viewport.
 # No await, CPU readback, forced redraw, screen buffer, or extra frame.
 func _on_bittaran_frame_pre_draw() -> void:
     if not _bittaran_id_mode or _root_refs.is_empty() or (
