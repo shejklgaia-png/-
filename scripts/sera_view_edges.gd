@@ -86,6 +86,7 @@ func _register() -> void:
             convex.set("ink_stroke_px", 2.0)
             convex.set("ink_render_priority", -29)
             convex.set("overlay_name", "SeraEdgeInk")
+            convex.set("hard_creases_only", true)
             actor.add_child(convex)
             _combat_convex = convex
     else:
