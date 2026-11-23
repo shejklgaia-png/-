@@ -285,11 +285,11 @@ func set_nexus_sera_contact_mode(enabled: bool) -> void:
         material.set_shader_parameter("ink_color", Color("#17212f"))
         material.set_shader_parameter("stroke_px", _ink_stroke)
         if enabled:
-            # NEXUS SERA: 1px inner + 1px outer = 2px visible contour;
-            # independent 2px seams. Room/building ink retains its own 2px.
+            # NEXUS SERA: 1px inside + 1.5px outside with partial alpha;
+            # one-sided contact seams are 1px. Architecture remains 2px.
             material.set_shader_parameter("sera_inner_px", 1.0)
-            material.set_shader_parameter("sera_outer_px", 1.0)
-            material.set_shader_parameter("sera_seam_px", 2.0)
+            material.set_shader_parameter("sera_outer_px", 1.5)
+            material.set_shader_parameter("sera_seam_px", 1.0)
             material.set_shader_parameter("sera_screen_bounds", Vector4.ZERO)
     # NEXUS dedicated RGB IDs must use the proven canvas compositor.
     # Never use the fullscreen spatial quad for the NEXUS full-body.
