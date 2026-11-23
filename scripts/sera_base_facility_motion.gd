@@ -25,7 +25,8 @@ const MOTION_FEATURES: Dictionary = {
 # rotates together. The existing 30 Hz MultiMesh animation cap is retained.
 const CRANE_SLEW_FEATURES = [
     "FreshCollectorWinchMotor", "FreshCollectorMotorGlow",
-    "CollectorCraneTurntableSkirt", "CollectorCranePivotCheek",
+    "CollectorCraneInnerRace", "CollectorCraneTurntableSkirt",
+    "CollectorCraneOctagonalSpindle", "CollectorCranePivotCheek",
     "CollectorCraneBaseWeb", "CollectorCraneLowerPin", "CollectorCranePivotLock",
     "CollectorCranePrimaryCasting", "CollectorCraneSecondaryCasting",
     "CollectorCranePrimaryCapRail", "CollectorCraneStickCapRail",
@@ -196,8 +197,10 @@ func sample_at(seconds: float) -> void:
                                 var row: float = (
                                     -1.0 if posmod(i, 4) < 2 else 1.0)
                                 var jaw_pin := Vector3(
-                                    0.76 + side * 0.24, 1.72,
-                                    1.04 + row * 0.21) + CollectorConveyor.CRANE_OFFSET
+                                    CollectorConveyor.CRANE_TIP_X +
+                                    side * 0.24, 1.72,
+                                    CollectorConveyor.CRANE_TIP_Z +
+                                    row * 0.21) + CollectorConveyor.CRANE_OFFSET
                                 var jaw_world: Vector3 = (
                                     crane_center + crane_rotation *
                                     (_at(jaw_pin) - crane_center) +
