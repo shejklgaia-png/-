@@ -150,9 +150,9 @@ static func build_convex_only(mesh: Mesh) -> ArrayMesh:
     var st := SurfaceTool.new()
     st.begin(Mesh.PRIMITIVE_TRIANGLES)
     st.set_custom_format(0, SurfaceTool.CUSTOM_RGBA_FLOAT)
-    var count: int = 0
+    var emitted: int = 0
     for edge_value in _extract_edges(mesh):
-        if count >= MAX_EDGES_PER_MESH:
+        if emitted >= MAX_EDGES_PER_MESH:
             break
         var edge: Dictionary = edge_value
         if not bool(edge.get("crease", false)) or (
@@ -173,9 +173,11 @@ static func build_convex_only(mesh: Mesh) -> ArrayMesh:
         # The existing front/front shader expects its two inward normals
         # in COLOR.rgb and CUSTOM0.xyz, with COLOR.a as hard crease flag.
         # Copy the legacy mesh encoding exactly to preserve mobile depth.
-        var face_a := Color(na.x * 0.5 + 0.5,
-            na.y * 0.5 + 0.5, na.z * 0.5 + 0.5, 1.0)
-        var face_b := Color(nb.x, nb.y, nb.z, 1.0)
+        var a_out: Vector3 = na * outward_sign
+        var b_out: Vector3 = nb * outward_sign
+        var face_a := Color(a_out.x * 0.5 + 0.5,
+            a_out.y * 0.5 + 0.5, a_out.z * 0.5 + 0.5, 1.0)
+        var face_b := Color(b_out.x, b_out.y, b_out.z, 1.0)
         for endpoint in [[start, -1.0], [finish, -1.0],
                 [finish, 1.0], [start, -1.0],
                 [finish, 1.0], [start, 1.0]]:
@@ -184,7 +186,7 @@ static func build_convex_only(mesh: Mesh) -> ArrayMesh:
             st.set_normal(tangent)
             st.set_uv(Vector2(float(endpoint[1]), 0.0))
             st.add_vertex(endpoint[0])
-        count += 1
-    if count == 0:
+        emitted += 1
+    if emitted == 0:
         return null
     return st.commit()
