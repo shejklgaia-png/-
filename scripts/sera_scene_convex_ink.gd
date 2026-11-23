@@ -5,6 +5,7 @@ extends Node
 ## one instanced draw per role; never instantiate one draw node per prop.
 const Crease = preload("res://scripts/sera_base_facility_crease_geometry.gd")
 const INK = preload("res://shaders/sera_scene_convex_ink.gdshader")
+const Standards = preload("res://scripts/sera_outline_standard.gd")
 
 var _draws: Dictionary = {}  # source-instance:style -> {source,draw,mesh,indices,dynamic}
 var _geometry_cache: Dictionary = {}  # mesh RID instance -> ArrayMesh
@@ -44,7 +45,12 @@ func _material(style: int) -> ShaderMaterial:
     mat.render_priority = -29  # after visible RGB-ID ink (-30), before VFX
     mat.set_shader_parameter("ink_color",
         Color("#17212f") if style == 1 else Color.BLACK)
-    mat.set_shader_parameter("convex_width_px", 2.0 if style == 2 else 1.0)
+    var width_px: float = Standards.BASE_FACILITY_CONVEX_PX
+    if style == 1:
+        width_px = Standards.NEXUS_CONVEX_PX
+    elif style == 3:
+        width_px = Standards.BASE_CLUTTER_CONVEX_PX
+    mat.set_shader_parameter("convex_width_px", width_px)
     mat.set_shader_parameter("output_px_per_render_pixel", _scale)
     mat.set_shader_parameter("outlines_enabled", true)
     mat.set_shader_parameter("protect_emission", style != 1)
