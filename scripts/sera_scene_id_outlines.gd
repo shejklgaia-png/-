@@ -285,10 +285,10 @@ func set_nexus_sera_contact_mode(enabled: bool) -> void:
         material.set_shader_parameter("ink_color", Color("#17212f"))
         material.set_shader_parameter("stroke_px", _ink_stroke)
         if enabled:
-            # NEXUS SERA: opaque 1px inside + 5px outside, strict
+            # NEXUS SERA: opaque 1px inside + 2px outside, strict
             # 1px one-sided seams. Architecture ink remains unchanged at 2px.
             material.set_shader_parameter("sera_inner_px", 1.0)
-            material.set_shader_parameter("sera_outer_px", 5.0)
+            material.set_shader_parameter("sera_outer_px", 2.0)
             material.set_shader_parameter("sera_seam_px", 1.0)
             material.set_shader_parameter("sera_screen_bounds", Vector4.ZERO)
     # NEXUS dedicated RGB IDs must use the proven canvas compositor.
@@ -394,7 +394,7 @@ func _update_nexus_sera_screen_bounds(camera: Camera3D) -> void:
         # Conservative: never crop an edge that might enter the near plane.
         _set_nexus_screen_bounds(Vector4(0.0, 0.0, 1.0, 1.0))
     elif found:
-        var margin: Vector2 = Vector2(6.0, 6.0)
+        var margin: Vector2 = Vector2(3.0, 3.0)
         var uv_min: Vector2 = ((low - margin) / viewport_size).clamp(
             Vector2.ZERO, Vector2.ONE)
         var uv_max: Vector2 = ((high + margin) / viewport_size).clamp(
