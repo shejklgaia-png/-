@@ -582,125 +582,99 @@ static func _cable_segment_clear(grid: AStarGrid2D,
         _segment_open(grid, a - side, b - side))
 
 
-# Long clear spans receive a soft, zero-tangent-discontinuity sideward bow.
-# A quartic bell f(t)=16t²(1-t)² has zero slope at BOTH endpoints, so the
-# wire approaches/leaves the adjoining circular corner without new kinks.
-# Try both sides and progressively smaller curvature; any failed sweep
-# becomes the original traversable straight segment, never a penetration.
-static func _append_bowed_span(result: PackedVector3Array,
-        grid: AStarGrid2D, start: Vector3, finish: Vector3,
-        route_seed: int, span_index: int) -> void:
-    var length: float = start.distance_to(finish)
-    if length < 2.40:
-        _push_path_point(result, finish)
-        return
-    var heading: Vector3 = (finish - start) / length
-    var horizontal := Vector3(heading.x, 0.0, heading.z)
-    if horizontal.length_squared() < 0.0001:
-        _push_path_point(result, finish)
-        return
-    var lateral: Vector3 = Vector3(-horizontal.z, 0.0,
-        horizontal.x).normalized()
-    var preferred: float = 1.0 if (
-        posmod(route_seed + span_index * 19, 2) == 0) else -1.0
-    var max_sway: float = minf(1.10, length * 0.10)
-    var steps: int = maxi(6, ceili(length / 0.43))
-    for side in [preferred, -preferred]:
-        for factor in [1.0, 0.62, 0.32]:
-            var curve := PackedVector3Array()
-            curve.append(start)
-            var valid: bool = true
-            for j in range(1, steps + 1):
-                var t: float = float(j) / float(steps)
-                var envelope: float = 16.0 * t * t * (
-                    1.0 - t) * (1.0 - t)
-                var sample: Vector3 = start.lerp(finish, t) + (
-                    lateral * float(side) * max_sway *
-                    float(factor) * envelope)
-                if not _cable_segment_clear(grid,
-                        curve[curve.size() - 1], sample):
-                    valid = false
-                    break
-                curve.append(sample)
-            if not valid:
-                continue
-            for j in range(1, curve.size()):
-                _push_path_point(result, curve[j])
-            return
-    _push_path_point(result, finish)
-
-
-# Round only the obstruction-free interior of each A* waypoint corner.
-# Quadratic Bezier control stays at the original SAFE turning vertex. This
-# cannot overshoot the corridor as an unconstrained Catmull-Rom spline can.
+# Power cords are installed along short, deliberate paths. Do not impose
+# alternating sideways waves on every clear section: the previous bell
+# displacement made cables look like suspended snakes across the yard.
+# Only actual A* route corners receive a modest, collision-gated bend.
 static func _smooth_floor_route(grid: AStarGrid2D,
-        waypoints: PackedVector3Array, label: String) -> PackedVector3Array:
-    if waypoints.size() < 2:
+        waypoints: PackedVector3Array, _label: String) -> PackedVector3Array:
+    if waypoints.size() < 3:
         return waypoints
     var result := PackedVector3Array()
     _push_path_point(result, waypoints[0])
-    var route_seed: int = _seed_for("POWER_BEND_" + label)
     for i in range(1, waypoints.size() - 1):
-        var prev: Vector3 = waypoints[i - 1]
+        var previous: Vector3 = waypoints[i - 1]
         var corner: Vector3 = waypoints[i]
         var following: Vector3 = waypoints[i + 1]
-        var incoming: Vector3 = corner - prev
+        var incoming: Vector3 = corner - previous
         var outgoing: Vector3 = following - corner
-        var incoming_len: float = incoming.length()
-        var outgoing_len: float = outgoing.length()
-        var before: Vector3 = result[result.size() - 1]
-        if incoming_len < 0.20 or outgoing_len < 0.20:
-            _append_bowed_span(result, grid, before, corner,
-                route_seed, i)
+        var in_length: float = incoming.length()
+        var out_length: float = outgoing.length()
+        if in_length < 0.22 or out_length < 0.22:
+            _push_path_point(result, corner)
             continue
-        incoming /= incoming_len
-        outgoing /= outgoing_len
-        var dot_heading: float = incoming.dot(outgoing)
-        if dot_heading > 0.990 or dot_heading < -0.90:
-            _append_bowed_span(result, grid, before, corner,
-                route_seed, i)
+        incoming /= in_length
+        outgoing /= out_length
+        var alignment: float = incoming.dot(outgoing)
+        # A sufficiently straight run should actually remain straight.
+        if alignment > 0.985 or alignment < -0.90:
+            _push_path_point(result, corner)
             continue
-        var preferred_radius: float = minf(1.80,
-            minf(incoming_len, outgoing_len) * 0.43)
-        var accepted: bool = false
-        # Smaller rounded arcs are permitted in tight aisles. The source
-        # corner remains in place when all candidate curves are blocked.
-        for scale in [1.0, 0.62, 0.32]:
-            var radius: float = preferred_radius * float(scale)
-            if radius < 0.15:
+        var maximum: float = minf(0.92,
+            minf(in_length, out_length) * 0.36)
+        var rounded: bool = false
+        # The arc is strictly inside the original corner's neighbouring
+        # route segments. Try a smaller radius in narrow machine aisles.
+        for factor in [1.0, 0.67, 0.38]:
+            var radius: float = maximum * float(factor)
+            if radius < 0.11:
                 continue
             var entry: Vector3 = corner - incoming * radius
             var exit: Vector3 = corner + outgoing * radius
-            if not _cable_segment_clear(grid, before, entry):
+            var current: Vector3 = result[result.size() - 1]
+            if not _cable_segment_clear(grid, current, entry):
                 continue
-            var arc := PackedVector3Array()
-            arc.append(entry)
-            var steps: int = maxi(5, ceili(radius * 2.0 / 0.30))
-            var valid: bool = true
-            for j in range(1, steps + 1):
-                var t: float = float(j) / float(steps)
+            var curve := PackedVector3Array()
+            curve.append(entry)
+            var segments: int = maxi(5, ceili(radius * 2.0 / 0.21))
+            var safe: bool = true
+            for j in range(1, segments + 1):
+                var t: float = float(j) / float(segments)
                 var u: float = 1.0 - t
-                var point: Vector3 = entry * u * u + (
-                    corner * 2.0 * u * t) + exit * t * t
+                var point: Vector3 = entry * (u * u) + (
+                    corner * (2.0 * u * t)) + exit * (t * t)
                 if not _cable_segment_clear(
-                        grid, arc[arc.size() - 1], point):
-                    valid = false
+                        grid, curve[curve.size() - 1], point):
+                    safe = false
                     break
-                arc.append(point)
-            if not valid:
+                curve.append(point)
+            if not safe:
                 continue
-            _append_bowed_span(result, grid, before, entry,
-                route_seed, i)
-            for j in range(1, arc.size()):
-                _push_path_point(result, arc[j])
-            accepted = true
+            _push_path_point(result, entry)
+            for j in range(1, curve.size()):
+                _push_path_point(result, curve[j])
+            rounded = true
             break
-        if not accepted:
-            _append_bowed_span(result, grid, before, corner,
-                route_seed, i)
-    _append_bowed_span(result, grid, result[result.size() - 1],
-        waypoints[waypoints.size() - 1], route_seed, waypoints.size())
+        if not rounded:
+            # Keep the proven non-penetrating A* waypoint in a tight gap.
+            _push_path_point(result, corner)
+    _push_path_point(result, waypoints[waypoints.size() - 1])
     return result
+
+
+# A power cable should exit its socket HORIZONTALLY before sinking onto the
+# floor. The old vertical-at-port segment visibly pierced the machine base,
+# then snapped through a sharp right angle to the ground cable. This shallow
+# cubic drop is fixed to the actual socket/gate coordinates.
+static func _socket_drop(port: Vector3,
+        gate: Vector3) -> PackedVector3Array:
+    var curve := PackedVector3Array()
+    var ground_direction: Vector3 = gate - port
+    ground_direction.y = 0.0
+    var length: float = ground_direction.length()
+    var controls_a: Vector3 = port + ground_direction * 0.28
+    controls_a.y = port.y + 0.025
+    var controls_b: Vector3 = gate - ground_direction * 0.26
+    controls_b.y = FLOOR_WIRE_Y + 0.035
+    var steps: int = maxi(6, ceili(length / 0.23))
+    for j in range(steps + 1):
+        var t: float = float(j) / float(steps)
+        var u: float = 1.0 - t
+        curve.append(port * (u * u * u) +
+            controls_a * (3.0 * u * u * t) +
+            controls_b * (3.0 * u * t * t) +
+            gate * (t * t * t))
+    return curve
 
 
 static func _routed_cable(grid: AStarGrid2D, from_at: Vector3,
@@ -738,12 +712,15 @@ static func _routed_cable(grid: AStarGrid2D, from_at: Vector3,
     var curved: PackedVector3Array = _smooth_floor_route(
         grid, floor_waypoints, label)
     var points := PackedVector3Array()
-    _push_path_point(points, from_at)
-    _push_path_point(points, Vector3(from_at.x, FLOOR_WIRE_Y, from_at.z))
+    # Start/end in the actual sockets; shallow, outward-curving drops are
+    # never deformed by the floor cable's obstacle-routing simplification.
+    for point in _socket_drop(from_at, from_gate):
+        _push_path_point(points, point)
     for point in curved:
         _push_path_point(points, point)
-    _push_path_point(points, Vector3(to_at.x, FLOOR_WIRE_Y, to_at.z))
-    _push_path_point(points, to_at)
+    var landing: PackedVector3Array = _socket_drop(to_at, to_gate)
+    for j in range(landing.size() - 1, -1, -1):
+        _push_path_point(points, landing[j])
     # A nonzero cell weight discourages later power lines from lying
     # directly atop the same geometric cable (but permits intersections).
     for id in ids:
@@ -896,8 +873,8 @@ static func build(parent: Node3D, nexus_origin: Vector3,
     var junction: PackedVector3Array = _routed_cable(
         route_grid, old_plug, board_gate, hub_in_gate,
         hub_in, "GENERATOR TO MANIFOLD")
-    _append_tube(wires, junction, 0.087, 0.0)
-    _append_tube(traces, junction, 0.026, 0.069)
+    _append_tube(wires, junction, 0.070, 0.0)
+    _append_tube(traces, junction, 0.019, 0.051)
     for i in range(endpoints.size()):
         var record: Dictionary = endpoints[i]
         var key: String = str(record["key"])
@@ -915,8 +892,8 @@ static func build(parent: Node3D, nexus_origin: Vector3,
             route_grid, device["output"], device["output_gate"],
             receiver["gate"], receiver["port"], key + " DELIVERY")
         for cable in [feed, delivery]:
-            _append_tube(wires, cable, 0.087, 0.0)
-            _append_tube(traces, cable, 0.026, 0.069)
+            _append_tube(wires, cable, 0.070, 0.0)
+            _append_tube(traces, cable, 0.019, 0.051)
     _build_devices(network, items)
     _finish_cables(network, wires, traces)
     # Recomputed only at scene construction / user-requested layout reset:
