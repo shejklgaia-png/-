@@ -12,7 +12,7 @@ const BELT_SPEED: float = 1.3548387  # 4.20m / 3.10s
 # The physical slewing bearing, boom, hook and carried cargo share this
 # inboard offset. Keep the belt fixed; retarget pickup yaw to meet its gate.
 const CRANE_OFFSET: Vector3 = Vector3(0.18, 0.0, 0.08)
-const PICKUP_ANGLE: float = deg_to_rad(-70.0)
+const PICKUP_ANGLE: float = -1.2217304763960306  # -70 degrees
 const CRANE_PIVOT: Vector3 = Vector3(-0.78, 1.07, -0.48) + CRANE_OFFSET
 const HOIST_CABLE_LENGTH: float = 0.70
 
