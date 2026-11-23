@@ -11,17 +11,17 @@
   },
   "elements": [
     {
-      "name": "split hollow portal pillar -1",
+      "name": "Independent portal armored load bearing pillar -1",
       "type": "cube",
       "from": [
-        -20.2,
+        -18.3,
         0,
-        -7.65
+        -5.75
       ],
       "to": [
-        -12.6,
-        46,
-        3.85
+        -13.5,
+        50,
+        5.75
       ],
       "color": 3,
       "rotation": [
@@ -30,11 +30,11 @@
         0
       ],
       "origin": [
-        -16.4,
-        23,
-        -1.9
+        -15.9,
+        25,
+        0
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000797",
+      "uuid": "8c340526-b00f-4000-8000-000000000388",
       "faces": {
         "north": {
           "uv": [
@@ -95,17 +95,17 @@
       "sera_nexus_selectable": true
     },
     {
-      "name": "stepped side outer armored chamfer -1",
+      "name": "Outward sloped portal half-chevron -1",
       "type": "cube",
       "from": [
-        -22.35,
-        2,
-        -1.85
+        -20.35,
+        24.5,
+        0.15
       ],
       "to": [
-        -18.05,
-        44,
-        6.25
+        -16.45,
+        48.5,
+        6.65
       ],
       "color": 4,
       "rotation": [
@@ -114,11 +114,11 @@
         0
       ],
       "origin": [
-        -20.2,
-        23,
-        2.2
+        -18.4,
+        36.5,
+        3.4
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000798",
+      "uuid": "8c340526-b00f-4000-8000-000000000389",
       "faces": {
         "north": {
           "uv": [
@@ -179,30 +179,30 @@
       "sera_nexus_selectable": true
     },
     {
-      "name": "portal forward polygon cheek -1",
+      "name": "Portal projecting front vertical armor -1",
       "type": "cube",
       "from": [
-        -19.9,
-        2.5,
-        5.1
+        -18.05,
+        3.35,
+        5.9
       ],
       "to": [
-        -12.9,
-        41.5,
-        10.3
+        -13.75,
+        39.85,
+        8.5
       ],
       "color": 2,
       "rotation": [
         0,
-        -12,
+        0,
         0
       ],
       "origin": [
-        -16.4,
-        22,
-        7.7
+        -15.9,
+        21.6,
+        7.2
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000799",
+      "uuid": "8c340526-b00f-4000-8000-000000000390",
       "faces": {
         "north": {
           "uv": [
@@ -263,353 +263,17 @@
       "sera_nexus_selectable": true
     },
     {
-      "name": "external portal support blade -1-0",
+      "name": "Portal cyan vertical entrance blade -1",
       "type": "cube",
       "from": [
-        -20.4,
-        6.2,
-        9.6
+        -16.6,
+        8.25,
+        8.75
       ],
       "to": [
-        -14.6,
-        9.8,
-        11.6
-      ],
-      "color": 4,
-      "rotation": [
-        0,
-        0,
-        -11
-      ],
-      "origin": [
-        -17.5,
-        8,
-        10.6
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000800",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "external portal caution marker -1-0",
-      "type": "cube",
-      "from": [
-        -18.8,
-        9.65,
-        11.65
-      ],
-      "to": [
-        -16.4,
-        10.75,
-        11.95
-      ],
-      "color": 6,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        -17.6,
-        10.2,
-        11.8
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000801",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "external portal support blade -1-2",
-      "type": "cube",
-      "from": [
-        -20.4,
-        30.2,
-        9.6
-      ],
-      "to": [
-        -14.6,
-        33.8,
-        11.6
-      ],
-      "color": 4,
-      "rotation": [
-        0,
-        0,
-        -11
-      ],
-      "origin": [
-        -17.5,
-        32,
-        10.6
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000804",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "external portal caution marker -1-2",
-      "type": "cube",
-      "from": [
-        -18.8,
-        33.65,
-        11.65
-      ],
-      "to": [
-        -16.4,
+        -15.2,
         34.75,
-        11.95
-      ],
-      "color": 6,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        -17.6,
-        34.2,
-        11.8
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000805",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "recessed vertical blue optic -1",
-      "type": "cube",
-      "from": [
-        -17.3,
-        10.25,
-        10.1
-      ],
-      "to": [
-        -15.5,
-        37.75,
-        10.9
+        9.45
       ],
       "color": 5,
       "rotation": [
@@ -618,11 +282,11 @@
         0
       ],
       "origin": [
-        -16.4,
-        24,
-        10.5
+        -15.9,
+        21.5,
+        9.1
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000806",
+      "uuid": "8c340526-b00f-4000-8000-000000000391",
       "faces": {
         "north": {
           "uv": [
@@ -683,17 +347,17 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "portal ankle stabilizer -1",
+      "name": "Portal wide foundation arch foot -1",
       "type": "cube",
       "from": [
-        -21.9,
+        -20.65,
         0,
-        3.5
+        -0.45
       ],
       "to": [
-        -10.9,
-        6,
-        16.5
+        -12.35,
+        3.6,
+        13.05
       ],
       "color": 2,
       "rotation": [
@@ -702,11 +366,11 @@
         0
       ],
       "origin": [
-        -16.4,
-        3,
-        10
+        -16.5,
+        1.8,
+        6.3
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000807",
+      "uuid": "8c340526-b00f-4000-8000-000000000392",
       "faces": {
         "north": {
           "uv": [
@@ -767,366 +431,30 @@
       "sera_nexus_selectable": true
     },
     {
-      "name": "long gate tunnel side rib -1-0",
+      "name": "Portal ankle deep armor inset -1",
       "type": "cube",
       "from": [
-        -15,
-        0,
-        -15.4
+        -17.85,
+        4.1,
+        8.75
       ],
       "to": [
-        -11,
-        36,
-        -10.6
-      ],
-      "color": 2,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        -13,
-        18,
-        -13
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000808",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "tunnel cyan service duct -1-0",
-      "type": "cube",
-      "from": [
-        -12.7,
-        6.5,
-        -10.5
-      ],
-      "to": [
-        -11.5,
-        29.5,
-        -9.5
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        -12.1,
-        18,
-        -10
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000809",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "diagonal gate truss -1-0",
-      "type": "cube",
-      "from": [
-        -14.6,
-        27.65,
-        -18.46
-      ],
-      "to": [
-        -12.9,
-        29.35,
-        -7.54
+        -13.35,
+        10.3,
+        10.85
       ],
       "color": 4,
       "rotation": [
-        55.504,
-        -14.036,
-        0
-      ],
-      "origin": [
-        -13.75,
-        28.5,
-        -13
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000810",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "long gate tunnel side rib -1-1",
-      "type": "cube",
-      "from": [
-        -15,
-        0,
-        -25.9
-      ],
-      "to": [
-        -11,
-        36,
-        -21.1
-      ],
-      "color": 2,
-      "rotation": [
         0,
         0,
         0
       ],
       "origin": [
-        -13,
-        18,
-        -23.5
+        -15.6,
+        7.2,
+        9.8
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000811",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "tunnel cyan service duct -1-1",
-      "type": "cube",
-      "from": [
-        -12.7,
-        6.5,
-        -21
-      ],
-      "to": [
-        -11.5,
-        29.5,
-        -20
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        -12.1,
-        18,
-        -20.5
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000812",
+      "uuid": "8c340526-b00f-4000-8000-000000000393",
       "faces": {
         "north": {
           "uv": [
@@ -1187,17 +515,17 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "long gate tunnel side rib -1-2",
+      "name": "Portal recessed side tunnel structure -1-0",
       "type": "cube",
       "from": [
-        -15,
-        0,
-        -36.4
+        -14.95,
+        0.1,
+        -12.6
       ],
       "to": [
-        -11,
-        36,
-        -31.6
+        -12.65,
+        35.1,
+        -10.4
       ],
       "color": 2,
       "rotation": [
@@ -1206,11 +534,11 @@
         0
       ],
       "origin": [
-        -13,
-        18,
-        -34
+        -13.8,
+        17.6,
+        -11.5
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000814",
+      "uuid": "8c340526-b00f-4000-8000-000000000394",
       "faces": {
         "north": {
           "uv": [
@@ -1271,17 +599,17 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "tunnel cyan service duct -1-2",
+      "name": "Portal inside locator -1-0",
       "type": "cube",
       "from": [
-        -12.7,
-        6.5,
-        -31.5
+        -12.3,
+        14.1,
+        -10.35
       ],
       "to": [
         -11.5,
-        29.5,
-        -30.5
+        24.9,
+        -9.45
       ],
       "color": 5,
       "rotation": [
@@ -1290,11 +618,11 @@
         0
       ],
       "origin": [
-        -12.1,
-        18,
-        -31
+        -11.9,
+        19.5,
+        -9.9
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000815",
+      "uuid": "8c340526-b00f-4000-8000-000000000395",
       "faces": {
         "north": {
           "uv": [
@@ -1355,30 +683,30 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "diagonal gate truss -1-2",
+      "name": "Portal recessed side tunnel structure -1-1",
       "type": "cube",
       "from": [
-        -14.6,
-        27.65,
-        -39.46
+        -14.95,
+        0.1,
+        -21.3
       ],
       "to": [
-        -12.9,
-        29.35,
-        -28.54
+        -12.65,
+        35.1,
+        -19.1
       ],
-      "color": 4,
+      "color": 2,
       "rotation": [
-        55.504,
-        -14.036,
+        0,
+        0,
         0
       ],
       "origin": [
-        -13.75,
-        28.5,
-        -34
+        -13.8,
+        17.6,
+        -20.2
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000816",
+      "uuid": "8c340526-b00f-4000-8000-000000000396",
       "faces": {
         "north": {
           "uv": [
@@ -1439,17 +767,269 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "split hollow portal pillar 1",
+      "name": "Portal inside locator -1-1",
       "type": "cube",
       "from": [
-        12.6,
-        0,
-        -7.65
+        -12.3,
+        14.1,
+        -19.05
       ],
       "to": [
-        20.2,
-        46,
-        3.85
+        -11.5,
+        24.9,
+        -18.15
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -11.9,
+        19.5,
+        -18.6
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000397",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Portal recessed side tunnel structure -1-2",
+      "type": "cube",
+      "from": [
+        -14.95,
+        0.1,
+        -30
+      ],
+      "to": [
+        -12.65,
+        35.1,
+        -27.8
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -13.8,
+        17.6,
+        -28.9
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000398",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Portal inside locator -1-2",
+      "type": "cube",
+      "from": [
+        -12.3,
+        14.1,
+        -27.75
+      ],
+      "to": [
+        -11.5,
+        24.9,
+        -26.85
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        -11.9,
+        19.5,
+        -27.3
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000399",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Independent portal armored load bearing pillar 1",
+      "type": "cube",
+      "from": [
+        13.5,
+        0,
+        -5.75
+      ],
+      "to": [
+        18.3,
+        50,
+        5.75
       ],
       "color": 3,
       "rotation": [
@@ -1458,11 +1038,11 @@
         0
       ],
       "origin": [
-        16.4,
-        23,
-        -1.9
+        15.9,
+        25,
+        0
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000817",
+      "uuid": "8c340526-b00f-4000-8000-000000000400",
       "faces": {
         "north": {
           "uv": [
@@ -1523,17 +1103,17 @@
       "sera_nexus_selectable": true
     },
     {
-      "name": "stepped side outer armored chamfer 1",
+      "name": "Outward sloped portal half-chevron 1",
       "type": "cube",
       "from": [
-        18.05,
-        2,
-        -1.85
+        16.45,
+        24.5,
+        0.15
       ],
       "to": [
-        22.35,
-        44,
-        6.25
+        20.35,
+        48.5,
+        6.65
       ],
       "color": 4,
       "rotation": [
@@ -1542,11 +1122,11 @@
         0
       ],
       "origin": [
-        20.2,
-        23,
-        2.2
+        18.4,
+        36.5,
+        3.4
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000818",
+      "uuid": "8c340526-b00f-4000-8000-000000000401",
       "faces": {
         "north": {
           "uv": [
@@ -1607,30 +1187,30 @@
       "sera_nexus_selectable": true
     },
     {
-      "name": "portal forward polygon cheek 1",
+      "name": "Portal projecting front vertical armor 1",
       "type": "cube",
       "from": [
-        12.9,
-        2.5,
-        5.1
+        13.75,
+        3.35,
+        5.9
       ],
       "to": [
-        19.9,
-        41.5,
-        10.3
+        18.05,
+        39.85,
+        8.5
       ],
       "color": 2,
       "rotation": [
         0,
-        12,
+        0,
         0
       ],
       "origin": [
-        16.4,
-        22,
-        7.7
+        15.9,
+        21.6,
+        7.2
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000819",
+      "uuid": "8c340526-b00f-4000-8000-000000000402",
       "faces": {
         "north": {
           "uv": [
@@ -1691,353 +1271,17 @@
       "sera_nexus_selectable": true
     },
     {
-      "name": "external portal support blade 1-0",
+      "name": "Portal cyan vertical entrance blade 1",
       "type": "cube",
       "from": [
-        14.6,
-        6.2,
-        9.6
+        15.2,
+        8.25,
+        8.75
       ],
       "to": [
-        20.4,
-        9.8,
-        11.6
-      ],
-      "color": 4,
-      "rotation": [
-        0,
-        0,
-        11
-      ],
-      "origin": [
-        17.5,
-        8,
-        10.6
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000820",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "external portal caution marker 1-0",
-      "type": "cube",
-      "from": [
-        16.4,
-        9.65,
-        11.65
-      ],
-      "to": [
-        18.8,
-        10.75,
-        11.95
-      ],
-      "color": 6,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        17.6,
-        10.2,
-        11.8
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000821",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "external portal support blade 1-2",
-      "type": "cube",
-      "from": [
-        14.6,
-        30.2,
-        9.6
-      ],
-      "to": [
-        20.4,
-        33.8,
-        11.6
-      ],
-      "color": 4,
-      "rotation": [
-        0,
-        0,
-        11
-      ],
-      "origin": [
-        17.5,
-        32,
-        10.6
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000824",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "external portal caution marker 1-2",
-      "type": "cube",
-      "from": [
-        16.4,
-        33.65,
-        11.65
-      ],
-      "to": [
-        18.8,
+        16.6,
         34.75,
-        11.95
-      ],
-      "color": 6,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        17.6,
-        34.2,
-        11.8
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000825",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "recessed vertical blue optic 1",
-      "type": "cube",
-      "from": [
-        15.5,
-        10.25,
-        10.1
-      ],
-      "to": [
-        17.3,
-        37.75,
-        10.9
+        9.45
       ],
       "color": 5,
       "rotation": [
@@ -2046,11 +1290,11 @@
         0
       ],
       "origin": [
-        16.4,
-        24,
-        10.5
+        15.9,
+        21.5,
+        9.1
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000826",
+      "uuid": "8c340526-b00f-4000-8000-000000000403",
       "faces": {
         "north": {
           "uv": [
@@ -2111,17 +1355,17 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "portal ankle stabilizer 1",
+      "name": "Portal wide foundation arch foot 1",
       "type": "cube",
       "from": [
-        10.9,
+        12.35,
         0,
-        3.5
+        -0.45
       ],
       "to": [
-        21.9,
-        6,
-        16.5
+        20.65,
+        3.6,
+        13.05
       ],
       "color": 2,
       "rotation": [
@@ -2130,11 +1374,11 @@
         0
       ],
       "origin": [
-        16.4,
-        3,
-        10
+        16.5,
+        1.8,
+        6.3
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000827",
+      "uuid": "8c340526-b00f-4000-8000-000000000404",
       "faces": {
         "north": {
           "uv": [
@@ -2195,366 +1439,30 @@
       "sera_nexus_selectable": true
     },
     {
-      "name": "long gate tunnel side rib 1-0",
+      "name": "Portal ankle deep armor inset 1",
       "type": "cube",
       "from": [
-        11,
-        0,
-        -15.4
+        13.35,
+        4.1,
+        8.75
       ],
       "to": [
-        15,
-        36,
-        -10.6
-      ],
-      "color": 2,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        13,
-        18,
-        -13
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000828",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "tunnel cyan service duct 1-0",
-      "type": "cube",
-      "from": [
-        11.5,
-        6.5,
-        -10.5
-      ],
-      "to": [
-        12.7,
-        29.5,
-        -9.5
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        12.1,
-        18,
-        -10
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000829",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "diagonal gate truss 1-0",
-      "type": "cube",
-      "from": [
-        12.9,
-        27.65,
-        -18.46
-      ],
-      "to": [
-        14.6,
-        29.35,
-        -7.54
+        17.85,
+        10.3,
+        10.85
       ],
       "color": 4,
       "rotation": [
-        55.504,
-        14.036,
-        0
-      ],
-      "origin": [
-        13.75,
-        28.5,
-        -13
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000830",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "long gate tunnel side rib 1-1",
-      "type": "cube",
-      "from": [
-        11,
-        0,
-        -25.9
-      ],
-      "to": [
-        15,
-        36,
-        -21.1
-      ],
-      "color": 2,
-      "rotation": [
         0,
         0,
         0
       ],
       "origin": [
-        13,
-        18,
-        -23.5
+        15.6,
+        7.2,
+        9.8
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000831",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "tunnel cyan service duct 1-1",
-      "type": "cube",
-      "from": [
-        11.5,
-        6.5,
-        -21
-      ],
-      "to": [
-        12.7,
-        29.5,
-        -20
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        12.1,
-        18,
-        -20.5
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000832",
+      "uuid": "8c340526-b00f-4000-8000-000000000405",
       "faces": {
         "north": {
           "uv": [
@@ -2615,17 +1523,17 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "long gate tunnel side rib 1-2",
+      "name": "Portal recessed side tunnel structure 1-0",
       "type": "cube",
       "from": [
-        11,
-        0,
-        -36.4
+        12.65,
+        0.1,
+        -12.6
       ],
       "to": [
-        15,
-        36,
-        -31.6
+        14.95,
+        35.1,
+        -10.4
       ],
       "color": 2,
       "rotation": [
@@ -2634,11 +1542,11 @@
         0
       ],
       "origin": [
-        13,
-        18,
-        -34
+        13.8,
+        17.6,
+        -11.5
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000834",
+      "uuid": "8c340526-b00f-4000-8000-000000000406",
       "faces": {
         "north": {
           "uv": [
@@ -2699,17 +1607,17 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "tunnel cyan service duct 1-2",
+      "name": "Portal inside locator 1-0",
       "type": "cube",
       "from": [
         11.5,
-        6.5,
-        -31.5
+        14.1,
+        -10.35
       ],
       "to": [
-        12.7,
-        29.5,
-        -30.5
+        12.3,
+        24.9,
+        -9.45
       ],
       "color": 5,
       "rotation": [
@@ -2718,11 +1626,11 @@
         0
       ],
       "origin": [
-        12.1,
-        18,
-        -31
+        11.9,
+        19.5,
+        -9.9
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000835",
+      "uuid": "8c340526-b00f-4000-8000-000000000407",
       "faces": {
         "north": {
           "uv": [
@@ -2783,30 +1691,30 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "diagonal gate truss 1-2",
+      "name": "Portal recessed side tunnel structure 1-1",
       "type": "cube",
       "from": [
-        12.9,
-        27.65,
-        -39.46
+        12.65,
+        0.1,
+        -21.3
       ],
       "to": [
-        14.6,
-        29.35,
-        -28.54
+        14.95,
+        35.1,
+        -19.1
       ],
-      "color": 4,
+      "color": 2,
       "rotation": [
-        55.504,
-        14.036,
+        0,
+        0,
         0
       ],
       "origin": [
-        13.75,
-        28.5,
-        -34
+        13.8,
+        17.6,
+        -20.2
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000836",
+      "uuid": "8c340526-b00f-4000-8000-000000000408",
       "faces": {
         "north": {
           "uv": [
@@ -2867,17 +1775,269 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "portal layered overhead compression arch",
+      "name": "Portal inside locator 1-1",
       "type": "cube",
       "from": [
-        -23.4,
-        41.55,
-        -7.45
+        11.5,
+        14.1,
+        -19.05
       ],
       "to": [
-        23.4,
-        50.85,
-        11.05
+        12.3,
+        24.9,
+        -18.15
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        11.9,
+        19.5,
+        -18.6
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000409",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Portal recessed side tunnel structure 1-2",
+      "type": "cube",
+      "from": [
+        12.65,
+        0.1,
+        -30
+      ],
+      "to": [
+        14.95,
+        35.1,
+        -27.8
+      ],
+      "color": 2,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        13.8,
+        17.6,
+        -28.9
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000410",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": true,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Portal inside locator 1-2",
+      "type": "cube",
+      "from": [
+        11.5,
+        14.1,
+        -27.75
+      ],
+      "to": [
+        12.3,
+        24.9,
+        -26.85
+      ],
+      "color": 5,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        11.9,
+        19.5,
+        -27.3
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000411",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Gate angular wide load beam",
+      "type": "cube",
+      "from": [
+        -19.25,
+        45.1,
+        -7.1
+      ],
+      "to": [
+        19.25,
+        51.9,
+        10.1
       ],
       "color": 3,
       "rotation": [
@@ -2887,10 +2047,10 @@
       ],
       "origin": [
         0,
-        46.2,
-        1.8
+        48.5,
+        1.5
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000837",
+      "uuid": "8c340526-b00f-4000-8000-000000000412",
       "faces": {
         "north": {
           "uv": [
@@ -2951,17 +2111,17 @@
       "sera_nexus_selectable": true
     },
     {
-      "name": "portal compound outer visor",
+      "name": "Gate deep stepped top visor",
       "type": "cube",
       "from": [
-        -25,
-        50.35,
-        -2.5
+        -21,
+        50.25,
+        6.2
       ],
       "to": [
-        25,
-        55.05,
-        13.9
+        21,
+        53.35,
+        12.4
       ],
       "color": 4,
       "rotation": [
@@ -2971,10 +2131,10 @@
       ],
       "origin": [
         0,
-        52.7,
-        5.7
+        51.8,
+        9.3
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000838",
+      "uuid": "8c340526-b00f-4000-8000-000000000413",
       "faces": {
         "north": {
           "uv": [
@@ -3035,185 +2195,17 @@
       "sera_nexus_selectable": true
     },
     {
-      "name": "portal faceted front brow",
+      "name": "Gate upper cyan inner reveal",
       "type": "cube",
       "from": [
-        -17.5,
-        47.45,
-        8.55
+        -7.5,
+        45.1,
+        10.4
       ],
       "to": [
-        17.5,
-        50.55,
-        15.45
-      ],
-      "color": 2,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        0,
-        49,
-        12
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000839",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "portal inner doorway darkness",
-      "type": "cube",
-      "from": [
-        -13.75,
-        26,
-        -31.7
-      ],
-      "to": [
-        13.75,
-        36,
-        -30.3
-      ],
-      "color": 0,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        0,
-        31,
-        -31
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000840",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "portal blue emission recess",
-      "type": "cube",
-      "from": [
-        -7.25,
-        39.05,
-        8.2
-      ],
-      "to": [
-        7.25,
-        40.95,
-        8.8
+        7.5,
+        46.3,
+        11.4
       ],
       "color": 5,
       "rotation": [
@@ -3223,10 +2215,10 @@
       ],
       "origin": [
         0,
-        40,
-        8.5
+        45.7,
+        10.9
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000841",
+      "uuid": "8c340526-b00f-4000-8000-000000000414",
       "faces": {
         "north": {
           "uv": [
@@ -3287,17 +2279,17 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "portal upper hood structural midrail",
+      "name": "Gate top center angular dark plaque",
       "type": "cube",
       "from": [
-        -13.65,
-        53.3,
-        -2.1
+        -8.5,
+        47.8,
+        11.5
       ],
       "to": [
-        13.65,
-        55.5,
-        13.3
+        8.5,
+        51.6,
+        13.7
       ],
       "color": 1,
       "rotation": [
@@ -3307,94 +2299,94 @@
       ],
       "origin": [
         0,
+        49.7,
+        12.6
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000415",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Gate hazard top insert 0",
+      "type": "cube",
+      "from": [
+        -18.3,
+        53.4,
+        11.3
+      ],
+      "to": [
+        -14.9,
         54.4,
-        5.6
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000842",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": true,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "portal amber diagonals 0",
-      "type": "cube",
-      "from": [
-        -22.2,
-        55.45,
-        6.85
-      ],
-      "to": [
-        -19.8,
-        56.35,
-        10.95
+        12.3
       ],
       "color": 6,
       "rotation": [
         0,
         0,
-        -25
+        -20
       ],
       "origin": [
-        -21,
-        55.9,
-        8.9
+        -16.6,
+        53.9,
+        11.8
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000843",
+      "uuid": "8c340526-b00f-4000-8000-000000000416",
       "faces": {
         "north": {
           "uv": [
@@ -3455,30 +2447,30 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "portal amber diagonals 2",
+      "name": "Gate hazard top insert 1",
       "type": "cube",
       "from": [
-        -11.8,
-        55.45,
-        6.85
+        -11.7,
+        53.4,
+        11.3
       ],
       "to": [
-        -9.4,
-        56.35,
-        10.95
+        -8.3,
+        54.4,
+        12.3
       ],
       "color": 6,
       "rotation": [
         0,
         0,
-        -25
+        -20
       ],
       "origin": [
-        -10.6,
-        55.9,
-        8.9
+        -10,
+        53.9,
+        11.8
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000845",
+      "uuid": "8c340526-b00f-4000-8000-000000000417",
       "faces": {
         "north": {
           "uv": [
@@ -3539,30 +2531,30 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "portal amber diagonals 4",
+      "name": "Gate hazard top insert 2",
       "type": "cube",
       "from": [
-        -1.4,
-        55.45,
-        6.85
+        -5.1,
+        53.4,
+        11.3
       ],
       "to": [
-        1,
-        56.35,
-        10.95
+        -1.7,
+        54.4,
+        12.3
       ],
       "color": 6,
       "rotation": [
         0,
         0,
-        -25
+        -20
       ],
       "origin": [
-        -0.2,
-        55.9,
-        8.9
+        -3.4,
+        53.9,
+        11.8
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000847",
+      "uuid": "8c340526-b00f-4000-8000-000000000418",
       "faces": {
         "north": {
           "uv": [
@@ -3623,30 +2615,30 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "portal amber diagonals 6",
+      "name": "Gate hazard top insert 3",
       "type": "cube",
       "from": [
-        9,
-        55.45,
-        6.85
+        1.5,
+        53.4,
+        11.3
       ],
       "to": [
-        11.4,
-        56.35,
-        10.95
+        4.9,
+        54.4,
+        12.3
       ],
       "color": 6,
       "rotation": [
         0,
         0,
-        -25
+        -20
       ],
       "origin": [
-        10.2,
-        55.9,
-        8.9
+        3.2,
+        53.9,
+        11.8
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000849",
+      "uuid": "8c340526-b00f-4000-8000-000000000419",
       "faces": {
         "north": {
           "uv": [
@@ -3707,30 +2699,30 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "portal amber diagonals 8",
+      "name": "Gate hazard top insert 4",
       "type": "cube",
       "from": [
-        19.4,
-        55.45,
-        6.85
+        8.1,
+        53.4,
+        11.3
       ],
       "to": [
-        21.8,
-        56.35,
-        10.95
+        11.5,
+        54.4,
+        12.3
       ],
       "color": 6,
       "rotation": [
         0,
         0,
-        -25
+        -20
       ],
       "origin": [
-        20.6,
-        55.9,
-        8.9
+        9.8,
+        53.9,
+        11.8
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000851",
+      "uuid": "8c340526-b00f-4000-8000-000000000420",
       "faces": {
         "north": {
           "uv": [
@@ -3791,17 +2783,185 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "departure runnel stone 0",
+      "name": "Gate hazard top insert 5",
       "type": "cube",
       "from": [
-        -12.5,
+        14.7,
+        53.4,
+        11.3
+      ],
+      "to": [
+        18.1,
+        54.4,
+        12.3
+      ],
+      "color": 6,
+      "rotation": [
         0,
+        0,
+        -20
+      ],
+      "origin": [
+        16.4,
+        53.9,
+        11.8
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000421",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Gate tunnel distal rear darkness",
+      "type": "cube",
+      "from": [
+        -14,
+        0.5,
+        -36.2
+      ],
+      "to": [
+        14,
+        41.5,
         -34.8
       ],
+      "color": 0,
+      "rotation": [
+        0,
+        0,
+        0
+      ],
+      "origin": [
+        0,
+        21,
+        -35.5
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000422",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Gate tunnel lower boarding deck",
+      "type": "cube",
+      "from": [
+        -12.9,
+        0.1,
+        -38.5
+      ],
       "to": [
-        12.5,
-        2,
-        -24.2
+        12.9,
+        2.1,
+        1.5
       ],
       "color": 2,
       "rotation": [
@@ -3811,10 +2971,10 @@
       ],
       "origin": [
         0,
-        1,
-        -29.5
+        1.1,
+        -18.5
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000852",
+      "uuid": "8c340526-b00f-4000-8000-000000000423",
       "faces": {
         "north": {
           "uv": [
@@ -3875,17 +3035,17 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "departure runnel side luminous -1-0",
+      "name": "Gate approach illuminated threshold guide -1",
       "type": "cube",
       "from": [
-        -12.05,
-        1.975,
-        -34.5
+        -12.55,
+        1.7,
+        -1.55
       ],
       "to": [
-        -10.95,
-        2.125,
-        -24.5
+        -11.05,
+        2.7,
+        12.95
       ],
       "color": 5,
       "rotation": [
@@ -3894,11 +3054,11 @@
         0
       ],
       "origin": [
-        -11.5,
-        2.05,
-        -29.5
+        -11.8,
+        2.2,
+        5.7
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000853",
+      "uuid": "8c340526-b00f-4000-8000-000000000424",
       "faces": {
         "north": {
           "uv": [
@@ -3959,954 +3119,450 @@
       "sera_nexus_selectable": false
     },
     {
-      "name": "departure runnel side luminous 1-0",
+      "name": "Gate approach illuminated threshold guide 1",
       "type": "cube",
       "from": [
-        10.95,
-        1.975,
-        -34.5
+        11.05,
+        1.7,
+        -1.55
       ],
       "to": [
-        12.05,
-        2.125,
-        -24.5
+        12.55,
+        2.7,
+        12.95
       ],
       "color": 5,
       "rotation": [
         0,
         0,
-        0
-      ],
-      "origin": [
-        11.5,
-        2.05,
-        -29.5
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000854",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "departure runnel stone 1",
-      "type": "cube",
-      "from": [
-        -12.5,
-        0,
-        -21.6
-      ],
-      "to": [
-        12.5,
-        2,
-        -11
-      ],
-      "color": 2,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        0,
-        1,
-        -16.3
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000855",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "departure runnel side luminous -1-1",
-      "type": "cube",
-      "from": [
-        -12.05,
-        1.975,
-        -21.3
-      ],
-      "to": [
-        -10.95,
-        2.125,
-        -11.3
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        -11.5,
-        2.05,
-        -16.3
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000856",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "departure runnel side luminous 1-1",
-      "type": "cube",
-      "from": [
-        10.95,
-        1.975,
-        -21.3
-      ],
-      "to": [
-        12.05,
-        2.125,
-        -11.3
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        11.5,
-        2.05,
-        -16.3
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000857",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "departure runnel stone 2",
-      "type": "cube",
-      "from": [
-        -12.5,
-        0,
-        -8.4
-      ],
-      "to": [
-        12.5,
-        2,
-        2.2
-      ],
-      "color": 2,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        0,
-        1,
-        -3.1
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000858",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "departure runnel side luminous -1-2",
-      "type": "cube",
-      "from": [
-        -12.05,
-        1.975,
-        -8.1
-      ],
-      "to": [
-        -10.95,
-        2.125,
-        1.9
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        -11.5,
-        2.05,
-        -3.1
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000859",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "departure runnel side luminous 1-2",
-      "type": "cube",
-      "from": [
-        10.95,
-        1.975,
-        -8.1
-      ],
-      "to": [
-        12.05,
-        2.125,
-        1.9
-      ],
-      "color": 5,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        11.5,
-        2.05,
-        -3.1
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000860",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "recessed gate threshold",
-      "type": "cube",
-      "from": [
-        -13,
-        1.15,
-        5.2
-      ],
-      "to": [
-        13,
-        2.45,
-        11.6
-      ],
-      "color": 3,
-      "rotation": [
-        0,
-        0,
-        0
-      ],
-      "origin": [
-        0,
-        1.8,
-        8.4
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000861",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "threshold yellow hazard 0",
-      "type": "cube",
-      "from": [
-        -12.4,
-        2.475,
-        7.75
-      ],
-      "to": [
-        -10.8,
-        2.625,
-        10.85
-      ],
-      "color": 6,
-      "rotation": [
-        0,
-        -26,
-        0
-      ],
-      "origin": [
-        -11.6,
-        2.55,
-        9.3
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000862",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "threshold yellow hazard 2",
-      "type": "cube",
-      "from": [
-        -4.6,
-        2.475,
-        7.75
-      ],
-      "to": [
-        -3,
-        2.625,
-        10.85
-      ],
-      "color": 6,
-      "rotation": [
-        0,
-        -26,
-        0
-      ],
-      "origin": [
-        -3.8,
-        2.55,
-        9.3
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000864",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "threshold yellow hazard 4",
-      "type": "cube",
-      "from": [
-        3.2,
-        2.475,
-        7.75
-      ],
-      "to": [
-        4.8,
-        2.625,
-        10.85
-      ],
-      "color": 6,
-      "rotation": [
-        0,
-        -26,
-        0
-      ],
-      "origin": [
-        4,
-        2.55,
-        9.3
-      ],
-      "uuid": "8c340523-b00f-4000-8000-000000000866",
-      "faces": {
-        "north": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "south": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "east": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "west": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "up": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        },
-        "down": {
-          "uv": [
-            0,
-            0,
-            16,
-            16
-          ],
-          "texture": null
-        }
-      },
-      "sera_nexus_outline": false,
-      "sera_nexus_selectable": false
-    },
-    {
-      "name": "threshold yellow hazard 6",
-      "type": "cube",
-      "from": [
-        11,
-        2.475,
-        7.75
-      ],
-      "to": [
-        12.6,
-        2.625,
-        10.85
-      ],
-      "color": 6,
-      "rotation": [
-        0,
-        -26,
         0
       ],
       "origin": [
         11.8,
-        2.55,
-        9.3
+        2.2,
+        5.7
       ],
-      "uuid": "8c340523-b00f-4000-8000-000000000868",
+      "uuid": "8c340526-b00f-4000-8000-000000000425",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Threshold striped warning insert 0",
+      "type": "cube",
+      "from": [
+        -12.2,
+        2.1,
+        9.7
+      ],
+      "to": [
+        -9.4,
+        2.55,
+        13.1
+      ],
+      "color": 6,
+      "rotation": [
+        0,
+        -24,
+        0
+      ],
+      "origin": [
+        -10.8,
+        2.325,
+        11.4
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000426",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Threshold striped warning insert 1",
+      "type": "cube",
+      "from": [
+        -6.9,
+        2.1,
+        9.7
+      ],
+      "to": [
+        -4.1,
+        2.55,
+        13.1
+      ],
+      "color": 6,
+      "rotation": [
+        0,
+        -24,
+        0
+      ],
+      "origin": [
+        -5.5,
+        2.325,
+        11.4
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000427",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Threshold striped warning insert 2",
+      "type": "cube",
+      "from": [
+        -1.6,
+        2.1,
+        9.7
+      ],
+      "to": [
+        1.2,
+        2.55,
+        13.1
+      ],
+      "color": 6,
+      "rotation": [
+        0,
+        -24,
+        0
+      ],
+      "origin": [
+        -0.2,
+        2.325,
+        11.4
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000428",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Threshold striped warning insert 3",
+      "type": "cube",
+      "from": [
+        3.7,
+        2.1,
+        9.7
+      ],
+      "to": [
+        6.5,
+        2.55,
+        13.1
+      ],
+      "color": 6,
+      "rotation": [
+        0,
+        -24,
+        0
+      ],
+      "origin": [
+        5.1,
+        2.325,
+        11.4
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000429",
+      "faces": {
+        "north": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "south": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "east": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "west": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "up": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        },
+        "down": {
+          "uv": [
+            0,
+            0,
+            16,
+            16
+          ],
+          "texture": null
+        }
+      },
+      "sera_nexus_outline": false,
+      "sera_nexus_selectable": false
+    },
+    {
+      "name": "Threshold striped warning insert 4",
+      "type": "cube",
+      "from": [
+        9,
+        2.1,
+        9.7
+      ],
+      "to": [
+        11.8,
+        2.55,
+        13.1
+      ],
+      "color": 6,
+      "rotation": [
+        0,
+        -24,
+        0
+      ],
+      "origin": [
+        10.4,
+        2.325,
+        11.4
+      ],
+      "uuid": "8c340526-b00f-4000-8000-000000000430",
       "faces": {
         "north": {
           "uv": [

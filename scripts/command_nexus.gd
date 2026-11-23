@@ -33,8 +33,9 @@ const NEXUS_ROOM_BACKDROP_COLOR: Color = Color("#17212c")
 const NEXUS_EDGE_SHADER = preload("res://shaders/nexus_polygon_edges.gdshader")
 const NEXUS_EDGE_WIDTH_PIXELS: float = 2.0
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
+const NexusReferenceFrame = preload("res://scripts/sera_nexus_reference_frame.gd")
 
-const GATE_ORIGIN: Vector3 = Vector3(5.35, 0.02, -17.00)
+const GATE_ORIGIN: Vector3 = Vector3(5.10, 0.02, -15.50)
 const SERA_STAGE_ORIGIN: Vector3 = Vector3(0.0, 0.0, -4.75)
 
 var batch_data: Dictionary = {}
@@ -274,16 +275,16 @@ var customize_silhouette_vertex_cache: Dictionary = {}
 # reserved for a menu panel. Camera transforms/FOV only: no moving 3D assets.
 # TRAINING/GATE/CUSTOMIZE on the right; SYSTEM/ARCHIVE on the left.
 var focus_views: Dictionary = {
-    "TRAINING": {"eye": Vector3(2.75, 3.20, 7.60),
-        "look": Vector3(2.27, 1.47, -0.55), "fov": 68.0},
-    "SYSTEM": {"eye": Vector3(-2.70, 3.10, 7.80),
-        "look": Vector3(-2.22, 1.02, 0.75), "fov": 68.0},
+    "TRAINING": {"eye": Vector3(3.00, 3.02, 6.70),
+        "look": Vector3(2.38, 1.34, 0.55), "fov": 68.0},
+    "SYSTEM": {"eye": Vector3(-3.10, 2.96, 6.85),
+        "look": Vector3(-2.45, 1.25, 1.45), "fov": 68.0},
     "CUSTOMIZE": {"eye": Vector3(-4.50, 3.80, 5.00),
         "look": Vector3(-1.70, 2.00, -4.75), "fov": 67.0},
-    "DATA ARCHIVE": {"eye": Vector3(-3.90, 4.50, 2.50),
-        "look": Vector3(-1.70, 3.55, -8.80), "fov": 64.0},
-    "DEPLOYMENT": {"eye": Vector3(5.90, 5.35, 1.20),
-        "look": Vector3(5.35, 3.40, -17.00), "fov": 65.0}
+    "DATA ARCHIVE": {"eye": Vector3(-4.75, 4.18, 0.65),
+        "look": Vector3(-4.95, 3.90, -12.10), "fov": 61.0},
+    "DEPLOYMENT": {"eye": Vector3(5.90, 4.64, -0.60),
+        "look": Vector3(5.10, 2.65, -15.50), "fov": 64.0}
 }
 
 # (left fraction, width fraction) of focus menu. Opposite each 3D object;
@@ -307,10 +308,10 @@ func _ready() -> void:
     _module("maintenance_pad", Vector3(0.0, 0.0, -4.75))
     _module("maintenance_canopy", Vector3(0.0, 8.0, -8.95))
     _module("deployment_gate", GATE_ORIGIN, _gate_facing_yaw())
-    _module("archive_mezzanine", Vector3(-4.00, 0.0, -6.55))
-    _module("data_bank", Vector3(-4.00, 2.19, -8.95))
-    _module("system_console", Vector3(-2.22, 0.0, 0.75), deg_to_rad(18.0), 0.85)
-    _module("training_console", Vector3(2.27, 0.0, -0.55), deg_to_rad(-13.0), 0.82)
+    _module("archive_mezzanine", Vector3(-4.95, 0.0, -9.90))
+    _module("data_bank", Vector3(-4.95, 2.48, -12.10))
+    _module("system_console", Vector3(-2.45, 0.0, 1.45), deg_to_rad(18.0))
+    _module("training_console", Vector3(2.38, 0.0, 0.55), deg_to_rad(-14.0))
     _render_batches()
     _deployment_gate_lightspill()
     _pad_center()
@@ -355,14 +356,26 @@ func _environment() -> void:
     env.background_mode = Environment.BG_COLOR
     env.background_color = NEXUS_ROOM_BACKDROP_COLOR
     env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-    env.ambient_light_color = Color("#8190b2")
-    env.ambient_light_energy = 0.85
+    env.ambient_light_color = Color("#73889c")
+    env.ambient_light_energy = 0.68
     world.environment = env
     add_child(world)
     var key := DirectionalLight3D.new()
     key.rotation_degrees = Vector3(-48.0, -34.0, 0.0)
-    key.light_energy = 1.25
+    key.light_energy = 1.10
     add_child(key)
+    # Small, shadowless practical fill: keeps the center stage and the two
+    # consoles visible without new viewports, transparency or postprocessing.
+    for placement in [
+            Vector3(0.0, 7.65, -4.75),
+            Vector3(0.0, 7.0, 1.50)]:
+        var fill := OmniLight3D.new()
+        fill.position = placement
+        fill.light_color = Color("#89c8f0")
+        fill.light_energy = 0.39
+        fill.omni_range = 6.3
+        fill.shadow_enabled = false
+        add_child(fill)
 
 func _vec(a: Array) -> Vector3:
     return Vector3(float(a[0]), float(a[1]), float(a[2]))
@@ -417,7 +430,10 @@ func _gate_facing_yaw() -> float:
     # The Blockbench gate faces along local +Z. Point that normal at SERA's stage,
     # not away from the camera (positive yaw would point to the right).
     var toward_sera: Vector3 = SERA_STAGE_ORIGIN - GATE_ORIGIN
-    return atan2(toward_sera.x, toward_sera.z)
+    # Keep the portal readable from the portrait overview, without rotating
+    # its wide beam into the right bulkhead.
+    return clampf(atan2(toward_sera.x, toward_sera.z),
+        deg_to_rad(-16.0), deg_to_rad(16.0))
 
 func _gate_light_quad(parent: Node3D, label: String, local_pos: Vector3,
         dimensions: Vector2, tint: Color, emission_strength: float,
@@ -739,13 +755,13 @@ func _collect_sera_geometry(node: Node, visible_parts: Array) -> void:
 func _camera() -> void:
     cam = Camera3D.new()
     cam.name = "NexusPortraitCamera"
-    cam.position = Vector3(0.0, 4.20, 11.75)
+    cam.position = Vector3(0.0, 3.88, 11.60)
     cam.near = 0.05
     cam.keep_aspect = Camera3D.KEEP_HEIGHT
     cam.fov = DisplayProfile.vertical_fov(63.0,
         get_viewport().get_visible_rect().size)
     add_child(cam)
-    cam.look_at(Vector3(0.0, 1.95, -7.10), Vector3.UP)
+    cam.look_at(Vector3(0.0, 2.78, -6.75), Vector3.UP)
     cam.current = true
     overview_pose = cam.transform
     overview_fov = cam.fov
@@ -774,7 +790,7 @@ func _wall_mark() -> void:
     logo.font_size = 120
     logo.pixel_size = 0.008
     logo.modulate = Color("#a4b5d1")
-    logo.position = Vector3(0.0, 5.68, -12.27)
+    logo.position = Vector3(0.0, 5.57, -11.33)
     add_child(logo)
     var name := Label3D.new()
     name.text = "S E R A"
@@ -782,7 +798,7 @@ func _wall_mark() -> void:
     name.font_size = 80
     name.pixel_size = 0.006
     name.modulate = Color("#b4c5dd")
-    name.position = Vector3(0.0, 5.06, -12.24)
+    name.position = Vector3(0.0, 4.88, -11.32)
     add_child(name)
 
 # Outline geometry is derived from the actual visible 3D display/model meshes,
@@ -801,6 +817,14 @@ func _hud() -> void:
     # Share LABO font roles/theme without adding per-card shaders or draw passes.
     hud.theme = LaboSkin.common_theme()
     hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+    # Decorative, non-interactive portrait header/footer from the source art.
+    # Put it behind all tap targets and above the 3D architecture.
+    var reference_frame: Control = NexusReferenceFrame.new()
+    reference_frame.name = "NexusReferenceFrame"
+    reference_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    hud.add_child(reference_frame)
+    reference_frame.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
     outline = NexusSelectionOutline.new()
     outline.name = "SelectableSilhouettes"
