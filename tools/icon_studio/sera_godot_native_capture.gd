@@ -1,7 +1,7 @@
 extends SceneTree
 ## Native equipment portrait: the SAME SeraRig mesh/UV/material and ViewEdges
-## shader as the game, under the combat scene's actual lighting contract.
-## Run with Godot GL Compatibility in a real display (xvfb-run for CI).
+## NEXUS visible-mesh-ID outlines as the game, under native lighting.
+## Run with Godot GL Compatibility in a real display.
 ## The browser preset remains the camera/position authority; no external
 ## renderer, artificial 3D re-meshing, or runtime on-device icon generation.
 const RigScript = preload("res://scripts/sera_rig.gd")
@@ -116,6 +116,8 @@ func _capture() -> void:
 
     var portrait := Node3D.new()
     portrait.name = "PortraitHeadD"
+    portrait.set_meta("sera_nexus_id_contact_only", true)
+    portrait.set_meta("sera_graphics_outline_category", "part")
     world.add_child(portrait)
     var spin := Node3D.new()
     spin.name = "PresetRotationAndPan"
@@ -173,15 +175,23 @@ func _capture() -> void:
     spin.position = Vector3(float(pan.get("x", 0.0)),
         float(pan.get("y", 0.0)), 0.0)
 
-    # The real mesh-edge scanner and GPU outline shader. No JavaScript
-    # approximation: contour/silhouette rules, width and depth are shared.
+    # Match the current NEXUS visible-mesh-ID/depth contact compositor.
+    # The former inverted-hull edge shader is not the active rendering path.
     var ink: Node3D = EdgeScript.new()
     ink.name = "ViewEdges"
+    ink.call("set_nexus_sera_contact_mode", true)
+    ink.call("set_stroke_px", 3.0)
     portrait.add_child(ink)
     await process_frame
-    await RenderingServer.frame_post_draw
-    await RenderingServer.frame_post_draw
-    await RenderingServer.frame_post_draw
+    var native_compositor: Node = viewport.get_node_or_null(
+        "SeraIDOutlineLayer/SeraIDOutlineControl")
+    if native_compositor == null:
+        _fail("HEAD D NEXUS ID compositor was not registered")
+        return
+    native_compositor.set("_part_outline_enabled", true)
+    native_compositor.set("_scan_elapsed", 0.0)
+    for _frame in range(5):
+        await RenderingServer.frame_post_draw
 
     var image: Image = viewport.get_texture().get_image()
     if image == null or image.is_empty():

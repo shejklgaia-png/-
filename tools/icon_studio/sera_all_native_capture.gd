@@ -1,6 +1,6 @@
 extends SceneTree
 ## Offline only: photograph all existing live SeraRig parts using the
-## user-approved H02 Godot preset, without per-slot camera overrides.
+## user-approved H02 Godot preset, with the current NEXUS mesh-ID ink.
 const RigScript = preload("res://scripts/sera_rig.gd")
 const EdgeScript = preload("res://scripts/sera_view_edges.gd")
 const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
@@ -140,6 +140,11 @@ func _run() -> void:
 
         var portrait := Node3D.new()
         portrait.name = "Portrait_" + id
+        # Identify the cloned real meshes exactly as NEXUS contact targets.
+        # Without this meta the compositor assigns generic IDs rather than
+        # unique RGB contact IDs, dropping seams between adjacent meshes.
+        portrait.set_meta("sera_nexus_id_contact_only", true)
+        portrait.set_meta("sera_graphics_outline_category", "part")
         scene.add_child(portrait)
         var spin := Node3D.new()
         portrait.add_child(spin)
@@ -186,13 +191,28 @@ func _run() -> void:
             return
         spin.scale = Vector3.ONE * (2.0 * auto_fit * model_scale / span)
         spin.position = pan_clip
+        # The native NEXUS view now uses a depth-resolved RGB mesh-ID
+        # compositor. Enable that exact mode BEFORE registering this root;
+        # the legacy inverted-hull shader is not the current icon pipeline.
         var ink: Node3D = EdgeScript.new()
         ink.name = "ViewEdges"
+        ink.call("set_nexus_sera_contact_mode", true)
+        ink.call("set_stroke_px", 3.0)
         portrait.add_child(ink)
         await process_frame
-        await RenderingServer.frame_post_draw
-        await RenderingServer.frame_post_draw
-        await RenderingServer.frame_post_draw
+        # Offline assets must not inherit the user's in-game 'outlines off'
+        # preference; force only this private 512px capture compositor on.
+        var native_compositor: Node = viewport.get_node_or_null(
+            "SeraIDOutlineLayer/SeraIDOutlineControl")
+        if native_compositor == null:
+            _fail(id + ": NEXUS ID compositor was not registered")
+            return
+        native_compositor.set("_part_outline_enabled", true)
+        native_compositor.set("_scan_elapsed", 0.0)
+        # The compositor is deferred and has a separate ID SubViewport.
+        # Render several frames before capturing the final composited color.
+        for _frame in range(5):
+            await RenderingServer.frame_post_draw
         var screenshot: Image = viewport.get_texture().get_image()
         if screenshot == null or screenshot.is_empty():
             _fail(id + ": framebuffer missing")

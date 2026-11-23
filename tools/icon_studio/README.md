@@ -1,3 +1,33 @@
+## 全19装備PNGの新方式撮影・ゲーム反映（2026-11-23）
+
+本日時点の正本は、NEXUSと同じ**可視メッシュID＋深度による接合線・輪郭線**です。
+旧・反転ハル方式／古い線シェーダーをアイコン撮影へ流用しません。
+`tools/icon_studio/sera_all_native_capture.gd` も `sera_godot_native_capture.gd` も
+`ViewEdges.set_nexus_sera_contact_mode(true)` を撮影前に設定します。
+
+既存19設計図の正本3Dメッシュ、マテリアル、`NEXUS_pose`、
+`assets/ui/sera_icon_presets/H02.json` の撮影角度・構図を維持します。
+出力は透過512×512 PNGです。設備枠・グリッド背景・名前を焼き込みません。
+
+**Godot GL Compatibilityを実行できる表示環境で、リポジトリのルートから**
+次の制作コマンドを1回実行します（CIテストではありません）。
+
+```bash
+python3 tools/icon_studio/recapture_all_icons.py
+```
+
+Godotコマンドが標準の名前ではない場合は、`GODOT_BIN` 環境変数に
+その実行ファイルのパスを指定します。処理は現在の撮影方式で
+`assets/ui/sera_equipment_icons/{設計図ID}.png` の19枚を撮影し直した後、
+`tag_all_icons.py` で各PNGの原本情報と
+`assets/ui/sera_equipment_icons/manifest.json` の画像SHA-256を更新します。
+`scripts/sera_item_icons.gd` は既にその19枚を読み込んでおり、
+LAB・倉庫・NEXUSでは既存の設計図別2Dキャッシュに反映されます。
+表示時に3D撮影を増やさず、装備UIDや保存形式も変えません。
+
+**このコマンドを実際に実行し、生成PNGの変更をGitへ保存するまでは
+撮影済み・全画像反映済みとは扱いません。** CI/テストは起動しません。
+
 ## 最終採用画像はGodot GL Compatibilityの撮影で作成（2026-11-21）
 
 これまでは `SERA_ICON_PRESET_V1` を別レンダラーで再計算していましたが、色・光沢・法線・輪郭線の表示がSERA本体と一致しませんでした。**ブラウザでは引き続き角度と大きさを調整し、撮影設定だけをコピー**します。

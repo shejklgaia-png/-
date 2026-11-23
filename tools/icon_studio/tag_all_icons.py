@@ -12,11 +12,30 @@ import zlib
 from pathlib import Path
 
 try:
-    from .validate_all_icons import ROOT, TARGET, catalog_entries
     from .read_sera_icon_png import read_png_metadata
 except ImportError:
-    from validate_all_icons import ROOT, TARGET, catalog_entries
     from read_sera_icon_png import read_png_metadata
+
+# Production asset registration reads only the live equipment catalog and
+# existing icon manifest. It must not depend on CI/test utilities.
+ROOT = Path(__file__).resolve().parents[2]
+TARGET = ROOT / "assets/ui/sera_equipment_icons"
+MANIFEST_PATH = TARGET / "manifest.json"
+CATALOG_PATH = ROOT / "scripts/sera_prototype_catalog.gd"
+
+
+def catalog_entries() -> dict:
+    import re
+
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    order_match = re.search(r"(?m)^const ORDER = (\[[^\n]+\])", CATALOG_PATH.read_text(encoding="utf-8"))
+    if order_match is None:
+        raise ValueError("Live equipment catalog order not found")
+    order = json.loads(order_match.group(1))
+    items = manifest.get("items", {})
+    if set(order) != set(items):
+        raise ValueError("Native icon manifest and live equipment catalog differ")
+    return {blueprint: items[blueprint] for blueprint in order}
 
 # One approved H02 preset supplies the exact camera/scale to all 19 icons.
 # Other blueprint IDs retain their own original model and material sources.
@@ -73,7 +92,7 @@ def annotate_one(id_: str, entry: dict) -> dict:
         },
         "capture_backend": "Godot GL Compatibility native SubViewport",
         "materials": "SeraRig original mesh material_override",
-        "outline": "scripts/sera_view_edges.gd + shaders/sera_view_edges.gdshader",
+        "outline": "scripts/sera_view_edges.gd + scripts/sera_scene_id_outlines.gd + shaders/sera_nexus_mesh_contact_spatial_ink.gdshader",
         "lighting": "scripts/main.gd::_build_world",
     }
     # Every captured part uses the exact camera, framing, and outline preset.
@@ -96,10 +115,26 @@ def annotate_one(id_: str, entry: dict) -> dict:
 
 
 def annotate_all() -> None:
+    # Run only after the actual Godot native batch capture has generated the
+    # transparent PNG files. Refresh hashes from those files, never from mocks.
+    manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     records = catalog_entries()
     for id_, entry in records.items():
-        annotate_one(id_, entry)
-    print("SERA_NATIVE_EQUIPMENT_METADATA_PASS parts=", len(records))
+        provenance = annotate_one(id_, entry)
+        manifest["items"][id_]["source_sha256"] = provenance["source"]["fingerprint"]
+        manifest["items"][id_]["png_sha256"] = hashlib.sha256(
+            (TARGET / (id_ + ".png")).read_bytes()
+        ).hexdigest()
+        manifest["items"][id_]["capture"] = (
+            "SERA Godot GL Compatibility / NEXUS visible mesh-ID contact")
+    manifest["count"] = len(records)
+    manifest["capture_preset"] = "assets/ui/sera_icon_presets/H02.json"
+    manifest["outline_pipeline"] = (
+        "NEXUS mesh-ID depth contact: 1px interior, 2px exterior, 2px seams")
+    MANIFEST_PATH.write_text(
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8")
+    print("SERA_NATIVE_EQUIPMENT_METADATA_UPDATED parts=", len(records))
 
 
 if __name__ == "__main__":
