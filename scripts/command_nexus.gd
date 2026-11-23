@@ -452,11 +452,31 @@ func _ready() -> void:
     if focus_views.has(route):
         call_deferred("_select_target", route)
 
+func _open_canonical_placement() -> void:
+    if placement_editor == null or not placement_editor.is_inside_tree():
+        push_warning("NEXUS canonical placement editor is not ready")
+        return
+    if placement_editor.open_mode():
+        _sync_placement_launchers()
+        get_viewport().set_input_as_handled()
+
+
+func _open_camera_angle_placement() -> void:
+    if camera_angle_editor == null or not camera_angle_editor.is_inside_tree():
+        push_warning("NEXUS camera angle editor is not ready")
+        return
+    if camera_angle_editor.open_mode():
+        _sync_placement_launchers()
+        get_viewport().set_input_as_handled()
+
+
 func _placement_launcher_button(caption: String, id: String) -> Button:
     var b := Button.new()
     b.name = id
     b.text = caption
-    b.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    # This is a REAL interactive Button, not a decorative-only HUD panel.
+    # The old IGNORE value prevented Godot from emitting pressed on Android.
+    b.mouse_filter = Control.MOUSE_FILTER_STOP
     b.focus_mode = Control.FOCUS_NONE
     b.add_theme_font_size_override("font_size", 20)
     b.add_theme_color_override("font_color", Color("#e4f7ff"))
@@ -1057,6 +1077,10 @@ func _hud() -> void:
     angle_entry_button.visible = false
     placement_entry_button.z_index = 100
     angle_entry_button.z_index = 100
+    # Native GUI events work even if a touch is consumed before _input() by
+    # the SubViewportContainer. Keep the raw _input rect path as a fallback.
+    placement_entry_button.pressed.connect(_open_canonical_placement)
+    angle_entry_button.pressed.connect(_open_camera_angle_placement)
 
     outline = NexusSelectionOutline.new()
     outline.name = "SelectableSilhouettes"
