@@ -3,6 +3,8 @@ extends Node3D
 ## The old inverted hull is intentionally no longer instantiated. All active
 ## actors and world roots sharing one Viewport use one ID depth pass, as IRIS.
 const SceneIDOutlines = preload("res://scripts/sera_scene_id_outlines.gd")
+const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
+const VisibleConvexInk = preload("res://scripts/nexus_sera_gpu_convex_silhouette.gd")
 const LAYER_NAME: String = "SeraIDOutlineLayer"
 const COMPOSITOR_NAME: String = "SeraIDOutlineControl"
 
@@ -10,6 +12,7 @@ var _contour_enabled: bool = true
 var _stroke_px: float = 3.0
 var _nexus_sera_contact_mode: bool = false
 var _compositor: Control
+var _combat_convex: Node3D
 
 
 func _ready() -> void:
@@ -22,6 +25,22 @@ func _exit_tree() -> void:
     if is_instance_valid(_compositor):
         _compositor.call("unregister_root", self)
     _compositor = null
+    _release_combat_convex()
+
+
+static func _in_combat_scene(actor: Node3D) -> bool:
+    var cursor: Node = actor
+    while cursor != null:
+        if bool(cursor.get_meta("sera_combat_convex_ink", false)):
+            return true
+        cursor = cursor.get_parent()
+    return false
+
+
+func _release_combat_convex() -> void:
+    if is_instance_valid(_combat_convex):
+        _combat_convex.queue_free()
+    _combat_convex = null
 
 
 func _register() -> void:
@@ -56,6 +75,21 @@ func _register() -> void:
     else:
         _compositor.call("set_shared_scene_mode", true)
     _compositor.call("set_stroke_px", _stroke_px)
+    # Only combat SERA/weapon/boss/target meshes get visible front-facing
+    # convex corners. Keep the RGB-ID silhouette/seams on the one shared
+    # viewport; never register these ribbon meshes in the ID pass.
+    if not _nexus_sera_contact_mode and _in_combat_scene(actor) and (
+            GraphicsSettings.get_enabled("character_outline")):
+        if not is_instance_valid(_combat_convex):
+            var convex: Node3D = VisibleConvexInk.new()
+            convex.name = "SeraCombatConvexController"
+            convex.set("ink_stroke_px", 2.0)
+            convex.set("ink_render_priority", -29)
+            convex.set("overlay_name", "SeraEdgeInk")
+            actor.add_child(convex)
+            _combat_convex = convex
+    else:
+        _release_combat_convex()
 
 
 func set_contour_enabled(enabled: bool) -> void:
@@ -66,6 +100,7 @@ func set_contour_enabled(enabled: bool) -> void:
         if is_instance_valid(_compositor):
             _compositor.call("unregister_root", self)
         _compositor = null
+        _release_combat_convex()
     else:
         _register()
 
