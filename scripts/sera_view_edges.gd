@@ -3,7 +3,6 @@ extends Node3D
 ## The old inverted hull is intentionally no longer instantiated. All active
 ## actors and world roots sharing one Viewport use one ID depth pass, as IRIS.
 const SceneIDOutlines = preload("res://scripts/sera_scene_id_outlines.gd")
-const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
 const VisibleConvexInk = preload("res://scripts/nexus_sera_gpu_convex_silhouette.gd")
 const LAYER_NAME: String = "SeraIDOutlineLayer"
 const COMPOSITOR_NAME: String = "SeraIDOutlineControl"
@@ -39,15 +38,6 @@ static func _in_bittaran_gpu_scene(actor: Node3D) -> bool:
     return false
 
 
-static func _in_combat_scene(actor: Node3D) -> bool:
-    var cursor: Node = actor
-    while cursor != null:
-        if bool(cursor.get_meta("sera_combat_convex_ink", false)):
-            return true
-        cursor = cursor.get_parent()
-    return false
-
-
 func _release_combat_convex() -> void:
     if is_instance_valid(_combat_convex):
         _combat_convex.queue_free()
@@ -65,6 +55,8 @@ func _register() -> void:
         return
     if _in_bittaran_gpu_scene(actor):
         # No ID target, camera clone or screen-space composite in this battle.
+        # GPU ribbons draw only external contours and disjoint mesh boundaries;
+        # same-mesh convex ridges are intentionally excluded.
         # Every edge belongs to its source mesh and uses the SAME camera,
         # including Camera3D.h_offset/v_offset during impact shake.
         if is_instance_valid(_compositor):
@@ -74,12 +66,10 @@ func _register() -> void:
             var gpu: Node3D = VisibleConvexInk.new()
             gpu.name = "SeraBittaranGPUContourController"
             gpu.set("enable_combat_gpu_full_edges", true)
-            gpu.set("ink_stroke_px", 2.0)
             gpu.set("silhouette_stroke_px", 3.0)
             gpu.set("seam_stroke_px", 3.0)
             gpu.set("ink_render_priority", -29)
             gpu.set("overlay_name", "SeraBittaranGPUContour")
-            gpu.set("hard_creases_only", true)
             gpu.set("scan_interval_seconds", 1.05)
             actor.add_child(gpu)
             _combat_convex = gpu
@@ -107,22 +97,10 @@ func _register() -> void:
     else:
         _compositor.call("set_shared_scene_mode", true)
     _compositor.call("set_stroke_px", _stroke_px)
-    # Only combat SERA/weapon/boss/target meshes get visible front-facing
-    # convex corners. Keep the RGB-ID silhouette/seams on the one shared
-    # viewport; never register these ribbon meshes in the ID pass.
-    if not _nexus_sera_contact_mode and _in_combat_scene(actor) and (
-            GraphicsSettings.get_enabled("character_outline")):
-        if not is_instance_valid(_combat_convex):
-            var convex: Node3D = VisibleConvexInk.new()
-            convex.name = "SeraCombatConvexController"
-            convex.set("ink_stroke_px", 2.0)
-            convex.set("ink_render_priority", -29)
-            convex.set("overlay_name", "SeraEdgeInk")
-            convex.set("hard_creases_only", true)
-            actor.add_child(convex)
-            _combat_convex = convex
-    else:
-        _release_combat_convex()
+    # SERA, enemies and CRATE use visible-ID outer silhouettes and
+    # separate-mesh seams in all other scenes. Do not create any convex
+    # corner ribbon for those characters; facility/clutter ink is separate.
+    _release_combat_convex()
 
 
 func set_contour_enabled(enabled: bool) -> void:

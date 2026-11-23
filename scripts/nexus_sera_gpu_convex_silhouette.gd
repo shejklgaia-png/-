@@ -19,7 +19,7 @@ var overlay_name: String = EDGE_NAME
 # Icon capture also restricts visible front creases to hard (>=80°) edges.
 # Optional for combat only; NEXUS retains its existing geometry by default.
 var hard_creases_only: bool = false
-# Battle-only GPU mode: silhouette, disjoint mesh outlines and convex ridges.
+# Battle-only GPU mode: silhouette and disjoint mesh borders (no convex ridges).
 # Off by default to preserve NEXUS/icon consumers of this controller.
 var enable_combat_gpu_full_edges: bool = false
 var silhouette_stroke_px: float = 3.0
@@ -39,7 +39,6 @@ func _ready() -> void:
     if enable_combat_gpu_full_edges:
         _material.set_shader_parameter("silhouette_px", silhouette_stroke_px)
         _material.set_shader_parameter("seam_px", seam_stroke_px)
-        _material.set_shader_parameter("crease_px", ink_stroke_px)
     else:
         _material.set_shader_parameter("stroke_px", ink_stroke_px)
     _material.render_priority = ink_render_priority
@@ -232,7 +231,7 @@ static func _make_edges(mesh: Mesh, closed: bool,
     # determines which normal direction is outward for convex filtering.
     # Open meshes have ambiguous volume: keep their physical boundaries.
     var outward_sign: float = 1.0
-    if closed and _signed_volume(mesh) < 0.0:
+    if closed and not include_full_contour and _signed_volume(mesh) < 0.0:
         outward_sign = -1.0
     var writer := SurfaceTool.new()
     writer.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -257,8 +256,8 @@ static func _make_edges(mesh: Mesh, closed: bool,
             not bool(edge.get("duplicate_triangle", false)))
         # New full contour includes genuine single-sided boundary edges
         # and paired edges; ambiguous duplicate/non-manifold edges are ignored.
-        # Hard-crease filtering applies only to the *convex* lane: excluding
-        # non-hard paired edges here would also destroy silhouette coverage.
+        # Retain every paired edge as a possible front/back silhouette at
+        # other camera angles. No front/front crease is emitted in full mode.
         var boundary: bool = not edge.has("face_b") and (
             int(edge.get("count", 0)) == 1)
         if include_full_contour:
@@ -269,17 +268,20 @@ static func _make_edges(mesh: Mesh, closed: bool,
                 continue
             if hard_only and not bool(edge.get("crease", false)):
                 continue
+        # Topology is shared, but this expensive convexity classification is
+        # needed only by the legacy NEXUS/icon convex controller.
         var signed_convex: bool = true
-        if closed and paired:
+        if not include_full_contour and closed and paired:
             var convex_bend: float = tangent.dot(normal_a.cross(normal_b))
             signed_convex = convex_bend * outward_sign > 0.00001
-            if not include_full_contour and not signed_convex:
+            if not signed_convex:
                 continue
         normal_a = (normal_a * outward_sign).normalized()
         if paired:
             normal_b = (normal_b * outward_sign).normalized()
-        var emit_crease: bool = paired and signed_convex and (
-            not hard_only or bool(edge.get("crease", false)))
+        var emit_crease: bool = (not include_full_contour and paired
+            and signed_convex and (
+                not hard_only or bool(edge.get("crease", false))))
         var encoded_a := Color(
             normal_a.x * 0.5 + 0.5, normal_a.y * 0.5 + 0.5,
             normal_a.z * 0.5 + 0.5,
