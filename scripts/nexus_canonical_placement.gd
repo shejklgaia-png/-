@@ -401,7 +401,12 @@ func close_mode() -> void:
 
 
 func _toggle_rect() -> Rect2:
-    return Rect2(Vector2(14.0, 18.0), Vector2(132.0, 45.0))
+    # Use the same HUD button geometry that is actually visible on Android.
+    if host != null:
+        var entry_button: Button = host.get("placement_entry_button") as Button
+        if entry_button != null:
+            return Rect2(entry_button.position, entry_button.size)
+    return Rect2(Vector2(20.0, 36.0), Vector2(156.0, 54.0))
 
 
 func _close_rect() -> Rect2:
@@ -535,7 +540,9 @@ func _sync_ui() -> void:
         var rect: Rect2
         match name:
             "toggle":
-                enabled = not active and _can_open()
+                # The permanent entry Button is owned by command_nexus._hud,
+                # not this editor. Never draw a duplicate in CanvasLayer 8.
+                enabled = false
                 rect = _toggle_rect()
             "close":
                 enabled = active
