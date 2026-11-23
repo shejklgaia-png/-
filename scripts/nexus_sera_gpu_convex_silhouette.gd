@@ -223,19 +223,22 @@ static func _signed_volume(mesh: Mesh) -> float:
     return total
 
 
-# Limit GPU corner-cap overhang on nearly straight, face-connected edges.
-# Only consulted while a combat outline mesh is built and then cached.
-# UV.y encodes the signed endpoint cap multiplier; no shader change is needed.
-static func _combat_endpoint_cap_scale(edge: Dictionary,
+# Select the most straight-on face-connected neighbor during cached
+# mesh construction. Its direction lets the GPU recompute the corner angle
+# after projection for the current camera (including camera shake).
+# UV.y retains the conservative 3D cap as a fallback.
+static func _combat_endpoint_corner(edge: Dictionary,
         endpoint: Vector3, outgoing: Vector3,
-        incident: Dictionary) -> float:
+        incident: Dictionary) -> Dictionary:
     var spokes: Array = incident.get(Edges._position_key(endpoint), [])
     # Non-manifold intersections are ambiguous; retain the known-good cap.
     if spokes.size() > 16:
-        return 1.0
+        return {"scale": 1.0, "neighbor": Vector3.ZERO}
     var face_a: Vector3 = edge["face_a"]
     var face_b: Vector3 = edge.get("face_b", Vector3.ZERO)
     var scale: float = 1.0
+    var best_cos: float = 0.0
+    var best_neighbor: Vector3 = Vector3.ZERO
     for item in spokes:
         var neighbor: Dictionary = item as Dictionary
         var next_direction: Vector3 = neighbor["direction"]
@@ -258,7 +261,10 @@ static func _combat_endpoint_cap_scale(edge: Dictionary,
         var required_ratio: float = sqrt(maxf(0.0,
             (1.0 + cos_angle) / maxf(1.0 - cos_angle, 0.0001)))
         scale = minf(scale, clampf(required_ratio, 0.2, 1.0))
-    return scale
+        if cos_angle < best_cos:
+            best_cos = cos_angle
+            best_neighbor = next_direction
+    return {"scale": scale, "neighbor": best_neighbor}
 
 
 static func _make_edges(mesh: Mesh, closed: bool,
@@ -281,6 +287,9 @@ static func _make_edges(mesh: Mesh, closed: bool,
         # Store the local edge midpoint at full float precision; the normal
         # and camera-facing test must not vary between its two endpoints.
         writer.set_custom_format(1, SurfaceTool.CUSTOM_RGBA_FLOAT)
+        # One cached neighboring 3D edge direction at each ribbon endpoint.
+        # No new triangles, materials, cameras, or visibility passes.
+        writer.set_custom_format(2, SurfaceTool.CUSTOM_RGBA_FLOAT)
     # Build one adjacency index for cached combat meshes. The original
     # ribbon topology and the 6-vertex drawing path remain untouched.
     var incident: Dictionary = {}
@@ -368,21 +377,34 @@ static func _make_edges(mesh: Mesh, closed: bool,
         # Unconnected, right-angle and acute corners retain the old cap.
         var start_cap: float = 1.0
         var end_cap: float = 1.0
+        var start_neighbor: Vector3 = Vector3.ZERO
+        var end_neighbor: Vector3 = Vector3.ZERO
         if include_full_contour:
-            start_cap = _combat_endpoint_cap_scale(
+            var start_corner: Dictionary = _combat_endpoint_corner(
                 edge, a, tangent, incident)
-            end_cap = _combat_endpoint_cap_scale(
+            var end_corner: Dictionary = _combat_endpoint_corner(
                 edge, b, -tangent, incident)
-        # UV.x is stroke side. UV.y stores signed cap fraction; the shader
-        # still multiplies it by its existing outer pixel width (5px / 3px).
-        for corner in [[a, -1.0, -start_cap], [b, -1.0, end_cap],
-                [b, 1.0, end_cap], [a, -1.0, -start_cap],
-                [b, 1.0, end_cap], [a, 1.0, -start_cap]]:
+            start_cap = float(start_corner["scale"])
+            end_cap = float(end_corner["scale"])
+            start_neighbor = start_corner["neighbor"]
+            end_neighbor = end_corner["neighbor"]
+        # UV.x is stroke side. UV.y keeps the 3D fallback cap fraction.
+        # Per-endpoint CUSTOM2 provides a camera-projected alternative.
+        for corner in [[a, -1.0, -start_cap, start_neighbor],
+                [b, -1.0, end_cap, end_neighbor],
+                [b, 1.0, end_cap, end_neighbor],
+                [a, -1.0, -start_cap, start_neighbor],
+                [b, 1.0, end_cap, end_neighbor],
+                [a, 1.0, -start_cap, start_neighbor]]:
             writer.set_color(encoded_a)
             writer.set_custom(0, encoded_b)
             if include_full_contour:
                 writer.set_custom(1, Color(
                     midpoint.x, midpoint.y, midpoint.z, 0.0))
+                var next_edge: Vector3 = corner[3]
+                writer.set_custom(2, Color(
+                    next_edge.x, next_edge.y, next_edge.z,
+                    1.0 if next_edge.length_squared() > 0.1 else 0.0))
             writer.set_normal(tangent)
             writer.set_uv(Vector2(float(corner[1]), float(corner[2])))
             writer.add_vertex(corner[0])
