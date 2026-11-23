@@ -5,12 +5,15 @@ shader_type spatial;
 render_mode unshaded, cull_front, depth_draw_opaque;
 
 uniform int mesh_id_base = 1;
+// A compressed MultiMesh reservation must not encode IDs belonging to
+// another render batch. Disable INSTANCE_ID only in that fallback case.
+uniform bool use_instance_ids = true;
 uniform float player_tag = 0.0;
 uniform int role_code = 1;
 uniform bool use_instance_roles = false;
 varying vec3 encoded_id;
 void vertex() {
-    int index = ((mesh_id_base + INSTANCE_ID) * 1733) % 4096;
+    int index = ((mesh_id_base + (use_instance_ids ? INSTANCE_ID : 0)) * 1733) % 4096;
     int category = use_instance_roles ?
         clamp(int(floor(INSTANCE_CUSTOM.r * 8.0 + 0.5)), 1, 7) :
         role_code;
