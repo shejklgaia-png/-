@@ -65,40 +65,49 @@ static func build(g: Variant) -> void:
     g = ShiftedBatch.new(g, CollectorConveyor.CRANE_OFFSET)
     var foot := Vector3(-0.78, 1.25, -0.43)
     var elbow := Vector3(-0.35, 2.97, -0.31)
-    var tip := Vector3(0.76, 2.59, 1.04)
+    # Slightly shorter reach matches the relocated pickup and keeps the
+    # unloaded hook inside the yellow hopper rim at the dump angle.
+    var tip := Vector3(CollectorConveyor.CRANE_TIP_X, 2.59,
+        CollectorConveyor.CRANE_TIP_Z)
 
-    # Slewing pedestal: real toothed bearing, double race and exposed pinion.
-    g.poly("CollectorCraneSlewRace", "gear",
+    # The stationary race, rotating inner race and actual spindle all have
+    # eight broad *physical* planar sides. The compact 0.68m bearing
+    # stays entirely on the rear-left foundation instead of crossing the
+    # raised yellow sorting-pan edge.
+    g.poly("CollectorCraneSlewRace", "octagonal_slew",
         Vector3(-0.78, 0.98, -0.48),
-        Vector3(1.04, 0.16, 1.04), "edge")
-    g.poly("CollectorCraneInnerRace", "drum",
+        Vector3(0.66, 0.17, 0.66), "edge")
+    g.poly("CollectorCraneInnerRace", "octagonal_slew",
         Vector3(-0.78, 1.07, -0.48),
-        Vector3(0.77, 0.22, 0.77), "dark")
-    g.poly("CollectorCraneTurntableSkirt", "cargo_case",
-        Vector3(-0.78, 1.16, -0.48),
-        Vector3(0.94, 0.19, 0.83), "slate")
+        Vector3(0.53, 0.20, 0.53), "dark")
+    g.poly("CollectorCraneTurntableSkirt", "octagonal_slew",
+        Vector3(-0.78, 1.17, -0.48),
+        Vector3(0.63, 0.19, 0.63), "slate")
+    g.poly("CollectorCraneOctagonalSpindle", "octagonal_slew",
+        Vector3(-0.78, 1.29, -0.48),
+        Vector3(0.43, 0.29, 0.43), "armor_light")
     g.poly("CollectorCraneDrivePinion", "gear",
-        Vector3(-0.31, 1.00, -0.65),
-        Vector3(0.29, 0.12, 0.29), "gold")
+        Vector3(-0.37, 0.98, -0.65),
+        Vector3(0.22, 0.10, 0.22), "gold")
     for i in range(8):
         var angle: float = TAU * float(i) / 8.0
         g.poly("CollectorCraneBearingFastener", "drum",
-            Vector3(-0.78 + cos(angle) * 0.42, 1.10,
-                -0.48 + sin(angle) * 0.42),
-            Vector3(0.095, 0.08, 0.095), "gold")
+            Vector3(-0.78 + cos(angle) * 0.245, 1.10,
+                -0.48 + sin(angle) * 0.245),
+            Vector3(0.065, 0.07, 0.065), "gold")
 
     # Paired side cheeks, transverse journal and lateral gusset braces.
     for side in [-1.0, 1.0]:
-        var x: float = foot.x + side * 0.28
+        var x: float = foot.x + side * 0.19
         g.poly("CollectorCranePivotCheek", "gusset",
             Vector3(x, 1.42, -0.43),
-            Vector3(0.21, 0.62, 0.49), "slate")
+            Vector3(0.17, 0.62, 0.45), "slate")
         _beam(g, "CollectorCraneBaseWeb",
-            Vector3(x, 1.23, -0.83),
+            Vector3(x, 1.23, -0.72),
             Vector3(x, 1.72, -0.42),
             0.15, 0.15, "armor_light", "gusset")
-    _axle(g, "CollectorCraneLowerPin", foot, 0.78, 0.17, "edge")
-    for x in [-1.15, -0.41]:
+    _axle(g, "CollectorCraneLowerPin", foot, 0.64, 0.17, "edge")
+    for x in [-1.06, -0.50]:
         g.poly("CollectorCranePivotLock", "gear",
             Vector3(x, 1.25, -0.43),
             Vector3(0.22, 0.10, 0.22), "gold")
@@ -151,7 +160,7 @@ static func build(g: Variant) -> void:
         _axle(g, "CollectorCraneLiftSeal",
             low.lerp(upper, 0.64), 0.20, 0.12, "gold")
         var stick_start := Vector3(-0.19 + xshift, 2.79, -0.23)
-        var stick_end := Vector3(0.52 + xshift, 2.62, 0.74)
+        var stick_end := Vector3(0.48 + xshift, 2.62, 0.72)
         _beam(g, "CollectorCraneStickCylinder",
             stick_start, stick_start.lerp(stick_end, 0.65),
             0.16, 0.16, "slate", "drum")
@@ -187,37 +196,37 @@ static func build(g: Variant) -> void:
     # Keep the old hoist feature and exact 0.70m cable length: its per-frame
     # squash and vertical translation are already driven by facility_motion.
     g.rod("FreshCollectorSuspendedCable",
-        Vector3(0.76, 2.54, 1.04),
-        Vector3(0.76, 1.84, 1.04), 0.068, "dark")
+        Vector3(CollectorConveyor.CRANE_TIP_X, 2.54, CollectorConveyor.CRANE_TIP_Z),
+        Vector3(CollectorConveyor.CRANE_TIP_X, 1.84, CollectorConveyor.CRANE_TIP_Z), 0.068, "dark")
     g.poly("FreshCollectorClawHead", "cargo_case",
-        Vector3(0.76, 1.80, 1.04),
+        Vector3(CollectorConveyor.CRANE_TIP_X, 1.80, CollectorConveyor.CRANE_TIP_Z),
         Vector3(0.62, 0.31, 0.53), "armor_light")
     g.poly("FreshCollectorClawHead", "hood",
-        Vector3(0.76, 1.97, 1.04),
+        Vector3(CollectorConveyor.CRANE_TIP_X, 1.97, CollectorConveyor.CRANE_TIP_Z),
         Vector3(0.43, 0.19, 0.42), "slate")
     g.poly("FreshCollectorClawHead", "gear",
-        Vector3(0.76, 1.74, 1.04),
+        Vector3(CollectorConveyor.CRANE_TIP_X, 1.74, CollectorConveyor.CRANE_TIP_Z),
         Vector3(0.40, 0.10, 0.40), "gold")
 
     # Four individual forged gripping fingers, arranged as opposing pairs.
     # Motion names and side ordering match the original oscillating jaw driver.
     for row in [-1.0, 1.0]:
         for side in [-1.0, 1.0]:
-            var root := Vector3(0.76 + side * 0.24,
-                1.72, 1.04 + row * 0.21)
-            var knuckle := Vector3(0.76 + side * 0.47,
-                1.42, 1.04 + row * 0.30)
-            var tooth := Vector3(0.76 + side * 0.24,
-                1.20, 1.04 + row * 0.20)
+            var root := Vector3(CollectorConveyor.CRANE_TIP_X + side * 0.24,
+                1.72, CollectorConveyor.CRANE_TIP_Z + row * 0.21)
+            var knuckle := Vector3(CollectorConveyor.CRANE_TIP_X + side * 0.47,
+                1.42, CollectorConveyor.CRANE_TIP_Z + row * 0.30)
+            var tooth := Vector3(CollectorConveyor.CRANE_TIP_X + side * 0.24,
+                1.20, CollectorConveyor.CRANE_TIP_Z + row * 0.20)
             _axle(g, "FreshCollectorJawHinge",
                 root, 0.15, 0.105, "gold")
             _beam(g, "FreshCollectorOpenGrip", root, knuckle,
                 0.18, 0.20, "armor_light", "gusset")
     for row in [-1.0, 1.0]:
         for side in [-1.0, 1.0]:
-            var knuckle := Vector3(0.76 + side * 0.47,
-                1.42, 1.04 + row * 0.30)
-            var tooth := Vector3(0.76 + side * 0.24,
-                1.20, 1.04 + row * 0.20)
+            var knuckle := Vector3(CollectorConveyor.CRANE_TIP_X + side * 0.47,
+                1.42, CollectorConveyor.CRANE_TIP_Z + row * 0.30)
+            var tooth := Vector3(CollectorConveyor.CRANE_TIP_X + side * 0.24,
+                1.20, CollectorConveyor.CRANE_TIP_Z + row * 0.20)
             _beam(g, "FreshCollectorOpenGrip", knuckle, tooth,
                 0.16, 0.15, "edge", "cargo_case")

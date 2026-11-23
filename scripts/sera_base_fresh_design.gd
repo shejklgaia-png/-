@@ -230,11 +230,12 @@ static func _labo(g: Variant) -> void:
 static func _collector(g: Variant) -> void:
     # Small excavator arm on a rotating carriage; claw hangs above scrap skip.
     _pad(g, 2.33, 2.24)
-    # Keep the low base inboard of the yellow edge and center its motor on
-    # the shifted upper slewing mechanism, not the old external footprint.
-    g.poly("FreshCollectorTurntable", "cargo_case",
-        Vector3(-0.70, 0.65, -0.46) + CollectorConveyor.CRANE_OFFSET,
-        Vector3(0.78, 0.57, 0.90), "slate")
+    # An actual eight-faced steel pedestal sits behind the yellow hopper
+    # and INSIDE the 2.33 x 2.24m base. Unlike the old rectangular skirt, its
+    # rear-left footprint is kept clear of all four foundation edges.
+    g.poly("FreshCollectorTurntable", "octagonal_slew",
+        Vector3(-0.78, 0.65, -0.48) + CollectorConveyor.CRANE_OFFSET,
+        Vector3(0.66, 0.57, 0.66), "slate")
     g.poly("FreshCollectorWinchMotor", "bevel",
         Vector3(-0.74, 1.08, -0.40) + CollectorConveyor.CRANE_OFFSET,
         Vector3(0.83, 0.50, 0.72), "gold")

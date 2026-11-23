@@ -58,6 +58,42 @@ static func _octagonal_ring(y: float, edge: float,
         Vector3(-e, y, inner), Vector3(-e, y, -inner),
     ]
 
+static func _octagonal_slew(st: SurfaceTool) -> void:
+    # Eight genuine planar wrench flats, with relieved neck and stepped
+    # bearing shoulders. The actual shaft is an octagon, not a twenty-tooth
+    # gear or a smooth cylinder with a decorative outline.
+    var profiles: Array[Vector2] = [
+        Vector2(-0.50, 0.42), Vector2(-0.37, 0.50),
+        Vector2(-0.25, 0.50), Vector2(-0.20, 0.35),
+        Vector2(0.22, 0.35), Vector2(0.30, 0.47),
+        Vector2(0.50, 0.47),
+    ]
+    var rings: Array = []
+    for profile in profiles:
+        var edge: float = profile.y
+        # 0.585786 * half-extent gives eight equal planar edges.
+        rings.append(_octagonal_ring(profile.x, edge,
+            edge * 0.58578644))
+    for layer in range(rings.size() - 1):
+        var bottom: Array = rings[layer]
+        var top: Array = rings[layer + 1]
+        for side in range(8):
+            var next_side: int = (side + 1) % 8
+            var middle: Vector3 = (bottom[side] + bottom[next_side] +
+                top[side] + top[next_side]) * 0.25
+            _quad(st, bottom[side], bottom[next_side],
+                top[next_side], top[side],
+                Vector3(middle.x, 0.0, middle.z))
+    var lower: Array = rings[0]
+    var upper: Array = rings[rings.size() - 1]
+    for side in range(8):
+        var next_side: int = (side + 1) % 8
+        _triangle(st, Vector3(0, -0.5, 0),
+            lower[next_side], lower[side], Vector3.DOWN)
+        _triangle(st, Vector3(0, 0.5, 0),
+            upper[side], upper[next_side], Vector3.UP)
+
+
 static func _beveled(st: SurfaceTool, deck: bool) -> void:
     # 8-sided footprint, stepped top lip, individually triangulated bevels.
     # Plate top remains +0.5 so world Y=-0.03 floor level stays unchanged.
@@ -372,6 +408,8 @@ static func make(kind: String) -> ArrayMesh:
             _rotor(st, false)
         "gear":
             _rotor(st, true)
+        "octagonal_slew":
+            _octagonal_slew(st)
         "roof":
             _roof(st)
         "louver":

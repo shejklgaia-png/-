@@ -6,14 +6,17 @@ extends RefCounted
 
 const LOOP_SECONDS: float = 8.0
 const BELT_START_X: float = -5.70
-const BELT_PICKUP_X: float = -1.50
-const BELT_Z: float = 1.59
-const BELT_SPEED: float = 1.3548387  # 4.20m / 3.10s
-# The physical slewing bearing, boom, hook and carried cargo share this
-# inboard offset. Keep the belt fixed; retarget pickup yaw to meet its gate.
-const CRANE_OFFSET: Vector3 = Vector3(0.18, 0.0, 0.08)
-const PICKUP_ANGLE: float = -1.2217304763960306  # -70 degrees
+const BELT_PICKUP_X: float = -1.30
+const BELT_Z: float = 1.28
+const BELT_SPEED: float = 1.4193548  # 4.40m / 3.10s
+# In the oblique camera, moving local -X/-Z shifts the shaft upper-left.
+# The octave-bearing center is isolated behind the yellow hopper rim.
+# The shorter boom and the retracted belt pickup meet at this new position.
+const CRANE_OFFSET: Vector3 = Vector3(0.0, 0.0, -0.30)
 const CRANE_PIVOT: Vector3 = Vector3(-0.78, 1.07, -0.48) + CRANE_OFFSET
+const CRANE_TIP_X: float = 0.72
+const CRANE_TIP_Z: float = 1.02
+const PICKUP_ANGLE: float = -1.033234918  # -59.2 degrees, 2.12m reach
 const HOIST_CABLE_LENGTH: float = 0.70
 
 static func phase_at(seconds: float) -> float:
@@ -123,10 +126,10 @@ static func build(g: Variant) -> void:
                 Vector3(0.16, 0.075, 0.16), "gold")
     # The motor and guarded transfer gate sit at the actual pickup end.
     g.poly("FreshCollectorBeltDrive", "cargo_case",
-        Vector3(-1.63, 0.62, 0.59),
+        Vector3(BELT_PICKUP_X - 0.13, 0.62, BELT_Z - 1.00),
         Vector3(0.62, 0.53, 0.54), "slate")
     g.poly("FreshCollectorBeltSprocket", "gear",
-        Vector3(-1.62, 0.73, 0.28),
+        Vector3(BELT_PICKUP_X - 0.12, 0.73, BELT_Z - 1.31),
         Vector3(0.32, 0.14, 0.32), "gold")
     # Two side-only terminal guides leave the moving scrap and claw fully
     # visible; there is no solid full-width block over the pickup parcel.
@@ -158,9 +161,10 @@ static func build(g: Variant) -> void:
         Vector3(0.24, 0.14, 0.24), "edge")
     # Staged at the unslewed claw rest point; only displayed while held.
     g.poly_tilt("FreshCollectorCranePayload", "cargo_case",
-        Vector3(0.76, 1.19, 1.04) + CRANE_OFFSET,
+        Vector3(CRANE_TIP_X, 1.19, CRANE_TIP_Z) + CRANE_OFFSET,
         Vector3(0.46, 0.25, 0.41), "rust",
         Vector3(0.16, 0.22, 0.10))
     g.poly("FreshCollectorCranePayload", "gear",
-        Vector3(0.69, 1.33, 1.09) + CRANE_OFFSET,
+        Vector3(CRANE_TIP_X - 0.07, 1.33,
+            CRANE_TIP_Z + 0.05) + CRANE_OFFSET,
         Vector3(0.24, 0.14, 0.24), "edge")
