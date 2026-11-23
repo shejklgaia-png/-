@@ -175,6 +175,9 @@ func setup(model: Node3D, key: String) -> void:
         # Add purpose-built local luminaires at their work surfaces instead.
         _add_practical_lighting(key)
         set_process(false)
+    # The actual authored emissive architecture should emit soft light too,
+    # not only the VFX fixtures. Gather it once before building the batch.
+    _collect_authored_emission_halos()
     # Always construct the same low-cost glow batch on the FIRST load and
     # on later scene rebuilds. Never rely on a delayed post-process bloom.
     _finish_soft_halos()
@@ -210,6 +213,42 @@ static func _shared_soft_halo_material() -> ShaderMaterial:
     _soft_halo_material.set_shader_parameter(
         "soft_halo_mask", _soft_halo_texture)
     return _soft_halo_material
+
+
+func _collect_authored_emission_halos() -> void:
+    if not is_instance_valid(_model):
+        return
+    # Every body part already shares its MultiMesh material. Copy only the
+    # emissive coordinates into the SAME halo batch; no new real lights.
+    # Limit total translucent overdraw on Android overview scenes.
+    var remaining: int = maxi(0, 64 - _soft_halos.size())
+    for child in _model.get_children():
+        if remaining <= 0:
+            break
+        var source: MultiMeshInstance3D = child as MultiMeshInstance3D
+        if source == null or source.multimesh == null:
+            continue
+        var mat: StandardMaterial3D = source.material_override as StandardMaterial3D
+        if mat == null or not mat.emission_enabled:
+            continue
+        var many: int = mini(source.multimesh.instance_count, remaining)
+        for i in range(many):
+            var pose: Transform3D = source.multimesh.get_instance_transform(i)
+            var center: Vector3 = to_local(source.to_global(pose.origin))
+            # Use actual batched instance dimensions in the VFX local frame.
+            var width: float = (to_local(source.to_global(
+                pose.origin + pose.basis.x)) - center).length()
+            var height: float = (to_local(source.to_global(
+                pose.origin + pose.basis.y)) - center).length()
+            var depth: float = (to_local(source.to_global(
+                pose.origin + pose.basis.z)) - center).length()
+            var hue: Color = mat.emission
+            _queue_soft_halo(center + Vector3(
+                0.0, 0.0, depth * 0.50 + 0.035),
+                Vector2(clampf(width * 1.65, 0.20, 2.40),
+                    clampf(height * 2.8, 0.20, 1.60)),
+                hue, 0.12)
+            remaining -= 1
 
 
 func _finish_soft_halos() -> void:
