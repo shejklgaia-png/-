@@ -7,6 +7,9 @@ uniform sampler2D mesh_id_texture : filter_nearest, repeat_disable;
 uniform vec2 mesh_id_texel = vec2(0.0026041667);
 uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
 uniform vec4 ink_screen_bounds = vec4(0.0);
+// Tight union of the PLAYER's projected solid meshes. Boss-side contact
+// dilation only scans a 5px halo around this rect, not the entire boss.
+uniform vec4 player_contact_bounds = vec4(0.0);
 uniform float emissive_contact_alpha : hint_range(0.0, 1.0) = 1.0;
 // 0=shared/default, 1=Bittaran, 2=NEXUS, 3=training.
 // These are NUMERIC presets; the ID extraction algorithm is identical.
@@ -190,7 +193,18 @@ float sera_visible_id_ink_alpha(vec2 uv) {
         float inner_px = sera_inner_width(role);
         float seam_px = sera_seam_width(role);
         bool player_pixel = role == 1 && center.g > 0.14;
-        float contact_px = player_pixel ? max(seam_px, sera_outer_width(role)) : seam_px;
+        bool near_player_contact = role == 1 && !player_pixel &&
+            player_contact_bounds.z > player_contact_bounds.x &&
+            player_contact_bounds.w > player_contact_bounds.y &&
+            uv.x >= player_contact_bounds.x &&
+            uv.x <= player_contact_bounds.z &&
+            uv.y >= player_contact_bounds.y &&
+            uv.y <= player_contact_bounds.w;
+        // A 5px OUTSIDE silhouette must be drawn on the boss surface behind
+        // SERA, NOT on SERA's interior. Restrict the wider scan to the
+        // projected player rectangle to avoid full-boss GPU readback cost.
+        float contact_px = near_player_contact ?
+            max(seam_px, sera_outer_width(role)) : seam_px;
         ivec2 id_size = textureSize(mesh_id_texture, 0);
         ivec2 center_pixel = ivec2(floor(uv * vec2(id_size)));
         // The Bittaran pass uses a 1px 4-neighbor disk for its contacts,
@@ -250,10 +264,24 @@ float sera_visible_id_ink_alpha(vec2 uv) {
                     }
                     continue;
                 }
+                // SERA has G=1/8+1/32, other actors have G=1/8.
+                // When their silhouettes overlap, ink the 5px contour into
+                // the OTHER actor's visible pixels (outside SERA), never
+                // erode SERA's own visible mesh. This is separate from the
+                // canonical 1px same-actor mesh boundary above.
+                bool player_enemy_contact = role == 1 && other_role == 1 &&
+                    player_pixel != (neighbor.g > 0.14);
+                if (player_enemy_contact) {
+                    if (!player_pixel && near_player_contact &&
+                            sera_in_disk(dx, dy, contact_px)) {
+                        draw_ink = true;
+                        break;
+                    }
+                    continue;
+                }
                 if (other_role > 0 && other_role != 7 &&
                         sera_contact_owner(center, neighbor) &&
-                        sera_in_disk(dx, dy, (player_pixel && other_role == 1 &&
-                            neighbor.g <= 0.14) ? contact_px : seam_px)) {
+                        sera_in_disk(dx, dy, seam_px)) {
                     draw_ink = true;
                     break;
                 }
