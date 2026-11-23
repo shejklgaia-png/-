@@ -200,6 +200,8 @@ func setup(model: Node3D, key: String) -> void:
         _add_entrance(key)
         _add_smoke()
         _add_fire_floor()
+        # Aimed maintenance spotlight is separate from the molten glow.
+        _add_practical_lighting(key)
         _furnace_lamp = model.get_node_or_null(
             "FurnaceHeatLight") as OmniLight3D
         sample_fire(0.0)
@@ -850,7 +852,9 @@ func _add_practical_lighting(key: String) -> void:
             # Two jaws, two actual aimed lamps. The old central spotlight
             # used a different origin than both visible lamp housings.
             for side in [-1.0, 1.0]:
-                _directed_searchlight("CrusherJawSearchlight",
+                _directed_searchlight(
+                    "CrusherLeftJawSearchlight" if side < 0.0
+                    else "CrusherRightJawSearchlight",
                     Vector3(side * 0.90, 2.51, 1.33),
                     Vector3(side * 0.30, 1.38, 0.52),
                     Vector3(0.38, 0.19, 0.34), Color("#ffd8af"),
@@ -885,7 +889,9 @@ func _add_practical_lighting(key: String) -> void:
             # The actual landing positions are the two loading bays,
             # not a generic forward-facing luminous facade.
             for side in [-1.0, 1.0]:
-                _directed_searchlight("LoadingBaySearchlight",
+                _directed_searchlight(
+                    "LoadingBayLeftSearchlight" if side < 0.0
+                    else "LoadingBayRightSearchlight",
                     Vector3(side * 0.72, 2.83, 1.31),
                     Vector3(side * 0.70, 0.45, 1.78),
                     Vector3(0.46, 0.19, 0.36), Color("#ffdda6"),
