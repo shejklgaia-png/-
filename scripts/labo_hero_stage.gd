@@ -138,15 +138,17 @@ func set_section(section: String) -> void:
             hero_camera.fov = 55.0
             hero_camera.look_at(Vector3(-0.10, 1.65, -1.00), Vector3.UP)
         "STORAGE":
-            # Expanded four-bay freight hall: retreat and raise the camera to
-            # reveal the new side wings, rear shelves and overhead transporter.
-            # Do not change CRATE patrol targets or inventory panel controls.
+            # Frame the freight from INSIDE the front of the enclosed hall,
+            # not from outside its open set. The wider racks fill the hero
+            # viewport without showing the room's exposed roof or floor edges.
+            # Keep all inventory UI and CRATE movement targets unchanged.
             crate.position = Vector3(0.05, 0.0, 0.85)
             crate.rotation.y = -2.87
             work_state = "storage_scan"
-            hero_camera.position = Vector3(6.10, 5.10, 14.80)
-            hero_camera.fov = 70.0
-            hero_camera.look_at(Vector3(0.00, 2.00, -2.30), Vector3.UP)
+            hero_camera.keep_aspect = Camera3D.KEEP_HEIGHT
+            hero_camera.position = Vector3(0.70, 2.65, 4.65)
+            hero_camera.fov = 56.0
+            hero_camera.look_at(Vector3(0.00, 1.95, -2.65), Vector3.UP)
 
 func _move_to(goal: Vector3, delta: float) -> bool:
     var planar := Vector3(goal.x, crate.position.y, goal.z)
