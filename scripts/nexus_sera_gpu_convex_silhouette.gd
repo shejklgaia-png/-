@@ -23,7 +23,7 @@ var hard_creases_only: bool = false
 # Off by default to preserve NEXUS/icon consumers of this controller.
 var enable_combat_gpu_full_edges: bool = false
 var silhouette_inside_px: float = 1.0
-var silhouette_outside_px: float = 3.0
+var silhouette_outside_px: float = 5.0
 var seam_stroke_px: float = 3.0
 var scan_interval_seconds: float = SCAN_SECONDS
 
