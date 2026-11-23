@@ -3880,9 +3880,17 @@ func _advance_side_step(delta: float) -> void:
                 line_goal.x - player.position.x, 0.0,
                 line_goal.y - player.position.z), true)
     else:
-        # Ordinary 360deg STEP has a single committed screen-linear vector,
-        # independent of target distance, target motion and player facing.
-        var new_offset: Vector2 = step_start_offset + step_linear_offset * progress
+        # Ordinary 360deg STEP keeps its initial 15m/s for the first 15%
+        # of the original clock, then brakes smoothly to zero velocity.
+        # This adjusts the deceleration ONLY: the swept 0.1m launch warp,
+        # initial velocity, step duration and combo-kick trajectory remain.
+        # At base stats the nominal 4m vector now covers 1.28m.
+        var motion_progress: float = progress
+        if progress > 0.15:
+            var brake_t: float = (progress - 0.15) / 0.85
+            motion_progress = 0.15 + (0.85 / 5.0) * (
+                1.0 - pow(1.0 - brake_t, 5.0))
+        var new_offset: Vector2 = step_start_offset + step_linear_offset * motion_progress
         var requested: Vector3 = Vector3(
             step_target_center.x + new_offset.x - player.position.x,
             0.0,
