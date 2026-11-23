@@ -365,6 +365,7 @@ func set_shared_scene_mode(enabled: bool) -> void:
         # color again whenever roots enter, independent of registration order.
         _refresh_shared_ink_color()
         _set_shared_screen_bounds(Vector4.ZERO)
+        _set_player_contact_bounds(Vector4.ZERO)
         # The source ID target remains the same. Small part previews use a
         # CanvasLayer overlay because the Compatibility 3D quad can vanish.
         var canvas_mat: ShaderMaterial = ink.material as ShaderMaterial
@@ -794,6 +795,15 @@ func _set_shared_screen_bounds(bounds: Vector4) -> void:
             "ink_screen_bounds", bounds)
 
 
+func _set_player_contact_bounds(bounds: Vector4) -> void:
+    if _screen_material != null:
+        _screen_material.set_shader_parameter("player_contact_bounds", bounds)
+    if _part_preview_canvas_mode and is_instance_valid(ink) and (
+            ink.material is ShaderMaterial):
+        (ink.material as ShaderMaterial).set_shader_parameter(
+            "player_contact_bounds", bounds)
+
+
 func _update_shared_screen_bounds(camera: Camera3D) -> void:
     if _screen_material == null:
         return
@@ -804,6 +814,10 @@ func _update_shared_screen_bounds(camera: Camera3D) -> void:
     var high := Vector2(-1000000.0, -1000000.0)
     var found: bool = false
     var near_plane: bool = false
+    var player_low := Vector2(1000000.0, 1000000.0)
+    var player_high := Vector2(-1000000.0, -1000000.0)
+    var player_found: bool = false
+    var player_near_plane: bool = false
     for key in _styled_sources.keys():
         var source_ref: WeakRef = _source_refs.get(key) as WeakRef
         var source: GeometryInstance3D = (
@@ -811,6 +825,15 @@ func _update_shared_screen_bounds(camera: Camera3D) -> void:
             if source_ref != null else null)
         if not is_instance_valid(source) or not source.is_visible_in_tree():
             continue
+        # Reuse this exact visible-bounds projection for the narrower
+        # player-only contact halo; no new scene tree or viewport pass.
+        var player_source: bool = false
+        var ancestor: Node = source
+        while ancestor != null:
+            if ancestor.has_meta("sera_player_outline"):
+                player_source = true
+                break
+            ancestor = ancestor.get_parent()
         var box: AABB = source.get_aabb()
         # The ID mesh uses an interpolated render-space pose in combat.
         # Bound the SAME pose; bounding the raw physics pose can clip the
@@ -830,11 +853,17 @@ func _update_shared_screen_bounds(camera: Camera3D) -> void:
                     var point3: Vector3 = bounds_pose * corner
                     if camera.is_position_behind(point3):
                         near_plane = true
+                        if player_source:
+                            player_near_plane = true
                         continue
                     var projected: Vector2 = camera.unproject_position(point3)
                     low = low.min(projected)
                     high = high.max(projected)
                     found = true
+                    if player_source:
+                        player_low = player_low.min(projected)
+                        player_high = player_high.max(projected)
+                        player_found = true
     if near_plane:
         _set_shared_screen_bounds(Vector4(0.0, 0.0, 1.0, 1.0))
     elif found:
@@ -842,7 +871,7 @@ func _update_shared_screen_bounds(camera: Camera3D) -> void:
         # silhouettes when the completed frame is displayed at <1x scale.
         var smallest_scale: float = maxf(0.125, minf(
             _output_px_per_id_pixel.x, _output_px_per_id_pixel.y))
-        var display_outer_px: float = 4.0
+        var display_outer_px: float = _effective_actor_outside_px()
         var margin_in_id_px: float = maxf(6.0,
             display_outer_px / smallest_scale + 1.0)
         var margin := Vector2(margin_in_id_px, margin_in_id_px)
@@ -853,8 +882,26 @@ func _update_shared_screen_bounds(camera: Camera3D) -> void:
         _set_shared_screen_bounds(Vector4(
             lower.x, lower.y, upper.x, upper.y))
     else:
-        _screen_material.set_shader_parameter(
-            "ink_screen_bounds", Vector4.ZERO)
+        _set_shared_screen_bounds(Vector4.ZERO)
+    # Only boss pixels close to the visible SERA outline can receive the
+    # exterior player/target contact ink. A generous screen-pixel margin
+    # avoids truncation under animation, camera shake, and output scaling.
+    if player_near_plane:
+        _set_player_contact_bounds(Vector4(0.0, 0.0, 1.0, 1.0))
+    elif player_found:
+        var player_margin_px: float = maxf(6.0,
+            _effective_actor_outside_px() /
+            maxf(0.125, minf(_output_px_per_id_pixel.x,
+                _output_px_per_id_pixel.y)) + 2.0)
+        var player_margin := Vector2(player_margin_px, player_margin_px)
+        var player_lower: Vector2 = ((player_low - player_margin) /
+            screen_size).clamp(Vector2.ZERO, Vector2.ONE)
+        var player_upper: Vector2 = ((player_high + player_margin) /
+            screen_size).clamp(Vector2.ZERO, Vector2.ONE)
+        _set_player_contact_bounds(Vector4(player_lower.x, player_lower.y,
+            player_upper.x, player_upper.y))
+    else:
+        _set_player_contact_bounds(Vector4.ZERO)
 
 
 func _sync_camera(source_camera: Camera3D) -> bool:
