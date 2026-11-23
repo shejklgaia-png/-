@@ -9,7 +9,6 @@ const BaseRoofIdentity = preload("res://scripts/sera_base_roof_identity.gd")
 const BaseFreshDesign = preload("res://scripts/sera_base_fresh_design.gd")
 const BaseFacilityMotion = preload("res://scripts/sera_base_facility_motion.gd")
 const BaseFacilityVfx = preload("res://scripts/sera_base_facility_vfx.gd")
-const BaseFacilityInk = preload("res://scripts/sera_base_facility_outlines.gd")
 const ACTIVE_BASE_MODEL: String = "FRESH_20261122"
 # User reverted the NEXUS two versions: the pre-FRESH archived geometry is intact.
 const ARCHIVED_NEXUS_MODEL: bool = true
@@ -177,24 +176,9 @@ class Batch:
         keys.sort()
         var polygon_meshes: Dictionary = {}
         var motion_multimeshes: Dictionary = {}
-        # Selected solid instances can share a material batch with unoutlined
-        # clutter. Their companion edge MultiMesh therefore has its own
-        # subset indices, never a projected building-wide convex hull.
-        var selected_by_bucket: Dictionary = {}
+        # RGB12 per-instance roles replace every extra edge/crease batch.
         if not outline_entries.is_empty():
             host.set_meta("sera_outline_role", "facility")
-        for raw_entry in outline_entries:
-            var selected: Dictionary = raw_entry
-            var bucket: String = str(selected["bucket"])
-            if not selected_by_bucket.has(bucket):
-                selected_by_bucket[bucket] = []
-            (selected_by_bucket[bucket] as Array).append(selected)
-        var outline_meshes_by_bucket: Dictionary = {}
-        var outline_crease_meshes_by_bucket: Dictionary = {}
-        var outline_links_by_bucket: Dictionary = {}
-        # One clutter convex-corner batch per geometry (regardless of tint)
-        # instead of a separate 1px pass per small prop or material.
-        var clutter_creases_by_geometry: Dictionary = {}
         for key_variant in keys:
             var key: String = str(key_variant)
             var names: PackedStringArray = key.split("|")
@@ -250,16 +234,7 @@ class Batch:
                     0.875 if is_white_light_line else (
                         0.25 if facility_indices.has(i) else 0.375),
                     0.0, 0.0, 1.0))
-                # Clutter is role 3 in the shared ID pass. Only its real
-                # front/front >=80deg convex corners receive a 1px ribbon;
-                # building corners stay on their independent 2px batch.
-                if not facility_indices.has(i) and not is_white_light_line and (
-                        tint not in ["blue_light", "lab_cyan", "amber_light",
-                        "amber", "glass", "generator_emitter",
-                        "terminal_monitor"]):
-                    if not clutter_creases_by_geometry.has(geometry):
-                        clutter_creases_by_geometry[geometry] = []
-                    (clutter_creases_by_geometry[geometry] as Array).append(pose)
+                # Clutter RGB-ID role=3 is resolved by the common pass.
             var surface := StandardMaterial3D.new()
             # Texture audit: the industrial steel/armor/oxide SVGs have
             # near-white substrates, not black pixels. The BASE NEXUS front
@@ -369,88 +344,7 @@ class Batch:
                 # narrow emitter slots, making their core appear crushed.
                 draw.set_meta("sera_outline_emissive_protect", true)
             host.add_child(draw)
-            if selected_by_bucket.has(key):
-                var edge_mesh: ArrayMesh = BaseFacilityInk.overlay_for(
-                    geometry, mesh)
-                if edge_mesh != null:
-                    var selected_instances: Array = selected_by_bucket[key]
-                    var edge_multi := MultiMesh.new()
-                    edge_multi.transform_format = MultiMesh.TRANSFORM_3D
-                    edge_multi.mesh = edge_mesh
-                    edge_multi.instance_count = selected_instances.size()
-                    var edge_indices: Dictionary = {}
-                    for k in range(selected_instances.size()):
-                        var solid_record: Dictionary = selected_instances[k]
-                        edge_multi.set_instance_transform(k, solid_record["pose"])
-                        edge_indices[int(solid_record["index"])] = k
-                    var edge_draw := MultiMeshInstance3D.new()
-                    edge_draw.name = "ArchitecturalEdgeInk_" + geometry + "_" + tint
-                    edge_draw.multimesh = edge_multi
-                    edge_draw.material_override = BaseFacilityInk.material()
-                    edge_draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-                    edge_draw.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
-                    edge_draw.extra_cull_margin = 0.30
-                    # Replaced by the viewport-shared ID contour. Retain the
-                    # authored ribbon data for reversible previews, but never
-                    # show a second outline over the new pixel mask.
-                    edge_draw.visible = false
-                    edge_draw.set_meta("FX_NO_OUTLINE", true)
-                    host.add_child(edge_draw)
-                    outline_meshes_by_bucket[key] = edge_multi
-                    outline_links_by_bucket[key] = edge_indices
-                    # Distinct 1px near-black pass: retain the 80-degree
-                    # front/front crease mesh separate from the outer silhouette.
-                    var crease_geometry: ArrayMesh = BaseFacilityInk.crease_for(
-                        geometry, mesh)
-                    if crease_geometry != null:
-                        var crease_multi := MultiMesh.new()
-                        crease_multi.transform_format = MultiMesh.TRANSFORM_3D
-                        crease_multi.mesh = crease_geometry
-                        crease_multi.instance_count = selected_instances.size()
-                        for k in range(selected_instances.size()):
-                            var crease_record: Dictionary = selected_instances[k]
-                            crease_multi.set_instance_transform(
-                                k, crease_record["pose"])
-                        var crease_draw := MultiMeshInstance3D.new()
-                        crease_draw.name = "ArchitecturalCreaseInk_" + geometry + "_" + tint
-                        crease_draw.multimesh = crease_multi
-                        crease_draw.material_override = BaseFacilityInk.crease_material()
-                        crease_draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-                        crease_draw.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
-                        crease_draw.extra_cull_margin = 0.30
-                        # Independent 1px front-facing polygon corners.
-                        # Transparent VFX render later and cover this ink.
-                        crease_draw.visible = true
-                        crease_draw.set_meta("FX_NO_OUTLINE", true)
-                        host.add_child(crease_draw)
-                        outline_crease_meshes_by_bucket[key] = crease_multi
-        # Clutter convex ink is drawn after solids and before VFX. Each
-        # geometry is shared across all tints for the lowest draw overhead.
-        for shape in clutter_creases_by_geometry.keys():
-            var crease_poses: Array = clutter_creases_by_geometry[shape]
-            if crease_poses.is_empty():
-                continue
-            var geom: String = str(shape)
-            var physical: Mesh = polygon_meshes[geom]
-            var tiny_edges: ArrayMesh = BaseFacilityInk.crease_for(
-                geom, physical)
-            if tiny_edges == null:
-                continue
-            var tiny_multi := MultiMesh.new()
-            tiny_multi.transform_format = MultiMesh.TRANSFORM_3D
-            tiny_multi.mesh = tiny_edges
-            tiny_multi.instance_count = crease_poses.size()
-            for i in range(crease_poses.size()):
-                tiny_multi.set_instance_transform(i, crease_poses[i])
-            var tiny_draw := MultiMeshInstance3D.new()
-            tiny_draw.name = "ClutterConvex1px_" + geom
-            tiny_draw.multimesh = tiny_multi
-            tiny_draw.material_override = BaseFacilityInk.clutter_crease_material()
-            tiny_draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-            tiny_draw.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
-            tiny_draw.extra_cull_margin = 0.20
-            tiny_draw.set_meta("FX_NO_OUTLINE", true)
-            host.add_child(tiny_draw)
+            # No second geometric contour pass or draw nodes are produced.
         host.set_meta("unique_model_features", features.duplicate())
         if not outline_entries.is_empty():
             host.set_meta("outline_solid_entries", outline_entries.duplicate())
@@ -469,17 +363,7 @@ class Batch:
                     var animated_record: Dictionary = {
                         "mesh": mesh, "index": instance_index,
                         "bind": mesh.get_instance_transform(instance_index)}
-                    var bucket_name: String = str(slot["bucket"])
-                    var linked: Dictionary = outline_links_by_bucket.get(
-                        bucket_name, {})
-                    if linked.has(instance_index):
-                        animated_record["ink_mesh"] = outline_meshes_by_bucket[
-                            bucket_name]
-                        animated_record["ink_index"] = int(linked[instance_index])
-                        if outline_crease_meshes_by_bucket.has(bucket_name):
-                            animated_record["crease_mesh"] = outline_crease_meshes_by_bucket[
-                                bucket_name]
-                            animated_record["crease_index"] = int(linked[instance_index])
+                    # The animated MultiMesh is also the ID pass source.
                     recorded.append(animated_record)
                 motion_entries[feature] = recorded
             host.set_meta("motion_entries", motion_entries)
