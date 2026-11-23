@@ -151,7 +151,7 @@ static func _height_of(key: String) -> float:
     return 3.5
 
 
-static func _visible_at_camera(at: Vector2, camera: Camera3D,
+static func _visible_at_camera(at: Vector2, yaw: float, camera: Camera3D,
         all_sites: Array[Dictionary]) -> bool:
     if not is_instance_valid(camera):
         return true
@@ -160,10 +160,12 @@ static func _visible_at_camera(at: Vector2, camera: Camera3D,
     # A center-only check can accept a unit whose base or side clips the
     # letterbox / right-side HUD, especially near the screen margins.
     # The 1.16 x 0.96 x 0.95m bounds match _make_substation().
+    var housing_basis := Basis(Vector3.UP, yaw)
+    var housing_origin := Vector3(at.x, 0.0, at.y)
     for dx in [-0.58, 0.58]:
         for dz in [-0.48, 0.48]:
             for y in [0.0, 0.95]:
-                var corner := Vector3(at.x + dx, y, at.y + dz)
+                var corner: Vector3 = housing_origin + housing_basis * Vector3(dx, y, dz)
                 if camera.is_position_behind(corner):
                     return false
                 var pixel: Vector2 = camera.unproject_position(corner)
@@ -223,7 +225,7 @@ static func _locate_device(key: String, all_sites: Array[Dictionary],
         if not _terminal_gates_open(key, test, yaw,
                 all_sites, props, placed):
             continue
-        if not _visible_at_camera(test, camera, all_sites):
+        if not _visible_at_camera(test, yaw, camera, all_sites):
             continue
         var site: Dictionary = {}
         for entry in all_sites:
@@ -248,7 +250,7 @@ static func _locate_device(key: String, all_sites: Array[Dictionary],
             if not _terminal_gates_open(key, test, yaw,
                     all_sites, props, placed):
                 continue
-            if not _visible_at_camera(test, camera, all_sites):
+            if not _visible_at_camera(test, yaw, camera, all_sites):
                 continue
             for site in all_sites:
                 if str(site["id"]) != key:
