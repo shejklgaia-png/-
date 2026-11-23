@@ -8,8 +8,16 @@ uniform vec2 mesh_id_texel = vec2(0.0026041667);
 uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
 uniform vec4 ink_screen_bounds = vec4(0.0);
 uniform float emissive_contact_alpha : hint_range(0.0, 1.0) = 1.0;
-// 0=BASE/training/part, 1=Bittaran, 2=NEXUS. All share the same algorithm.
+// 0=shared/default, 1=Bittaran, 2=NEXUS, 3=training.
+// These are NUMERIC presets; the ID extraction algorithm is identical.
 uniform int scene_profile = 0;
+// Actual DISPLAY pixels occupied by one ID render-target pixel (X/Y).
+// Computed from Viewport.get_screen_transform() at runtime. Each declared
+// width below is a desired final/display pixel radius, not a texture radius.
+uniform vec2 output_px_per_id_pixel = vec2(1.0);
+// The legacy set_stroke_px() explicitly adjusts actor OUTSIDE width alone,
+// never automatically replacing seam/inside or other-role presets.
+uniform float actor_outside_override_px = -1.0;
 // Existing per-element settings. None of these change the ID processing path.
 uniform float main_inside_px = 1.0;
 uniform float main_outside_px = 3.0;
@@ -66,8 +74,27 @@ bool sera_owns_contact(vec3 a, vec3 b) {
     return a.r > b.r + 0.0078;
 }
 
-bool sera_in_disk(int distance_squared, float width_px) {
-    return float(distance_squared) <= width_px * width_px + 0.001;
+// Nearest-neighbor ID rendering has a finite pixel footprint. A requested
+// width smaller than one displayed ID texel is snapped to one such texel,
+// instead of silently disappearing. Perfect 1 physical-pixel output would
+// additionally require a full-resolution physical display render target.
+float sera_min_output_scale() {
+    return max(0.125, min(output_px_per_id_pixel.x, output_px_per_id_pixel.y));
+}
+
+int sera_search_radius(float desired_display_px) {
+    if (desired_display_px < 0.001) { return 0; }
+    return clamp(int(ceil(desired_display_px /
+        sera_min_output_scale())), 1, 16);
+}
+
+bool sera_in_disk(int dx, int dy, float desired_display_px) {
+    if (desired_display_px < 0.001) { return false; }
+    vec2 pixel_scale = min(output_px_per_id_pixel,
+        vec2(desired_display_px));
+    vec2 offset_px = vec2(float(dx), float(dy)) * pixel_scale;
+    return dot(offset_px, offset_px) <=
+        desired_display_px * desired_display_px + 0.001;
 }
 
 float sera_inner_width(int role) {
@@ -77,10 +104,14 @@ float sera_inner_width(int role) {
     if (role == 6) { return part_inside_px; }
     if (role == 1 && scene_profile == 1) { return 0.0; }
     if (role == 1 && scene_profile == 2) { return 1.0; }
+    if (role == 1 && scene_profile == 3) { return 1.0; }
     return main_inside_px;
 }
 
 float sera_outer_width(int role) {
+    if (role == 1 && actor_outside_override_px >= 0.0) {
+        return actor_outside_override_px;
+    }
     if (role == 2) {
         return scene_profile == 2 ? 2.0 : facility_outside_px;
     }
@@ -100,6 +131,7 @@ float sera_seam_width(int role) {
     if (role == 6) { return part_seam_px; }
     if (role == 1 && scene_profile == 1) { return 1.0; }
     if (role == 1 && scene_profile == 2) { return 2.0; }
+    if (role == 1 && scene_profile == 3) { return 1.0; }
     return main_seam_px;
 }
 
@@ -118,26 +150,25 @@ float sera_visible_id_ink_alpha(vec2 uv) {
         float seam_px = sera_seam_width(role);
         // The Bittaran pass uses a 1px 4-neighbor disk for its contacts,
         // but wider scene-specific contacts use the SAME disk predicate.
-        int search_radius = int(ceil(max(inner_px, seam_px)));
+        int search_radius = sera_search_radius(max(inner_px, seam_px));
         for (int dy = -search_radius; dy <= search_radius; dy++) {
             for (int dx = -search_radius; dx <= search_radius; dx++) {
-                int d2 = dx * dx + dy * dy;
-                if (d2 == 0 ||
-                        !sera_in_disk(d2, max(inner_px, seam_px))) {
+                if ((dx == 0 && dy == 0) ||
+                        !sera_in_disk(dx, dy, max(inner_px, seam_px))) {
                     continue;
                 }
                 vec3 neighbor = sera_sample_visible_id(uv +
                     vec2(float(dx), float(dy)) * mesh_id_texel);
                 int other_role = sera_role_of(neighbor);
                 if (other_role == 0 &&
-                        sera_in_disk(d2, inner_px)) {
+                        sera_in_disk(dx, dy, inner_px)) {
                     draw_ink = true;
                     break;
                 }
                 if (other_role > 0 && other_role != 7 &&
                         !sera_same_visible_id(center, neighbor) &&
                         sera_owns_contact(center, neighbor) &&
-                        sera_in_disk(d2, seam_px)) {
+                        sera_in_disk(dx, dy, seam_px)) {
                     draw_ink = true;
                     break;
                 }
@@ -153,17 +184,22 @@ float sera_visible_id_ink_alpha(vec2 uv) {
                 uv.y < ink_screen_bounds.y || uv.y > ink_screen_bounds.w) {
             return 0.0;
         }
-        for (int dy = -3; dy <= 3; dy++) {
-            for (int dx = -3; dx <= 3; dx++) {
-                int d2 = dx * dx + dy * dy;
-                if (d2 == 0 || !sera_in_disk(d2, 3.0)) {
+        float largest_outer_px = max(max(main_outside_px,
+            facility_outside_px), max(max(clutter_outside_px,
+            crate_outside_px), max(part_outside_px,
+            max(3.0, actor_outside_override_px))));
+        int outer_search = sera_search_radius(largest_outer_px);
+        for (int dy = -outer_search; dy <= outer_search; dy++) {
+            for (int dx = -outer_search; dx <= outer_search; dx++) {
+                if ((dx == 0 && dy == 0) ||
+                        !sera_in_disk(dx, dy, largest_outer_px)) {
                     continue;
                 }
                 vec3 neighbor = sera_sample_visible_id(uv +
                     vec2(float(dx), float(dy)) * mesh_id_texel);
                 int other_role = sera_role_of(neighbor);
                 if (other_role != 0 && other_role != 7 &&
-                        sera_in_disk(d2, sera_outer_width(other_role))) {
+                        sera_in_disk(dx, dy, sera_outer_width(other_role))) {
                     draw_ink = true;
                     break;
                 }
@@ -179,9 +215,10 @@ float sera_visible_id_ink_alpha(vec2 uv) {
     // It does not alter ID visibility, depth resolution or line ownership.
     if (emissive_contact_alpha < 0.999) {
         bool adjacent_emission = false;
-        for (int dy = -2; dy <= 2; dy++) {
-            for (int dx = -2; dx <= 2; dx++) {
-                if (!sera_in_disk(dx * dx + dy * dy, 2.0)) {
+        int emission_search = sera_search_radius(2.0);
+        for (int dy = -emission_search; dy <= emission_search; dy++) {
+            for (int dx = -emission_search; dx <= emission_search; dx++) {
+                if (!sera_in_disk(dx, dy, 2.0)) {
                     continue;
                 }
                 vec2 offset = vec2(float(dx), float(dy));
