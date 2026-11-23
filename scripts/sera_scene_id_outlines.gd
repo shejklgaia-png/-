@@ -4,7 +4,6 @@ extends Control
 ## foreground VFX. One shared ID viewport, no CPU pixel reads or source edits.
 # Reuse the proven IRIS resources, with no reimplementation of their code.
 const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
-const BaseFacilityInk = preload("res://scripts/sera_base_facility_outlines.gd")
 const ID_CLOSED = preload("res://shaders/sera_iris_mesh_id_closed.gdshader")
 const ID_OPEN = preload("res://shaders/sera_iris_mesh_id_open.gdshader")
 const MULTI_ID_CLOSED = preload("res://shaders/sera_scene_multimesh_iris_id_closed.gdshader")
@@ -424,22 +423,10 @@ func _refresh_shared_ink_color() -> void:
     base_scene = base_scene and _active_scene_profile() != 2
     _screen_material.set_shader_parameter(
         "ink_color", Color.BLACK if base_scene else Color("#17212f"))
-    # Keep standard silhouette ink solid black except within 2 rendered
-    # pixels of an emissive ID=7 surface. No extra mask or viewport.
-    if _shared_scene_mode:
-        _screen_material.set_shader_parameter(
-            "emissive_contact_alpha", 0.45 if base_scene else 1.0)
-        # Bind the SAME ID viewport to physical 2px front creases. Both ink
-        # passes now fade only beside real protected emission pixels.
-        var crease_material: ShaderMaterial = BaseFacilityInk.crease_material()
-        crease_material.set_shader_parameter(
-            "emissive_mask_enabled", base_scene)
-        if base_scene:
-            crease_material.set_shader_parameter(
-                "emissive_id_texture", id_viewport.get_texture())
-            crease_material.set_shader_parameter("emissive_id_texel",
-                Vector2(1.0 / float(id_viewport.size.x),
-                    1.0 / float(id_viewport.size.y)))
+    # The reserved ID role 7 keeps emitter protection in the SINGLE ink
+    # shader. No physical crease material is created or updated.
+    _screen_material.set_shader_parameter(
+        "emissive_contact_alpha", 0.45 if base_scene else 1.0)
 
 
 func register_root(root: Node3D, owner: Node) -> void:
@@ -726,10 +713,6 @@ func _sync_camera(source_camera: Camera3D) -> bool:
         if _screen_material != null:
             _screen_material.set_shader_parameter("mesh_id_texel", Vector2(
                 1.0 / float(desired.x), 1.0 / float(desired.y)))
-        if _shared_scene_mode:
-            BaseFacilityInk.crease_material().set_shader_parameter(
-                "emissive_id_texel", Vector2(
-                    1.0 / float(desired.x), 1.0 / float(desired.y)))
         dirty = true
     if _last_camera != source_camera.global_transform or (
             _last_camera_fov != source_camera.fov) or (
