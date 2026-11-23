@@ -140,6 +140,7 @@ static func build(room: Node3D) -> void:
     # Large-scale landmarks are layered above the panel field. Their stamped
     # steel height stays below the existing maintenance stage and consoles.
     _signature_deck_features(batches)
+    _asymmetric_service_bays(batches)
     _submit(room, batches)
 
 
@@ -580,6 +581,52 @@ static func _signature_deck_features(batches: Dictionary) -> void:
             _append(batches, "vent_cassette", Transform3D(
                 Basis().scaled_local(Vector3(0.78, 1.0, 1.48)),
                 Vector3(side * 5.03, PLATE_TOP + 0.012, float(z))))
+
+
+static func _asymmetric_service_bays(batches: Dictionary) -> void:
+    # Large asymmetric, diagonally shear-cut maintenance cassettes interrupt
+    # the 7+2 regular floor lanes. Reuse the EXISTING authored chamfered wedge
+    # mesh; dark inset channels and perimeter straps are static MultiMeshes.
+    # Keep the SERA pad center, gate ramp, and the two front console footprints
+    # free of newly raised detailing.
+    var zones: Array = [
+        {"x": -5.15, "z": -15.60, "width": 1.85, "length": 3.24,
+            "yaw": -0.16, "tone": "deck_graphite"},
+        {"x": 5.05, "z": -12.62, "width": 1.62, "length": 2.70,
+            "yaw": 0.17, "tone": "deck_blue"},
+        {"x": -8.52, "z": 1.42, "width": 1.47, "length": 3.52,
+            "yaw": 0.11, "tone": "deck_steel"},
+        {"x": 8.45, "z": 10.85, "width": 1.80, "length": 3.35,
+            "yaw": -0.13, "tone": "deck_mid"}
+    ]
+    for zone_value in zones:
+        var zone: Dictionary = zone_value
+        var x: float = float(zone["x"])
+        var z: float = float(zone["z"])
+        var width: float = float(zone["width"])
+        var length: float = float(zone["length"])
+        var yaw: float = float(zone["yaw"])
+        var basis := Basis(Vector3.UP, yaw)
+        var name: String = "wedge_" + str(zone["tone"])
+        _append(batches, name, Transform3D(
+            basis.scaled_local(Vector3(width, 1.0, length)),
+            Vector3(x, 0.036, z)))
+        # A darker central keyed service channel, edged by asymmetrical pins.
+        _cube(batches, "tie_recess",
+            Vector3(x, PLATE_TOP + 0.040, z),
+            Vector3(width * 0.18, 0.011, length * 0.60), yaw)
+        _cube(batches, "tie_metal",
+            Vector3(x, PLATE_TOP + 0.048, z),
+            Vector3(width * 0.065, 0.009, length * 0.48), yaw)
+        for corner in [-1.0, 1.0]:
+            var local: Vector3 = basis * Vector3(
+                corner * width * 0.29, 0.0, length * 0.29)
+            _disc(batches, "bolt_socket",
+                Vector3(x + local.x, PLATE_TOP + 0.036, z + local.z),
+                Vector3(0.086, 0.009, 0.086))
+            _disc(batches, "bolt_metal",
+                Vector3(x + local.x, PLATE_TOP + 0.044, z + local.z),
+                Vector3(0.037, 0.007, 0.037))
 
 
 static func _wedge_armor_mesh() -> ArrayMesh:
