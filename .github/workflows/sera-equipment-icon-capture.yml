@@ -6,6 +6,9 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/sera-equipment-icon-capture.yml'
+      - 'tools/icon_studio/sera_all_native_capture.gd'
+      - 'shaders/sera_icon_capture_visible_id_ink.gdshader'
+      - 'shaders/sera_icon_capture_convex_ink.gdshader'
 
 permissions:
   contents: write
@@ -68,7 +71,7 @@ jobs:
           if git diff --cached --quiet; then
             echo 'All native equipment PNGs already match main.'
           else
-            git commit -m 'SERA: recapture all 19 equipment icons with current NEXUS renderer'
+            git commit -m 'SERA: recapture all 19 equipment icons at 1-4-3-2px'
             git push origin HEAD:main
           fi
 

@@ -85,14 +85,25 @@ def annotate_one(id_: str, entry: dict) -> dict:
             "auto_fit": CAMERA_AUTO_FIT,
             "model_scale": PRESET_RENDER["model_scale"],
             "pan_clip": PRESET_RENDER["pan_clip"],
-            "outline": PRESET_RENDER["outline"],
+            # Camera rotation remains the approved H02 preset; the offline
+            # ink widths are a dedicated override for the generated PNGs.
+            "outline": {
+                "enabled": True,
+                "color": "#17212F",
+                "silhouette_inner_px": 1,
+                "silhouette_outer_px": 4,
+                "convex_px": 3,
+                "mesh_contact_px": 2,
+                "crease_degrees": 80,
+                "rendered_at_px": 512,
+            },
             "image": PRESET_RENDER["image"],
             "mesh_transform": "Installed SeraRig MeshInstance3D global transforms",
             "texture_source": "Original in-game SeraRig mesh/material",
         },
         "capture_backend": "Godot GL Compatibility native SubViewport",
         "materials": "SeraRig original mesh material_override",
-        "outline": "scripts/sera_view_edges.gd + scripts/sera_scene_id_outlines.gd + shaders/sera_nexus_mesh_contact_spatial_ink.gdshader",
+        "outline": "NEXUS RGB ID + shaders/sera_icon_capture_visible_id_ink.gdshader + scripts/sera_base_facility_crease_geometry.gd + shaders/sera_icon_capture_convex_ink.gdshader",
         "lighting": "scripts/main.gd::_build_world",
     }
     # Every captured part uses the exact camera, framing, and outline preset.
@@ -126,11 +137,11 @@ def annotate_all() -> None:
             (TARGET / (id_ + ".png")).read_bytes()
         ).hexdigest()
         manifest["items"][id_]["capture"] = (
-            "SERA Godot GL Compatibility / NEXUS visible mesh-ID contact")
+            "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink")
     manifest["count"] = len(records)
     manifest["capture_preset"] = "assets/ui/sera_icon_presets/H02.json"
     manifest["outline_pipeline"] = (
-        "NEXUS mesh-ID depth contact: 1px interior, 2px exterior, 2px seams")
+        "ICON ONLY: silhouette inner 1px outer 4px; convex corners 3px; mesh seams 2px")
     MANIFEST_PATH.write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8")

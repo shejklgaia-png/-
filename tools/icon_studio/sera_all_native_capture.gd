@@ -1,10 +1,19 @@
 extends SceneTree
 ## Offline only: photograph all existing live SeraRig parts using the
 ## user-approved H02 Godot preset, with the current NEXUS mesh-ID ink.
+## Capture-only profile: silhouette inside 1 / outside 4, convex 3, seams 2.
 const RigScript = preload("res://scripts/sera_rig.gd")
 const EdgeScript = preload("res://scripts/sera_view_edges.gd")
+const ConvexGeometry = preload("res://scripts/sera_base_facility_crease_geometry.gd")
+const IconContactInk = preload("res://shaders/sera_icon_capture_visible_id_ink.gdshader")
+const IconConvexInk = preload("res://shaders/sera_icon_capture_convex_ink.gdshader")
 const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
 const PIXELS: int = 512
+# Capture-only widths, never applied to live BASE/NEXUS/battle rendering.
+const ICON_INNER_PX: float = 1.0
+const ICON_OUTER_PX: float = 4.0
+const ICON_CONVEX_PX: float = 3.0
+const ICON_SEAM_PX: float = 2.0
 # The one canonical user preset fixes yaw/pitch/roll/scale/pan for every slot.
 # Each icon retains its own authentic source mesh/material and blueprint ID.
 const CAMERA_PRESET_PATH: String = "res://assets/ui/sera_icon_presets/H02.json"
@@ -118,6 +127,13 @@ func _run() -> void:
     camera.position = Vector3(0, 0, 10)
     scene.add_child(camera)
     camera.make_current()
+    # Three-dimensional foreground convex ribbons are drawn only while
+    # producing offline PNGs; the game's runtime compositor is unmodified.
+    var convex_material := ShaderMaterial.new()
+    convex_material.shader = IconConvexInk
+    convex_material.render_priority = -28
+    convex_material.set_shader_parameter("ink_color", Color("#17212f"))
+    convex_material.set_shader_parameter("crease_px", ICON_CONVEX_PX)
 
     var out_dir: String = ProjectSettings.globalize_path(
         "res://assets/ui/sera_equipment_icons")
@@ -168,6 +184,20 @@ func _run() -> void:
             part.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
             part.visible = true
             center_shift.add_child(part)
+            # Physical corner ribbons come from the *same* authored mesh.
+            # The shader filters to sharp, camera-visible convex front/front
+            # edges; ordinary seams and silhouettes remain mesh-ID based.
+            var convex_mesh: ArrayMesh = ConvexGeometry._build_overlay(source.mesh)
+            if convex_mesh != null:
+                var convex := MeshInstance3D.new()
+                convex.name = "NativeConvexInk_%02d" % mesh_count
+                convex.mesh = convex_mesh
+                convex.material_override = convex_material
+                convex.transform = source.global_transform
+                convex.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+                convex.set_meta("sera_skip_common_id_outline", true)
+                convex.set_meta("FX_NO_OUTLINE", true)
+                center_shift.add_child(convex)
             var bounds: AABB = part.mesh.get_aabb()
             for index in range(8):
                 var point: Vector3 = part.transform * bounds.get_endpoint(index)
@@ -208,6 +238,26 @@ func _run() -> void:
             _fail(id + ": NEXUS ID compositor was not registered")
             return
         native_compositor.set("_part_outline_enabled", true)
+        # Swap only the private capture viewport's ink material. The live
+        # NEXUS shader and its 1px/2px widths are never changed.
+        var icon_material: ShaderMaterial = native_compositor.get(
+            "_screen_material") as ShaderMaterial
+        var icon_id_viewport: SubViewport = native_compositor.get(
+            "id_viewport") as SubViewport
+        if icon_material == null or icon_id_viewport == null:
+            _fail(id + ": capture ID material or viewport is missing")
+            return
+        if icon_material.shader != IconContactInk:
+            icon_material.shader = IconContactInk
+        icon_material.set_shader_parameter(
+            "mesh_id_texture", icon_id_viewport.get_texture())
+        icon_material.set_shader_parameter("mesh_id_texel", Vector2(
+            1.0 / float(icon_id_viewport.size.x),
+            1.0 / float(icon_id_viewport.size.y)))
+        icon_material.set_shader_parameter("ink_color", Color("#17212f"))
+        icon_material.set_shader_parameter("sera_inner_px", ICON_INNER_PX)
+        icon_material.set_shader_parameter("sera_outer_px", ICON_OUTER_PX)
+        icon_material.set_shader_parameter("sera_seam_px", ICON_SEAM_PX)
         native_compositor.set("_scan_elapsed", 0.0)
         # The compositor is deferred and has a separate ID SubViewport.
         # Render several frames before capturing the final composited color.
