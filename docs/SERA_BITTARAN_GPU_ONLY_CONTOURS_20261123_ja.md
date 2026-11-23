@@ -122,3 +122,14 @@ CI項目の確認・修正・適用は行わず、CI、Godot、Android等のテ�
 - 外周内0px／外3px、別メッシュID境界2px、凸角OFF、通常3D材質、戦闘FPS表示・戦闘操作は不変。ID描画への追加全画面パスや、表示までの固定1フレーム待機は追加しない。
 - **限界**：Godotの個別SubViewportでは、`frame_pre_draw`でCPU側の描画姿勢を合わせても、GPU上の画像が通常3D画像と完全に同一時刻で完成したことを確認するバリアにはならない。GL Compatibilityの描画ドライバ・端末によるテクスチャフレーム遅延が残る可能性がある。完全な完成画像のペアリングを保証するには、別途シーン全体のオフスクリーン描画／合成／提示の設計が必要であり、この変更には含めない。
 - CI項目・設定・テストファイルは参照/変更せず、CI/Godot/Android等のテストも行っていない。描画結果・追従誤差・FPS・操作遅延は未確認。
+
+## 2026-11-23：ビットタラン戦全体の完成フレーム合成・表示（現行）
+- PR #883の`RenderingServer.frame_pre_draw`によるCPU側の最終姿勢同期を行っても、実機ではモデルとID輪郭のズレが残った。そこで表示のルートを変更する。**通常の3DとIDの別描画結果をウィンドウへ直接重ねず、ビットタラン戦を同じ色付きSubViewportへ描画して、その合成済み映像1枚をウィンドウへ表示する。**
+- 元の`scenes/bittaran_battle.tscn`（直にNode3Dを描画）を`scenes/bittaran_battle_world.tscn`へそのまま保存し、既存の`scenes/bittaran_battle.tscn`を完成フレーム表示用のControlルートへ変更する。NEXUSの出撃先パスは変更しないため、通常導線・シーン変更APIは従来どおり。
+- 新しい画面ツリーは`BittaranBattle(Control) → CompletedFrameContainer(SubViewportContainer) → CompletedBattleFrame(SubViewport) → BittaranBattleWorld(Node3D)`。**従来の全モデル・戦闘HUD・IDコンポジタ・音・物理・操作ノードはBittaranBattleWorldの内側**にそのまま存在し、モデルを2回ロードしたり2つの3Dシーンを描いたりしない。
+- `CompletedBattleFrame`で戦闘の通常3D描画とメッシュID輪郭線の合成・衝撃エフェクト・HUDまでを完結させて、画面の親ウィンドウがその1つの完成テクスチャだけを表示する。従来のID用SubViewportはCompletedBattleFrame内に作られ、親がIDテクスチャを参照する描画依存関係を維持する。新しい色付きフレームは`UPDATE_ALWAYS`で継続更新。
+- `SubViewportContainer.stretch=true`・`stretch_shrink=1`で、Android縦画面の解像度と表示領域を1対1に対応させる。Godot標準のContainer入力転送を使用し、コントローラ操作、タッチ、フリック、DEBUG LEG BREAK、NEXUS戻るの入力経路を維持。フレーム全体の3D/2D音声を継続するためSubViewportの2D/3Dオーディオリスナーを有効にする。
+- 前段の`frame_pre_draw`最終姿勢同期、既存の可視RGB ID画素抽出、**シルエット内0px/外3px・境界2px・凸角OFF**、FPSラベル、カメラ振動同期は変更しない。他のNEXUS・拠点・通常戦闘・単体プレビューは旧経路を維持する。
+- **設計上の制約**：これは**色付き戦闘フレームの完成後にその1枚だけを提示するレンダーターゲット方式**であり、Android/GL Compatibility上で全GPUタスクを同期フェンスで待機し、IDテクスチャが必ず同一フレームのものだと証明する「GPU完成バリア」ではない。ID内部のパスで残存するズレや端末依存の追加1フレーム遅延は排除・計測できていない。また色付きSubViewportへのオフスクリーン描画と外側へのテクスチャ転送が増えるため、GPU帯域とFPSへの影響はあり得る。
+- ユーザー指定に従いCI項目・設定・テストファイルの確認・変更、およびCI/Godot/Android等のテスト実行は行っていない。実機で入力・表示・音声・追従・FPSの確認が必要。
+- 縦長画面でSubViewportの初期サイズ720×1280から表示サイズが変わるケースにも備え、`scripts/bittaran_complete_frame_presenter.gd`をラッパーのControlへ付与する。子3D戦闘が`_ready()`に入る前に`DisplayProfile.apply(get_window())`を実行し、`CompletedBattleFrame.size_changed`時には実際の表示サイズと同じ`DisplayProfile.vertical_fov(61°, size)`を1回だけ反映する。従来のXperia縦長比率・クラシック比率の画角を維持するための処理で、入力座標やピクセル幅の倍率変更は行わない。
