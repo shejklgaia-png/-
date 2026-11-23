@@ -386,69 +386,43 @@ func _build_fabrication() -> void:
         for j in range(4):
             _b(machine, Vector3(side * 1.03 - 0.21 + j * 0.14, 0.34, 1.16),
                 Vector3(0.07, 0.19, 0.027), SHADOW)
-    # Tool discharge points toward the console; the octagonal platen and its
-    # linear rollers make the gantry's +X fabrication output explicit.
-    _beveled_panel(machine, "RightFacingFabricationOutfeed",
-        Vector3(0, 0.73, 1.28), Vector3(1.52, 0.11, 0.73), 0.12, METAL)
-    for roll in range(5):
-        _line(machine, Vector3(-0.58 + roll * 0.29, 0.81, 1.39),
-            Vector3(-0.58 + roll * 0.29, 0.81, 1.60), 0.036, EDGE)
-    for side in [-1.0, 1.0]:
-        _b(machine, Vector3(side * 0.70, 0.77, 1.46),
-            Vector3(0.07, 0.14, 0.42), HULL)
-    # Workshop stores are kept behind the printer, not between the two
-    # machines, leaving a clear walking corridor for the roaming CRATE.
+    # Keep the right-facing printer and the original runtime-safe geometry
+    # construction path. The previous elaborate plinth/procedural casting
+    # added during scene initialization was followed by a blank viewport on
+    # Android; avoid new bespoke SurfaceTool meshes at startup.
+    # The exit rollers inherit the printer's +90 degree rotation.
+    _b(machine, Vector3(0, 0.70, 1.15), Vector3(1.65, 0.14, 0.48), METAL)
+    for i in range(5):
+        _line(machine, Vector3(-0.60 + float(i) * 0.30, 0.79, 1.25),
+            Vector3(-0.60 + float(i) * 0.30, 0.79, 1.45), 0.035, EDGE)
+    # Keep the existing supply cabinets against the far left wall.
     for i in range(2):
-        var x: float = -4.85 + 0.57 * i
-        _b(room, Vector3(x, 0.52, 1.62), Vector3(0.47, 0.96, 0.78), METAL)
-        _b(room, Vector3(x, 0.69, 2.03), Vector3(0.21, 0.055, 0.035), EDGE)
-    # Right-side command station: large 24fps process monitor, machined
-    # octagonal chassis and low-profile controls rather than a bare pedestal.
-    var desk := _node(room, "TechnicalConsole", Vector3(2.58, 0, -1.35))
-    desk.rotation.y = -0.34
-    _b(desk, Vector3(0, 0.16, 0.01), Vector3(1.15, 0.26, 1.00), DEEP)
-    _beveled_panel(desk, "TaperedOperatorPlinth",
-        Vector3(0, 0.75, 0.03), Vector3(0.81, 1.21, 0.78), 0.13, HULL)
-    _beveled_panel(desk, "FullWidthControlDeck",
-        Vector3(0, 1.35, 0.20), Vector3(1.94, 0.17, 0.92), 0.16, METAL)
-    _b(desk, Vector3(0, 1.44, 0.48), Vector3(1.75, 0.040, 0.27), DEEP)
-    for side in [-1.0, 1.0]:
-        _line(desk, Vector3(side * 0.69, 1.33, -0.22),
-            Vector3(side * 0.66, 1.85, -0.22), 0.077, EDGE)
-        _b(desk, Vector3(side * 0.79, 1.32, 0.57),
-            Vector3(0.16, 0.045, 0.14), CYAN, true)
-    _beveled_panel(desk, "MonitorRearSpine",
-        Vector3(0, 2.06, -0.17), Vector3(1.98, 1.25, 0.20),
-        0.17, SHADOW)
-    _screen(desk, "PrintProgressMonitor", Vector3(0, 2.07, -0.02),
-        Vector2(1.78, 1.06), 0)
-    for row in range(2):
-        for key in range(7):
-            _b(desk, Vector3(-0.60 + key * 0.20, 1.50,
-                0.36 + row * 0.15), Vector3(0.13, 0.024, 0.105),
-                EDGE if (key + row) % 4 == 0 else HULL)
-    for vent in range(6):
-        _b(desk, Vector3(0.41, 0.63 + vent * 0.13, 0.43),
-            Vector3(0.15, 0.045, 0.03), DEEP)
-    _label(desk, "PRINT / OS", Vector3(0, 2.82, 0.04), 30)
-    # An overhead service line links the fabrication cell with the command
-    # station; a precisely framed floor passage signals their interaction.
-    _line(room, Vector3(-1.20, 3.65, -2.62),
-        Vector3(2.55, 3.65, -2.62), 0.082, EDGE)
-    _line(room, Vector3(-1.20, 3.65, -2.62),
-        Vector3(-1.35, 3.11, -2.38), 0.068, COPPER)
-    _line(room, Vector3(2.55, 3.65, -2.62),
-        Vector3(2.55, 2.93, -1.72), 0.058, COPPER)
-    for i in range(10):
-        _b(room, Vector3(-0.64 + i * 0.32, 0.064, 0.88),
-            Vector3(0.17, 0.017, 0.04), CYAN if i % 3 == 0 else METAL)
-    for z in [-0.92, 1.08]:
-        _b(room, Vector3(0.52, 0.053, z),
-            Vector3(3.56, 0.025, 0.044), EDGE)
-    for x in [-0.65, 1.85]:
-        _beveled_panel(room, "OperatorDockingPoint",
-            Vector3(x, 0.054, -0.12), Vector3(0.52, 0.026, 0.52), 0.08,
-            Color("#3c6677"))
+        var x: float = -4.85 + 0.57 * float(i)
+        _b(room, Vector3(x, 0.52, 1.62),
+            Vector3(0.47, 0.96, 0.78), METAL)
+        _b(room, Vector3(x, 0.69, 2.03),
+            Vector3(0.21, 0.055, 0.035), EDGE)
+    # Dedicated right-side workstation. Use the proven screen builder and
+    # original box-only console construction; preserve animated screen mode.
+    var desk := _node(room, "TechnicalConsole", Vector3(2.60, 0.0, -1.35))
+    desk.rotation.y = -0.20
+    _b(desk, Vector3(0, 0.65, 0.03),
+        Vector3(0.73, 1.26, 0.68), HULL)
+    _b(desk, Vector3(0, 1.31, 0.25),
+        Vector3(1.72, 0.14, 0.80), METAL)
+    _b(desk, Vector3(0, 1.42, 0.49),
+        Vector3(1.48, 0.045, 0.21), DEEP)
+    _screen(desk, "PrintProgressMonitor", Vector3(0, 2.04, -0.08),
+        Vector2(1.58, 0.95), 0)
+    for i in range(8):
+        _b(desk, Vector3(-0.55 + float(i) * 0.16, 1.42, 0.46),
+            Vector3(0.09, 0.025, 0.09), DEEP)
+    # Small, fixed-angle cable and guidance lines are batched as before.
+    _line(room, Vector3(-1.30, 3.69, -2.62),
+        Vector3(2.40, 3.69, -2.62), 0.064, EDGE)
+    for z in [-0.92, 0.85]:
+        _b(room, Vector3(0.43, 0.052, z),
+            Vector3(3.36, 0.023, 0.04), EDGE)
     # Service gate gives scale to the enclosed room without blocking the machine.
     for x in [1.65, 3.66]:
         _b(room, Vector3(x, 1.65, -4.97),
