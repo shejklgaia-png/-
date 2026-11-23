@@ -201,7 +201,7 @@ static func _shared_soft_halo_material() -> ShaderMaterial:
             for x in range(24):
                 var point := (Vector2(float(x), float(y)) -
                     Vector2(11.5, 11.5)) / 11.5
-                var intensity: float = powf(
+                var intensity: float = pow(
                     maxf(0.0, 1.0 - point.length_squared()), 2.8)
                 image.set_pixel(x, y, Color(1.0, 1.0, 1.0, intensity))
         _soft_halo_texture = ImageTexture.create_from_image(image)
