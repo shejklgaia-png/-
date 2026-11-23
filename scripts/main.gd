@@ -1055,6 +1055,7 @@ func _floor_line(center: Vector3, dimensions: Vector3, material: Material) -> vo
 func _build_character() -> void:
     player = CharacterBody3D.new()
     player.name = "Player"
+    player.set_meta("sera_player_outline", true)
     player.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
     player.collision_layer = PLAYER_COLLISION_LAYER
     player.collision_mask = TARGET_COLLISION_LAYER
