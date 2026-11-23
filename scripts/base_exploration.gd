@@ -450,7 +450,7 @@ func _build_power_distribution() -> void:
     if is_instance_valid(power_distribution):
         power_distribution.free()
     power_distribution = BasePowerDistribution.build(
-        self, NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS)
+        self, NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, cam)
 
 
 func _create_grid_selection() -> void:
