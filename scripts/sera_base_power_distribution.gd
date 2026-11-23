@@ -336,6 +336,9 @@ static func build(parent: Node3D, nexus_origin: Vector3,
     # Reuse the GENERATOR->GRID input plug instead of inventing a second
     # unrelated power supply. The control panel feeds one visible manifold.
     var hub: Vector3 = PowerBoard.cable_point(0.0)
+    # Existing board cable connects at y=0.23. Seat the new manifold on
+    # the metal deck, while its distribution plugs remain at that height.
+    hub.y = 0.0
     var zero := Basis.IDENTITY
     _device_port(items, "rubber", hub, zero,
         Vector3(0.0, -0.10, 0.0), Vector3(1.46, 0.12, 0.82))
