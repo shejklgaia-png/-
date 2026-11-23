@@ -28,6 +28,17 @@ func _exit_tree() -> void:
     _release_combat_convex()
 
 
+# This experimental direct-GPU contour replaces the ID pass ONLY inside the
+# authored Bittaran battle. Ordinary training, BASE and NEXUS remain unchanged.
+static func _in_bittaran_gpu_scene(actor: Node3D) -> bool:
+    var cursor: Node = actor
+    while cursor != null:
+        if bool(cursor.get_meta("sera_bittaran_gpu_outline", false)):
+            return true
+        cursor = cursor.get_parent()
+    return false
+
+
 static func _in_combat_scene(actor: Node3D) -> bool:
     var cursor: Node = actor
     while cursor != null:
@@ -51,6 +62,27 @@ func _register() -> void:
         return
     var viewport: Viewport = get_viewport()
     if not is_instance_valid(viewport):
+        return
+    if _in_bittaran_gpu_scene(actor):
+        # No ID target, camera clone or screen-space composite in this battle.
+        # Every edge belongs to its source mesh and uses the SAME camera,
+        # including Camera3D.h_offset/v_offset during impact shake.
+        if is_instance_valid(_compositor):
+            _compositor.call("unregister_root", self)
+        _compositor = null
+        if not is_instance_valid(_combat_convex):
+            var gpu: Node3D = VisibleConvexInk.new()
+            gpu.name = "SeraBittaranGPUContourController"
+            gpu.set("enable_combat_gpu_full_edges", true)
+            gpu.set("ink_stroke_px", 2.0)
+            gpu.set("silhouette_stroke_px", 3.0)
+            gpu.set("seam_stroke_px", 3.0)
+            gpu.set("ink_render_priority", -29)
+            gpu.set("overlay_name", "SeraBittaranGPUContour")
+            gpu.set("hard_creases_only", true)
+            gpu.set("scan_interval_seconds", 1.05)
+            actor.add_child(gpu)
+            _combat_convex = gpu
         return
     var layer: CanvasLayer = viewport.get_node_or_null(LAYER_NAME) as CanvasLayer
     if layer == null:
