@@ -565,6 +565,15 @@ static func _is_nexus_contact_mesh(node: Node) -> bool:
 
 
 static func _outline_role(node: Node) -> int:
+    # Live equipment viewers are a separate render class (G=6), including
+    # any SeraRig descendants that otherwise carry their own actor tag.
+    # Do this before checking per-mesh roles so preview ink is consistent.
+    var preview_cursor: Node = node
+    while preview_cursor != null:
+        if str(preview_cursor.get_meta(
+                "sera_graphics_outline_category", "")) == "part":
+            return 6
+        preview_cursor = preview_cursor.get_parent()
     var cursor: Node = node
     while cursor != null:
         var tag: String = str(cursor.get_meta("sera_outline_role", ""))
@@ -574,6 +583,7 @@ static func _outline_role(node: Node) -> int:
             "clutter": return 3
             "grid": return 4
             "crate": return 5
+            "part": return 6
         cursor = cursor.get_parent()
     return 1
 
@@ -726,8 +736,9 @@ func _rescan() -> bool:
                 # Even with character ink OFF, its solid meshes still occlude
                 # room IDs. Otherwise NEXUS edges draw through the character.
                 var occluding: bool = (not eligible and (
-                    _background_occluder(part) or (
-                    valid_geometry and contact_geometry)))
+                    _background_occluder(part) or valid_geometry))
+                # When a graphics option disables ink, preserve that solid
+                # geometry as ID=0 depth, blocking hidden contours behind it.
                 if eligible or occluding:
                     desired[node.get_instance_id()] = {
                         "node": part, "occluder": occluding,
