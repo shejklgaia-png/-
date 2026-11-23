@@ -251,9 +251,21 @@ func _hall(parent: Node3D, theme: String) -> void:
     var center_z: float = -1.40 if storage else -1.28
     var rear_z: float = -8.03 if storage else -5.35
     var side_x: float = 8.76 if storage else 5.72
-    var side_length: float = 12.88 if storage else 8.2
+    var side_length: float = 13.50 if storage else 8.2
     _b(parent, Vector3(0, -0.22, center_z), Vector3(width, 0.40, depth), primary)
     _b(parent, Vector3(0, 2.30, rear_z), Vector3(width, 5.2, 0.32), SHADOW)
+    if storage:
+        # The previous expanded warehouse had only open beams, letting an
+        # exterior camera see its roof top and the empty world. Add one solid
+        # ceiling facing the room; trusses and lighting remain underneath it.
+        # Batched into the existing opaque hall geometry (no extra draw pass).
+        _b(parent, Vector3(0, 4.93, center_z),
+            Vector3(width, 0.16, depth), HULL)
+        # The near-front portal remains behind the new interior camera.
+        # Close the side-wall/endplate seams to prevent exterior slivers.
+        for x in [-side_x, side_x]:
+            _b(parent, Vector3(x, 2.18, 5.08),
+                Vector3(0.34, 4.80, 0.45), primary)
     for x in [-side_x, side_x]:
         _b(parent, Vector3(x, 2.18, center_z),
             Vector3(0.25, 4.80, side_length), HULL)
@@ -638,7 +650,7 @@ func _build_bulk_cargo_rows(room: Node3D) -> void:
     for side in [-1.0, 1.0]:
         for slot in range(4):
             var x: float = side * 7.74
-            var z: float = -5.93 + float(slot) * 2.25
+            var z: float = -6.55 + float(slot) * 1.80
             var bay_tint: Color = Color("#657985") if slot%2 == 0 else Color("#576f78")
             if side > 0:
                 bay_tint = Color("#6e7877") if slot%2 == 0 else Color("#4d6572")
