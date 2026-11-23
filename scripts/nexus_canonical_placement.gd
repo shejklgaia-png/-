@@ -134,21 +134,31 @@ func _bind_node(key: String, obj: Node) -> void:
     entry["bindings"] = bindings
 
 
+# Also called by the real NEXUS HUD Button.pressed signal.
+# The old raw-input-only activation was unreliable in the SubViewport.
+func open_mode() -> bool:
+    if active:
+        return true
+    if not _can_open():
+        return false
+    active = true
+    selected = ""
+    pointer_id = -999
+    pointer_mouse = false
+    var ink: Control = host.get("outline") as Control
+    if ink != null:
+        original_outline_visible = ink.visible
+        ink.visible = false
+    _sync_ui()
+    queue_redraw()
+    return true
+
+
 func route_input(event: InputEvent) -> bool:
     if not active:
-        if not _can_open():
-            return false
-        if _press_position(event) != null and (
-                _toggle_rect().has_point(_press_position(event))):
-            active = true
-            selected = ""
-            _sync_ui()
-            var ink: Control = host.get("outline") as Control
-            if ink != null:
-                original_outline_visible = ink.visible
-                ink.visible = false
-            queue_redraw()
-            return true
+        var press: Variant = _press_position(event)
+        if press != null and _toggle_rect().has_point(press):
+            return open_mode()
         return false
 
     # Editing is the only allowed raw input consumer until it ends.
@@ -455,28 +465,28 @@ func _create_visible_controls() -> void:
         theme = host_hud.theme
     for key in ["toggle", "close", "copy", "copy_all",
             "rot_l", "rot_r", "up", "down"]:
-        var panel := Panel.new()
-        panel.name = "Placement_" + key
-        panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        var button := Button.new()
+        button.name = "Placement_" + key
+        button.text = _caption(key)
+        button.mouse_filter = Control.MOUSE_FILTER_STOP
+        button.focus_mode = Control.FOCUS_NONE
+        button.add_theme_font_size_override("font_size", 16)
+        button.add_theme_color_override("font_color", Color("#dcf5ff"))
         var style := StyleBoxFlat.new()
         style.bg_color = Color("#163447")
         style.border_color = Color("#72b4ce")
         style.set_border_width_all(2)
         style.set_corner_radius_all(4)
-        panel.add_theme_stylebox_override("panel", style)
-        add_child(panel)
-        var label := Label.new()
-        label.name = "Caption"
-        label.text = _caption(key)
-        label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-        label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-        label.add_theme_font_size_override("font_size", 16)
-        label.add_theme_color_override("font_color", Color("#dcf5ff"))
-        panel.add_child(label)
-        _buttons[key] = panel
-        panel.visible = false
+        var pressed_style: StyleBoxFlat = style.duplicate() as StyleBoxFlat
+        pressed_style.bg_color = Color("#26546a")
+        button.add_theme_stylebox_override("normal", style)
+        button.add_theme_stylebox_override("hover", pressed_style)
+        button.add_theme_stylebox_override("pressed", pressed_style)
+        add_child(button)
+        if key != "toggle":
+            button.pressed.connect(_on_editor_button_pressed.bind(key))
+        _buttons[key] = button
+        button.visible = false
 
     _status_label = Label.new()
     _status_label.name = "CanonicalPlacementStatus"
@@ -490,6 +500,16 @@ func _create_visible_controls() -> void:
     _hint_label.add_theme_font_size_override("font_size", 14)
     _hint_label.add_theme_color_override("font_color", Color("#9cc4d2"))
     add_child(_hint_label)
+
+
+func _on_editor_button_pressed(key: String) -> void:
+    # Native UI signals supplement raw _input forwarding on Android.
+    # The raw handler consumes the press when it runs first, so no double step.
+    if not active or not _buttons.has(key):
+        return
+    var button: Button = _buttons[key]
+    if button.visible:
+        _press(Rect2(button.position, button.size).get_center(), -999, false)
 
 
 func _caption(key: String) -> String:
@@ -535,7 +555,7 @@ func _sync_ui() -> void:
 
     for name_value in _buttons.keys():
         var name: String = str(name_value)
-        var panel: Panel = _buttons[name]
+        var panel: Button = _buttons[name]
         var enabled: bool = false
         var rect: Rect2
         match name:

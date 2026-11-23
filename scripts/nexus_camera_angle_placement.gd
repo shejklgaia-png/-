@@ -45,28 +45,28 @@ func _make_ui() -> void:
     for id in ["open", "exit", "copy", "zoom_in", "zoom_out",
             "look_left", "look_right", "look_up", "look_down",
             "fov_minus", "fov_plus"]:
-        var panel := Panel.new()
-        panel.name = "Angle_" + id
-        panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        var button := Button.new()
+        button.name = "Angle_" + id
+        button.text = _button_title(id)
+        button.mouse_filter = Control.MOUSE_FILTER_STOP
+        button.focus_mode = Control.FOCUS_NONE
+        button.add_theme_font_size_override("font_size", 15)
+        button.add_theme_color_override("font_color", Color("#e1f7ff"))
         var frame := StyleBoxFlat.new()
         frame.bg_color = Color("#193748", 0.96)
         frame.border_color = Color("#7cbdd6")
         frame.set_border_width_all(2)
         frame.set_corner_radius_all(5)
-        panel.add_theme_stylebox_override("panel", frame)
-        add_child(panel)
-        var title := Label.new()
-        title.name = "Caption"
-        title.text = _button_title(id)
-        title.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-        title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-        title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-        title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        title.add_theme_font_size_override("font_size", 15)
-        title.add_theme_color_override("font_color", Color("#e1f7ff"))
-        panel.add_child(title)
-        _buttons[id] = panel
-        panel.visible = false
+        var pressed_style: StyleBoxFlat = frame.duplicate() as StyleBoxFlat
+        pressed_style.bg_color = Color("#2a5970")
+        button.add_theme_stylebox_override("normal", frame)
+        button.add_theme_stylebox_override("hover", pressed_style)
+        button.add_theme_stylebox_override("pressed", pressed_style)
+        add_child(button)
+        if id != "open":
+            button.pressed.connect(_on_editor_button_pressed.bind(id))
+        _buttons[id] = button
+        button.visible = false
 
     _status = Label.new()
     _status.name = "CameraPlacementStatus"
@@ -80,6 +80,15 @@ func _make_ui() -> void:
     _help.add_theme_font_size_override("font_size", 14)
     _help.add_theme_color_override("font_color", Color("#a9cedd"))
     add_child(_help)
+
+
+func _on_editor_button_pressed(id: String) -> void:
+    # Real Android GUI input supplements the raw SubViewport touch routing.
+    if not active or not _buttons.has(id):
+        return
+    var button: Button = _buttons[id]
+    if button.visible:
+        _press(Rect2(button.position, button.size).get_center(), -999, false)
 
 
 func _button_title(id: String) -> String:
@@ -119,7 +128,7 @@ func _sync_ui() -> void:
         str(_can_open()), size.x, size.y]
     for id_value in _buttons.keys():
         var id: String = str(id_value)
-        var panel: Panel = _buttons[id]
+        var panel: Button = _buttons[id]
         var show_panel: bool = (
             id != "open" and active)
         # The standalone 'アングル正規配置' entry is always owned by the
@@ -174,10 +183,8 @@ func _button_rect(id: String) -> Rect2:
 func route_input(event: InputEvent) -> bool:
     if not active:
         var point: Variant = _press_point(event)
-        if _can_open() and point != null and (
-                _button_rect("open").has_point(point)):
-            _open_mode()
-            return true
+        if point != null and _button_rect("open").has_point(point):
+            return open_mode()
         return false
     # Every ordinary pointer/navigation input is blocked during camera edit.
     if event.is_action_pressed("ui_cancel") or (
@@ -217,6 +224,16 @@ func _press_point(event: InputEvent) -> Variant:
             event.button_index == MOUSE_BUTTON_LEFT):
         return event.position
     return null
+
+
+# Shared by Button.pressed and the viewport's raw input fallback.
+func open_mode() -> bool:
+    if active:
+        return true
+    if not _can_open():
+        return false
+    _open_mode()
+    return active
 
 
 func _open_mode() -> void:
