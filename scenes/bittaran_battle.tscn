@@ -1,6 +1,7 @@
-[gd_scene load_steps=2 format=3]
+[gd_scene load_steps=3 format=3]
 
-[ext_resource type="PackedScene" path="res://scenes/bittaran_battle_world.tscn" id="1_world"]
+[ext_resource type="Script" path="res://scripts/bittaran_complete_frame_presenter.gd" id="1_presenter"]
+[ext_resource type="PackedScene" path="res://scenes/bittaran_battle_world.tscn" id="2_world"]
 
 ; One ready-to-present image per frame, with the live 3D model, visible
 ; mesh-ID contours, debug HUD and transparent effects already composited.
@@ -14,6 +15,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
+script = ExtResource("1_presenter")
 
 ; SubViewportContainer forwards touch/mouse/gamepad input to its child
 ; SubViewport, preserving the original SERA gesture and lock-screen handlers.
@@ -39,4 +41,4 @@ render_target_update_mode = 4
 audio_listener_enable_2d = true
 audio_listener_enable_3d = true
 
-[node name="BittaranBattleWorld" parent="CompletedFrameContainer/CompletedBattleFrame" instance=ExtResource("1_world")]
+[node name="BittaranBattleWorld" parent="CompletedFrameContainer/CompletedBattleFrame" instance=ExtResource("2_world")]
