@@ -4,6 +4,8 @@ extends Node3D
 ## MeshInstance3D children inherit their source pose, transforms and visibility.
 const Edges = preload("res://scripts/sera_base_facility_crease_geometry.gd")
 const INK_SHADER = preload("res://shaders/nexus_sera_gpu_convex_silhouette.gdshader")
+const GPU_FULL_EDGES = preload("res://shaders/sera_bittaran_gpu_contours.gdshader")
+const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
 const EDGE_NAME: String = "NexusSeraConvexInk"
 const SCAN_SECONDS: float = 0.65
 const MAX_EDGES_PER_MESH: int = 8000
@@ -17,6 +19,12 @@ var overlay_name: String = EDGE_NAME
 # Icon capture also restricts visible front creases to hard (>=80°) edges.
 # Optional for combat only; NEXUS retains its existing geometry by default.
 var hard_creases_only: bool = false
+# Battle-only GPU mode: silhouette, disjoint mesh outlines and convex ridges.
+# Off by default to preserve NEXUS/icon consumers of this controller.
+var enable_combat_gpu_full_edges: bool = false
+var silhouette_stroke_px: float = 3.0
+var seam_stroke_px: float = 3.0
+var scan_interval_seconds: float = SCAN_SECONDS
 
 var _elapsed: float = 0.0
 var _overlays: Dictionary = {} # source instance ID -> {source, overlay, mesh, closed}
@@ -26,9 +34,14 @@ var _material: ShaderMaterial
 
 func _ready() -> void:
     _material = ShaderMaterial.new()
-    _material.shader = INK_SHADER
+    _material.shader = GPU_FULL_EDGES if enable_combat_gpu_full_edges else INK_SHADER
     _material.set_shader_parameter("ink_color", Color("#17212f"))
-    _material.set_shader_parameter("stroke_px", ink_stroke_px)
+    if enable_combat_gpu_full_edges:
+        _material.set_shader_parameter("silhouette_px", silhouette_stroke_px)
+        _material.set_shader_parameter("seam_px", seam_stroke_px)
+        _material.set_shader_parameter("crease_px", ink_stroke_px)
+    else:
+        _material.set_shader_parameter("stroke_px", ink_stroke_px)
     _material.render_priority = ink_render_priority
     _scan()
     set_process(true)
@@ -37,13 +50,13 @@ func _ready() -> void:
 func _process(delta: float) -> void:
     _elapsed -= delta
     if _elapsed <= 0.0:
-        _elapsed = SCAN_SECONDS
+        _elapsed = scan_interval_seconds
         _scan()
 
 
 # Called immediately on equipment changes; periodic scan remains a fallback.
 func refresh_meshes() -> void:
-    _elapsed = SCAN_SECONDS
+    _elapsed = scan_interval_seconds
     _scan()
 
 
@@ -98,6 +111,16 @@ func _scan() -> void:
     var rig: Node3D = get_parent() as Node3D
     if not is_instance_valid(rig):
         return
+    # Read the on-device graphics option only during the low-frequency scan,
+    # not every visual frame. Disabling linework hides the cached ribbons.
+    if enable_combat_gpu_full_edges and not GraphicsSettings.get_enabled(
+            "character_outline"):
+        for record in _overlays.values():
+            var visible_overlay: MeshInstance3D = record.get(
+                "overlay") as MeshInstance3D
+            if is_instance_valid(visible_overlay):
+                visible_overlay.visible = false
+        return
     var requested: Dictionary = {}
     var pending: Array[Node] = [rig]
     while not pending.is_empty():
@@ -128,6 +151,7 @@ func _scan() -> void:
         if old_mesh == source.mesh and bool(cached.get("closed", false)) == closed:
             var existing: MeshInstance3D = cached.get("overlay") as MeshInstance3D
             if is_instance_valid(existing):
+                existing.visible = true
                 continue
         var overlay: MeshInstance3D = cached.get("overlay") as MeshInstance3D
         var generated: Mesh = _cached_geometry(source.mesh, closed)
@@ -141,12 +165,16 @@ func _scan() -> void:
             overlay.name = overlay_name
             overlay.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
             overlay.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
-            overlay.extra_cull_margin = 0.02
+            overlay.extra_cull_margin = 0.08 if (
+                enable_combat_gpu_full_edges) else 0.02
             overlay.material_override = _material
             overlay.set_meta("sera_skip_common_id_outline", true)
+            overlay.set_meta("FX_NO_OUTLINE", true)
+            overlay.set_meta("sera_generated_live_edge", true)
             source.add_child(overlay)
         overlay.mesh = generated
         overlay.layers = source.layers
+        overlay.visible = true
         _overlays[key] = {
             "source": weakref(source), "overlay": overlay,
             "mesh": source.mesh, "closed": closed
@@ -154,14 +182,16 @@ func _scan() -> void:
 
 
 func _cached_geometry(source: Mesh, closed: bool) -> Mesh:
-    var key: String = "%d/%d/%d" % [source.get_instance_id(), int(closed),
-        int(hard_creases_only)]
+    var key: String = "%d/%d/%d/%d" % [
+        source.get_instance_id(), int(closed),
+        int(hard_creases_only), int(enable_combat_gpu_full_edges)]
     if _geometry_cache.has(key):
         var entry: Dictionary = _geometry_cache[key]
         var previous: WeakRef = entry.get("source") as WeakRef
         if previous != null and previous.get_ref() == source:
             return entry.get("result") as Mesh
-    var result: Mesh = _make_edges(source, closed, hard_creases_only)
+    var result: Mesh = _make_edges(
+        source, closed, hard_creases_only, enable_combat_gpu_full_edges)
     _geometry_cache[key] = {"source": weakref(source), "result": result}
     return result
 
@@ -193,7 +223,8 @@ static func _signed_volume(mesh: Mesh) -> float:
 
 
 static func _make_edges(mesh: Mesh, closed: bool,
-        hard_only: bool = false) -> ArrayMesh:
+        hard_only: bool = false,
+        include_full_contour: bool = false) -> ArrayMesh:
     var extracted: Array = Edges._extract_edges(mesh)
     if extracted.is_empty():
         return null
@@ -224,22 +255,35 @@ static func _make_edges(mesh: Mesh, closed: bool,
         var paired: bool = edge.has("face_b") and (
             int(edge.get("count", 0)) == 2) and (
             not bool(edge.get("duplicate_triangle", false)))
-        # The shared visible-ID pass owns every open boundary and silhouette.
-        # Do not build GPU ribbons that can only duplicate those contours.
-        if not paired:
-            continue
-        if hard_only and not bool(edge.get("crease", false)):
-            continue
-        if closed:
+        # New full contour includes genuine single-sided boundary edges
+        # and paired edges; ambiguous duplicate/non-manifold edges are ignored.
+        # Hard-crease filtering applies only to the *convex* lane: excluding
+        # non-hard paired edges here would also destroy silhouette coverage.
+        var boundary: bool = not edge.has("face_b") and (
+            int(edge.get("count", 0)) == 1)
+        if include_full_contour:
+            if not paired and not boundary:
+                continue
+        else:
+            if not paired:
+                continue
+            if hard_only and not bool(edge.get("crease", false)):
+                continue
+        var signed_convex: bool = true
+        if closed and paired:
             var convex_bend: float = tangent.dot(normal_a.cross(normal_b))
-            if convex_bend * outward_sign <= 0.00001:
+            signed_convex = convex_bend * outward_sign > 0.00001
+            if not include_full_contour and not signed_convex:
                 continue
         normal_a = (normal_a * outward_sign).normalized()
         if paired:
             normal_b = (normal_b * outward_sign).normalized()
+        var emit_crease: bool = paired and signed_convex and (
+            not hard_only or bool(edge.get("crease", false)))
         var encoded_a := Color(
             normal_a.x * 0.5 + 0.5, normal_a.y * 0.5 + 0.5,
-            normal_a.z * 0.5 + 0.5, 1.0)
+            normal_a.z * 0.5 + 0.5,
+            1.0 if emit_crease else 0.0)
         var encoded_b := Color(normal_b.x, normal_b.y, normal_b.z,
             1.0 if paired else 0.0)
         for corner in [[a, -1.0], [b, -1.0], [b, 1.0],

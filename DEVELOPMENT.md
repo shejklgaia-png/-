@@ -1,3 +1,12 @@
+## 2026-11-23 — ビットタラン戦の外周／分離メッシュ境界を完全GPU化
+
+- ユーザー要望によりビットタラン戦のみ可視ID用Viewportと毎フレーム同期処理を外し、外周／独立装甲境界／凸角を3D GPU稜線リボンへ一本化。
+- 本番の元メッシュに子として稜線を装着し、同じ投影行列・物理補間・カメラ振動 `h_offset/v_offset` を自動継承。描画負荷が必ず下がるかは未測定。
+- 輪郭は外周3px／分離メッシュ境界3px／可視凸角2px。深度テスト有効で隠れた稜線は描かない。
+- 既存の `SeraViewEdges` のビットタラン判定でIDパスを登録せず、NEXUSとBASEと普通の戦闘は変更しない。
+- 同じメッシュの稜線データはキャッシュ、装備交換・破壊状態は約1.05秒ごとに確認。線をOFFにした際は非表示。
+- 詳細：`docs/SERA_BITTARAN_GPU_ONLY_CONTOURS_20261123_ja.md`。CI項目・テストを実施せず、実機FPS／輪郭の完成度は未確認。
+
 ## 2026-11-23 — Repair asset-only equipment icon capture for current NEXUS
 
 - Identified the previously failed automated 57-PNG generation (run 45160855480): `_screen_material` is deliberately null with the current NEXUS CanvasLayer contact compositor, so H01 failed before images could be published.

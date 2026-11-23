@@ -216,6 +216,9 @@ var last_attack_contact: Vector3 = Vector3.ZERO
 var attack_contact_initialized: bool = false
 
 func _ready() -> void:
+    # Must be set before main._ready constructs SERA, boss and turret
+    # ViewEdges. Only this battle opts into same-camera GPU-only contours.
+    set_meta("sera_bittaran_gpu_outline", true)
     super._ready()
     _start_neural_flow_bgm()
     _initialize_bittaran_sfx()
