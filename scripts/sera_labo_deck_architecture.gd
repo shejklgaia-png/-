@@ -145,20 +145,24 @@ func _assemble(room: Node3D, kind: int) -> void:
         _oct_box(s, Vector3(tx, 0.062, trench_z),
             Vector3(0.061, 0.013, 0.37), 0.012, STEEL)
     # Deep exposed roof trusses. Different spans and purlins for each hall.
-    var ceiling_rows: int = 6 if kind == 2 else 5
+    var ceiling_rows: int = 6 if kind == 2 else 3 if kind == 0 else 5
     for j in range(ceiling_rows):
         var zc: float = (floor_z-depth*0.5+1.1+
             float(j)*(depth-2.2)/float(ceiling_rows-1))
+        if kind == 0:
+            zc = -4.70 + float(j) * 1.96
         _oct_box(s, Vector3(0, 4.68, zc),
-            Vector3(width-0.65, 0.20, 0.23), 0.06, STEEL)
-        for side in [-1.0, 1.0]:
-            var xw: float = side*(width*0.5-0.58)
-            _cylinder(s, Vector3(xw, 4.42, zc),
-                Vector3(xw-side*0.78, 3.98, zc-0.35),
-                0.065, EDGE)
-            _cylinder(s, Vector3(xw-side*0.78, 3.98, zc-0.35),
-                Vector3(xw-side*1.46, 4.63, zc-0.35),
-                0.047, STEEL)
+            Vector3(width-0.65, 0.13 if kind == 0 else 0.20,
+                0.13 if kind == 0 else 0.23), 0.055, STEEL)
+        if kind != 0 or j == 0:
+            for side in [-1.0, 1.0]:
+                var xw: float = side*(width*0.5-0.58)
+                _cylinder(s, Vector3(xw, 4.42, zc),
+                    Vector3(xw-side*0.78, 3.98, zc-0.35),
+                    0.065, EDGE)
+                _cylinder(s, Vector3(xw-side*0.78, 3.98, zc-0.35),
+                    Vector3(xw-side*1.46, 4.63, zc-0.35),
+                    0.047, STEEL)
     for side in [-1.0, 1.0]:
         var edge_x: float = side*(width*0.5-0.70)
         for track in [0.0, 1.1]:

@@ -281,8 +281,12 @@ func _hall(parent: Node3D, theme: String) -> void:
     for y in [0.71, 2.17, 3.88]:
         _b(parent, Vector3(0, y, rear_z+0.33),
             Vector3(width-1.40, 0.095, 0.14), METAL)
+    # FAB foreground crossbeams used to dominate the 30% header: keep its
+    # truss spans deeper in the room while preserving the refinery/store.
     var roof_spans: Array = [-4.60, -2.60, -0.40, 1.70]
-    if storage:
+    if theme == "fabricate":
+        roof_spans = [-4.65, -2.70]
+    elif storage:
         roof_spans = [-7.20, -4.65, -2.10, 0.65, 3.30]
     for z in roof_spans:
         _b(parent, Vector3(0, 4.65, z),
@@ -298,7 +302,10 @@ func _hall(parent: Node3D, theme: String) -> void:
     # Visible ceiling diffusers use the original emissive material.
     var diffuser_x: Array = [-3.80, 0.0, 3.80]
     var diffuser_z: Array = [-1.15]
-    if storage:
+    if theme == "fabricate":
+        diffuser_x = [-3.45, 3.45]
+        diffuser_z = [-2.85]
+    elif storage:
         diffuser_x = [-6.60, 0.0, 6.60]
         diffuser_z = [-4.10, 1.10]
     for z in diffuser_z:
@@ -395,6 +402,50 @@ func _build_fabrication() -> void:
     for i in range(5):
         _line(machine, Vector3(-0.60 + float(i) * 0.30, 0.79, 1.25),
             Vector3(-0.60 + float(i) * 0.30, 0.79, 1.45), 0.035, EDGE)
+    # The open printer should read as a functioning precision cell instead
+    # of a four-post scaffold. Everything here uses the established static
+    # MultiMesh box/pipe path; no new SurfaceTool asset or viewport is added.
+    # Stepped armored skirt and deeply recessed eight-slot coolant grille.
+    _b(machine, Vector3(0, 0.37, 1.18),
+        Vector3(2.35, 0.34, 0.16), HULL)
+    _b(machine, Vector3(0, 0.53, 1.275),
+        Vector3(2.05, 0.07, 0.045), METAL)
+    for vent in range(8):
+        _b(machine, Vector3(-0.81 + float(vent)*0.23, 0.34, 1.281),
+            Vector3(0.12, 0.13, 0.023), SHADOW)
+        _b(machine, Vector3(-0.81 + float(vent)*0.23, 0.23, 1.286),
+            Vector3(0.11, 0.024, 0.032), COPPER)
+    # Actual portal cross-guide, dual slide runners and brass lead-screw.
+    for side in [-1.0, 1.0]:
+        _line(machine, Vector3(side*1.05, 1.08, 0.72),
+            Vector3(side*1.05, 2.26, 0.72), 0.046, EDGE)
+        _b(machine, Vector3(side*1.05, 2.16, 0.69),
+            Vector3(0.22, 0.16, 0.26), HULL)
+        _line(machine, Vector3(side*0.91, 1.12, 0.80),
+            Vector3(side*0.91, 2.24, 0.80), 0.028, COPPER)
+    _line(machine, Vector3(-1.06, 2.19, 0.86),
+        Vector3(1.06, 2.19, 0.86), 0.080, EDGE)
+    _line(machine, Vector3(-0.95, 2.31, 0.86),
+        Vector3(0.95, 2.31, 0.86), 0.038, COPPER)
+    # Tool feed manifold: a real collector body attached to the moving-head
+    # zone, with two downward insulated service lines.
+    _b(machine, Vector3(0.03, 2.43, 0.78),
+        Vector3(0.68, 0.25, 0.23), HULL)
+    for feed in [-0.22, 0.22]:
+        _line(machine, Vector3(feed, 2.48, 0.85),
+            Vector3(feed, 2.12, 0.68), 0.042, COPPER)
+    # Output guide: supported moving platen and bearing-end carriers.
+    for side in [-1.0, 1.0]:
+        _line(machine, Vector3(side*0.71, 0.70, 1.25),
+            Vector3(side*0.83, 0.43, 1.05), 0.082, METAL)
+        _b(machine, Vector3(side*0.75, 0.76, 1.39),
+            Vector3(0.09, 0.12, 0.42), EDGE)
+    for j in range(4):
+        _b(machine, Vector3(-0.49+float(j)*0.33, 0.82, 1.45),
+            Vector3(0.20, 0.025, 0.08), SHADOW)
+    # A restrained optical status rail follows the machine's open face.
+    _box(machine, "FabricationApertureSignal", Vector3(0, 2.37, 0.94),
+        Vector3(1.54, 0.025, 0.025), CYAN, true)
     # Keep the existing supply cabinets against the far left wall.
     for i in range(2):
         var x: float = -4.85 + 0.57 * float(i)
@@ -402,27 +453,90 @@ func _build_fabrication() -> void:
             Vector3(0.47, 0.96, 0.78), METAL)
         _b(room, Vector3(x, 0.69, 2.03),
             Vector3(0.21, 0.055, 0.035), EDGE)
-    # Dedicated right-side workstation. Use the proven screen builder and
-    # original box-only console construction; preserve animated screen mode.
-    var desk := _node(room, "TechnicalConsole", Vector3(2.60, 0.0, -1.35))
-    desk.rotation.y = -0.20
-    _b(desk, Vector3(0, 0.65, 0.03),
-        Vector3(0.73, 1.26, 0.68), HULL)
-    _b(desk, Vector3(0, 1.31, 0.25),
-        Vector3(1.72, 0.14, 0.80), METAL)
-    _b(desk, Vector3(0, 1.42, 0.49),
-        Vector3(1.48, 0.045, 0.21), DEEP)
-    _screen(desk, "PrintProgressMonitor", Vector3(0, 2.04, -0.08),
-        Vector2(1.58, 0.95), 0)
-    for i in range(8):
-        _b(desk, Vector3(-0.55 + float(i) * 0.16, 1.42, 0.46),
-            Vector3(0.09, 0.025, 0.09), DEEP)
-    # Small, fixed-angle cable and guidance lines are batched as before.
-    _line(room, Vector3(-1.30, 3.69, -2.62),
-        Vector3(2.40, 3.69, -2.62), 0.064, EDGE)
-    for z in [-0.92, 0.85]:
-        _b(room, Vector3(0.43, 0.052, z),
-            Vector3(3.36, 0.023, 0.04), EDGE)
+    # Distinct right-side operator tower, set back so the larger display
+    # remains fully framed. Original live screen builder retains 24fps mode.
+    var desk := _node(room, "TechnicalConsole", Vector3(2.68, 0.0, -1.30))
+    desk.rotation.y = -0.17
+    _b(desk, Vector3(0, 0.20, 0.07),
+        Vector3(1.70, 0.28, 1.02), DEEP)
+    _b(desk, Vector3(0, 0.77, 0.01),
+        Vector3(0.97, 1.12, 0.76), HULL)
+    _b(desk, Vector3(0, 1.33, 0.28),
+        Vector3(2.19, 0.17, 0.92), METAL)
+    _b(desk, Vector3(0, 1.45, 0.47),
+        Vector3(1.91, 0.04, 0.28), DEEP)
+    # The monitor has a reinforced backing, two load-bearing arms and a
+    # mechanical lift spine, not just a thin floating display.
+    _b(desk, Vector3(0, 2.16, -0.29),
+        Vector3(2.36, 1.43, 0.14), HULL)
+    _b(desk, Vector3(0, 1.63, -0.32),
+        Vector3(0.48, 0.79, 0.27), METAL)
+    for side in [-1.0, 1.0]:
+        _line(desk, Vector3(side*0.68, 1.29, -0.34),
+            Vector3(side*1.02, 2.59, -0.32), 0.064, METAL)
+        _b(desk, Vector3(side*1.12, 2.16, -0.24),
+            Vector3(0.095, 1.42, 0.22), EDGE)
+        _b(desk, Vector3(side*0.92, 0.24, 0.52),
+            Vector3(0.12, 0.18, 0.18), METAL)
+    _screen(desk, "PrintProgressMonitor", Vector3(0, 2.16, -0.12),
+        Vector2(2.08, 1.27), 0)
+    _box(desk, "PrintStatusAccent", Vector3(0, 1.44, -0.015),
+        Vector3(1.54, 0.026, 0.028), CYAN, true)
+    # Angled wrist-height operation plane, rotary control and isolated
+    # numerical keys: a functional system, not a random keypad scatter.
+    for row in range(2):
+        for key in range(7):
+            var key_x: float = -0.71+float(key)*0.23
+            _b(desk, Vector3(key_x, 1.46, 0.27+float(row)*0.16),
+                Vector3(0.155, 0.027, 0.10),
+                METAL if (key+row)%4==0 else DEEP)
+    _cylinder(desk, "FineTuningKnob",
+        Vector3(0.89, 1.48, 0.44), 0.10, 0.07, COPPER)
+    for port in range(5):
+        _b(desk, Vector3(-0.26+float(port)*0.14, 0.82, 0.415),
+            Vector3(0.082, 0.055, 0.035), SHADOW)
+    for side in [-1.0, 1.0]:
+        _b(desk, Vector3(side*0.54, 0.89, 0.42),
+            Vector3(0.065, 0.47, 0.055), EDGE)
+    # Cleaner workstation-to-printer service raceway runs on the rear wall
+    # instead of hanging across the middle of the camera composition.
+    _line(room, Vector3(-1.25, 3.83, -3.26),
+        Vector3(3.55, 3.83, -3.26), 0.074, METAL)
+    for drop_x in [-1.25, 3.55]:
+        _line(room, Vector3(drop_x, 3.83, -3.26),
+            Vector3(drop_x, 3.21, -3.26), 0.043, COPPER)
+    # Recessed processing paths are deliberately low-contrast: the floor
+    # should support the machine silhouettes rather than compete with them.
+    for z in [-1.05, 0.76]:
+        _b(room, Vector3(0.45, 0.046, z),
+            Vector3(3.65, 0.018, 0.028), HULL)
+    for x in [-0.72, 1.94]:
+        _b(room, Vector3(x, 0.051, -1.04),
+            Vector3(0.34, 0.021, 0.24), METAL)
+    # Recessed rear-wall maintenance bays and angled fixture braces. Panels
+    # remain near the wall, avoiding the CRATE route and portal camera plane.
+    for x in [-3.90, -0.18, 3.96]:
+        _b(room, Vector3(x, 2.16, -4.98),
+            Vector3(1.24, 1.58, 0.11), HULL)
+        _b(room, Vector3(x, 2.17, -4.89),
+            Vector3(0.94, 1.28, 0.055), SHADOW)
+        for side in [-1.0, 1.0]:
+            _b(room, Vector3(x+side*0.52, 2.17, -4.84),
+                Vector3(0.052, 1.33, 0.074), EDGE)
+        _b(room, Vector3(x, 2.79, -4.81),
+            Vector3(0.60, 0.045, 0.08), METAL)
+        for slot in range(4):
+            _b(room, Vector3(x-0.31+float(slot)*0.21, 1.72, -4.81),
+                Vector3(0.095, 0.42, 0.024), METAL)
+    # Two proper service conduits use the structural corners, not the view's
+    # center, with visible connector collars rather than bare lines.
+    for side in [-1.0, 1.0]:
+        var px: float = side*4.80
+        _line(room, Vector3(px, 0.65, -4.40),
+            Vector3(px, 3.81, -4.40), 0.095, METAL)
+        for collar_y in [1.05, 2.15, 3.28]:
+            _b(room, Vector3(px, collar_y, -4.40),
+                Vector3(0.23, 0.09, 0.23), EDGE)
     # Service gate gives scale to the enclosed room without blocking the machine.
     for x in [1.65, 3.66]:
         _b(room, Vector3(x, 1.65, -4.97),
