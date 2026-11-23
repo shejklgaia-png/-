@@ -82,20 +82,76 @@ static func build(room: Node3D, gate_at: Vector3,
         _box(boxes, "trim", Vector3(0.0, center_y, float(z)),
             Vector3(3.12, 0.037, 0.067))
 
-    # Side auxiliary launch terminal; the touch footprint is registered as
-    # DEPLOYMENT, so it triggers the existing menu instead of a duplicate UI.
-    _prism(root, "LaunchConsoleCasting",
+    # Side launch terminal. The old tall black prism reached local z=5.95,
+    # but its cyan readout was only at z=5.80 (INSIDE opaque metal), so the
+    # overview showed a featureless dark rectangle. Rebuild the entire console
+    # as a stepped die-cast kiosk, with a forward-tilted display whose front
+    # surface always clears the armored housing by at least 0.10m.
+    _prism(root, "LaunchConsolePedestal",
         PackedVector2Array([
-            Vector2(-0.60, -0.78), Vector2(-0.58, 0.62),
-            Vector2(-0.22, 1.12), Vector2(0.54, 0.91),
-            Vector2(0.65, -0.78)]),
-        0.50, 2.82, 5.30, iron)
-    _box(boxes, "steel", Vector3(2.82, 0.64, 5.57),
-        Vector3(0.93, 0.22, 0.42))
-    _box(boxes, "cyan", Vector3(2.82, 0.49, 5.80),
-        Vector3(0.75, 0.49, 0.055))
-    _box(boxes, "trim", Vector3(2.82, -0.04, 5.83),
-        Vector3(0.79, 0.09, 0.12))
+            Vector2(-0.70, -0.78), Vector2(-0.68, 0.10),
+            Vector2(-0.49, 0.38), Vector2(0.15, 0.41),
+            Vector2(0.38, 0.15), Vector2(0.45, -0.78)]),
+        0.42, 2.82, 5.15, iron)
+    _prism(root, "LaunchConsoleBeveledMonitor",
+        PackedVector2Array([
+            Vector2(5.08, 0.49), Vector2(5.10, 1.44),
+            Vector2(5.33, 1.79), Vector2(6.04, 1.80),
+            Vector2(6.44, 0.92), Vector2(6.17, 0.55)]),
+        0.66, 2.82, 0.0, steel)
+    for side_value in [-1, 1]:
+        var side: float = float(side_value)
+        _prism(root, "MonitorCastSideArm%d" % side_value,
+            PackedVector2Array([
+                Vector2(5.18, 0.60), Vector2(5.17, 1.45),
+                Vector2(5.39, 1.73), Vector2(5.72, 1.69),
+                Vector2(5.46, 0.71)]),
+            0.077, 2.82 + side * 0.72, 0.0, trim)
+
+    # The front is a physically tilted planar LCD; no broad solid cyan block,
+    # fake floating hologram or black face can hide behind the pedestal.
+    var bezel := _material(Color("#718b9b"))
+    var dark_glass := _material(Color("#103447"))
+    dark_glass.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    dark_glass.metallic = 0.0
+    dark_glass.roughness = 1.0
+    _display_face(root, "ForwardAngledScreenBezel",
+        2.82, 1.19, 0.83, 1.68, 0.00, bezel)
+    _display_face(root, "IlluminatedInstrumentGlass",
+        2.82, 1.04, 0.94, 1.58, 0.035, dark_glass)
+    _display_instruments(root)
+
+    # Real support, hinge, keyboard, raised tactile buttons, side LEDs, and
+    # floor-level armored foot. Shared box batches keep draw calls bounded.
+    _box(boxes, "steel", Vector3(2.82, -0.67, 5.21),
+        Vector3(1.15, 0.17, 0.95))
+    _box(boxes, "trim", Vector3(2.82, -0.58, 5.64),
+        Vector3(1.18, 0.058, 0.07))
+    _box(boxes, "steel", Vector3(2.82, 0.29, 5.28),
+        Vector3(0.52, 0.44, 0.38))
+    _box(boxes, "trim", Vector3(2.82, 0.48, 5.39),
+        Vector3(0.64, 0.16, 0.47))
+    _box(boxes, "iron", Vector3(2.82, 0.67, 6.28),
+        Vector3(1.19, 0.16, 0.41))
+    _box(boxes, "trim", Vector3(2.82, 0.77, 6.45),
+        Vector3(1.06, 0.045, 0.19))
+    for i in range(5):
+        var key_x: float = 2.43 + float(i) * 0.195
+        _box(boxes, "iron", Vector3(key_x, 0.805, 6.46),
+            Vector3(0.123, 0.035, 0.095))
+    _box(boxes, "cyan", Vector3(2.43, 0.827, 6.46),
+        Vector3(0.093, 0.014, 0.070))
+    _box(boxes, "amber", Vector3(3.21, 0.827, 6.46),
+        Vector3(0.093, 0.014, 0.070))
+    for side_value in [-1, 1]:
+        var side: float = float(side_value)
+        _box(boxes, "iron", Vector3(2.82 + side * 0.68, 1.29, 6.08),
+            Vector3(0.11, 0.63, 0.17))
+        _box(boxes, "cyan", Vector3(2.82 + side * 0.69, 1.38, 6.31),
+            Vector3(0.046, 0.21, 0.055))
+        _box(boxes, "amber", Vector3(2.82 + side * 0.46, 0.62, 6.43),
+            Vector3(0.11, 0.045, 0.085))
+
     _flush_boxes(root, boxes, {
         "steel": steel, "iron": iron, "trim": trim,
         "cyan": cyan, "amber": amber
@@ -106,11 +162,121 @@ static func console_hit_corners(gate_at: Vector3,
         gate_yaw: float) -> PackedVector3Array:
     var basis := Basis(Vector3.UP, gate_yaw)
     var corners := PackedVector3Array()
-    for x in [2.28, 3.36]:
-        for y in [-0.78, 1.18]:
-            for z in [4.62, 6.02]:
+    # Include the new raised, tilted instrument and keyboard. The original
+    # DEPLOYMENT target is unchanged: no duplicate menu or new hit pipeline.
+    for x in [2.04, 3.60]:
+        for y in [-0.78, 1.91]:
+            for z in [4.42, 6.78]:
                 corners.append(gate_at + basis * Vector3(x, y, z))
     return corners
+
+
+# All display surfaces slope backwards as they rise (local +Z = camera).
+# At every Y the display glass and its glyphs remain IN FRONT of the casting,
+# avoiding the old completely occluded blue panel.
+static func _display_depth(y: float, step_forward: float) -> float:
+    return 6.62 - (y - 0.84) * 0.445 + step_forward
+
+
+static func _display_face(root: Node3D, label: String,
+        center_x: float, width: float, bottom_y: float, top_y: float,
+        forward: float, material: Material) -> void:
+    var tool := SurfaceTool.new()
+    tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+    var left: float = center_x - width * 0.5
+    var right: float = center_x + width * 0.5
+    var a := Vector3(left, bottom_y, _display_depth(bottom_y, forward))
+    var b := Vector3(right, bottom_y, _display_depth(bottom_y, forward))
+    var c := Vector3(right, top_y, _display_depth(top_y, forward))
+    var d := Vector3(left, top_y, _display_depth(top_y, forward))
+    _tri(tool, a, b, c)
+    _tri(tool, a, c, d)
+    tool.generate_normals()
+    var mesh := MeshInstance3D.new()
+    mesh.name = label
+    mesh.mesh = tool.commit()
+    mesh.material_override = material
+    mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    mesh.set_meta("sera_outline_occluder_only", true)
+    mesh.set_meta("FX_NO_OUTLINE", true)
+    root.add_child(mesh)
+
+
+static func _display_instruments(root: Node3D) -> void:
+    # A single vertex-colored mesh draws the complete 3D readout:
+    # blue title bus, radar reticle, scrolling-data-like trace, segmented
+    # status bars and amber safety mark. No text texture or extra viewport.
+    var tool := SurfaceTool.new()
+    tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+    var bright := Color("#8ff4ff")
+    var muted := Color("#4c9bad")
+    var warning := Color("#f1ce6b")
+    _screen_stroke(tool, Vector2(2.36, 1.51), Vector2(3.28, 1.51),
+        0.038, bright)
+    _screen_stroke(tool, Vector2(2.36, 1.44), Vector2(2.76, 1.44),
+        0.016, muted)
+    _screen_stroke(tool, Vector2(3.02, 1.44), Vector2(3.28, 1.44),
+        0.016, warning)
+    var center := Vector2(2.64, 1.22)
+    for i in range(16):
+        var a: float = float(i) * TAU / 16.0
+        var b: float = float(i + 1) * TAU / 16.0
+        _screen_stroke(tool,
+            center + Vector2(cos(a), sin(a)) * 0.155,
+            center + Vector2(cos(b), sin(b)) * 0.155,
+            0.010, muted if i % 4 < 2 else bright)
+    _screen_stroke(tool, center + Vector2(-0.066, 0.0),
+        center + Vector2(0.066, 0.0), 0.012, bright)
+    _screen_stroke(tool, center + Vector2(0.0, -0.066),
+        center + Vector2(0.0, 0.066), 0.012, bright)
+    for i in range(4):
+        var y: float = 1.36 - float(i) * 0.079
+        _screen_stroke(tool, Vector2(2.91, y),
+            Vector2(3.20 - float(i % 3) * 0.047, y),
+            0.024, muted if i != 1 else bright)
+    for i in range(5):
+        var x: float = 2.40 + float(i) * 0.174
+        _screen_stroke(tool, Vector2(x, 1.01),
+            Vector2(x + 0.112, 1.01), 0.019,
+            warning if i == 4 else bright)
+    var node := MeshInstance3D.new()
+    node.name = "DeploymentReadoutReticleAndStatus"
+    node.mesh = tool.commit()
+    var mat := StandardMaterial3D.new()
+    mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    mat.vertex_color_use_as_albedo = true
+    mat.albedo_color = Color.WHITE
+    mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+    node.material_override = mat
+    node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    node.set_meta("sera_outline_occluder_only", true)
+    node.set_meta("FX_NO_OUTLINE", true)
+    root.add_child(node)
+
+
+static func _screen_stroke(tool: SurfaceTool, a: Vector2, b: Vector2,
+        thickness: float, tint: Color) -> void:
+    var line: Vector2 = b - a
+    if line.length_squared() < 0.000001:
+        return
+    var cross: Vector2 = Vector2(-line.y, line.x).normalized() * (
+        thickness * 0.5)
+    var p0: Vector2 = a - cross
+    var p1: Vector2 = b - cross
+    var p2: Vector2 = b + cross
+    var p3: Vector2 = a + cross
+    _screen_tri(tool, p0, p1, p2, tint)
+    _screen_tri(tool, p0, p2, p3, tint)
+
+
+static func _screen_tri(tool: SurfaceTool, a: Vector2, b: Vector2,
+        c: Vector2, tint: Color) -> void:
+    tool.set_color(tint)
+    tool.add_vertex(Vector3(a.x, a.y, _display_depth(a.y, 0.085)))
+    tool.set_color(tint)
+    tool.add_vertex(Vector3(b.x, b.y, _display_depth(b.y, 0.085)))
+    tool.set_color(tint)
+    tool.add_vertex(Vector3(c.x, c.y, _display_depth(c.y, 0.085)))
 
 
 static func _material(color: Color, glow: bool = false) -> StandardMaterial3D:
