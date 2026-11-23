@@ -192,9 +192,18 @@ static func _clear_zone(key: String) -> Rect2:
         return Rect2(Vector2(-2.18, -1.98), Vector2(4.36, 4.98))
     return Rect2(Vector2(-1.37, -1.37), Vector2(2.74, 2.86))
 
+static func _collector_belt_blocked(key: String, footprint: Rect2) -> bool:
+    # Local footprint of the full 1.94m-wide incoming conveyor, including
+    # left-hand offscreen entry and its side guards. Keep the transfer clear.
+    return key == "SCRAP_COLLECTOR" and footprint.intersects(
+        Rect2(Vector2(-6.00, 0.40), Vector2(4.85, 2.40)))
+
+
 static func _safe_prop_yaw(key: String, items: Array[Dictionary],
         index: int, degrees: float) -> bool:
     var candidate: Rect2 = _yaw_rect(items[index], degrees)
+    if _collector_belt_blocked(key, candidate):
+        return false
     if candidate.intersects(_clear_zone(key)):
         return false
     for j in range(items.size()):
@@ -222,7 +231,8 @@ static func _best_enlarged_yaw(key: String, items: Array[Dictionary],
     candidate["scale"] = float(candidate["scale"]) * multiplier
     var straight: Rect2 = _yaw_rect(candidate, 0.0)
     var restricted: Rect2 = _clear_zone(key)
-    if straight.intersects(restricted):
+    if straight.intersects(restricted) or _collector_belt_blocked(
+            key, straight):
         return -1.0
     for j in range(items.size()):
         if j != index and straight.intersects(_yaw_rect(items[j], 0.0)):
@@ -233,7 +243,8 @@ static func _best_enlarged_yaw(key: String, items: Array[Dictionary],
         if desired_yaw < 15.0:
             continue
         var rotated: Rect2 = _yaw_rect(candidate, desired_yaw)
-        if rotated.intersects(restricted):
+        if rotated.intersects(restricted) or _collector_belt_blocked(
+                key, rotated):
             continue
         var blocked: bool = false
         for j in range(items.size()):
@@ -357,6 +368,9 @@ static func _satellite_clear(key: String, item: Dictionary,
         return false
     var entry: Rect2 = _clear_zone(key).grow(0.075)
     if unturned.intersects(entry) or rotated.intersects(entry):
+        return false
+    if _collector_belt_blocked(key, unturned) or _collector_belt_blocked(
+            key, rotated):
         return false
     for occupied in reserved:
         if unturned.intersects(occupied) or rotated.intersects(occupied):
@@ -564,10 +578,9 @@ static func _authored_props_for(key: String) -> Array[Dictionary]:
                 _item("scrap_hopper", -2.08, -2.03),
                 _item("wheel", 2.14, -1.98, 0.83),
                 _item("old_joint", -2.15, -0.91),
-                _item("bent_armor", -2.04, 0.21, 1.00, 2),
-                _item("cargo_box", -2.15, 1.32, 1.00, 3),
+                # Former left-side armor/boxes occupy the new wide conveyor.
+                # Do not rebuild them over the moving belt.
                 _item("hydraulic_kit", 2.14, 1.92),
-                _accent("servo_joint", -2.21, 2.08),
                 _accent("grip_fingers", -1.30, -2.08),
                 _accent("claw_pins", -0.13, -2.99),
             ]
