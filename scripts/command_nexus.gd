@@ -29,7 +29,11 @@ const NEXUS_PREVIEW_BACKDROP_COLOR: Color = Color("#afc4d1")
 const NEXUS_ROOM_BACKDROP_COLOR: Color = Color("#17212c")
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 
-const GATE_ORIGIN: Vector3 = Vector3(5.10, 0.02, -15.50)
+# Pull the portal behind the forward consoles. Its right edge is separated
+# from TRAINING in the portrait overview, while the central SERA pad stays put.
+const GATE_ORIGIN: Vector3 = Vector3(3.45, 0.02, -20.35)
+const SYSTEM_CONSOLE_ORIGIN: Vector3 = Vector3(-2.50, 0.0, 3.25)
+const TRAINING_CONSOLE_ORIGIN: Vector3 = Vector3(2.55, 0.0, 3.10)
 const SERA_STAGE_ORIGIN: Vector3 = Vector3(0.0, 0.0, -4.75)
 
 var batch_data: Dictionary = {}
@@ -277,16 +281,16 @@ var customize_silhouette_vertex_cache: Dictionary = {}
 # reserved for a menu panel. Camera transforms/FOV only: no moving 3D assets.
 # TRAINING/GATE/CUSTOMIZE on the right; SYSTEM/ARCHIVE on the left.
 var focus_views: Dictionary = {
-    "TRAINING": {"eye": Vector3(3.00, 3.02, 6.70),
-        "look": Vector3(2.38, 1.34, 0.55), "fov": 68.0},
-    "SYSTEM": {"eye": Vector3(-3.10, 2.96, 6.85),
-        "look": Vector3(-2.45, 1.25, 1.45), "fov": 68.0},
+    "TRAINING": {"eye": Vector3(3.12, 3.08, 8.55),
+        "look": TRAINING_CONSOLE_ORIGIN + Vector3(0.0, 1.34, 0.0), "fov": 68.0},
+    "SYSTEM": {"eye": Vector3(-3.10, 3.05, 8.60),
+        "look": SYSTEM_CONSOLE_ORIGIN + Vector3(0.0, 1.25, 0.0), "fov": 68.0},
     "CUSTOMIZE": {"eye": Vector3(-4.50, 3.80, 5.00),
         "look": Vector3(-1.70, 2.00, -4.75), "fov": 67.0},
     "DATA ARCHIVE": {"eye": Vector3(-4.75, 4.18, 0.65),
         "look": Vector3(-4.95, 3.90, -12.10), "fov": 61.0},
-    "DEPLOYMENT": {"eye": Vector3(5.90, 4.64, -0.60),
-        "look": Vector3(5.10, 2.65, -15.50), "fov": 64.0}
+    "DEPLOYMENT": {"eye": Vector3(4.95, 4.64, -1.20),
+        "look": GATE_ORIGIN + Vector3(0.0, 2.63, 0.0), "fov": 64.0}
 }
 
 # (left fraction, width fraction) of focus menu. Opposite each 3D object;
@@ -312,8 +316,10 @@ func _ready() -> void:
     _module("deployment_gate", GATE_ORIGIN, _gate_facing_yaw())
     _module("archive_mezzanine", Vector3(-4.95, 0.0, -9.90))
     _module("data_bank", Vector3(-4.95, 2.48, -12.10))
-    _module("system_console", Vector3(-2.45, 0.0, 1.45), deg_to_rad(18.0))
-    _module("training_console", Vector3(2.38, 0.0, 0.55), deg_to_rad(-14.0))
+    # Advance both interactive terminals toward the camera. Selection corners
+    # remain derived from the very same model transforms in _module().
+    _module("system_console", SYSTEM_CONSOLE_ORIGIN, deg_to_rad(18.0))
+    _module("training_console", TRAINING_CONSOLE_ORIGIN, deg_to_rad(-14.0))
     _render_batches()
     # Replace only the floor surface, retaining the authored foundation,
     # all structures, console hit areas and the original NEXUS ID pipeline.
@@ -3951,17 +3957,22 @@ func _update_projected_silhouettes() -> void:
     elif target_parts.has(focused_target):
         contours[focused_target] = _project_model_contour(focused_target)
     outline.set("polygons", contours)
-    # These outlines are drawn in 2D on top of the 3D view. Clip ONLY the
-    # distant gate's visible stroke against the nearer SERA body so its border
-    # cannot show through SERA. Clip POLYLINES rather than polygons: clipping
-    # polygons would create an unwanted border along SERA's silhouette.
+    # The 2D selection ink must respect foreground occlusion too: otherwise
+    # the distant gate can draw its selectable border straight through the
+    # moved SYSTEM/TRAINING terminals. This is only outline clipping; model
+    # and touch regions still use their unchanged world-depth geometry.
+    # Clip POLYLINES rather than filled polygons to avoid artificial borders
+    # where a nearer silhouette hides the portal.
     var visible_strokes: Dictionary = {}
     if contours.has("DEPLOYMENT"):
-        var sera_masks: Array = contours.get("CUSTOMIZE", [])
-        if sera_masks.is_empty():
-            sera_masks = _project_model_contour("CUSTOMIZE")
+        var gate_occluders: Array = []
+        for nearer in ["CUSTOMIZE", "SYSTEM", "TRAINING"]:
+            var projected: Array = contours.get(nearer, [])
+            if projected.is_empty():
+                projected = _project_model_contour(nearer)
+            gate_occluders.append_array(projected)
         visible_strokes["DEPLOYMENT"] = _clip_gate_strokes(
-            contours["DEPLOYMENT"], sera_masks)
+            contours["DEPLOYMENT"], gate_occluders)
     outline.set("clipped_strokes", visible_strokes)
 
 func _clip_gate_strokes(gate_shapes: Array, occluders: Array) -> Array[PackedVector2Array]:
