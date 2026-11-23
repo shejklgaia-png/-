@@ -116,9 +116,9 @@ void fragment() {
         coverage = max(sera_coverage(inner_distance, sera_inner_px),
             sera_coverage(seam_distance, sera_seam_px));
     } else {
-        // Architecture ink keeps its original 2px eight-direction search.
-        // When an opaque room ID is present, SERA outside ink must NOT
-        // overdraw it, regardless of the SERA exterior radius.
+        // Render architecture borders at 2px when a room ID is present.
+        // The room also covers the wall BEHIND SERA, so room ID must not
+        // prevent the nearby 5px SERA silhouette from being drawn.
         bool room = center_id.r >= 0.06;
         if (room) {
             float room_distance = 99.0;
@@ -139,7 +139,11 @@ void fragment() {
                 }
             }
             coverage = solid_coverage(room_distance, stroke_px);
-        } else {
+        }
+        // Draw the SERA exterior even when the current ID is a room ID.
+        // A room ID often belongs to the wall behind the displayed SERA;
+        // skipping it made the 5px setting visually ineffective.
+        if (coverage < 1.0) {
             // The 5px SERA outline is an exact opaque Euclidean disk.
             // Sample both mixed directions (1,2), (3,4), etc. Previous
             // eight-direction-only sampling made a 5px stroke uneven.
