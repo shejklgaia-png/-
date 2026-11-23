@@ -247,8 +247,7 @@ static func _side_bar(faces: Array, side: float, z: float,
     var y1: float = y + height * 0.5
     _quad(faces, Vector3(x0, y0, z0), Vector3(x0, y0, z1),
         Vector3(x1, y1, z1), Vector3(x1, y1, z0), color)
-    _quad(faces, Vector3(x0, y0, z0), Vector3(x1, y1, z0),
-        Vector3(x1, y1, z1), Vector3(x0, y0, z1), ARMOR)
+    # Single visible pitched surface (do not duplicate a coplanar quad).
 
 
 static func _diagonal_foot(faces: Array, side: float) -> void:
@@ -274,6 +273,17 @@ static func _lower_front_vent(faces: Array) -> void:
     var center := Vector2(0.420, 0.445)
     var frame: Array[Vector2] = _octagon(center, Vector2(0.338, 0.512))
     var pocket: Array[Vector2] = _octagon(center, Vector2(0.272, 0.412))
+    # Real tapered mounting well connects the cassette to the cabinet face
+    # at z=0.27. Without this bridge the old flat side block floated.
+    for i in range(8):
+        var j: int = (i + 1) % 8
+        var rear_a: Vector2 = center + (frame[i] - center) * 0.86
+        var rear_b: Vector2 = center + (frame[j] - center) * 0.86
+        _quad(faces, Vector3(rear_a.x, rear_a.y, 0.275),
+            Vector3(rear_b.x, rear_b.y, 0.275),
+            Vector3(frame[j].x, frame[j].y, 0.555),
+            Vector3(frame[i].x, frame[i].y, 0.555),
+            ARMOR if i % 2 == 0 else CAST)
     for i in range(8):
         var j: int = (i + 1) % 8
         _quad(faces,
