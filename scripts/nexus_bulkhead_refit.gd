@@ -264,8 +264,14 @@ static func _tri(geo: SurfaceTool, a: Vector3,
 static func _mat(tint: Color, emissive: bool = false) -> StandardMaterial3D:
     var mat := StandardMaterial3D.new()
     mat.albedo_color = tint
-    mat.metallic = 0.46
-    mat.roughness = 0.50
+    # These are large background walls, bridge spans and girder surfaces, not
+    # polished foreground machinery. Their former metallic=0.46/roughness=0.50
+    # created a broad silver specular hotspot resembling a blur/fog patch
+    # behind the central NEXUS pillar. Keep diffuse directional shading and
+    # crisp facet boundaries but suppress specular/reflected highlights.
+    mat.metallic = 0.0
+    mat.metallic_specular = 0.0
+    mat.roughness = 1.0
     # The procedural door jambs include reversed faces; preserve Android GL.
     mat.cull_mode = BaseMaterial3D.CULL_DISABLED
     if emissive:
