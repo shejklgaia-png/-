@@ -251,7 +251,7 @@ func open_item(new_item: Dictionary) -> void:
     move_to_front()
     detail_name.text = str(spec.get("name", ""))
     detail_uid.text = str(item.get("uid", ""))
-    detail_icon.texture = Icons.equipment_icon(blueprint)
+    detail_icon.texture = Icons.equipment_icon(blueprint, "warehouse")
     _refresh_actions()
     for node in stats_container.get_children():
         stats_container.remove_child(node)
