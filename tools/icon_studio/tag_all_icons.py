@@ -49,7 +49,7 @@ ANGLES = {slot: OBLIQUE_POSE for slot in (
     "head", "torso", "arms", "legs", "booster", "weapon_r", "weapon_l")}
 KEY = b"SERA_ICON_MANIFEST_V1"
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
-# Each image is an independent Godot framebuffer capture at the final UI size.
+# Each source is sampled at 4x; reconstruction is finalized at the UI size.
 # Widths here must match CAPTURE_PROFILES in sera_all_native_capture.gd.
 CAPTURE_PROFILES = {
     "full": {"pixels": 512, "inner": 1.0, "outer": 4.0,
@@ -115,6 +115,12 @@ def annotate_one(id_: str, entry: dict, profile_name: str = "full") -> dict:
                       "height": pixels},
             "mesh_transform": "Installed SeraRig MeshInstance3D global transforms",
             "texture_source": "Original in-game SeraRig mesh/material",
+            "pixel_reconstruction": {
+                "supersample": 4,
+                "id_reduce": "3x3 visible mesh ID vote",
+                "contours": "integer pixel silhouette/contact at final resolution",
+                "alpha": "binary, transparent outside",
+            },
         },
         "capture_backend": "Godot GL Compatibility native SubViewport",
         "materials": "SeraRig original mesh material_override",
@@ -153,7 +159,7 @@ def annotate_all() -> None:
             (TARGET / (id_ + ".png")).read_bytes()
         ).hexdigest()
         manifest["items"][id_]["capture"] = (
-            "SERA Godot GL Compatibility / icon-only NEXUS ID + convex ink")
+            "SERA Godot GL Compatibility / 4x sampled shading + final-pixel RGB ID and convex reconstruction")
         variants = {}
         for profile_name in ("warehouse", "craft"):
             profile = CAPTURE_PROFILES[profile_name]
