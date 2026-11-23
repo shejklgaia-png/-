@@ -170,7 +170,7 @@ static func _labo(g: Variant) -> void:
     g.box("FreshLabPrinterTip",
         Vector3(0.10, 1.55, 1.08),
         Vector3(0.11, 0.20, 0.11), "amber_light")
-    g.poly("FreshLabFabricationBed", "bevel",
+    g.poly("FreshLabFabricationBed", "tray",
         Vector3(0.10, 0.88, 1.13),
         Vector3(2.11, 0.26, 1.41), "armor_light")
     g.poly("FreshLabPrintedShell", "bevel",
@@ -189,6 +189,8 @@ static func _labo(g: Variant) -> void:
         g.box("FreshLabToolJar",
             Vector3(-1.44 + col * 0.27, 1.80, -1.37),
             Vector3(0.17, 0.27, 0.19), "crate")
+    g.poly("FreshLabRearServiceLouver", "louver",
+        Vector3(0.40, 2.30, -1.45), Vector3(0.74, 0.43, 0.15), "trim")
     g.poly("FreshLabServiceConsole", "bevel",
         Vector3(1.46, 1.07, 1.28),
         Vector3(0.59, 1.18, 0.59), "slate")
@@ -234,9 +236,7 @@ static func _collector(g: Variant) -> void:
         Vector3(-0.75, 1.10, 0.00), Vector3(0.39, 0.12, 0.07), "blue_light")
     g.poly("FreshCollectorSortPan", "hopper",
         Vector3(0.36, 0.66, 0.68), Vector3(1.78, 0.75, 1.36), "armor")
-    g.box("FreshCollectorOpenHopper",
-        Vector3(0.36, 0.93, 0.69),
-        Vector3(1.50, 0.12, 1.15), "dark")
+    # The generated hopper has an actual open throat; no flat cover slab.
     for side in [-1.0, 1.0]:
         g.box("FreshCollectorPanLedge",
             Vector3(side * 0.88 + 0.36, 1.05, 0.68),
@@ -253,6 +253,10 @@ static func _collector(g: Variant) -> void:
         Vector3(-0.35, 2.97, -0.31), 0.34, "gold")
     g.rod("FreshCollectorTallBoom", Vector3(-0.35, 2.97, -0.31),
         Vector3(0.76, 2.59, 1.04), 0.28, "gold")
+    g.poly_tilt("FreshCollectorBoomWeb", "gusset",
+        Vector3(-0.75, 1.87, -0.39),
+        Vector3(0.34, 0.76, 0.19), "slate",
+        Vector3(0, 0, -0.14))
     g.poly("FreshCollectorBoomPivot", "bevel",
         Vector3(-0.35, 2.98, -0.31),
         Vector3(0.42, 0.42, 0.45), "slate")
@@ -325,18 +329,17 @@ static func _smelter(g: Variant) -> void:
         Vector3(0.48, 0.15, 0.88), "armor_light",
         Vector3(-0.20, 0.0, 0.22))
     for side in [-1.0, 1.0]:
-        g.poly("FreshSmelterTwinStacks", "drum",
+        g.poly("FreshSmelterTwinStacks", "vent_stack",
             Vector3(side * 0.81, 3.01, -0.84),
             Vector3(0.51, 2.67, 0.51), "slate")
-        g.ring("FreshSmelterStackRim",
-            Vector3(side * 0.81, 4.38, -0.84),
-            0.26, "edge")
-        g.box("FreshSmelterStackRivet",
-            Vector3(side * 0.81, 4.20, -0.55),
-            Vector3(0.20, 0.13, 0.11), "gold")
+        # Raised collars are welded into the hollow stack mesh; no
+        # duplicate eight-piece rim or floating decorative rivet.
         g.box("FreshSmelterSideCoolingPanel",
             Vector3(side * 1.11, 1.32, -0.08),
             Vector3(0.24, 0.96, 1.07), "trim")
+        g.poly("FreshSmelterCoolingIntake", "louver",
+            Vector3(side * 1.11, 1.36, 0.56),
+            Vector3(0.27, 0.78, 0.19), "edge")
         for rib in range(4):
             g.box("FreshSmelterHeatFin",
                 Vector3(side * 1.27, 1.04 + rib * 0.23, 0.11),
@@ -373,6 +376,9 @@ static func _recycler(g: Variant) -> void:
         g.poly("FreshRecyclerSideDrive", "bevel",
             Vector3(side * 1.21, 1.23, -0.22),
             Vector3(0.30, 1.22, 0.96), "armor_light")
+        g.poly("FreshRecyclerDriveIntake", "louver",
+            Vector3(side * 1.21, 1.13, 0.33),
+            Vector3(0.25, 0.63, 0.18), "trim")
         for i in range(3):
             g.box("FreshRecyclerMotorCoolingFin",
                 Vector3(side * 1.41, 0.85 + i * 0.26, -0.23),
@@ -419,13 +425,15 @@ static func _generator(g: Variant) -> void:
             "bevel", Vector3(side * 1.00 - 0.25, 1.45, 0.31),
             Vector3(0.33, 1.26, 1.28), "armor")
     # Rotor axis is horizontal and the near-side ribs show true cylindrical depth.
-    g.poly_tilt("FreshGeneratorFrontRotor", "drum",
+    g.poly_tilt("FreshGeneratorFrontRotor", "vent_stack",
         Vector3(-0.27, 1.43, 0.29),
         Vector3(1.11, 2.30, 1.11), "blue",
         Vector3(0, 0, PI * 0.5))
-    for i in range(6):
+    # Four real radial bands are enough now that the drum itself has
+    # raised machined collars; the previous six hid too much of the core.
+    for i in range(4):
         g.poly_tilt("FreshGeneratorCoreRib", "drum",
-            Vector3(-1.15 + i * 0.34, 1.43, 0.29),
+            Vector3(-0.93 + i * 0.44, 1.43, 0.29),
             Vector3(1.24, 0.12, 1.24), "blue_light" if i % 2 == 0 else "edge",
             Vector3(0, 0, PI * 0.5))
     g.box("FreshGeneratorBlueCoreFace",
@@ -536,26 +544,22 @@ static func _storage(g: Variant) -> void:
     ]
     for i in range(stacks.size()):
         var p: Vector3 = stacks[i]
-        g.poly("FreshStorageOffsetStacks", "bevel", p,
+        g.poly("FreshStorageOffsetStacks", "cargo_case", p,
             Vector3(0.93, 0.59, 0.79),
             "crate" if i % 3 else "armor_light")
         g.box("FreshStorageCaseHandle",
             p + Vector3(0, -0.04, 0.45),
             Vector3(0.37, 0.09, 0.06), "slate")
-        g.box("FreshStorageCaseLid",
-            p + Vector3(0, 0.31, 0),
-            Vector3(0.98, 0.08, 0.84), "armor_light")
+        # Case lip and welded corner guards now share the body mesh.
         g.box("FreshStorageCargoPlate",
             p + Vector3(0, 0.13, 0.45),
             Vector3(0.57, 0.14, 0.055), "caution" if i % 2 else "blue")
-        for side in [-1.0, 1.0]:
-            g.box("FreshStorageBoxCorner",
-                p + Vector3(side * 0.40, 0, 0.44),
-                Vector3(0.095, 0.52, 0.075), "gold")
     for side in [-1.0, 1.0]:
         g.rod("FreshStorageLiftGuide",
             Vector3(-1.20 + side * 0.12, 0.48, 1.02),
             Vector3(-1.20 + side * 0.12, 2.48, 1.02), 0.095, "edge")
+    g.poly("FreshStorageLiftDriveVent", "louver",
+        Vector3(-1.20, 2.46, 1.29), Vector3(0.31, 0.18, 0.12), "edge")
     g.poly("FreshStorageLoadingLift", "bevel",
         Vector3(-1.20, 1.01, 1.18),
         Vector3(0.55, 0.18, 0.58), "gold")
@@ -606,7 +610,7 @@ static func _terminal(g: Variant) -> void:
         g.box("FreshTerminalBlueprintCols",
             Vector3(-0.45 + i * 0.30, 1.94, 0.53),
             Vector3(0.028, 0.85, 0.031), "blue")
-    g.poly_tilt("FreshTerminalKeypadPlate", "bevel",
+    g.poly_tilt("FreshTerminalKeypadPlate", "tray",
         Vector3(0, 1.05, 0.66),
         Vector3(1.83, 0.19, 0.80), "slate", Vector3(-0.24, 0, 0))
     for row in range(2):
@@ -616,13 +620,15 @@ static func _terminal(g: Variant) -> void:
                     0.50 + row * 0.21),
                 Vector3(0.19, 0.06, 0.12),
                 "blue" if col % 3 == 0 else "edge")
+    g.poly("FreshTerminalChassisLouver", "louver",
+        Vector3(0, 0.74, 0.68), Vector3(0.88, 0.29, 0.14), "trim")
     g.rod("FreshTerminalSignalMast",
         Vector3(0.85, 2.57, -0.74),
         Vector3(0.85, 3.81, -0.74), 0.10, "gold")
     g.box("FreshTerminalMastLamp",
         Vector3(0.85, 3.87, -0.74),
         Vector3(0.22, 0.22, 0.22), "amber_light")
-    g.poly("FreshTerminalSideBattery", "bevel",
+    g.poly("FreshTerminalSideBattery", "cargo_case",
         Vector3(-1.00, 0.70, -0.43),
         Vector3(0.46, 0.76, 0.65), "crate")
 
