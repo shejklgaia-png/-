@@ -177,8 +177,16 @@ class Batch:
         var polygon_meshes: Dictionary = {}
         var motion_multimeshes: Dictionary = {}
         # RGB12 per-instance roles replace every extra edge/crease batch.
+        # Retain the ORIGINAL facility-vs-clutter per-instance classification.
+        var selected_by_bucket: Dictionary = {}
         if not outline_entries.is_empty():
             host.set_meta("sera_outline_role", "facility")
+        for raw_entry in outline_entries:
+            var selected: Dictionary = raw_entry
+            var bucket: String = str(selected["bucket"])
+            if not selected_by_bucket.has(bucket):
+                selected_by_bucket[bucket] = []
+            (selected_by_bucket[bucket] as Array).append(selected)
         for key_variant in keys:
             var key: String = str(key_variant)
             var names: PackedStringArray = key.split("|")
