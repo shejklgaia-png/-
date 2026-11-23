@@ -20,6 +20,10 @@ var _original_ink_visibility: Dictionary = {}
 var _last_camera_transform: Transform3D = Transform3D.IDENTITY
 var _last_camera_size: float = -1.0
 var _last_camera_projection: int = -1
+var _last_camera_fov: float = -1.0
+var _last_camera_near: float = -1.0
+var _last_camera_far: float = -1.0
+var _last_camera_aspect: int = -1
 var _id_redraw_requests: int = 0
 var _last_cpu_sync_us: int = 0
 
@@ -31,7 +35,7 @@ func get_outline_metrics() -> Dictionary:
         "id_target_pixels": id_viewport.size.x * id_viewport.size.y if (
             is_instance_valid(id_viewport)) else 0,
         "id_redraw_requests": _id_redraw_requests,
-        "estimated_max_id_samples_per_ink_pixel": 37,
+        "estimated_max_id_samples_per_ink_pixel": 25,
         "extra_canvas_passes_per_frame": 1 if _enabled else 0,
         "last_cpu_sync_us": _last_cpu_sync_us,
     }
@@ -63,7 +67,7 @@ func _ready() -> void:
     id_viewport.add_child(id_camera)
     id_camera.current = true
     ink_rect = TextureRect.new()
-    ink_rect.name = "IrisVisibleBoundary3px"
+    ink_rect.name = "IrisVisibleBoundaryIDInk"
     ink_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
     ink_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
     ink_rect.stretch_mode = TextureRect.STRETCH_SCALE
@@ -82,6 +86,9 @@ func _ready() -> void:
     material.set_shader_parameter("mesh_id_texel", Vector2(1.0 / 384.0, 1.0 / 384.0))
     material.set_shader_parameter("ink_color", Color("#17212f"))
     material.set_shader_parameter("stroke_px", 3.0)
+    material.set_shader_parameter("iris_inner_px", 1.0)
+    material.set_shader_parameter("iris_outer_px", 2.0)
+    material.set_shader_parameter("iris_seam_px", 2.0)
     ink_rect.material = material
     add_child(ink_rect)
     set_process(false)
@@ -131,7 +138,7 @@ func _sync_id_pass() -> void:
         return
     # The outline is composited in the displayed Control, not into the
     # source SubViewport's texture. Match the displayed pixel footprint so
-    # 3 ID texels remain 3 visible preview pixels after a UI resize.
+    # 1px/2px strokes remain the same visible size after UI resize.
     var source_size: Vector2i = source_viewport.size
     var display_size := Vector2i(roundi(ink_rect.size.x), roundi(ink_rect.size.y))
     var new_size: Vector2i = display_size
@@ -148,7 +155,7 @@ func _sync_id_pass() -> void:
     var dirty: bool = false
     if id_viewport.size != new_size:
         id_viewport.size = new_size
-        # 3px is measured in final preview pixels, never placeholder pixels.
+        # Outline pixels are measured in the final preview, not a placeholder.
         # TextureRect and ID target have matching dimensions/aspect.
         (ink_rect.material as ShaderMaterial).set_shader_parameter(
             "mesh_id_texel",
@@ -159,11 +166,19 @@ func _sync_id_pass() -> void:
         return
     if _last_camera_transform != src_camera.global_transform or (
             _last_camera_size != src_camera.size) or (
-            _last_camera_projection != src_camera.projection):
+            _last_camera_projection != src_camera.projection) or (
+            _last_camera_fov != src_camera.fov) or (
+            _last_camera_near != src_camera.near) or (
+            _last_camera_far != src_camera.far) or (
+            _last_camera_aspect != src_camera.keep_aspect):
         dirty = true
         _last_camera_transform = src_camera.global_transform
         _last_camera_size = src_camera.size
         _last_camera_projection = src_camera.projection
+        _last_camera_fov = src_camera.fov
+        _last_camera_near = src_camera.near
+        _last_camera_far = src_camera.far
+        _last_camera_aspect = src_camera.keep_aspect
         id_camera.projection = src_camera.projection
         id_camera.size = src_camera.size
         id_camera.fov = src_camera.fov
