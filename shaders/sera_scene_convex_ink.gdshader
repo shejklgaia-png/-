@@ -45,9 +45,10 @@ void vertex() {
     // Quantize at one internal raster pixel when the requested physical
     // thickness would otherwise disappear. GPU/ID draw at the same source px.
     float width_px = max(1.0, convex_width_px / scale);
-    // UV.x = +-1, so offset by HALF the requested full line width.
+    // The NDC-to-pixel factor (viewport_size / 2) already halves each
+    // signed offset. With UV.x=+-1 this produces width_px TOTAL screen px.
     clip.xy += side * vec2(1.0 / VIEWPORT_SIZE.x,
-        1.0 / VIEWPORT_SIZE.y) * (width_px * 0.5) * clip.w * UV.x;
+        1.0 / VIEWPORT_SIZE.y) * width_px * clip.w * UV.x;
     POSITION = clip;
 }
 
