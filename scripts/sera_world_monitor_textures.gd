@@ -4,7 +4,11 @@ const Modules = preload("res://assets/base_command_modules.gd")
 const Architecture = preload("res://scripts/sera_base_architecture.gd")
 const MONITOR_SHADER = preload("res://assets/monitors/world_monitor.gdshader")
 const Frames = preload("res://assets/monitors/numbered_frames.gd")
-const FRAME_RATES = {"N01": 5.0, "N02": 3.0, "N03": 4.0, "N04": 6.0, "N05": 3.0, "N06": 4.0,
+const ANIMATION_FPS = 24.0
+const MONITOR_MODES = {"N01": 0, "N02": 1, "N03": 2, "N04": 3, "N05": 4, "N06": 5,
+    "B01": 6, "B02": 7, "B03": 8, "B04": 9, "B05": 10}
+# Preserve each monitor's authored atlas-typography cadence independently of 24 Hz motion.
+const ATLAS_RATES = {"N01": 5.0, "N02": 3.0, "N03": 4.0, "N04": 6.0, "N05": 3.0, "N06": 4.0,
     "B01": 1.5, "B02": 1.33, "B03": 1.0, "B04": 3.0, "B05": 0.85}
 const BLOCKBENCH = [
     {"id":"N01","scene":"NEXUS","module":"system_console","part":"SYSTEM blue operational screen","offset":0.55},
@@ -53,7 +57,10 @@ static func _surface(host: Node3D, id: String, pose: Transform3D, size: Vector2)
     var mat := ShaderMaterial.new()
     mat.shader = MONITOR_SHADER
     mat.set_shader_parameter("atlas", texture)
-    mat.set_shader_parameter("fps", FRAME_RATES[id])
+    mat.set_shader_parameter("fps", ANIMATION_FPS)
+    mat.set_shader_parameter("atlas_fps", ATLAS_RATES[id])
+    mat.set_shader_parameter("mode", MONITOR_MODES[id])
+    mat.set_shader_parameter("phase", float(MONITOR_MODES[id]) * 0.37)
     display.material_override = mat
     host.add_child(display)
 
