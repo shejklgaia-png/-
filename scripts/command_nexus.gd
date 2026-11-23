@@ -3,6 +3,7 @@ extends Node3D
 # Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
 const NexusFloorPanels = preload("res://scripts/sera_nexus_floor_panels.gd")
+const NexusGeneratedArchitecture = preload("res://scripts/nexus_generated_architecture.gd")
 const SeraRig = preload("res://scripts/sera_rig.gd")
 const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
 const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
@@ -324,6 +325,11 @@ func _ready() -> void:
     # Replace only the floor surface, retaining the authored foundation,
     # all structures, console hit areas and the original NEXUS ID pipeline.
     NexusFloorPanels.build(self)
+    # Shared low-poly castings sit inside existing Blockbench silhouettes.
+    # Build before the shared material/depth pass, without changing hit zones.
+    NexusGeneratedArchitecture.build(
+        self, SYSTEM_CONSOLE_ORIGIN, TRAINING_CONSOLE_ORIGIN,
+        GATE_ORIGIN, _gate_facing_yaw())
     _deployment_gate_lightspill()
     _pad_center()
     # All NEXUS architecture and SERA contours now use the exact Bittaran
