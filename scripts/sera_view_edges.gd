@@ -72,7 +72,6 @@ func _register() -> void:
     # No topological hard-edge or convex-corner ribbon is generated.
     _compositor.call("set_bittaran_id_mode",
         _in_bittaran_id_scene(actor))
-    _release_combat_convex()
 
 
 func set_contour_enabled(enabled: bool) -> void:
@@ -83,8 +82,7 @@ func set_contour_enabled(enabled: bool) -> void:
         if is_instance_valid(_compositor):
             _compositor.call("unregister_root", self)
         _compositor = null
-        _release_combat_convex()
-    else:
+        else:
         _register()
 
 
