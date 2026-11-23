@@ -21,7 +21,7 @@ uniform float main_seam_px = 3.0;
 // Clutter keeps its dedicated 1px inside/1px outside style.
 uniform float facility_inside_px = 1.0;
 uniform float facility_outside_px = 3.0;
-uniform float facility_seam_px = 1.0;
+uniform float facility_seam_px = 2.0;
 uniform float clutter_inside_px = 1.0;
 uniform float clutter_outside_px = 1.0;
 uniform float clutter_seam_px = 2.0;
