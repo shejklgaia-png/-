@@ -3,7 +3,7 @@ extends RefCounted
 ## Keep shader fallback defaults aligned with these values. The common
 ## rendering compositor explicitly binds the values at material creation.
 const ACTOR_INSIDE_PX: float = 0.0
-const ACTOR_OUTSIDE_PX: float = 5.0
+const ACTOR_OUTSIDE_PX: float = 4.0
 const ACTOR_SEAM_PX: float = 1.0
 
 const BASE_FACILITY_INSIDE_PX: float = 0.0

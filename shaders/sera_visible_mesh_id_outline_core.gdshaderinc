@@ -8,7 +8,7 @@ uniform vec2 mesh_id_texel = vec2(0.0026041667);
 uniform vec4 ink_color : source_color = vec4(0.090196, 0.129412, 0.184314, 1.0);
 uniform vec4 ink_screen_bounds = vec4(0.0);
 // Tight union of the PLAYER's projected solid meshes. Boss-side contact
-// dilation only scans a 5px halo around this rect, not the entire boss.
+// dilation only scans the actor's configured outer halo, not the entire boss.
 uniform vec4 player_contact_bounds = vec4(0.0);
 uniform float emissive_contact_alpha : hint_range(0.0, 1.0) = 1.0;
 // 0=shared/default, 1=Bittaran, 2=NEXUS, 3=training.
@@ -26,19 +26,19 @@ uniform float actor_seam_override_px = -1.0;
 // Each scene's actor profile is independently configurable, not hardcoded.
 // Global actor standard in all scenes (combat, CRATE, NEXUS, previews).
 uniform float bittaran_inside_px = 0.0;
-uniform float bittaran_outside_px = 5.0;
+uniform float bittaran_outside_px = 4.0;
 uniform float bittaran_seam_px = 1.0;
 uniform float nexus_actor_inside_px = 0.0;
-uniform float nexus_actor_outside_px = 5.0;
+uniform float nexus_actor_outside_px = 4.0;
 uniform float nexus_actor_seam_px = 1.0;
 uniform float training_inside_px = 0.0;
-uniform float training_outside_px = 5.0;
+uniform float training_outside_px = 4.0;
 uniform float training_seam_px = 1.0;
 uniform float nexus_facility_outside_px = 3.0;
 uniform float nexus_facility_seam_px = 2.0;
 // Existing per-element settings. None of these change the ID processing path.
 uniform float main_inside_px = 0.0;
-uniform float main_outside_px = 5.0;
+uniform float main_outside_px = 4.0;
 uniform float main_seam_px = 1.0;
 uniform float facility_inside_px = 0.0;
 uniform float facility_outside_px = 4.0;
@@ -47,10 +47,10 @@ uniform float clutter_inside_px = 0.0;
 uniform float clutter_outside_px = 3.0;
 uniform float clutter_seam_px = 1.0;
 uniform float crate_inside_px = 0.0;
-uniform float crate_outside_px = 5.0;
+uniform float crate_outside_px = 4.0;
 uniform float crate_seam_px = 1.0;
 uniform float part_inside_px = 0.0;
-uniform float part_outside_px = 5.0;
+uniform float part_outside_px = 4.0;
 uniform float part_seam_px = 1.0;
 
 vec3 sera_sample_visible_id(vec2 uv) {
@@ -200,7 +200,7 @@ float sera_visible_id_ink_alpha(vec2 uv) {
             uv.x <= player_contact_bounds.z &&
             uv.y >= player_contact_bounds.y &&
             uv.y <= player_contact_bounds.w;
-        // A 5px OUTSIDE silhouette must be drawn on the boss surface behind
+        // The configured OUTSIDE silhouette belongs on the boss surface behind
         // SERA, NOT on SERA's interior. Restrict the wider scan to the
         // projected player rectangle to avoid full-boss GPU readback cost.
         float contact_px = near_player_contact ?
@@ -265,7 +265,7 @@ float sera_visible_id_ink_alpha(vec2 uv) {
                     continue;
                 }
                 // SERA has G=1/8+1/32, other actors have G=1/8.
-                // When their silhouettes overlap, ink the 5px contour into
+                // When their silhouettes overlap, ink the configured outer contour into
                 // the OTHER actor's visible pixels (outside SERA), never
                 // erode SERA's own visible mesh. This is separate from the
                 // canonical 1px same-actor mesh boundary above.
