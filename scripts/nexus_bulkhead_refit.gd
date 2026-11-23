@@ -21,7 +21,7 @@ static func suppresses_authored_part(label: String) -> bool:
     if label.begins_with("Overhead electrical relay housing ") or (
             label.begins_with("Overhead electrical cyan core ")):
         # Keep left relays, remove only the ones in front of DEPLOYMENT.
-        return label.ends_with("3.85") or label.ends_with("5.95")
+        return label.ends_with(" 3.85") or label.ends_with(" 5.95")
     for replaced in [
             "Three-stage column main 1 0",
             "Column recessed mechanical inset 1 0",
