@@ -371,9 +371,15 @@ static func _make_edges(mesh: Mesh, closed: bool,
         normal_a = (normal_a * outward_sign).normalized()
         if paired:
             normal_b = (normal_b * outward_sign).normalized()
-        var emit_crease: bool = (not include_full_contour and paired
-            and signed_convex and (
-                not hard_only or bool(edge.get("crease", false))))
+        # The existing edge extractor marks genuine >=80-degree
+        # face-to-face creases. In combat, retain this bit so the GPU can
+        # show only front/front hard edges as additional visible seams.
+        # Coplanar triangulation lines and non-manifold pairs are excluded
+        # by the extractor and the paired condition above.
+        var emit_crease: bool = (paired and (
+            bool(edge.get("crease", false)) if include_full_contour else (
+            signed_convex and (not hard_only or
+                bool(edge.get("crease", false))))))
         var encoded_a := Color(
             normal_a.x * 0.5 + 0.5, normal_a.y * 0.5 + 0.5,
             normal_a.z * 0.5 + 0.5,
