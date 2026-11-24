@@ -21,10 +21,15 @@ const DOCKS = {
     "RECYCLER": [Vector2(-1.5, -10.5), Vector2.DOWN, Vector2.LEFT],
     "STORAGE": [Vector2(-6.75, 3.75), Vector2.LEFT, Vector2.DOWN]
 }
-const HOMES = [
-    Vector2(17.25, 23.25), Vector2(19.5, 23.25),
-    Vector2(21.75, 23.25), Vector2(24.0, 23.25),
-    Vector2(26.25, 23.25), Vector2(28.5, 23.25)
+# A single shared boundary between empty return and collector approach.
+# This is a point on the straight road, not a parking bay.
+const QUEUE_ENTRY := Vector2(17.25, 23.25)
+# Initial phases are explicitly spread across the actual working roads.
+# Each entry: leg index, desired world X/Z point on that leg.
+const START_PHASES = [
+    [1, Vector2(13.5, 19.0)], [2, Vector2(0.0, 12.0)],
+    [1, Vector2(-9.0, -7.0)], [2, Vector2(-6.75, 0.0)],
+    [1, Vector2(13.5, 6.0)], [3, Vector2(5.0, 16.5)]
 ]
 # The cable is straight through each of these points. "wire" is its
 # horizontal axis; vehicle motion and the ramp slope axis are perpendicular.
@@ -155,12 +160,11 @@ static func curve(points: Array, radius: float, sway: float = 0.0, locks: Array[
     return result
 
 
-static func road_legs(destination: String, index: int) -> Array:
-    var home: Vector2 = HOMES[index]
+static func road_legs(destination: String, _index: int) -> Array:
     var source: Vector2 = DOCKS["SCRAP_COLLECTOR"][0]
     var target: Vector2 = DOCKS[destination][0]
     var warehouse: Vector2 = DOCKS["STORAGE"][0]
-    var approach: Array = [home,Vector2(home.x,26.25),Vector2(13.5,26.25),source]
+    var approach: Array = [QUEUE_ENTRY,Vector2(17.25,26.25),Vector2(13.5,26.25),source]
     var loaded: Array = [source]
     var finished: Array = [target]
     match destination:
@@ -178,8 +182,7 @@ static func road_legs(destination: String, index: int) -> Array:
             finished.append(Vector2(-6.75,-3.75))
     loaded.append(target)
     finished.append(warehouse)
-    var empty: Array = [warehouse,Vector2(-6.75,16.5),Vector2(15.75,16.5),
-        Vector2(15.75,20.25),Vector2(home.x,20.25),home]
+    var empty: Array = [warehouse,Vector2(-6.75,16.5),Vector2(17.25,16.5),QUEUE_ENTRY]
     return [curve(approach,0.90),curve(loaded,0.90),curve(finished,0.90),curve(empty,0.90)]
 
 
