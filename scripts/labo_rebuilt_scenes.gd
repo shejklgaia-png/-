@@ -744,7 +744,7 @@ func _storage(key: String) -> void:
         _shape(b,"hood",Vector3(x,4.7,0.5),Vector3(1.1,0.37,0.7),"armor")
         _box(b,Vector3(x,4.48,0.5),Vector3(0.88,0.08,0.53),"amber_light")
     _finish(b)
-    var dispatch := _conveyor(key,"LeftReceivingRollers",Vector3(-7.7,0,5.5),3.0,3.5)
+    var dispatch := _conveyor(key,"LeftReceivingRollers",Vector3(-7.7,0,6.25),3.0,3.5)
     inspection[key] = {"root":apron,"stand":Vector3(0.5,0,4.0),"focus":Vector3(-2.0,2.0,-1.0)}
     _moving(key,"rack",rack)
     _moving(key,"mast",mast)
@@ -809,18 +809,44 @@ func _sample(key: String, t: float) -> void:
     var m: Dictionary = motion_parts[key]
     match key:
         "LABO":
-            var bridge: Node3D = m["bridge"]
+            var carriage: Node3D = m["bridge"]
             var head: Node3D = m["head"]
-            var running: float = smoothstep(0.02,0.15,t)*(1.0-smoothstep(0.82,0.99,t))
-            bridge.position.z = sin(t*TAU*3.0)*1.35*running
-            head.position.x = sin(t*TAU*5.0)*1.5*running
-            head.position.y = -1.9*running+1.45*smoothstep(0.18,0.72,t)*running
+            var printing: float = smoothstep(0.01,0.10,t)*(1.0-smoothstep(0.48,0.58,t))
+            var grow: float = smoothstep(0.10,0.48,t)
+            carriage.position.x = sin(t*TAU*11.0)*0.55*printing
+            head.position.y = (-1.14+grow*1.14)*printing
             var product: Node3D = m["products"]
+            var arm: Node3D = m["arm_mount"]
+            var shoulder: Node3D = m["shoulder"]
+            var elbow: Node3D = m["elbow"]
+            var grip: Node3D = m["gripper"]
+            var tray: Node3D = m["tray"]
+            var pickup: Vector3 = arm.to_local(product.global_position)
+            var drop: Vector3 = arm.to_local(tray.to_global(Vector3(0,1.59,0)))
+            var park := Vector3(-2.4,0,-3.4)
+            var target: Vector3 = park.lerp(pickup,smoothstep(0.52,0.63,t))
+            if t>=0.68:
+                target = pickup.lerp(drop,smoothstep(0.68,0.85,t))
+            if t>=0.92:
+                target = drop.lerp(park,smoothstep(0.92,1.0,t))
+            var distance: float = clampf(Vector2(target.x,target.z).length(),0.15,7.77)
+            var bend: float = acos(distance/7.8)
+            shoulder.rotation.y = atan2(target.x,target.z)-bend
+            elbow.rotation.y = 2.0*bend
+            var lower: float = smoothstep(0.62,0.67,t)*(1.0-smoothstep(0.68,0.73,t))
+            lower += smoothstep(0.84,0.89,t)*(1.0-smoothstep(0.90,0.95,t))
+            grip.position.y = -2.5-0.55*lower
             for i in range(product.get_child_count()):
                 var p := product.get_child(i) as Node3D
-                p.visible = i==int(m["variant"]) and t>0.18
-                p.scale.y = maxf(0.03,smoothstep(0.18,0.72,t))
-                p.position = Vector3(6.6*smoothstep(0.76,0.92,t),0,3.3*smoothstep(0.91,1.0,t))
+                p.visible = i==int(m["variant"]) and t>0.10
+                p.scale.y = maxf(0.03,grow)
+                p.position = Vector3.ZERO
+                if t>=0.68:
+                    var flight: float = smoothstep(0.68,0.85,t)
+                    var world_drop: Vector3 = tray.to_global(Vector3(0,1.59,0))
+                    var local_drop: Vector3 = product.to_local(world_drop)
+                    p.position = local_drop*flight
+                    p.position.y += 1.0*smoothstep(0.68,0.73,t)*(1.0-smoothstep(0.82,0.89,t))
         "SMELTER","RECYCLER":
             var feed: Node3D = m["feed"]
             var output: Node3D = m["output"]
@@ -833,8 +859,25 @@ func _sample(key: String, t: float) -> void:
                 (m["shaft1"] as Node3D).rotation.x = -t*TAU*4.0
         "STORAGE":
             var lift: Node3D = m["lift"]
-            lift.position.y = 0.6+6.75*smoothstep(0.0,0.32,t)*(1.0-smoothstep(0.50,0.83,t))
-            (m["lift_cargo"] as Node3D).visible = t<0.78
-            var output: Node3D = m["output"]
-            output.visible = t>0.78
-            output.position.z = -1.8+3.6*smoothstep(0.78,1.0,t)
+            var fork: Node3D = m["fork"]
+            var cargo: Node3D = m["lift_cargo"]
+            var rack: Node3D = m["rack"]
+            var dispatch: Node3D = m["dispatch"]
+            var height: float = smoothstep(0.20,0.42,t)*(1.0-smoothstep(0.81,1.0,t))
+            lift.position.y = 4.72*height
+            var mount := cargo.get_parent() as Node3D
+            var incoming: Vector3 = mount.to_local(dispatch.to_global(Vector3(0,1.10,0.8)))
+            var on_lift: Vector3 = mount.to_local(lift.to_global(Vector3(0,0.175,0.32)))
+            var destination: Vector3 = mount.to_local(rack.to_global(Vector3(-6.25,5.90,0.2)))
+            var across: float = smoothstep(0.44,0.55,t)
+            var inward: float = smoothstep(0.55,0.71,t)
+            var on_shelf := Vector3(lerpf(on_lift.x,destination.x,across),
+                lerpf(on_lift.y,destination.y,inward),lerpf(on_lift.z,destination.z,inward))
+            cargo.position = incoming.lerp(on_lift,smoothstep(0.0,0.20,t))
+            if t>=0.44:
+                cargo.position = on_shelf
+            if t>=0.71:
+                cargo.position = destination
+            var retract: float = 1.0-smoothstep(0.71,0.81,t)
+            fork.position = Vector3((destination.x-on_lift.x)*across,
+                0,(destination.z-on_lift.z)*inward)*retract
