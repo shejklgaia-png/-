@@ -137,7 +137,7 @@ func _obstacles(root: Node3D, sites: Array, power: Node3D, crate_path: Array) ->
             _block_rect(at + (prop["at"] as Vector2), deg_to_rad(float(prop.get("yaw_deg", 0.0))), Vector2.ZERO, size * 0.5)
     for node in root.get_children():
         if node is Node3D and str(node.name).begins_with("ScrapPile_"):
-            _block_circle(_xz(node.position), 1.15 * float(node.get_meta("visual_scale", 1.26)) + CLEARANCE)
+            _block_circle(_xz((node as Node3D).position), 1.15 * float(node.get_meta("visual_scale", 1.26)) + CLEARANCE)
     if is_instance_valid(power):
         for p in power.get_meta("logistics_obstacles", []):
             _block_circle(p, 0.82 + CLEARANCE)
@@ -175,6 +175,14 @@ func _find_dock(key: String, at: Vector2) -> Dock:
                     if not _free(stage_cell) or not _free(pivot_cell) or not _free(c + along) or not _free(c - along):
                         continue
                     if not _free(stage_cell + along) or not _free(stage_cell - along):
+                        continue
+                    var separated: bool = true
+                    for old_value in _docks.values():
+                        var old: Dock = old_value
+                        if _point(c).distance_to(_point(old.cell)) < 2.7 or _point(stage_cell).distance_to(_point(old.cell)) < 2.4 or _point(pivot_cell).distance_to(_point(old.cell)) < 2.1:
+                            separated = false
+                            break
+                    if not separated:
                         continue
                     var score: float = length + (1.0 - offset.normalized().dot(forward)) * 2.8
                     # Prefer the rack on the facility side and the dock facing
