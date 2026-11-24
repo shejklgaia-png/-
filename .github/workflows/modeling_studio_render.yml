@@ -71,6 +71,19 @@ jobs:
           [[ "$design" == "$root/"*.json && -f "$design" ]]
           blender --background --factory-startup --python-exit-code 1 --python tools/modeling_studio/build.py -- "$design" "$RUNNER_TEMP/sera-model"
           cp "$design" "$RUNNER_TEMP/sera-model/design.json"
+      - name: Inspect GLBs with Godot 4.7.2 in isolated project
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot_dir="$RUNNER_TEMP/godot-model-review"
+          mkdir -p "$godot_dir/project"
+          archive=Godot_v4.7.2-stable_linux.x86_64.zip
+          curl --fail --location --retry 3 --connect-timeout 20 --max-time 240 "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/$archive" -o "$godot_dir/$archive"
+          unzip -q "$godot_dir/$archive" -d "$godot_dir"
+          printf 'config_version=5\n[application]\nconfig/name="Model review only"\n[rendering]\nrenderer/rendering_method="gl_compatibility"\n' > "$godot_dir/project/project.godot"
+          cp tools/modeling_studio/check_godot_import.gd "$godot_dir/project/"
+          "$godot_dir/Godot_v4.7.2-stable_linux.x86_64" --headless --path "$godot_dir/project" --script res://check_godot_import.gd -- "$RUNNER_TEMP/sera-model"
+          test -s "$RUNNER_TEMP/sera-model/godot_import.json"
       - name: Prepare review bundle
         shell: bash
         run: |
