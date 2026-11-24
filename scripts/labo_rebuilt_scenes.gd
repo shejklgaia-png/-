@@ -175,7 +175,9 @@ func _labo(key: String) -> void:
     _shape(b,"bevel",Vector3(0,0,0),Vector3(8.1,0.65,0.95),"armor_light")
     _box(b,Vector3(0,-0.41,0),Vector3(7.2,0.14,0.55),"trim")
     b.flush()
-    var head := _child(bridge,"PrintHead")
+    var head_mount := _child(bridge,"PrintHeadPlacement")
+    (targets[key] as Array).append(head_mount)
+    var head := _child(head_mount,"PrintHead")
     b = _batch(head)
     _shape(b,"bevel",Vector3(0,-0.72,0),Vector3(1.28,1.05,1.35),"slate")
     _pipe(b,Vector3(0,-1.2,0),Vector3(0,-3.5,0),0.40,"edge")
@@ -278,10 +280,14 @@ void fragment() {
     _pipe(b,Vector3(0,3.5,0),Vector3(3.4,3.5,0),1.20,"armor")
     b.flush()
     var conveyor := _conveyor(key,"ChargeConveyor",Vector3(-6.6,0,3.5),2.4,5.0)
-    var raw := _cargo(conveyor,"FeedCharge",Vector3(0,1.12,1.7),Vector3(1.3,0.6,1.0))
+    var feed_mount := _child(conveyor,"FeedChargePlacement",Vector3(0,1.12,0))
+    (targets[key] as Array).append(feed_mount)
+    var raw := _cargo(feed_mount,"FeedCharge",Vector3(0,0,1.7),Vector3(1.3,0.6,1.0))
     _moving(key,"feed",raw)
     var cast := _conveyor(key,"CastingCoolingLine",Vector3(5.9,0,2.0),2.5,6.2)
-    var ingot := _child(cast,"CooledIngot",Vector3(0,1.15,-2.1))
+    var ingot_mount := _child(cast,"IngotPlacement",Vector3(0,1.15,0))
+    (targets[key] as Array).append(ingot_mount)
+    var ingot := _child(ingot_mount,"CooledIngot",Vector3(0,0,-2.1))
     b = _batch(ingot)
     _shape(b,"bevel",Vector3(0,0.30,0),Vector3(1.9,0.60,1.2),"amber")
     _box(b,Vector3(0,0.64,0),Vector3(1.55,0.07,0.9),"amber_light")
@@ -317,10 +323,14 @@ func _recycler(key: String) -> void:
         b.flush()
         _moving(key,"shaft"+str(i),shaft)
     var feed := _conveyor(key,"ScrapFeedLine",Vector3(0,0,-6.3),4.5,5.6)
-    var raw := _cargo(feed,"ScrapBatch",Vector3(0,1.1,-1.8),Vector3(2.1,0.7,1.4))
+    var feed_mount := _child(feed,"ScrapBatchPlacement",Vector3(0,1.1,0))
+    (targets[key] as Array).append(feed_mount)
+    var raw := _cargo(feed_mount,"ScrapBatch",Vector3(0,0,-1.8),Vector3(2.1,0.7,1.4))
     _moving(key,"feed",raw)
     var output := _conveyor(key,"SortedMaterialLine",Vector3(0,0,4.6),3.8,5.0)
-    var bin := _cargo(output,"SortedBatch",Vector3(0,1.1,-1.7),Vector3(2.0,0.65,1.3))
+    var bin_mount := _child(output,"SortedBatchPlacement",Vector3(0,1.1,0))
+    (targets[key] as Array).append(bin_mount)
+    var bin := _cargo(bin_mount,"SortedBatch",Vector3(0,0,-1.7),Vector3(2.0,0.65,1.3))
     _moving(key,"output",bin)
     _console(key,Vector3(4.7,0,4.0),3)
 
@@ -337,8 +347,7 @@ func _storage(key: String) -> void:
             for z in [-2.04,2.04]:
                 _box(b,Vector3(0,y+0.15,z),Vector3(4.9,0.18,0.20),"caution")
         _box(b,Vector3(0,9.1,0),Vector3(5.2,0.38,4.3),"armor")
-        for z in [-2.0,2.0]:
-            _pipe(b,Vector3(-2.4,0.5,z),Vector3(2.4,9.0,z),0.16,"trim")
+        _pipe(b,Vector3(-2.4,0.5,-2.0),Vector3(2.4,9.0,-2.0),0.16,"trim")
         b.flush()
         for level in range(4):
             for col in range(2):
@@ -361,11 +370,15 @@ func _storage(key: String) -> void:
     for x in [-1.1,1.1]:
         _box(b,Vector3(x,0.23,0.9),Vector3(0.2,0.24,2.5),"edge")
     b.flush()
-    var load := _cargo(platform,"LiftCargo",Vector3(0,0.2,0.12),Vector3(1.8,1.25,1.6))
+    var load_mount := _child(platform,"LiftCargoPlacement",Vector3(0,0.2,0.12))
+    (targets[key] as Array).append(load_mount)
+    var load := _cargo(load_mount,"LiftCargo",Vector3.ZERO,Vector3(1.8,1.25,1.6))
     _moving(key,"lift",platform)
     _moving(key,"lift_cargo",load)
     var dispatch := _conveyor(key,"DispatchLane",Vector3(0,0,3.7),2.8,5.0)
-    var out := _cargo(dispatch,"DispatchContainer",Vector3(0,1.1,-1.8),Vector3(1.8,1.25,1.6))
+    var out_mount := _child(dispatch,"DispatchCargoPlacement",Vector3(0,1.1,0))
+    (targets[key] as Array).append(out_mount)
+    var out := _cargo(out_mount,"DispatchContainer",Vector3(0,0,-1.8),Vector3(1.8,1.25,1.6))
     _moving(key,"output",out)
     inspection[key] = {"root":dispatch,"stand":Vector3(-2.3,0,0.1),"focus":Vector3(0,1.6,0.1)}
     _console(key,Vector3(2.9,0,5.1),4)
@@ -427,12 +440,13 @@ func _sample(key: String, t: float) -> void:
             var running: float = smoothstep(0.02,0.15,t)*(1.0-smoothstep(0.82,0.99,t))
             bridge.position.z = sin(t*TAU*3.0)*1.35*running
             head.position.x = sin(t*TAU*5.0)*1.5*running
-            head.position.y = -1.25*running+0.55*t*running
+            head.position.y = -1.9*running+1.45*smoothstep(0.18,0.72,t)*running
             var product: Node3D = m["products"]
             for i in range(product.get_child_count()):
                 var p := product.get_child(i) as Node3D
                 p.visible = i==int(m["variant"]) and t>0.18
-                p.scale.y = maxf(0.03,smoothstep(0.18,0.80,t))
+                p.scale.y = maxf(0.03,smoothstep(0.18,0.72,t))
+                p.position = Vector3(6.6*smoothstep(0.76,0.92,t),0,3.3*smoothstep(0.91,1.0,t))
         "SMELTER","RECYCLER":
             var feed: Node3D = m["feed"]
             var output: Node3D = m["output"]
