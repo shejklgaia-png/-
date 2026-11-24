@@ -1070,3 +1070,36 @@ static func _material(finish: String, vertex_color: bool) -> StandardMaterial3D:
         mat.emission = tint
         mat.emission_energy_multiplier = 1.7 if finish == "lamp_glass" else 1.15
     return mat
+
+
+# Plate-local finish, authored in pixels. The 64x128 aspect follows the
+# narrow service strips; diagonal raised treads alternate by staggered row.
+# Only used on clean service plates, never on the central painted walkway.
+static func make_service_tread_texture() -> ImageTexture:
+    var image := Image.create(64,128,false,Image.FORMAT_RGBA8)
+    image.fill(Color("#cecece"))
+    for y in range(128):
+        for x in range(64):
+            var grain: int = 205+((x*7+y*13+x*y)%9)-4
+            image.set_pixel(x,y,Color(grain/255.0,grain/255.0,grain/255.0,1.0))
+    for row in range(1,12):
+        var cy: int = row*10
+        for col in range(1,6):
+            var cx: int = col*10+((row%2)*4)-2
+            var direction: int = 1 if (row+col)%2 == 0 else -1
+            for i in range(-3,4):
+                var x: int = cx+i
+                var y: int = cy+i*direction
+                image.set_pixel(x,y+2,Color("#8d8d8d"))
+                image.set_pixel(x,y+1,Color("#acacac"))
+                image.set_pixel(x,y,Color("#eeeeee"))
+                image.set_pixel(x,y-1,Color("#f8f8f8"))
+    # Subtle inset border; no marks across a plate seam.
+    for x in range(64):
+        image.set_pixel(x,1,Color("#9a9a9a"))
+        image.set_pixel(x,126,Color("#9a9a9a"))
+    for y in range(128):
+        image.set_pixel(1,y,Color("#9a9a9a"))
+        image.set_pixel(62,y,Color("#9a9a9a"))
+    image.generate_mipmaps()
+    return ImageTexture.create_from_image(image)

@@ -2505,6 +2505,7 @@ func _nexus_apply_wear_after_entry() -> void:
     _nexus_pixel_steel.append(_nexus_make_gate_panel_texture(true))
     _nexus_pixel_steel.append(_nexus_make_long_panel_seam())
     _nexus_pixel_steel.append(_nexus_make_archive_cartridge_finish())
+    var service_tread: Texture2D = NexusFloorPanels.make_service_tread_texture()
     var batch_index: int = 0
     var clean_variants: Dictionary = {}
     for child in deck.get_children():
@@ -2526,7 +2527,10 @@ func _nexus_apply_wear_after_entry() -> void:
         else:
             clean_variants[surface_name] = texture_index
             batch_index += 1
-        worn.albedo_texture = _nexus_pixel_steel[texture_index]
+        # A tread finish is reserved for the outboard service steel. Keep
+        # rust/oil variants, center walkway and markings on existing finishes.
+        var tread_plate: bool = surface_name == "Deck_armor_deck_side"
+        worn.albedo_texture = service_tread if tread_plate else _nexus_pixel_steel[texture_index]
         # Explicit plate-local UVs: one lookup, no blended world triplanar.
         worn.uv1_triplanar = false
         worn.uv1_world_triplanar = false
@@ -2536,7 +2540,7 @@ func _nexus_apply_wear_after_entry() -> void:
         worn.metallic = 0.12
         worn.roughness = 0.86
         worn.metallic_specular = 0.12
-        worn.albedo_color = _nexus_finish_tint(source.albedo_color, 1.12)
+        worn.albedo_color = _nexus_finish_tint(source.albedo_color, 1.19 if tread_plate else 1.12)
         geometry.material_override = worn
     # Only the already-built room roots, not editor, HUD or later preview
     # nodes. Yield between material groups so entry never waits for texture.
