@@ -21,6 +21,7 @@ const BaseFacilityInk = preload("res://scripts/sera_base_facility_outlines.gd")
 const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
 const BaseClutter = preload("res://scripts/sera_base_clutter.gd")
 const BaseLayoutPreview = preload("res://scripts/sera_base_layout_preview.gd")
+const CanonicalProps = preload("res://scripts/sera_base_prop_canonical.gd")
 const JunkGeometry = preload("res://scripts/sera_base_junk_geometry.gd")
 const BaseFloorDetail = preload("res://scripts/sera_base_floor_detail.gd")
 const BaseFloorLighting = preload("res://scripts/sera_base_floor_lighting.gd")
@@ -108,8 +109,6 @@ var facility_touch_start: Vector2 = Vector2.ZERO
 var startup_layer: CanvasLayer
 var console_screen: Control
 var layout_tools: VBoxContainer
-var layout_shuffle_button: Button
-var layout_copy_button: Button
 var outline_probe_button: Button
 var outline_probe_mode: int = 0
 var nexus_material_probe_button: Button
@@ -122,8 +121,6 @@ var facility_placement_panel: PanelContainer
 var facility_placement_status: Label
 var facility_placement_actions: Array[Button] = []
 var facility_poses: Dictionary = {}
-var layout_seed: int = 0
-var layout_rerolls: int = 0
 var power_zone: Node3D
 var power_distribution: Node3D
 var logistics: Node3D
@@ -157,7 +154,7 @@ func _ready() -> void:
     DisplayProfile.apply(get_window())
     _frame_budget = BaseFrameBudget.new()
     _frame_budget.start(get_viewport())
-    BaseClutter.clear_preview()
+    BaseClutter.set_preview_layouts(CanonicalProps.site_layouts())
     _load_facility_poses()
     # Show the terminal before the expensive outdoor scene is constructed.
     get_window().go_back_requested.connect(_on_android_back)
@@ -192,9 +189,6 @@ func _ready() -> void:
     await _startup_budget.checkpoint("power distribution")
     await _build_logistics()
     await BasePowerDistribution.install_protectors_budgeted(power_distribution, logistics, _startup_budget)
-    if is_instance_valid(logistics) or not facility_poses.is_empty():
-        BaseClutter.set_preview_layouts(await BaseLayoutPreview.reserve_props_budgeted(
-            NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, logistics, {}, _startup_budget, _boot_panels, facility_poses))
     _boot_panels.clear()
     await _build_nexus_building()
     _startup_step("NEXUS / COMMAND LINK ONLINE", 33)
@@ -208,7 +202,7 @@ func _ready() -> void:
                 logistics.call("bind_facility_motion", key, station.get_node_or_null("IndustrialModel/FacilityMotion"))
     _startup_step("SHELL / FACILITY ARRAY ONLINE", 49)
     await _startup_budget.checkpoint("facilities")
-    await _create_salvage([], _startup_budget)
+    await _create_salvage(CanonicalProps.scrap_layout(), _startup_budget)
     _startup_step("BASE / LOGISTICS AND CABLE PROTECTION ONLINE", 61)
     await _startup_budget.checkpoint("salvage")
     _create_grid_selection()
@@ -658,7 +652,7 @@ func _create_salvage(replacement: Array[Dictionary] = [], budget: Variant = null
                 scale_factor = 1.12
             elif nearest < 7.0:
                 scale_factor = 1.20
-        if is_instance_valid(logistics) or not facility_poses.is_empty():
+        if replacement.size() != lots.size() and (is_instance_valid(logistics) or not facility_poses.is_empty()):
             var safe: Vector2
             if budget != null:
                 safe = await BaseLayoutPreview.reserve_salvage_budgeted(
@@ -1038,10 +1032,6 @@ func _create_layout_tools() -> void:
         "設備名称：ON" if facility_names_enabled else "設備名称：OFF",
         "FacilityNameToggle", _toggle_facility_names)
     _layout_tool_button("正規配置", "BaseFacilityPlacement", _open_facility_placement)
-    layout_shuffle_button = _layout_tool_button(
-        "小物を再配置", "LayoutShuffleButton", _shuffle_layout)
-    layout_copy_button = _layout_tool_button(
-        "配置データコピー", "LayoutCopyButton", _copy_layout_data)
     outline_probe_button = _layout_tool_button(
         "輪郭ID：状態", "OutlineProbeButton", _cycle_outline_probe)
     nexus_material_probe_button = _layout_tool_button(
@@ -1187,11 +1177,8 @@ func _close_facility_placement() -> void:
     facility_placement_panel.hide()
     layout_tools.show()
     PlacementStore.flush()
-    if facility_placement_dirty:
-        # Reuse the existing small-object rebuild path, not the logistics,
-        # power, ramp or vehicle builders. Their placement_clear is read-only.
-        var scrap: Array[Dictionary] = []
-        _apply_layout_preview({"sites": {}, "scrap": scrap, "seed": layout_seed})
+    # Canonical site props are children of their facility; never repack the
+    # approved positions or rebuild bound facility animation nodes here.
     facility_placement_dirty = false
     facility_placement_key = ""
     _refresh_facility_names()
@@ -1404,104 +1391,6 @@ func _layout_tool_button(caption: String, identifier: String,
 func _layout_control_hit(at: Vector2) -> bool:
     return layout_tools != null and layout_tools.is_visible_in_tree() and (
         Rect2(layout_tools.position, layout_tools.size).has_point(at))
-
-
-func _shuffle_layout() -> void:
-    if scene_changing or facility_system == null or (
-            bool(facility_system.call("is_menu_open"))):
-        return
-    layout_shuffle_button.disabled = true
-    layout_copy_button.disabled = true
-    layout_status.text = "再配置中..."
-    var rng := RandomNumberGenerator.new()
-    rng.randomize()
-    var next: Dictionary = BaseLayoutPreview.generate(
-        NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, rng, facility_poses)
-    if next.is_empty():
-        layout_status.text = "再配置できませんでした"
-    else:
-        _apply_layout_preview(next)
-        layout_status.text = "仮配置 #%d" % layout_rerolls
-    layout_shuffle_button.disabled = false
-    layout_copy_button.disabled = false
-
-
-func _apply_layout_preview(selected: Dictionary) -> void:
-    # Session preview only; no changes to the game's permanent saves.
-    var layouts: Dictionary = selected["sites"]
-    var scrap: Array[Dictionary] = selected["scrap"]
-    if is_instance_valid(logistics) or not facility_poses.is_empty():
-        BaseClutter.set_preview_layouts(BaseLayoutPreview.reserve_props(
-            NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, logistics, layouts, facility_poses))
-    else:
-        BaseClutter.set_preview_layouts(layouts)
-    var old_nexus: Node = nexus_building.get_node_or_null("NexusArchitecture")
-    if old_nexus != null:
-        old_nexus.free()
-    BaseArchitecture.build_nexus(nexus_building)
-    # A rebuilt model starts with its original authored materials.
-    nexus_material_probe_mode = 0
-    if nexus_material_probe_button != null:
-        nexus_material_probe_button.text = "NEXUS材質：通常"
-    for spec in BaseFacilities.FACILITY_SPECS:
-        var key: String = str(spec["id"])
-        var station: Node3D = facility_system.get_node_or_null(key) as Node3D
-        if station == null:
-            continue
-        var old: Node = station.get_node_or_null("IndustrialModel")
-        if old != null:
-            old.free()
-        BaseArchitecture.build_facility(station, key)
-    # Decorative reshuffles must never move the fixed electrical network or
-    # invalidate the already planned logistics paths and cable protectors.
-    var previous: Node = get_node_or_null("SalvageMeshes")
-    if previous != null:
-        previous.free()
-    for i in range(BaseLayoutPreview.SCRAP_COUNT):
-        var pile: Node = get_node_or_null("ScrapPile_%02d" % i)
-        if pile != null:
-            pile.free()
-    _create_salvage(scrap)
-    # Rerolled facility geometry is newly instantiated after initial shading.
-    SharedMaterialShading.apply_to_subtree(nexus_building)
-    SharedMaterialShading.apply_to_subtree(facility_system)
-    var salvage_meshes: Node3D = get_node_or_null("SalvageMeshes") as Node3D
-    if salvage_meshes != null:
-        SharedMaterialShading.apply_to_subtree(salvage_meshes)
-    layout_seed = int(selected["seed"])
-    layout_rerolls += 1
-    _refresh_facility_names()
-
-
-func _layout_export_text() -> String:
-    # Full model parameters, not only the seed: repeatable across devices.
-    var layouts: Dictionary = {}
-    for key in BaseLayoutPreview.KEYS:
-        layouts[key] = BaseClutter.props_for(key)
-    var scrap: Array[Dictionary] = []
-    for i in range(BaseLayoutPreview.SCRAP_COUNT):
-        var pile: Node3D = get_node_or_null("ScrapPile_%02d" % i) as Node3D
-        if pile == null:
-            return ""
-        scrap.append({
-            "index": i, "x": pile.position.x, "z": pile.position.z,
-            "yaw_deg": pile.rotation_degrees.y,
-            "scale": float(pile.get_meta("visual_scale", 1.0)),
-            "profile": int(pile.get_meta("scrap_profile", 0)),
-            "stack": int(pile.get_meta("stack", 1)),
-            "pattern": int(pile.get_meta("pattern", 0)),
-        })
-    return BaseLayoutPreview.export_text(
-        layouts, scrap, layout_rerolls, layout_seed)
-
-
-func _copy_layout_data() -> void:
-    var data: String = _layout_export_text()
-    if data.is_empty():
-        layout_status.text = "コピー失敗"
-        return
-    DisplayServer.clipboard_set(data)
-    layout_status.text = "コピー完了 / チャットに貼付"
 
 
 func _restore_boot_rendering() -> void:
