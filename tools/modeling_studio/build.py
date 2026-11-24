@@ -13,6 +13,7 @@ import bmesh
 from mathutils import Vector, Quaternion
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from geometry_review import fit_camera, mesh_interference
+from motion_lod import motion_review, export_lod
 from bpy_extras.object_utils import world_to_camera_view
 
 VIEWS = {
@@ -330,6 +331,8 @@ def main():
     objects = build(spec)
     report = mesh_report(objects)
     interference = mesh_interference(objects,spec.get("intentional_overlaps",[]))
+    motion = motion_review(objects,spec.get("motion_sweeps",[]),spec.get("intentional_overlaps",[]))
+    (out/"motion_review.json").write_text(json.dumps(motion,indent=2),encoding="utf-8")
     (out/"interference.json").write_text(json.dumps(interference,indent=2),encoding="utf-8")
     (out/"mesh_report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
     bpy.ops.wm.save_as_mainfile(filepath=str(out/"model.blend"))
@@ -338,6 +341,9 @@ def main():
         obj.select_set(True)
     bpy.ops.export_scene.gltf(filepath=str(out/"model.glb"),export_format='GLB',
                               use_selection=True,export_yup=True,export_animations=False)
+    if spec.get("lod"):
+        lod = export_lod(objects,spec["lod"],out/"model_lod.glb")
+        (out/"lod_report.json").write_text(json.dumps(lod,indent=2),encoding="utf-8")
     resolution = int(spec.get("review_resolution",768))
     if not 128<=resolution<=2048:
         raise ValueError("review_resolution must be 128..2048")
