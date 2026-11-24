@@ -77,7 +77,7 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
                 colors.append(vertex_colors[ix[k]] if mat != null and mat.vertex_color_use_as_albedo and vertex_colors.size() == vs.size() else Color.WHITE)
             var cull: int = BaseMaterial3D.CULL_DISABLED if mat == null else mat.cull_mode
             if encoded_culling and vertex_colors.size() == vs.size():
-                cull = _decode_cull(vertex_colors[ix[0]].r)
+                cull = _decode_cull(vertex_colors[ix[0]])
             tris.append({"p":p,"n":normals,"xy":xy,"chart":ci,"base":base,"tex":tex,"prior":prior,"colors":colors,"repeat":mat == null or mat.texture_repeat,"cull":cull})
     if tris.is_empty():
         return {"error":"描画可能な三角形がありません"}
@@ -133,7 +133,7 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
             vertices.append(t.p[k])
             normals_out.append(t.n[k])
             uvs.append(uv[k])
-            flags.append(Color(_encode_cull(int(t.cull)),1.0,1.0,1.0))
+            flags.append(_encode_cull(int(t.cull)))
         t.uv = uv
         _bake_triangle(img,t,distances)
     var arrays: Array = []
@@ -209,17 +209,17 @@ static func _bake_triangle(img: Image,t: Dictionary, distances: PackedFloat32Arr
             color *= colors[0]*weights.x+colors[1]*weights.y+colors[2]*weights.z
             img.set_pixel(x,y,Color(color.r,color.g,color.b,1.0))
 
-static func _encode_cull(mode: int) -> float:
+static func _encode_cull(mode: int) -> Color:
     if mode == BaseMaterial3D.CULL_FRONT:
-        return 0.0
+        return Color(1.0,0.0,0.0,1.0)
     if mode == BaseMaterial3D.CULL_BACK:
-        return 0.5
-    return 1.0
+        return Color(0.0,1.0,0.0,1.0)
+    return Color.WHITE
 
-static func _decode_cull(flag: float) -> int:
-    if flag < 0.25:
-        return BaseMaterial3D.CULL_FRONT
-    if flag < 0.75:
+static func _decode_cull(flag: Color) -> int:
+    if flag.b < 0.5:
+        if flag.r > 0.5:
+            return BaseMaterial3D.CULL_FRONT
         return BaseMaterial3D.CULL_BACK
     return BaseMaterial3D.CULL_DISABLED
 
@@ -264,7 +264,7 @@ static func restore_triangles(mesh: ArrayMesh, chart_ids: Array) -> Array:
     if vertices.size() != uv.size() or vertices.size() % 3 != 0 or chart_ids.size()*3 != vertices.size() or chart_ids.size() > MAX_TRIANGLES:
         return result
     for i in range(0,vertices.size(),3):
-        result.append({"p":PackedVector3Array([vertices[i],vertices[i+1],vertices[i+2]]),"uv":PackedVector2Array([uv[i],uv[i+1],uv[i+2]]),"chart":int(chart_ids[i/3]),"cull":_decode_cull(flags[i].r) if flags.size() == vertices.size() else BaseMaterial3D.CULL_DISABLED})
+        result.append({"p":PackedVector3Array([vertices[i],vertices[i+1],vertices[i+2]]),"uv":PackedVector2Array([uv[i],uv[i+1],uv[i+2]]),"chart":int(chart_ids[i/3]),"cull":_decode_cull(flags[i]) if flags.size() == vertices.size() else BaseMaterial3D.CULL_DISABLED})
     return result
 
 static func mirror_hit(tris: Array, origin: Vector3, direction: Vector3, hit_position: Vector3, axis_x: float, tolerance: float) -> Dictionary:
