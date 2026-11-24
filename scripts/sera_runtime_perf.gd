@@ -16,11 +16,15 @@ var fast_windows: int = 0
 var active_viewport: SubViewport
 var scale_index: int = 0
 const SCALES: Array[float] = [1.0, 0.9, 0.8]
+const UI_JOB_BUDGET_USEC: int = 1800
+const UI_JOBS_PER_FRAME: int = 3
+var ui_jobs: Array[Dictionary] = []
 
 func _ready() -> void:
     samples.resize(SAMPLE_COUNT)
     adaptive_enabled = Settings.get_enabled("adaptive_3d_resolution")
     process_mode = Node.PROCESS_MODE_ALWAYS
+    process_priority = 9000
 
 func set_adaptive_enabled(enabled: bool) -> void:
     adaptive_enabled = enabled
@@ -35,11 +39,31 @@ func _reset_window() -> void:
     index = 0
     elapsed = 0.0
 
+func enqueue_ui_job(owner: Node, task: Callable) -> void:
+    if is_instance_valid(owner) and task.is_valid():
+        ui_jobs.append({"owner":weakref(owner),"task":task})
+
+func _run_ui_jobs() -> void:
+    if ui_jobs.is_empty():
+        return
+    var started: int = Time.get_ticks_usec()
+    var executed: int = 0
+    while not ui_jobs.is_empty() and executed < UI_JOBS_PER_FRAME:
+        var job: Dictionary = ui_jobs.pop_front()
+        var owner: Node = (job["owner"] as WeakRef).get_ref() as Node
+        var task: Callable = job["task"]
+        if is_instance_valid(owner) and owner.is_inside_tree() and not owner.is_queued_for_deletion() and task.is_valid():
+            task.call()
+            executed += 1
+        if Time.get_ticks_usec()-started >= UI_JOB_BUDGET_USEC:
+            break
+
 func _process(_delta: float) -> void:
     var now: int = Time.get_ticks_usec()
     var scene := get_tree().current_scene
     var scene_id: int = scene.get_instance_id() if is_instance_valid(scene) else 0
     var limit: int = Engine.max_fps
+    _run_ui_jobs()
     if scene_id != last_scene:
         if is_instance_valid(active_viewport) and scale_index != 0:
             active_viewport.scaling_3d_scale = 1.0

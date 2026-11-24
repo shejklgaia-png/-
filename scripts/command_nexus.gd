@@ -239,6 +239,7 @@ var system_selected_slot: int = 1
 var system_pending_action: String = ""
 var system_pending_slot: int = 0
 var system_message: String = ""
+var system_save_pending: bool = false
 # Blink only the CONFIRM action button, never the selected save-slot border.
 const SYSTEM_CONFIRM_BLINK_HALF_SECONDS: float = 0.38
 # Both blinking states stay brighter than the normal dark _menu_style().
@@ -5080,6 +5081,7 @@ func _create_fps_option_controls() -> void:
         {"scope": "motion_blur", "title": "モーションブラー"},
         {"scope": "adaptive_3d_resolution", "title": "動的3D解像度"},
         {"scope": "freeze_base_background", "title": "BASE背景静止"},
+        {"scope": "compact_ui_atlas", "title": "装備アイコン統合"},
     ]:
         var panel := Panel.new()
         panel.name = "FPSRow_" + str(spec["scope"])
@@ -5408,6 +5410,8 @@ func _cancel_system_confirmation() -> bool:
     return true
 
 func _tap_system_control(point: Vector2) -> void:
+    if system_save_pending:
+        return
     if system_fps_options_open:
         _tap_fps_option_control(point)
         return
@@ -5484,7 +5488,11 @@ func _tap_system_control(point: Vector2) -> void:
         var success: bool = false
         match action:
             "SAVE":
-                success = SeraSave.save_data(slot, _current_system_equipment())
+                system_save_pending = true
+                system_message = "SAVE / SLOT %02d WRITING" % slot
+                _refresh_system_controls()
+                success = await SeraSave.save_data_async(slot, _current_system_equipment())
+                system_save_pending = false
             "LOAD":
                 success = SeraSave.load_data(slot)
                 if success:
@@ -7262,6 +7270,8 @@ func _on_android_back() -> void:
     _navigate_back()
 
 func _navigate_back() -> void:
+    if system_save_pending:
+        return
     if is_instance_valid(camera_angle_editor) and camera_angle_editor.has_method("open_mode") and bool(camera_angle_editor.get("active")):
         camera_angle_editor.call("close_mode")
         return
@@ -7285,6 +7295,9 @@ func _navigate_back() -> void:
         _return_to_overview()
 
 func _input(event: InputEvent) -> void:
+    if system_save_pending:
+        get_viewport().set_input_as_handled()
+        return
     if _mission_departing():
         get_viewport().set_input_as_handled()
         return
