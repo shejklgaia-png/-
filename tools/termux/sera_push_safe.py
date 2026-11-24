@@ -57,7 +57,7 @@ def digest(path):
 
 def excluded(relative_path):
     parts = relative_path.parts
-    if any(x in (".git", ".godot") for x in parts[:-1]):
+    if any(x in (".git", ".godot", ".sera-placement") for x in parts[:-1]):
         return True
     name = parts[-1]
     return (name == ".nomedia" or
@@ -68,7 +68,7 @@ def scan(previous):
     result = {}
     old_files = (previous or {}).get("files", {})
     for folder, dirs, filenames in os.walk(SOURCE):
-        dirs[:] = sorted(d for d in dirs if d not in (".git", ".godot"))
+        dirs[:] = sorted(d for d in dirs if d not in (".git", ".godot", ".sera-placement"))
         for filename in sorted(filenames):
             path = Path(folder) / filename
             rel = path.relative_to(SOURCE)
@@ -262,6 +262,18 @@ def main():
     lock = Path.home() / ".sera_safe_upload.lock"
     with lock.open("a+") as lock_file:
         fcntl.flock(lock_file, fcntl.LOCK_EX)
+        # Placement JSON is published separately; never stage it on main.
+        preview = SOURCE / ".sera-placement" / "preview.json"
+        if preview.is_file():
+            decoded = json.loads(preview.read_text(encoding="utf-8"))
+            if decoded.get("schema") != 1 or not isinstance(decoded.get("records"), dict):
+                raise RuntimeError("Invalid placement preview schema")
+            script = Path.home() / "sera_sync_placement_preview.sh"
+            if not script.is_file():
+                raise RuntimeError("Placement sync helper missing; reinstall safe sync")
+            result = run(["bash", str(script)])
+            if result.stdout.strip():
+                print(result.stdout.strip(), flush=True)
         print(upload(), flush=True)
 
 
