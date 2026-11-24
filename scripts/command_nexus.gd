@@ -5128,7 +5128,7 @@ func _select_target(target_name: String) -> void:
     # Unlike orbital position, optical-axis roll cannot be inferred from
     # eye/look alone. Restore it for each visit, without loading/model editing.
     var roll_deg: float = float(view.get("roll_deg", 0.0))
-    if not view.has("roll_deg"):
+    if not view.has("roll_deg") and not (target_name == "CUSTOMIZE" and CUSTOMIZE_SPECIAL_PRESENTATION_ENABLED):
         var saved_camera: Dictionary = NexusPlacementStore.read(
             "nexus/camera/" + target_name)
         roll_deg = float(saved_camera.get("roll_deg", roll_deg))
