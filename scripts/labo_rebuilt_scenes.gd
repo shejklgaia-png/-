@@ -3,6 +3,13 @@ extends RefCounted
 ## All dimensions are authored in metres, never scaled BASE meshes.
 const Architecture = preload("res://scripts/sera_base_architecture.gd")
 const Monitor = preload("res://scripts/sera_labo_monitor_24fps.gd")
+const IndustrialSurface = preload("res://shaders/sera_labo_industrial_surface.gdshader")
+const Combustion = preload("res://shaders/sera_labo_combustion.gdshader")
+const EQUIPMENT_SCALE := 1.30
+var surface_cache: Dictionary = {}
+var fallback_texture: ImageTexture
+var fire_layers: Array[ShaderMaterial] = []
+var fire_light: OmniLight3D
 const KEYS = ["LABO", "SMELTER", "RECYCLER", "STORAGE"]
 var host: Node3D
 var rooms: Dictionary = {}
@@ -31,6 +38,7 @@ func build(stage: Node3D) -> void:
             "SMELTER": _smelter(key)
             "RECYCLER": _recycler(key)
             "STORAGE": _storage(key)
+        _expand_equipment(key)
         room.visible = false
 
 func _model(key: String, label: String, at: Vector3) -> Node3D:
@@ -53,6 +61,54 @@ func _batch(n: Node3D):
     b.outline_enabled = true
     return b
 
+func _finish(b) -> void:
+    b.flush()
+    for child in b.host.get_children():
+        if not child is MultiMeshInstance3D:
+            continue
+        var draw := child as MultiMeshInstance3D
+        if not draw.material_override is StandardMaterial3D:
+            continue
+        var source := draw.material_override as StandardMaterial3D
+        draw.set_meta("sera_preserve_authored_material",true)
+        if source.shading_mode == BaseMaterial3D.SHADING_MODE_UNSHADED or source.emission_enabled:
+            continue
+        var texture: Texture2D = source.albedo_texture
+        if texture == null:
+            if fallback_texture == null:
+                var image := Image.create(2,2,false,Image.FORMAT_RGBA8)
+                image.fill(Color.WHITE)
+                fallback_texture = ImageTexture.create_from_image(image)
+            texture = fallback_texture
+        var tint: Color = source.albedo_color
+        if tint.get_luminance() < 0.26 and tint != Color(Architecture.COLORS["void"]):
+            tint = tint.lerp(Color("#627382"),0.28)
+        var cache_key: String = str(texture.get_instance_id()) + "/" + tint.to_html() + "/" + str(source.roughness)
+        var mat: ShaderMaterial = surface_cache.get(cache_key) as ShaderMaterial
+        if mat == null:
+            mat = ShaderMaterial.new()
+            mat.shader = IndustrialSurface
+            mat.set_shader_parameter("surface_map",texture)
+            mat.set_shader_parameter("paint",tint)
+            mat.set_shader_parameter("roughness_value",source.roughness)
+            surface_cache[cache_key] = mat
+        draw.material_override = mat
+
+func _expand_equipment(key: String) -> void:
+    # Dedicated industrial models only; never enlarge the BASE icon mesh.
+    var room := rooms[key] as Node3D
+    for node in targets[key]:
+        var model := node as Node3D
+        if model.get_parent() != room:
+            continue
+        if model.name in ["StructuralFloor","RearServiceWall","UtilityBank_Left",
+                "UtilityBank_Right","OverheadServiceTruss","HighHallCeiling",
+                "SideServiceStructure","RearTransferGallery"]:
+            continue
+        model.position *= EQUIPMENT_SCALE
+        if model != terminals.get(key):
+            model.scale *= EQUIPMENT_SCALE
+
 func _box(b, p: Vector3, s: Vector3, c: String = "armor") -> void:
     b.box("Panel", p, s, c)
 
@@ -68,27 +124,29 @@ func _moving(key: String, label: String, n: Node3D) -> void:
 func _hall(key: String) -> void:
     var floor := _model(key, "StructuralFloor", Vector3.ZERO)
     var b = _batch(floor)
-    for x in range(-5,6):
-        for z in range(-4,5):
+    for x in range(-8,9):
+        for z in range(-7,8):
             _box(b, Vector3(x*3.0,-0.17,z*3.0), Vector3(2.98,0.32,2.98), "slate" if posmod(x+z,4)==0 else "trim")
     for x in [-6.0,6.0]:
         _box(b, Vector3(x,0.005,5.5),Vector3(0.09,0.025,9.0),"caution")
     for x in range(-5,6):
         _box(b,Vector3(x*0.95,0.01,9.5),Vector3(0.65,0.025,0.14),"caution")
-    b.flush()
+    _finish(b)
     for child in floor.get_children():
         if child is GeometryInstance3D:
             child.set_meta("sera_outline_occluder_only",true)
-    var wall := _model(key,"RearServiceWall",Vector3(0,0,-10.0))
+    var wall := _model(key,"RearServiceWall",Vector3(0,0,-18.0))
     b = _batch(wall)
-    for x in range(-4,5):
-        _box(b,Vector3(x*3.5,5.6,0),Vector3(3.43,11.2,0.36),"dark")
+    for x in range(-6,7):
+        _box(b,Vector3(x*3.5,8.0,0),Vector3(3.43,16.0,0.36),"dark")
         _box(b,Vector3(x*3.5,1.15,0.24),Vector3(3.35,1.9,0.17),"trim")
-        _shape(b,"bevel",Vector3(x*3.5,5.5,0.29),Vector3(0.25,11.0,0.40),"slate")
-    _box(b,Vector3(0,8.9,0.5),Vector3(31.5,0.5,0.75),"slate")
-    b.flush()
+        _shape(b,"bevel",Vector3(x*3.5,8.0,0.29),Vector3(0.28,16.0,0.40),"slate")
+        _box(b,Vector3(x*3.5,10.5,0.24),Vector3(3.1,0.12,0.12),"edge")
+        _box(b,Vector3(x*3.5,13.0,0.25),Vector3(2.8,0.22,0.12),"blue_light")
+    _box(b,Vector3(0,12.8,0.5),Vector3(45.5,0.5,0.75),"slate")
+    _finish(b)
     for side in [-1,1]:
-        var utilities := _model(key,"UtilityBank_" + ("Left" if side<0 else "Right"),Vector3(side*11.3,0,-5.8))
+        var utilities := _model(key,"UtilityBank_" + ("Left" if side<0 else "Right"),Vector3(side*17.5,0,-10.8))
         b = _batch(utilities)
         _shape(b,"bevel",Vector3(0,2.2,0),Vector3(2.7,4.4,2.5),"slate")
         for i in range(5):
@@ -96,18 +154,48 @@ func _hall(key: String) -> void:
         _pipe(b,Vector3(0,4.4,0),Vector3(0,7.8,0),0.55)
         _pipe(b,Vector3(0,7.8,0),Vector3(-side*3.5,7.8,0),0.55)
         _box(b,Vector3(0,4.9,1.1),Vector3(0.9,0.13,0.15),"blue_light")
-        b.flush()
-    var gantry := _model(key,"OverheadServiceTruss",Vector3(0,9.8,-6.8))
+        _finish(b)
+    var gantry := _model(key,"OverheadServiceTruss",Vector3(0,13.6,-9.0))
     b = _batch(gantry)
     for z in [-0.8,0.8]:
-        _box(b,Vector3(0,0,z),Vector3(27,0.32,0.32),"slate")
-        _box(b,Vector3(0,1.2,z),Vector3(27,0.28,0.28),"trim")
-        for i in range(-6,6):
+        _box(b,Vector3(0,0,z),Vector3(42,0.32,0.32),"slate")
+        _box(b,Vector3(0,1.2,z),Vector3(42,0.28,0.28),"trim")
+        for i in range(-9,9):
             _pipe(b,Vector3(i*2.2,0,z),Vector3((i+1)*2.2,1.2,z),0.16,"slate")
     for x in [-9.0,0.0,9.0]:
         _box(b,Vector3(x,-0.18,0),Vector3(3.1,0.25,0.7),"armor")
         _box(b,Vector3(x,-0.33,0),Vector3(2.8,0.06,0.52),"blue_light")
-    b.flush()
+    _finish(b)
+    var structure := _model(key,"SideServiceStructure",Vector3.ZERO)
+    b = _batch(structure)
+    for side in [-1,1]:
+        for z in [-15.0,-5.0,5.0,15.0]:
+            _shape(b,"bevel",Vector3(side*20.5,7.8,z),Vector3(0.95,15.6,1.0),"armor")
+            _shape(b,"gusset",Vector3(side*20.0,1.0,z),Vector3(1.4,2.0,1.5),"edge")
+        _box(b,Vector3(side*20.0,11.9,0),Vector3(0.6,0.7,35),"slate")
+        _pipe(b,Vector3(side*19.3,10.8,-17),Vector3(side*19.3,10.8,17),0.55,"gold")
+        _box(b,Vector3(side*21.0,8.0,0),Vector3(0.28,16.0,36),"dark")
+    _finish(b)
+    var ceiling := _model(key,"HighHallCeiling",Vector3.ZERO)
+    b = _batch(ceiling)
+    for z in [-15.0,-5.0,5.0,15.0]:
+        _box(b,Vector3(0,15.4,z),Vector3(41.5,0.75,0.55),"slate")
+        for x in [-13.0,0.0,13.0]:
+            _box(b,Vector3(x,15.0,z),Vector3(4.2,0.12,0.5),"blue_light")
+    for x in [-15.5,15.5]:
+        _box(b,Vector3(x,14.1,0),Vector3(0.42,0.7,35),"gold")
+    _box(b,Vector3(0,16.1,0),Vector3(42,0.35,36),"dark")
+    _finish(b)
+    var gallery := _model(key,"RearTransferGallery",Vector3(0,0,-14.0))
+    b = _batch(gallery)
+    for x in [-15.0,-7.5,0.0,7.5,15.0]:
+        _shape(b,"bevel",Vector3(x,3.15,0),Vector3(0.42,6.3,0.42),"slate")
+        _box(b,Vector3(x,6.7,1.4),Vector3(0.12,1.1,0.12),"caution")
+        _shape(b,"gusset",Vector3(x,5.8,0.65),Vector3(0.45,1.1,1.5),"edge")
+    _shape(b,"deck",Vector3(0,6.15,0.5),Vector3(34,0.32,2.1),"armor")
+    _pipe(b,Vector3(-17,7.18,1.4),Vector3(17,7.18,1.4),0.11,"gold")
+    _pipe(b,Vector3(-17,6.70,1.4),Vector3(17,6.70,1.4),0.085,"edge")
+    _finish(b)
 
 func _console(key: String, at: Vector3, mode: int) -> void:
     var n := _model(key,"CrateOperatorTerminal",at)
@@ -118,7 +206,7 @@ func _console(key: String, at: Vector3, mode: int) -> void:
     _shape(b,"bevel",Vector3(0,1.23,0),Vector3(1.15,0.63,0.32),"armor")
     _box(b,Vector3(0,0.95,0.28),Vector3(1.12,0.12,0.42),"edge")
     _box(b,Vector3(-0.35,0.99,0.40),Vector3(0.14,0.05,0.12),"blue_light")
-    b.flush()
+    _finish(b)
     var panel := Monitor.new()
     panel.name = "OperatorDisplay"
     panel.position = Vector3(0,1.23,0.18)
@@ -138,14 +226,14 @@ func _conveyor(key: String, label: String, at: Vector3, width: float, length: fl
     for i in range(int(length/0.32)):
         var z: float = -length*0.5+0.16+i*0.32
         _pipe(b,Vector3(-width*0.44,0.99,z),Vector3(width*0.44,0.99,z),0.18,"edge")
-    b.flush()
+    _finish(b)
     return n
 
 func _cargo(parent: Node3D, label: String, at: Vector3, s: Vector3) -> Node3D:
     var n := _child(parent,label,at)
     var b = _batch(n)
     b.crate(Vector3(0,s.y*0.5,0),s)
-    b.flush()
+    _finish(b)
     return n
 
 func _labo(key: String) -> void:
@@ -167,14 +255,14 @@ func _labo(key: String) -> void:
             _box(b,Vector3(x,2.0+i*0.6,-2.77),Vector3(0.75,0.12,0.09),"edge")
     _box(b,Vector3(0,0.95,0),Vector3(5.2,0.3,4.7),"edge")
     _box(b,Vector3(0,1.16,0),Vector3(4.6,0.17,4.2),"dark")
-    b.flush()
+    _finish(b)
     inspection[key] = {"root":frame,"stand":Vector3(-2.4,0,4.5),"focus":Vector3(0,2.1,0)}
     var bridge_root := _model(key,"PrinterTravelBridge",Vector3(0,7.15,-1.8))
     var bridge := _child(bridge_root,"Travel")
     b = _batch(bridge)
     _shape(b,"bevel",Vector3(0,0,0),Vector3(8.1,0.65,0.95),"armor_light")
     _box(b,Vector3(0,-0.41,0),Vector3(7.2,0.14,0.55),"trim")
-    b.flush()
+    _finish(b)
     var head_mount := _child(bridge,"PrintHeadPlacement")
     (targets[key] as Array).append(head_mount)
     var head := _child(head_mount,"PrintHead")
@@ -183,7 +271,7 @@ func _labo(key: String) -> void:
     _pipe(b,Vector3(0,-1.2,0),Vector3(0,-3.5,0),0.40,"edge")
     _shape(b,"hood",Vector3(0,-3.65,0),Vector3(0.90,0.38,0.90),"armor")
     _box(b,Vector3(0,-3.86,0),Vector3(0.38,0.08,0.38),"lab_cyan")
-    b.flush()
+    _finish(b)
     _moving(key,"bridge",bridge)
     _moving(key,"head",head)
     var stock := _model(key,"RawMaterialFeedTower",Vector3(-7.1,0,-3.2))
@@ -193,8 +281,26 @@ func _labo(key: String) -> void:
         _pipe(b,Vector3(x,0.3,1.8),Vector3(x,5.4,1.8),0.38)
     _shape(b,"hopper",Vector3(0,6.0,0),Vector3(3.7,2.0,3.6),"armor")
     _pipe(b,Vector3(1.0,5.0,0),Vector3(3.2,5.0,0),0.65,"gold")
-    b.flush()
+    _finish(b)
     _conveyor(key,"FinishedPartConveyor",Vector3(6.6,0,1.5),2.6,6.0)
+    var feed_rack := _model(key,"FeedstockCassetteBank",Vector3(-9.7,0,-7.1))
+    b = _batch(feed_rack)
+    for x in [-2.1,0.0,2.1]:
+        for z in [-1.05,1.05]:
+            _shape(b,"octagonal_slew",Vector3(x,3.2,z),Vector3(0.25,6.4,0.3),"edge")
+    for y in [0.5,2.6,4.7]:
+        _shape(b,"deck",Vector3(0,y,0),Vector3(4.7,0.25,2.4),"slate")
+        for x in [-1.1,1.1]:
+            _shape(b,"cargo_case",Vector3(x,y+0.75,0),Vector3(1.65,1.25,1.75),"armor_light")
+            _box(b,Vector3(x,y+0.75,0.91),Vector3(0.68,0.20,0.07),"gold")
+    _finish(b)
+    var extraction := _model(key,"PrinterExtractionManifold",Vector3(3.9,0,-6.2))
+    b = _batch(extraction)
+    _shape(b,"vent_stack",Vector3(0,4.1,0),Vector3(1.65,8.2,1.65),"armor")
+    _shape(b,"gear",Vector3(0,7.85,0),Vector3(2.0,0.42,2.0),"edge")
+    _pipe(b,Vector3(0,7.6,0),Vector3(-3.8,7.6,0),0.8,"trim")
+    _pipe(b,Vector3(-3.8,7.6,0),Vector3(-3.8,6.9,0),0.8,"trim")
+    _finish(b)
     var product_root := _child(frame,"FabricatedWorkpieces",Vector3(0,1.26,0))
     (targets[key] as Array).append(product_root)
     for i in range(4):
@@ -214,7 +320,7 @@ func _labo(key: String) -> void:
             3:
                 _shape(b,"gusset",Vector3(0,1.0,0),Vector3(2.0,2.0,1.65),"armor_light")
                 _box(b,Vector3(0,0.25,0),Vector3(2.4,0.5,2.0),"slate")
-        b.flush()
+        _finish(b)
         piece.visible = false
     _moving(key,"products",product_root)
     motion_parts[key]["variant"] = -1
@@ -237,34 +343,45 @@ func _smelter(key: String) -> void:
         _pipe(b,Vector3(x,1.1,2.5),Vector3(x,6.8,2.5),0.38,"rust")
     for i in range(5):
         _box(b,Vector3(0,6.1+i*0.18,3.0),Vector3(4.8,0.09,0.15),"edge")
-    b.flush()
+    _finish(b)
     inspection[key] = {"root":furnace,"stand":Vector3(2.4,0,5.3),"focus":Vector3(0,3.0,4.1)}
     var hot := _child(furnace,"RecessedFire",Vector3(0,3.0,3.80))
     (targets[key] as Array).append(hot)
-    var flame := MeshInstance3D.new()
-    var quad := QuadMesh.new()
-    quad.size = Vector2(4.55,3.95)
-    flame.mesh = quad
-    var shader := Shader.new()
-    shader.code = """shader_type spatial;
-render_mode unshaded, cull_disabled;
-void fragment() {
-    vec2 p = UV;
-    float h = 1.0-p.y;
-    float wave = sin(p.x*22.0+TIME*3.2+h*9.0)*0.11 + sin(p.x*43.0-TIME*4.1+h*15.0)*0.07;
-    float tongues = smoothstep(0.05,0.30,0.67+wave-h);
-    float edge = smoothstep(0.0,0.12,p.x)*smoothstep(0.0,0.12,1.0-p.x);
-    float flicker = 0.86+0.14*sin(TIME*9.0+p.x*17.0+h*13.0);
-    vec3 heat = mix(vec3(0.18,0.55,1.0),vec3(1.0,0.31,0.035),smoothstep(0.08,0.32,h));
-    heat = mix(heat,vec3(1.0,0.78,0.25),smoothstep(0.45,0.9,tongues)*0.55);
-    ALBEDO = mix(vec3(0.08,0.045,0.028),heat,tongues*edge*flicker);
-}"""
-    var mat := ShaderMaterial.new()
-    mat.shader = shader
-    flame.material_override = mat
-    flame.set_meta("sera_preserve_authored_material",true)
-    flame.set_meta("sera_outline_occluder_only",true)
-    hot.add_child(flame)
+    for i in range(3):
+        var flame := MeshInstance3D.new()
+        flame.name = "CombustionLayer"+str(i)
+        var quad := QuadMesh.new()
+        quad.size = Vector2(4.46-float(i)*0.23,3.92-float(i)*0.20)
+        flame.mesh = quad
+        flame.position = Vector3(0.045*float(i-1),-0.10*float(i),0.19*float(i))
+        var mat := ShaderMaterial.new()
+        mat.shader = Combustion
+        mat.set_shader_parameter("layer_phase",float(i)*0.371)
+        mat.set_shader_parameter("layer_opacity",[0.93,0.57,0.36][i])
+        flame.material_override = mat
+        flame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        flame.set_meta("FX_NO_OUTLINE",true)
+        flame.set_meta("sera_no_view_edges",true)
+        flame.set_meta("sera_preserve_authored_material",true)
+        hot.add_child(flame)
+        fire_layers.append(mat)
+    fire_light = OmniLight3D.new()
+    fire_light.name = "LocalizedFurnaceRadiance"
+    fire_light.position = Vector3(0,2.0,4.50)
+    fire_light.light_color = Color("#ff9b54")
+    fire_light.light_energy = 1.5
+    fire_light.omni_range = 5.2
+    fire_light.shadow_enabled = false
+    furnace.add_child(fire_light)
+    var throat := _child(furnace,"RefractoryLining")
+    b = _batch(throat)
+    for side in [-1,1]:
+        _box(b,Vector3(side*2.33,3.18,4.04),Vector3(0.24,4.13,0.85),"rust")
+        _box(b,Vector3(side*1.85,3.19,4.51),Vector3(0.085,4.05,0.15),"trim")
+    _box(b,Vector3(0,0.99,4.0),Vector3(4.55,0.20,0.86),"rust")
+    for i in range(7):
+        _shape(b,"gear",Vector3(-1.80+i*0.60,1.12,4.0),Vector3(0.32,0.12,0.32),"edge")
+    _finish(b)
     for i in range(2):
         var stack := _model(key,"ExhaustStack"+str(i),Vector3(-2.1+i*4.2,0,-4.7))
         b = _batch(stack)
@@ -272,7 +389,7 @@ void fragment() {
         for y in [7.1,8.5,9.9]:
             _shape(b,"octagonal_slew",Vector3(0,y,0),Vector3(1.65,0.24,1.65),"edge")
         _shape(b,"hood",Vector3(0,10.45,0),Vector3(1.9,0.42,1.9),"trim")
-        b.flush()
+        _finish(b)
     var feed := _model(key,"SideChargeHopper",Vector3(-6.6,0,-0.6))
     b = _batch(feed)
     _shape(b,"hopper",Vector3(0,4.5,0),Vector3(3.5,2.7,3.7),"armor")
@@ -280,7 +397,7 @@ void fragment() {
         for z in [-1.1,1.1]:
             _shape(b,"gusset",Vector3(x,1.8,z),Vector3(0.45,3.6,0.48),"slate")
     _pipe(b,Vector3(0,3.5,0),Vector3(3.4,3.5,0),1.20,"armor")
-    b.flush()
+    _finish(b)
     var conveyor := _conveyor(key,"ChargeConveyor",Vector3(-6.6,0,3.5),2.4,5.0)
     var feed_mount := _child(conveyor,"FeedChargePlacement",Vector3(0,1.12,0))
     (targets[key] as Array).append(feed_mount)
@@ -293,7 +410,7 @@ void fragment() {
     b = _batch(ingot)
     _shape(b,"bevel",Vector3(0,0.30,0),Vector3(1.9,0.60,1.2),"amber")
     _box(b,Vector3(0,0.64,0),Vector3(1.55,0.07,0.9),"amber_light")
-    b.flush()
+    _finish(b)
     _moving(key,"output",ingot)
     _console(key,Vector3(-3.3,0,5.7),2)
 
@@ -311,7 +428,7 @@ func _recycler(key: String) -> void:
     _shape(b,"hood",Vector3(0,5.4,-1.8),Vector3(6.3,2.1,3.1),"slate")
     for x in [-3.0,3.0]:
         _box(b,Vector3(x,4.4,2.2),Vector3(0.24,0.18,2.0),"caution")
-    b.flush()
+    _finish(b)
     inspection[key] = {"root":base,"stand":Vector3(-2.0,0,4.7),"focus":Vector3(0,3.4,0)}
     for i in range(2):
         var shaft_root := _model(key,"CutterShaft"+str(i),Vector3(0,3.6,-2.6+i*1.75))
@@ -322,7 +439,7 @@ func _recycler(key: String) -> void:
             for j in range(6):
                 var a: float = TAU*j/6.0+x*0.24
                 b.box_tilt("CutterTooth",Vector3(x*0.58,cos(a)*0.66,sin(a)*0.66),Vector3(0.34,0.75,0.37),"armor",Vector3(a,0,0))
-        b.flush()
+        _finish(b)
         _moving(key,"shaft"+str(i),shaft)
     var feed := _conveyor(key,"ScrapFeedLine",Vector3(0,0,-6.3),4.5,5.6)
     var feed_mount := _child(feed,"ScrapBatchPlacement",Vector3(0,1.1,0))
@@ -337,8 +454,10 @@ func _recycler(key: String) -> void:
     _console(key,Vector3(4.7,0,4.0),3)
 
 func _storage(key: String) -> void:
-    for side in [-1,1]:
-        var rack := _model(key,"AutomatedRack"+("Left" if side<0 else "Right"),Vector3(side*4.8,0,-3.2))
+    for bay in range(4):
+        var side: int = -1 if bay%2==0 else 1
+        var row: int = int(bay/2)
+        var rack := _model(key,"AutomatedRack"+("Left" if side<0 else "Right")+("_Rear" if row>0 else ""),Vector3(side*(4.8+row*2.4),0,-3.2-row*5.5))
         var b = _batch(rack)
         for x in [-2.4,2.4]:
             for z in [-2.0,2.0]:
@@ -350,7 +469,7 @@ func _storage(key: String) -> void:
                 _box(b,Vector3(0,y+0.15,z),Vector3(4.9,0.18,0.20),"caution")
         _box(b,Vector3(0,9.1,0),Vector3(5.2,0.38,4.3),"armor")
         _pipe(b,Vector3(-2.4,0.5,-2.0),Vector3(2.4,9.0,-2.0),0.16,"trim")
-        b.flush()
+        _finish(b)
         for level in range(4):
             for col in range(2):
                 var cargo := _child(rack,"Stock_"+str(level)+"_"+str(col),Vector3(-1.18+col*2.36,0.60+level*2.25,0.15))
@@ -364,7 +483,7 @@ func _storage(key: String) -> void:
         _pipe(b,Vector3(x,0.3,-0.5),Vector3(x,9.1,-0.5),0.16,"gold")
     _box(b,Vector3(0,9.55,0),Vector3(3.25,0.60,1.1),"slate")
     _box(b,Vector3(0,0.18,0),Vector3(3.25,0.36,2.2),"trim")
-    b.flush()
+    _finish(b)
     var lift_root := _model(key,"CargoLiftPlatform",Vector3(0,0,-2.8))
     var platform := _child(lift_root,"LiftCarriage",Vector3(0,0.6,0.6))
     b = _batch(platform)
@@ -372,7 +491,7 @@ func _storage(key: String) -> void:
     _box(b,Vector3(0,0.75,-0.65),Vector3(2.55,1.35,0.23),"slate")
     for x in [-1.1,1.1]:
         _box(b,Vector3(x,0.23,0.9),Vector3(0.2,0.24,2.5),"edge")
-    b.flush()
+    _finish(b)
     var load_mount := _child(platform,"LiftCargoPlacement",Vector3(0,0.2,0.12))
     (targets[key] as Array).append(load_mount)
     var load := _cargo(load_mount,"LiftCargo",Vector3.ZERO,Vector3(1.8,1.25,1.6))
@@ -424,11 +543,16 @@ func start_cycle(key: String) -> void:
 func cycle_complete() -> bool:
     return not cycle_running
 
-func animate(delta: float, _time: float, key: String) -> void:
+func animate(delta: float, time: float, key: String) -> void:
     if key != active_key:
         return
     for panel in screens.get(key,[]):
         panel.call("_process",delta)
+    if key == "SMELTER":
+        for layer in fire_layers:
+            layer.set_shader_parameter("phase_time",time)
+        if is_instance_valid(fire_light):
+            fire_light.light_energy = 1.38+0.16*sin(time*3.13)+0.10*sin(time*7.71)
     if cycle_running:
         elapsed = minf(10.0,elapsed+delta)
         _sample(key,elapsed/10.0)
