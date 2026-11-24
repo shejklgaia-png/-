@@ -14,6 +14,7 @@ var context_poses: Dictionary = {}
 const IndustrialSurface = preload("res://shaders/sera_labo_industrial_surface.gdshader")
 const Combustion = preload("res://shaders/sera_labo_combustion.gdshader")
 const EQUIPMENT_SCALE := 1.30
+const WORK_DECK_RISE := 0.32
 var surface_cache: Dictionary = {}
 var fallback_texture: ImageTexture
 var fire_layers: Array[ShaderMaterial] = []
@@ -49,6 +50,11 @@ func build(stage: Node3D) -> void:
             "RECYCLER": _recycler(key)
             "STORAGE": _storage(key)
         _expand_equipment(key)
+        if key in ["LABO","STORAGE"]:
+            # Lift the complete assembly as a unit. Authored machine offsets,
+            # animation pivots and existing placement coordinates stay intact.
+            room.position.y = WORK_DECK_RISE
+            _raised_worksite(key)
         room.visible = false
 
 func _model(key: String, label: String, at: Vector3) -> Node3D:
@@ -197,6 +203,9 @@ func _build_outdoor_deck() -> void:
         floor.add_child(draw)
 
 func _outdoor_worksite(key: String) -> void:
+    # LABO/STORAGE receive dedicated raised decks with their own markings.
+    if key in ["LABO","STORAGE"]:
+        return
     # Open air in every direction. No continuous enclosure or hall ceiling.
     var markings := _model(key,"OutdoorWorkMarkings",Vector3.ZERO)
     var b = _batch(markings)
@@ -208,6 +217,134 @@ func _outdoor_worksite(key: String) -> void:
     for child in markings.get_children():
         if child is GeometryInstance3D:
             child.set_meta("sera_outline_occluder_only",true)
+
+func _raised_worksite(key: String) -> void:
+    # BASE's facility pads and partial protection structures are translated
+    # into real-size geometry. The two sets have open fronts and open skies.
+    # Everything below is authored AFTER the 1.30 machinery scaling.
+    var is_lab: bool = key == "LABO"
+    var center_x: float = -0.7 if is_lab else -0.4
+    var center_z: float = 1.1 if is_lab else 2.5
+    var width: float = 29.0 if is_lab else 30.0
+    var depth: float = 24.0 if is_lab else 25.0
+    var left: float = center_x-width*0.5
+    var right: float = center_x+width*0.5
+    var rear: float = center_z-depth*0.5
+    var front: float = center_z+depth*0.5
+    var platform := _model(key,"FacilityWorkDeck",Vector3.ZERO)
+    var b = _batch(platform)
+    # Slab bottom rests on the BASE floor (-0.03m); deck top at room y=0.
+    _shape(b,"bevel",Vector3(center_x,-0.205,center_z),
+        Vector3(width,0.29,depth),"dark")
+    # Flush machined plates with narrow genuine joints, no coplanar layer.
+    var cols: int = 6
+    var rows: int = 5
+    var dx: float = (width-0.56)/float(cols)
+    var dz: float = (depth-0.56)/float(rows)
+    for row in range(rows):
+        for col in range(cols):
+            var x: float = left+0.28+dx*(float(col)+0.5)
+            var z: float = rear+0.28+dz*(float(row)+0.5)
+            _shape(b,"deck",Vector3(x,-0.035,z),
+                Vector3(dx-0.045,0.07,dz-0.045),
+                "armor" if posmod(row+col,4)==0 else "slate")
+    # Recessed edge rails and service sockets echo the small BASE foundation.
+    for x in [left+0.14,right-0.14]:
+        _box(b,Vector3(x,-0.055,center_z),Vector3(0.28,0.11,depth),"trim")
+        _box(b,Vector3(x,-0.18,center_z),Vector3(0.10,0.15,depth-0.28),"edge")
+        for i in range(6):
+            var z: float = rear+1.3+(depth-2.6)*float(i)/5.0
+            _shape(b,"bevel",Vector3(x,-0.11,z),Vector3(0.32,0.17,0.55),"edge")
+    for z in [rear+0.14,front-0.14]:
+        _box(b,Vector3(center_x,-0.055,z),Vector3(width-0.56,0.11,0.28),"trim")
+    # Front edge interrupted at the access ramps. No fence across the approach.
+    var access_x: float = 2.8 if is_lab else 5.3
+    for i in range(14):
+        var x: float = left+1.0+float(i)*(width-2.0)/13.0
+        if absf(x-access_x)<3.1 or (not is_lab and absf(x+10.0)<2.8):
+            continue
+        _box(b,Vector3(x,0.008,front-0.55),Vector3(1.15,0.016,0.16),"caution")
+    var ramp_centers: Array = [access_x] if is_lab else [access_x,-10.0]
+    for x in ramp_centers:
+        b.box_tilt("AccessRamp",Vector3(float(x),-0.22,front+1.0),
+            Vector3(5.2,0.12,2.02),"armor",Vector3(0.1587,0,0))
+        for side in [-1.0,1.0]:
+            b.box_tilt("RampEdgeMark",Vector3(float(x)+side*2.43,-0.151,front+1.0),
+                Vector3(0.11,0.015,2.01),"caution",Vector3(0.1587,0,0))
+    # Visible operating lanes outside machine plinths, not a second floor.
+    for x in [left+1.1,right-1.1]:
+        _box(b,Vector3(x,0.008,center_z),Vector3(0.10,0.016,depth-3.0),"caution")
+    _finish(b)
+    for child in platform.get_children():
+        if child is GeometryInstance3D:
+            child.set_meta("sera_preserve_authored_material",true)
+    # Distinct designs: the LABO has a rear splash/wind screen with short
+    # returns; storage has a cargo-restraint perimeter and rear weather screen.
+    var enclosure := _model(key,"LabOpenWorkcellEnclosure" if is_lab else "StorageOpenYardEnclosure",Vector3.ZERO)
+    b = _batch(enclosure)
+    var rear_z: float = rear+0.58
+    var panel_height: float = 3.1 if is_lab else 2.45
+    var post_height: float = 4.65 if is_lab else 3.45
+    var post_x0: float = left+0.68
+    var post_x1: float = right-0.68
+    var bay: float = (post_x1-post_x0)/6.0
+    for i in range(7):
+        var x: float = post_x0+bay*float(i)
+        _shape(b,"gusset",Vector3(x,0.34,rear_z),Vector3(0.78,0.68,0.84),"edge")
+        _shape(b,"octagonal_slew",Vector3(x,post_height*0.5,rear_z),
+            Vector3(0.36,post_height,0.40),"slate")
+        _shape(b,"bevel",Vector3(x,post_height-0.16,rear_z),
+            Vector3(0.51,0.24,0.55),"edge")
+        if i<6:
+            var mid: float = x+bay*0.5
+            _shape(b,"bevel",Vector3(mid,panel_height*0.5+0.24,rear_z),
+                Vector3(bay-0.44,panel_height,0.24),"armor")
+            _box(b,Vector3(mid,0.29,rear_z+0.16),Vector3(bay-0.47,0.19,0.12),"trim")
+            _box(b,Vector3(mid,panel_height+0.21,rear_z+0.16),
+                Vector3(bay-0.44,0.15,0.12),"edge")
+            if is_lab:
+                _shape(b,"louver",Vector3(mid,1.14,rear_z+0.17),
+                    Vector3(bay*0.58,0.9,0.13),"trim")
+            else:
+                _pipe(b,Vector3(x+0.22,panel_height+0.52,rear_z),
+                    Vector3(x+bay-0.22,post_height-0.18,rear_z),0.15,"trim")
+    _box(b,Vector3(center_x,post_height-0.18,rear_z),
+        Vector3(post_x1-post_x0+0.35,0.22,0.32),"edge")
+    # Side returns stop in the rear part of each yard. The front and
+    # the left-side storage receiving conveyor remain open.
+    for side in [-1.0,1.0]:
+        var x: float = left+0.68 if side<0 else right-0.68
+        var side_span: float = 7.2 if is_lab else 5.2
+        var end_z: float = rear_z+side_span
+        var side_h: float = 2.35 if is_lab else 1.28
+        for i in range(1,4):
+            var z: float = rear_z+side_span*float(i)/3.0
+            _shape(b,"gusset",Vector3(x,0.30,z),Vector3(0.65,0.60,0.65),"edge")
+            _shape(b,"octagonal_slew",Vector3(x,(side_h+0.52)*0.5,z),
+                Vector3(0.29,side_h+0.52,0.29),"slate")
+            if is_lab:
+                _shape(b,"bevel",Vector3(x,side_h*0.5+0.16,z-side_span/6.0),
+                    Vector3(0.22,side_h,side_span/3.0-0.35),"armor")
+            else:
+                for y in [0.42,1.22]:
+                    _box(b,Vector3(x,y,z-side_span/6.0),
+                        Vector3(0.19,0.15,side_span/3.0),"edge" if y<1.0 else "gold")
+        _box(b,Vector3(x,side_h+0.32,(rear_z+end_z)*0.5),
+            Vector3(0.23,0.14,side_span),"edge")
+        _box(b,Vector3(x,side_h+0.18,end_z+0.04),Vector3(0.25,0.18,0.11),"lab_cyan")
+    if is_lab:
+        # A narrow weather hood above the rear perimeter only. It never
+        # spans the printer/SCARA envelope or replaces the open sky.
+        for x in [post_x0+bay,post_x0+bay*3.0,post_x0+bay*5.0]:
+            _pipe(b,Vector3(x,post_height-0.22,rear_z),
+                Vector3(x,post_height-0.48,rear_z+1.40),0.18,"trim")
+        b.poly_tilt("RearServiceWeatherHood","roof",Vector3(center_x,post_height-0.16,rear_z+0.56),
+            Vector3(width-1.1,0.16,1.42),"armor_light",Vector3(0.09,0,0))
+    else:
+        # Warehouse rear screen receives a slim weather cap. No whole-yard roof.
+        b.poly_tilt("CargoRearWeatherCap","roof",Vector3(center_x,post_height-0.12,rear_z+0.28),
+            Vector3(width-1.1,0.16,0.96),"armor",Vector3(0.09,0,0))
+    _finish(b)
 
 func set_base_context(sources: Dictionary) -> void:
     # Copy render nodes only. No duplicated scripts, lights, particles or UI.
