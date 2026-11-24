@@ -66,8 +66,8 @@ func _profile(points: PackedVector3Array, i: int, radius: float, bias: float) ->
     if direction.length_squared() < 0.001:
         direction = Vector2.RIGHT
     var normal := Vector2(-direction.y, direction.x)
-    # Cross-cable width is strictly local: normally 0.78m, thick GRID
-    # cable 0.98m. No width increase due to road length or other cables.
+    # Cross-cable width is strictly local: normally 0.79m, thick GRID
+    # cable 0.94m. No width increase due to road length or other cables.
     var half_top: float = radius + 0.075
     var half_width: float = half_top + 0.25
     var top: float = maxf(0.16, p.y + radius + 0.035) + bias
@@ -82,15 +82,14 @@ func _key(p: Vector2) -> Vector2i:
     return Vector2i(floori(p.x / HASH_SIZE), floori(p.y / HASH_SIZE))
 
 
-func _record(a: Vector3, b: Vector3, pa: PackedVector3Array, pb: PackedVector3Array, radius: float) -> void:
+func _record(pa: PackedVector3Array, pb: PackedVector3Array) -> void:
     var bounds := Rect2(_xz(pa[0]), Vector2.ZERO)
     for p in pa:
         bounds = bounds.expand(_xz(p))
     for p in pb:
         bounds = bounds.expand(_xz(p))
     var id: int = _sections.size()
-    _sections.append({"a": _xz(a), "b": _xz(b), "ha": pa[1].y, "hb": pb[1].y,
-        "flat": radius + 0.075, "bounds": bounds, "pa": pa, "pb": pb})
+    _sections.append({"bounds": bounds, "pa": pa, "pb": pb})
     var low: Vector2i = _key(bounds.position)
     var high: Vector2i = _key(bounds.end)
     for x in range(low.x, high.x + 1):
@@ -112,7 +111,7 @@ func _emit_section(deck: SurfaceTool, trim: SurfaceTool, points: PackedVector3Ar
         var k: float = fraction
         _quad(trim, pa[1].lerp(pa[2], k) + up, pb[1].lerp(pb[2], k) + up,
             pb[1].lerp(pb[2], k + 0.16) + up, pa[1].lerp(pa[2], k + 0.16) + up)
-    _record(points[i], points[i + 1], pa, pb, radius)
+    _record(pa, pb)
 
 
 func build(paths: Array[Dictionary], logistics: Node3D) -> void:
