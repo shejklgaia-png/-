@@ -334,7 +334,6 @@ var _selection_launcher_view := Vector2(-1.0, -1.0)
 var gate_door_leaves: Array[MeshInstance3D] = []
 var gate_arch_contour_cache: Array[PackedVector2Array] = []
 var gate_occluder_cache: Array = []
-var gate_terminal_strokes_cache: Array[PackedVector2Array] = []
 var selection_visible_strokes: Dictionary = {}
 var gate_contour_active: bool = false
 var _selection_pose_dirty: bool = true
@@ -1216,9 +1215,11 @@ void fragment() {
     # including projecting beams, columns and seams. Keep these surface
     # planes as a subtle supplementary depth grade, not the primary mask.
     var wall := _nexus_atmosphere_material(shader, 1, Color("#8296a5"), 0.25)
-    _nexus_atmosphere_plane(root, "RearWallLeftFilter", Vector3(-3.505,4.18,-27.38), Vector2(13.09,8.46), wall)
-    _nexus_atmosphere_plane(root, "RearWallRightFilter", Vector3(9.625,4.18,-27.38), Vector2(0.85,8.46), wall)
-    _nexus_atmosphere_plane(root, "RearWallHeaderFilter", Vector3(6.25,9.32,-27.38), Vector2(7.48,1.80), wall)
+    # Exactly match the revised rectangular wall opening. No veil over
+    # the independent portal or its tunnel.
+    _nexus_atmosphere_plane(root, "RearWallLeftFilter", Vector3(-3.675,4.375,-27.38), Vector2(12.75,8.85), wall)
+    _nexus_atmosphere_plane(root, "RearWallRightFilter", Vector3(9.95,4.375,-27.38), Vector2(0.20,8.85), wall)
+    _nexus_atmosphere_plane(root, "RearWallHeaderFilter", Vector3(6.375,9.51,-27.38), Vector2(7.35,1.42), wall)
     var ceiling := _nexus_atmosphere_material(shader, 2, Color("#8498a8"), 0.25)
     _nexus_atmosphere_plane(root, "CeilingDepthGradient", Vector3(0,9.39,-7.8), Vector2(19.7,39.4), ceiling, -PI*0.5)
     _ambience_floor_filter = _nexus_atmosphere_material(shader, 4, Color("#7c92a1"), 0.15)
@@ -5851,8 +5852,11 @@ func _rebuild_projected_silhouettes() -> void:
             gate_occluders.append_array(render_shapes.get(nearer, []))
         gate_arch_contour_cache = _project_render_contour("GATE_ARCH")
         gate_occluder_cache = _prepare_gate_masks(gate_occluders)
-        gate_terminal_strokes_cache = _clip_gate_strokes(
-            _project_render_contour("DEPLOYMENT"), gate_occluder_cache)
+        # Treat the gate and its console as one selectable projected solid.
+        # Union their overlapping silhouettes BEFORE adding live door leaves
+        # or clipping foreground occlusion; never append separate strokes.
+        for terminal_shape in _project_render_contour("DEPLOYMENT"):
+            _union_outer_contours(gate_arch_contour_cache, terminal_shape)
         gate_contour_active = true
         visible_strokes["DEPLOYMENT"] = _live_gate_strokes()
     selection_visible_strokes = visible_strokes
@@ -5896,9 +5900,7 @@ func _live_gate_strokes() -> Array[PackedVector2Array]:
     # when closed, and no line bridging empty doorway space when open.
     for shape in _project_selection_clusters(leaf_clusters):
         _union_outer_contours(joined, shape)
-    var strokes: Array[PackedVector2Array] = _clip_gate_strokes(joined, gate_occluder_cache)
-    strokes.append_array(gate_terminal_strokes_cache)
-    return strokes
+    return _clip_gate_strokes(joined, gate_occluder_cache)
 
 # Only actual physical room geometry receives BASE ink. Emitters, screens,
 # lettering, VFX and the sliding door remain depth-only in BASE black ink.

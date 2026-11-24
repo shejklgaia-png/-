@@ -1,8 +1,8 @@
 extends RefCounted
 ## Deployment wall dock: a fixed-cost, authored-scale access apron and bulkhead.
 ## The gate itself still comes from the original Blockbench module; this
-## supplies large cast side wings, a machined lintel, an inclined entry deck,
-## and a visible auxiliary launch console without per-frame updates.
+## supplies an inclined entry deck, portal trim and a visible auxiliary
+## launch console without embedding separate room-wall supports.
 
 static func build(room: Node3D, gate_at: Vector3,
         gate_yaw: float, _gate_scale: float) -> void:
@@ -18,23 +18,8 @@ static func build(room: Node3D, gate_at: Vector3,
     var cyan := _material(Color("#6bd5ff"), true)
     var amber := _material(Color("#e9b644"), true)
 
-    # Two continuous flared castings join the rear wall plane (z=-27.4)
-    # and the enlarged gate cheeks. They never enter the central aperture.
-    var wing_profile := PackedVector2Array([
-        Vector2(-2.65, -0.78), Vector2(-2.65, 7.75),
-        Vector2(0.28, 7.75), Vector2(1.50, 6.92),
-        Vector2(2.12, -0.78)
-    ])
-    for side_value in [-1, 1]:
-        var side: float = float(side_value)
-        _prism(root, "WallButtress%d" % side_value,
-            wing_profile, 0.34, side * 2.81, 0.0, steel)
-        _prism(root, "GateToWallGusset%d" % side_value,
-            PackedVector2Array([
-                Vector2(-2.45, 0.42), Vector2(-2.45, 6.85),
-                Vector2(-0.92, 7.20), Vector2(1.16, 5.72),
-                Vector2(1.16, 0.42)]),
-            0.12, side * 3.12, 0.0, iron)
+    # The portal already has its own armored load-bearing pillars.
+    # Do not embed separate wall buttresses or gussets in those cheeks.
 
     # Wedge-ramp raises the forward approach smoothly to the new 0.8 m
     # threshold. Its near edge meets the gate rather than floating above it.
@@ -53,20 +38,10 @@ static func build(room: Node3D, gate_at: Vector3,
 
     # Additional precision-machined parts share three MultiMesh draw batches.
     var boxes: Dictionary = {}
-    _box(boxes, "iron", Vector3(0.0, 7.55, -1.55),
-        Vector3(6.18, 0.86, 2.55))
-    _box(boxes, "steel", Vector3(0.0, 8.13, -0.63),
-        Vector3(6.38, 0.42, 1.12))
-    _box(boxes, "trim", Vector3(0.0, 8.41, 0.20),
-        Vector3(5.67, 0.22, 0.30))
+    # The old overlapping wall lintel and rear tie blocks are removed.
+    # Keep only the actual portal trim, lights and approach hardware.
     for side_value in [-1, 1]:
         var side: float = float(side_value)
-        # Rear tie blocks pierce the rear-wall facing, closing the gap on
-        # the angled right cheek without spreading toward the center pillar.
-        _box(boxes, "iron", Vector3(side * 2.42, 3.23, -3.04),
-            Vector3(0.62, 8.0, 1.72))
-        _box(boxes, "iron", Vector3(side * 2.86, 4.38, -1.95),
-            Vector3(0.56, 6.96, 2.50))
         _box(boxes, "trim", Vector3(side * 2.77, 4.12, 1.27),
             Vector3(0.16, 4.40, 0.18))
         _box(boxes, "cyan", Vector3(side * 2.58, 4.33, 1.43),
