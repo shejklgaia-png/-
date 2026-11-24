@@ -1031,9 +1031,14 @@ func _view_input(event: InputEvent) -> void:
                     if last_point.distance_to(event.position) <= 12.0:
                         _begin_stroke()
                         _paint(event.position)
-                elif not rotation_mode and not stroke:
-                    _begin_stroke()
-                    _paint(event.position)
+                elif not rotation_mode:
+                    if not stroke:
+                        _begin_stroke()
+                        _paint(event.position)
+                    elif points.has(event.index):
+                        var tail: Vector2 = points[event.index]
+                        if tail.distance_squared_to(event.position) > 0.0001:
+                            _paint_path(tail,event.position)
             points.erase(event.index)
             if points.is_empty():
                 _end_stroke()
@@ -1120,20 +1125,50 @@ func _paint_path(start: Vector2, finish: Vector2) -> void:
     if tool_picker.selected in [2,3,7,8,11,12]:
         _paint(finish)
         return
-    # Recast along the screen drag, including UV seams, with bounded work.
-    var steps := clampi(ceili(start.distance_to(finish)/10.0),1,8)
+    # Sample the actual screen stroke, then subdivide intervals crossing
+    # triangles or UV islands. Do not interpolate straight across atlas
+    # gaps. Bound extra raycasts per input event for mobile.
+    var steps: int = clampi(ceili(start.distance_to(finish)/8.0),1,16)
+    var previous: Vector2 = start
+    var previous_hit: Dictionary = _pick_paint_surface(start)
+    var budget: int = 48
     for i in range(1,steps+1):
-        _paint(start.lerp(finish,float(i)/steps),false)
+        var next: Vector2 = start.lerp(finish,float(i)/steps)
+        var next_hit: Dictionary = _pick_paint_surface(next)
+        budget = _trace_paint_interval(previous,next,previous_hit,next_hit,budget,0)
+        previous = next
+        previous_hit = next_hit
     _composite()
     tex.update(img)
 
-func _paint(at: Vector2, flush: bool = true) -> void:
+func _pick_paint_surface(at: Vector2) -> Dictionary:
+    if host.size.x <= 0 or host.size.y <= 0:
+        return {}
+    var pt: Vector2 = at / host.size * Vector2(view.size)
+    return UV.hit(triangles,camera.project_ray_origin(pt)+center,camera.project_ray_normal(pt))
+
+func _trace_paint_interval(start: Vector2,finish: Vector2,a: Dictionary,b: Dictionary,budget: int,depth: int) -> int:
+    var distance: float = start.distance_to(finish)
+    var crosses: bool = a.is_empty() != b.is_empty()
+    if not a.is_empty() and not b.is_empty():
+        crosses = int(a.triangle) != int(b.triangle)
+    elif a.is_empty() and b.is_empty():
+        crosses = distance > 4.0
+    if crosses and distance > 0.75 and budget > 0 and depth < 7:
+        var mid: Vector2 = (start+finish)*0.5
+        var hit: Dictionary = _pick_paint_surface(mid)
+        budget = _trace_paint_interval(start,mid,a,hit,budget-1,depth+1)
+        return _trace_paint_interval(mid,finish,hit,b,budget,depth+1)
+    _paint(finish,false,b)
+    return budget
+
+func _paint(at: Vector2, flush: bool = true, picked: Variant = null) -> void:
     if img == null or not stroke or host.size.x <= 0 or host.size.y <= 0:
         return
     var pt := at / host.size * Vector2(view.size)
     var origin := camera.project_ray_origin(pt)+center
     var direction := camera.project_ray_normal(pt)
-    var hit: Dictionary = UV.hit(triangles,origin,direction)
+    var hit: Dictionary = UV.hit(triangles,origin,direction) if picked == null else picked
     if hit.is_empty():
         if grid_mode == 2:
             return
