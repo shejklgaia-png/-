@@ -319,6 +319,21 @@ func _restore_saved() -> void:
     if host == null:
         return
     for key in entries.keys():
+        var angle: Dictionary = Store.read("nexus/camera/" + key)
+        if angle.has("eye") and angle.has("look") and angle.has("fov"):
+            var entry: Dictionary = entries[key]
+            var base_focus: Dictionary = entry["focus"]
+            base_focus["eye"] = Store.vec(angle["eye"])
+            base_focus["look"] = Store.vec(angle["look"])
+            base_focus["fov"] = float(angle["fov"])
+            entry["focus"] = base_focus
+            entries[key] = entry
+            var view: Dictionary = host.focus_views.get(key, {})
+            if not view.is_empty():
+                view["eye"] = base_focus["eye"]
+                view["look"] = base_focus["look"]
+                view["fov"] = base_focus["fov"]
+                host.focus_views[key] = view
         var rec: Dictionary = Store.read("nexus/model/" + key)
         if rec.has("position") and rec.has("yaw_rad"):
             _set_pose(key, Store.vec(rec["position"]), float(rec["yaw_rad"]), false)
