@@ -344,6 +344,7 @@ func _restore_saved() -> void:
             base_focus["eye"] = Store.vec(angle["eye"])
             base_focus["look"] = Store.vec(angle["look"])
             base_focus["fov"] = float(angle["fov"])
+            base_focus["roll_deg"] = float(angle.get("roll_deg", 0.0))
             entry["focus"] = base_focus
             entries[key] = entry
             var view: Dictionary = host.focus_views.get(key, {})
@@ -351,6 +352,7 @@ func _restore_saved() -> void:
                 view["eye"] = base_focus["eye"]
                 view["look"] = base_focus["look"]
                 view["fov"] = base_focus["fov"]
+                view["roll_deg"] = base_focus["roll_deg"]
                 host.focus_views[key] = view
         var rec: Dictionary = Store.read("nexus/model/" + key)
         if rec.has("position") and rec.has("yaw_rad"):
