@@ -3,7 +3,7 @@ extends RefCounted
 const MAX_TRIANGLES = 12000
 const PADDING = 2
 
-static func build(source: MeshInstance3D, density: int, preserve_shape: bool = true, balanced_shape: bool = false, exact_block: bool = true) -> Dictionary:
+static func build(source: MeshInstance3D, density: int, preserve_shape: bool = true, balanced_shape: bool = false, exact_block: bool = true, rigid_edge: bool = true) -> Dictionary:
     var tris: Array[Dictionary] = []
     var charts: Array[Dictionary] = []
     var scale_basis: Basis = source.global_transform.basis if source.is_inside_tree() else source.transform.basis
@@ -111,6 +111,8 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
                 affine_report += " / "+_threshold_joint_search(tris,charts,density)
                 if exact_block:
                     affine_report += " / "+_exact_block_search(tris,charts,density,true)
+                    if rigid_edge:
+                        affine_report += " / "+_rigid_edge_search(tris,charts,density)
             else:
                 affine_report += " / 閾値連立 規模上限"
     else:
@@ -188,7 +190,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     arrays[Mesh.ARRAY_TEX_UV2] = diagnostic_uv
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":(("shape-affine-v20" if exact_block else "shape-affine-v19") if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
+    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":((("shape-affine-v22" if rigid_edge else "shape-affine-v20") if exact_block else "shape-affine-v19") if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
 
 ## Group connected coplanar triangles, and the two halves of slightly
 ## warped authored quads. Never use an internal triangulation diagonal
@@ -4982,3 +4984,88 @@ static func _exact_block_search(tris: Array[Dictionary],charts: Array[Dictionary
                         score = _local_uv_metrics(tris,links,all_links)
                         break
     return "exact block %d/%d; bad %d->%d, max %.4f->%.4f, sum %.4f->%.4f" % [accepted,tested,int(base.y),int(score.y),base.x,score.x,base.z,score.z]
+
+# Rigid rotation about a seam midpoint plus phase translation. Unlike
+# rank-one shearing, rotation preserves every edge length and face area.
+static func _rigid_edge_delta(segment: PackedVector2Array,chart: Dictionary,angle: float,mid_shift: Vector2) -> Array:
+    var dx := Vector2(cos(angle)-1.0,sin(angle))
+    var dy := Vector2(-sin(angle),cos(angle)-1.0)
+    var rel: Vector2 = (segment[0]+segment[1]-Vector2(chart.min)-Vector2(chart.max))*0.5
+    return [mid_shift-dx*rel.x-dy*rel.y,dx,dy]
+
+static func _rigid_edge_search(tris: Array[Dictionary],charts: Array[Dictionary],density: int) -> String:
+    var links: Array[Dictionary] = _seam_segments(tris)
+    var all_links: Array = range(links.size())
+    var base: Vector3 = _local_uv_metrics(tris,links,all_links)
+    if base.y==0:
+        return "rigid edge: within threshold"
+    var members: Array = []
+    var incident: Array = []
+    for ci in range(charts.size()):
+        members.append([])
+        incident.append([])
+    for ti in range(tris.size()):
+        (members[int(tris[ti].chart)] as Array).append(ti)
+    for li in all_links:
+        (incident[int(links[li].a)] as Array).append(li)
+        (incident[int(links[li].b)] as Array).append(li)
+    var shape: Vector3 = _topology_distortion(tris,density)
+    var capacity: int = _hinge_pack_side(charts)
+    var score: Vector3 = base
+    var tested: int = 0
+    var accepted: int = 0
+    for sweep in range(3):
+        var ranked: Array[int] = []
+        var errors: Array[float] = []
+        for li in all_links:
+            var e: float = _local_uv_link_error(tris,links[li])
+            errors.append(e)
+            if e>0.25:
+                ranked.append(li)
+        ranked.sort_custom(func(a: int,b: int) -> bool: return errors[a]>errors[b] if errors[a]!=errors[b] else a<b)
+        var start_accepted: int = accepted
+        for j in range(mini(48,ranked.size())):
+            var link: Dictionary = links[ranked[j]]
+            if _local_uv_link_error(tris,link)<=0.25:
+                continue
+            var ca: int = int(link.a)
+            var cb: int = int(link.b)
+            var a: PackedVector2Array = _segment_uv(tris[int(link.ta)],int(link.ea),float(link.a0),float(link.a1),"xy")
+            var b: PackedVector2Array = _segment_uv(tris[int(link.tb)],int(link.eb),float(link.b0),float(link.b1),"xy")
+            var da: Vector2 = a[1]-a[0]
+            var db: Vector2 = b[1]-b[0]
+            var angle: float = db.angle_to(da)
+            var quarter: float = roundf(angle/(PI*0.5))*(PI*0.5)
+            var delta: float = angle-quarter
+            var middle: Vector2 = (a[0]+a[1])*0.5-((b[0]+b[1])*0.5).rotated(quarter)
+            # Evaluate both nearest midpoint phase and the original
+            # endpoint phase, without altering the diagnostic definition.
+            var e0: Vector2 = a[0]-b[0].rotated(quarter)
+            var endpoint_phase: Vector2 = middle-e0.round()
+            var midpoint_phase: Vector2 = middle-middle.round()
+            var done: bool = false
+            for rate in [1.0,0.5,0.25]:
+                var f: float = float(rate)
+                for mode in range(3):
+                    var aa: float = -delta*f*(0.5 if mode==0 else 1.0) if mode!=2 else 0.0
+                    var ab: float = delta*f*(0.5 if mode==0 else 1.0) if mode!=1 else 0.0
+                    for phase_choice in range(2):
+                        var phase: Vector2 = endpoint_phase if phase_choice==0 else midpoint_phase
+                        var changes: Dictionary = {}
+                        if mode!=2:
+                            changes[ca] = _rigid_edge_delta(a,charts[ca],aa,-phase*f*(0.5 if mode==0 else 1.0))
+                        if mode!=1:
+                            changes[cb] = _rigid_edge_delta(b,charts[cb],ab,phase.rotated(-quarter)*f*(0.5 if mode==0 else 1.0))
+                        tested += 1
+                        if _exact_block_trial(tris,charts,links,members,incident,changes,density,shape,capacity,score):
+                            accepted += 1
+                            score = _local_uv_metrics(tris,links,all_links)
+                            done = true
+                            break
+                    if done:
+                        break
+                if done:
+                    break
+        if accepted==start_accepted:
+            break
+    return "rigid edge %d/%d; bad %d->%d, max %.4f->%.4f, sum %.4f->%.4f" % [accepted,tested,int(base.y),int(score.y),base.x,score.x,base.z,score.z]

@@ -26,8 +26,8 @@ func _run() -> void:
     var source: MeshInstance3D = snapshot.source
     host.add_child(source)
     var begin := Time.get_ticks_msec()
-    var variant: String = args[3] if args.size() > 3 else "v20"
-    var result: Dictionary = UV.build(source,density,true,true,variant!="baseline")
+    var variant: String = args[3] if args.size() > 3 else "v22"
+    var result: Dictionary = UV.build(source,density,true,true,true,variant!="baseline")
     var elapsed := Time.get_ticks_msec()-begin
     if result.has("error"):
         push_error(str(result.error))
