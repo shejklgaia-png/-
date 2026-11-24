@@ -581,6 +581,16 @@ static func _generator(g: Variant) -> void:
         Vector3(1.40, 0.45, 1.39), 0.12, "rubber")
 
 
+# Common physical packaging: warehouse shelves and moving logistics pallets.
+static func storage_cargo(g: Variant, p: Vector3, factor: float, column: int, row: int) -> void:
+    g.poly("FreshStorageCargoCase", "cargo_case", p,
+        Vector3(0.94, 0.58, 0.90) * factor, "crate" if column == 0 else "armor_light")
+    g.box("FreshStorageCargoLock", p + Vector3(0, -0.07, 0.47) * factor,
+        Vector3(0.32, 0.13, 0.07) * factor, "edge")
+    g.box("FreshStorageCargoID", p + Vector3(0.19, 0.14, 0.47) * factor,
+        Vector3(0.32, 0.15, 0.06) * factor, "caution" if row == 0 else "blue")
+
+
 static func _storage(g: Variant) -> void:
     # Rear storage rack and clear forward loading apron, with rail-guided lift.
     _pad(g, 2.61, 2.36)
@@ -610,14 +620,7 @@ static func _storage(g: Variant) -> void:
         for col in range(2):
             var p := Vector3(-0.55 + float(col) * 1.10,
                 1.04 + float(row) * 0.91, -0.38)
-            g.poly("FreshStorageCargoCase", "cargo_case", p,
-                Vector3(0.94, 0.58, 0.90), "crate" if col == 0 else "armor_light")
-            g.box("FreshStorageCargoLock",
-                p + Vector3(0, -0.07, 0.47),
-                Vector3(0.32, 0.13, 0.07), "edge")
-            g.box("FreshStorageCargoID",
-                p + Vector3(0.19, 0.14, 0.47),
-                Vector3(0.32, 0.15, 0.06), "caution" if row == 0 else "blue")
+            storage_cargo(g, p, 1.0, col, row)
     g.rod("FreshStorageRearCrossBrace",
         Vector3(-1.13, 0.67, -1.03),
         Vector3(1.13, 2.61, -1.03), 0.11, "edge")
