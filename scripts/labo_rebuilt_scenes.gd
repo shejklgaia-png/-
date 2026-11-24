@@ -965,6 +965,9 @@ func _smelter(key: String) -> void:
     _finish(b)
     _moving(key,"charge_carrier",charge_carrier)
     _moving(key,"charge_conveyor",conveyor)
+    _moving(key,"charge_hoist",hoist)
+    _moving(key,"charge_mount",feed_mount)
+    _moving(key,"furnace",furnace)
     # Fixed chute receives cargo only when the hoist reaches its upper stop.
     b = _batch(hoist)
     b.box_tilt("UpperChargeSlide",Vector3(0,6.06,1.55),Vector3(1.75,0.12,1.65),"slate",Vector3(0.12,0,0))
@@ -978,6 +981,8 @@ func _smelter(key: String) -> void:
     _box(b,Vector3(0,0.64,0),Vector3(1.55,0.07,0.9),"amber_light")
     _finish(b)
     _moving(key,"output",ingot)
+    _moving(key,"casting_line",cast)
+    _moving(key,"ingot_mount",ingot_mount)
     var cooling := _model(key,"CastingSpoutAndCoolingService",Vector3(6.15,0,1.2))
     b = _batch(cooling)
     _shape(b,"tray",Vector3(0,1.35,0.35),Vector3(2.7,0.45,2.8),"rust")
@@ -994,6 +999,7 @@ func _smelter(key: String) -> void:
         _pipe(b,Vector3(x,0.45,-0.82),Vector3(x,0.45,1.38),0.15,"blue")
     _panel_detail(b,1.55,0.85,-0.48,0.72,0.53)
     _finish(b)
+    _moving(key,"cooling",cooling)
     _task_light(cooling,Vector3(0.0,2.1,0.65),Color("#ffae68"),5.0,0.8)
     _console(key,Vector3(-3.3,0,6.7),2)
 
@@ -1041,6 +1047,7 @@ func _recycler(key: String) -> void:
                 Vector3(1.22,0.38,1.22),"edge",Vector3(0,0,PI*0.5))
         _finish(b)
         _moving(key,"shaft"+str(i),shaft)
+        _moving(key,"shaft_root"+str(i),shaft_root)
     var feed := _conveyor(key,"ScrapFeedLineV2",Vector3(0,0,-12.2),4.5,4.1)
     var feed_mount := _child(feed,"ScrapBatchPlacement",Vector3(0,1.1,0))
     (targets[key] as Array).append(feed_mount)
@@ -1056,6 +1063,7 @@ func _recycler(key: String) -> void:
     _moving(key,"feed",raw)
     _moving(key,"crusher",base)
     _moving(key,"feed_conveyor",feed)
+    _moving(key,"scrap_mount",feed_mount)
     var ramp := _child(base,"ElevatedFeedRamp")
     (targets[key] as Array).append(ramp)
     b = _batch(ramp)
@@ -1080,6 +1088,9 @@ func _recycler(key: String) -> void:
         _shape(b,"bevel",Vector3(-0.58+float(i)*0.58,0.12,-0.45),Vector3(0.44,0.24,0.42),"rust")
     _finish(b)
     _moving(key,"output",bin)
+    _moving(key,"ramp",ramp)
+    _moving(key,"sorted_line",output)
+    _moving(key,"sorted_mount",bin_mount)
     _console(key,Vector3(4.7,0,4.0),3)
 
 func _storage(key: String) -> void:
@@ -1121,12 +1132,12 @@ func _storage(key: String) -> void:
             _finish(cb)
     var mast := _model(key,"LeftLoadingLiftMastV2",Vector3(-5.25,0,3.75))
     b = _batch(mast)
-    _skid(b,3.8,4.4)
+    _skid(b,4.8,4.4)
     for x in [-1.6,1.6]:
         _shape(b,"bevel",Vector3(x,5.85,0),Vector3(0.48,11.7,0.78),"armor_light")
         _box(b,Vector3(x,5.8,0.42),Vector3(0.10,11.1,0.12),"edge")
         _pipe(b,Vector3(x,0.5,-0.5),Vector3(x,11.1,-0.5),0.18,"gold")
-        _shape(b,"gusset",Vector3(x,0.90,-1.2),Vector3(0.75,1.4,1.9),"slate")
+        _shape(b,"gusset",Vector3(signf(x)*1.95,0.90,-1.2),Vector3(0.75,1.4,1.9),"slate")
     _shape(b,"drum",Vector3(0,11.62,0),Vector3(2.0,0.9,1.7),"slate")
     _shape(b,"louver",Vector3(0,11.55,0.88),Vector3(1.65,0.56,0.18),"edge")
     _box(b,Vector3(0,11.05,0.45),Vector3(2.6,0.14,0.11),"lab_cyan")
@@ -1135,9 +1146,9 @@ func _storage(key: String) -> void:
     (targets[key] as Array).append(platform_mount)
     var platform := _child(platform_mount,"LiftCarriage")
     b = _batch(platform)
-    _shape(b,"deck",Vector3(0,-0.06,0),Vector3(2.8,0.22,4.0),"gold")
+    _shape(b,"deck",Vector3(0,-0.06,0),Vector3(2.60,0.22,4.0),"gold")
     for x in [-1.27,1.27]:
-        _box(b,Vector3(x,0.24,0),Vector3(0.15,0.22,4.0),"edge")
+        _box(b,Vector3(x,0.24,0),Vector3(0.12,0.22,4.0),"edge")
     for j in range(12):
         _pipe(b,Vector3(-1.16,0.22,-1.83+float(j)*0.33),
             Vector3(1.16,0.22,-1.83+float(j)*0.33),0.20,"edge")
@@ -1156,6 +1167,8 @@ func _storage(key: String) -> void:
     (targets[key] as Array).append(load_mount)
     var load := _cargo(load_mount,"LiftCargo",Vector3.ZERO,Vector3(1.92,1.6,3.0))
     _moving(key,"lift",platform)
+    _moving(key,"lift_mount",platform_mount)
+    _moving(key,"cargo_mount",load_mount)
     _moving(key,"lift_cargo",load)
     var apron := _model(key,"ForwardLoadingApronV2",Vector3(3.25,0,3.5))
     b = _batch(apron)
@@ -1322,11 +1335,11 @@ func _sample(key: String, t: float) -> void:
                 feed.position = incoming.lerp(start,smoothstep(0.0,0.16,t))
             elif t<0.36:
                 feed.position = start.lerp(top,smoothstep(0.16,0.36,t))
-                feed.position.y += 0.20
+                feed.position.y += 0.44*smoothstep(0.16,0.20,t)-0.24*smoothstep(0.20,0.24,t)
                 feed.rotation.x = -0.767*smoothstep(0.16,0.20,t)*(1.0-smoothstep(0.32,0.36,t))
             else:
                 feed.position = top.lerp(chute_end,smoothstep(0.36,0.52,t))
-                feed.position.y += 0.18
+                feed.position.y += lerpf(0.20,0.18,smoothstep(0.36,0.40,t))
                 feed.rotation.x = 0.60*smoothstep(0.36,0.40,t)
                 # Raw scrap is consumed above the cutter tips, not pushed through metal.
                 feed.scale = Vector3.ONE*(1.0-0.92*smoothstep(0.44,0.52,t))
@@ -1361,9 +1374,9 @@ func _mechanism_nodes(key: String) -> Array[Node3D]:
     var names: Array = []
     match key:
         "LABO": names = ["print_frame","rail","tray","carriage_mount","head_mount"]
-        "SMELTER": names = ["hopper","charge_conveyor"]
-        "RECYCLER": names = ["crusher","feed_conveyor"]
-        "STORAGE": names = ["rack","mast","dispatch"]
+        "SMELTER": names = ["hopper","charge_conveyor","charge_hoist","charge_mount","furnace","casting_line","ingot_mount","cooling"]
+        "RECYCLER": names = ["crusher","feed_conveyor","scrap_mount","shaft_root0","shaft_root1","ramp","sorted_line","sorted_mount"]
+        "STORAGE": names = ["rack","mast","dispatch","lift_mount","cargo_mount"]
     for label in names:
         result.append(m[label] as Node3D)
     # Head mount is a child of the animated carriage; use its LOCAL transform
