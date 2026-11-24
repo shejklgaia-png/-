@@ -34,7 +34,7 @@ const PreviewRim = preload("res://scripts/sera_tech_preview_frame.gd")
 const CraftAffixes = preload("res://scripts/sera_craft_affixes.gd")
 const PartViewer = preload("res://scripts/sera_part_preview_widget.gd")
 const RotateMark = preload("res://scripts/sera_rotatable_mark.gd")
-const ArchiveModelViewer = preload("res://scripts/sera_archive_model_viewer.gd")
+## Archive UI is native to NEXUS; model resources load only on selection.
 const CONTROL_SETTINGS_FILE: String = "user://sera_settings.cfg"
 const FrameRateSettings = preload("res://scripts/sera_frame_rate_settings.gd")
 const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
@@ -221,7 +221,39 @@ var archive_record_tab: int = 0
 var archive_model_button: Button
 var archive_model_open_pending: bool = false
 var archive_model_active: bool = false
-var archive_model_viewer: Control
+var archive_model_viewer: Panel
+var archive_model_open_elapsed: float = 0.0
+const ARCHIVE_VIEW_CATEGORIES = ["CHARACTER", "PARTS", "FACILITY"]
+const ARCHIVE_VIEW_FACILITIES = ["NEXUS", "LABO", "SCRAP_COLLECTOR", "SMELTER", "RECYCLER", "GENERATOR", "STORAGE", "BUILD_TERMINAL"]
+const ARCHIVE_VIEW_FACILITY_LABELS = ["NEXUS", "LABO", "回収機", "精製装置", "分解装置", "電力制御施設", "資材保管庫", "建設端末"]
+const ARCHIVE_VIEW_ROWS = 4
+var archive_view_category: int = 0
+var archive_view_page: int = 0
+var archive_view_selected: String = ""
+var archive_view_entries: Array[Dictionary] = []
+var archive_view_buttons: Dictionary = {}
+var archive_view_heading: Label
+var archive_view_caption: Label
+var archive_view_pages: Label
+var archive_view_host: SubViewportContainer
+var archive_view_frame: Control
+var archive_view_cue: Control
+var archive_view_viewport: SubViewport
+var archive_view_stage: Node3D
+var archive_view_orbit: Node3D
+var archive_view_center: Node3D
+var archive_view_camera: Camera3D
+var archive_view_equipment: Node3D
+var archive_view_model: Node3D
+var archive_view_generation: int = 0
+var archive_view_fingers: Dictionary = {}
+var archive_view_press_controls: Dictionary = {}
+var archive_view_yaw: float = 0.55
+var archive_view_pitch: float = -0.16
+var archive_view_zoom: float = 1.0
+var archive_view_pan := Vector2.ZERO
+var archive_view_fit_size: float = 2.8
+var archive_view_ui_ready: bool = false
 var archive_refresh_elapsed: float = 0.0
 const SYSTEM_ACTIONS = ["SAVE", "LOAD", "NEW", "DELETE"]
 var system_slot_rows: Array[Dictionary] = []
@@ -934,6 +966,11 @@ func _sync_placement_launchers() -> void:
 
 
 func _process(delta: float) -> void:
+    # Never leave OPENING latched after a script error.
+    if archive_model_open_pending:
+        archive_model_open_elapsed += delta
+        if archive_model_open_elapsed >= 2.0:
+            _archive_view_open_failed(archive_model_button.text.trim_prefix("OPENING / "))
     _advance_nexus_render_tweens(delta)
     # Recover focus transitions BEFORE touching optional placement UI. If an
     # editor is missing its script, a UI failure must not leave NEXUS consoles
@@ -5637,35 +5674,52 @@ func _request_archive_model_viewer() -> void:
     if archive_model_open_pending or archive_model_active or focused_target != "DATA ARCHIVE":
         return
     archive_model_open_pending = true
-    archive_model_button.text = "OPENING..."
-    _open_archive_model_viewer()
+    archive_model_open_elapsed = 0.0
+    archive_model_button.text = "OPENING / UI"
+    _open_archive_model_viewer.call_deferred()
 
 func _open_archive_model_viewer() -> void:
+    if not archive_model_open_pending:
+        return
     if focused_target != "DATA ARCHIVE" or not is_instance_valid(hud):
         archive_model_open_pending = false
         return
+    # Built-in panel, same path as the proven FocusedMenu and EXIT.
     if not is_instance_valid(archive_model_viewer):
-        archive_model_viewer = ArchiveModelViewer.new()
+        archive_model_viewer = Panel.new()
         archive_model_viewer.name = "ArchiveModelViewer"
         archive_model_viewer.z_index = 110
         archive_model_viewer.hide()
         hud.add_child(archive_model_viewer)
-        archive_model_viewer.connect("close_requested", _close_archive_model_viewer)
-    _layout_archive_model_viewer()
-    if not bool(archive_model_viewer.call("is_ui_ready")):
-        archive_model_button.text = "MODEL UI / RETRY"
-        archive_model_open_pending = false
-        push_warning("ARCHIVE: viewer controls did not initialize")
+        archive_model_button.text = "OPENING / CONTROLS"
+        _layout_archive_model_viewer()
+        _archive_view_ready()
+    if not _archive_view_is_ui_ready():
+        _archive_view_open_failed("CONTROLS")
+        return
+    archive_model_button.text = "OPENING / MENU"
+    _archive_view_open_archive()
+    archive_model_active = true
+    archive_model_open_pending = false
+    focus_panel.hide()
+    archive_model_button.text = "MODEL ARCHIVE  /  3D"
+
+func _archive_view_open_failed(phase: String) -> void:
+    archive_model_open_pending = false
+    archive_model_active = false
+    archive_view_ui_ready = false
+    archive_view_generation += 1
+    _archive_view_drop_view()
+    if is_instance_valid(archive_model_viewer):
+        archive_model_viewer.hide()
         archive_model_viewer.queue_free()
         archive_model_viewer = null
-        return
-    archive_model_active = true
-    # Opening is a distinct menu state, not a second layer over the record UI.
-    focus_panel.hide()
-    archive_model_viewer.show()
-    archive_model_viewer.call("open_archive")
-    archive_model_open_pending = false
-    archive_model_button.text = "MODEL ARCHIVE  /  3D"
+    archive_view_buttons.clear()
+    if is_instance_valid(archive_model_button):
+        archive_model_button.text = "MODEL / " + phase + " / RETRY"
+    if focused_target == "DATA ARCHIVE" and not in_transition:
+        focus_panel.show()
+    push_warning("ARCHIVE menu initialization failed: " + phase)
 
 func _layout_archive_model_viewer() -> void:
     if not is_instance_valid(archive_model_viewer):
@@ -5673,18 +5727,502 @@ func _layout_archive_model_viewer() -> void:
     var margin: float = maxf(16.0, hud.size.x * 0.045)
     archive_model_viewer.position = Vector2(margin, maxf(margin, hud.size.y * 0.05))
     archive_model_viewer.size = Vector2(hud.size.x - 2.0 * margin, hud.size.y * 0.88)
+    if archive_view_ui_ready:
+        _archive_view_layout()
 
 func _close_archive_model_viewer() -> void:
     archive_model_open_pending = false
     var was_active: bool = archive_model_active
     archive_model_active = false
-    if is_instance_valid(archive_model_viewer) and archive_model_viewer.visible:
-        archive_model_viewer.call("close_archive")
+    if is_instance_valid(archive_model_viewer):
+        if archive_view_ui_ready:
+            _archive_view_close_archive()
+        else:
+            archive_model_viewer.hide()
+            archive_model_viewer.queue_free()
+            archive_model_viewer = null
+            archive_view_buttons.clear()
     if is_instance_valid(archive_model_button):
         archive_model_button.text = "MODEL ARCHIVE  /  3D"
     if was_active and focused_target == "DATA ARCHIVE" and not in_transition:
         focus_panel.show()
         _refresh_archive_records()
+
+func _archive_view_ready() -> void:
+    archive_model_viewer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    archive_model_viewer.add_theme_stylebox_override("panel", _menu_body_style())
+    archive_view_buttons.clear()
+    archive_view_heading = _archive_view_label("MODEL ARCHIVE", 23)
+    archive_view_caption = _archive_view_label("", 17)
+    archive_view_pages = _archive_view_label("", 14)
+    archive_view_host = SubViewportContainer.new()
+    archive_view_host.stretch = true
+    archive_view_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    archive_model_viewer.add_child(archive_view_host)
+    archive_view_frame = Control.new()
+    archive_view_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    archive_model_viewer.add_child(archive_view_frame)
+    archive_view_frame.draw.connect(_archive_view_draw_rim)
+    archive_view_frame.resized.connect(archive_view_frame.queue_redraw)
+    archive_view_cue = Control.new()
+    archive_view_cue.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    archive_model_viewer.add_child(archive_view_cue)
+    archive_view_cue.draw.connect(_archive_view_draw_rotate)
+    archive_view_cue.resized.connect(archive_view_cue.queue_redraw)
+    for i in range(3):
+        _archive_view_button("cat%d" % i, ARCHIVE_VIEW_CATEGORIES[i])
+    for i in range(ARCHIVE_VIEW_ROWS):
+        _archive_view_button("row%d" % i, "")
+    _archive_view_button("prev", "‹")
+    _archive_view_button("next", "›")
+    _archive_view_button("reset", "")
+    _archive_view_button("back", "戻る")
+    var reset_panel: Panel = archive_view_buttons["reset"]
+    reset_panel.queue_redraw()
+    _archive_view_layout()
+    archive_view_ui_ready = true
+
+func _archive_view_is_ui_ready() -> bool:
+    return archive_view_ui_ready and is_instance_valid(archive_view_host) and archive_view_buttons.size() == 11
+
+func _archive_view_label(value: String, font_size: int, parent: Control = null) -> Label:
+    var label := Label.new()
+    label.text = value
+    label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+    label.add_theme_font_override("font", LaboSkin.ui_font())
+    label.add_theme_font_size_override("font_size", font_size)
+    label.add_theme_color_override("font_color", Color("#d7e6ed"))
+    if parent == null:
+        archive_model_viewer.add_child(label)
+    else:
+        parent.add_child(label)
+    return label
+
+func _archive_view_button(id: String, value: String) -> void:
+    var panel := Panel.new()
+    panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    panel.add_theme_stylebox_override("panel", LaboSkin.terminal_segment_style("normal"))
+    archive_model_viewer.add_child(panel)
+    var label := _archive_view_label(value, 16, panel)
+    label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    archive_view_buttons[id] = panel
+    if id == "reset":
+        panel.draw.connect(_archive_view_draw_camera.bind(panel))
+
+# Same shared technical rim and unframed rotation mark geometry, drawn
+# by native Controls so neither decoration can stop the archive menu.
+func _archive_view_draw_rim() -> void:
+    var w: float = archive_view_frame.size.x
+    var h: float = archive_view_frame.size.y
+    if w <= 34.0 or h <= 34.0:
+        return
+    var edge := Color("#6f93a3")
+    var accent := Color("#9fd7e6")
+    var points := PackedVector2Array([
+        Vector2(14,2), Vector2(w-14,2), Vector2(w-2,14),
+        Vector2(w-2,h-14), Vector2(w-14,h-2), Vector2(14,h-2),
+        Vector2(2,h-14), Vector2(2,14), Vector2(14,2)])
+    archive_view_frame.draw_polyline(points, edge, 1.6, true)
+    archive_view_frame.draw_line(Vector2(20,2),Vector2(48,2),accent,2.6,true)
+    archive_view_frame.draw_line(Vector2(2,20),Vector2(2,41),accent,2.6,true)
+    archive_view_frame.draw_line(Vector2(w-48,h-2),Vector2(w-20,h-2),accent,2.6,true)
+    archive_view_frame.draw_line(Vector2(w-2,h-41),Vector2(w-2,h-20),accent,2.6,true)
+
+func _archive_view_draw_rotate() -> void:
+    var c: Vector2 = archive_view_cue.size * 0.5
+    var tint := Color("#93c1cc")
+    var r: float = minf(archive_view_cue.size.x, archive_view_cue.size.y) * 0.28
+    archive_view_cue.draw_arc(c,r,deg_to_rad(-65),deg_to_rad(225),20,tint,1.6,true)
+    var tip: Vector2 = c + Vector2(cos(deg_to_rad(-65)),sin(deg_to_rad(-65))) * r
+    archive_view_cue.draw_line(tip,tip+Vector2(-5.2,-0.4),tint,1.6,true)
+    archive_view_cue.draw_line(tip,tip+Vector2(-0.3,5.0),tint,1.6,true)
+
+func _archive_view_draw_camera(panel: Panel) -> void:
+    var c := panel.size * 0.5
+    var tint := Color("#d7e6ed")
+    panel.draw_rect(Rect2(c - Vector2(10, 6), Vector2(20, 14)), tint, false, 1.5)
+    panel.draw_rect(Rect2(c - Vector2(4, 9), Vector2(8, 3)), tint, true)
+    panel.draw_arc(c + Vector2(0, 1), 4, 0, TAU, 20, tint, 1.5, true)
+
+func _archive_view_place(control: Control, x: float, y: float, w: float, h: float) -> void:
+    control.position = Vector2(x, y)
+    control.size = Vector2(maxf(w, 1), maxf(h, 1))
+
+func _archive_view_layout() -> void:
+    if archive_view_host == null:
+        return
+    var w: float = archive_model_viewer.size.x
+    var h: float = archive_model_viewer.size.y
+    var m := 12.0
+    var tab_h := 44.0
+    _archive_view_place(archive_view_heading, m, 0, w - 2*m, 49)
+    for i in range(3):
+        var tw: float = (w - 2*m - 12)/3.0
+        _archive_view_place(archive_view_buttons["cat%d" % i], m + i*(tw+6), 52, tw, tab_h)
+    var row_h: float = clampf(h * 0.075, 36.0, 55.0)
+    var view_top := 104.0
+    var list_top: float = h - ARCHIVE_VIEW_ROWS*(row_h+4) - 100.0
+    var view_h: float = maxf(80.0, list_top-view_top-39)
+    _archive_view_place(archive_view_host, m, view_top, w-2*m, view_h)
+    _archive_view_place(archive_view_frame, m, view_top, w-2*m, view_h)
+    _archive_view_place(archive_view_cue, m+7, view_top+7, 28, 28)
+    _archive_view_place(archive_view_buttons["reset"], w-m-38, view_top+6, 32, 32)
+    _archive_view_place(archive_view_caption, m, view_top+view_h, w-2*m, 32)
+    for i in range(ARCHIVE_VIEW_ROWS):
+        _archive_view_place(archive_view_buttons["row%d" % i], m, list_top+i*(row_h+4), w-2*m, row_h)
+    _archive_view_place(archive_view_buttons["prev"], m, h-98, 48, 40)
+    _archive_view_place(archive_view_buttons["next"], w-m-48, h-98, 48, 40)
+    _archive_view_place(archive_view_pages, m+52, h-98, w-2*m-104, 40)
+    _archive_view_place(archive_view_buttons["back"], w-m-100, h-52, 100, 40)
+    if is_instance_valid(archive_view_viewport) and archive_view_equipment == null:
+        _archive_view_apply_transform()
+
+func _archive_view_open_archive() -> void:
+    # Display the independent UI immediately; do not tie visibility to
+    # rig initialization or the first SubViewport render.
+    archive_model_viewer.show()
+    _archive_view_layout()
+    _archive_view_set_category(0)
+
+func _archive_view_close_archive() -> void:
+    archive_view_generation += 1
+    _archive_view_drop_view()
+    archive_model_viewer.hide()
+
+func _archive_view_set_category(value: int) -> void:
+    archive_view_category = value
+    archive_view_page = 0
+    archive_view_entries.clear()
+    match value:
+        0:
+            archive_view_entries.append({"id":"SERA", "name":"セラ / SERA"})
+            archive_view_entries.append({"id":"CRATE", "name":"クレート / CRATE"})
+            archive_view_entries.append({"id":"BITTARAN", "name":"ビットタラン / BITTARAN"})
+        1:
+            for id in PrototypeCatalog.ORDER:
+                var spec: Dictionary = PrototypeCatalog.spec(str(id))
+                archive_view_entries.append({"id":str(id), "name":str(id)+"  "+str(spec.get("name", id))})
+        2:
+            for i in range(ARCHIVE_VIEW_FACILITIES.size()):
+                archive_view_entries.append({"id":ARCHIVE_VIEW_FACILITIES[i], "name":ARCHIVE_VIEW_FACILITY_LABELS[i]})
+    for i in range(3):
+        _archive_view_style_button("cat%d" % i, i == archive_view_category)
+    archive_view_generation += 1
+    _archive_view_drop_view()
+    archive_view_selected = ""
+    archive_view_caption.text = "モデルを選択 / SELECT MODEL"
+    _archive_view_refresh_rows()
+
+func _archive_view_style_button(id: String, active: bool) -> void:
+    var p: Panel = archive_view_buttons[id]
+    p.add_theme_stylebox_override("panel", LaboSkin.terminal_segment_style("selected" if active else "normal"))
+
+func _archive_view_refresh_rows() -> void:
+    for i in range(ARCHIVE_VIEW_ROWS):
+        var p: Panel = archive_view_buttons["row%d" % i]
+        var index: int = archive_view_page * ARCHIVE_VIEW_ROWS + i
+        p.visible = index < archive_view_entries.size()
+        if p.visible:
+            (p.get_child(0) as Label).text = str(archive_view_entries[index]["name"])
+            _archive_view_style_button("row%d" % i, archive_view_selected == str(archive_view_entries[index]["id"]))
+    var count: int = maxi(1, ceili(float(archive_view_entries.size()) / ARCHIVE_VIEW_ROWS))
+    archive_view_pages.text = "%02d / %02d" % [archive_view_page+1, count]
+    (archive_view_buttons["prev"] as Panel).visible = archive_view_page > 0
+    (archive_view_buttons["next"] as Panel).visible = archive_view_page+1 < count
+
+func _archive_view_drop_view() -> void:
+    archive_view_fingers.clear()
+    archive_view_press_controls.clear()
+    if is_instance_valid(archive_view_viewport):
+        archive_view_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+        var render_parent: Node = archive_view_viewport.get_parent()
+        if render_parent != null:
+            render_parent.remove_child(archive_view_viewport)
+        archive_view_viewport.queue_free()
+    archive_view_viewport = null
+    archive_view_equipment = null
+    archive_view_stage = null
+    archive_view_model = null
+    archive_view_camera = null
+
+func _archive_view_select(index: int) -> void:
+    if index < 0 or index >= archive_view_entries.size():
+        return
+    archive_view_selected = str(archive_view_entries[index]["id"])
+    archive_view_caption.text = str(archive_view_entries[index]["name"])
+    _archive_view_refresh_rows()
+    archive_view_generation += 1
+    _archive_view_drop_view()
+    archive_view_caption.text += "  /  LOADING"
+    _archive_view_load_selected.call_deferred(archive_view_generation, archive_view_category, archive_view_selected)
+
+func _archive_view_load_selected(request: int, kind: int, id: String) -> void:
+    # Allow the visible menu to render before construction of a heavy rig.
+    await get_tree().process_frame
+    if request != archive_view_generation or not is_instance_valid(archive_model_viewer) or not archive_model_viewer.is_visible_in_tree():
+        return
+    var display_name: String = id
+    for entry in archive_view_entries:
+        if str(entry["id"]) == id:
+            display_name = str(entry["name"])
+            break
+    archive_view_viewport = SubViewport.new()
+    archive_view_viewport.name = "ArchiveModelRenderTarget"
+    archive_view_viewport.size = Vector2i(384, 384)
+    archive_view_viewport.own_world_3d = true
+    archive_view_viewport.gui_disable_input = true
+    archive_view_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+    archive_view_host.add_child(archive_view_viewport)
+    archive_view_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+    # The outer NEXUS owns gestures; no nested viewport input forwarding.
+    archive_view_host.set_process_input(false)
+    archive_view_host.set_process_unhandled_input(false)
+    if kind == 1 or id == "SERA":
+        archive_view_equipment = _archive_view_new_model("res://tools/equipment_intake/godot_preview.gd")
+        if not is_instance_valid(archive_view_equipment):
+            archive_view_caption.text = display_name + " / RIG UNAVAILABLE"
+            return
+        archive_view_equipment.set("nexus_brighter_backdrop", true)
+        archive_view_viewport.add_child(archive_view_equipment)
+        archive_view_equipment.set_process_input(false)
+        for i in range(80):
+            if request != archive_view_generation or not is_instance_valid(archive_view_equipment):
+                return
+            if bool(archive_view_equipment.get("ready_for_commands")):
+                break
+            await get_tree().process_frame
+        if request != archive_view_generation:
+            return
+        if not bool(archive_view_equipment.get("ready_for_commands")):
+            archive_view_caption.text = display_name + " / MODEL UNAVAILABLE"
+            return
+        var spec: Dictionary = PrototypeCatalog.spec(id) if kind == 1 else {}
+        var gear: Dictionary = {}
+        if kind == 1:
+            gear[str(spec.get("slot","head"))] = str(spec.get("rig_set","A"))
+        else:
+            gear = SeraSave.get_working_equipment().duplicate(true)
+        archive_view_equipment.call("_apply_command", {"mode":"icon" if kind == 1 else "body",
+            "editing_slot":str(spec.get("slot","head")), "selected":gear,
+            "size":1.0, "keep_aspect":true, "background_mode":"grid",
+            "camera":{"yaw":156.9,"pitch":11.87,"roll":0.0,"panX":0.0,"panY":0.0,"zoom":0.86}})
+        archive_view_caption.text = display_name
+        return
+    archive_view_stage = Node3D.new()
+    archive_view_viewport.add_child(archive_view_stage)
+    var environment := Environment.new()
+    environment.background_mode = Environment.BG_COLOR
+    environment.background_color = Color("#afc4d1")
+    environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+    environment.ambient_light_color = Color("#bbc9e1")
+    environment.ambient_light_energy = 0.65
+    var world := WorldEnvironment.new()
+    world.environment = environment
+    archive_view_stage.add_child(world)
+    var light := DirectionalLight3D.new()
+    light.rotation_degrees = Vector3(-52,-24,0)
+    light.light_energy = 1.5
+    light.shadow_enabled = false
+    archive_view_stage.add_child(light)
+    archive_view_camera = Camera3D.new()
+    archive_view_camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+    archive_view_camera.position = Vector3(0,0,8)
+    archive_view_camera.near = 0.01
+    archive_view_camera.far = 50
+    archive_view_stage.add_child(archive_view_camera)
+    archive_view_camera.make_current()
+    archive_view_orbit = Node3D.new()
+    archive_view_stage.add_child(archive_view_orbit)
+    archive_view_center = Node3D.new()
+    archive_view_orbit.add_child(archive_view_center)
+    if id == "CRATE":
+        var crate_script: Script = load("res://scripts/sera_crate_model.gd") as Script
+        if crate_script != null and crate_script.can_instantiate():
+            archive_view_model = crate_script.call("create_model") as Node3D
+    elif id == "BITTARAN":
+        archive_view_model = _archive_view_new_model("res://scripts/bittaran_rig.gd")
+    else:
+        var architecture: Script = load("res://scripts/sera_base_architecture.gd") as Script
+        if architecture != null and architecture.can_instantiate():
+            archive_view_model = Node3D.new()
+            archive_view_center.add_child(archive_view_model)
+            if id == "NEXUS":
+                architecture.call("build_nexus", archive_view_model)
+            else:
+                architecture.call("build_facility", archive_view_model, id)
+    if not is_instance_valid(archive_view_model):
+        archive_view_caption.text = display_name + " / MODEL UNAVAILABLE"
+        return
+    if archive_view_model.get_parent() == null:
+        archive_view_center.add_child(archive_view_model)
+    archive_view_model.process_mode = Node.PROCESS_MODE_DISABLED
+    var edges := archive_view_model.get_node_or_null("ViewEdges")
+    if is_instance_valid(edges) and edges.has_method("set_contour_enabled"):
+        edges.call("set_contour_enabled",false)
+    var bounds: Dictionary = {}
+    _archive_view_collect_bounds(archive_view_model, bounds)
+    if not bounds.has("box"):
+        archive_view_caption.text = display_name + " / MODEL UNAVAILABLE"
+        return
+    var box: AABB = bounds["box"]
+    archive_view_center.position = -box.get_center()
+    archive_view_center.scale = Vector3.ONE * (1.7/maxf(0.001,box.size.length()))
+    archive_view_center.position *= archive_view_center.scale.x
+    _archive_view_reset_view()
+    archive_view_caption.text = display_name
+
+func _archive_view_new_model(path: String) -> Node3D:
+    var resource: Script = load(path) as Script
+    if resource == null or not resource.can_instantiate():
+        push_warning("ARCHIVE model script unavailable: " + path)
+        return null
+    return resource.new() as Node3D
+
+func _archive_view_collect_bounds(node: Node, data: Dictionary) -> void:
+    if node is Node3D and not (node as Node3D).is_visible_in_tree():
+        return
+    if node is VisualInstance3D and (node is MeshInstance3D or node is MultiMeshInstance3D):
+        var visual := node as VisualInstance3D
+        var local_box: AABB = visual.get_aabb()
+        if local_box.size.length_squared() > 0.000001:
+            var box: AABB = archive_view_center.global_transform.affine_inverse() * visual.global_transform * local_box
+            data["box"] = (data["box"] as AABB).merge(box) if data.has("box") else box
+    for child in node.get_children():
+        _archive_view_collect_bounds(child,data)
+
+func _archive_view_reset_view() -> void:
+    if is_instance_valid(archive_view_equipment):
+        if bool(archive_view_equipment.get("ready_for_commands")):
+            archive_view_equipment.set("camera_yaw",156.9)
+            archive_view_equipment.set("camera_pitch",11.87)
+            archive_view_equipment.set("camera_roll",0.0)
+            archive_view_equipment.set("camera_zoom",0.86)
+            archive_view_equipment.set("camera_pan",Vector2.ZERO)
+            archive_view_equipment.call("_apply_frame")
+        return
+    archive_view_yaw = -0.55 if archive_view_selected == "CRATE" else 0.55
+    archive_view_pitch = -0.16
+    archive_view_zoom = 1.0
+    archive_view_pan = Vector2.ZERO
+    _archive_view_apply_transform()
+
+func _archive_view_apply_transform() -> void:
+    if not is_instance_valid(archive_view_camera) or not is_instance_valid(archive_view_orbit):
+        return
+    archive_view_orbit.rotation = Vector3(archive_view_pitch,archive_view_yaw,0)
+    archive_view_orbit.position = Vector3(archive_view_pan.x,archive_view_pan.y,0)
+    var aspect: float = archive_view_host.size.x/maxf(1.0,archive_view_host.size.y)
+    archive_view_camera.size = archive_view_fit_size/maxf(0.2,minf(1.0,aspect))/archive_view_zoom
+
+func _archive_view_contains(control: Control, point: Vector2) -> bool:
+    if not is_instance_valid(control) or not control.is_visible_in_tree():
+        return false
+    var local: Vector2 = control.get_global_transform_with_canvas().affine_inverse() * point
+    return Rect2(Vector2.ZERO, control.size).has_point(local)
+
+func _archive_view_preview_point(point: Vector2) -> Vector2:
+    return archive_view_host.get_global_transform_with_canvas().affine_inverse() * point
+
+func _archive_view_touch(id: int, pressed: bool, point: Vector2) -> void:
+    if pressed:
+        if _archive_view_contains(archive_view_host, point):
+            var reset: Panel = archive_view_buttons["reset"]
+            if _archive_view_contains(reset, point):
+                archive_view_press_controls[id] = "reset"
+            else:
+                archive_view_fingers[id] = point
+                if is_instance_valid(archive_view_equipment):
+                    archive_view_equipment.call("_on_preview_touch",id,true,_archive_view_preview_point(point))
+        else:
+            var hit := ""
+            for key in archive_view_buttons:
+                var p: Panel = archive_view_buttons[key]
+                if _archive_view_contains(p, point):
+                    hit = str(key)
+                    break
+            if hit.is_empty() and not _archive_view_contains(archive_model_viewer, point):
+                hit = "outside"
+            archive_view_press_controls[id] = hit
+    elif archive_view_fingers.has(id):
+        archive_view_fingers.erase(id)
+        if is_instance_valid(archive_view_equipment):
+            archive_view_equipment.call("_on_preview_touch",id,false,_archive_view_preview_point(point))
+    elif archive_view_press_controls.has(id):
+        var hit: String = archive_view_press_controls[id]
+        archive_view_press_controls.erase(id)
+        if hit == "outside" and not _archive_view_contains(archive_model_viewer, point):
+            _close_archive_model_viewer()
+        elif archive_view_buttons.has(hit) and _archive_view_contains(archive_view_buttons[hit] as Panel, point):
+            _archive_view_activate(hit)
+
+func _archive_view_activate(id: String) -> void:
+    if id == "back":
+        _close_archive_model_viewer()
+    elif id == "reset":
+        _archive_view_reset_view()
+    elif id.begins_with("cat"):
+        _archive_view_set_category(int(id.substr(3)))
+    elif id.begins_with("row"):
+        _archive_view_select(archive_view_page*ARCHIVE_VIEW_ROWS+int(id.substr(3)))
+    elif id == "prev" or id == "next":
+        archive_view_page = clampi(archive_view_page + (-1 if id == "prev" else 1),0,maxi(0,ceili(float(archive_view_entries.size())/ARCHIVE_VIEW_ROWS)-1))
+        _archive_view_refresh_rows()
+
+func _archive_view_drag(id: int, point: Vector2) -> void:
+    if not archive_view_fingers.has(id):
+        return
+    var old: Vector2 = archive_view_fingers[id]
+    var before: Array = archive_view_fingers.values()
+    archive_view_fingers[id] = point
+    if is_instance_valid(archive_view_equipment):
+        archive_view_equipment.call("_on_preview_drag",id,_archive_view_preview_point(point))
+        return
+    if archive_view_fingers.size() == 1:
+        var delta: Vector2 = point-old
+        archive_view_yaw = wrapf(archive_view_yaw+delta.x*0.008,-PI,PI)
+        archive_view_pitch = clampf(archive_view_pitch+delta.y*0.008,-1.48,1.48)
+    elif archive_view_fingers.size() == 2:
+        var after: Array = archive_view_fingers.values()
+        var a: Vector2 = before[0]
+        var b: Vector2 = before[1]
+        var c: Vector2 = after[0]
+        var d: Vector2 = after[1]
+        var move: Vector2 = (c+d-a-b)*0.5
+        archive_view_pan += Vector2(move.x,-move.y)*archive_view_fit_size/maxf(1.0,archive_view_host.size.y)/archive_view_zoom
+        archive_view_pan = archive_view_pan.clamp(Vector2(-2,-2),Vector2(2,2))
+        if a.distance_to(b)>12 and c.distance_to(d)>12:
+            archive_view_zoom = clampf(archive_view_zoom*c.distance_to(d)/a.distance_to(b),0.35,4.0)
+    _archive_view_apply_transform()
+
+func _archive_view_route_input(event: InputEvent) -> bool:
+    if not is_instance_valid(archive_model_viewer) or not archive_model_viewer.visible:
+        return false
+    if event.is_action_pressed("ui_cancel") or (event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_BACK,KEY_ESCAPE]):
+        _close_archive_model_viewer()
+        return true
+    if event is InputEventScreenTouch:
+        _archive_view_touch(event.index,event.pressed,event.position)
+    elif event is InputEventScreenDrag:
+        _archive_view_drag(event.index,event.position)
+    elif event is InputEventMouseButton:
+        if event.button_index == MOUSE_BUTTON_LEFT:
+            _archive_view_touch(-10,event.pressed,event.position)
+        elif event.pressed and _archive_view_contains(archive_view_host, event.position) and event.button_index in [MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN]:
+            var factor: float = 1.1 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0/1.1
+            if is_instance_valid(archive_view_equipment) and bool(archive_view_equipment.get("ready_for_commands")):
+                archive_view_equipment.set("camera_zoom",clampf(float(archive_view_equipment.get("camera_zoom"))*factor,0.25,4.0))
+                archive_view_equipment.call("_apply_frame")
+            else:
+                archive_view_zoom = clampf(archive_view_zoom*factor,0.35,4.0)
+                _archive_view_apply_transform()
+    elif event is InputEventMouseMotion:
+        _archive_view_drag(-10,event.position)
+    else:
+        return false
+    return true
 
 func _archive_duration(raw_seconds: float) -> String:
     var seconds: int = maxi(0, int(raw_seconds))
@@ -7373,7 +7911,7 @@ func _on_android_back() -> void:
 func _navigate_back() -> void:
     if system_save_pending:
         return
-    if archive_model_active:
+    if archive_model_active or archive_model_open_pending:
         _close_archive_model_viewer()
         return
     if is_instance_valid(camera_angle_editor) and camera_angle_editor.has_method("open_mode") and bool(camera_angle_editor.get("active")):
@@ -7409,7 +7947,7 @@ func _input(event: InputEvent) -> void:
         return
     if archive_model_active:
         if is_instance_valid(archive_model_viewer):
-            archive_model_viewer.call("route_input", event)
+            _archive_view_route_input(event)
         get_viewport().set_input_as_handled()
         return
     # Once an editor is active, it exclusively owns the viewport's pointer.
