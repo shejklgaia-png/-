@@ -4,6 +4,8 @@ const TARGET_SECONDS := 4.0
 const OPEN_SECONDS := 0.65
 const ZOOM_SECONDS := 0.95
 const REVEAL_SECONDS := 0.8
+const BGM_FADE_OUT_SECONDS := 2.4
+var _bgm_fade: Tween
 const SOFT_WHITE := Color("#dce4e8")
 const SHUTTER_FEATURES := ["NexusBlastDoor", "NexusBlastShutterSlat"]
 const SHUTTER_SFX_PATH := "res://BGM/巨大シャッターが開く.mp3"
@@ -45,8 +47,7 @@ func run(base: Node3D, camera: Camera3D, model: Node3D, hud: Control,
     _cover.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     if is_instance_valid(_music):
         _start_volume = _music.volume_db
-        var audio_fade := create_tween()
-        audio_fade.tween_property(_music, "volume_db", -60.0, 1.4).set_trans(Tween.TRANS_SINE)
+        _begin_bgm_fade()
     _play_shutter_sfx(shutter_clip)
     var opening := create_tween()
     opening.tween_method(_set_shutter, 0.0, 1.0, OPEN_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
@@ -67,8 +68,6 @@ func run(base: Node3D, camera: Camera3D, model: Node3D, hud: Control,
     await zoom.finished
     _stop_shutter_sfx()
     _cover.modulate.a = 1.0
-    if is_instance_valid(_music):
-        _music.stop()
     var tree := get_tree()
     # Ensure at least one fully white frame has been presented before loading.
     await tree.process_frame
@@ -88,6 +87,12 @@ func run(base: Node3D, camera: Camera3D, model: Node3D, hud: Control,
     if packed == null:
         await _recover("NEXUS loaded scene is invalid")
         return
+    # The real load proceeds concurrently with the sound tail. Do not free
+    # the outgoing scene (and its player) before the fade is finished.
+    if _bgm_fade != null and _bgm_fade.is_running():
+        await _bgm_fade.finished
+    if is_instance_valid(_music):
+        _music.stop()
     var error := tree.change_scene_to_packed(packed)
     if error != OK:
         await _recover("NEXUS scene change failed: %d" % error)
@@ -180,7 +185,22 @@ func _zoom_camera(progress: float, end_position: Vector3) -> void:
         _start_pose.origin.lerp(end_position, pan))
     _camera.size = size
 
+func _begin_bgm_fade() -> void:
+    if not is_instance_valid(_music) or not _music.playing:
+        return
+    _bgm_fade = create_tween()
+    # Interpolate audible amplitude, not dB. A dB-linear sweep loses most
+    # perceived volume early. A sine ease preserves the opening tail.
+    _bgm_fade.tween_method(_set_bgm_gain, db_to_linear(_start_volume), 0.0,
+        BGM_FADE_OUT_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
+
+func _set_bgm_gain(gain: float) -> void:
+    if is_instance_valid(_music):
+        _music.volume_db = linear_to_db(maxf(gain, 0.0001))
+
 func _recover(message: String) -> void:
+    if _bgm_fade != null and _bgm_fade.is_valid():
+        _bgm_fade.kill()
     _stop_shutter_sfx()
     push_error(message)
     if is_instance_valid(_base):
