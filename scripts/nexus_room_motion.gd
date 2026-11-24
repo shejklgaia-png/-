@@ -1,5 +1,6 @@
 extends Node3D
 const Modules = preload("res://assets/base_command_modules.gd")
+signal deployment_pose_changed
 ## NEXUS room hardware animation. Built once at scene entry; no additional
 ## viewports, particles, timers, dynamic mesh rebuilding or lights.
 ## All motion is driven from one 20 Hz sampler and leaves authored selection
@@ -87,6 +88,7 @@ func _process(delta: float) -> void:
     # Two armored leaves open within the existing full-size gate cheeks on
     # DEPLOYMENT selection, then retract on Back without camera/ID changes.
     var target: float = 1.0 if _deployment_requested else 0.0
+    var previous_open: float = _door_open_amount
     _door_open_amount = move_toward(
         _door_open_amount, target, step / 1.25)
     var ease: float = _door_open_amount * _door_open_amount * (
@@ -94,6 +96,8 @@ func _process(delta: float) -> void:
     for i in range(_gate_leaves.size()):
         var side: float = -1.0 if i == 0 else 1.0
         _gate_leaves[i].position.x = side * (0.84 + 1.15 * ease)
+    if previous_open != _door_open_amount:
+        deployment_pose_changed.emit()
 
 
 func _build_ceiling(metal: Material, edge: Material,
