@@ -30,7 +30,8 @@ var nav := AStarGrid2D.new()
 var nav_room: Node3D
 var nav_obstacles: Array[Rect2] = []
 var nav_other_obstacles: Array[Rect2] = []
-var nav_path: Array[Vector2i] = []
+var nav_path: Array[Vector2] = []
+var nav_speed: float = 0.0
 var nav_index: int = 0
 var nav_goal := Vector2i(99999,99999)
 var nav_dirty := true
@@ -106,22 +107,22 @@ func set_section(section: String) -> void:
     match current_section:
         "LABO":
             # Fit the complete open portal frame, including the near feet.
-            hero_camera.position = Vector3(11.5,12.0,42.0)
+            hero_camera.position = Vector3(11.5,14.0,48.0)
             camera_look = Vector3(-0.7,8.0,1.1)
             hero_camera.fov = 47.0
         "SMELTER":
             # Left-front perspective shows the side charge inlet and hot throat.
-            hero_camera.position = Vector3(-9.4,8.8,30.2)
+            hero_camera.position = Vector3(-10.5,12.0,38.0)
             camera_look = Vector3(-0.5,8.2,-0.8)
             hero_camera.fov = 39.0
         "RECYCLER":
             # Higher front view reveals both cutter shafts and the feed path.
-            hero_camera.position = Vector3(8.8,13.0,24.5)
+            hero_camera.position = Vector3(9.0,16.0,38.0)
             camera_look = Vector3(0,4.5,-0.8)
             hero_camera.fov = 42.0
         "STORAGE":
             # Full-height storage portal and receiving ramps in the same view.
-            hero_camera.position = Vector3(-11.5,13.0,46.0)
+            hero_camera.position = Vector3(-11.5,15.5,52.0)
             camera_look = Vector3(-0.4,9.2,2.5)
             hero_camera.fov = 47.0
     hero_camera.look_at(camera_look, Vector3.UP)
@@ -220,7 +221,7 @@ func _add_obstacle(bounds: AABB, terminal: bool) -> void:
 
 func _collect_obstacles(node: Node3D, terminal: bool = false) -> void:
     # Exclude authored floor/markings; all legs and partial walls still count.
-    if node.name in ["FacilityWorkDeck","OutdoorWorkMarkings"]:
+    if node.name in ["FacilityWorkDeck","OutdoorWorkMarkings","WorksiteLogistics"]:
         return
     terminal = terminal or node == rebuilt_scenes.terminal_node(current_section)
     if node is MultiMeshInstance3D:
@@ -246,6 +247,7 @@ func _build_navigation() -> void:
     nav_other_obstacles.clear()
     nav_path.clear()
     nav_index = 0
+    nav_speed = 0.0
     nav_goal = Vector2i(99999,99999)
     nav_route_failed = false
     nav_dock_checked = false
@@ -269,6 +271,8 @@ func _build_navigation() -> void:
         if mast != null:
             var relative: Transform3D = nav_room.global_transform.affine_inverse()*mast.global_transform
             _add_obstacle(relative*AABB(Vector3(-1.65,0,-2.0),Vector3(3.3,2.4,4.7)),false)
+    for reserve in rebuilt_scenes.logistics_reservations(current_section):
+        _add_obstacle(reserve,false)
     nav_dirty = false
 
 func _nearest_free(p: Vector2, limit: float = 8.0) -> Vector2i:
@@ -321,6 +325,60 @@ func _move_to(goal: Vector3, delta: float, turn: bool = true) -> bool:
     _relax_arms(delta)
     return false
 
+func _smooth_route(ids: Array[Vector2i], here: Vector2) -> Array[Vector2]:
+    # Greedy line-of-sight shortcuts remove grid staircase turns.
+    var coarse: Array[Vector2] = [here]
+    var i: int = 0
+    while i<ids.size()-1:
+        var next: int = i+1
+        for j in range(ids.size()-1,i,-1):
+            if _segment_clear(coarse[-1],_nav_position(ids[j])):
+                next = j
+                break
+        var point: Vector2 = _nav_position(ids[next])
+        if not _segment_clear(coarse[-1],point):
+            return []
+        if coarse[-1].distance_to(point)>0.001:
+            coarse.append(point)
+        i = next
+    if ids.size()==1 and here.distance_to(_nav_position(ids[0]))>0.001:
+        coarse.append(_nav_position(ids[0]))
+    var result: Array[Vector2] = [coarse[0]]
+    # Round each corner with a checked quadratic Bezier. Never cut an obstacle.
+    for k in range(1,coarse.size()-1):
+        var corner: Vector2 = coarse[k]
+        var a: Vector2 = coarse[k-1]
+        var b: Vector2 = coarse[k+1]
+        var radius: float = minf(1.30,minf(a.distance_to(corner),b.distance_to(corner))*0.40)
+        var accepted: bool = false
+        for factor in [1.0,0.7,0.45,0.2]:
+            var d: float = radius*float(factor)
+            if d<0.04:
+                continue
+            var entry: Vector2 = corner.move_toward(a,d)
+            var exit: Vector2 = corner.move_toward(b,d)
+            var curve: Array[Vector2] = [entry]
+            var clear: bool = _segment_clear(result[-1],entry)
+            for j in range(1,9):
+                var u: float = float(j)/8.0
+                var q: Vector2 = entry.lerp(corner,u).lerp(corner.lerp(exit,u),u)
+                if not _segment_clear(curve[-1],q):
+                    clear = false
+                    break
+                curve.append(q)
+            if clear and _segment_clear(exit,b):
+                result.append_array(curve)
+                accepted = true
+                break
+        if not accepted:
+            result.append(corner)
+    if coarse.size()>1:
+        result.append(coarse[-1])
+    for j in range(1,result.size()):
+        if not _segment_clear(result[j-1],result[j]):
+            return coarse
+    return result
+
 func _walk_route(destination: Vector2, delta: float) -> bool:
     if not nav_ready or nav_route_failed:
         return false
@@ -328,25 +386,61 @@ func _walk_route(destination: Vector2, delta: float) -> bool:
     if nav_path.is_empty():
         var goal := _nearest_free(destination)
         var origin := _nearest_free(here,0.60)
-        if not nav.region.has_point(origin) or not nav.region.has_point(goal):
-            nav_route_failed = true
-            return false
-        if not _segment_clear(here,_nav_position(origin)):
+        if not nav.region.has_point(origin) or not nav.region.has_point(goal) or not _segment_clear(here,_nav_position(origin)):
             nav_route_failed = true
             return false
         var ids: Array[Vector2i] = nav.get_id_path(origin,goal)
         if ids.is_empty():
             nav_route_failed = true
             return false
-        nav_goal = goal
-        nav_path = ids
-        nav_index = 0
-    while nav_index < nav_path.size():
-        var p: Vector2 = _nav_position(nav_path[nav_index])
-        if not _move_to(_nav_local(p),delta):
+        nav_path = _smooth_route(ids,here)
+        if nav_path.is_empty():
+            nav_route_failed = true
             return false
-        nav_index += 1
-    return true
+        nav_index = 1
+        nav_goal = goal
+    if nav_index>=nav_path.size():
+        nav_speed = 0.0
+        return true
+    var remaining: float = here.distance_to(nav_path[nav_index])
+    for i in range(nav_index,nav_path.size()-1):
+        remaining += nav_path[i].distance_to(nav_path[i+1])
+    if remaining<=0.008:
+        crate.position = _nav_local(nav_path[-1])
+        nav_index = nav_path.size()
+        nav_speed = 0.0
+        return true
+    var desired: float = minf(1.8,sqrt(maxf(0.0,remaining)*4.0))
+    nav_speed = move_toward(nav_speed,desired,delta*3.0)
+    var budget: float = minf(nav_speed*delta,0.25)
+    while budget>0.0001 and nav_index<nav_path.size():
+        var next: Vector2 = nav_path[nav_index]
+        var distance: float = here.distance_to(next)
+        if distance<=budget+0.0001:
+            here = next
+            budget -= distance
+            nav_index += 1
+        else:
+            here = here.move_toward(next,budget)
+            budget = 0.0
+    # Look ahead along the curve instead of yawing at every sample point.
+    if nav_index<nav_path.size():
+        var look: Vector2 = here
+        var lead: float = 0.65
+        for j in range(nav_index,nav_path.size()):
+            var d: float = look.distance_to(nav_path[j])
+            if d>=lead:
+                look = look.move_toward(nav_path[j],lead)
+                break
+            lead -= d
+            look = nav_path[j]
+        _face_point(_nav_local(look),delta)
+    crate.position = _nav_local(here)
+    _relax_arms(delta)
+    if nav_index>=nav_path.size():
+        nav_speed = 0.0
+        return true
+    return false
 
 func _inspection_point() -> Vector2:
     # The editable route offset is a preference, never a reason to cross solid mesh.
@@ -391,6 +485,7 @@ func _enter(state: String) -> void:
     state_time = 0.0
     nav_path.clear()
     nav_index = 0
+    nav_speed = 0.0
     nav_route_failed = false
     nav_dock_checked = false
 
