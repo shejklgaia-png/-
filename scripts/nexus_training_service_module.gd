@@ -18,12 +18,13 @@ const AMBER: Color = Color("#e9b644")
 
 static func build(room: Node3D, training_at: Vector3, yaw: float) -> void:
     var faces: Array = []
-    _formed_tower(faces)
+    var outline_ranges: Array[Vector2i] = []
+    _formed_tower(faces, outline_ranges)
     for side in [-1.0, 1.0]:
-        _service_hatch(faces, side)
-        _side_cooling_channel(faces, side)
-        _latch_and_hinges(faces, side)
-        _diagonal_foot(faces, side)
+        _service_hatch(faces, side, outline_ranges)
+        _side_cooling_channel(faces, side, outline_ranges)
+        _latch_and_hinges(faces, side, outline_ranges)
+        _diagonal_foot(faces, side, outline_ranges)
     # Preserve the original Blockbench tower's 11-degree Z inclination.
     # Its selection/hit cuboid still uses precisely that same authored tilt.
     var source_pivot := Vector3(0.80, 1.320, -0.280)
@@ -32,7 +33,7 @@ static func build(room: Node3D, training_at: Vector3, yaw: float) -> void:
         for i in range(3):
             face[i] = source_pivot + source_tilt * (face[i] - source_pivot)
     # Lower side vent was a separate, UNROTATED Blockbench element.
-    _lower_front_vent(faces)
+    _lower_front_vent(faces, outline_ranges)
 
     var vertices := PackedVector3Array()
     var normals := PackedVector3Array()
@@ -52,6 +53,8 @@ static func build(room: Node3D, training_at: Vector3, yaw: float) -> void:
     arrays[Mesh.ARRAY_COLOR] = colors
     var mesh := ArrayMesh.new()
     mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+    # Selection-only grouping of actual render faces; no extra render nodes.
+    mesh.set_meta("nexus_selection_face_ranges", outline_ranges)
 
     var material := StandardMaterial3D.new()
     material.vertex_color_use_as_albedo = true
@@ -77,7 +80,7 @@ static func build(room: Node3D, training_at: Vector3, yaw: float) -> void:
     root.add_child(casting)
 
 
-static func _formed_tower(faces: Array) -> void:
+static func _formed_tower(faces: Array, outline_ranges: Array[Vector2i]) -> void:
     # Source cube: x 0.625..0.975, y 0.555..2.085, z -0.515..-0.045.
     # Replace the simple box with a profiled, eight-sided upright.
     # A mild waist reduction and broad, folded shoulders communicate a
@@ -92,6 +95,7 @@ static func _formed_tower(faces: Array) -> void:
         [2.085, 0.136, 0.194]
     ]
     for j in range(levels.size() - 1):
+        var start: int = faces.size()
         var bottom: Array[Vector3] = _tower_outline(
             float(levels[j][0]), float(levels[j][1]),
             float(levels[j][2]))
@@ -106,6 +110,7 @@ static func _formed_tower(faces: Array) -> void:
             if j in [0, 5]:
                 tint = EDGE if i in [0, 3, 4, 7] else CAST
             _quad(faces, bottom[i], bottom[k], top[k], top[i], tint)
+        _outline_range(outline_ranges, start, faces.size())
     var foot: Array[Vector3] = _tower_outline(0.555, 0.145, 0.206)
     var crown: Array[Vector3] = _tower_outline(2.085, 0.136, 0.194)
     for i in range(8):
@@ -114,6 +119,9 @@ static func _formed_tower(faces: Array) -> void:
             foot[j], foot[i], DARK)
         _tri(faces, Vector3(0.80, 2.085, -0.280),
             crown[i], crown[j], CAST)
+    # The end caps lie inside the first/last section's convex projection.
+    # Their vertices are already represented by those section rings.
+    # Keep them out of the normal selection pass, but in the render mesh.
 
 
 static func _tower_outline(y: float, half_x: float,
@@ -135,28 +143,29 @@ static func _tower_outline(y: float, half_x: float,
     ]
 
 
-static func _service_hatch(faces: Array, side: float) -> void:
+static func _service_hatch(faces: Array, side: float, outline_ranges: Array[Vector2i]) -> void:
     # Maintenance door in the flank: raised 8-sided rim, sloping relief and
     # a recessed inner panel. The narrow hinge side is structurally distinct.
     var center := Vector2(-0.295, 1.535) # z, y
-    _side_octagon(faces, side, center, Vector2(0.315, 0.565),
+    _side_octagon(faces, outline_ranges, side, center, Vector2(0.315, 0.565),
         0.202, DARK, CAST, 0.68)
-    _side_octagon(faces, side, center, Vector2(0.256, 0.493),
+    _side_octagon(faces, outline_ranges, side, center, Vector2(0.256, 0.493),
         0.194, INSET, STEEL, 0.80)
     # Two raised longitudinal die-cast reinforcing creases.
     for dz in [-0.078, 0.014]:
         var z: float = center.x + float(dz)
-        _side_bar(faces, side, z, 1.530, 0.020, 0.35,
+        _side_bar(faces, outline_ranges, side, z, 1.530, 0.020, 0.35,
             0.209, EDGE if dz < 0.0 else ARMOR)
     # Lower identification stamp, deliberately not a luminous square.
-    _side_bar(faces, side, -0.300, 1.345, 0.139, 0.018, 0.208, CAST)
+    _side_bar(faces, outline_ranges, side, -0.300, 1.345, 0.139, 0.018, 0.208, CAST)
 
 
-static func _side_octagon(faces: Array, side: float, center: Vector2,
+static func _side_octagon(faces: Array, outline_ranges: Array[Vector2i], side: float, center: Vector2,
         size: Vector2, x_away: float, inside_color: Color,
         bevel_color: Color, inset_ratio: float) -> void:
     # x_away is distance from tower centre 0.8; local section is YZ.
     # True bevel vertices and inner panel are connected, not a texture.
+    var start: int = faces.size()
     var outer_x: float = 0.80 + side * x_away
     var inner_x: float = 0.80 + side * (x_away - 0.027)
     var outer: Array[Vector2] = _octagon(center, size)
@@ -171,6 +180,7 @@ static func _side_octagon(faces: Array, side: float, center: Vector2,
             EDGE if i in [0, 4] else bevel_color)
         _tri(faces, Vector3(inner_x, center.y, center.x), d, c,
             inside_color)
+    _outline_range(outline_ranges, start, faces.size())
 
 
 static func _octagon(center: Vector2, size: Vector2) -> Array[Vector2]:
@@ -190,12 +200,13 @@ static func _octagon(center: Vector2, size: Vector2) -> Array[Vector2]:
     ]
 
 
-static func _side_cooling_channel(faces: Array, side: float) -> void:
+static func _side_cooling_channel(faces: Array, side: float, outline_ranges: Array[Vector2i]) -> void:
     # Separate lower heat exchanger. There is a dark recess, and each fin
     # is pitched in depth so it catches light with a proper face normal.
-    _side_octagon(faces, side, Vector2(-0.280, 0.885),
+    _side_octagon(faces, outline_ranges, side, Vector2(-0.280, 0.885),
         Vector2(0.314, 0.385), 0.208, INSET, CAST, 0.78)
     for i in range(6):
+        var start: int = faces.size()
         var y: float = 0.752 + float(i) * 0.050
         var x0: float = 0.80 + side * 0.215
         var x1: float = 0.80 + side * 0.237
@@ -206,27 +217,29 @@ static func _side_cooling_channel(faces: Array, side: float) -> void:
             Vector3(x1, y + 0.012, right),
             Vector3(x1, y + 0.012, left),
             CAST if i % 2 == 0 else EDGE)
-    _side_bar(faces, side, -0.173, 0.712, 0.028, 0.031,
+        _outline_range(outline_ranges, start, faces.size())
+    _side_bar(faces, outline_ranges, side, -0.173, 0.712, 0.028, 0.031,
         0.240, CYAN)
 
 
-static func _latch_and_hinges(faces: Array, side: float) -> void:
+static func _latch_and_hinges(faces: Array, side: float, outline_ranges: Array[Vector2i]) -> void:
     # Machined hinge discs with an actual recessed bore. Each shares the
     # 10-vertex ring profile, without another mesh or separate draw call.
     for height in [1.345, 1.710]:
-        _side_annulus(faces, side, -0.459, float(height),
+        _side_annulus(faces, outline_ranges, side, -0.459, float(height),
             0.032, 0.014, 0.245)
-    _side_annulus(faces, side, -0.126, 1.530, 0.049, 0.024, 0.250)
+    _side_annulus(faces, outline_ranges, side, -0.126, 1.530, 0.049, 0.024, 0.250)
     # The perpendicular latch lever is a bevelled forged tab.
-    _side_bar(faces, side, -0.125, 1.553, 0.032, 0.135,
+    _side_bar(faces, outline_ranges, side, -0.125, 1.553, 0.032, 0.135,
         0.261, STEEL)
-    _side_bar(faces, side, -0.125, 1.608, 0.065, 0.028,
+    _side_bar(faces, outline_ranges, side, -0.125, 1.608, 0.065, 0.028,
         0.278, AMBER)
 
 
-static func _side_annulus(faces: Array, side: float, z: float,
+static func _side_annulus(faces: Array, outline_ranges: Array[Vector2i], side: float, z: float,
         y: float, outer_radius: float, inner_radius: float,
         x_distance: float) -> void:
+    var start: int = faces.size()
     var outer_x: float = 0.80 + side * x_distance
     var inner_x: float = 0.80 + side * (x_distance - 0.016)
     for i in range(10):
@@ -241,12 +254,16 @@ static func _side_annulus(faces: Array, side: float, z: float,
         var bi := Vector3(inner_x, y + sin(b) * inner_radius,
             z + cos(b) * inner_radius)
         _quad(faces, ao, bo, bi, ai, EDGE if i % 3 == 0 else CAST)
+    # Each hinge is a separate exterior decagon. Its internal bore is not
+    # part of the selection outer boundary (black surface ink is unchanged).
+    _outline_range(outline_ranges, start, faces.size())
 
 
-static func _side_bar(faces: Array, side: float, z: float,
+static func _side_bar(faces: Array, outline_ranges: Array[Vector2i], side: float, z: float,
         y: float, width: float, height: float, distance: float,
         color: Color) -> void:
     # A pitched trapezoid with physical side thickness, not a 2D line.
+    var start: int = faces.size()
     var x0: float = 0.80 + side * distance
     var x1: float = 0.80 + side * (distance + 0.016)
     var z0: float = z - width * 0.5
@@ -255,10 +272,11 @@ static func _side_bar(faces: Array, side: float, z: float,
     var y1: float = y + height * 0.5
     _quad(faces, Vector3(x0, y0, z0), Vector3(x0, y0, z1),
         Vector3(x1, y1, z1), Vector3(x1, y1, z0), color)
+    _outline_range(outline_ranges, start, faces.size())
     # Single visible pitched surface (do not duplicate a coplanar quad).
 
 
-static func _diagonal_foot(faces: Array, side: float) -> void:
+static func _diagonal_foot(faces: Array, side: float, outline_ranges: Array[Vector2i]) -> void:
     # Two triangular cast brace webs connect the sensor mast to the original
     # cabinet; outer points remain inside the original selection footprint.
     for z0 in [-0.415, -0.120]:
@@ -270,12 +288,16 @@ static func _diagonal_foot(faces: Array, side: float) -> void:
         var b := Vector3(x_b, 0.635, z)
         var c := Vector3(x_c, 0.635, z + 0.108)
         var d := Vector3(x_a, 0.305, z + 0.048)
+        var start: int = faces.size()
         _quad(faces, a, b, c, d, CAST)
         _quad(faces, a + Vector3(0, 0, -0.011),
             b + Vector3(0, 0, -0.011), b, a, EDGE)
+        # Braces are not guaranteed planar/convex as a whole.
+        for index in range(start, faces.size()):
+            _outline_range(outline_ranges, index, index + 1)
 
 
-static func _lower_front_vent(faces: Array) -> void:
+static func _lower_front_vent(faces: Array, outline_ranges: Array[Vector2i]) -> void:
     # Replaces the separate, featureless block at front (+Z) of the lower
     # TRAINING cabinet. x 0.255..0.585, y 0.19..0.71 in source model.
     var center := Vector2(0.420, 0.445)
@@ -283,6 +305,7 @@ static func _lower_front_vent(faces: Array) -> void:
     var pocket: Array[Vector2] = _octagon(center, Vector2(0.272, 0.412))
     # Real tapered mounting well connects the cassette to the cabinet face
     # at z=0.27. Without this bridge the old flat side block floated.
+    var start: int = faces.size()
     for i in range(8):
         var j: int = (i + 1) % 8
         var rear_a: Vector2 = center + (frame[i] - center) * 0.86
@@ -292,6 +315,8 @@ static func _lower_front_vent(faces: Array) -> void:
             Vector3(frame[j].x, frame[j].y, 0.555),
             Vector3(frame[i].x, frame[i].y, 0.555),
             ARMOR if i % 2 == 0 else CAST)
+    _outline_range(outline_ranges, start, faces.size())
+    start = faces.size()
     for i in range(8):
         var j: int = (i + 1) % 8
         _quad(faces,
@@ -302,22 +327,34 @@ static func _lower_front_vent(faces: Array) -> void:
         _tri(faces, Vector3(center.x, center.y, 0.562),
             Vector3(pocket[i].x, pocket[i].y, 0.570),
             Vector3(pocket[j].x, pocket[j].y, 0.570), INSET)
+    _outline_range(outline_ranges, start, faces.size())
     for i in range(6):
+        start = faces.size()
         var y: float = 0.296 + float(i) * 0.050
         _quad(faces, Vector3(0.317, y, 0.574),
             Vector3(0.519, y, 0.574),
             Vector3(0.519, y + 0.017, 0.609),
             Vector3(0.317, y + 0.017, 0.609),
             CAST if i % 2 == 0 else STEEL)
+        _outline_range(outline_ranges, start, faces.size())
+    start = faces.size()
     # Non-emissive cyan indicator lens and a protected amber latch.
     _quad(faces, Vector3(0.515, 0.615, 0.575),
         Vector3(0.554, 0.615, 0.575),
         Vector3(0.554, 0.644, 0.575),
         Vector3(0.515, 0.644, 0.575), CYAN)
+    _outline_range(outline_ranges, start, faces.size())
+    start = faces.size()
     _quad(faces, Vector3(0.298, 0.222, 0.576),
         Vector3(0.350, 0.222, 0.576),
         Vector3(0.350, 0.246, 0.576),
         Vector3(0.298, 0.246, 0.576), AMBER)
+    _outline_range(outline_ranges, start, faces.size())
+
+
+static func _outline_range(ranges: Array[Vector2i], start: int, end: int) -> void:
+    if end > start:
+        ranges.append(Vector2i(start * 3, end * 3))
 
 
 static func _tri(faces: Array, a: Vector3, b: Vector3,

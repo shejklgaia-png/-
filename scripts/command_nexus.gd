@@ -5326,8 +5326,10 @@ func _live_gate_strokes() -> Array[PackedVector2Array]:
         if not is_instance_valid(leaf) or not leaf.is_visible_in_tree() or leaf.mesh == null:
             continue
         var points := PackedVector3Array()
-        for vertex in _selection_mesh_faces(leaf.mesh):
-            points.append(leaf.global_transform * vertex)
+        var topology: Dictionary = _selection_mesh_topology(leaf.mesh, false)
+        var pose: Transform3D = leaf.global_transform
+        for vertex in topology["vertices"]:
+            points.append(pose * vertex)
         if points.size() >= 3:
             leaf_clusters.append(points)
     # The modeled closed leaves have a 5 cm mechanical seam. Treat that
@@ -5443,7 +5445,7 @@ func _collect_selection_meshes(node: Node, target: String, exact_faces: bool) ->
         return
     if node is MeshInstance3D:
         var piece := node as MeshInstance3D
-        if piece.mesh != null and piece.is_visible_in_tree():
+        if piece.mesh != null and piece.is_visible_in_tree() and not bool(piece.get_meta("nexus_selection_detail_only", false)):
             selection_render_sources[target].append({"node": piece, "exact_faces": exact_faces})
     elif node is MultiMeshInstance3D:
         var draw := node as MultiMeshInstance3D
@@ -5477,8 +5479,8 @@ func _selection_quad_is_convex(a: Vector3, b: Vector3, c: Vector3, d: Vector3) -
             return false
     return true
 
-func _selection_mesh_topology(mesh: Mesh, exact: bool) -> Dictionary:
-    var key: String = "%s:%s" % [mesh.get_instance_id(), exact]
+func _selection_mesh_topology(mesh: Mesh, exact: bool, allow_proxy: bool = true) -> Dictionary:
+    var key: String = "%s:%s:%s" % [mesh.get_instance_id(), exact, allow_proxy]
     if selection_contour_topology.has(key):
         return selection_contour_topology[key]
     var faces: PackedVector3Array = _selection_mesh_faces(mesh)
@@ -5493,7 +5495,29 @@ func _selection_mesh_topology(mesh: Mesh, exact: bool) -> Dictionary:
             unique.append(vertex)
         indices.append(int(lookup[vertex]))
     var groups: Array[PackedInt32Array] = []
-    if exact:
+    var proxy: bool = false
+    if exact and allow_proxy and mesh.has_meta("nexus_selection_face_ranges"):
+        # Ranges reference the same authored render triangles; no bounding box
+        # across separate features. Deduplicate each local convex component.
+        var ranges: Array = mesh.get_meta("nexus_selection_face_ranges")
+        for face_range in ranges:
+            var group := PackedInt32Array()
+            var seen: Dictionary = {}
+            for index in range(face_range.x, mini(face_range.y, indices.size())):
+                var vertex_index: int = indices[index]
+                if not seen.has(vertex_index):
+                    seen[vertex_index] = true
+                    group.append(vertex_index)
+            if group.size() >= 3:
+                groups.append(group)
+        proxy = not groups.is_empty()
+    elif exact and allow_proxy and bool(mesh.get_meta("nexus_selection_convex", false)):
+        var all_vertices := PackedInt32Array()
+        for index in range(unique.size()):
+            all_vertices.append(index)
+        groups.append(all_vertices)
+        proxy = true
+    if exact and not proxy:
         var i: int = 0
         while i + 2 < indices.size():
             var ia: int = indices[i]
@@ -5507,20 +5531,20 @@ func _selection_mesh_topology(mesh: Mesh, exact: bool) -> Dictionary:
                     continue
             groups.append(PackedInt32Array([ia, ib, ic]))
             i += 3
-    else:
+    elif not exact:
         var all := PackedInt32Array()
         all.resize(unique.size())
         for i in range(unique.size()):
             all[i] = i
         groups.append(all)
-    var topology: Dictionary = {"vertices": unique, "groups": groups}
+    var topology: Dictionary = {"vertices": unique, "groups": groups, "proxy": proxy}
     selection_contour_topology[key] = topology
     return topology
 
 # Project each distinct vertex once per instance, not once per triangle.
 # The camera/door pose stays live, including canonical placement changes.
-func _selection_project_groups(mesh: Mesh, pose: Transform3D, exact: bool) -> Array[PackedVector2Array]:
-    var topology: Dictionary = _selection_mesh_topology(mesh, exact)
+func _selection_project_groups(mesh: Mesh, pose: Transform3D, exact: bool, allow_proxy: bool = true) -> Array[PackedVector2Array]:
+    var topology: Dictionary = _selection_mesh_topology(mesh, exact, allow_proxy)
     var vertices: PackedVector3Array = topology["vertices"]
     var groups: Array = topology["groups"]
     var projected := PackedVector2Array()
@@ -5530,6 +5554,10 @@ func _selection_project_groups(mesh: Mesh, pose: Transform3D, exact: bool) -> Ar
     for i in range(vertices.size()):
         var world: Vector3 = pose * vertices[i]
         if cam.is_position_behind(world):
+            # An extreme debug camera/placement must preserve the original
+            # face-level near-plane behavior, not drop an entire component.
+            if bool(topology.get("proxy", false)):
+                return _selection_project_groups(mesh, pose, exact, false)
             behind[i] = 1
         else:
             projected[i] = cam.unproject_position(world)

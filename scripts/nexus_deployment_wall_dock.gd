@@ -212,6 +212,7 @@ static func _display_face(root: Node3D, label: String,
     var mesh := MeshInstance3D.new()
     mesh.name = label
     mesh.mesh = tool.commit()
+    mesh.mesh.set_meta("nexus_selection_convex", true)
     mesh.material_override = material
     mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     mesh.set_meta("sera_outline_occluder_only", true)
@@ -259,6 +260,8 @@ static func _display_instruments(root: Node3D) -> void:
     var node := MeshInstance3D.new()
     node.name = "DeploymentReadoutReticleAndStatus"
     node.mesh = tool.commit()
+    # Readout marks are enclosed by the screen bezel, not an external contour.
+    node.set_meta("nexus_selection_detail_only", true)
     var mat := StandardMaterial3D.new()
     mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
     mat.vertex_color_use_as_albedo = true
@@ -368,12 +371,31 @@ static func _prism(root: Node3D, label: String,
     var node := MeshInstance3D.new()
     node.name = label
     node.mesh = tool.commit()
+    if _selection_profile_convex(profile):
+        node.mesh.set_meta("nexus_selection_convex", true)
     node.position = Vector3(offset_x, 0.0, offset_z)
     node.material_override = mat
     node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     node.set_meta("sera_outline_occluder_only", true)
     node.set_meta("FX_NO_OUTLINE", true)
     root.add_child(node)
+
+
+static func _selection_profile_convex(profile: PackedVector2Array) -> bool:
+    if profile.size() < 3:
+        return false
+    var winding: float = 0.0
+    for i in range(profile.size()):
+        var a: Vector2 = profile[(i + 1) % profile.size()] - profile[i]
+        var b: Vector2 = profile[(i + 2) % profile.size()] - profile[(i + 1) % profile.size()]
+        var turn: float = a.cross(b)
+        if absf(turn) < 0.000001:
+            continue
+        if winding == 0.0:
+            winding = signf(turn)
+        elif winding * turn < 0.0:
+            return false
+    return winding != 0.0
 
 
 static func _v(point: Vector2, x: float) -> Vector3:
