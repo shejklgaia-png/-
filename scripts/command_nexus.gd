@@ -410,6 +410,7 @@ func _ready() -> void:
     # NEXUS equipment has 3/0/2+convex1; its displayed SERA remains
     # universal character 4/0/2, all in the exact shared visible RGB-ID pass.
     _nexus_tone_background_surfaces()
+    _nexus_grade_equipment_castings()
     SharedMaterialShading.apply_to_subtree(self)
     _nexus_apply_practical_shading(self, true)
     _nexus_practical_lights()
@@ -421,7 +422,7 @@ func _ready() -> void:
             nexus_room_visuals.append(child)
     _sera_display()
     if is_instance_valid(sera_display_rig):
-        _nexus_apply_practical_shading(sera_display_rig, true)
+        _nexus_apply_practical_shading(sera_display_rig, true, true)
     _camera()
     # One RGB12 ID viewport for the entire NEXUS (architecture + SERA).
     # The numeric preset selects NEXUS equipment only, not actor widths.
@@ -867,15 +868,15 @@ func _environment() -> void:
     env.background_mode = Environment.BG_COLOR
     env.background_color = NEXUS_ROOM_BACKDROP_COLOR
     env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-    env.ambient_light_color = Color("#a1b5cd")
-    env.ambient_light_energy = 0.38
+    env.ambient_light_color = Color("#d1dae4")
+    env.ambient_light_energy = 0.68
     world.environment = env
     add_child(world)
-    # Retain only a faint neutral directional fill for readable silhouettes.
+    # Neutral diffuse fill reveals the non-emissive equipment faces.
     var key := DirectionalLight3D.new()
-    key.rotation_degrees = Vector3(-48.0, -34.0, 0.0)
-    key.light_color = Color("#c2d4e8")
-    key.light_energy = 0.28
+    key.rotation_degrees = Vector3(-32.0, -24.0, 0.0)
+    key.light_color = Color("#e0e8f0")
+    key.light_energy = 0.56
     key.light_specular = 0.0
     key.shadow_enabled = false
     add_child(key)
@@ -884,7 +885,7 @@ func _environment() -> void:
 # The common toon shader is unshaded, so changing Environment alone has no
 # effect. Keep its authored palette, UVs and quantized normals, but use a
 # scene-local lit variant. Never mutate shared resources used in combat/UI.
-func _nexus_apply_practical_shading(node: Node, enable: bool) -> void:
+func _nexus_apply_practical_shading(node: Node, enable: bool, exhibit: bool = false) -> void:
     if node is GeometryInstance3D:
         var geometry := node as GeometryInstance3D
         var current := geometry.material_override as ShaderMaterial
@@ -897,14 +898,20 @@ func _nexus_apply_practical_shading(node: Node, enable: bool) -> void:
         elif current != null and current.shader != null:
             var source_shader: Shader = current.shader
             if source_shader.resource_path.get_file().begins_with("sera_fullbody_material_shading"):
-                var shader_key: int = source_shader.get_instance_id()
+                var shader_key: String = "%s:%s" % [source_shader.get_instance_id(), exhibit]
                 var lit_shader := _nexus_lighting_shaders.get(shader_key) as Shader
                 if lit_shader == null:
                     lit_shader = Shader.new()
                     lit_shader.code = source_shader.code.replace(
                         "render_mode unshaded,", "render_mode diffuse_lambert, specular_disabled,")
+                    if exhibit:
+                        # Preserve paint and flat face bands. This constant material
+                        # fill compensates for double shading; it is not a Light3D.
+                        lit_shader.code = lit_shader.code.replace(
+                            "EMISSION = fx_emission;",
+                            "EMISSION = fx_emission + shaded * 0.48;")
                     _nexus_lighting_shaders[shader_key] = lit_shader
-                var material_key: int = current.get_instance_id()
+                var material_key: String = "%s:%s" % [current.get_instance_id(), exhibit]
                 var lit := _nexus_lighting_materials.get(material_key) as ShaderMaterial
                 if lit == null:
                     lit = current.duplicate() as ShaderMaterial
@@ -919,7 +926,7 @@ func _nexus_apply_practical_shading(node: Node, enable: bool) -> void:
                 geometry.set_meta("nexus_unlit_original", current)
                 geometry.material_override = lit
     for child in node.get_children():
-        _nexus_apply_practical_shading(child, enable)
+        _nexus_apply_practical_shading(child, enable, exhibit)
 
 
 func _nexus_fixture_spot(parent: Node3D, label: String, at: Vector3,
@@ -1108,7 +1115,16 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
         if name == "hangar_shell":
             batch_key += 200
         elif not selected_shape.is_empty() and part_hit and not no_stroke and index in [2, 3, 4]:
-            batch_key += 400
+            # Give each interactive machine its own restrained paint family.
+            match selected_shape:
+                "SYSTEM":
+                    batch_key += 400
+                "TRAINING":
+                    batch_key += 600
+                "DATA ARCHIVE":
+                    batch_key += 800
+                "DEPLOYMENT":
+                    batch_key += 1000
         var instances: Array = batch_data.get(batch_key, [])
         instances.append(transform)
         if selected_shape in ["SYSTEM", "TRAINING", "DATA ARCHIVE"]:
@@ -1269,7 +1285,7 @@ func _render_batches() -> void:
         if background:
             draw.name = "NexusBackdropBatch_%03d" % batch_key
         elif featured:
-            draw.name = "NexusFeaturedArmor_%02d" % index
+            draw.name = "NexusFeaturedArmor_%04d" % batch_key
         draw.multimesh = multi
         canonical_render_batches[batch_key] = multi
         # Only meshes with an original 2px architectural line receive ID
@@ -1280,18 +1296,27 @@ func _render_batches() -> void:
             draw.set_meta("sera_outline_occluder_only", true)
         var material: StandardMaterial3D = _mat(index)
         if background and index not in [5, 6, 7]:
-            material.albedo_color = material.albedo_color.lerp(Color("#101924"), 0.48)
+            material.albedo_color = material.albedo_color.lerp(Color("#101924"), 0.55)
             material.metallic = 0.05
             material.roughness = 0.88
             material.metallic_specular = 0.0
             draw.set_meta("sera_preserve_authored_material", true)
         elif featured:
-            var armor_colors: Dictionary = {2: Color("#465b6c"), 3: Color("#72899b"), 4: Color("#a4b7c3")}
-            material.albedo_color = armor_colors[index]
+            var family: int = batch_key - index
+            var armor_colors: Dictionary = {
+                400: [Color("#5c7c94"), Color("#91b3c8"), Color("#c1dbe7")],
+                600: [Color("#77756b"), Color("#aaa99a"), Color("#e1dccc")],
+                800: [Color("#4e7777"), Color("#88b5ad"), Color("#c3dbd1")],
+                1000: [Color("#687685"), Color("#a0adbb"), Color("#d4dce5")]}
+            var colors: Array = armor_colors[family]
+            material.albedo_color = colors[index - 2]
             material.metallic = 0.10
             material.roughness = 0.72
             material.metallic_specular = 0.12
             draw.set_meta("sera_preserve_authored_material", true)
+        if index == 5 or index == 6:
+            # Keep the strips luminous but below the former clipped peak.
+            material.emission_energy_multiplier *= 0.70
         draw.material_override = material
         draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         add_child(draw)
@@ -1361,7 +1386,7 @@ func _nexus_tone_background_node(node: Node) -> void:
         var source := geometry.material_override as StandardMaterial3D
         if source != null and not source.emission_enabled and source.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED:
             var toned := source.duplicate() as StandardMaterial3D
-            toned.albedo_color = source.albedo_color.lerp(Color("#101924"), 0.24)
+            toned.albedo_color = source.albedo_color.lerp(Color("#101924"), 0.30)
             toned.roughness = maxf(source.roughness, 0.78)
             toned.metallic = minf(source.metallic, 0.15)
             toned.metallic_specular = 0.0
@@ -1370,6 +1395,36 @@ func _nexus_tone_background_node(node: Node) -> void:
             geometry.set_meta("sera_preserve_authored_material", true)
     for child in node.get_children():
         _nexus_tone_background_node(child)
+
+
+# Generated machine castings must not remain charcoal while their main
+# armor is bright. Keep authored geometry and all actual emitting surfaces.
+func _nexus_grade_equipment_castings() -> void:
+    for root_name in ["NexusProceduralArchitecture", "NexusComplexMachining",
+            "NexusSculptedFittings", "TrainingServiceAssembly", "DeploymentConsolePlacementAnchor"]:
+        var root: Node = find_child(root_name, true, false)
+        if root != null:
+            _nexus_grade_casting_node(root)
+
+
+func _nexus_grade_casting_node(node: Node) -> void:
+    if node is GeometryInstance3D:
+        var geometry := node as GeometryInstance3D
+        var source := geometry.material_override as StandardMaterial3D
+        if source != null and not source.emission_enabled and source.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED:
+            var graded := source.duplicate() as StandardMaterial3D
+            # Keep mechanisms darker than armor, rather than painting every
+            # screw and recess white. Lift only the midtones.
+            var tint: Color = source.albedo_color
+            var weight: float = 0.22 if tint.get_luminance() > 0.10 else 0.08
+            graded.albedo_color = tint.lerp(Color("#a8b8c4"), weight)
+            graded.roughness = maxf(source.roughness, 0.70)
+            graded.metallic = minf(source.metallic, 0.18)
+            graded.metallic_specular = 0.12
+            geometry.material_override = graded
+            geometry.set_meta("sera_preserve_authored_material", true)
+    for child in node.get_children():
+        _nexus_grade_casting_node(child)
 
 
 func _pad_center() -> void:
@@ -1383,7 +1438,11 @@ func _pad_center() -> void:
     surface.mesh = cylinder
     surface.position = Vector3(0.0, 0.33, -4.75)
     var pad_material: StandardMaterial3D = _mat(2)
+    pad_material.albedo_color = Color("#718697")
+    pad_material.metallic = 0.08
+    pad_material.roughness = 0.82
     surface.material_override = pad_material
+    surface.set_meta("sera_preserve_authored_material", true)
     surface.set_meta("sera_outline_role", "facility")
     add_child(surface)
 
@@ -4619,7 +4678,7 @@ func _restore_customization_preview() -> void:
     # Keep the portrait outline hidden until the return camera finishes.
     sera_display_rig.transform = sera_original_transform
     customize_preview_active = false
-    _nexus_apply_practical_shading(sera_display_rig, true)
+    _nexus_apply_practical_shading(sera_display_rig, true, true)
     _capture_sera_silhouette(sera_display_rig)
     _update_projected_silhouettes()
 
