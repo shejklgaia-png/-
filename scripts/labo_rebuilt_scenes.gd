@@ -2,6 +2,8 @@ extends RefCounted
 ## Dedicated life-size OUTDOOR production sets. BASE icons are design references only.
 ## All dimensions are authored in metres, never scaled BASE meshes.
 const Logistics = preload("res://scripts/labo_worksite_logistics.gd")
+const IndustrialHorizon = preload("res://scripts/labo_industrial_horizon.gd")
+var industrial_horizon: RefCounted
 const Architecture = preload("res://scripts/sera_base_architecture.gd")
 const Monitor = preload("res://scripts/sera_labo_monitor_24fps.gd")
 const DeckLayout = preload("res://scripts/sera_base_deck_layout.gd")
@@ -43,6 +45,8 @@ func build(stage: Node3D) -> void:
     host = stage
     print_idle_rng.randomize()
     _build_outdoor_deck()
+    industrial_horizon = IndustrialHorizon.new()
+    industrial_horizon.build(host)
     context_root = _child(host,"DistantBaseFacilities")
     for key in KEYS:
         var room := Node3D.new()
@@ -589,6 +593,7 @@ func _position_context(key: String) -> void:
     if not context_poses.has(key):
         for proxy in context_models.values():
             proxy.visible = false
+        industrial_horizon.avoid_base_proxies(context_models)
         return
     var focus: Dictionary = context_poses[key]
     var origin: Vector3 = focus["position"]
@@ -608,6 +613,7 @@ func _position_context(key: String) -> void:
         proxy.position = at
         proxy.rotation.y = float(entry["yaw"])-focus_yaw
         proxy.scale = Vector3.ONE*CONTEXT_MODEL_SCALE
+    industrial_horizon.avoid_base_proxies(context_models)
 
 func _console(key: String, at: Vector3, mode: int) -> void:
     var n := _model(key,"CrateOperatorTerminal",at)
@@ -1423,6 +1429,7 @@ func logistics_carrier(key: String,inbound: bool) -> Node3D:
 func animate(delta: float, time: float, key: String) -> void:
     if key != active_key:
         return
+    industrial_horizon.animate(delta)
     for panel in screens.get(key,[]):
         panel.call("_process",delta)
     if key == "SMELTER":
