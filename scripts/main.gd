@@ -665,7 +665,11 @@ var strike_did_hit: bool = false
 var strike_prev_time: float = 0.0
 var strike_prev_blade: PackedVector3Array = PackedVector3Array()
 
+var _previous_combat_input_accumulation: bool = true
+
 func _ready() -> void:
+    _previous_combat_input_accumulation = Input.use_accumulated_input
+    Input.use_accumulated_input = false
     set_meta("sera_graphics_outline_category", "character")
     # Training uses the shared RGB12 ID algorithm with its OWN numerical
     # 1px mesh-contact preset. Bittaran sets its own flag before super._ready
@@ -703,6 +707,7 @@ func _ready() -> void:
     _update_target_marker_projection()  # Initial position before the first rendered frame.
 
 func _exit_tree() -> void:
+    Input.use_accumulated_input = _previous_combat_input_accumulation
     get_tree().quit_on_go_back = _previous_quit_on_go_back
     get_tree().physics_interpolation = _previous_physics_interpolation
 

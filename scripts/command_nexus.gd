@@ -5078,6 +5078,7 @@ func _create_fps_option_controls() -> void:
         {"scope": "character_outline", "title": "全身キャラ枠線"},
         {"scope": "part_outline", "title": "単体パーツ枠線"},
         {"scope": "motion_blur", "title": "モーションブラー"},
+        {"scope": "adaptive_3d_resolution", "title": "動的3D解像度"},
     ]:
         var panel := Panel.new()
         panel.name = "FPSRow_" + str(spec["scope"])
@@ -5221,6 +5222,8 @@ func _tap_fps_option_control(point: Vector2) -> void:
                     compositor.call("refresh_graphics_preferences")
                 # NEXUS architectural outlines use the same compositor,
                 # which refresh_graphics_preferences above already updates.
+                if scope == "adaptive_3d_resolution":
+                    SeraRuntimePerf.set_adaptive_enabled(next_enabled)
                 _refresh_fps_option_controls()
             else:
                 system_fps_note.text = "グラフィック設定の保存に失敗しました。"

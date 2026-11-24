@@ -142,6 +142,9 @@ const HERO_SCENE_PATH := "res://scenes/labo_hero_stage.tscn"
 const HERO_PREWARM_KEYS: Array[String] = ["LABO", "SMELTER", "STORAGE"]
 var hero_load_requested: bool = false
 var hero_scene_resource: PackedScene
+# Static craft/refinery cards retain native controls, artwork and signal bindings.
+var resident_card_pages: Dictionary = {}
+var card_cache_root: Control
 const ModelPlacement = preload("res://scripts/labo_model_placement.gd")
 var texture_entry: Button
 var texture_editor: Control
@@ -1487,6 +1490,7 @@ func prewarm_hero_startup(budget: Variant) -> void:
         print("SERA_HERO_PREWARM RESIDENT: ", key)
     # All rooms and navigation maps stay alive, but no offscreen updates.
     _set_hero_running(false)
+    await _prewarm_card_pages(budget)
 
 
 func _set_labo_hero(enabled: bool, section: String = "") -> void:
@@ -2238,8 +2242,11 @@ func _clear_actions() -> void:
         child.queue_free()
     if item_layer != null:
         for child in item_layer.get_children():
-            item_layer.remove_child(child)
-            child.queue_free()
+            if child.has_meta("resident_card_page"):
+                _park_card_page(child as Control)
+            else:
+                item_layer.remove_child(child)
+                child.queue_free()
     # _clear_actions runs before screen titles are reassigned.
     # Refresh after the page is built, without polling every frame.
     call_deferred("_refresh_modal_name_underline")
@@ -3070,24 +3077,7 @@ func _show_prototype_catalog() -> void:
         b.pressed.connect(_invoke_scroll_action.bind(
             _select_craft_slot.bind(str(slot)), actions_scroll))
         slot_tabs.add_child(b)
-    var grid := _new_grid("PrototypeGrid", 1)
-    for bp in PrototypeCatalog.ORDER:
-        var id: String = str(bp)
-        var entry: Dictionary = PrototypeCatalog.spec(id)
-        if str(entry.get("slot", "")) != craft_slot:
-            continue
-        var card: Button = _new_slot(grid, "PrototypeIcon_" + id,
-            null, str(entry["name"]),
-            LaboStats.baseline(id).replace("\n", " / "),
-            _select_prototype.bind(id), "Choose_" + id) as Button
-        _queue_card_icon(card, id, true)
-    # Each part has twenty positions; unknown blueprints remain locked.
-    for slot_number in range(int(grid.get_meta("card_count", 0)) + 1,
-            CRAFT_CATALOG_SLOTS + 1):
-        _new_slot(grid, "LockedCraftSlot_%02d" % slot_number,
-            null, "—  LOCKED SLOT  —",
-            "POSITION %02d  /  UNAVAILABLE" % slot_number)
-    _finish_grid(grid)
+    _show_resident_craft_grid(craft_slot)
     _configure_page_scroll(158 if modal_actions.get_child_count() > 1 else 82)
     _sync_section_tabs()
 
@@ -3168,6 +3158,96 @@ func _render_family_page() -> void:
     if diagnostic_button.visible:
         _diag_step("materials inventory load")
     var inventory: Dictionary = SeraSave.get_material_inventory()
+    _show_resident_material_grid(inventory)
+
+func _card_width_key() -> String:
+    return str(int(get_viewport().get_visible_rect().size.x))
+
+func _park_card_page(page_node: Control) -> void:
+    if not is_instance_valid(page_node):
+        return
+    if card_cache_root == null:
+        card_cache_root = Control.new()
+        card_cache_root.name = "ResidentCardPages"
+        card_cache_root.hide()
+        card_cache_root.process_mode = Node.PROCESS_MODE_DISABLED
+        modal.add_child(card_cache_root)
+    page_node.hide()
+    if page_node.get_parent() != card_cache_root:
+        page_node.reparent(card_cache_root, false)
+
+func _restore_card_page(key: String) -> Control:
+    var cached := resident_card_pages.get(key) as Control
+    if not is_instance_valid(cached):
+        return null
+    if cached.get_parent() != item_layer:
+        cached.reparent(item_layer, false)
+    cached.show()
+    if cached is ScrollContainer:
+        cached.scroll_vertical = 0
+    return cached
+
+func _register_card_page(key: String, grid: VBoxContainer) -> Control:
+    var scroll := grid.get_parent() as Control
+    scroll.set_meta("resident_card_page", key)
+    # One width variant per logical page. Dispose only obsolete hidden variants.
+    var logical: String = key.get_slice("|", 0)
+    for old_key in resident_card_pages.keys():
+        if old_key != key and str(old_key).get_slice("|", 0) == logical:
+            var old := resident_card_pages[old_key] as Control
+            if is_instance_valid(old):
+                old.queue_free()
+            resident_card_pages.erase(old_key)
+    resident_card_pages[key] = scroll
+    return scroll
+
+func _show_resident_craft_grid(slot_id: String) -> Control:
+    var cache_key: String = "craft_" + slot_id + "|" + _card_width_key()
+    var cached := _restore_card_page(cache_key)
+    if cached != null:
+        return cached
+    var grid := _new_grid("PrototypeGrid", 1)
+    for bp in PrototypeCatalog.ORDER:
+        var id: String = str(bp)
+        var entry: Dictionary = PrototypeCatalog.spec(id)
+        if str(entry.get("slot", "")) != slot_id:
+            continue
+        var card: Button = _new_slot(grid, "PrototypeIcon_" + id,
+            null, str(entry["name"]),
+            LaboStats.baseline(id).replace("\n", " / "),
+            _select_prototype.bind(id), "Choose_" + id) as Button
+        _queue_card_icon(card, id, true)
+    # Each part has twenty positions; unknown blueprints remain locked.
+    for slot_number in range(int(grid.get_meta("card_count", 0)) + 1,
+            CRAFT_CATALOG_SLOTS + 1):
+        _new_slot(grid, "LockedCraftSlot_%02d" % slot_number,
+            null, "—  LOCKED SLOT  —",
+            "POSITION %02d  /  UNAVAILABLE" % slot_number)
+    _finish_grid(grid)
+
+    return _register_card_page(cache_key, grid)
+
+func _show_resident_material_grid(inventory: Dictionary) -> Control:
+    var cache_key: String = "materials|" + _card_width_key()
+    var cached := _restore_card_page(cache_key)
+    if cached != null:
+        # Amounts are dynamic; preserve native card controls and update labels.
+        for family in BaseMaterials.FAMILY_IDS:
+            for tier in BaseMaterials.TIERS:
+                var id: String = str(family) + "_" + str(tier)
+                var card := cached.find_child("MaterialIcon_" + id, true, false) as Button
+                if card == null:
+                    continue
+                var count: int = int(inventory.get(id, 0))
+                var info: String = "所持 %d" % count
+                card.text = BaseMaterials.display_lines(id) + "\n" + info
+                card.tooltip_text = "%s / 所持 %d" % [BaseMaterials.display_name(id), count]
+                card.set_meta("out_of_stock", count == 0)
+                card.modulate = Color(0.56,0.56,0.56,1.0) if count == 0 else Color.WHITE
+                var label := card.find_child("ItemInfo", true, false) as Label
+                if label != null:
+                    label.text = info
+        return cached
     var grid := _new_grid("MaterialFamilyGrid")
     for family in BaseMaterials.FAMILY_IDS:
         for tier in BaseMaterials.TIERS:
@@ -3191,6 +3271,16 @@ func _render_family_page() -> void:
                 card.modulate = Color(0.56, 0.56, 0.56, 1.0)
             _queue_card_icon(card as Button, id)
     _finish_grid(grid)
+
+    return _register_card_page(cache_key, grid)
+
+func _prewarm_card_pages(budget: Variant) -> void:
+    # Hidden BASE boot only. No page selection, save writes or craft actions.
+    for slot in SeraSave.EQUIPMENT_SLOTS:
+        _park_card_page(_show_resident_craft_grid(str(slot)))
+        await budget.checkpoint("craft UI " + str(slot))
+    _park_card_page(_show_resident_material_grid(SeraSave.get_material_inventory()))
+    await budget.checkpoint("refine UI")
 
 func _select_conversion_family(family: String) -> void:
     if not BaseMaterials.FAMILY_IDS.has(family) or page != "families":

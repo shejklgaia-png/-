@@ -10,6 +10,10 @@ var material: ShaderMaterial
 var shapes: Dictionary = {}
 var groups: Dictionary = {}
 var batches: Dictionary = {}
+# Bound the number of resident visibility variants, including placement edits.
+const VARIANT_LIMIT := 8
+var batch_variants: Dictionary = {}
+var variant_order: Array[String] = []
 var districts: Array[Dictionary] = []
 var district: int = -1
 var visibility_signature: String = ""
@@ -255,32 +259,38 @@ func _highline() -> void:
         _box(Vector3(x,21,RAIL_Z),Vector3(16,2,13),dark)
 
 func _flush_static(blocked: Array[int]) -> void:
-    for kind in groups:
-        var selected: Array = []
-        for piece in groups[kind]:
-            if not blocked.has(int(piece["district"])):
-                selected.append(piece)
-        var multi: MultiMesh
-        if batches.has(kind):
-            multi = (batches[kind] as MultiMeshInstance3D).multimesh
-            multi.instance_count = 0
-        else:
-            multi = MultiMesh.new()
+    var signature: String = str(blocked)
+    if not batch_variants.has(signature):
+        var variant: Dictionary = {}
+        for kind in groups:
+            var selected: Array = []
+            for piece in groups[kind]:
+                if not blocked.has(int(piece["district"])):
+                    selected.append(piece)
+            var multi := MultiMesh.new()
             multi.transform_format = MultiMesh.TRANSFORM_3D
             multi.use_colors = true
             multi.mesh = shapes[kind]
+            multi.instance_count = selected.size()
+            for i in range(selected.size()):
+                multi.set_instance_transform(i, selected[i]["pose"])
+                multi.set_instance_color(i, selected[i]["tint"])
+            variant[kind] = multi
+        batch_variants[signature] = variant
+    variant_order.erase(signature)
+    variant_order.append(signature)
+    for kind in groups:
+        if not batches.has(kind):
             var draw := MultiMeshInstance3D.new()
             draw.name = "Skyline_"+str(kind)
-            draw.multimesh = multi
             draw.material_override = material
             draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
             _no_ink(draw)
             root.add_child(draw)
             batches[kind] = draw
-        multi.instance_count = selected.size()
-        for i in range(selected.size()):
-            multi.set_instance_transform(i,selected[i]["pose"])
-            multi.set_instance_color(i,selected[i]["tint"])
+        (batches[kind] as MultiMeshInstance3D).multimesh = batch_variants[signature][kind]
+    while variant_order.size() > VARIANT_LIMIT:
+        batch_variants.erase(variant_order.pop_front())
 
 func avoid_base_proxies(proxies: Dictionary) -> void:
     # The real BASE facility proxies have priority over fictional skyline

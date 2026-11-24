@@ -165,7 +165,9 @@ func _write_json(path: String, data: Dictionary) -> bool:
     if file == null:
         push_warning("SERA: save write failed: " + path)
         return false
-    file.store_string(JSON.stringify(data, "\t") + "\n")
+    # Compact JSON preserves the same schema and atomic replacement, with
+    # less formatting allocation and write volume for large hangars.
+    file.store_string(JSON.stringify(data) + "\n")
     file.flush()
     file.close()
     var result: Error = DirAccess.rename_absolute(

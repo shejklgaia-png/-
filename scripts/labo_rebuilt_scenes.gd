@@ -628,12 +628,12 @@ func set_base_context(sources: Dictionary) -> void:
     ensure_shared()
     # Copy render nodes only. No duplicated scripts, lights, particles or UI.
     # Reuse actual BASE mesh resources and current canonical transforms.
-    context_poses.clear()
+    var next_poses: Dictionary = {}
     for key in sources:
         var source := sources[key] as Node3D
         if not is_instance_valid(source):
             continue
-        context_poses[key] = {"position":source.global_position,
+        next_poses[key] = {"position":source.global_position,
             "yaw":source.global_rotation.y}
         if context_models.has(key):
             continue
@@ -660,7 +660,9 @@ func set_base_context(sources: Dictionary) -> void:
             draw.set_meta("FX_NO_OUTLINE",true)
             draw.set_meta("sera_no_view_edges",true)
             proxy.add_child(draw)
-    _position_context(active_key)
+    if context_poses != next_poses:
+        context_poses = next_poses
+        _position_context(active_key)
 
 func _position_context(key: String) -> void:
     if not context_poses.has(key):
