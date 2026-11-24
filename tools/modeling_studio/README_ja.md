@@ -10,7 +10,7 @@ ChatGPTが設計データを編集して機械形状を制作するオフライ�
 blender --background --factory-startup --python-exit-code 1 --python tools/modeling_studio/build.py -- tools/modeling_studio/example.json /tmp/sera-model-v1
 ```
 
-Blenderの実行はモデル制作のための明示的な操作に限る。CI・テスト実行には使用しない。CLIの実行と実際のレンダリング結果は今回未確認。
+2026-11-25のユーザー指示により、モデリングに必要な制作・実行・専用Actions・検査・反復改善を許可する。無関係なゲームCI・テストは禁止のまま。V1の実際の生成・レンダリング結果はまだ未確認。
 
 ## 入力
 
