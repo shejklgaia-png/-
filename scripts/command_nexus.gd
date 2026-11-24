@@ -1017,7 +1017,7 @@ func _nexus_practical_lights() -> void:
         var center := _nexus_fixture_center(part)
         center.x = _expanded_hangar_x(center.x)
         if label.begins_with("Recessed ceiling strip "):
-            # Keep the four lights nearest the display/terminals for actual
+            # Keep the lights nearest the display/terminals for actual
             # moving-body lighting. Remote strips illuminate the deck via
             # one baked texture, not a set of overlapping wide spotlights.
             if absf(center.z) <= 8.0:
