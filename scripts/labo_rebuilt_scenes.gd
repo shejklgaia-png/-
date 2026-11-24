@@ -186,7 +186,7 @@ func _hall(key: String) -> void:
         _box(b,Vector3(x,14.1,0),Vector3(0.42,0.7,35),"gold")
     _box(b,Vector3(0,16.1,0),Vector3(42,0.35,36),"dark")
     _finish(b)
-    var gallery := _model(key,"RearTransferGallery",Vector3(0,0,-14.0))
+    var gallery := _model(key,"RearTransferGallery",Vector3(0,0,-16.4))
     b = _batch(gallery)
     for x in [-15.0,-7.5,0.0,7.5,15.0]:
         _shape(b,"bevel",Vector3(x,3.15,0),Vector3(0.42,6.3,0.42),"slate")
