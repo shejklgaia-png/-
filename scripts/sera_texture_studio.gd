@@ -8,6 +8,8 @@ const SAVE_DIR := "user://texture_studio"
 var candidates: Array[MeshInstance3D] = []
 var external_root: Node3D
 var picker: OptionButton
+var selected_model_label: Label
+var mesh_picker_row: HBoxContainer
 var density_picker: OptionButton
 var tool_picker: OptionButton
 var color_picker: ColorPickerButton
@@ -119,14 +121,25 @@ func _build_ui() -> void:
     title.add_theme_font_size_override("font_size",25)
     box.add_child(title)
     var row := _row(box)
+    selected_model_label = Label.new()
+    selected_model_label.text = "パーツ未選択"
+    selected_model_label.clip_text = true
+    selected_model_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    selected_model_label.add_theme_font_size_override("font_size",20)
+    row.add_child(selected_model_label)
+    _button(row,"パーツ選択",_open_part_catalog)
+    row = _row(box)
+    _button(row,"個別メッシュ",_toggle_mesh_picker)
+    _button(row,"読込",_open_file)
+    mesh_picker_row = _row(box)
     picker = OptionButton.new()
     picker.custom_minimum_size.y = 54
     picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    picker.fit_to_longest_item = false
     picker.clip_text = true
     picker.item_selected.connect(_select_model)
-    row.add_child(picker)
-    _button(row,"パーツ選択",_open_part_catalog)
-    _button(row,"読込",_open_file)
+    mesh_picker_row.add_child(picker)
+    mesh_picker_row.hide()
     row = _row(box)
     density_picker = OptionButton.new()
     for d in [8,16,32,64]:
@@ -215,6 +228,7 @@ func _build_ui() -> void:
     box.add_child(atlas_preview)
     status = Label.new()
     status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    status.clip_text = true
     status.custom_minimum_size.y = 46
     status.text = "モデルを選択してください"
     box.add_child(status)
@@ -389,10 +403,17 @@ func _refresh_picker() -> void:
     for item in candidates:
         picker.add_item(str(item.name)+" / "+str(item.get_parent().name if item.get_parent()!=null else "GLB"))
 
+func _toggle_mesh_picker() -> void:
+    mesh_picker_row.visible = not mesh_picker_row.visible
+
 func _select_model(index: int) -> void:
     if index < 0 or index >= candidates.size():
         return
     source = candidates[index]
+    if is_instance_valid(source):
+        var blueprint: String = str(source.get_meta("texture_studio_blueprint",""))
+        selected_model_label.text = PartCatalog.display_name(blueprint) if not blueprint.is_empty() else str(source.name)
+    mesh_picker_row.hide()
     _rebuild()
 
 func _rebuild() -> void:
@@ -431,12 +452,8 @@ func _install_preview(mesh: ArrayMesh) -> void:
     _composite()
     tex = ImageTexture.create_from_image(img)
     preview.mesh = mesh
-    var material := StandardMaterial3D.new()
-    material.albedo_texture = tex
-    material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-    material.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
-    material.cull_mode = BaseMaterial3D.CULL_DISABLED
-    preview.material_override = material
+    preview.material_override = _atlas_material(tex)
+    preview.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     atlas_preview.texture = tex
     var bounds := preview.mesh.get_aabb()
     center = bounds.get_center()
@@ -446,12 +463,27 @@ func _install_preview(mesh: ArrayMesh) -> void:
     _camera_pose()
     _refresh_layers()
 
+func _atlas_material(texture: Texture2D) -> Material:
+    var shader: Shader = load("res://shaders/sera_texture_studio_preview.gdshader") as Shader
+    if shader != null:
+        var material := ShaderMaterial.new()
+        material.shader = shader
+        material.set_shader_parameter("source_texture",texture)
+        return material
+    var fallback := StandardMaterial3D.new()
+    fallback.albedo_texture = texture
+    fallback.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+    fallback.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    fallback.cull_mode = BaseMaterial3D.CULL_DISABLED
+    return fallback
+
 func _camera_pose() -> void:
     if not is_instance_valid(camera):
         return
     camera.position = Vector3(sin(yaw)*cos(pitch),sin(pitch),cos(yaw)*cos(pitch))*zoom
     camera.look_at(Vector3.ZERO,Vector3.UP)
-    camera.far = maxf(100.0,zoom*10.0)
+    camera.near = maxf(0.001,zoom*0.04)
+    camera.far = maxf(1.0,zoom+radius*5.0)
 
 func _rotate(delta: Vector2) -> void:
     yaw -= delta.x*0.008
@@ -854,10 +886,7 @@ func _save() -> void:
         return
     baked.generate_mipmaps()
     var saved_mesh := preview.mesh.duplicate() as ArrayMesh
-    var mat := StandardMaterial3D.new()
-    mat.albedo_texture = ImageTexture.create_from_image(baked)
-    mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
-    saved_mesh.surface_set_material(0,mat)
+    saved_mesh.surface_set_material(0,_atlas_material(ImageTexture.create_from_image(baked)))
     if ResourceSaver.save(saved_mesh,mesh_path) != OK:
         _show_status("PNG保存済み・メッシュ保存失敗")
         return
@@ -916,6 +945,7 @@ func _load_project(path: String) -> void:
         restored_visibility.append(bool(vis[i]))
     source = null
     picker.select(-1)
+    selected_model_label.text = prefix.get_file()
     triangles = restored
     original = base
     layers = restored_layers
