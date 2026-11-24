@@ -52,6 +52,13 @@ static func build(room: Node3D) -> void:
                 pitch = 2.76
             if z > 13.7:
                 pitch = 3.58
+            # Keep the center drain and stencil supports unchanged. Outboard
+            # access strips use paired short/long removable deck sections;
+            # the broad outer armor has a slower rhythm than the walkway.
+            if lane in [1, 5] and z > -10.0:
+                pitch *= 0.74 if (index + lane) % 3 == 0 else 1.22
+            elif lane in [0, 6] and z > -10.0:
+                pitch *= 1.20 if (index + lane) % 3 != 1 else 0.90
             pitch += float((index * 3 + lane * 5) % 4) * 0.13
             var a: float = maxf(z + 0.025, DECK_BACK + 0.06)
             var b: float = minf(z + pitch - 0.025, DECK_FRONT - 0.06)
@@ -74,7 +81,7 @@ static func build(room: Node3D) -> void:
         var z: float = DECK_BACK + (0.35 if left_side else 0.94)
         var index: int = 0
         while z < DECK_FRONT - 0.24:
-            var pitch: float = 3.20 + float(index % 3) * 0.19
+            var pitch: float = (4.05 if (index + side_index) % 3 == 0 else 2.72) + float(index % 3) * 0.19
             var a: float = maxf(z + 0.025, DECK_BACK + 0.06)
             var b: float = minf(z + pitch - 0.025, DECK_FRONT - 0.06)
             if b > a + 0.50:
@@ -158,7 +165,13 @@ static func _plate_finish(lane: int, index: int, z: float) -> String:
     if z < 7.25:
         if lane == 3:
             return "deck_steel" if phase < 4 else "deck_light"
-        return "deck_side" if lane in [1, 5] else "deck_mid"
+        # Distinguish the command approach from the flanking equipment
+        # service lanes with contiguous, restrained material regions.
+        if lane in [1, 5]:
+            return "deck_graphite" if phase < 4 else "deck_side"
+        if lane in [0, 6]:
+            return "deck_blue" if phase < 4 else "deck_mid"
+        return "deck_mid" if phase < 4 else "deck_deep"
     if lane == 3:
         return "deck_bright" if phase < 2 else "deck_steel"
     if lane in [0, 6]:
@@ -989,10 +1002,10 @@ static func _material(finish: String, vertex_color: bool) -> StandardMaterial3D:
         "plate_skirt": Color("#243440"),
         "deck_mid": Color("#425b6e"),
         "deck_deep": Color("#374e60"),
-        "deck_light": Color("#4c6476"),
+        "deck_light": Color("#586c75"),
         "deck_side": Color("#344c5d"),
         "deck_graphite": Color("#293a47"),
-        "deck_blue": Color("#3d586c"),
+        "deck_blue": Color("#38566d"),
         "deck_steel": Color("#587183"),
         "deck_bright": Color("#697f8d"),
         "arc_shell": Color("#8aa7b7"),
