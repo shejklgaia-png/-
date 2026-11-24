@@ -52,7 +52,7 @@ func _material(style: int) -> ShaderMaterial:
     # 60-degree threshold or the black lines on interactive equipment.
     var ink_color: Color = Color("#17212f") if style == 1 or style == 4 else Color.BLACK
     if style == 5:
-        ink_color = Color("#566775")
+        ink_color = Color("#27343e")
     mat.set_shader_parameter("ink_color", ink_color)
     var width_px: float = Standards.BASE_FACILITY_CORNER_PX
     if style == 1:
