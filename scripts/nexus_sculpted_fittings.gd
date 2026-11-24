@@ -1,4 +1,5 @@
 extends RefCounted
+const StaticBake = preload("res://scripts/sera_static_bake.gd")
 ## Sculpted NEXUS fittings. Three actual ArrayMesh profiles (not boxes):
 ## annular fan intakes, bent hydraulic actuators and hollow swept fairings.
 ## Profile geometry is shared by all instances, with opaque, depth-tested
@@ -14,6 +15,18 @@ const HIGHLIGHT: Color = Color("#d4e2e9")
 
 
 static func build(room: Node3D, system_at: Vector3,
+        training_at: Vector3, gate_at: Vector3, gate_yaw: float, gate_scale: float = 1.0) -> void:
+    var bake_path := StaticBake.cache_path("nexusfittings", ["res://scripts/nexus_sculpted_fittings.gd"], [system_at, training_at, gate_at, gate_yaw, gate_scale])
+    var baked := StaticBake.load_scene(bake_path, "NexusSculptedFittings")
+    if baked != null:
+        room.add_child(baked)
+        return
+    _build_original(room, system_at, training_at, gate_at, gate_yaw, gate_scale)
+    var root := room.get_node_or_null("NexusSculptedFittings") as Node3D
+    if root != null:
+        StaticBake.save_scene(bake_path, root)
+
+static func _build_original(room: Node3D, system_at: Vector3,
         training_at: Vector3, gate_at: Vector3, gate_yaw: float, gate_scale: float = 1.0) -> void:
     var batches: Dictionary = {}
     # SYSTEM already has an animated cooling rotor and housing. Keep only

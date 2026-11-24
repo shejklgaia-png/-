@@ -1,4 +1,5 @@
 extends RefCounted
+const StaticBake = preload("res://scripts/sera_static_bake.gd")
 ## SERA BASE / Ver.0.9 POWER CONTROL preview.
 ## Drawn off the overview at camera-right, not an independent scene.
 ## No simulation is claimed until the G/H/K/P/C/D/R/X/Y/T/O rules are fixed.
@@ -111,6 +112,12 @@ static func _cells(parent: Node3D) -> void:
 
 
 static func build(parent: Node3D) -> Node3D:
+    var bake_path := StaticBake.cache_path("gridboard", [
+        "res://scripts/sera_base_power_board.gd", "res://scripts/sera_base_authored_layout.gd"])
+    var baked := StaticBake.load_scene(bake_path, "PowerPuzzleZone")
+    if baked != null:
+        parent.add_child(baked)
+        return baked
     var stage := Node3D.new()
     stage.name = "PowerPuzzleZone"
     stage.set_meta("sera_outline_role", "grid")
@@ -155,4 +162,5 @@ static func build(parent: Node3D) -> Node3D:
 
     # No giant Label3D hovering over the playing surface. The BASE HUD
     # supplies the board title and instructions outside the slots.
+    StaticBake.save_scene(bake_path, stage)
     return stage

@@ -1,4 +1,5 @@
 extends RefCounted
+const StaticBake = preload("res://scripts/sera_static_bake.gd")
 ## NEXUS rear bulkhead + service-bay refit.
 ## Build once: purpose-built polygonal shell sections replace the monolithic rear
 ## wall, crossbridge and interfering right-hand support. The DEPLOYMENT opening is
@@ -50,6 +51,17 @@ static func suppresses_authored_part(label: String) -> bool:
 
 
 static func build(room: Node3D, gate_at: Vector3, gate_yaw: float, gate_scale: float) -> void:
+    var bake_path := StaticBake.cache_path("nexusbulkhead", ["res://scripts/nexus_bulkhead_refit.gd"], [gate_at, gate_yaw, gate_scale])
+    var baked := StaticBake.load_scene(bake_path, "NexusBulkheadRebuild")
+    if baked != null:
+        room.add_child(baked)
+        return
+    _build_original(room, gate_at, gate_yaw, gate_scale)
+    var root := room.get_node_or_null("NexusBulkheadRebuild") as Node3D
+    if root != null:
+        StaticBake.save_scene(bake_path, root)
+
+static func _build_original(room: Node3D, gate_at: Vector3, gate_yaw: float, gate_scale: float) -> void:
     var root := Node3D.new()
     root.name = "NexusBulkheadRebuild"
     root.set_meta("FX_NO_OUTLINE", true)

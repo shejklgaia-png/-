@@ -1,4 +1,5 @@
 extends Node3D
+const StaticBake = preload("res://scripts/sera_static_bake.gd")
 ## Outdoor portrait base hub; CRATE wanders independently and NEXUS is a tappable building.
 const Modules = preload("res://assets/base_command_modules.gd")
 const WorldMonitors = preload("res://scripts/sera_world_monitor_textures.gd")
@@ -420,10 +421,7 @@ func _create_grid_plates(floor: Node3D, budget: Variant = null) -> Array[Diction
             Vector3(-grid_extent, -0.40, -grid_extent),
             Vector3(grid_extent * 2.0, 0.80, grid_extent * 2.0))
         multi.instance_count = poses.size()
-        for index in range(poses.size()):
-            if budget != null:
-                await budget.checkpoint("floor instances")
-            multi.set_instance_transform(index, poses[index])
+        StaticBake.fill_static_transforms(multi, poses)
         var draw := MultiMeshInstance3D.new()
         draw.name = "GridPlateBatch_%02d" % palette_index
         draw.multimesh = multi
@@ -453,15 +451,29 @@ func _create_grid_plates(floor: Node3D, budget: Variant = null) -> Array[Diction
 
 func _build_hangar() -> void:
     # Exterior base: the enclosed Blockbench hangar remains inside the NEXUS menu.
-    var floor := Node3D.new()
-    floor.name = "PatchworkSteelFloor"
-    add_child(floor)
-    # The dark one-piece ground remains visible only in the 0.06 m seams.
-    _box(floor, "ContinuousGround", Vector3(0.0, -0.21, 0.0),
-        Vector3(256.0, 0.30, 256.0), Color("#12171b"))
-    var panels: Array[Dictionary] = await _create_grid_plates(floor,_startup_budget)
-    _boot_panels = panels
-    await BaseFloorDetail.decorate(floor, panels, _startup_budget)
+    var bake_path := StaticBake.cache_path("basedeck", [
+        "res://scripts/base_exploration.gd", "res://scripts/sera_base_deck_layout.gd",
+        "res://scripts/sera_base_floor_detail.gd", "res://scripts/sera_base_polygon_meshes.gd",
+        "res://scripts/sera_base_floor_lighting.gd", "res://scripts/sera_base_architecture.gd",
+        "res://shaders/sera_base_deck_lighting.gdshader", WEATHERED_STEEL_PATH, WEATHERED_DECK_PATH],
+        [facility_poses, _infrastructure_nexus_origin(), _infrastructure_facility_specs()])
+    # Do not persist fallback textures before editor import finishes.
+    if not ResourceLoader.exists(WEATHERED_STEEL_PATH) or not ResourceLoader.exists(WEATHERED_DECK_PATH):
+        bake_path = ""
+    var floor: Node3D = StaticBake.load_scene(bake_path, "PatchworkSteelFloor")
+    if floor != null:
+        add_child(floor)
+    else:
+        floor = Node3D.new()
+        floor.name = "PatchworkSteelFloor"
+        add_child(floor)
+        # The dark one-piece ground remains visible only in the 0.06 m seams.
+        _box(floor, "ContinuousGround", Vector3(0.0, -0.21, 0.0),
+            Vector3(256.0, 0.30, 256.0), Color("#12171b"))
+        var panels: Array[Dictionary] = await _create_grid_plates(floor,_startup_budget)
+        _boot_panels = panels
+        await BaseFloorDetail.decorate(floor, panels, _startup_budget)
+        StaticBake.save_scene(bake_path, floor)
     # Two small instanced batches: facility contact shade and floor bounce.
     # They are separate FX and never enter the visible-mesh-ID outline pass.
     BaseFloorLighting.add_floor_accents(
