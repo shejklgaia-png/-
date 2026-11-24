@@ -50,6 +50,9 @@ func configure(system_at: Vector3, training_at: Vector3,
 func set_deployment_open(value: bool) -> void:
     _deployment_requested = value
 
+func is_deployment_fully_open() -> bool:
+    return _door_open_amount >= 1.0
+
 
 func _process(delta: float) -> void:
     if not is_visible_in_tree():
