@@ -1761,6 +1761,8 @@ func _grid_pointer_begin(id: int, pixel: Vector2) -> void:
             grid_pointer_on_node = grid_draft.begin_drag(cell)
             if grid_pointer_on_node:
                 _grid_show_selected()
+            else:
+                _grid_sync_handles()
 
 
 func _grid_pointer_move(id: int, pixel: Vector2) -> void:
