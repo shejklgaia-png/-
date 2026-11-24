@@ -2,6 +2,7 @@ extends RefCounted
 ## SERA BASE / Ver.0.9 POWER CONTROL preview.
 ## Drawn off the overview at camera-right, not an independent scene.
 ## No simulation is claimed until the G/H/K/P/C/D/R/X/Y/T/O rules are fixed.
+const FixedLayout = preload("res://scripts/sera_base_authored_layout.gd")
 const GRID_SIDE: int = 8
 const CELL_PITCH: float = 1.28
 const BOARD_CENTER: Vector3 = Vector3(35.5, 0.0, -20.0)
@@ -16,15 +17,7 @@ static func board_focus() -> Vector3:
 
 
 static func cable_point(t: float) -> Vector3:
-    # Generator exit -> curving screen-right cable -> grid inlet.
-    # Since camera-right is roughly (+X,-Z), this offset reads left to right.
-    var start := GENERATOR_ORIGIN + Vector3(1.20, 0.23, -0.55)
-    var finish := BOARD_CENTER + Vector3(-6.26, 0.29, 0.0)
-    var route: Vector3 = finish - start
-    var across := Vector3(-route.z, 0.0, route.x).normalized()
-    var wave: float = sin(t * TAU * 2.25) * sin(PI * t) * 0.94
-    return start.lerp(finish, t) + across * wave + Vector3(
-        0.0, 0.075 * sin(PI * t) * sin(TAU * t * 3.0), 0.0)
+    return FixedLayout.board_point(clampf(t,0.0,1.0))
 
 
 static func _metal(color: Color, glow: bool = false) -> StandardMaterial3D:
