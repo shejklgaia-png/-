@@ -664,58 +664,92 @@ func _recycler(key: String) -> void:
     _console(key,Vector3(4.7,0,4.0),3)
 
 func _storage(key: String) -> void:
-    for bay in range(4):
-        var side: int = -1 if bay%2==0 else 1
-        var row: int = int(bay/2)
-        var rack := _model(key,"AutomatedRack"+("Left" if side<0 else "Right")+("_Rear" if row>0 else ""),Vector3(side*(4.8+row*2.4),0,-3.2-row*5.5))
-        var b = _batch(rack)
-        for x in [-2.4,2.4]:
-            for z in [-2.0,2.0]:
-                _shape(b,"bevel",Vector3(x,4.7,z),Vector3(0.42,9.4,0.45),"slate")
-        for level in range(4):
-            var y: float = 0.45+level*2.25
-            _box(b,Vector3(0,y,0),Vector3(4.9,0.28,4.0),"gold")
-            for z in [-2.04,2.04]:
-                _box(b,Vector3(0,y+0.15,z),Vector3(4.9,0.18,0.20),"caution")
-        _box(b,Vector3(0,9.1,0),Vector3(5.2,0.38,4.3),"armor")
-        b.poly_tilt("RackWeatherCanopy","roof",Vector3(0,9.62,-0.85),
-            Vector3(5.5,0.24,2.5),"armor",Vector3(-0.12,0,0))
-        _pipe(b,Vector3(-2.4,0.5,-2.0),Vector3(2.4,9.0,-2.0),0.16,"trim")
-        _finish(b)
-        for level in range(4):
-            for col in range(2):
-                var cargo := _child(rack,"Stock_"+str(level)+"_"+str(col),Vector3(-1.18+col*2.36,0.60+level*2.25,0.15))
-                (targets[key] as Array).append(cargo)
-                _cargo(cargo,"Container",Vector3.ZERO,Vector3(2.0,1.45,2.8))
-    var rail := _model(key,"HighBayLiftMast",Vector3(0,0,-2.8))
-    var b = _batch(rail)
-    for x in [-1.35,1.35]:
-        _shape(b,"bevel",Vector3(x,4.8,0),Vector3(0.45,9.6,0.72),"armor_light")
-        _box(b,Vector3(x,4.7,0.42),Vector3(0.10,9.0,0.12),"edge")
-        _pipe(b,Vector3(x,0.3,-0.5),Vector3(x,9.1,-0.5),0.16,"gold")
-    _box(b,Vector3(0,9.55,0),Vector3(3.25,0.60,1.1),"slate")
-    _box(b,Vector3(0,0.18,0),Vector3(3.25,0.36,2.2),"trim")
+    # BASE: rear rack bank, clear forward apron and left-side loading lift.
+    var rack := _model(key,"RearHighBayRackBank",Vector3(1.0,0,-3.4))
+    var b = _batch(rack)
+    _skid(b,16.8,5.8)
+    for x in [-7.5,-2.5,2.5,7.5]:
+        for z in [-2.3,2.3]:
+            _shape(b,"bevel",Vector3(x,5.8,z),Vector3(0.48,11.6,0.52),"armor_light")
+            for y in [0.68,3.18,5.68,8.18,10.68]:
+                _shape(b,"deck",Vector3(x,y,z),Vector3(0.65,0.18,0.68),"edge")
+        _pipe(b,Vector3(x,0.7,-2.3),Vector3(x,11.2,2.3),0.19,"trim")
+    for level in range(4):
+        var y: float = 0.75+float(level)*2.5
+        _shape(b,"deck",Vector3(0,y,0),Vector3(15.8,0.30,4.7),"slate")
+        for z in [-2.38,2.38]:
+            _box(b,Vector3(0,y,z),Vector3(15.8,0.24,0.22),"gold")
+        for x in [-5.0,0.0,5.0]:
+            _box(b,Vector3(x,y+0.20,-2.07),Vector3(0.30,0.24,0.20),"edge")
+            _box(b,Vector3(x,y+0.20,2.42),Vector3(0.64,0.12,0.06),"lab_cyan")
+    for side in [-1.0,1.0]:
+        _pipe(b,Vector3(side*7.5,0.72,-2.3),Vector3(-side*7.5,11.25,-2.3),0.25,"edge")
+    _shape(b,"roof",Vector3(0,11.75,-0.8),Vector3(16.6,0.25,3.25),"armor")
     _finish(b)
-    var lift_root := _model(key,"CargoLiftPlatform",Vector3(0,0,-2.8))
-    var platform := _child(lift_root,"LiftCarriage",Vector3(0,0.6,0.6))
+    for level in range(4):
+        for col in range(6):
+            if level==2 and col==0:
+                continue
+            var cargo := _child(rack,"Stock_"+str(level)+"_"+str(col),
+                Vector3(-6.25+float(col)*2.5,0.90+float(level)*2.5,0.2))
+            (targets[key] as Array).append(cargo)
+            var cb = _batch(cargo)
+            _shape(cb,"cargo_case",Vector3(0,0.83,0),Vector3(2.17,1.60,3.5),
+                "crate" if posmod(level+col,3)!=0 else "slate")
+            _box(cb,Vector3(0,0.84,1.79),Vector3(0.64,0.22,0.09),"gold")
+            for side in [-1.0,1.0]:
+                _box(cb,Vector3(side*0.86,0.84,1.79),Vector3(0.12,1.3,0.12),"edge")
+            _finish(cb)
+    var mast := _model(key,"LeftLoadingLiftMast",Vector3(-7.7,0,2.5))
+    b = _batch(mast)
+    _skid(b,4.4,4.4)
+    for x in [-1.6,1.6]:
+        _shape(b,"bevel",Vector3(x,5.85,0),Vector3(0.48,11.7,0.78),"armor_light")
+        _box(b,Vector3(x,5.8,0.42),Vector3(0.10,11.1,0.12),"edge")
+        _pipe(b,Vector3(x,0.5,-0.5),Vector3(x,11.1,-0.5),0.18,"gold")
+        _shape(b,"gusset",Vector3(x,0.90,-1.2),Vector3(0.75,1.4,1.9),"slate")
+    _shape(b,"drum",Vector3(0,11.62,0),Vector3(2.0,0.9,1.7),"slate")
+    _shape(b,"louver",Vector3(0,11.55,0.88),Vector3(1.65,0.56,0.18),"edge")
+    _box(b,Vector3(0,11.05,0.45),Vector3(2.6,0.14,0.11),"lab_cyan")
+    _finish(b)
+    var platform_mount := _child(mast,"LiftPlacement",Vector3(0,0.93,0.45))
+    (targets[key] as Array).append(platform_mount)
+    var platform := _child(platform_mount,"LiftCarriage")
     b = _batch(platform)
-    _shape(b,"deck",Vector3(0,0,0),Vector3(2.65,0.35,2.3),"gold")
-    _box(b,Vector3(0,0.75,-0.65),Vector3(2.55,1.35,0.23),"slate")
-    for x in [-1.1,1.1]:
-        _box(b,Vector3(x,0.23,0.9),Vector3(0.2,0.24,2.5),"edge")
+    _shape(b,"tray",Vector3(0,0,0),Vector3(3.0,0.35,3.0),"gold")
+    for x in [-1.2,1.2]:
+        _box(b,Vector3(x,0.28,0),Vector3(0.20,0.19,2.75),"edge")
     _finish(b)
-    var load_mount := _child(platform,"LiftCargoPlacement",Vector3(0,0.2,0.12))
+    var fork := _child(platform,"TransferFork")
+    b = _batch(fork)
+    for x in [-0.75,0.75]:
+        _box(b,Vector3(x,0.23,-0.25),Vector3(0.28,0.14,2.6),"edge")
+    _finish(b)
+    var load_mount := _child(mast,"LiftCargoPlacement")
     (targets[key] as Array).append(load_mount)
-    var load := _cargo(load_mount,"LiftCargo",Vector3.ZERO,Vector3(1.8,1.25,1.6))
+    var load := _cargo(load_mount,"LiftCargo",Vector3.ZERO,Vector3(2.17,1.6,3.5))
     _moving(key,"lift",platform)
     _moving(key,"lift_cargo",load)
-    var dispatch := _conveyor(key,"DispatchLane",Vector3(0,0,3.7),2.8,5.0)
-    var out_mount := _child(dispatch,"DispatchCargoPlacement",Vector3(0,1.1,0))
-    (targets[key] as Array).append(out_mount)
-    var out := _cargo(out_mount,"DispatchContainer",Vector3(0,0,-1.8),Vector3(1.8,1.25,1.6))
-    _moving(key,"output",out)
-    inspection[key] = {"root":dispatch,"stand":Vector3(-2.3,0,0.1),"focus":Vector3(0,1.6,0.1)}
-    _console(key,Vector3(2.9,0,5.1),4)
+    _moving(key,"fork",fork)
+    var apron := _model(key,"ForwardLoadingApron",Vector3(1.0,0,3.5))
+    b = _batch(apron)
+    _skid(b,16.1,6.4)
+    _shape(b,"deck",Vector3(0,0.47,0),Vector3(15.4,0.20,5.7),"armor")
+    for x in [-4.5,0.0,4.5]:
+        _box(b,Vector3(x,0.59,0),Vector3(0.11,0.03,5.4),"caution")
+    _box(b,Vector3(0,0.61,2.8),Vector3(14.0,0.17,0.20),"rubber")
+    for x in [-6.0,6.0]:
+        _pipe(b,Vector3(x,0.5,-2.5),Vector3(x,4.7,-2.5),0.22,"edge")
+        _pipe(b,Vector3(x,4.7,-2.5),Vector3(x,4.7,0.5),0.20,"edge")
+        _shape(b,"hood",Vector3(x,4.7,0.5),Vector3(1.1,0.37,0.7),"armor")
+        _box(b,Vector3(x,4.48,0.5),Vector3(0.88,0.08,0.53),"amber_light")
+    _finish(b)
+    var dispatch := _conveyor(key,"LeftReceivingRollers",Vector3(-7.7,0,5.5),3.0,3.5)
+    inspection[key] = {"root":apron,"stand":Vector3(0.5,0,4.0),"focus":Vector3(-2.0,2.0,-1.0)}
+    _moving(key,"rack",rack)
+    _moving(key,"mast",mast)
+    _moving(key,"dispatch",dispatch)
+    _console(key,Vector3(5.8,0,7.6),4)
 
 func placement_models(key: String) -> Array[Node3D]:
     var result: Array[Node3D] = []
