@@ -99,6 +99,7 @@ var img: Image
 var original: Image
 var tex: ImageTexture
 var triangles: Array = []
+var seam_texels: Dictionary = {}
 var undo_stack: Array[Image] = []
 var redo_stack: Array[Image] = []
 var points: Dictionary = {}
@@ -893,6 +894,7 @@ func _rebuild() -> void:
         _end_stroke()
         _refresh_layers()
         triangles.clear()
+        seam_texels.clear()
         atlas_preview.texture = null
         _show_status(str(result.error))
         return
@@ -911,6 +913,7 @@ func _install_preview(mesh: ArrayMesh) -> void:
     undo_stack.clear()
     redo_stack.clear()
     _composite()
+    seam_texels = UV.seam_pixels(triangles,img.get_size())
     tex = ImageTexture.create_from_image(img)
     preview.mesh = mesh
     preview.material_override = _atlas_material(tex)
@@ -1148,7 +1151,7 @@ func _dab_one(p: Vector2i) -> void:
     var color := paint_color
     match tool_picker.selected:
         1:
-            layers[layer_index].set_pixelv(p,Color.TRANSPARENT)
+            _write_boundary_pixel(p,Color.TRANSPARENT,true)
             return
         4: color = old.lightened(0.12)
         5: color = old.darkened(0.12)
@@ -1165,7 +1168,19 @@ func _dab_one(p: Vector2i) -> void:
             color = old.darkened(0.45)
             if _inside(p+Vector2i.DOWN):
                 layers[layer_index].set_pixelv(p+Vector2i.DOWN,old.lightened(0.22))
-    layers[layer_index].set_pixelv(p,Color(color.r,color.g,color.b,1.0))
+    _write_boundary_pixel(p,Color(color.r,color.g,color.b,1.0),tool_picker.selected in [0,7,8])
+
+func _write_boundary_pixel(p: Vector2i, color: Color, connect_seam: bool) -> void:
+    layers[layer_index].set_pixelv(p,color)
+    if not connect_seam or not seam_texels.has(p):
+        return
+    # Only the immediate paired edge texel is touched, not its neighbors
+    # recursively. Thus a line can cross a fold without painting a strip
+    # across unrelated islands. The same layer and Undo state are used.
+    for raw in seam_texels[p]:
+        var neighbor: Vector2i = raw
+        if _inside(neighbor):
+            layers[layer_index].set_pixelv(neighbor,color)
 
 func _stamp(p: Vector2i) -> void:
     var rows := PackedStringArray(["111010","101110","101010","101010","111111"]) if tool_picker.selected == 11 else PackedStringArray(["00100","01110","01010","11011","11111"])
