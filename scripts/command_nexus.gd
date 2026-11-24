@@ -1852,6 +1852,7 @@ func _render_batches() -> void:
     var cube := BoxMesh.new()
     cube.size = Vector3.ONE
     var machined := _nexus_readable_armor_mesh()
+    var portal_armor := _nexus_portal_armor_mesh()
     for index_value in batch_data.keys():
         var batch_key: int = int(index_value)
         var background: bool = batch_key >= 200 and batch_key < 400
@@ -1861,7 +1862,7 @@ func _render_batches() -> void:
         var transforms: Array = batch_data[batch_key]
         var multi := MultiMesh.new()
         multi.transform_format = MultiMesh.TRANSFORM_3D
-        multi.mesh = machined if featured else cube
+        multi.mesh = portal_armor if batch_key >= 1000 else (machined if featured else cube)
         var roles: Array = _nexus_batch_roles.get(batch_key, [])
         var mixed: bool = roles.has(2) and roles.has(4)
         multi.use_custom_data = mixed
@@ -1948,6 +1949,49 @@ func _nexus_readable_armor_mesh() -> ArrayMesh:
     for i in range(1, 7):
         _nexus_armor_triangle(surface, rings[0][0], rings[0][i], rings[0][i + 1], Vector3.DOWN)
         _nexus_armor_triangle(surface, rings[3][0], rings[3][i], rings[3][i + 1], Vector3.UP)
+    return surface.commit()
+
+
+# Portal-only castings: a narrow chamfered silhouette, thick shoulder and
+# recessed front service face. The unit bounds are unchanged, so neither
+# the rotated gate nor its fittings grow into the room shell.
+func _nexus_portal_armor_mesh() -> ArrayMesh:
+    var surface := SurfaceTool.new()
+    surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+    var profile := PackedVector2Array([
+        Vector2(-0.42, -0.5), Vector2(0.42, -0.5),
+        Vector2(0.5, -0.42), Vector2(0.5, 0.42),
+        Vector2(0.42, 0.5), Vector2(-0.42, 0.5),
+        Vector2(-0.5, 0.42), Vector2(-0.5, -0.42)])
+    var depths: Array[float] = [-0.5, -0.39, 0.34, 0.5, 0.5, 0.36]
+    var widths: Array[float] = [0.90, 1.0, 1.0, 0.91, 0.72, 0.68]
+    var rings: Array[PackedVector3Array] = []
+    for j in range(depths.size()):
+        var ring := PackedVector3Array()
+        for point in profile:
+            ring.append(Vector3(point.x * widths[j], point.y * widths[j], depths[j]))
+        rings.append(ring)
+    for j in range(rings.size() - 1):
+        for i in range(8):
+            var k: int = (i + 1) % 8
+            var a: Vector3 = rings[j][i]
+            var b: Vector3 = rings[j][k]
+            var c: Vector3 = rings[j + 1][k]
+            var d: Vector3 = rings[j + 1][i]
+            var outward := Vector3(a.x + b.x, a.y + b.y, 0.0)
+            if j == 0:
+                outward.z = -0.5
+            elif j >= 2:
+                outward.z = 0.8
+                if j == 4:
+                    outward.x *= -1.0
+                    outward.y *= -1.0
+            _nexus_armor_triangle(surface, a, b, c, outward)
+            _nexus_armor_triangle(surface, a, c, d, outward)
+    var last: int = rings.size() - 1
+    for i in range(1, 7):
+        _nexus_armor_triangle(surface, rings[0][0], rings[0][i], rings[0][i + 1], Vector3.BACK * -1.0)
+        _nexus_armor_triangle(surface, rings[last][0], rings[last][i], rings[last][i + 1], Vector3.BACK)
     return surface.commit()
 
 
