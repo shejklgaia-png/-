@@ -1,4 +1,6 @@
 extends Node3D
+
+const PlacementStore = preload("res://scripts/sera_placement_store.gd")
 const LaboMonitor = preload("res://scripts/sera_labo_monitor_24fps.gd")
 enum Display { PRINT, FLOW, PURITY, RECYCLE, INVENTORY, SCANNER }
 const RebuiltScenes = preload("res://scripts/labo_rebuilt_scenes.gd")
@@ -163,6 +165,11 @@ func set_section(section: String) -> void:
     if camera_previews.has(key):
         var pose: Dictionary = camera_previews[key]
         apply_camera_preview(pose["eye"], pose["look"], float(pose["fov"]))
+    else:
+        var saved: Dictionary = PlacementStore.read("labo/camera/" + key)
+        if saved.has("eye") and saved.has("look") and saved.has("fov"):
+            apply_camera_preview(PlacementStore.vec(saved["eye"]),
+                PlacementStore.vec(saved["look"]), float(saved["fov"]))
 
 
 func camera_section_id() -> String:
