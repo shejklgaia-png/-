@@ -1643,7 +1643,7 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
         "deployment_gate":
             selected_shape = "DEPLOYMENT"
     var silhouette_parts: Array = target_parts.get(selected_shape, [])
-    for part in Modules.MODULES[name]:
+    for part in _nexus_console_authored_parts(name):
         if WorldMonitors.replaces_screen_marks(str(part[0])):
             continue
         # The floor foundation remains as authored. Suppress only the old
@@ -1723,6 +1723,80 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
         target_parts[selected_shape] = silhouette_parts
     WorldMonitors.attach_blockbench(self,name,at,yaw,scale_factor,height_factor,"NEXUS")
 
+
+
+# Local NEXUS refinements only: the shared Blockbench masters, screen
+# positions and old hit boxes remain unchanged. Physical keys are attached
+# to the actual tilted work surface instead of guessed global coordinates.
+func _nexus_console_authored_parts(module_name: String) -> Array:
+    var authored: Array = Modules.MODULES[module_name]
+    if not module_name in ["system_console", "training_console", "data_bank"]:
+        return authored
+    var result: Array = []
+    var desks: Array = []
+    for part in authored:
+        var label: String = str(part[0])
+        if label.begins_with("SYSTEM tactile control grid") or label.begins_with("TRAINING nonmirrored upper controls") or label.begins_with("Archive keyboard luminous key"):
+            continue
+        if label == "SYSTEM keyboard recessed panel" or label == "TRAINING angled command keyboard" or label.begins_with("Archive flat control shelf"):
+            desks.append(part)
+        result.append(part)
+    for desk in desks:
+        var lo: Vector3 = _vec(desk[1])
+        var hi: Vector3 = _vec(desk[2])
+        var center: Vector3 = (lo + hi) * 0.5
+        var size: Vector3 = hi - lo
+        var angle: Vector3 = _vec(desk[4])
+        var basis := Basis.from_euler(angle * (PI / 180.0))
+        # A key's position is on the local top face; rotate its center
+        # and its own cuboid by the same authored desk orientation.
+        if module_name == "system_console":
+            # Main command bank: two compact rows, amber confirmation,
+            # a separate long switch and a raised cyan power key.
+            for row in range(2):
+                for col in range(5):
+                    _nexus_desk_key(result, desk, center, size, basis,
+                        Vector2(-0.32 + float(col)*0.115, -0.22 + float(row)*0.37),
+                        Vector3(1.13,0.24,1.02), 5 if col == 0 and row == 0 else 4)
+            _nexus_desk_key(result, desk, center, size, basis,
+                Vector2(0.33,-0.20), Vector3(2.0,0.30,1.12), 6)
+            _nexus_desk_key(result, desk, center, size, basis,
+                Vector2(0.33,0.19), Vector3(2.0,0.26,1.12), 1)
+        elif module_name == "training_console":
+            # Diagnostic controller: paired directional keys, a large
+            # guarded amber stop key and separate mode selector.
+            for pos in [Vector2(-0.28,0.0), Vector2(-0.12,-0.23),
+                    Vector2(0.04,0.0), Vector2(-0.12,0.23)]:
+                _nexus_desk_key(result, desk, center, size, basis, pos,
+                    Vector3(1.05,0.37,1.10), 4)
+            _nexus_desk_key(result, desk, center, size, basis,
+                Vector2(0.31,-0.17), Vector3(1.48,0.18,1.72), 1)
+            _nexus_desk_key(result, desk, center, size, basis,
+                Vector2(0.31,-0.17), Vector3(0.92,0.43,1.02), 6)
+            _nexus_desk_key(result, desk, center, size, basis,
+                Vector2(0.31,0.24), Vector3(1.40,0.31,1.03), 5)
+        else:
+            # Archive: discrete numbered retrieval keys and a long read bar.
+            for col in range(4):
+                _nexus_desk_key(result, desk, center, size, basis,
+                    Vector2(-0.31 + float(col)*0.19, -0.20),
+                    Vector3(1.23,0.23,1.06), 4)
+            _nexus_desk_key(result, desk, center, size, basis,
+                Vector2(-0.10,0.22), Vector3(4.0,0.23,1.00), 5)
+            _nexus_desk_key(result, desk, center, size, basis,
+                Vector2(0.29,0.22), Vector3(1.12,0.28,1.0), 6)
+    return result
+
+
+func _nexus_desk_key(result: Array, desk: Array, center: Vector3, size: Vector3,
+        basis: Basis, uv: Vector2, dimensions: Vector3, palette: int) -> void:
+    var local := Vector3(uv.x * size.x,
+        size.y * 0.5 + dimensions.y * 0.5 - 0.045, uv.y * size.z)
+    var at: Vector3 = center + basis * local
+    var lo: Vector3 = at - dimensions * 0.5
+    var hi: Vector3 = at + dimensions * 0.5
+    result.append(["NEXUS fitted tactile control", [lo.x,lo.y,lo.z],
+        [hi.x,hi.y,hi.z], palette, desk[4], false, false])
 
 
 func _expanded_hangar_x(x: float) -> float:
@@ -1807,7 +1881,7 @@ func _deployment_gate_lightspill() -> void:
         Vector3(0.0, 3.00, -2.25), Vector2(2.25, 3.95),
         Color(0.30, 0.75, 1.00, 0.66), 2.10)
     _gate_light_quad(portal, "DiffusedAperture",
-        Vector3(0.0, 3.00, -0.70), Vector2(2.65, 4.45),
+        Vector3(0.0, 2.36, -1.00), Vector2(2.65, 4.45),
         Color(0.20, 0.65, 1.00, 0.18), 1.25)
 
     # Narrow light pools extend from the doorway into the hangar floor.
@@ -1853,6 +1927,9 @@ func _render_batches() -> void:
     cube.size = Vector3.ONE
     var machined := _nexus_readable_armor_mesh()
     var portal_armor := _nexus_portal_armor_mesh()
+    var system_armor := _nexus_console_casting(0)
+    var training_armor := _nexus_console_casting(1)
+    var archive_armor := _nexus_console_casting(2)
     for index_value in batch_data.keys():
         var batch_key: int = int(index_value)
         var background: bool = batch_key >= 200 and batch_key < 400
@@ -1862,7 +1939,15 @@ func _render_batches() -> void:
         var transforms: Array = batch_data[batch_key]
         var multi := MultiMesh.new()
         multi.transform_format = MultiMesh.TRANSFORM_3D
-        multi.mesh = portal_armor if batch_key >= 1000 else (machined if featured else cube)
+        multi.mesh = machined if featured else cube
+        if batch_key >= 1000:
+            multi.mesh = portal_armor
+        elif batch_key >= 800:
+            multi.mesh = archive_armor
+        elif batch_key >= 600:
+            multi.mesh = training_armor
+        elif batch_key >= 400:
+            multi.mesh = system_armor
         var roles: Array = _nexus_batch_roles.get(batch_key, [])
         var mixed: bool = roles.has(2) and roles.has(4)
         multi.use_custom_data = mixed
@@ -1949,6 +2034,56 @@ func _nexus_readable_armor_mesh() -> ArrayMesh:
     for i in range(1, 7):
         _nexus_armor_triangle(surface, rings[0][0], rings[0][i], rings[0][i + 1], Vector3.DOWN)
         _nexus_armor_triangle(surface, rings[3][0], rings[3][i], rings[3][i + 1], Vector3.UP)
+    return surface.commit()
+
+
+# Three distinct industrial silhouettes at the same unit bounds. The
+# broad SYSTEM housings have stepped shoulders; TRAINING has faceted
+# protective corners; the ARCHIVE is a narrow-bevel rack with flat sides.
+# Existing screens, painted material families and placement refs are kept.
+func _nexus_console_casting(family: int) -> ArrayMesh:
+    var surface := SurfaceTool.new()
+    surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+    var corner: float = [0.07, 0.18, 0.035][family]
+    var profile := PackedVector2Array([
+        Vector2(-0.5+corner,-0.5),Vector2(0.5-corner,-0.5),
+        Vector2(0.5,-0.5+corner),Vector2(0.5,0.5-corner),
+        Vector2(0.5-corner,0.5),Vector2(-0.5+corner,0.5),
+        Vector2(-0.5,0.5-corner),Vector2(-0.5,-0.5+corner)])
+    var levels: Array[float] = [-0.5,-0.42,0.35,0.5]
+    var widths: Array[float] = [0.92,1.0,1.0,0.92]
+    if family == 0:
+        levels = [-0.5,-0.39,0.28,0.5]
+        widths = [0.92,1.0,1.0,0.86]
+    elif family == 1:
+        levels = [-0.5,-0.36,0.36,0.5]
+        widths = [0.86,1.0,1.0,0.83]
+    else:
+        levels = [-0.5,-0.46,0.46,0.5]
+        widths = [0.96,1.0,1.0,0.96]
+    var rings: Array[PackedVector3Array] = []
+    for j in range(levels.size()):
+        var ring := PackedVector3Array()
+        for p in profile:
+            ring.append(Vector3(p.x*widths[j], levels[j], p.y*widths[j]))
+        rings.append(ring)
+    for j in range(3):
+        for i in range(8):
+            var k: int = (i+1)%8
+            var a: Vector3 = rings[j][i]
+            var b: Vector3 = rings[j][k]
+            var c: Vector3 = rings[j+1][k]
+            var d: Vector3 = rings[j+1][i]
+            var outward := Vector3(a.x+b.x, 0.0, a.z+b.z)
+            if j == 0:
+                outward.y = -0.6
+            elif j == 2:
+                outward.y = 0.6
+            _nexus_armor_triangle(surface,a,b,c,outward)
+            _nexus_armor_triangle(surface,a,c,d,outward)
+    for i in range(1,7):
+        _nexus_armor_triangle(surface,rings[0][0],rings[0][i],rings[0][i+1],Vector3.DOWN)
+        _nexus_armor_triangle(surface,rings[3][0],rings[3][i],rings[3][i+1],Vector3.UP)
     return surface.commit()
 
 
