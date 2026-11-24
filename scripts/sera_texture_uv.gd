@@ -89,12 +89,14 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
                 var topology: Dictionary = _retry_seam_topology(tris,charts,topology_tris,topology_charts,density)
                 charts = topology.charts
                 affine_report += " / "+str(topology.report)
+            else:
+                affine_report += " / 切断再選択 規模上限"
             if tris.size() <= 600 and charts.size() <= 192:
                 var weld: Dictionary = _weld_local_uv_charts(tris,charts,density)
                 charts = weld.charts
                 affine_report += " / "+str(weld.report)
             else:
-                affine_report += " / 切断再選択 規模上限"
+                affine_report += " / 局所島接合 規模上限"
     else:
         _match_rectified_edge_counts(tris,charts)
         _align_triangular_grids(tris,charts)
@@ -2232,9 +2234,9 @@ static func _local_weld_candidate(tris: Array[Dictionary],charts: Array[Dictiona
     if i2 >= 0 and cross > maxf(0.00001,span*0.0001):
         us = src[i2]-src[i0]
         vs = dst[i2]-dst[i0]
-    var from := Transform2D(u,us,src[i0])
-    var to := Transform2D(v,vs,dst[i0])
-    var map: Transform2D = to*from.affine_inverse()
+    var source_frame := Transform2D(u,us,src[i0])
+    var target_frame := Transform2D(v,vs,dst[i0])
+    var map: Transform2D = target_frame*source_frame.affine_inverse()
     if not map.is_finite() or map.determinant() <= 0.000001:
         return {"reject":"反転"}
     # All common boundaries, including partial edges, must agree.
