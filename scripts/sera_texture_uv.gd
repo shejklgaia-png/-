@@ -114,6 +114,7 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
     var uvs := PackedVector2Array()
     var flags := PackedColorArray()
     var diagnostic_uv := PackedVector2Array()
+    assign_diagnostic_faces(tris)
     for t in tris:
         var c: Dictionary = charts[t.chart]
         var uv := PackedVector2Array()
@@ -124,7 +125,7 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
             normals_out.append(t.n[k])
             uvs.append(uv[k])
             flags.append(_encode_cull(int(t.cull)))
-            diagnostic_uv.append(Vector2(1.0 if bool(c.get("rectified",false)) else 0.5,float(int(t.chart)+1)))
+            diagnostic_uv.append(Vector2(1.0 if bool(c.get("rectified",false)) else 0.5,float(int(t.diagnostic_face)+1)))
         t.uv = uv
         _bake_triangle(img,t,distances)
     var arrays: Array = []
@@ -917,9 +918,13 @@ static func diagnostic_report(tris: Array, side: Vector2i, density: int, selecte
     var seam_count: int = 0
     var unmatched: int = 0
     var worst: float = 0.0
-    var selected_chart: int = -1
+    var selected_members: Dictionary = {}
+    var selected_face: int = -1
     if selected >= 0 and selected < tris.size():
-        selected_chart = int(tris[selected].chart)
+        selected_face = int(tris[selected].get("diagnostic_face",selected))
+        for i in range(tris.size()):
+            if int(tris[i].get("diagnostic_face",i)) == selected_face:
+                selected_members[i] = true
     var selected_seams: Array[String] = []
     for link in _seam_segments(tris):
         var a: PackedVector2Array = _segment_uv(tris[link.ta],link.ea,link.a0,link.a1,"uv")
@@ -939,13 +944,14 @@ static func diagnostic_report(tris: Array, side: Vector2i, density: int, selecte
         worst = maxf(worst,residual)
         if residual > 0.25:
             unmatched += 1
-        if selected_chart >= 0 and (int(link.a) == selected_chart or int(link.b) == selected_chart) and selected_seams.size() < 16:
+        if selected_face >= 0 and (selected_members.has(int(link.ta)) != selected_members.has(int(link.tb))) and selected_seams.size() < 16:
             selected_seams.append("島%d↔%d 長さ %.2f/%.2fpx 角度差 %.1f° 残差 %.2fpx" % [link.a,link.b,da.length(),db.length(),absf(rad_to_deg(angle-quarter)),residual])
     var summary: String = "UV島 %d / 共有辺 %d / 残差>0.25px %d / 最大 %.2fpx" % [groups.size(),seam_count,unmatched,worst]
     var lines: PackedStringArray = PackedStringArray([summary,"atlas=%dx%d density=%d" % [side.x,side.y,density]])
-    if selected_chart >= 0:
+    if selected_face >= 0:
         var t: Dictionary = tris[selected]
-        var members: Array = groups[selected_chart]
+        var members: Array = selected_members.keys()
+        var face_charts: Dictionary = {}
         var p: PackedVector3Array = t.p
         var normal: Vector3 = (p[1]-p[0]).cross(p[2]-p[0]).normalized()
         var max_bend: float = 0.0
@@ -954,6 +960,7 @@ static func diagnostic_report(tris: Array, side: Vector2i, density: int, selecte
         var hi_ratio: float = 0.0
         for id in members:
             var part: Dictionary = tris[id]
+            face_charts[int(part.chart)] = true
             var pp: PackedVector3Array = part.p
             var uv: PackedVector2Array = part.uv
             var n: Vector3 = (pp[1]-pp[0]).cross(pp[2]-pp[0]).normalized()
@@ -965,16 +972,20 @@ static func diagnostic_report(tris: Array, side: Vector2i, density: int, selecte
                     var ratio: float = ((uv[k]-uv[(k+1)%3])*Vector2(side)).length()/maxf(0.000001,world_length*density)
                     lo_ratio = minf(lo_ratio,ratio)
                     hi_ratio = maxf(hi_ratio,ratio)
-        summary = "島%d / 原面%d / 曲がり %.1f° / 密度比 %.2f–%.2f" % [selected_chart,int(t.get("authored_face",-1)),max_bend,lo_ratio,hi_ratio]
+        var face_label: String = "原面%d" % int(t.authored_face) if int(t.get("authored_face",-1)) >= 0 else "三角形%d（原面不明）" % selected
+        summary = "%s / UV島%d個 / 曲がり %.1f° / 密度比 %.2f–%.2f" % [face_label,face_charts.size(),max_bend,lo_ratio,hi_ratio]
         lines.append(summary)
         lines.append("surface=%d triangle=%d triangles=%d plane deviation=%.3f mm" % [int(t.get("surface",-1)),selected,members.size(),max_plane*1000.0])
-        lines.append("geometry="+str(p)+" / atlasUV="+str(t.uv))
+        lines.append("UV islands="+str(face_charts.keys()))
+        for id in members:
+            var part: Dictionary = tris[id]
+            lines.append("triangle=%d geometry=%s / atlasUV=%s" % [id,str(part.p),str(part.uv)])
         for entry in selected_seams:
             lines.append(entry)
     return {"summary":summary,"report":"\n".join(lines)}
 
 ## Restore the exact saved atlas, without repartitioning or resampling.
-static func restore_triangles(mesh: ArrayMesh, chart_ids: Array) -> Array:
+static func restore_triangles(mesh: ArrayMesh, chart_ids: Array, face_sources: Array = []) -> Array:
     var result: Array = []
     if mesh == null or mesh.get_surface_count() != 1:
         return result
@@ -985,7 +996,13 @@ static func restore_triangles(mesh: ArrayMesh, chart_ids: Array) -> Array:
     if vertices.size() != uv.size() or vertices.size() % 3 != 0 or chart_ids.size()*3 != vertices.size() or chart_ids.size() > MAX_TRIANGLES:
         return result
     for i in range(0,vertices.size(),3):
-        result.append({"p":PackedVector3Array([vertices[i],vertices[i+1],vertices[i+2]]),"uv":PackedVector2Array([uv[i],uv[i+1],uv[i+2]]),"chart":int(chart_ids[i/3]),"cull":_decode_cull(flags[i]) if flags.size() == vertices.size() else BaseMaterial3D.CULL_DISABLED})
+        var t: Dictionary = {"p":PackedVector3Array([vertices[i],vertices[i+1],vertices[i+2]]),"uv":PackedVector2Array([uv[i],uv[i+1],uv[i+2]]),"chart":int(chart_ids[i/3]),"cull":_decode_cull(flags[i]) if flags.size() == vertices.size() else BaseMaterial3D.CULL_DISABLED}
+        if face_sources.size() == chart_ids.size():
+            var record: Variant = face_sources[i/3]
+            if record is Array and record.size() == 2 and (record[0] is int or record[0] is float) and (record[1] is int or record[1] is float):
+                t.surface = int(record[0])
+                t.authored_face = int(record[1])
+        result.append(t)
     return result
 
 static func mirror_hit(tris: Array, origin: Vector3, direction: Vector3, hit_position: Vector3, axis_x: float, tolerance: float) -> Dictionary:
@@ -1000,8 +1017,29 @@ static func mirror_hit(tris: Array, origin: Vector3, direction: Vector3, hit_pos
         return {}
     return found
 
-## Upgrade legacy restored meshes with chart IDs in UV2.y. Keep the
-## existing UV, positions, normals, colors and diagnostic classification.
+## Assign a stable selection identifier per authored polygon. The surface
+## is part of the key because face numbers restart in every source mesh.
+## Without provenance, use a single triangle rather than guessing a face
+## from an unrelated UV island.
+static func assign_diagnostic_faces(tris: Array) -> void:
+    var groups: Dictionary = {}
+    var next_id: int = 0
+    for i in range(tris.size()):
+        var t: Dictionary = tris[i]
+        var surface: int = int(t.get("surface",-1))
+        var face: int = int(t.get("authored_face",-1))
+        if surface >= 0 and face >= 0:
+            var key := Vector2i(surface,face)
+            if not groups.has(key):
+                groups[key] = next_id
+                next_id += 1
+            t.diagnostic_face = int(groups[key])
+        else:
+            t.diagnostic_face = next_id
+            next_id += 1
+
+## Upgrade old mesh diagnostic flags to original face IDs in UV2.y.
+## Keep positions, UVs, normals, colors and diagnostic classification.
 static func with_diagnostic_ids(mesh: ArrayMesh, tris: Array) -> ArrayMesh:
     if mesh == null or mesh.get_surface_count() != 1:
         return mesh
@@ -1009,11 +1047,12 @@ static func with_diagnostic_ids(mesh: ArrayMesh, tris: Array) -> ArrayMesh:
     var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
     if vertices.size() != tris.size()*3:
         return mesh
+    assign_diagnostic_faces(tris)
     var old: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV2] if arrays[Mesh.ARRAY_TEX_UV2] != null else PackedVector2Array()
     var complete: bool = old.size() == vertices.size()
     if complete:
         for i in range(tris.size()):
-            if absf(old[i*3].y-float(int(tris[i].chart)+1)) > 0.25:
+            if absf(old[i*3].y-float(int(tris[i].diagnostic_face)+1)) > 0.25:
                 complete = false
                 break
     if complete:
@@ -1023,7 +1062,7 @@ static func with_diagnostic_ids(mesh: ArrayMesh, tris: Array) -> ArrayMesh:
     for i in range(tris.size()):
         for k in range(3):
             var index: int = i*3+k
-            flags[index] = Vector2(old[index].x if old.size() == vertices.size() else 0.0,float(int(tris[i].chart)+1))
+            flags[index] = Vector2(old[index].x if old.size() == vertices.size() else 0.0,float(int(tris[i].diagnostic_face)+1))
     arrays[Mesh.ARRAY_TEX_UV2] = flags
     var updated := ArrayMesh.new()
     updated.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
