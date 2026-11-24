@@ -547,8 +547,17 @@ func build_docks_and_motion() -> void:
 
 
 func diagnostic_text() -> String:
-    return "物流 %s\n車体 %d/12  経路 %d\n貨物 %d  ドック %d" % [
-        _phase, _vehicle_count, _planned_count, _cargo_count, _docks.size()]
+    var projected: int = 0
+    if is_instance_valid(_camera):
+        var view: Rect2 = _camera.get_viewport().get_visible_rect()
+        for t in _trucks:
+            if t.body == null or not is_instance_valid(t.body.node):
+                continue
+            var p: Vector3 = t.body.node.global_position + Vector3.UP * 0.4
+            if t.body.node.is_visible_in_tree() and not _camera.is_position_behind(p) and view.has_point(_camera.unproject_position(p)):
+                projected += 1
+    return "物流 %s\n車体 %d/12  経路 %d\n画面内 %d  貨物 %d\nドック %d" % [
+        _phase, _vehicle_count, _planned_count, projected, _cargo_count, _docks.size()]
 
 
 func _capture_reservations() -> void:
