@@ -292,6 +292,14 @@ func _build_scanner(metal: Material, glow: Material) -> void:
     _segmented_ring(socket,"DockCaptureLip",[Vector2(1.48,0.0),
         Vector2(1.58,0.0),Vector2(1.66,0.08),Vector2(1.66,0.18),
         Vector2(1.54,0.18),Vector2(1.48,0.12)],8,0.012,Color("#728b98"))
+    # Connect the fixed socket into the upper load ring without occupying
+    # the scanner's radial capture space or the inner rotating tools.
+    for i in range(6):
+        var mount := Node3D.new()
+        mount.rotation.y = TAU*float(i)/6.0
+        socket.add_child(mount)
+        _box(mount,"DockMountBridge",Vector3(0,0.32,1.62),
+            Vector3(0.20,0.40,0.20),metal)
     _build_scan_grid()
     for child in _scanner.get_children():
         if child is GeometryInstance3D:
