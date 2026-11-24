@@ -355,156 +355,282 @@ static func _edge_aligned_charts(tris: Array[Dictionary],density: int) -> Array[
             # bounding box may extend below it on a trapezoid or irregular face.
             var minimum: Vector2 = chart.min
             chart.min = minimum.floor()
+        _rectify_quad(tris,members,perimeter,chart,anchor,u,v,density)
         charts.append(chart)
     return charts
 
-## Align the texel lattice of connected islands through their real shared
-## edges. A spanning forest preserves the longest seams first; the UV
-## islands themselves remain disjoint in the packed texture. Quarter-turn
-## equivalents preserve the pixel grid while minimizing orientation changes.
-## Closed surfaces can contain incompatible cycles, so do not merge or
-## overlap arbitrary curved charts just to force a single planar layout.
-static func _synchronize_chart_grids(tris: Array[Dictionary],charts: Array[Dictionary]) -> void:
-    if charts.size() < 2:
+## Reconstruct convex four-corner boundaries, including collinear
+## subdivided sides. Keep the mesh itself unchanged. Accept a rectangular
+## pixel grid only if every projected triangle keeps its orientation and
+## its local length/area distortion stays inside the limits.
+static func _rectify_quad(tris: Array[Dictionary], members: Array, perimeter: Array[Dictionary], chart: Dictionary, anchor: Vector3, u: Vector3, v: Vector3, density: int) -> void:
+    if perimeter.size() != 4:
         return
-    var members: Array = []
-    var neighbors: Array = []
-    var area := PackedFloat32Array()
-    var parent := PackedInt32Array()
-    area.resize(charts.size())
-    parent.resize(charts.size())
-    for i in range(charts.size()):
-        members.append([])
-        neighbors.append([])
-        parent[i] = i
+    var unique: Dictionary = {}
+    for edge in perimeter:
+        for endpoint in ["a","b"]:
+            var p: Vector3 = edge[endpoint]
+            var relative: Vector3 = p-anchor
+            unique[_vertex_key(p)] = Vector2(relative.dot(u),relative.dot(v))*density
+    if unique.size() != 4:
+        return
+    var corners: Array[Vector2] = []
+    var mid := Vector2.ZERO
+    for point in unique.values():
+        corners.append(point)
+        mid += point
+    mid /= 4.0
+    corners.sort_custom(func(a: Vector2,b: Vector2) -> bool: return (a-mid).angle() < (b-mid).angle())
+    for i in range(4):
+        var edge_a: Vector2 = corners[(i+1)%4]-corners[i]
+        var edge_b: Vector2 = corners[(i+2)%4]-corners[(i+1)%4]
+        if edge_a.cross(edge_b) <= 0.00001:
+            return
+    # Bottom edge should point in the chart's positive U direction.
+    var bottom: int = -1
+    var best: float = INF
+    for i in range(4):
+        var direction: Vector2 = corners[(i+1)%4]-corners[i]
+        if direction.x <= 0.0 or absf(direction.y) > direction.x*0.35:
+            continue
+        var score: float = (corners[i].y+corners[(i+1)%4].y)*0.5
+        if score < best:
+            bottom = i
+            best = score
+    if bottom < 0:
+        return
+    var q0: Vector2 = corners[bottom]
+    var q1: Vector2 = corners[(bottom+1)%4]
+    var q2: Vector2 = corners[(bottom+2)%4]
+    var q3: Vector2 = corners[(bottom+3)%4]
+    var width: float = maxf(1.0,roundf((q0.distance_to(q1)+q2.distance_to(q3))*0.5))
+    var height: float = maxf(1.0,roundf((q0.distance_to(q3)+q1.distance_to(q2))*0.5))
+    var proposed: Array[PackedVector2Array] = []
+    for id in members:
+        var t: Dictionary = tris[id]
+        var old: PackedVector2Array = t.xy
+        var mapped := PackedVector2Array()
+        for point in old:
+            var st: Vector2 = _quad_coordinates(point,q0,q1,q2,q3)
+            if st.x < -0.001 or st.x > 1.001 or st.y < -0.001 or st.y > 1.001:
+                return
+            mapped.append(st.clamp(Vector2.ZERO,Vector2.ONE)*Vector2(width,height))
+        var old_area: float = (old[1]-old[0]).cross(old[2]-old[0])
+        var new_area: float = (mapped[1]-mapped[0]).cross(mapped[2]-mapped[0])
+        if absf(old_area) < 0.000001 or new_area/old_area < 0.45 or new_area/old_area > 1.9:
+            return
+        for k in range(3):
+            var ratio: float = mapped[k].distance_to(mapped[(k+1)%3])/maxf(0.000001,old[k].distance_to(old[(k+1)%3]))
+            if ratio < 0.65 or ratio > 1.45:
+                return
+        proposed.append(mapped)
+    for i in range(members.size()):
+        var t: Dictionary = tris[members[i]]
+        t.xy = proposed[i]
+    chart.min = Vector2.ZERO
+    chart.max = Vector2(width,height)
+    chart.rectified = true
+
+static func _quad_coordinates(p: Vector2,a: Vector2,b: Vector2,c: Vector2,d: Vector2) -> Vector2:
+    # Invert the bilinear quad map; corners and all points along any
+    # original boundary retain their fractional position on that side.
+    var e: Vector2 = b-a
+    var f: Vector2 = d-a
+    var g: Vector2 = a-b+c-d
+    var st := Vector2(0.5,0.5)
+    for i in range(10):
+        var residual: Vector2 = a+e*st.x+f*st.y+g*st.x*st.y-p
+        if residual.length_squared() < 0.00000001:
+            break
+        var ds: Vector2 = e+g*st.y
+        var dt: Vector2 = f+g*st.x
+        var det: float = ds.cross(dt)
+        if absf(det) < 0.00000001:
+            return Vector2(-100,-100)
+        st -= Vector2(residual.cross(dt),ds.cross(residual))/det
+    return st
+
+## Return compatible seam segments from actual mesh boundaries. Exact
+## two-sided edges first; subdivided edges sharing an endpoint can also
+## match their overlapping interval. Ambiguous/non-manifold exact edges
+## are excluded, and no seam links are made to parallel stacked faces.
+static func _seam_segments(tris: Array) -> Array[Dictionary]:
     var edges: Dictionary = {}
+    var result: Array[Dictionary] = []
     for i in range(tris.size()):
         var t: Dictionary = tris[i]
-        var ci: int = int(t.chart)
         var p: PackedVector3Array = t.p
-        var xy: PackedVector2Array = t.xy
-        (members[ci] as Array).append(i)
-        area[ci] += absf((xy[1]-xy[0]).cross(xy[2]-xy[0]))*0.5
         for e in range(3):
             var key: String = _edge_key(p[e],p[(e+1)%3])
             if not edges.has(key):
                 edges[key] = []
             (edges[key] as Array).append(Vector2i(i,e))
-    var links: Array[Dictionary] = []
-    for incidents in edges.values():
-        # Non-manifold edges and stacked faces have no unique continuation.
-        if incidents.size() != 2:
+    var endpoints: Dictionary = {}
+    for group in edges.values():
+        if group.size() == 2:
+            var link: Dictionary = _make_seam(tris,group[0],group[1])
+            if not link.is_empty():
+                result.append(link)
+        elif group.size() == 1:
+            var edge: Vector2i = group[0]
+            var points: PackedVector3Array = tris[edge.x].p
+            for k in [edge.y,(edge.y+1)%3]:
+                var key: String = _vertex_key(points[k])
+                if not endpoints.has(key):
+                    endpoints[key] = []
+                (endpoints[key] as Array).append(edge)
+    var used: Dictionary = {}
+    for group in endpoints.values():
+        # Cap pathological fans. Normal authored mesh junctions are small.
+        if group.size() > 24:
             continue
-        var ia: Vector2i = incidents[0]
-        var ib: Vector2i = incidents[1]
-        var a: Dictionary = tris[ia.x]
-        var b: Dictionary = tris[ib.x]
-        var ca: int = int(a.chart)
-        var cb: int = int(b.chart)
-        if ca == cb:
-            continue
-        var pa: PackedVector3Array = a.p
-        var pb: PackedVector3Array = b.p
-        var end_a: int = (ia.y+1)%3
-        var end_b: int = (ib.y+1)%3
-        # Consistent winding: adjacent faces traverse the edge oppositely.
-        if _vertex_key(pa[ia.y]) != _vertex_key(pb[end_b]) or _vertex_key(pa[end_a]) != _vertex_key(pb[ib.y]):
-            continue
-        var na: Vector3 = a.face_normal
-        var nb: Vector3 = b.face_normal
-        if na.dot(nb) < -0.5:
-            continue
-        var xa: PackedVector2Array = a.xy
-        var xb: PackedVector2Array = b.xy
-        var la: float = xa[ia.y].distance_to(xa[end_a])
-        var lb: float = xb[ib.y].distance_to(xb[end_b])
-        if minf(la,lb) < 0.00001 or maxf(la,lb)/minf(la,lb) > 1.025:
-            continue
-        var length: float = pa[ia.y].distance_to(pa[end_a])
-        links.append({"a":ca,"b":cb,"ta":ia.x,"tb":ib.x,"ea":ia.y,"eb":ib.y,"score":length*(1.0+0.15*maxf(0.0,na.dot(nb)))})
-    links.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
-        if not is_equal_approx(float(a.score),float(b.score)):
-            return float(a.score) > float(b.score)
-        if int(a.ta) != int(b.ta):
-            return int(a.ta) < int(b.ta)
-        if int(a.tb) != int(b.tb):
-            return int(a.tb) < int(b.tb)
-        return int(a.ea) < int(b.ea))
-    for link in links:
-        var ca: int = int(link.a)
-        var cb: int = int(link.b)
-        if _root(parent,ca) == _root(parent,cb):
-            continue
-        _join(parent,ca,cb)
-        (neighbors[ca] as Array).append(link)
-        (neighbors[cb] as Array).append(link)
-    var order: Array[int] = []
-    for i in range(charts.size()):
-        order.append(i)
-    order.sort_custom(func(a: int,b: int) -> bool:
-        if is_equal_approx(area[a],area[b]):
-            return a < b
-        return area[a] > area[b])
-    var visited := PackedByteArray()
-    visited.resize(charts.size())
-    for root in order:
-        if visited[root] != 0:
-            continue
-        visited[root] = 1
-        # Anchor each disconnected component at its largest visible area.
-        var queue: Array[int] = [root]
-        var cursor: int = 0
-        while cursor < queue.size():
-            var current: int = queue[cursor]
-            cursor += 1
-            for link in neighbors[current]:
-                var forward: bool = int(link.a) == current
-                var child: int = int(link.b) if forward else int(link.a)
-                if visited[child] != 0:
+        for i in range(group.size()):
+            for j in range(i+1,group.size()):
+                var a: Vector2i = group[i]
+                var b: Vector2i = group[j]
+                var key: String = str(a)+":"+str(b) if a.x < b.x else str(b)+":"+str(a)
+                if used.has(key):
                     continue
-                var ti: int = int(link.ta) if forward else int(link.tb)
-                var tj: int = int(link.tb) if forward else int(link.ta)
-                var ei: int = int(link.ea) if forward else int(link.eb)
-                var ej: int = int(link.eb) if forward else int(link.ea)
-                var from_xy: PackedVector2Array = tris[ti].xy
-                var to_xy: PackedVector2Array = tris[tj].xy
-                var a0: Vector2 = from_xy[ei]
-                var a1: Vector2 = from_xy[(ei+1)%3]
-                # Shared-edge endpoints are reversed on the child.
-                var b0: Vector2 = to_xy[(ej+1)%3]
-                var b1: Vector2 = to_xy[ej]
-                var av: Vector2 = a1-a0
-                var bv: Vector2 = b1-b0
-                var ratio: float = av.length()/maxf(0.000001,bv.length())
-                # Never accumulate large texel-density changes around a
-                # long chain of mildly warped faces.
-                if ratio >= 0.975 and ratio <= 1.025:
-                    var angle: float = bv.angle_to(av)
-                    var quarter: float = roundf(angle/(PI*0.5))*(PI*0.5)
-                    angle -= quarter
-                    var target: Vector2 = a0.rotated(-quarter)
-                    # Integer translations preserve the grid phase, but
-                    # keep coordinates small for long chains.
-                    target -= target.floor()
-                    var chart: Dictionary = charts[child]
-                    var low := Vector2(INF,INF)
-                    var high := Vector2(-INF,-INF)
-                    for id in members[child]:
-                        var t: Dictionary = tris[id]
-                        var coords: PackedVector2Array = t.xy
-                        for k in range(coords.size()):
-                            coords[k] = (coords[k]-b0).rotated(angle)*ratio+target
-                            low = low.min(coords[k])
-                            high = high.max(coords[k])
-                        t.xy = coords
-                    chart.min = low.floor()
-                    chart.max = high
-                visited[child] = 1
-                queue.append(child)
-    # Integer packing offsets for every chart, including disconnected roots.
-    for chart in charts:
-        var minimum: Vector2 = chart.min
-        chart.min = minimum.floor()
+                used[key] = true
+                var link: Dictionary = _make_seam(tris,a,b)
+                if not link.is_empty():
+                    result.append(link)
+    return result
+
+static func _make_seam(tris: Array,ia: Vector2i,ib: Vector2i) -> Dictionary:
+    var a: Dictionary = tris[ia.x]
+    var b: Dictionary = tris[ib.x]
+    if int(a.chart) == int(b.chart):
+        return {}
+    var pa: PackedVector3Array = a.p
+    var pb: PackedVector3Array = b.p
+    var a0: Vector3 = pa[ia.y]
+    var a1: Vector3 = pa[(ia.y+1)%3]
+    var b0: Vector3 = pb[ib.y]
+    var b1: Vector3 = pb[(ib.y+1)%3]
+    var da: Vector3 = a1-a0
+    var db: Vector3 = b1-b0
+    var la: float = da.length()
+    var lb: float = db.length()
+    if minf(la,lb) < 0.00001 or da.dot(db)/(la*lb) > -0.9999:
+        return {}
+    var axis: Vector3 = da/la
+    var offset: Vector3 = b0-a0
+    if (offset-axis*offset.dot(axis)).length() > 0.00002:
+        return {}
+    var lo: float = maxf(0.0,(b1-a0).dot(axis))
+    var hi: float = minf(la,(b0-a0).dot(axis))
+    if hi-lo < 0.00002:
+        return {}
+    var na: Vector3 = (pa[1]-pa[0]).cross(pa[2]-pa[0]).normalized()
+    var nb: Vector3 = (pb[1]-pb[0]).cross(pb[2]-pb[0]).normalized()
+    if na.dot(nb) < -0.5:
+        return {}
+    return {"ta":ia.x,"tb":ib.x,"ea":ia.y,"eb":ib.y,"a":int(a.chart),"b":int(b.chart),
+        "a0":lo/la,"a1":hi/la,"b0":clampf((a0+axis*lo-b0).dot(db)/(lb*lb),0,1),
+        "b1":clampf((a0+axis*hi-b0).dot(db)/(lb*lb),0,1),"weight":hi-lo}
+
+static func _segment_uv(t: Dictionary, edge: int, start: float, finish: float, field: String) -> PackedVector2Array:
+    var coords: PackedVector2Array = t[field]
+    var a: Vector2 = coords[edge]
+    var b: Vector2 = coords[(edge+1)%3]
+    return PackedVector2Array([a.lerp(b,start),a.lerp(b,finish)])
+
+## Global phase relaxation includes non-tree links. Preserve the
+## face-aligned axes rather than rotating a rectangle away from its edges.
+## For incompatible rotations/edge lengths, brush seam correspondence
+## handles the residual instead of forcing heavily distorted charts.
+static func _synchronize_chart_grids(tris: Array[Dictionary],charts: Array[Dictionary]) -> void:
+    var links: Array[Dictionary] = _seam_segments(tris)
+    var adjacency: Array = []
+    var phase := PackedVector2Array()
+    phase.resize(charts.size())
+    for i in range(charts.size()):
+        adjacency.append([])
+    for link in links:
+        var a: PackedVector2Array = _segment_uv(tris[link.ta],link.ea,link.a0,link.a1,"xy")
+        var b: PackedVector2Array = _segment_uv(tris[link.tb],link.eb,link.b0,link.b1,"xy")
+        var da: Vector2 = a[1]-a[0]
+        var db: Vector2 = b[1]-b[0]
+        if minf(da.length(),db.length()) < 0.00001:
+            continue
+        var angle: float = db.angle_to(da)
+        var quarter: float = roundf(angle/(PI*0.5))*(PI*0.5)
+        if absf(angle-quarter) > deg_to_rad(12.0):
+            continue
+        link.rotation = quarter
+        link.delta = (a[0]+a[1])*0.5-((b[0]+b[1])*0.5).rotated(quarter)
+        link.weight = maxf(0.1,minf(da.length(),db.length()))
+        (adjacency[link.a] as Array).append(link)
+        (adjacency[link.b] as Array).append(link)
+    # Circular residuals account for the integer-periodic texel grid.
+    # Retain a weak zero-phase preference (stronger for rectified quads).
+    for pass_index in range(20):
+        var next: PackedVector2Array = phase.duplicate()
+        for i in range(charts.size()):
+            var total := Vector2.ZERO
+            var weight: float = 4.0 if bool(charts[i].get("rectified",false)) else 0.5
+            var current: Vector2 = phase[i]
+            total -= (current-current.round())*weight
+            for link in adjacency[i]:
+                var target: Vector2
+                if int(link.a) == i:
+                    target = phase[int(link.b)].rotated(float(link.rotation))-Vector2(link.delta)
+                else:
+                    target = (phase[int(link.a)]+Vector2(link.delta)).rotated(-float(link.rotation))
+                var diff: Vector2 = target-current
+                diff -= diff.round()
+                total += diff*float(link.weight)
+                weight += float(link.weight)
+            next[i] = current+total/maxf(weight,0.001)*0.5
+            next[i] -= next[i].round()
+        phase = next
+    for i in range(charts.size()):
+        var chart: Dictionary = charts[i]
+        var lo: Vector2 = chart.min
+        var hi: Vector2 = chart.max
+        chart.min = (lo+phase[i]).floor()
+        chart.max = hi+phase[i]
+    for t in tris:
+        var coords: PackedVector2Array = t.xy
+        var shift: Vector2 = phase[int(t.chart)]
+        for k in range(3):
+            coords[k] += shift
+        t.xy = coords
+
+## Precompute boundary texel correspondences after packing, also on
+## restored projects. Only direct neighbors are returned, never a flood
+## across multiple folds. Brush tools can mirror exact boundary samples.
+static func seam_pixels(tris: Array, atlas_size: Vector2i) -> Dictionary:
+    var result: Dictionary = {}
+    var size: Vector2 = Vector2(atlas_size)
+    for link in _seam_segments(tris):
+        var a: Dictionary = tris[link.ta]
+        var b: Dictionary = tris[link.tb]
+        var sa: PackedVector2Array = _segment_uv(a,link.ea,link.a0,link.a1,"uv")
+        var sb: PackedVector2Array = _segment_uv(b,link.eb,link.b0,link.b1,"uv")
+        var ua: PackedVector2Array = a.uv
+        var ub: PackedVector2Array = b.uv
+        var ca: Vector2 = (ua[0]+ua[1]+ua[2])*size/3.0
+        var cb: Vector2 = (ub[0]+ub[1]+ub[2])*size/3.0
+        var steps: int = clampi(ceili(maxf(((sa[1]-sa[0])*size).length(),((sb[1]-sb[0])*size).length())*2.0),1,2048)
+        for i in range(steps+1):
+            var f: float = float(i)/float(steps)
+            var qa: Vector2 = sa[0].lerp(sa[1],f)*size
+            var qb: Vector2 = sb[0].lerp(sb[1],f)*size
+            var pa: Vector2i = Vector2i((qa+(ca-qa).normalized()*0.12).floor()).clamp(Vector2i.ZERO,atlas_size-Vector2i.ONE)
+            var pb: Vector2i = Vector2i((qb+(cb-qb).normalized()*0.12).floor()).clamp(Vector2i.ZERO,atlas_size-Vector2i.ONE)
+            if pa == pb:
+                continue
+            if not result.has(pa):
+                result[pa] = []
+            if not result.has(pb):
+                result[pb] = []
+            if not (result[pa] as Array).has(pb):
+                (result[pa] as Array).append(pb)
+            if not (result[pb] as Array).has(pa):
+                (result[pb] as Array).append(pa)
+    return result
 
 ## Return barycentric weights at the nearest point on a triangle edge.
 ## The conservative half-diagonal fringe covers all nearest-filter texels
