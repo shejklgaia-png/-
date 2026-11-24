@@ -53,6 +53,14 @@ var nav_ready := false
 var nav_route_failed := false
 var nav_dock_checked := false
 var nav_dock_allowed := false
+var console_pending := false
+var dock_plan_ready := false
+var dock_approach := Vector2.ZERO
+var dock_stand := Vector2.ZERO
+var dock_grid := Vector2i(99999,99999)
+var terminal_fallback := false
+const DOCK_HAND_OFFSET := 0.55
+const DOCK_STAND_DISTANCE := 1.36
 
 func _build_crate() -> void:
     # Exact same factory and mesh as the roaming robot in the base.
@@ -115,6 +123,7 @@ func set_section(section: String,dispatch: bool = true) -> void:
     clock = 0.0
     state_time = 0.0
     work_state = "idle"
+    console_pending = dispatch
     attention_target = null
     attention_queue.clear()
     carrier_seen = [false,false]
@@ -160,7 +169,7 @@ func set_section(section: String,dispatch: bool = true) -> void:
     nav_docked = false
     nav_dirty = true
     _build_navigation()
-    var spawn: Vector2i = _nearest_free(_terminal_point(2.7))
+    var spawn: Vector2i = dock_grid if dock_plan_ready else _nearest_free(_terminal_point(2.7))
     nav_ready = nav.region.has_point(spawn) and not nav.is_point_solid(spawn)
     crate.visible = nav_ready
     if nav_ready:
@@ -225,7 +234,7 @@ func _nav_cell(p: Vector2) -> Vector2i:
 
 func _terminal_point(distance: float) -> Vector2:
     var terminal: Node3D = rebuilt_scenes.terminal_node(current_section)
-    return _room_point(terminal.to_global(Vector3(0.55,0,distance)))
+    return _room_point(terminal.to_global(Vector3(DOCK_HAND_OFFSET,0,distance)))
 
 func _add_obstacle(bounds: AABB, terminal: bool) -> void:
     # Ignore the floor surface and beams above the full robot silhouette.
@@ -249,6 +258,8 @@ func _add_obstacle(bounds: AABB, terminal: bool) -> void:
 func _collect_obstacles(node: Node3D, terminal: bool = false) -> void:
     # Exclude authored floor/markings; all legs and partial walls still count.
     if node.name in ["FacilityWorkDeck","OutdoorWorkMarkings","WorksiteLogistics"]:
+        return
+    if node == rebuilt_scenes.terminal_node(current_section) and not terminal:
         return
     terminal = terminal or node == rebuilt_scenes.terminal_node(current_section)
     if node is MultiMeshInstance3D:
@@ -300,7 +311,71 @@ func _build_navigation() -> void:
             _add_obstacle(relative*AABB(Vector3(-1.65,0,-2.0),Vector3(3.3,2.4,4.7)),false)
     for reserve in rebuilt_scenes.logistics_reservations(current_section):
         _add_obstacle(reserve,false)
+    _plan_console_dock()
+    _collect_obstacles(rebuilt_scenes.terminal_node(current_section),true)
     nav_dirty = false
+
+# Plan a real front-facing stand and a reachable grid cell before marking
+# the terminal itself solid. The last segment may ignore only that terminal.
+func _dock_candidate(terminal: Node3D) -> bool:
+    var center: Vector2 = _room_point(terminal.global_position)
+    var stand: Vector2 = _terminal_point(DOCK_STAND_DISTANCE)
+    if not _segment_clear(center,stand,true):
+        return false
+    for distance in [2.35,2.60,2.85,3.10]:
+        var approach: Vector2 = _terminal_point(float(distance))
+        if not _segment_clear(stand,approach,true):
+            continue
+        var id: Vector2i = _nearest_free(approach,0.40)
+        if not nav.region.has_point(id) or nav.is_point_solid(id):
+            continue
+        var grid_point: Vector2 = _nav_position(id)
+        # The console footprint is 1.15 x 0.98; its expanded navigation
+        # rectangle must not contain the chosen staging cell.
+        var local: Vector3 = terminal.to_local(nav_room.to_global(Vector3(grid_point.x,0,grid_point.y)))
+        if local.z<2.20:
+            continue
+        if not _segment_clear(grid_point,stand,true):
+            continue
+        dock_grid = id
+        dock_approach = grid_point
+        dock_stand = stand
+        return true
+    return false
+
+func _plan_console_dock() -> void:
+    var terminal: Node3D = rebuilt_scenes.terminal_node(current_section)
+    dock_plan_ready = false
+    terminal_fallback = false
+    dock_grid = Vector2i(99999,99999)
+    if _dock_candidate(terminal):
+        dock_plan_ready = true
+        return
+    # A saved/default terminal can be boxed in by machinery or deck edges.
+    # Search a nearby clear service bay; this is a runtime fallback only,
+    # never an overwrite of the user's saved canonical placement.
+    var original: Transform3D = terminal.transform
+    var best: float = INF
+    var best_pose: Transform3D = original
+    for radius in range(1,13):
+        for direction in range(16):
+            var angle: float = TAU*float(direction)/16.0
+            var offset := Vector3(cos(angle),0,sin(angle))*float(radius)*0.5
+            terminal.position = original.origin+offset
+            for yaw in [original.basis.get_euler().y,0.0,PI*0.5,-PI*0.5,PI]:
+                terminal.rotation.y = float(yaw)
+                var cost: float = offset.length()+0.25*absf(angle_difference(original.basis.get_euler().y,float(yaw)))
+                if cost>=best:
+                    continue
+                if _dock_candidate(terminal):
+                    best = cost
+                    best_pose = terminal.transform
+        if best<INF:
+            break
+    terminal.transform = best_pose
+    if best<INF:
+        dock_plan_ready = _dock_candidate(terminal)
+        terminal_fallback = dock_plan_ready
 
 func _nearest_free(p: Vector2, limit: float = 8.0) -> Vector2i:
     var center := _nav_cell(p)
@@ -413,7 +488,7 @@ func _walk_route(destination: Vector2, delta: float) -> bool:
         return false
     var here: Vector2 = _room_point(crate.global_position)
     if nav_path.is_empty():
-        var goal := _nearest_free(destination)
+        var goal := dock_grid if dock_plan_ready and destination.is_equal_approx(dock_approach) else _nearest_free(destination)
         var origin := _nearest_free(here,0.60)
         if not nav.region.has_point(origin) or not nav.region.has_point(goal) or not _segment_clear(here,_nav_position(origin)):
             nav_route_failed = true
@@ -478,33 +553,28 @@ func _inspection_point() -> Vector2:
 
 func _terminal_facing_point() -> Vector3:
     var terminal: Node3D = rebuilt_scenes.terminal_node(current_section)
-    return crate_route.to_local(terminal.to_global(Vector3(0.55,0,0)))
+    return crate_route.to_local(terminal.to_global(Vector3(DOCK_HAND_OFFSET,0,0)))
 
 func _dock(delta: float, reverse: bool = false) -> bool:
-    var approach: Vector2 = _terminal_point(2.25)
-    var stand: Vector2 = _terminal_point(1.49)
-    var here: Vector2 = _room_point(crate.global_position)
-    # Only the last straight, aligned approach may use the tighter terminal
-    # envelope. The body and forward hand stay outside the console face.
-    if not nav_dock_checked:
+    if not dock_plan_ready:
         nav_dock_checked = true
-        nav_dock_allowed = _segment_clear(stand,approach,true)
-        if not reverse:
-            nav_dock_allowed = nav_dock_allowed and _segment_clear(here,approach)
+        nav_dock_allowed = false
+        return false
+    var here: Vector2 = _room_point(crate.global_position)
+    var target: Vector2 = dock_approach if reverse else dock_stand
+    nav_dock_checked = true
+    nav_dock_allowed = _segment_clear(here,target,true)
     if not nav_dock_allowed:
         return false
-    if not reverse and here.distance_to(approach)>0.035 and not nav_docked:
-        if not _move_to(_nav_local(approach),delta):
-            return false
-        nav_docked = true
-    if not reverse:
-        nav_docked = true
+    # Face the actual console first, then move in or back out along the
+    # validated corridor. Keep the docking flag until fully clear.
     _face_point(_terminal_facing_point(),delta)
     var facing: Vector3 = _terminal_facing_point()-crate.position
     facing.y = 0.0
     if absf(angle_difference(crate.rotation.y,atan2(-facing.x,-facing.z)))>0.07:
         return false
-    if not _move_to(_nav_local(approach if reverse else stand),delta,false):
+    nav_docked = true
+    if not _move_to(_nav_local(target),delta,false):
         return false
     nav_docked = not reverse
     return true
@@ -530,9 +600,10 @@ func _observe_carrier_starts() -> void:
 
 func _watch_carrier(delta: float) -> bool:
     if work_state!="watch_carrier":
-        if attention_queue.is_empty():
+        if attention_queue.is_empty() or work_state in ["walk_to_terminal","dock","operate","undock"]:
             return false
         attention_target = attention_queue.pop_front()
+        console_pending = true
         _enter("watch_carrier")
     if not is_instance_valid(attention_target):
         _enter("walk_to_terminal")
@@ -562,7 +633,7 @@ func _watch_carrier(delta: float) -> bool:
         # Already standing at the console? Resume the operator pose without
         # walking through it. A partially docked robot finishes its approach.
         if nav_docked:
-            if _room_point(crate.global_position).distance_to(_terminal_point(1.49))<0.08:
+            if _room_point(crate.global_position).distance_to(dock_stand)<0.08:
                 _enter("operate")
             else:
                 _enter("dock")
@@ -657,37 +728,38 @@ func _process(delta: float) -> void:
         if nav_ready:
             crate.position = _nav_local(_nav_position(safe))
         _enter("idle")
+    _observe_carrier_starts()
     if not nav_ready:
         return
-    _observe_carrier_starts()
     if _watch_carrier(delta):
         return
     match work_state:
         "walk_to_terminal":
-            if _walk_route(_terminal_point(2.25),delta):
+            if dock_plan_ready and _walk_route(dock_approach,delta):
                 _enter("dock")
-            elif nav_route_failed:
-                _enter("idle")
+            elif not dock_plan_ready or nav_route_failed:
+                _enter("retry_console")
         "dock":
             if _dock(delta):
                 _enter("operate")
             elif nav_dock_checked and not nav_dock_allowed:
-                _enter("idle")
+                _enter("retry_console")
         "operate":
             _face_point(_terminal_facing_point(),delta)
             _relax_arms(delta)
             var envelope: float = smoothstep(0.12,0.65,state_time)*(1.0-smoothstep(5.45,5.95,state_time))
             var tap: float = 0.5+0.5*sin(state_time*TAU/0.95)
             crate_left_arm.rotation.x = (0.10+0.16*tap)*envelope
-            crate_head.rotation.x = -0.07+0.06*sin(state_time*1.4)
+            crate_head.rotation.x = -0.03+0.05*sin(state_time*1.4)
             crate_head.rotation.y = 0.07*sin(state_time*0.9)
             if state_time >= OPERATE_SECONDS:
+                console_pending = false
                 _enter("undock")
         "undock":
             if _dock(delta,true):
                 _enter("walk_to_inspection")
             elif nav_dock_checked and not nav_dock_allowed:
-                _enter("idle")
+                _enter("retry_console")
         "walk_to_inspection":
             if _walk_route(_inspection_point(),delta):
                 _enter("inspect")
@@ -700,5 +772,19 @@ func _process(delta: float) -> void:
             crate_left_arm.rotation.x = -0.17*(0.5+0.5*sin(state_time*2.0))
             if state_time >= 2.5:
                 _enter("idle")
+        "retry_console":
+            _relax_arms(delta)
+            if state_time>=1.0:
+                # A failed attempt is not a completed job. Retry the same
+                # console with a fresh route, without bypassing collision checks.
+                if nav_docked and dock_plan_ready:
+                    _enter("dock" if console_pending else "undock")
+                elif console_pending:
+                    _enter("walk_to_terminal")
+                else:
+                    _enter("idle")
         "idle":
-            _crate_idle(delta)
+            if console_pending and state_time>=1.8:
+                _enter("walk_to_terminal")
+            else:
+                _crate_idle(delta)
