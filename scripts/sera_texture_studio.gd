@@ -42,8 +42,10 @@ class StudioChoice:
     func choose(index: int) -> void:
         if index < 0 or index >= labels.size():
             return
+        var changed: bool = selected != index
         select(index)
-        item_selected.emit(index)
+        if changed:
+            item_selected.emit(index)
 
 var picker: StudioChoice
 var choice_buttons: Array[StudioChoice] = []
@@ -497,7 +499,7 @@ func _route_choice_input(event: InputEvent) -> bool:
                 choice_pressed_outside = not choice_panel.get_global_rect().has_point(tap.position)
             elif not tap.pressed and tap.index == choice_touch:
                 choice_touch = -1
-                if not choice_dragged:
+                if not choice_dragged and not tap.canceled:
                     var index: int = _choice_row_at(tap.position)
                     if index >= 0 and index == choice_pressed_row:
                         _commit_choice(index)
@@ -537,7 +539,7 @@ func _route_choice_input(event: InputEvent) -> bool:
             var button: StudioChoice = pending_choice
             choice_touch = -1
             pending_choice = null
-            if is_instance_valid(button) and not choice_dragged and button.get_global_rect().has_point(tap.position):
+            if is_instance_valid(button) and not choice_dragged and not tap.canceled and button.get_global_rect().has_point(tap.position):
                 _open_choice(button)
             return true
     elif event is InputEventScreenDrag:
