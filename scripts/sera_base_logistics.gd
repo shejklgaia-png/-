@@ -428,7 +428,11 @@ func _record_leg(t: Truck, leg: Array[Vector2]) -> void:
     t.cells.merge(all, true)
 
 
-func _plan(t: Truck) -> bool:
+func _plan(t: Truck, commit_weights: bool = true) -> bool:
+    t.legs.clear()
+    t.leg_cells.clear()
+    t.segment_cells.clear()
+    t.cells.clear()
     var temporarily_blocked: Array[Vector2i] = []
     for h in _homes:
         if h == t.home:
@@ -465,13 +469,31 @@ func _plan(t: Truck) -> bool:
         _grid.set_point_solid(c, false)
     if not valid:
         return false
+    if commit_weights:
+        _commit_road_weights(t)
+    return true
+
+
+func _commit_road_weights(t: Truck) -> void:
     # A modest preference for distinct streets, without lengthy detours.
     for leg in t.legs:
         for i in range(1, leg.size()):
             for c in _trace(leg[i - 1], leg[i], false):
                 if _free(c):
                     _grid.set_point_weight_scale(c, minf(1.6, _grid.get_point_weight_scale(c) + 0.07))
-    return true
+
+
+func _route_score(t: Truck) -> float:
+    var score: float = 0.0
+    for leg in t.legs:
+        for i in range(1, leg.size()):
+            score += _point(leg[i - 1]).distance_to(_point(leg[i]))
+    for previous in _trucks:
+        for c in t.cells:
+            if previous.cells.has(c):
+                score += 0.018
+    return score
+
 
 func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, crate_path: Array, camera: Camera3D = null) -> void:
     _camera = camera
@@ -518,13 +540,24 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
             var options: Array[Dictionary] = _parking_options(source_at, destination_at)
             var planned: bool = false
             if docks_ready:
+                var best_score: float = INF
+                var best_home := Vector2i.ZERO
+                var successful: int = 0
                 for j in range(mini(48, options.size())):
                     t.home = options[j]["cell"]
-                    if _plan(t):
-                        planned = true
-                        break
-                    if j % 4 == 3:
+                    if _plan(t, false):
+                        successful += 1
+                        var score: float = _route_score(t)
+                        if score < best_score:
+                            best_score = score
+                            best_home = t.home
+                        if successful >= 5:
+                            break
+                    if j % 2 == 1:
                         await get_tree().process_frame
+                if successful > 0:
+                    t.home = best_home
+                    planned = _plan(t, true)
             if not planned:
                 push_warning("BASE logistics: no complete operating loop for " + destination)
                 continue
