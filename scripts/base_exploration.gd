@@ -514,11 +514,23 @@ func _build_power_board() -> void:
     power_zone = PowerBoard.build(self)
 
 
+# Use the same saved facility positions as the models, before they are built.
+func _infrastructure_nexus_origin() -> Vector3:
+    return facility_poses.get("NEXUS", {}).get("position", NEXUS_BUILDING_ORIGIN)
+
+func _infrastructure_facility_specs() -> Array:
+    var specs: Array = BaseFacilities.FACILITY_SPECS.duplicate(true)
+    for spec in specs:
+        var key: String = str(spec["id"])
+        if facility_poses.has(key):
+            spec["at"] = facility_poses[key]["position"]
+    return specs
+
 func _build_power_distribution_startup() -> void:
     if is_instance_valid(power_distribution):
         power_distribution.free()
     power_distribution = await BasePowerDistribution.build_budgeted(
-        self, NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, cam, null, _startup_budget)
+        self, _infrastructure_nexus_origin(), _infrastructure_facility_specs(), cam, null, _startup_budget)
 
 
 func _build_logistics(cached_script: Variant = null) -> void:
@@ -550,8 +562,8 @@ func _build_logistics(cached_script: Variant = null) -> void:
     logistics.name = "BaseLogistics"
     logistics.set_meta("sera_outline_role", "clutter")
     add_child(logistics)
-    await logistics.call("setup", self, NEXUS_BUILDING_ORIGIN,
-        BaseFacilities.FACILITY_SPECS, power_distribution, CRATE_WAYPOINTS, cam, _startup_budget)
+    await logistics.call("setup", self, _infrastructure_nexus_origin(),
+        _infrastructure_facility_specs(), power_distribution, CRATE_WAYPOINTS, cam, _startup_budget)
     _startup_step("BASE / LOGISTICS MODELS", 26)
     await _startup_budget.checkpoint("logistics routes")
     # Independent calls keep the carrier rendering available if route or
