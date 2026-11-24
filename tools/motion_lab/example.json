@@ -94,6 +94,14 @@
         0.6,
         0.2
       ]
+    },
+    {
+      "id": "contact_target",
+      "location": [
+        1.7644203136722703,
+        0,
+        0.8327290744234407
+      ]
     }
   ],
   "tracks": {
@@ -194,6 +202,14 @@
         0,
         0.1
       ]
+    },
+    "target": {
+      "node": "contact_target",
+      "local": [
+        0,
+        0,
+        0
+      ]
     }
   },
   "contacts": [
@@ -207,6 +223,15 @@
         0,
         0,
         2.45
+      ],
+      "tolerance_m": 0.01
+    },
+    {
+      "marker": "tip",
+      "target_marker": "target",
+      "frames": [
+        53,
+        70
       ],
       "tolerance_m": 0.01
     }
