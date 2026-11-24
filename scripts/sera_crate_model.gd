@@ -678,8 +678,8 @@ static func _make_arms(robot: Node3D) -> void:
         _bevel(b, "steel", Vector3(0, 0, -0.105),
             Vector3(0.091, 0.091, 0.019), 0.021)
         var directions: Array[Vector3] = [
-            Vector3(-0.42, 0.91, 0).normalized(),
-            Vector3(0.42, 0.91, 0).normalized(),
+            Vector3(-0.70, 0.72, 0).normalized(),
+            Vector3(0.70, 0.72, 0).normalized(),
             Vector3(0, -1, 0)
         ]
         for radial in directions:
