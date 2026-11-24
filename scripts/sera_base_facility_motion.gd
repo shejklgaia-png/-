@@ -10,7 +10,10 @@ const MOTION_FEATURES: Dictionary = {
     # toggles on Morse-like timer events in BaseFacilityVFX.
     "NEXUS": [],
     "LABO": ["FreshLabPrinterServo", "FreshLabPrinterHotHead",
-        "FreshLabPrinterTip", "FreshLabPrintedShell"],
+        "FreshLabPrinterTip", "FreshLabPrintedShell",
+        "LabArmLinkA", "LabArmLinkB", "LabArmElbow", "LabArmWristHub",
+        "LabArmWristShaft", "LabArmWristOffset", "LabArmGripBody",
+        "LabArmGripJaw", "LabStockLift", "LabStockShutter"],
     "SCRAP_COLLECTOR": ["FreshCollectorSuspendedCable", "FreshCollectorClawHead",
         "FreshCollectorJawHinge", "FreshCollectorOpenGrip",
         "FreshCollectorConveyorFlight", "FreshCollectorPickupScrap"],
@@ -103,6 +106,118 @@ func part_pose(feature: String, slot: int = 0) -> Transform3D:
     var multi: MultiMesh = record["mesh"] as MultiMesh
     return multi.get_instance_transform(int(record["index"]))
 
+# BASE LABO: 18.2s mechanical production cell. All positions are authored
+# local metres; the existing yaw and scale are applied once by _at().
+const LAB_CYCLE: float = 18.2
+const LAB_ARM_ROOT := Vector3(-0.43, 3.60, -0.10)
+const LAB_ARM_LINK: float = 1.30
+const LAB_BED_CENTER := Vector3(0.10, 1.06, 1.13)
+const LAB_STOCK_CENTER := Vector3(-1.55, 1.39, 0.02)
+const LAB_ARM_IDLE := Vector3(-0.55, 1.90, 0.30)
+
+func _lab_ease(t: float, a: float, b: float) -> float:
+    var u: float = clampf((t - a) / (b - a), 0.0, 1.0)
+    return u * u * (3.0 - 2.0 * u)
+
+func _lab_arm_target(t: float) -> Vector3:
+    # Lift first; travel around the FRONT of the left guide column, then
+    # retreat to stock from its outer side. No diagonal through the gantry.
+    var up := Vector3(0.10, 1.53, 1.13)
+    var front := Vector3(0.10, 1.53, 1.70)
+    var outer := Vector3(-1.78, 1.53, 1.70)
+    var outer_stock := Vector3(-1.78, 1.53, 0.02)
+    var above_stock := Vector3(-1.55, 1.53, 0.02)
+    var retreat := Vector3(-1.55, 1.95, 0.02)
+    if t < 7.0: return LAB_ARM_IDLE
+    if t < 7.45: return LAB_ARM_IDLE.lerp(Vector3(0.10, 1.90, 0.30), _lab_ease(t, 7.0, 7.45))
+    if t < 8.0: return Vector3(0.10, 1.90, 0.30).lerp(up, _lab_ease(t, 7.45, 8.0))
+    if t < 9.0: return up.lerp(LAB_BED_CENTER, _lab_ease(t, 8.0, 9.0))
+    if t < 9.5: return LAB_BED_CENTER
+    if t < 10.4: return LAB_BED_CENTER.lerp(up, _lab_ease(t, 9.5, 10.4))
+    if t < 11.1: return up.lerp(front, _lab_ease(t, 10.4, 11.1))
+    if t < 12.2: return front.lerp(outer, _lab_ease(t, 11.1, 12.2))
+    if t < 13.0: return outer.lerp(outer_stock, _lab_ease(t, 12.2, 13.0))
+    if t < 13.4: return outer_stock.lerp(above_stock, _lab_ease(t, 13.0, 13.4))
+    if t < 14.2: return above_stock.lerp(LAB_STOCK_CENTER, _lab_ease(t, 13.4, 14.2))
+    if t < 14.7: return LAB_STOCK_CENTER
+    if t < 15.5: return LAB_STOCK_CENTER.lerp(retreat, _lab_ease(t, 14.7, 15.5))
+    return retreat.lerp(LAB_ARM_IDLE, _lab_ease(t, 15.5, 17.0))
+
+func _lab_segment(a: Vector3, b: Vector3, width: float, depth: float) -> Transform3D:
+    var direction: Vector3 = b - a
+    var length: float = maxf(direction.length(), 0.001)
+    var axis: Vector3 = direction / length
+    var local_basis := Basis(Quaternion(Vector3.UP, axis))
+    local_basis = local_basis.scaled_local(Vector3(width, length, depth) * _model_scale)
+    return Transform3D(Basis(Vector3.UP, _body_yaw) * local_basis, _at((a + b) * 0.5))
+
+func _lab_position(rest: Transform3D, local: Vector3) -> Transform3D:
+    return Transform3D(rest.basis, _at(local))
+
+func _lab_pose(feature: String, slot: int, rest: Transform3D, t: float,
+        target: Vector3, elbow: Vector3, wrist: Vector3) -> Transform3D:
+    # Ring toolpath and monotonic layer height. The carriage stays on its
+    # guide; the gold telescoping head follows the advancing build surface.
+    var progress: float = clampf((t - 0.35) / 5.65, 0.025, 1.0)
+    var x: float = 0.10 + 0.29 * cos(t * TAU / 1.15)
+    var z: float = 1.13 + 0.25 * sin(t * TAU / 1.15)
+    var tip_y: float = 0.86 + 0.40 * progress + 0.12
+    if t > 6.0:
+        var park: float = _lab_ease(t, 6.0, 7.0)
+        x = lerpf(0.10 + 0.29 * cos(6.0 * TAU / 1.15), 0.57, park)
+        z = lerpf(1.13 + 0.25 * sin(6.0 * TAU / 1.15), 1.08, park)
+        tip_y = lerpf(1.38, 2.15, park)
+    var grip: float = _lab_ease(t, 9.0, 9.5) * (1.0 - _lab_ease(t, 14.2, 14.7))
+    var lift: float = _lab_ease(t, 1.4, 2.4) * (1.0 - _lab_ease(t, 15.5, 16.4))
+    var opening: float = _lab_ease(t, 0.4, 1.4) * (1.0 - _lab_ease(t, 16.4, 17.2))
+    var hand := target + Vector3(0, 0.34, 0)
+    match feature:
+        "FreshLabPrinterServo":
+            return _lab_position(rest, Vector3(x, 2.40, 1.05))
+        "FreshLabPrinterHotHead":
+            return _lab_segment(Vector3(x, tip_y + 0.08, z),
+                Vector3(x, 2.27, z), 0.39, 0.39)
+        "FreshLabPrinterTip":
+            return _lab_position(rest, Vector3(x, tip_y, z))
+        "FreshLabPrintedShell":
+            if t < 6.0:
+                # Keep the bottom fixed to the fabrication bed while growing.
+                return Transform3D(rest.basis.scaled_local(Vector3(1, progress, 1)),
+                    _at(Vector3(0.10, 0.86 + 0.20 * progress, 1.13)))
+            if t < 9.5:
+                return _lab_position(rest, LAB_BED_CENTER)
+            if t < 14.2:
+                return _lab_position(rest, target)
+            return _lab_position(rest, LAB_STOCK_CENTER - Vector3(0,
+                0.45 * _lab_ease(t, 15.5, 16.4), 0))
+        "LabArmLinkA":
+            return _lab_segment(LAB_ARM_ROOT, elbow, 0.28, 0.28)
+        "LabArmLinkB":
+            return _lab_segment(elbow, wrist, 0.25, 0.25)
+        "LabArmElbow":
+            return _lab_position(rest, elbow)
+        "LabArmWristHub":
+            return _lab_position(rest, wrist)
+        "LabArmWristShaft":
+            return _lab_segment(Vector3(wrist.x, hand.y, wrist.z),
+                wrist, 0.15, 0.15)
+        "LabArmWristOffset":
+            return _lab_position(rest, hand + Vector3(0, 0, 0.17))
+        "LabArmGripBody":
+            return _lab_position(rest, hand)
+        "LabArmGripJaw":
+            var side: float = -1.0 if slot == 0 else 1.0
+            return _lab_position(rest, target + Vector3(
+                side * lerpf(0.56, 0.45, grip), 0.08, 0))
+        "LabStockLift":
+            return _lab_position(rest, Vector3(-1.55, 0.69 + 0.45 * lift, 0.02))
+        "LabStockShutter":
+            var side: float = -1.0 if slot == 0 else 1.0
+            return _spin_about(rest, _at(Vector3(-1.55, 1.20, 0.02 + side * 0.47)),
+                _axis(Vector3.RIGHT), side * opening * PI * 0.5)
+    return rest
+
+
 func sample_at(seconds: float) -> void:
     # This exact public sampler is used during normal _process and by live
     # Godot CI to compare real MultiMesh poses at multiple animation times.
@@ -124,6 +239,21 @@ func sample_at(seconds: float) -> void:
         scrap_rock = CollectorConveyor.scrap_rock_at(crane_phase)
         crane_center = _at(CollectorConveyor.CRANE_PIVOT)
         crane_rotation = Basis(_axis(Vector3.UP), crane_slew)
+    var lab_t: float = 0.0
+    var lab_target := Vector3.ZERO
+    var lab_elbow := Vector3.ZERO
+    var lab_wrist := Vector3.ZERO
+    if facility_key == "LABO":
+        lab_t = fposmod(time, LAB_CYCLE)
+        lab_target = _lab_arm_target(lab_t)
+        lab_wrist = Vector3(lab_target.x, LAB_ARM_ROOT.y, lab_target.z + 0.34)
+        # Analytic two-link planar IK: both castings retain fixed lengths.
+        var reach: Vector3 = lab_wrist - LAB_ARM_ROOT
+        var distance: float = maxf(reach.length(), 0.001)
+        var perpendicular := Vector3(-reach.z, 0, reach.x) / distance
+        var offset: float = sqrt(maxf(0.0,
+            LAB_ARM_LINK * LAB_ARM_LINK - distance * distance * 0.25))
+        lab_elbow = LAB_ARM_ROOT + reach * 0.5 + perpendicular * offset
     for name_variant in _parts.keys():
         var feature: String = str(name_variant)
         var records: Array = _parts[feature]
@@ -133,16 +263,8 @@ func sample_at(seconds: float) -> void:
             var pose: Transform3D = rest
             match facility_key:
                 "LABO":
-                    if feature in ["FreshLabPrinterServo",
-                            "FreshLabPrinterHotHead", "FreshLabPrinterTip"]:
-                        # The entire nozzle carriage travels together, not the
-                        # whole workshop or the motionless external frame.
-                        pose.origin += _at(Vector3(0.49 * sin(time * 1.35), 0, 0))
-                    elif feature == "FreshLabPrintedShell":
-                        var progress: float = 0.72 + 0.28 * (
-                            0.5 + 0.5 * sin(time * 0.70 - 1.10))
-                        pose.basis = rest.basis.scaled_local(
-                            Vector3(1.0, progress, 1.0))
+                    pose = _lab_pose(feature, i, rest, lab_t,
+                        lab_target, lab_elbow, lab_wrist)
                 "SCRAP_COLLECTOR":
                     if feature in CRANE_SLEW_FEATURES:
                         # All sculpted upper boom parts share one genuine

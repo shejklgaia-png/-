@@ -228,11 +228,45 @@ static func _labo(g: Variant) -> void:
         Vector3(0, 3.12, -0.05), 0.16, "edge")
     g.box("FreshLabWarmWorkLight", Vector3(0, 3.12, -0.05),
         Vector3(0.56, 0.19, 0.29), "amber_light")
-    # One low finished-parts tray is positioned clear of the nozzle envelope.
+    # Overhead two-link SCARA: fixed column, two articulated rigid beams,
+    # vertical telescopic wrist, offset crossbar and two opposed jaws.
+    # Rest poses are overwritten by the same BASE MultiMesh motion sampler.
+    g.poly("LabArmColumnFoot", "octagonal_slew",
+        Vector3(-0.43, 0.72, -0.10), Vector3(0.55, 0.28, 0.55), "dark")
+    g.poly("LabArmColumn", "octagonal_slew",
+        Vector3(-0.43, 2.10, -0.10), Vector3(0.31, 2.95, 0.31), "slate")
+    g.poly("LabArmShoulder", "drum",
+        Vector3(-0.43, 3.60, -0.10), Vector3(0.46, 0.30, 0.46), "edge")
+    g.poly("LabArmLinkA", "octagonal_slew",
+        Vector3(-0.9, 3.60, 0.30), Vector3(0.28, 1.30, 0.28), "gold")
+    g.poly("LabArmLinkB", "octagonal_slew",
+        Vector3(-0.9, 3.60, 0.60), Vector3(0.25, 1.30, 0.25), "armor_light")
+    g.poly("LabArmElbow", "drum",
+        Vector3(-1.25, 3.60, 0.40), Vector3(0.39, 0.34, 0.39), "edge")
+    g.poly("LabArmWristHub", "drum",
+        Vector3(-0.55, 3.60, 0.64), Vector3(0.31, 0.27, 0.31), "slate")
+    g.poly("LabArmWristShaft", "octagonal_slew",
+        Vector3(-0.55, 2.60, 0.64), Vector3(0.15, 1.70, 0.15), "edge")
+    g.box("LabArmWristOffset", Vector3(-0.55, 2.24, 0.47),
+        Vector3(0.23, 0.16, 0.44), "slate")
+    g.poly("LabArmGripBody", "deck", Vector3(-0.55, 2.24, 0.30),
+        Vector3(1.12, 0.18, 0.25), "gold")
+    for side in [-1.0, 1.0]:
+        g.poly("LabArmGripJaw", "deck",
+            Vector3(-0.55 + side * 0.56, 1.98, 0.30),
+            Vector3(0.13, 0.36, 0.36), "edge")
+    # Finished stock receiver: open lift pocket and hinged safety shutters.
+    # One continuous printed part is deposited, lowered into the enclosed
+    # stock chamber, and only recycled after the shutters have closed.
     g.poly("LabOutputPartsTray", "tray",
-        Vector3(-1.52, 0.72, 0.24), Vector3(0.66, 0.26, 0.65), "crate")
-    g.poly("LabOutputCoupling", "gear",
-        Vector3(-1.52, 0.74, 0.24), Vector3(0.46, 0.18, 0.46), "edge")
+        Vector3(-1.55, 0.85, 0.02), Vector3(1.04, 0.65, 0.94), "crate")
+    g.poly("LabStockLift", "deck", Vector3(-1.55, 0.69, 0.02),
+        Vector3(0.79, 0.10, 0.70), "slate")
+    for side in [-1.0, 1.0]:
+        g.box("LabStockShutter", Vector3(-1.55, 1.20, 0.02 + side * 0.235),
+            Vector3(1.04, 0.09, 0.46), "armor_light")
+    g.box("LabStockStatus", Vector3(-1.55, 0.98, 0.51),
+        Vector3(0.46, 0.15, 0.08), "lab_cyan")
 
 
 static func _collector(g: Variant) -> void:
