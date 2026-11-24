@@ -33,6 +33,12 @@ static func _world_rect(local: Rect2, site: Dictionary) -> Rect2:
         result = result.expand(origin + (corner as Vector2).rotated(turn))
     return result
 
+static func _belt_site(site: Dictionary) -> Dictionary:
+    var belt: Dictionary = site.duplicate()
+    belt["yaw"] = float(site.get("yaw", 0.0)) + deg_to_rad(56.0)
+    return belt
+
+
 static func _site_rect(site: Dictionary, size_key: String) -> Rect2:
     var size: Vector2 = site[size_key]
     return _world_rect(Rect2(-size * 0.5, size), site)
@@ -281,7 +287,10 @@ static func reserve_props(nexus_origin: Vector3, specs: Array,
                     for other_site in sites:
                         if str(other_site["id"]) == key:
                             continue
-                        if world.intersects(_site_rect(other_site, "physical").grow(0.3)):
+                        if world.intersects(_site_rect(other_site, "physical").grow(0.3)) or (
+                                str(other_site["id"]) == "SCRAP_COLLECTOR" and
+                                _world_rect(Rect2(-9.05, 0.33, 7.60, 3.30),
+                                    _belt_site(other_site)).grow(0.25).intersects(world)):
                             blocked = true
                             break
                     if blocked:
@@ -358,7 +367,10 @@ static func reserve_props_budgeted(nexus_origin: Vector3, specs: Array,
                     for other_site in sites:
                         if str(other_site["id"]) == key:
                             continue
-                        if world.intersects(_site_rect(other_site, "physical").grow(0.3)):
+                        if world.intersects(_site_rect(other_site, "physical").grow(0.3)) or (
+                                str(other_site["id"]) == "SCRAP_COLLECTOR" and
+                                _world_rect(Rect2(-9.05, 0.33, 7.60, 3.30),
+                                    _belt_site(other_site)).grow(0.25).intersects(world)):
                             blocked = true
                             break
                     if blocked:
