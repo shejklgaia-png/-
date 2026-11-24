@@ -1835,6 +1835,23 @@ func _nexus_console_authored_parts(module_name: String) -> Array:
     var authored: Array = Modules.MODULES[module_name]
     if NEXUS_MOUNTED_MONITOR_MODULES.has(module_name):
         authored = NEXUS_MOUNTED_MONITOR_MODULES[module_name]
+    if module_name == "deployment_gate":
+        var fitted: Array = []
+        for value in authored:
+            var part: Array = value
+            if str(part[0]).begins_with("Outward sloped portal half-chevron"):
+                # Closed, seated drive cover instead of a skewed piece
+                # projecting from the side of the load-bearing pillar.
+                var side: float = -1.0 if str(part[0]).ends_with("-1") else 1.0
+                var lo: float = -19.8 if side < 0.0 else 17.4
+                var hi: float = -17.4 if side < 0.0 else 19.8
+                fitted.append(["Portal integrated drive cover "+str(side),
+                    [lo,23.5,0.15],[hi,48.5,6.65],3,[0,0,0],true,true])
+                fitted.append(["Portal drive cover inset "+str(side),
+                    [lo+0.34,27.0,6.57],[hi-0.34,45.5,7.1],1,[0,0,0],false,true])
+            else:
+                fitted.append(part)
+        return fitted
     if not module_name in ["system_console", "training_console", "data_bank"]:
         return authored
     var result: Array = []
@@ -2034,9 +2051,21 @@ func _deployment_gate_lightspill() -> void:
     _gate_light_quad(portal, "ThresholdGlow",
         Vector3(0.0, 0.20, 0.72), Vector2(1.70, 1.70),
         Color(0.36, 0.83, 1.00, 0.31), 1.35, true)
+    # Seat the existing spill plane on the new ramp, not on a horizontal
+    # plane intersecting the steel. Portal coordinates are scaled.
+    var start: float = NexusDeploymentWallDock.RAMP_START
+    var end: float = NexusDeploymentWallDock.RAMP_END
+    var top: float = NexusDeploymentWallDock.threshold_height(GATE_SCALE)
+    var foot: float = NexusDeploymentWallDock.DECK_HEIGHT-GATE_ORIGIN.y
+    var slope: float = (foot-top)/(end-start)
+    var spill_z: float = start+1.12
+    var spill_y: float = top+slope*(spill_z-start)+0.018
     _gate_light_quad(portal, "SpillOnFloor",
-        Vector3(0.0, 0.055, 2.04), Vector2(1.18, 1.95),
-        Color(0.24, 0.68, 1.00, 0.15), 0.90, true)
+        Vector3(0.0,spill_y,spill_z)/GATE_SCALE,
+        Vector2(1.18,1.65),Color(0.24,0.68,1.00,0.15),0.90,true)
+    var spill := portal.get_node_or_null("SpillOnFloor") as MeshInstance3D
+    if spill != null:
+        spill.rotation.x = -PI*0.5-atan(slope)
 
     # One unshadowed light adds a little spill onto the surrounding frame.
     var lamp := OmniLight3D.new()
