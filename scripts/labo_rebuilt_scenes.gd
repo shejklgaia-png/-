@@ -331,6 +331,16 @@ func _floor_cable(b, points: Array, diameter: float = 0.12) -> void:
         _pipe(b,points[i],points[i+1],diameter,"rubber")
         _shape(b,"drum",points[i],Vector3(diameter*1.14,diameter*1.14,diameter*1.14),"rubber")
 
+func _task_light(parent: Node3D, at: Vector3, tint: Color, reach: float, energy: float) -> void:
+    var light := OmniLight3D.new()
+    light.name = "LocalWorkLight"
+    light.position = at
+    light.light_color = tint
+    light.omni_range = reach
+    light.light_energy = energy
+    light.shadow_enabled = false
+    parent.add_child(light)
+
 func _labo(key: String) -> void:
     # Independent full-size design: BASE's open two-column fabrication bridge,
     # left feedstock racks, rear extraction, central bed and SCARA output arm.
@@ -478,6 +488,7 @@ func _labo(key: String) -> void:
     _box(b,Vector3(-1.9,5.79,-0.4),Vector3(0.8,0.07,0.52),"amber_light")
     _floor_cable(b,[Vector3(0,0.1,0.6),Vector3(0,0.1,2.1),Vector3(-1.7,0.1,2.8),Vector3(-3.3,0.1,2.8)])
     _finish(b)
+    _task_light(utility,Vector3(-1.9,5.52,-0.4),Color("#ffe0b2"),8.0,1.4)
     _console(key,Vector3(3.2,0,6.6),0)
 
 func _smelter(key: String) -> void:
@@ -586,6 +597,7 @@ func _smelter(key: String) -> void:
     (targets[key] as Array).append(feed_mount)
     var raw := _cargo(feed_mount,"FeedCharge",Vector3(0,0,1.7),Vector3(1.3,0.6,1.0))
     _moving(key,"feed",raw)
+    _moving(key,"hopper",feed)
     var cast := _conveyor(key,"CastingCoolingLine",Vector3(5.9,0,2.0),2.5,6.2)
     var ingot_mount := _child(cast,"IngotPlacement",Vector3(0,1.15,0))
     (targets[key] as Array).append(ingot_mount)
@@ -605,6 +617,7 @@ func _smelter(key: String) -> void:
     _pipe(b,Vector3(1.55,2.45,-1.25),Vector3(0.3,2.45,-1.25),0.23,"gold")
     _floor_cable(b,[Vector3(1.55,0.1,-0.7),Vector3(1.55,0.1,0.85),Vector3(0,0.1,2.0)])
     _finish(b)
+    _task_light(cooling,Vector3(0.0,2.1,0.65),Color("#ffae68"),5.0,0.8)
     _console(key,Vector3(-3.3,0,6.7),2)
 
 func _recycler(key: String) -> void:
@@ -654,12 +667,26 @@ func _recycler(key: String) -> void:
     var feed := _conveyor(key,"ScrapFeedLine",Vector3(0,0,-6.3),4.5,5.6)
     var feed_mount := _child(feed,"ScrapBatchPlacement",Vector3(0,1.1,0))
     (targets[key] as Array).append(feed_mount)
-    var raw := _cargo(feed_mount,"ScrapBatch",Vector3(0,0,-1.8),Vector3(2.1,0.7,1.4))
+    var raw := _child(feed_mount,"ScrapBatch",Vector3(0,0,-1.8))
+    b = _batch(raw)
+    _shape(b,"bevel",Vector3(0,0.24,0),Vector3(1.95,0.48,1.45),"slate")
+    b.poly_tilt("BentScrapPlate","deck",Vector3(-0.42,0.56,0.12),
+        Vector3(0.95,0.20,1.35),"edge",Vector3(0.35,0.25,-0.12))
+    b.poly_tilt("ScrapBearing","gear",Vector3(0.48,0.55,-0.18),
+        Vector3(0.88,0.45,0.88),"rust",Vector3(0.2,0,0.55))
+    _pipe(b,Vector3(-0.64,0.38,-0.5),Vector3(0.65,0.64,0.5),0.22,"trim")
+    _finish(b)
     _moving(key,"feed",raw)
+    _moving(key,"crusher",base)
     var output := _conveyor(key,"SortedMaterialLine",Vector3(0,0,4.6),3.8,5.0)
     var bin_mount := _child(output,"SortedBatchPlacement",Vector3(0,1.1,0))
     (targets[key] as Array).append(bin_mount)
-    var bin := _cargo(bin_mount,"SortedBatch",Vector3(0,0,-1.7),Vector3(2.0,0.65,1.3))
+    var bin := _child(bin_mount,"SortedBatch",Vector3(0,0,-1.7))
+    b = _batch(bin)
+    for i in range(3):
+        _shape(b,"gear",Vector3(-0.58+float(i)*0.58,0.16,0.1),Vector3(0.49,0.32,0.49),"edge")
+        _shape(b,"bevel",Vector3(-0.58+float(i)*0.58,0.12,-0.45),Vector3(0.44,0.24,0.42),"rust")
+    _finish(b)
     _moving(key,"output",bin)
     _console(key,Vector3(4.7,0,4.0),3)
 
@@ -725,6 +752,11 @@ func _storage(key: String) -> void:
     for x in [-0.75,0.75]:
         _box(b,Vector3(x,0.23,-0.25),Vector3(0.28,0.14,2.6),"edge")
     _finish(b)
+    var extension := _child(platform,"TelescopingForkSupport")
+    b = _batch(extension)
+    _shape(b,"bevel",Vector3(0,0,0),Vector3(0.52,0.24,1.0),"armor")
+    _finish(b)
+    _moving(key,"extension",extension)
     var load_mount := _child(mast,"LiftCargoPlacement")
     (targets[key] as Array).append(load_mount)
     var load := _cargo(load_mount,"LiftCargo",Vector3.ZERO,Vector3(2.17,1.6,3.5))
@@ -749,6 +781,8 @@ func _storage(key: String) -> void:
     _moving(key,"rack",rack)
     _moving(key,"mast",mast)
     _moving(key,"dispatch",dispatch)
+    for x in [-6.0,6.0]:
+        _task_light(apron,Vector3(x,4.15,0.5),Color("#ffe0b2"),6.0,1.0)
     _console(key,Vector3(5.8,0,7.6),4)
 
 func placement_models(key: String) -> Array[Node3D]:
@@ -854,7 +888,27 @@ func _sample(key: String, t: float) -> void:
             feed.position.z = (1.7 if key=="SMELTER" else -1.8)+(-3.4 if key=="SMELTER" else 3.4)*smoothstep(0.0,0.35,t)
             output.visible = t>0.55
             output.position.z = (-2.1 if key=="SMELTER" else -1.7)+3.4*smoothstep(0.55,1.0,t)
+            if key=="SMELTER":
+                var hopper: Node3D = m["hopper"]
+                var feed_parent := feed.get_parent() as Node3D
+                var mouth: Vector3 = feed_parent.to_local(hopper.to_global(Vector3(0,5.4,0)))
+                var floor_end := Vector3(0,0,-1.75)
+                var hoist: float = smoothstep(0.17,0.35,t)
+                if t<0.17:
+                    feed.position = Vector3(0,0,lerpf(1.7,-1.75,smoothstep(0.0,0.17,t)))
+                else:
+                    feed.position = floor_end.lerp(mouth,hoist)
+                feed.visible = t<0.35
             if key=="RECYCLER":
+                var crusher: Node3D = m["crusher"]
+                var feed_parent := feed.get_parent() as Node3D
+                var entrance: Vector3 = feed_parent.to_local(crusher.to_global(Vector3(0,6.2,-3.1)))
+                var cutter: Vector3 = feed_parent.to_local(crusher.to_global(Vector3(0,3.9,-0.9)))
+                if t<0.21:
+                    feed.position = Vector3(0,0,-1.8).lerp(entrance,smoothstep(0.0,0.21,t))
+                else:
+                    feed.position = entrance.lerp(cutter,smoothstep(0.21,0.35,t))
+                feed.visible = t<0.35
                 (m["shaft0"] as Node3D).rotation.x = t*TAU*4.0
                 (m["shaft1"] as Node3D).rotation.x = -t*TAU*4.0
         "STORAGE":
@@ -879,5 +933,12 @@ func _sample(key: String, t: float) -> void:
             if t>=0.71:
                 cargo.position = destination
             var retract: float = 1.0-smoothstep(0.71,0.81,t)
-            fork.position = Vector3((destination.x-on_lift.x)*across,
-                0,(destination.z-on_lift.z)*inward)*retract
+            var extension: Node3D = m["extension"]
+            var transfer_world: Vector3 = mount.to_global(on_shelf)
+            var transfer_local: Vector3 = lift.to_local(transfer_world)
+            fork.position = Vector3(transfer_local.x,0,transfer_local.z-0.32)*retract
+            var span: float = fork.position.length()
+            extension.visible = span>0.04
+            extension.position = fork.position*0.5+Vector3(0,0.13,0)
+            extension.rotation.y = atan2(fork.position.x,fork.position.z)
+            extension.scale.z = maxf(0.04,span)
