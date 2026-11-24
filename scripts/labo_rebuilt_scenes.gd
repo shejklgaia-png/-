@@ -860,9 +860,10 @@ func _sample_print_arm(arm: Dictionary,index: int,t: float,height: float,grow: f
     var tangent: Vector3 = Vector3.UP.cross(radial)
     var blend: float = smoothstep(0.015+float(index)*0.018,0.10,t)*(1.0-smoothstep(0.46,0.56-float(index)*0.014,t))
     var wave: float = sin(t*TAU*8.0+float(index)*2.094)
-    var scan_radius: float = 0.89+0.12*cos(t*TAU*6.0+float(index)*2.094)
+    var nominal_radius: float = 0.64 if index==2 else 0.73
+    var scan_radius: float = nominal_radius+0.06*cos(t*TAU*6.0+float(index)*2.094)
     # Local mount coordinates; radial sectors never cross the bed center.
-    var work: Vector3 = radial*(scan_radius-4.35)+tangent*(0.24*wave)
+    var work: Vector3 = radial*(scan_radius-4.35)+tangent*(0.16*wave)
     work.y = 2.12+height*grow+0.20
     var park: Vector3 = -radial*1.20+Vector3.UP*4.45
     var tip: Vector3 = park.lerp(work,blend)
@@ -888,8 +889,8 @@ func _sample_print_arm(arm: Dictionary,index: int,t: float,height: float,grow: f
     _print_link_pose(arm["tool"],wrist_pos,tip,hinge)
 
 func _labo(key: String) -> void:
-    # Independent full-size design: BASE's open two-column fabrication bridge,
-    # left feedstock racks, rear extraction, central bed and guided output shuttle.
+    # Independent full-size design: three articulated print arms, left feedstock
+    # racks, rear extraction, central bed and guided output shuttle.
     var frame := _model(key,"OpenFabricationCell",Vector3(0,0,-1.0))
     var b = _batch(frame)
     _skid(b,13.6,12.2)
@@ -905,7 +906,6 @@ func _labo(key: String) -> void:
     _shape(b,"deck",Vector3(1.10,1.56,2.0),Vector3(6.6,0.46,4.9),"armor_light")
     _finish(b)
     inspection[key] = {"root":frame,"stand":Vector3(-2.0,0,8.15),"focus":Vector3(1.1,2.5,2.0)}
-    var arm_mounts: Array[Node3D] = []
     var arm_data: Array[Dictionary] = []
     # Three sectors: left, right and rear. The entire front stays open for
     # the existing shuttle, receiving rollers and CRATE.
@@ -913,8 +913,9 @@ func _labo(key: String) -> void:
         var radial: Vector3 = [Vector3.LEFT,Vector3.RIGHT,Vector3(0,0,-1)][i]
         var mount := _child(frame,"ArticulatedPrinterMount%d"%(i+1),Vector3(1.10,0,2.0)+radial*4.35)
         (targets[key] as Array).append(mount)
-        arm_mounts.append(mount)
-        arm_data.append(_make_print_arm(mount,radial))
+        var arm: Dictionary = _make_print_arm(mount,radial)
+        _sample_print_arm(arm,i,0.0,1.30,0.0)
+        arm_data.append(arm)
         _moving(key,"arm_mount%d"%i,mount)
     motion_parts[key]["print_arms"] = arm_data
     var rack := _model(key,"FeedstockRacks",Vector3(-9.1,0,-3.0))
@@ -1495,15 +1496,11 @@ func _mechanism_nodes(key: String) -> Array[Node3D]:
         "STORAGE": names = ["storage_anchor"]
     for label in names:
         result.append(m[label] as Node3D)
-    # Head mount is a child of the animated carriage; use its LOCAL transform
-    # instead of its continuously moving global transform.
     return result
 
 func _mechanism_pose(nodes: Array[Node3D], i: int) -> Transform3D:
     if i==0:
         return (nodes[0].get_parent() as Node3D).global_transform.affine_inverse()*nodes[0].global_transform
-    if nodes[i].name == "PrintHeadPlacement":
-        return nodes[i].transform
     return nodes[0].global_transform.affine_inverse()*nodes[i].global_transform
 
 func _capture_mechanism(key: String) -> void:
