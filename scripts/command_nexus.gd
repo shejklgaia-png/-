@@ -1219,13 +1219,13 @@ void fragment() {
     # The visible-ID compositor now applies the main scenery-only veil,
     # including projecting beams, columns and seams. Keep these surface
     # planes as a subtle supplementary depth grade, not the primary mask.
-    var wall := _nexus_atmosphere_material(shader, 1, Color("#526676"), 0.25)
+    var wall := _nexus_atmosphere_material(shader, 1, Color("#303e4a"), 0.25)
     # Exactly match the revised rectangular wall opening. No veil over
     # the independent portal or its tunnel.
     _nexus_atmosphere_plane(root, "RearWallLeftFilter", Vector3(-3.675,4.375,-27.38), Vector2(12.75,8.85), wall)
     _nexus_atmosphere_plane(root, "RearWallRightFilter", Vector3(9.95,4.375,-27.38), Vector2(0.20,8.85), wall)
     _nexus_atmosphere_plane(root, "RearWallHeaderFilter", Vector3(6.375,9.51,-27.38), Vector2(7.35,1.42), wall)
-    var ceiling := _nexus_atmosphere_material(shader, 2, Color("#344451"), 0.25)
+    var ceiling := _nexus_atmosphere_material(shader, 2, Color("#111923"), 0.25)
     _nexus_atmosphere_plane(root, "CeilingDepthGradient", Vector3(0,9.39,-7.8), Vector2(19.7,39.4), ceiling, -PI*0.5)
     _ambience_floor_filter = _nexus_atmosphere_material(shader, 4, Color("#7c92a1"), 0.15)
     # Match the actual deck triangles, rather than a floating rectangle
@@ -2183,12 +2183,15 @@ func _render_batches() -> void:
         if background and index not in [5, 6, 7]:
             # Floor foundation < wall < overhead in darkness. Keep the
             # original material/lighting pipeline, with no new light or pass.
-            var darkness: float = 0.60
+            var darkness: float = 0.78
+            var dark_tint := Color("#0a131c")
             if batch_key >= 2002000:
                 darkness = 0.30
+                dark_tint = Color("#101924")
             elif batch_key >= 2000000:
-                darkness = 0.82
-            material.albedo_color = material.albedo_color.lerp(Color("#101924"), darkness)
+                darkness = 0.94
+                dark_tint = Color("#040910")
+            material.albedo_color = material.albedo_color.lerp(dark_tint, darkness)
             material.metallic = 0.05
             material.roughness = 0.88
             material.metallic_specular = 0.0
@@ -2468,10 +2471,13 @@ func _nexus_tone_background_node(node: Node, is_deck: bool) -> void:
             var toned := source.duplicate() as StandardMaterial3D
             # Preserve the existing deck treatment; darken actual wall
             # castings and the overhead girder without touching gate equipment.
-            var darkness: float = 0.30 if is_deck else 0.60
-            if not is_deck and str(node.name) == "RearGirderLeftHaunch":
-                darkness = 0.82
-            toned.albedo_color = source.albedo_color.lerp(Color("#101924"), darkness)
+            var darkness: float = 0.30 if is_deck else 0.78
+            var dark_tint := Color("#101924") if is_deck else Color("#0a131c")
+            var label: String = str(node.name)
+            if not is_deck and (label == "RearGirderLeftHaunch" or label.begins_with("Ceiling")):
+                darkness = 0.94
+                dark_tint = Color("#040910")
+            toned.albedo_color = source.albedo_color.lerp(dark_tint, darkness)
             toned.roughness = maxf(source.roughness, 0.78)
             toned.metallic = minf(source.metallic, 0.15)
             toned.metallic_specular = 0.0
