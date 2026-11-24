@@ -15,6 +15,12 @@ void vertex() {
 uniform bool facility_selection_enabled = false;
 uniform vec4 facility_selection_color : source_color = vec4(1.0);
 uniform float facility_selection_width = 4.5;
+// NEXUS profile 4 only: existing visible ID already distinguishes scenery
+// from the interactive equipment, actors and protected emissive cores.
+// Composite a low-contrast blue-grey veil over the actual background pixels,
+// INCLUDING its mesh seams. No new screen texture or viewport is required.
+uniform vec4 nexus_scenery_tint : source_color = vec4(0.44, 0.53, 0.60, 1.0);
+uniform float nexus_scenery_filter = 0.76;
 
 float facility_selection_coverage(vec2 uv, float black_alpha) {
     int role = sera_role_of(sera_sample_visible_id(uv));
@@ -53,13 +59,23 @@ void fragment() {
         selection = facility_selection_coverage(SCREEN_UV, alpha) *
             facility_selection_color.a;
     }
-    // Composite the colored stroke over existing black ink in the same
-    // draw; keep ordinary seams, scene profiles and foreground VFX intact.
-    float combined = selection + alpha * (1.0 - selection);
+    // Premultiplied intermediate, then ordinary alpha blending at output.
+    // Scenery tint sits OVER its black seams rather than behind them. Roles
+    // 1/2 (SERA and interactive equipment), 7 (emission), and other profiles
+    // are unchanged. The existing selection line remains on top.
+    float veil = 0.0;
+    if (scene_profile == 4 &&
+            sera_role_of(sera_sample_visible_id(SCREEN_UV)) == 4) {
+        veil = clamp(nexus_scenery_filter, 0.0, 1.0);
+    }
+    float base_alpha = veil + alpha * (1.0 - veil);
+    vec3 base_rgb = nexus_scenery_tint.rgb * veil +
+        ink_color.rgb * alpha * (1.0 - veil);
+    float combined = selection + base_alpha * (1.0 - selection);
     if (combined < 0.001) {
         discard;
     }
     ALBEDO = (facility_selection_color.rgb * selection +
-        ink_color.rgb * alpha * (1.0 - selection)) / combined;
+        base_rgb * (1.0 - selection)) / combined;
     ALPHA = combined;
 }

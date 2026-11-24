@@ -1158,14 +1158,16 @@ void fragment() {
         var plane := _nexus_atmosphere_plane(root, "Haze_" + key.replace(" ", "_"), Vector3.ZERO, Vector2(4.0, 3.6), haze)
         _ambience_hazes[key] = plane
     _refresh_nexus_haze_positions()
-    # Match the real rear bulkhead cutout, not a rectangle over the portal.
-    var wall := _nexus_atmosphere_material(shader, 1, Color("#9eafbb"), 0.68)
+    # The visible-ID compositor now applies the main scenery-only veil,
+    # including projecting beams, columns and seams. Keep these surface
+    # planes as a subtle supplementary depth grade, not the primary mask.
+    var wall := _nexus_atmosphere_material(shader, 1, Color("#9eafbb"), 0.10)
     _nexus_atmosphere_plane(root, "RearWallLeftFilter", Vector3(-3.505,4.18,-27.38), Vector2(13.09,8.46), wall)
     _nexus_atmosphere_plane(root, "RearWallRightFilter", Vector3(9.625,4.18,-27.38), Vector2(0.85,8.46), wall)
     _nexus_atmosphere_plane(root, "RearWallHeaderFilter", Vector3(6.25,9.32,-27.38), Vector2(7.48,1.80), wall)
-    var ceiling := _nexus_atmosphere_material(shader, 2, Color("#a6b8c4"), 0.70)
+    var ceiling := _nexus_atmosphere_material(shader, 2, Color("#a6b8c4"), 0.20)
     _nexus_atmosphere_plane(root, "CeilingDepthGradient", Vector3(0,9.39,-7.8), Vector2(19.7,39.4), ceiling, -PI*0.5)
-    _ambience_floor_filter = _nexus_atmosphere_material(shader, 4, Color("#8b9fac"), 0.58)
+    _ambience_floor_filter = _nexus_atmosphere_material(shader, 4, Color("#8b9fac"), 0.16)
     # Match the actual deck triangles, rather than a floating rectangle
     # across grilles, channels, lettering and step edges.
     _attach_nexus_floor_filter()
