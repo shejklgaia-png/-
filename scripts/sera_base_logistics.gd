@@ -147,7 +147,7 @@ func _build_intake(key: String, motion: Node) -> void:
     g.rod("IntakeEndSupport",anchor+Vector3.DOWN*0.65,anchor+Vector3.DOWN*1.30,0.15,"slate")
     _direct_visual(g,"intake_rail_"+key,"MaterialIntakeRail_"+key)
     var trolley_model: Variant = _template()
-    trolley_model.box("IntakeTrolley",Vector3.ZERO,Vector3(0.44,0.16,0.38),"slate")
+    trolley_model.box("IntakeTrolley",Vector3.ZERO,Vector3(1.12,0.16,0.38),"slate")
     var trolley: Visual = _direct_visual(trolley_model,"intake_trolley","IntakeTrolley_"+key)
     var hoist_model: Variant = _template()
     hoist_model.rod("IntakeHoistCable",Vector3(0,-0.5,0),Vector3(0,0.5,0),0.034,"edge")
@@ -165,8 +165,12 @@ func _build_intake(key: String, motion: Node) -> void:
 
 func _intake_pose(record: Dictionary, cargo_at: Vector3, yaw: float, shown: bool) -> void:
     var top := Vector3(cargo_at.x,float(record["rail_y"]),cargo_at.z)
+    var start: Vector3 = record["start"]
+    var end: Vector3 = record["end"]
+    var rail_axis: Vector3 = (end-start).normalized()
+    var carriage: Vector3 = Geometry3D.get_closest_point_to_segment(top,start,end)
     var grip_at: Vector3 = cargo_at+Vector3.UP*0.37
-    _apply_visual_pose(record["trolley"],_pose(top,yaw),true)
+    _apply_visual_pose(record["trolley"],_pose(carriage,atan2(rail_axis.x,rail_axis.z)),true)
     _apply_visual_pose(record["hoist"],_segment(top,grip_at),shown)
     _apply_visual_pose(record["grip"],_pose(grip_at,yaw),shown)
 
@@ -174,9 +178,15 @@ func _feed_stock(t: Truck, dt: float) -> void:
     var key: String = t.destination if t.leg == 1 else "STORAGE"
     var d: Dock = _dock_for(t)
     var r: Dictionary = _intakes[key]
+    var previous: float = t.clock
     t.clock += dt
     var i: int = mini(1,floori(t.clock/INTAKE_ITEM_TIME))
     var phase: float = minf(INTAKE_ITEM_TIME,t.clock-float(i)*INTAKE_ITEM_TIME)
+    var receive_at: float = float(i)*INTAKE_ITEM_TIME+3.55
+    if previous < receive_at and t.clock >= receive_at:
+        var motion: Node = _facility_motion.get(key)
+        if is_instance_valid(motion):
+            motion.call("receive_material_item")
     var rack: Vector3 = _rack_slot(d,i)
     var mouth: Vector3 = r["target"]
     var high: float = float(r["rail_y"])-0.65
@@ -204,13 +214,17 @@ func _feed_stock(t: Truck, dt: float) -> void:
         visible = false
     _buffer_pose(d,i,lift,1.0-smoothstep(0.55,1.35,phase))
     var pose: Transform3D = _pose(at,d.yaw)
+    var tilt: float = 0.0
     if key != "STORAGE" and phase >= 3.15 and phase < 3.65:
-        pose.basis = pose.basis * Basis(Vector3.RIGHT,1.1*smoothstep(3.15,3.55,phase))
+        tilt = 1.1*smoothstep(3.15,3.55,phase)
+        pose.basis = pose.basis * Basis(Vector3.RIGHT,tilt)
     _apply_visual_pose(t.cargo[i],pose,visible)
     for j in range(t.cargo.size()):
         if j != i:
             _apply_visual_pose(t.cargo[j],_pose(_rack_slot(d,j),d.yaw),false)
     _intake_pose(r,at,d.yaw,phase < 4.99)
+    if tilt > 0.0:
+        _apply_visual_pose(r["grip"],Transform3D(pose.basis,at+Vector3.UP*0.37),true)
     if t.clock >= INTAKE_ITEM_TIME*2.0:
         for j in range(2):
             _buffer_pose(d,j,RACK_Y-0.48,0.0)
@@ -1644,6 +1658,7 @@ func _handle(t: Truck, d: Dock, dt: float) -> void:
             var motion: Node = _facility_motion.get(site)
             if is_instance_valid(motion) and motion.has_method("begin_material_cycle"):
                 if _intakes.has(site):
+                    motion.call("prepare_material_intake")
                     t.mode = "feed_stock"
                 else:
                     motion.call("begin_material_cycle")
