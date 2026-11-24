@@ -5496,21 +5496,24 @@ func _selection_mesh_topology(mesh: Mesh, exact: bool, allow_proxy: bool = true)
         indices.append(int(lookup[vertex]))
     var groups: Array[PackedInt32Array] = []
     var proxy: bool = false
-    if exact and allow_proxy and mesh.has_meta("nexus_selection_face_ranges"):
-        # Ranges reference the same authored render triangles; no bounding box
-        # across separate features. Deduplicate each local convex component.
-        var ranges: Array = mesh.get_meta("nexus_selection_face_ranges")
-        for face_range in ranges:
+    if exact and allow_proxy and mesh.has_meta("nexus_selection_local_groups"):
+        # Local clusters are authored from the real mesh before upload; they
+        # do not depend on the engine's triangle ordering or tessellation.
+        var local_groups: Array = mesh.get_meta("nexus_selection_local_groups")
+        var proxy_vertices := PackedVector3Array()
+        var proxy_lookup: Dictionary = {}
+        for cluster in local_groups:
             var group := PackedInt32Array()
-            var seen: Dictionary = {}
-            for index in range(face_range.x, mini(face_range.y, indices.size())):
-                var vertex_index: int = indices[index]
-                if not seen.has(vertex_index):
-                    seen[vertex_index] = true
-                    group.append(vertex_index)
+            for vertex in cluster:
+                if not proxy_lookup.has(vertex):
+                    proxy_lookup[vertex] = proxy_vertices.size()
+                    proxy_vertices.append(vertex)
+                group.append(int(proxy_lookup[vertex]))
             if group.size() >= 3:
                 groups.append(group)
         proxy = not groups.is_empty()
+        if proxy:
+            unique = proxy_vertices
     elif exact and allow_proxy and bool(mesh.get_meta("nexus_selection_convex", false)):
         var all_vertices := PackedInt32Array()
         for index in range(unique.size()):
