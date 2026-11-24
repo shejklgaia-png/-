@@ -1,25 +1,28 @@
 extends RefCounted
 ## BASE infrastructure drawing, world X/Z in metres.
 ## This is the authored layout, NOT a navigation search. All three systems
-## read the same crossing schedule. Changing a facility requires editing it.
+## read the same crossing schedule. Survey: canonical BASE 2026-11-24.
+## NEXUS (-12.44,-18.91), LABO (8.40,8.95), STORAGE (-2.93,4.92),
+## BUILD_TERMINAL (20.74,15.38). Other facility origins unchanged.
+## Manual coordinates only; no runtime road or cable path search.
 const FLOOR_Y: float = 0.115
 const DEVICES = {
     "GENERATOR": [Vector2(11.25, -5.25), 180.0],
-    "NEXUS": [Vector2(-6.0, -19.5), 0.0],
-    "LABO": [Vector2(10.5, 1.5), 0.0],
-    "SCRAP_COLLECTOR": [Vector2(7.5, 18.75), 180.0],
+    "NEXUS": [Vector2(-5.75, -18.75), 0.0],
+    "LABO": [Vector2(10.5, 2.25), 0.0],
+    "SCRAP_COLLECTOR": [Vector2(6.0, 21.0), 180.0],
     "SMELTER": [Vector2(-15.75, -3.0), 0.0],
     "RECYCLER": [Vector2(3.0, -14.25), 0.0],
-    "STORAGE": [Vector2(0.0, 8.25), 0.0],
-    "BUILD_TERMINAL": [Vector2(23.5, 12.0), 0.0]
+    "STORAGE": [Vector2(0.75, 8.25), 0.0],
+    "BUILD_TERMINAL": [Vector2(24.0, 12.75), 0.0]
 }
 # Entries: dock centre, rack direction, truck forward direction.
 const DOCKS = {
-    "SCRAP_COLLECTOR": [Vector2(13.5, 22.5), Vector2.RIGHT, Vector2.UP],
-    "LABO": [Vector2(7.5, 12.0), Vector2.DOWN, Vector2.LEFT],
-    "SMELTER": [Vector2(-9.0, -3.75), Vector2.LEFT, Vector2.UP],
+    "SCRAP_COLLECTOR": [Vector2(15.0, 22.5), Vector2.LEFT, Vector2.UP],
+    "LABO": [Vector2(8.25, 15.75), Vector2.UP, Vector2.LEFT],
+    "SMELTER": [Vector2(-8.25, -3.75), Vector2.LEFT, Vector2.DOWN],
     "RECYCLER": [Vector2(-1.5, -10.5), Vector2.DOWN, Vector2.LEFT],
-    "STORAGE": [Vector2(-6.75, 3.75), Vector2.LEFT, Vector2.DOWN]
+    "STORAGE": [Vector2(-8.25, 5.25), Vector2.RIGHT, Vector2.DOWN]
 }
 # A single shared boundary between empty return and collector approach.
 # This is a point on the straight road, not a parking bay.
@@ -27,40 +30,40 @@ const QUEUE_ENTRY := Vector2(17.25, 23.25)
 # Initial phases are explicitly spread across the actual working roads.
 # Each entry: leg index, desired world X/Z point on that leg.
 const START_PHASES = [
-    [1, Vector2(13.5, 19.0)], [2, Vector2(0.0, 12.0)],
-    [1, Vector2(-9.0, -7.0)], [2, Vector2(-6.75, 0.0)],
-    [1, Vector2(13.5, 6.0)], [3, Vector2(5.0, 16.5)]
+    [1, Vector2(15.0, 20.5)], [2, Vector2(0.0, 15.75)],
+    [1, Vector2(-8.25, -7.0)], [2, Vector2(-8.25, 2.0)],
+    [1, Vector2(15.0, 6.0)], [3, Vector2(5.0, 18.25)]
 ]
 # The cable is straight through each of these points. "wire" is its
 # horizontal axis; vehicle motion and the ramp slope axis are perpendicular.
 # No automatic rectangle expansion, overlap merging or crossing inference.
 const CROSSINGS = [
-    {"key":"GRID", "at":Vector2(13.5,-1.0), "wire":Vector2.RIGHT, "radius":0.145, "y":0.15},
+    {"key":"GRID", "at":Vector2(15.0,-1.0), "wire":Vector2.RIGHT, "radius":0.145, "y":0.15},
     {"key":"NEXUS", "at":Vector2(-5.0,-10.5), "wire":Vector2.DOWN, "radius":0.070, "y":FLOOR_Y},
     {"key":"RECYCLER", "at":Vector2(3.75,-10.5), "wire":Vector2.DOWN, "radius":0.070, "y":FLOOR_Y},
-    {"key":"SMELTER", "at":Vector2(-6.75,-1.5), "wire":Vector2.RIGHT, "radius":0.070, "y":FLOOR_Y},
-    {"key":"SCRAP_COLLECTOR", "at":Vector2(11.25,12.0), "wire":Vector2.DOWN, "radius":0.070, "y":FLOOR_Y},
-    {"key":"SCRAP_COLLECTOR", "at":Vector2(11.25,16.5), "wire":Vector2.DOWN, "radius":0.070, "y":FLOOR_Y},
-    {"key":"BUILD_TERMINAL", "at":Vector2(13.5,4.5), "wire":Vector2.RIGHT, "radius":0.070, "y":FLOOR_Y}
+    {"key":"SMELTER", "at":Vector2(-8.25,-1.5), "wire":Vector2.RIGHT, "radius":0.070, "y":FLOOR_Y},
+    {"key":"SCRAP_COLLECTOR", "at":Vector2(13.5,15.75), "wire":Vector2.DOWN, "radius":0.070, "y":FLOOR_Y},
+    {"key":"SCRAP_COLLECTOR", "at":Vector2(13.5,18.25), "wire":Vector2.DOWN, "radius":0.070, "y":FLOOR_Y},
+    {"key":"BUILD_TERMINAL", "at":Vector2(15.0,4.5), "wire":Vector2.RIGHT, "radius":0.070, "y":FLOOR_Y}
 ]
 # Feed cable control vertices. Separate the service branches and keep bends
 # away from the straight crossing spans. End gates are the actual sockets.
 const FEEDS = {
-    "NEXUS": [Vector2(9.6,-7.2),Vector2(5.3,-7.2),Vector2(-5.0,-7.2),Vector2(-5.0,-13.0),Vector2(-6.4,-16.5)],
+    "NEXUS": [Vector2(9.6,-7.2),Vector2(5.3,-7.2),Vector2(-5.0,-7.2),Vector2(-5.0,-13.0),Vector2(-5.75,-16.1)],
     "RECYCLER": [Vector2(9.8,-7.8),Vector2(3.75,-7.8),Vector2(3.75,-12.2)],
     "SMELTER": [Vector2(9.8,-8.25),Vector2(-4.75,-8.25),Vector2(-4.75,-1.5),Vector2(-15.8,-1.5)],
-    "STORAGE": [Vector2(9.8,-8.8),Vector2(1.5,-8.8),Vector2(1.5,7.4),Vector2(1.2,9.65)],
-    "LABO": [Vector2(12.15,-7.65),Vector2(12.15,2.9)],
-    "SCRAP_COLLECTOR": [Vector2(12.55,-8.15),Vector2(12.55,5.75),Vector2(11.25,10.0),Vector2(11.25,18.1),Vector2(8.45,18.1)],
-    "BUILD_TERMINAL": [Vector2(12.0,-9.0),Vector2(12.0,4.5),Vector2(16.0,4.5),Vector2(23.5,9.0),Vector2(24.5,13.4)]
+    "STORAGE": [Vector2(9.8,-8.8),Vector2(1.5,-8.8),Vector2(1.8,7.4),Vector2(1.8,9.65)],
+    "LABO": [Vector2(12.15,-7.65),Vector2(12.15,3.65)],
+    "SCRAP_COLLECTOR": [Vector2(12.55,-8.15),Vector2(13.5,-3.0),Vector2(13.5,19.55),Vector2(6.36,19.55)],
+    "BUILD_TERMINAL": [Vector2(12.0,-9.0),Vector2(12.0,4.5),Vector2(18.0,4.5),Vector2(23.5,9.0),Vector2(23.64,14.15)]
 }
 const DELIVERIES = {
-    "NEXUS": [Vector2(-6.7,-17.5),Vector2(-7.5,-18.2)],
+    "NEXUS": [Vector2(-5.4,-17.35),Vector2(-6.3,-18.0)],
     "RECYCLER": [Vector2(4.35,-13.0),Vector2(4.35,-15.5)],
     "SMELTER": [Vector2(-14.2,-1.9),Vector2(-14.1,-3.4)],
-    "STORAGE": [Vector2(-0.9,9.4),Vector2(-1.5,8.3)],
+    "STORAGE": [Vector2(2.0,9.65),Vector2(2.0,6.3)],
     "LABO": [],
-    "SCRAP_COLLECTOR": [Vector2(6.4,17.6),Vector2(6.3,19.2),Vector2(8.1,19.2)],
+    "SCRAP_COLLECTOR": [Vector2(5.64,19.6),Vector2(5.25,21.7),Vector2(6.25,22.4)],
     "BUILD_TERMINAL": []
 }
 
@@ -115,9 +118,9 @@ static func _line(result: Array[Vector2], end: Vector2, sway: float, locks: Arra
         if Geometry2D.get_closest_point_to_segment(p,start,end).distance_to(p) >= 0.03:
             continue
         var along: float = (p-start).dot(axis)
-        # A 1.48m protector has a 0.74m cable half-span. Keep a further
-        # 0.31m straight on both sides before resuming the slack wave.
-        spans.append(Vector2(maxf(0.0,along-1.05),minf(length,along+1.05)))
+        # A 1.68m protector has a 0.84m cable half-span. Keep another
+        # 0.31m straight before resuming the slack wave.
+        spans.append(Vector2(maxf(0.0,along-1.15),minf(length,along+1.15)))
     spans.sort_custom(func(a: Vector2,b: Vector2) -> bool: return a.x < b.x)
     var cursor: float = 0.0
     for span in spans:
@@ -164,25 +167,25 @@ static func road_legs(destination: String, _index: int) -> Array:
     var source: Vector2 = DOCKS["SCRAP_COLLECTOR"][0]
     var target: Vector2 = DOCKS[destination][0]
     var warehouse: Vector2 = DOCKS["STORAGE"][0]
-    var approach: Array = [QUEUE_ENTRY,Vector2(17.25,26.25),Vector2(13.5,26.25),source]
+    var approach: Array = [QUEUE_ENTRY,Vector2(17.25,26.25),Vector2(15.0,26.25),source]
     var loaded: Array = [source]
     var finished: Array = [target]
     match destination:
         "LABO":
-            loaded.append(Vector2(13.5,12.0))
+            loaded.append(Vector2(15.0,15.75))
             # Approach the warehouse from the north; its southbound exit
             # is shared by all six carriers and must not be a head-on lane.
-            finished.append_array([Vector2(-10.5,12.0),Vector2(-10.5,-0.75),Vector2(-6.75,-0.75)])
+            finished.append_array([Vector2(-11.25,15.75),Vector2(-11.25,0.75),Vector2(-8.25,0.75)])
         "RECYCLER":
-            loaded.append(Vector2(13.5,-10.5))
-            finished.append(Vector2(-6.75,-10.5))
+            loaded.append(Vector2(15.0,-10.5))
+            finished.append(Vector2(-8.25,-10.5))
         "SMELTER":
             # Enter the smelter from the north, depart east to storage.
-            loaded.append_array([Vector2(13.5,-10.5),Vector2(-9.0,-10.5)])
-            finished.append(Vector2(-6.75,-3.75))
+            loaded.append_array([Vector2(15.0,-10.5),Vector2(-8.25,-10.5)])
+            # Shared southbound lane to the warehouse.
     loaded.append(target)
     finished.append(warehouse)
-    var empty: Array = [warehouse,Vector2(-6.75,16.5),Vector2(17.25,16.5),QUEUE_ENTRY]
+    var empty: Array = [warehouse,Vector2(-8.25,18.25),Vector2(17.25,18.25),QUEUE_ENTRY]
     return [curve(approach,0.90),curve(loaded,0.90),curve(finished,0.90),curve(empty,0.90)]
 
 
@@ -195,7 +198,7 @@ static func board_point(t: float) -> Vector3:
     # Four fixed pieces; the second is strictly horizontal under GRID ramp.
     var start := Vector3(10.05,0.23,-2.2)
     var entry := Vector3(12.0,0.15,-1.0)
-    var exit := Vector3(15.0,0.15,-1.0)
+    var exit := Vector3(17.0,0.15,-1.0)
     var bend := Vector3(22.0,0.20,-10.0)
     var finish := Vector3(29.24,0.29,-20.0)
     if t <= 0.25:
@@ -203,5 +206,5 @@ static func board_point(t: float) -> Vector3:
     if t <= 0.50:
         return entry.lerp(exit,(t-0.25)*4.0)
     if t <= 0.75:
-        return _cubic(exit,Vector3(17.0,0.15,-1.0),Vector3(18.8,0.20,-7.0),bend,(t-0.5)*4.0)
+        return _cubic(exit,Vector3(18.0,0.15,-1.0),Vector3(19.5,0.20,-7.0),bend,(t-0.5)*4.0)
     return _cubic(bend,Vector3(25.2,0.20,-13.0),Vector3(26.0,0.29,-20.0),finish,(t-0.75)*4.0)
