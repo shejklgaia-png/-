@@ -1,12 +1,13 @@
 extends Node3D
 ## Outdoor logistics is a visual production loop, never a resource/save mutation.
 ## One shared batch per geometry/material, fixed 30 Hz poses and startup-only
-## route search. Traffic reserves the current leg only; a safe completion
+## authored route sampling. Traffic reserves the current leg only; a safe completion
 ## order prevents circular waiting between occupied docks and moving trucks.
 const Architecture = preload("res://scripts/sera_base_architecture.gd")
 const Clutter = preload("res://scripts/sera_base_clutter.gd")
 const FreshDesign = preload("res://scripts/sera_base_fresh_design.gd")
 const Power = preload("res://scripts/sera_base_power_distribution.gd")
+const FixedLayout = preload("res://scripts/sera_base_authored_layout.gd")
 const Polygon = preload("res://scripts/sera_base_polygon_meshes.gd")
 const CELL: float = 0.75
 const REGION := Rect2i(-46, -46, 93, 93)
@@ -553,94 +554,54 @@ func _route_score(t: Truck) -> float:
     return score
 
 
-func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, crate_path: Array, camera: Camera3D = null, budget: Variant = null) -> void:
+# The layout drawing is the only source of dock and driving coordinates.
+# Reservation grids are used for traffic occupancy and decor, NOT routing.
+func setup(_root: Node3D, _nexus_origin: Vector3, _specs: Array, power: Node3D, _crate_path: Array, camera: Camera3D = null, budget: Variant = null) -> void:
     _camera = camera
-    _phase = "GRID"
-    print("SERA_BASE_LOGISTICS: setup begin")
-    var sites: Array = [{"id": "NEXUS", "at": nexus_origin}]
-    sites.append_array(specs)
-    _obstacles(root, sites, power, crate_path)
-    await _find_network_anchor(budget)
-    _phase = "DOCKS"
-    var origins: Dictionary = {}
-    for spec in specs:
-        var key: String = str(spec["id"])
-        origins[key] = _xz(spec["at"])
-        if key not in ["SCRAP_COLLECTOR", "LABO", "SMELTER", "RECYCLER", "STORAGE"]:
-            continue
-        var dock: Dock = await _find_dock(key, _xz(spec["at"]), budget)
-        if dock != null:
-            _docks[key] = dock
-        else:
-            push_warning("BASE logistics: no clear cargo dock for " + key)
-        if budget != null:
-            await budget.checkpoint("dock completed")
-        else:
-            await get_tree().process_frame
-    _phase = "ROUTES"
-    var moving_count: int = 0
+    _phase = "FIXED_LAYOUT"
+    if is_instance_valid(power):
+        for value in power.get_meta("logistics_obstacles", []):
+            var center: Vector2 = value
+            _expand_cell(_power_cells, _cell(center))
+        _reserve_fixed_cables(power)
+    for key in FixedLayout.DOCKS:
+        var spec: Array = FixedLayout.DOCKS[key]
+        var center: Vector2 = spec[0]
+        var side: Vector2 = spec[1]
+        var forward: Vector2 = spec[2]
+        var d := Dock.new()
+        d.cell = _cell(center)
+        d.stage = center + side * 1.5
+        d.pivot = center + side * 0.75 + forward * 0.75
+        d.yaw = atan2(forward.x,forward.y)
+        var right := Vector2(forward.y,-forward.x)
+        d.hatch_side = signf(side.dot(right))
+        _docks[key] = d
     for route in ROUTES:
-        var source: String = route[0]
-        var destination: String = route[1]
-        var source_at: Vector2 = origins[source]
-        var destination_at: Vector2 = origins[destination]
-        var docks_ready: bool = _docks.has(source) and _docks.has(destination) and _docks.has("STORAGE")
-        if docks_ready:
-            var sd: Dock = _docks[source]
-            var dd: Dock = _docks[destination]
-            source_at = _point(sd.cell)
-            destination_at = _point(dd.cell)
         for i in range(VEHICLES_PER_ROUTE):
             var t := Truck.new()
             t.id = _trucks.size()
-            t.source = source
-            t.destination = destination
-            t.raw = source == "SCRAP_COLLECTOR"
-            t.yaw = Architecture.facility_yaw_radians(source)
+            t.source = route[0]
+            t.destination = route[1]
+            t.raw = true
+            var home: Vector2 = FixedLayout.HOMES[t.id]
+            t.home = _cell(home)
+            t.pos = home
+            t.yaw = 0.0
             t.wait = -float(t.id) * 0.35
-            var options: Array[Dictionary] = await _parking_options(source_at, destination_at, budget)
-            var planned: bool = false
-            if docks_ready:
-                var best_score: float = INF
-                var best_home := Vector2i.ZERO
-                var successful: int = 0
-                for j in range(mini(48, options.size())):
-                    t.home = options[j]["cell"]
-                    if await _plan(t, false, budget):
-                        successful += 1
-                        var score: float = _route_score(t)
-                        if score < best_score:
-                            best_score = score
-                            best_home = t.home
-                        if successful >= 5:
-                            break
-                    if budget != null:
-                        await budget.checkpoint("route candidate")
-                    elif j % 2 == 1:
-                        await get_tree().process_frame
-                if successful > 0:
-                    t.home = best_home
-                    planned = await _plan(t, true, budget)
-            if not planned:
-                push_warning("BASE logistics: no complete operating loop for " + destination)
-                continue
-            moving_count += 1
-            _keep_parking_clear(t)
-            t.pos = _point(t.home)
+            t.legs = FixedLayout.road_legs(t.destination,t.id)
+            for leg_value in t.legs:
+                var leg: Array[Vector2] = leg_value
+                await _record_leg(t,leg,budget)
             _homes.append(t.home)
             _trucks.append(t)
             if budget != null:
-                await budget.checkpoint("route completed")
-            else:
-                await get_tree().process_frame
-    _planned_count = moving_count
-    print("SERA_BASE_LOGISTICS: docks=", _docks.size(), " vehicles=", _trucks.size(), " routable=", moving_count, " parked=", _trucks.size() - moving_count)
-    # The BASE represents an already operating yard. Seed nonconflicting
-    # loaded trips on the visible delivery legs instead of starting every
-    # truck empty behind its source facility.
+                await budget.checkpoint("authored logistics route")
+    _planned_count = _trucks.size()
     _seed_active_deliveries()
     _capture_reservations()
     _phase = "PLANNED"
+    print("SERA_BASE_LOGISTICS: fixed layout, docks=",_docks.size()," vehicles=",_trucks.size())
 
 
 # Separate public entrypoints: if the routing call terminates early, the
