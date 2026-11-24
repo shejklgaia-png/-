@@ -152,8 +152,9 @@ const STEP_LAUNCH_FX_SECONDS: float = 0.05
 const STEP_SPEED: float = 15.0  # m/s, equipment-adjusted
 # Extend only the ordinary STEP braking tail; keep the old launch burst
 # (velocity and clock), the 0.1m warp, and all side-kick timing unchanged.
-const STEP_BRAKE_DURATION_MULTIPLIER: float = 1.5
+const STEP_BRAKE_DURATION_MULTIPLIER: float = 1.6
 const STEP_BRAKE_BURST_FRACTION: float = 0.15
+const STEP_BRAKE_EASE_POWER: float = 3.6
 const SIDE_KICK_STEP_SPEED: float = 10.0  # preserve legacy combo kick timing
 # Legacy speed policy retained for historic tests, not called by STEP.
 const STEP_CLOSE_SPEED: float = 8.0
@@ -3886,7 +3887,7 @@ func _advance_side_step(delta: float) -> void:
     else:
         # Keep the original 15m/s launch for exactly the same 0.04s.
         # Extend only the braking tail and ease off more gradually, ending
-        # with zero velocity. Base travel is ~1.95m over 0.40s; BOOST still
+        # with zero velocity. Base travel is ~2.21m over 0.43s; BOOST still
         # outruns two ordinary STEPs over equal time.
         var brake_start: float = (STEP_BRAKE_BURST_FRACTION
             / STEP_BRAKE_DURATION_MULTIPLIER)
@@ -3896,7 +3897,7 @@ func _advance_side_step(delta: float) -> void:
                 (progress - brake_start) / (1.0 - brake_start), 0.0, 1.0)
             motion_progress = STEP_BRAKE_BURST_FRACTION + (
                 (STEP_BRAKE_DURATION_MULTIPLIER - STEP_BRAKE_BURST_FRACTION)
-                / 4.0 * (1.0 - pow(1.0 - brake_t, 4.0)))
+                / STEP_BRAKE_EASE_POWER * (1.0 - pow(1.0 - brake_t, STEP_BRAKE_EASE_POWER)))
         var new_offset: Vector2 = step_start_offset + step_linear_offset * motion_progress
         var requested: Vector3 = Vector3(
             step_target_center.x + new_offset.x - player.position.x,
