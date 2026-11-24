@@ -169,5 +169,31 @@ static func hit(tris: Array,origin: Vector3,direction: Vector3) -> Dictionary:
         var depth := e2.dot(q.cross(e1))/det
         if depth > 0.0 and depth < nearest:
             nearest = depth
-            result = {"uv":t.uv[0]*(1-u-v)+t.uv[1]*u+t.uv[2]*v,"chart":t.chart}
+            result = {"uv":t.uv[0]*(1-u-v)+t.uv[1]*u+t.uv[2]*v,"chart":t.chart,"position":origin+direction*depth}
     return result
+
+## Restore the exact saved atlas, without repartitioning or resampling.
+static func restore_triangles(mesh: ArrayMesh, chart_ids: Array) -> Array:
+    var result: Array = []
+    if mesh == null or mesh.get_surface_count() != 1:
+        return result
+    var a: Array = mesh.surface_get_arrays(0)
+    var vertices: PackedVector3Array = a[Mesh.ARRAY_VERTEX]
+    var uv: PackedVector2Array = a[Mesh.ARRAY_TEX_UV]
+    if vertices.size() != uv.size() or vertices.size() % 3 != 0 or chart_ids.size()*3 != vertices.size() or chart_ids.size() > MAX_TRIANGLES:
+        return result
+    for i in range(0,vertices.size(),3):
+        result.append({"p":PackedVector3Array([vertices[i],vertices[i+1],vertices[i+2]]),"uv":PackedVector2Array([uv[i],uv[i+1],uv[i+2]]),"chart":int(chart_ids[i/3])})
+    return result
+
+static func mirror_hit(tris: Array, origin: Vector3, direction: Vector3, hit_position: Vector3, axis_x: float, tolerance: float) -> Dictionary:
+    var o := Vector3(2.0*axis_x-origin.x,origin.y,origin.z)
+    var d := Vector3(-direction.x,direction.y,direction.z)
+    var target := Vector3(2.0*axis_x-hit_position.x,hit_position.y,hit_position.z)
+    var found := hit(tris,o,d)
+    if found.is_empty():
+        return {}
+    var actual: Vector3 = found.position
+    if actual.distance_to(target) > tolerance:
+        return {}
+    return found
