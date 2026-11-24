@@ -717,6 +717,7 @@ func _labo(key: String) -> void:
     _moving(key,"bridge",carriage)
     _moving(key,"head",head)
     var rack := _model(key,"FeedstockRacks",Vector3(-9.1,0,-3.0))
+    rack.scale.x = 0.90
     b = _batch(rack)
     for x in [-1.7,1.7]:
         for z in [-0.9,0.9]:
@@ -745,10 +746,10 @@ func _labo(key: String) -> void:
     _shape(b,"louver",Vector3(0,3.5,1.1),Vector3(1.45,1.7,0.25),"trim")
     _shape(b,"hood",Vector3(-2.1,8.5,0.8),Vector3(3.7,0.9,2.6),"armor_light")
     _pipe(b,Vector3(0,8.5,0),Vector3(-2.1,8.5,0.8),0.82,"trim")
-    _shape(b,"drum",Vector3(-2.2,2.0,-0.5),Vector3(1.65,3.6,1.65),"blue")
+    _shape(b,"drum",Vector3(-0.4,2.0,2.2),Vector3(1.65,3.6,1.65),"blue")
     for y in [0.65,3.55]:
-        _shape(b,"gear",Vector3(-2.2,y,-0.5),Vector3(1.9,0.28,1.9),"edge")
-    _pipe(b,Vector3(-2.2,0.9,0.1),Vector3(-2.2,0.9,4.6),0.34,"gold")
+        _shape(b,"gear",Vector3(-0.4,y,2.2),Vector3(1.9,0.28,1.9),"edge")
+    _pipe(b,Vector3(-0.4,0.9,2.8),Vector3(-0.4,0.9,4.6),0.34,"gold")
     _finish(b)
     # Left output stock pocket is connected by an articulated two-link arm.
     var tray := _child(frame,"FinishedStockReceiver",Vector3(-5.4,0,0.3))
@@ -806,7 +807,7 @@ func _labo(key: String) -> void:
         piece.visible = false
     _moving(key,"products",product_root)
     motion_parts[key]["variant"] = -1
-    var utility := _model(key,"LabPowerAndTaskLighting",Vector3(7.3,0,2.5))
+    var utility := _model(key,"LabPowerAndTaskLighting",Vector3(7.7,0,2.5))
     b = _batch(utility)
     _shape(b,"bevel",Vector3(0,1.0,0),Vector3(1.45,2.0,1.2),"slate")
     _panel_detail(b,0,1.12,0.65,1.1,1.5)
@@ -817,7 +818,7 @@ func _labo(key: String) -> void:
     _floor_cable(b,[Vector3(0,0.1,0.6),Vector3(0,0.1,2.1),Vector3(-1.7,0.1,2.8),Vector3(-3.3,0.1,2.8)])
     _finish(b)
     _task_light(utility,Vector3(-1.9,5.52,-0.4),Color("#ffe0b2"),8.0,1.4)
-    _console(key,Vector3(3.2,0,7.3),0)
+    _console(key,Vector3(3.2,0,7.15),0)
 
 func _smelter(key: String) -> void:
     var furnace := _model(key,"RefractorySmeltingFurnace",Vector3(0,0,-2.0))
@@ -1241,11 +1242,13 @@ func _sample(key: String, t: float) -> void:
             var tray: Node3D = m["tray"]
             var pickup: Vector3 = arm.to_local(product.global_position)
             var drop: Vector3 = arm.to_local(tray.to_global(Vector3(0,1.59,0)))
-            var park := Vector3(-2.4,0,-3.4)
-            var target: Vector3 = park.lerp(pickup,smoothstep(0.52,0.63,t))
+            var park := Vector3(-2.4,0,4.8)
+            var front_pick := Vector3(pickup.x,pickup.y,4.8)
+            var front_drop := Vector3(drop.x,drop.y,4.8)
+            var target: Vector3 = park.lerp(front_pick,smoothstep(0.52,0.57,t))
+            if t>=0.57:
+                target = front_pick.lerp(pickup,smoothstep(0.57,0.63,t))
             if t>=0.68:
-                var front_pick := Vector3(pickup.x,pickup.y,4.8)
-                var front_drop := Vector3(drop.x,drop.y,4.8)
                 if t<0.75:
                     target = pickup.lerp(front_pick,smoothstep(0.71,0.75,t))
                 elif t<0.81:
@@ -1253,7 +1256,9 @@ func _sample(key: String, t: float) -> void:
                 else:
                     target = front_drop.lerp(drop,smoothstep(0.81,0.86,t))
             if t>=0.92:
-                target = drop.lerp(park,smoothstep(0.92,1.0,t))
+                target = drop.lerp(front_drop,smoothstep(0.92,0.96,t))
+                if t>=0.96:
+                    target = front_drop.lerp(park,smoothstep(0.96,1.0,t))
             var distance: float = clampf(Vector2(target.x,target.z).length(),0.15,7.77)
             var bend: float = acos(distance/7.8)
             shoulder.rotation.y = atan2(target.x,target.z)-bend
