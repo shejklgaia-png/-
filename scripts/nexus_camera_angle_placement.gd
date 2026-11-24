@@ -1,7 +1,9 @@
 extends Control
 ## Camera canonical placement for NEXUS focused console views.
 ## Available ONLY after a console has zoomed into its focus view.
-## Preview values are session-local; copy to ChatGPT to commit source constants.
+## Developer previews are saved; official defaults are promoted separately.
+const PlacementStore = preload("res://scripts/sera_placement_store.gd")
+
 ## Raw touch/mouse input is intercepted by the hosting NEXUS before menu input.
 
 const DisplayProfile = preload("res://scripts/sera_display_profile.gd")
@@ -202,6 +204,7 @@ func route_input(event: InputEvent) -> bool:
             _press(event.position, event.index, false)
         elif event.index == pointer_id:
             pointer_id = -999
+            PlacementStore.flush()
         return true
     if event is InputEventScreenDrag:
         if event.index == pointer_id:
@@ -214,6 +217,7 @@ func route_input(event: InputEvent) -> bool:
             else:
                 pointer_mouse = false
                 pointer_id = -999
+                PlacementStore.flush()
         return true
     if event is InputEventMouseMotion:
         if pointer_mouse and pointer_id == -100:
@@ -327,6 +331,10 @@ func _apply_pose() -> void:
     focus["look"] = look_at_point
     focus["fov"] = reference_fov
     host.focus_views[target_id] = focus
+    if host.call("_initialize_canonical_placement_editor"):
+        host.placement_editor.record_camera_pose(target_id, eye, look_at_point, reference_fov)
+        if pointer_id == -999:
+            PlacementStore.flush()
     host.call("_update_projected_silhouettes")
     var ink: Control = host.get("outline") as Control
     if ink != null:
@@ -361,10 +369,11 @@ func _copy_pose() -> void:
 func close_mode() -> void:
     if not active:
         return
+    PlacementStore.flush()
     active = false
     pointer_id = -999
     pointer_mouse = false
     target_id = ""
-    # The updated focus_views values remain as a preview until scene reload.
+    # The updated focus_views values persist in the developer preview store.
     # All NEXUS touch and Back navigation are immediately restored.
     _sync_ui()

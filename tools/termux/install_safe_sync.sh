@@ -24,12 +24,13 @@ done
 cp "$SCRIPT_DIR/sera_push_safe.py" "$TMP/sera_push_safe.py"
 cp "$SCRIPT_DIR/sera_push_launcher.sh" "$TMP/sera_push.sh"
 cp "$SCRIPT_DIR/sera_watch_safe.sh" "$TMP/sera_watch.sh"
+cp "$SCRIPT_DIR/../sync_placement_preview.sh" "$TMP/sera_sync_placement_preview.sh"
 
 python -m py_compile "$TMP/sera_push_safe.py"
 bash -n "$TMP/sera_push.sh" "$TMP/sera_watch.sh"
 
 STAMP="$(date +%Y%m%d_%H%M%S)"
-for file in sera_push.sh sera_watch.sh sera_push_safe.py; do
+for file in sera_push.sh sera_watch.sh sera_push_safe.py sera_sync_placement_preview.sh; do
   if [ -f "$HOME/$file" ]; then
     cp -p "$HOME/$file" "$HOME/$file.before_safe_$STAMP"
   fi

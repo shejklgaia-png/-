@@ -33,3 +33,6 @@ assets/fonts/ChakraPetch-Medium.ttf
 assets/fonts/ChakraPetch-SemiBold.ttf
 assets/fonts/ChakraPetch-Medium.ttf.import
 assets/fonts/ChakraPetch-SemiBold.ttf.import
+
+# Local developer placement previews (synced by dedicated script)
+.sera-placement/
