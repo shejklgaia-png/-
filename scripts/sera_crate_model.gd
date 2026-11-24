@@ -33,8 +33,13 @@ static var _meshes: Dictionary = {}
 
 class Batch:
     var surfaces: Dictionary = {}
+    var form_scale: Vector3 = Vector3.ONE
 
     func triangle(style: String, a: Vector3, b: Vector3, c: Vector3) -> void:
+        # Scale authored local geometry before computing outward normals.
+        a *= form_scale
+        b *= form_scale
+        c *= form_scale
         var n: Vector3 = (b - a).cross(c - a)
         if n.length_squared() < 0.000000001:
             return
@@ -231,19 +236,19 @@ static func _loft_armor(b: Batch, style: String, rings: Array,
                 points[last][i], points[last][k])
 
 
-# Slope the actual chest plate; its lower edge retreats into the chassis.
+# Reference side view: the sloped breastplate projects forward at its foot.
 static func _chest_plate(b: Batch, style: String, outline: Array[Vector2],
         offset: float, thickness: float) -> void:
     var center := Vector2.ZERO
     for p in outline:
         center += p
     center /= float(outline.size())
-    var cf := Vector3(center.x, center.y, -0.49 - (center.y - 0.65) * 0.28 + offset)
+    var cf := Vector3(center.x, center.y, -0.53 + (center.y - 0.65) * 0.23 + offset)
     for i in range(outline.size()):
         var p: Vector2 = outline[i]
         var q: Vector2 = outline[(i + 1) % outline.size()]
-        var a := Vector3(p.x, p.y, -0.49 - (p.y - 0.65) * 0.28 + offset)
-        var c := Vector3(q.x, q.y, -0.49 - (q.y - 0.65) * 0.28 + offset)
+        var a := Vector3(p.x, p.y, -0.53 + (p.y - 0.65) * 0.23 + offset)
+        var c := Vector3(q.x, q.y, -0.53 + (q.y - 0.65) * 0.23 + offset)
         var back := Vector3(0, 0, thickness)
         b.triangle(style, cf, c, a)
         b.triangle(style, cf + back, a + back, c + back)
@@ -414,6 +419,8 @@ static func _make_tracks(robot: Node3D) -> void:
         pivot.position.x = s * 0.49
         robot.add_child(pivot)
         var b := Batch.new()
+        # Compact wheelbase and less protruding maintenance hubs.
+        b.form_scale = Vector3(0.87, 1.0, 0.90)
         var outside: float = s * 0.198
         var outline: Array[Vector2] = _outline_track()
         _prism_yz(b, "rubber", outline, -0.168, 0.168)
@@ -505,13 +512,16 @@ static func _make_body(robot: Node3D) -> void:
         Vector3(0.51, 0.42, 0.092), 0.048)
     _bevel(b, "joint", Vector3(0, 0.78, 0.647),
         Vector3(0.42, 0.32, 0.035), 0.024)
-    _bevel(b, "glass", Vector3(0, 0.78, 0.673),
-        Vector3(0.17, 0.255, 0.025), 0.023)
-    _box(b, "cyan", Vector3(0.0, 0.78, 0.695),
-        Vector3(0.065, 0.202, 0.010))
+    # Twin removable rear cartridges on an exposed dark mounting spine.
+    _bevel(b, "black", Vector3(0, 0.80, 0.685),
+        Vector3(0.065, 0.32, 0.035), 0.012)
     for s in [-1.0, 1.0]:
-        _box(b, "porcelain", Vector3(s * 0.139, 0.79, 0.676),
-            Vector3(0.065, 0.26, 0.022))
+        _bevel(b, "porcelain", Vector3(s * 0.116, 0.78, 0.681),
+            Vector3(0.155, 0.285, 0.063), 0.021)
+        _bevel(b, "glass", Vector3(s * 0.116, 0.80, 0.718),
+            Vector3(0.059, 0.192, 0.016), 0.009)
+        _box(b, "cyan", Vector3(s * 0.116, 0.80, 0.729),
+            Vector3(0.028, 0.157, 0.008))
         _box(b, "cyan_dim", Vector3(s * 0.20, 0.87, 0.684),
             Vector3(0.026, 0.060, 0.010))
         _disk_x(b, "steel", Vector3(s * 0.34, 0.70, 0.40),
@@ -532,6 +542,9 @@ static func _make_head(robot: Node3D) -> void:
     pivot.position = Vector3(0.0, 1.01, -0.06)
     robot.add_child(pivot)
     var b := Batch.new()
+    # Broad overhanging head and rounded wedge from the orthographic sheet.
+    # Keep the animated neck pivot and all attachment transforms intact.
+    b.form_scale = Vector3(1.13, 1.0, 1.12)
     _disk_x(b, "black", Vector3(0, 0.018, 0.02),
         0.185, 0.40)
     _bevel(b, "joint", Vector3(0, 0.12, 0.02),
@@ -541,8 +554,8 @@ static func _make_head(robot: Node3D) -> void:
     _loft_armor(b, "porcelain", [
         [0.94, 0.40, 0.075, 0.30, -0.455],
         [1.055, 0.53, 0.105, 0.345, -0.345],
-        [1.065, 0.60, 0.135, 0.375, -0.065],
-        [1.045, 0.57, 0.105, 0.36, 0.275],
+        [1.065, 0.56, 0.105, 0.355, -0.065],
+        [1.045, 0.54, 0.10, 0.35, 0.275],
         [0.91, 0.48, 0.075, 0.35, 0.40]
     ], false, true)
     # Front lip, chamfer into screen well, dark inner wall, recessed glass.
@@ -563,25 +576,30 @@ static func _make_head(robot: Node3D) -> void:
         Vector3(0.565, 0.061, 0.013), 0.021)
     _bevel(b, "cyan", Vector3(0, 0.297, -0.430),
         Vector3(0.525, 0.034, 0.012), 0.012)
-    _bevel(b, "warm_white", Vector3(0, 0.669, 0.037),
+    _bevel(b, "warm_white", Vector3(0, 0.629, 0.037),
         Vector3(0.48, 0.038, 0.32), 0.025)
     _bevel(b, "armor_shadow", Vector3(0, 0.35, 0.413),
         Vector3(0.33, 0.26, 0.05), 0.038)
     for x in [-0.28, 0.28]:
-        _box(b, "amber", Vector3(x, 0.619, 0.23),
+        _box(b, "amber", Vector3(x, 0.615, 0.23),
             Vector3(0.043, 0.017, 0.13))
     for side in [-1, 1]:
         var s: float = float(side)
+        # Rear-set rectangular motor enclosure supports the circular ear servo.
+        _bevel(b, "trim", Vector3(s * 0.505, 0.35, 0.28),
+            Vector3(0.15, 0.38, 0.29), 0.035)
+        _bevel(b, "armor_shadow", Vector3(s * 0.575, 0.35, 0.29),
+            Vector3(0.055, 0.29, 0.19), 0.026)
         # Bulky ear-mounted rotary servo, layered metallic hub and gold bezel.
-        _disk_x(b, "joint", Vector3(s * 0.522, 0.35, 0.01),
+        _disk_x(b, "joint", Vector3(s * 0.522, 0.35, 0.115),
             0.235, 0.115, 18)
-        _disk_x(b, "amber", Vector3(s * 0.594, 0.35, 0.01),
+        _disk_x(b, "amber", Vector3(s * 0.594, 0.35, 0.115),
             0.214, 0.045, 18)
-        _disk_x(b, "chrome", Vector3(s * 0.632, 0.35, 0.01),
+        _disk_x(b, "chrome", Vector3(s * 0.632, 0.35, 0.115),
             0.162, 0.037, 18)
-        _disk_x(b, "joint", Vector3(s * 0.654, 0.35, 0.01),
+        _disk_x(b, "joint", Vector3(s * 0.654, 0.35, 0.115),
             0.122, 0.027, 18)
-        _disk_x(b, "hub", Vector3(s * 0.677, 0.35, 0.01),
+        _disk_x(b, "hub", Vector3(s * 0.677, 0.35, 0.115),
             0.082, 0.021, 14)
         _box(b, "cyan_dim", Vector3(s * 0.515, 0.29, -0.233),
             Vector3(0.018, 0.055, 0.092))
@@ -603,8 +621,9 @@ static func _make_head(robot: Node3D) -> void:
         _disk_x(b, "steel", Vector3(ear_x, 0.62, 0.18), 0.085, 0.11, 12)
         _disk_x(b, "trim", Vector3(ear_x + s * 0.065, 0.62, 0.18),
             0.035, 0.015, 10)
-        _box(b, "amber_edge", Vector3(s * 0.40, 0.475, -0.302),
-            Vector3(0.045, 0.16, 0.020))
+        # Small amber registration mark; no large floating decorative stripe.
+        _box(b, "amber", Vector3(s * 0.515, 0.415, -0.20),
+            Vector3(0.014, 0.048, 0.042))
     _emit(pivot, "Head", b)
 
 
@@ -654,6 +673,10 @@ static func _make_arms(robot: Node3D) -> void:
         # a lower opposing thumb. Wrist origin and external API unchanged.
         _bevel(b, "joint", Vector3(0, 0, -0.015),
             Vector3(0.21, 0.20, 0.12), 0.045)
+        _bevel(b, "black", Vector3(0, 0, -0.078),
+            Vector3(0.15, 0.15, 0.045), 0.031)
+        _bevel(b, "steel", Vector3(0, 0, -0.105),
+            Vector3(0.091, 0.091, 0.019), 0.021)
         var directions: Array[Vector3] = [
             Vector3(-0.70, 0.72, 0).normalized(),
             Vector3(0.70, 0.72, 0).normalized(),
