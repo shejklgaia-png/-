@@ -172,6 +172,8 @@ static func _labo(g: Variant) -> void:
         Vector3(-0.98, 2.25, -0.83), Vector3(0.43, 0.61, 0.43), "blue")
     g.poly("LabCartridgeCap", "gear",
         Vector3(-0.98, 2.63, -0.83), Vector3(0.47, 0.15, 0.47), "armor_light")
+    g.rod("LabFeedGuide", Vector3(-1.62, 2.27, -0.55),
+        Vector3(-1.05, 2.57, 0.97), 0.08, "trim")
     # Offset coolant reservoir and conduit are real support equipment.
     g.poly("LabCoolantReservoir", "drum",
         Vector3(0.19, 1.31, -0.95), Vector3(0.60, 1.38, 0.60), "blue")
@@ -407,6 +409,23 @@ static func _smelter(g: Variant) -> void:
     g.box("FreshSmelterControllerLamp",
         Vector3(-1.06, 1.03, 0.94),
         Vector3(0.21, 0.13, 0.06), "blue_light")
+    # Charge and casting mould on the refractory apron.
+    g.poly("SmelterChargeRail", "tray", Vector3(-0.35, 0.89, 1.63),
+        Vector3(0.61, 0.18, 0.65), "trim")
+    g.poly("SmelterCastingMould", "tray", Vector3(0.39, 0.88, 1.62),
+        Vector3(0.62, 0.19, 0.65), "dark")
+    g.rod("SmelterCastingSpout", Vector3(0.32, 1.03, 1.14),
+        Vector3(0.39, 0.98, 1.47), 0.12, "rust")
+    for i in range(3):
+        g.poly_tilt("SmelterFeedScrap", "bevel",
+            Vector3(-0.35 + float(i-1)*0.14, 1.05, 1.68),
+            Vector3(0.16, 0.19, 0.25), "edge" if i == 1 else "rust",
+            Vector3(0.12, float(i)*0.4, 0.12))
+    g.box("SmelterMoltenPour", Vector3(0.39, 0.98, 1.62),
+        Vector3(0.44, 0.035, 0.43), "amber")
+    for i in range(2):
+        g.poly("SmelterCastIngot", "bevel", Vector3(0.39, 1.03, 1.50+float(i)*0.23),
+            Vector3(0.43, 0.14, 0.18), "edge")
     g.poly("FreshSmelterDischargedSlag", "cargo_case",
         Vector3(0.77, 0.55, 1.35), Vector3(0.39, 0.28, 0.38), "rust")
 
@@ -468,6 +487,18 @@ static func _recycler(g: Variant) -> void:
             Vector3(0.13, 0.30, 1.43), "armor", Vector3(0.34, 0, 0))
     g.box("FreshRecyclerOutletWearEdge",
         Vector3(0, 0.59, 1.48), Vector3(1.72, 0.11, 0.13), "gold")
+    # Intact salvage travels from rear gravity feed through the cutters.
+    for i in range(2):
+        g.poly_tilt("RecyclerIntactPart", "bevel",
+            Vector3(-0.32 + 0.64*float(i), 2.23, -0.85),
+            Vector3(0.40, 0.33, 0.46), "rust" if i == 0 else "armor",
+            Vector3(0.15, 0.25*float(i), 0.1))
+    g.poly("RecyclerRecoveredPart", "gear", Vector3(-0.43, 0.87, 0.77),
+        Vector3(0.29, 0.14, 0.29), "edge")
+    g.box("RecyclerRecoveredPart", Vector3(0, 0.89, 0.72),
+        Vector3(0.32, 0.11, 0.25), "blue")
+    g.poly_tilt("RecyclerRecoveredPart", "drum", Vector3(0.40, 0.93, 0.64),
+        Vector3(0.23, 0.25, 0.23), "gold", Vector3(0, 0, PI*0.5))
     g.poly("FreshRecyclerControlInterlock", "deck",
         Vector3(1.08, 1.03, 1.12), Vector3(0.35, 0.44, 0.33), "armor")
     g.box("FreshRecyclerInterlockLamp",
@@ -644,6 +675,8 @@ static func _storage(g: Variant) -> void:
         for col in range(2):
             var p := Vector3(-0.55 + float(col) * 1.10,
                 1.04 + float(row) * 0.91, -0.38)
+            if row == 1 and col == 0:
+                continue
             storage_cargo(g, p, 1.0, col, row)
     g.rod("FreshStorageRearCrossBrace",
         Vector3(-1.13, 0.67, -1.03),
@@ -665,6 +698,16 @@ static func _storage(g: Variant) -> void:
         Vector3(-1.20, 2.46, 1.26), Vector3(0.31, 0.18, 0.12), "edge")
     g.poly("FreshStorageLoadingLift", "tray",
         Vector3(-1.20, 1.01, 1.18), Vector3(0.60, 0.16, 0.65), "gold")
+    g.poly("StorageMovingCase", "cargo_case", Vector3(-1.20, 1.27, 1.18),
+        Vector3(0.55, 0.36, 0.52), "crate")
+    g.box("StorageMovingLock", Vector3(-1.20, 1.22, 1.46),
+        Vector3(0.25, 0.09, 0.05), "gold")
+    g.box("StorageTransferFork", Vector3(-1.20, 1.06, 1.18),
+        Vector3(0.45, 0.06, 0.54), "edge")
+    g.poly("StorageStoredCase", "cargo_case", Vector3(-0.55, 1.84, -0.38),
+        Vector3(0.55, 0.36, 0.52), "crate")
+    g.box("StorageStoredLock", Vector3(-0.55, 1.79, -0.10),
+        Vector3(0.25, 0.09, 0.05), "gold")
     # Empty pallet lanes in front of the cases indicate the loading route.
     for x in [-0.38, 0.70]:
         g.box("FreshStorageLoadingLane",
@@ -762,13 +805,13 @@ static func _terminal(g: Variant) -> void:
         Vector3(0.74, 1.53, 0.78), Vector3(0.27, 0.26, 0.27),
         "slate", Vector3(0, 0, PI * 0.5))
     g.rod("FreshBuildArmForelink",
-        Vector3(0.74, 1.53, 0.78), Vector3(0.29, 1.31, 0.69), 0.13, "armor_light")
+        Vector3(0.74, 1.53, 0.78), Vector3(0.06, 1.53, 0.57), 0.13, "armor_light")
     g.poly("FreshBuildArmToolChuck", "octagonal_slew",
-        Vector3(0.29, 1.28, 0.69), Vector3(0.24, 0.19, 0.24), "dark")
+        Vector3(0.06, 1.49, 0.57), Vector3(0.24, 0.19, 0.24), "dark")
     for side in [-1.0, 1.0]:
         g.rod("FreshBuildArmClampJaw",
-            Vector3(0.29 + side * 0.09, 1.23, 0.69),
-            Vector3(0.29 + side * 0.13, 1.13, 0.69), 0.045, "gold")
+            Vector3(0.06 + side * 0.09, 1.44, 0.57),
+            Vector3(0.06 + side * 0.13, 1.34, 0.57), 0.045, "gold")
     # Compact operator input pod on the other side, rather than a full
     # counter blocking the manufacturing bed.
     g.poly_tilt("FreshBuildControlPod", "deck",

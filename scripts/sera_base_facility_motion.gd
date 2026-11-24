@@ -10,20 +10,20 @@ const MOTION_FEATURES: Dictionary = {
         "NexusDishAzimuthBearing", "NexusDishYoke", "NexusDishHinge",
         "NexusDishReflector", "NexusDishFeedArm", "NexusDishFeed",
         "NexusAntennaYagiBoom", "NexusAntennaYagiElement",
-        "NexusPlenumLouver", "NexusSignalIndicator"],
+        "NexusPlenumLouver", "NexusSignalIndicator", "NexusSupplyDrawer", "NexusSupplyCase"],
     "LABO": ["FreshLabPrinterServo", "FreshLabPrinterHotHead",
         "FreshLabPrinterTip", "FreshLabPrintedShell",
         "LabArmLinkA", "LabArmLinkB", "LabArmElbow", "LabArmWristHub",
         "LabArmWristShaft", "LabArmWristOffset", "LabArmGripBody",
-        "LabArmGripJaw", "LabStockLift", "LabStockShutter"],
+        "LabArmGripJaw", "LabStockLift", "LabStockShutter", "LabMetalFeedSpool"],
     "SCRAP_COLLECTOR": ["FreshCollectorSuspendedCable", "FreshCollectorClawHead",
         "FreshCollectorJawHinge", "FreshCollectorOpenGrip",
         "FreshCollectorConveyorFlight", "FreshCollectorPickupScrap"],
-    "SMELTER": ["FreshSmelterFlameTongue", "FreshSmelterLowFire"],
-    "RECYCLER": ["FreshRecyclerRoller", "FreshRecyclerTooth"],
-    "GENERATOR": ["FreshGeneratorRotorBlade"],
-    "STORAGE": ["FreshStorageLoadingLift"],
-    "BUILD_TERMINAL": ["FreshTerminalBlueprintRows", "FreshTerminalMastLamp"],
+    "SMELTER": ["SmelterFeedScrap", "SmelterMoltenPour", "SmelterCastIngot"],
+    "RECYCLER": ["FreshRecyclerRoller", "FreshRecyclerTooth", "RecyclerIntactPart", "RecyclerRecoveredPart"],
+    "GENERATOR": ["FreshGeneratorRotorBlade", "FreshGeneratorMeterRow"],
+    "STORAGE": ["FreshStorageLoadingLift", "StorageMovingCase", "StorageMovingLock", "StorageTransferFork", "StorageStoredCase", "StorageStoredLock"],
+    "BUILD_TERMINAL": ["FreshBuildModuleLock", "FreshBuildArmForelink", "FreshBuildArmToolChuck", "FreshBuildArmClampJaw"],
 }
 # Bearing and pinion stay fixed while the machine above the slewing ring
 # rotates together. The existing 30 Hz MultiMesh animation cap is retained.
@@ -58,6 +58,20 @@ var _body_yaw: float = 0.0
 var _model_scale: float = 1.0
 var _clock: float = 0.0
 var _accumulator: float = 0.0
+const MATERIAL_SECONDS = {"LABO":18.2, "SMELTER":7.2, "RECYCLER":6.4, "STORAGE":7.5}
+var _material_running: bool = false
+var _material_has_completed: bool = false
+
+func begin_material_cycle() -> void:
+    if not MATERIAL_SECONDS.has(facility_key):
+        return
+    _clock = 0.0
+    _accumulator = 0.0
+    _material_running = true
+    sample_at(0.0)
+
+func material_cycle_complete() -> bool:
+    return not _material_running
 
 func bind_to(model: Node3D, key: String) -> void:
     var source: Dictionary = model.get_meta("motion_entries", {})
@@ -66,8 +80,7 @@ func bind_to(model: Node3D, key: String) -> void:
         expected = []
     for feature in expected:
         if not source.has(feature) or (source[feature] as Array).is_empty():
-            push_error("SERA_BASE_MOTION_MISSING: " + key + "/" + str(feature))
-            return
+            push_warning("SERA_BASE_MOTION_MISSING: " + key + "/" + str(feature))
     name = "FacilityMotion"
     _model = model
     facility_key = key
@@ -78,10 +91,19 @@ func bind_to(model: Node3D, key: String) -> void:
     # No processing for models without animated instances.
     set_process(not expected.is_empty())
     if not expected.is_empty():
-        sample_at(0.0)
+        # Idle pose shows finished/stowed equipment; first real delivery starts the batch.
+        sample_at(float(MATERIAL_SECONDS.get(key, 0.0)) - 0.001 if MATERIAL_SECONDS.has(key) else 0.0)
 
 func _process(delta: float) -> void:
+    if MATERIAL_SECONDS.has(facility_key) and not _material_running:
+        return
     _clock += maxf(0.0, delta)
+    if _material_running and _clock >= float(MATERIAL_SECONDS[facility_key]):
+        _clock = float(MATERIAL_SECONDS[facility_key]) - 0.001
+        sample_at(_clock)
+        _material_running = false
+        _material_has_completed = true
+        return
     _accumulator += maxf(0.0, delta)
     # A stable 30Hz animation cap amortizes MultiMesh transform uploads on
     # Android without storing a new copy of any geometry or spawning timers.
@@ -182,6 +204,8 @@ func _lab_pose(feature: String, slot: int, rest: Transform3D, t: float,
     var opening: float = _lab_ease(t, 0.4, 1.4) * (1.0 - _lab_ease(t, 16.4, 17.2))
     var hand := target + Vector3(0, 0.34, 0)
     match feature:
+        "LabMetalFeedSpool":
+            return _spin_about(rest, rest.origin, _axis(Vector3.BACK), minf(t, 6.0)*2.0)
         "FreshLabPrinterServo":
             return _lab_position(rest, Vector3(x, 2.40, 1.05))
         "FreshLabPrinterHotHead":
@@ -279,6 +303,12 @@ func _nexus_pose(feature: String, slot: int, rest: Transform3D, t: float,
             var open: float = smoothstep(0.4, 1.7, fposmod(t, 9.7)) * (
                 1.0 - smoothstep(6.3, 7.6, fposmod(t, 9.7)))
             pose = _spin_about(rest, rest.origin, _axis(Vector3.RIGHT), -open * 0.78)
+        "NexusSupplyDrawer", "NexusSupplyCase":
+            var phase: float = fposmod(t, 13.0)
+            var travel: float = smoothstep(0.5, 2.4, phase) * (1.0 - smoothstep(6.0, 8.5, phase))
+            pose.origin += _at(Vector3(0.62 * travel, 0, 0))
+            if feature == "NexusSupplyCase" and (phase < 1.5 or phase > 8.2):
+                pose.basis = rest.basis.scaled_local(Vector3.ONE * 0.0001)
         "NexusSignalIndicator":
             var phase: float = fposmod(t + float(slot) * 0.35, 2.4)
             var glow: float = 1.0 if phase < 0.38 or phase > 2.12 else 0.001
@@ -438,49 +468,71 @@ func sample_at(seconds: float) -> void:
                                     crane_rotation * _axis(Vector3.BACK),
                                     side * crane_grip)
                 "SMELTER":
-                    if feature == "FreshSmelterFlameTongue":
-                        # Irregular phase offsets prevent all four heat tongues
-                        # from expanding in perfect synchrony.
-                        var heat: float = 0.73 + 0.24 * (
-                            0.5 + 0.5 * sin(time * 5.0 + float(i) * 1.9))
-                        pose.basis = rest.basis.scaled_local(
-                            Vector3(1.0, heat, 1.0))
-                        pose.origin += _at(Vector3(0, (heat - 0.73) * 0.09, 0))
-                    elif feature == "FreshSmelterLowFire":
-                        pose.basis = rest.basis.scaled_local(
-                            Vector3(0.86 + 0.12 * sin(time * 4.1), 1.0, 1.0))
+                    var t: float = minf(time, 7.199)
+                    if feature == "SmelterFeedScrap":
+                        pose.origin += _at(Vector3(0, 0, -0.58 * smoothstep(0.3, 2.1, t)))
+                        if t >= 2.1:
+                            pose.basis = rest.basis.scaled_local(Vector3.ONE * 0.0001)
+                    elif feature == "SmelterMoltenPour":
+                        var fill: float = smoothstep(2.4, 4.2, t) * (1.0-smoothstep(4.2, 5.2, t))
+                        pose.basis = rest.basis.scaled_local(Vector3.ONE * maxf(0.0001, fill))
+                    elif feature == "SmelterCastIngot":
+                        var cast: float = smoothstep(4.2, 5.2, t)
+                        pose.basis = rest.basis.scaled_local(Vector3(1, maxf(0.0001, cast), 1))
+                        pose.origin += _at(Vector3(0, -0.07*(1.0-cast), 0.20*smoothstep(5.6, 6.7,t)))
+                        if t < 4.2 or t >= 7.0:
+                            pose.basis = rest.basis.scaled_local(Vector3.ONE * 0.0001)
                 "RECYCLER":
+                    var t: float = minf(time, 6.399)
                     if feature in ["FreshRecyclerRoller", "FreshRecyclerTooth"]:
-                        # Two X-axis cutter shafts counter-rotate about their
-                        # common centers, including every individual tooth.
-                        var local: Vector3 = Basis(
-                            Vector3.UP, -_body_yaw) * rest.origin / _model_scale
+                        var local: Vector3 = Basis(Vector3.UP, -_body_yaw) * rest.origin / _model_scale
                         var side: float = 1.0 if local.z > 0.22 else -1.0
-                        var center: Vector3 = _at(
-                            Vector3(0.0, 1.37, 0.22 + side * 0.39))
-                        pose = _spin_about(rest, center,
-                            _axis(Vector3.RIGHT), time * 2.0 * side)
+                        var center: Vector3 = _at(Vector3(0.0, 1.37, 0.22 + side * 0.39))
+                        pose = _spin_about(rest, center, _axis(Vector3.RIGHT), t * 2.0 * side)
+                    elif feature == "RecyclerIntactPart":
+                        var feed: float = smoothstep(0.35 + i*0.35, 2.5 + i*0.35, t)
+                        pose.origin += _at(Vector3(0, -0.73*feed, 0.91*feed))
+                        if feed >= 0.97:
+                            pose.basis = rest.basis.scaled_local(Vector3.ONE * 0.0001)
+                    elif feature == "RecyclerRecoveredPart":
+                        var slide: float = smoothstep(2.6+i*0.4, 4.6+i*0.4, t)
+                        pose.origin += _at(Vector3(0, -0.25*slide, 0.76*slide))
+                        if t < 2.6+i*0.4 or t >= 6.0:
+                            pose.basis = rest.basis.scaled_local(Vector3.ONE * 0.0001)
                 "GENERATOR":
                     if feature == "FreshGeneratorRotorBlade":
-                        # Visible front fan is on the +Z surface: spin around
-                        # its *normal*, not the entire station's Y axis.
-                        pose = _spin_about(rest,
-                            _at(Vector3(-0.27, 1.43, 1.16)),
+                        pose = _spin_about(rest, _at(Vector3(-0.27, 1.43, 1.16)),
                             _axis(Vector3.BACK), time * 2.4)
+                    elif feature == "FreshGeneratorMeterRow":
+                        var level: float = 0.42 + 0.58*(0.5+0.5*sin(time*1.6+float(i)*0.9))
+                        pose.basis = rest.basis.scaled_local(Vector3(level, 1, 1))
+                        pose.origin -= _at(Vector3(0.175*(1.0-level),0,0))
                 "STORAGE":
+                    var t: float = minf(time, 7.499)
+                    var lift: float = smoothstep(0.4, 2.0, t) * (1.0-smoothstep(5.8,7.3,t))
+                    var across: float = smoothstep(2.0, 2.8, t) * (1.0-smoothstep(5.1,5.8,t))
+                    var inward: float = smoothstep(2.8, 3.8, t) * (1.0-smoothstep(4.1,5.1,t))
                     if feature == "FreshStorageLoadingLift":
-                        pose.origin += _at(
-                            Vector3(0.0, 0.25 * (0.5 +
-                                0.5 * sin(time * 1.15)), 0.0))
+                        pose.origin += _at(Vector3(0, 0.57*lift, 0))
+                    elif feature in ["StorageStoredCase", "StorageStoredLock"]:
+                        # Previous buffered case transfers into the rear stock
+                        # chamber before the next case is delivered to this bay.
+                        if t < 0.6 and _material_has_completed:
+                            pose.origin += _at(Vector3(0,0,-0.66*smoothstep(0.0,0.6,t)))
+                        elif t < 3.8 or (not _material_running and not _material_has_completed):
+                            pose.basis = rest.basis.scaled_local(Vector3.ONE*0.0001)
+                    else:
+                        pose.origin += _at(Vector3(0.65*across, 0.57*lift, -1.56*inward))
+                        if feature != "StorageTransferFork" and (t < 0.25 or t >= 3.8):
+                            pose.basis = rest.basis.scaled_local(Vector3.ONE*0.0001)
                 "BUILD_TERMINAL":
-                    if feature == "FreshTerminalBlueprintRows":
-                        pose.origin += _at(Vector3(0.0,
-                            0.11 * sin(time * 2.1 + float(i) * 0.62), 0.0))
-                    elif feature == "FreshTerminalMastLamp":
-                        var blink: float = 0.93 + 0.19 * (
-                            0.5 + 0.5 * sin(time * 3.4))
-                        pose.basis = rest.basis.scaled_local(
-                            Vector3(blink, blink, blink))
+                    var phase: float = fposmod(time, 8.5)
+                    var press: float = smoothstep(1.0, 2.2, phase) * (1.0-smoothstep(4.3,5.8,phase))
+                    if feature == "FreshBuildModuleLock":
+                        pose.origin += _at(Vector3(0, 0.20*(1.0-smoothstep(1.0,3.1,phase)),0))
+                    else:
+                        pose = _spin_about(rest, _at(Vector3(0.74,1.53,0.78)),
+                            _axis(Vector3.BACK), 0.24*press)
             var multi: MultiMesh = record["mesh"] as MultiMesh
             multi.set_instance_transform(int(record["index"]), pose)
             # Same indexed transform as its real opaque part: no trailing or
