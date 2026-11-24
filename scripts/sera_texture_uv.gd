@@ -64,6 +64,7 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
     if tris.is_empty():
         return {"error":"描画可能な三角形がありません"}
     charts = _edge_aligned_charts(tris,density)
+    charts = _split_overlapping_charts(tris,charts)
     _synchronize_chart_grids(tris,charts)
     var order: Array[int] = []
     for i in range(charts.size()):
@@ -450,6 +451,74 @@ static func _quad_coordinates(p: Vector2,a: Vector2,b: Vector2,c: Vector2,d: Vec
         st -= Vector2(residual.cross(dt),ds.cross(residual))/det
     return st
 
+## Positive-area triangle overlap in the same chart is not allowed.
+## Shared boundaries are legal. A bounded sweep prevents pathological
+## meshes from freezing the mobile editor; ambiguous charts split safely.
+static func _overlaps(a: PackedVector2Array,b: PackedVector2Array) -> bool:
+    for shape in [a,b]:
+        for e in range(3):
+            var edge: Vector2 = shape[(e+1)%3]-shape[e]
+            if edge.length_squared() < 0.00000001:
+                continue
+            var axis: Vector2 = Vector2(-edge.y,edge.x).normalized()
+            var lo_a: float = INF
+            var hi_a: float = -INF
+            var lo_b: float = INF
+            var hi_b: float = -INF
+            for k in range(3):
+                lo_a = minf(lo_a,a[k].dot(axis))
+                hi_a = maxf(hi_a,a[k].dot(axis))
+                lo_b = minf(lo_b,b[k].dot(axis))
+                hi_b = maxf(hi_b,b[k].dot(axis))
+            if minf(hi_a,hi_b)-maxf(lo_a,lo_b) <= 0.0001:
+                return false
+    return true
+
+static func _split_overlapping_charts(tris: Array[Dictionary],charts: Array[Dictionary]) -> Array[Dictionary]:
+    var members: Array = []
+    for i in range(charts.size()):
+        members.append([])
+    for i in range(tris.size()):
+        var t: Dictionary = tris[i]
+        var xy: PackedVector2Array = t.xy
+        var lo: Vector2 = xy[0].min(xy[1]).min(xy[2])
+        var hi: Vector2 = xy[0].max(xy[1]).max(xy[2])
+        (members[int(t.chart)] as Array).append({"id":i,"lo":lo,"hi":hi})
+    var output: Array[Dictionary] = []
+    for ci in range(charts.size()):
+        var entries: Array = members[ci]
+        entries.sort_custom(func(a: Dictionary,b: Dictionary) -> bool: return a.lo.x < b.lo.x)
+        var invalid: bool = false
+        var comparisons: int = 0
+        for i in range(entries.size()):
+            if invalid:
+                break
+            var a: Dictionary = entries[i]
+            for j in range(i+1,entries.size()):
+                var b: Dictionary = entries[j]
+                if b.lo.x >= a.hi.x-0.0001:
+                    break
+                comparisons += 1
+                if comparisons > 100000:
+                    invalid = true
+                    break
+                if minf(a.hi.y,b.hi.y)-maxf(a.lo.y,b.lo.y) <= 0.0001:
+                    continue
+                if _overlaps(tris[a.id].xy,tris[b.id].xy):
+                    invalid = true
+                    break
+        if not invalid:
+            for entry in entries:
+                tris[entry.id].chart = output.size()
+            output.append(charts[ci])
+            continue
+        for entry in entries:
+            var t: Dictionary = tris[entry.id]
+            t.chart = output.size()
+            var lo: Vector2 = entry.lo
+            output.append({"min":lo.floor(),"max":entry.hi})
+    return output
+
 ## Return compatible seam segments from actual mesh boundaries. Exact
 ## two-sided edges first; subdivided edges sharing an endpoint can also
 ## match their overlapping interval. Ambiguous/non-manifold exact edges
@@ -526,6 +595,11 @@ static func _make_seam(tris: Array,ia: Vector2i,ib: Vector2i) -> Dictionary:
     var nb: Vector3 = (pb[1]-pb[0]).cross(pb[2]-pb[0]).normalized()
     if na.dot(nb) < -0.5:
         return {}
+    if na.dot(nb) > 0.9999:
+        var side_a: float = axis.cross(pa[(ia.y+2)%3]-a0).dot(na)
+        var side_b: float = axis.cross(pb[(ib.y+2)%3]-a0).dot(na)
+        if side_a*side_b >= 0.0:
+            return {}
     return {"ta":ia.x,"tb":ib.x,"ea":ia.y,"eb":ib.y,"a":int(a.chart),"b":int(b.chart),
         "a0":lo/la,"a1":hi/la,"b0":clampf((a0+axis*lo-b0).dot(db)/(lb*lb),0,1),
         "b1":clampf((a0+axis*hi-b0).dot(db)/(lb*lb),0,1),"weight":hi-lo}
@@ -574,10 +648,11 @@ static func _synchronize_chart_grids(tris: Array[Dictionary],charts: Array[Dicti
             total -= (current-current.round())*weight
             for link in adjacency[i]:
                 var target: Vector2
+                var delta: Vector2 = link.delta
                 if int(link.a) == i:
-                    target = phase[int(link.b)].rotated(float(link.rotation))-Vector2(link.delta)
+                    target = phase[int(link.b)].rotated(float(link.rotation))-delta
                 else:
-                    target = (phase[int(link.a)]+Vector2(link.delta)).rotated(-float(link.rotation))
+                    target = (phase[int(link.a)]+delta).rotated(-float(link.rotation))
                 var diff: Vector2 = target-current
                 diff -= diff.round()
                 total += diff*float(link.weight)
