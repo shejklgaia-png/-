@@ -5,6 +5,7 @@ const WorldMonitors = preload("res://scripts/sera_world_monitor_textures.gd")
 const SERA_RIG_PATH: String = "res://scripts/sera_rig.gd"
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const LoadingConsole = preload("res://scripts/sera_loading_console.gd")
+const StartupBudget = preload("res://scripts/sera_startup_budget.gd")
 const BaseFacilities = preload("res://scripts/base_facility_system.gd")
 const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
 const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
@@ -131,6 +132,12 @@ var grid_selection_mesh: MeshInstance3D
 var grid_touch_id: int = -1
 var grid_touch_start: Vector2 = Vector2.ZERO
 var _frame_budget: RefCounted
+var _startup_budget: Variant
+var _boot_render_suspended: bool = false
+var _boot_previous_disable_3d: bool = false
+var _boot_complete: bool = false
+var _boot_previous_process_mode: ProcessMode = Node.PROCESS_MODE_INHERIT
+var _boot_panels: Array[Dictionary] = []
 
 func _ready() -> void:
     set_meta("sera_graphics_outline_category", "base")
@@ -149,69 +156,92 @@ func _ready() -> void:
     if not returning_from_nexus:
         _create_startup_overlay()
     print("SERA_BASE_BOOT: initial frame ready")
-    # A process_frame signal fires before rendering.  Keep two frames.
-    await get_tree().process_frame
-    await get_tree().process_frame
-    # Load the existing bundled SERA cyber face after the first visible frame.
+    # Keep the live 2D terminal, but do not draw an incomplete 3D world.
+    _startup_budget = StartupBudget.new(get_tree())
+    _boot_previous_disable_3d = get_viewport().disable_3d
+    get_viewport().disable_3d = true
+    _boot_render_suspended = true
+    _boot_previous_process_mode = process_mode
+    if is_instance_valid(startup_layer):
+        startup_layer.process_mode = Node.PROCESS_MODE_ALWAYS
+    process_mode = Node.PROCESS_MODE_DISABLED
+    await _startup_budget.yield_frame()
+    await _startup_budget.yield_frame()
     if console_screen != null:
         console_screen.set_cyber_font(LaboSkin.display_font())
-    _build_hangar()
+    # Imported textures can be decoded concurrently; missing imports retain
+    # the existing raw-editor fallback. Never call threaded_get before ready.
+    var requests: Array[String] = []
+    for path in [WEATHERED_STEEL_PATH, WEATHERED_DECK_PATH, BASE_LOGISTICS_PATH]:
+        if ResourceLoader.exists(path) and ResourceLoader.load_threaded_request(path) == OK:
+            requests.append(path)
+    var boot_resources: Dictionary = {}
+    for path in requests:
+        while ResourceLoader.load_threaded_get_status(path) == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+            await _startup_budget.yield_frame()
+        if ResourceLoader.load_threaded_get_status(path) == ResourceLoader.THREAD_LOAD_LOADED:
+            boot_resources[path] = ResourceLoader.load_threaded_get(path)
+    await _startup_budget.checkpoint("resources")
+    await _build_hangar()
     _startup_step("WORLD / FLOOR MATRIX ONLINE", 18)
-    await get_tree().process_frame
-    await get_tree().process_frame
-    _startup_step("BASE / LOGISTICS ROUTING", 22)
-    await get_tree().process_frame
-    await _build_logistics()
+    await _startup_budget.checkpoint("floor")
+    await _build_logistics(boot_resources.get(BASE_LOGISTICS_PATH))
     if is_instance_valid(logistics):
-        BaseClutter.set_preview_layouts(BaseLayoutPreview.reserve_props(
-            NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, logistics))
-    _build_nexus_building()
+        BaseClutter.set_preview_layouts(await BaseLayoutPreview.reserve_props_budgeted(
+            NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, logistics, {}, _startup_budget, _boot_panels))
+    _boot_panels.clear()
+    await _build_nexus_building()
     _startup_step("NEXUS / COMMAND LINK ONLINE", 33)
-    await get_tree().process_frame
-    await get_tree().process_frame
-    _build_field_facilities()
+    await _startup_budget.checkpoint("nexus")
+    await _build_field_facilities()
     _startup_step("SHELL / FACILITY ARRAY ONLINE", 49)
+    await _startup_budget.checkpoint("facilities")
     _build_power_board()
-    _create_salvage()
+    await _startup_budget.checkpoint("power board")
+    await _create_salvage([], _startup_budget)
     _build_power_distribution()
     _startup_step("GRID / POWER ROUTING ONLINE", 61)
+    await _startup_budget.checkpoint("power distribution")
     _create_grid_selection()
     _startup_step("GRID / ADDRESS MAP VERIFIED", 67)
-    await get_tree().process_frame
-    await get_tree().process_frame
     _startup_step("ARCHIVE / SALVAGE INDEXED", 79)
-    await get_tree().process_frame
-    await get_tree().process_frame
     _create_player()
     _startup_step("SHELL / RIG STANDBY", 86)
+    await _startup_budget.checkpoint("player")
     _create_crate()
-    # One material pass across constructed BASE solids; the shared ID
-    # controller assigns facility 4/0/3+convex2, clutter 3/0/1+convex1,
-    # and the moving CRATE its universal character 4/0/2.
-    SharedMaterialShading.apply_to_subtree(self)
-    # Share one depth-resolved RGB-ID pass across BASE and GRID.
-    # The 3D ink is drawn before VFX; FX/particle/ground remain unoutlined.
+    await _startup_budget.checkpoint("crate")
+    await SharedMaterialShading.apply_to_subtree_budgeted(self, false, _startup_budget)
     var id_outline := SeraViewEdges.new()
     id_outline.name = "ViewEdges"
     add_child(id_outline)
     _startup_step("CRATE / SIGNAL CONFIRMED", 92)
+    await _startup_budget.checkpoint("outline registration")
     var name_config := ConfigFile.new()
     if name_config.load(FACILITY_NAME_CONFIG) == OK:
         facility_names_enabled = bool(name_config.get_value("base", "names", true))
-    # Read the small shutter clip during BASE boot, never on the normal tap path.
     _nexus_shutter_clip = NexusEntryTransition.load_shutter_clip()
+    await _startup_budget.checkpoint("shutter audio")
     _create_hud()
     _startup_step("OS / INTERFACE ONLINE", 99)
     SeraSave.mark_location("BASE")
+    _restore_boot_rendering()
+    # Give the real world and ID compositor a chance to initialize under
+    # the terminal before announcing complete; no simulated progress.
+    await _startup_budget.yield_frame()
+    await _startup_budget.yield_frame()
+    _startup_budget.report()
     _startup_step("SYSTEM / BOOT COMPLETE", 100)
-    # process_frame fires before render: await exactly two actual presented
-    # frames of the fully online COMPLETE slate before uncovering BASE.
     if console_screen != null:
         await Signal(console_screen, &"completion_cut_finished")
     if is_instance_valid(startup_layer):
         startup_layer.queue_free()
     startup_layer = null
     console_screen = null
+    _boot_complete = true
+    process_mode = _boot_previous_process_mode
+    if is_instance_valid(facility_system):
+        facility_system.set_process(true)
+    _startup_budget = null
     set_meta("sera_base_boot_complete", true)
     print("SERA_BASE_BOOT: COMPLETE")
     if not returning_from_nexus:
@@ -337,8 +367,18 @@ func _create_grid_plates(floor: Node3D) -> Array[Dictionary]:
     ]
     var sites: Array[Dictionary] = BaseDeckLayout.facility_sites(
         NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS)
-    var panels: Array[Dictionary] = BaseDeckLayout.generate(
-        PLATE_GRID_RADIUS_CELLS, PLATE_GRID_STEP, sites)
+    # Pure value computation only: no scene tree, resources or GPU access.
+    var panels: Array[Dictionary] = []
+    var worker := Thread.new()
+    var start_error: Error = worker.start(func(): return BaseDeckLayout.generate(
+        PLATE_GRID_RADIUS_CELLS, PLATE_GRID_STEP, sites))
+    if start_error == OK:
+        while worker.is_alive():
+            await _startup_budget.yield_frame()
+        panels = worker.wait_to_finish()
+    else:
+        panels = BaseDeckLayout.generate(PLATE_GRID_RADIUS_CELLS, PLATE_GRID_STEP, sites)
+    await _startup_budget.checkpoint("deck partition")
     # Physically chamfered eight-sided polygonal unit slab, sharing one
     # CPU-side mesh across all existing six floor MultiMesh draw batches.
     var plate_mesh: ArrayMesh = BasePolygon.make("deck")
@@ -347,6 +387,7 @@ func _create_grid_plates(floor: Node3D) -> Array[Dictionary]:
     for index in range(tints.size()):
         grouped.append([])
     for panel in panels:
+        await _startup_budget.checkpoint("deck groups")
         var center: Vector2 = panel["center"]
         var size: Vector2 = panel["size"]
         var palette_index: int = int(panel["tint"])
@@ -372,6 +413,7 @@ func _create_grid_plates(floor: Node3D) -> Array[Dictionary]:
             Vector3(grid_extent * 2.0, 0.80, grid_extent * 2.0))
         multi.instance_count = poses.size()
         for index in range(poses.size()):
+            await _startup_budget.checkpoint("floor instances")
             multi.set_instance_transform(index, poses[index])
         var draw := MultiMeshInstance3D.new()
         draw.name = "GridPlateBatch_%02d" % palette_index
@@ -408,8 +450,9 @@ func _build_hangar() -> void:
     # The dark one-piece ground remains visible only in the 0.06 m seams.
     _box(floor, "ContinuousGround", Vector3(0.0, -0.21, 0.0),
         Vector3(256.0, 0.30, 256.0), Color("#12171b"))
-    var panels: Array[Dictionary] = _create_grid_plates(floor)
-    BaseFloorDetail.decorate(floor, panels)
+    var panels: Array[Dictionary] = await _create_grid_plates(floor)
+    _boot_panels = panels
+    await BaseFloorDetail.decorate(floor, panels, _startup_budget)
     # Two small instanced batches: facility contact shade and floor bounce.
     # They are separate FX and never enter the visible-mesh-ID outline pass.
     BaseFloorLighting.add_floor_accents(
@@ -429,6 +472,7 @@ func _build_hangar() -> void:
         multi.mesh = cube
         multi.instance_count = poses.size()
         for index in range(poses.size()):
+            await _startup_budget.checkpoint("floor instances")
             multi.set_instance_transform(index, poses[index])
         var draw := MultiMeshInstance3D.new()
         draw.name = "BaseBlockbenchBatch_%02d" % int(palette_index)
@@ -449,7 +493,7 @@ func _build_nexus_building() -> void:
     var foundation: MeshInstance3D = _box(nexus_building, "Foundation", Vector3(0, 0.23, 0),
         Vector3(6.4, 0.46, 5.4), Color("#46535c"))
     foundation.rotation.y = BaseArchitecture.facility_yaw_radians("NEXUS")
-    BaseArchitecture.build_nexus(nexus_building)
+    await BaseArchitecture.build_nexus(nexus_building, _startup_budget)
     var sign := Label3D.new()
     sign.name = "NEXUSBuildingSign"
     sign.text = "N E X U S"
@@ -464,7 +508,10 @@ func _build_nexus_building() -> void:
 func _build_field_facilities() -> void:
     facility_system = BaseFacilities.new()
     facility_system.name = "BaseFacilities"
+    facility_system.set("defer_startup_build", true)
     add_child(facility_system)
+    facility_system.set_process(false)
+    await facility_system.call("build_startup", _startup_budget)
     facility_system.connect("power_board_requested", Callable(self, "_enter_power_board"))
 
 func _build_power_board() -> void:
@@ -483,13 +530,15 @@ func _build_power_distribution() -> void:
         logistics.call("set_ramp_surface", power_distribution.get_node_or_null("CableCrossingRamps"))
 
 
-func _build_logistics() -> void:
+func _build_logistics(cached_script: Variant = null) -> void:
     if is_instance_valid(logistics):
         logistics.free()
     logistics_creation_status = "SCRIPT LOAD"
     # Optional logistics must not be a compile-time dependency of the BASE.
     # Call Script resource methods on the resource, not on its class symbol.
-    var logistics_script: Variant = ResourceLoader.load(BASE_LOGISTICS_PATH, "GDScript")
+    var logistics_script: Variant = cached_script
+    if logistics_script == null:
+        logistics_script = ResourceLoader.load(BASE_LOGISTICS_PATH, "GDScript")
     if not (logistics_script is GDScript):
         logistics_creation_status = "SCRIPT LOAD FAILED"
         push_error("SERA_BASE_LOGISTICS: script load failed")
@@ -511,15 +560,15 @@ func _build_logistics() -> void:
     logistics.set_meta("sera_outline_role", "clutter")
     add_child(logistics)
     await logistics.call("setup", self, NEXUS_BUILDING_ORIGIN,
-        BaseFacilities.FACILITY_SPECS, power_distribution, CRATE_WAYPOINTS, cam)
+        BaseFacilities.FACILITY_SPECS, power_distribution, CRATE_WAYPOINTS, cam, _startup_budget)
     _startup_step("BASE / LOGISTICS MODELS", 26)
-    await get_tree().process_frame
+    await _startup_budget.checkpoint("logistics routes")
     # Independent calls keep the carrier rendering available if route or
     # dock construction aborts. The on-screen report identifies that stage.
-    logistics.call("ensure_parked_fleet", BaseFacilities.FACILITY_SPECS)
-    await logistics.call("build_carriers")
-    await get_tree().process_frame
-    logistics.call("build_docks_and_motion")
+    await logistics.call("ensure_parked_fleet", BaseFacilities.FACILITY_SPECS, _startup_budget)
+    await logistics.call("build_carriers", _startup_budget)
+    await _startup_budget.checkpoint("carriers")
+    await logistics.call("build_docks_and_motion", _startup_budget)
     logistics_creation_status = "NODE ATTACHED"
 
 
@@ -553,7 +602,7 @@ func _box(parent: Node3D, name: String, at: Vector3, size: Vector3, tint: Color)
     parent.add_child(body)
     return body
 
-func _create_salvage(replacement: Array[Dictionary] = []) -> void:
+func _create_salvage(replacement: Array[Dictionary] = [], budget: Variant = null) -> void:
     # Loose salvage is not a set of box-shaped machines. Keep the 16 stable
     # world anchors for layout/navigation tests, and draw all geometry through
     # ONE shared material-batched procedural model (low-cost on Android).
@@ -574,6 +623,8 @@ func _create_salvage(replacement: Array[Dictionary] = []) -> void:
     var g := BaseArchitecture.Batch.new(salvage)
     var occupied: Array[Vector2] = []
     for i in range(lots.size()):
+        if budget != null:
+            await budget.checkpoint("scrap heap")
         var pile := Node3D.new()
         pile.name = "ScrapPile_%02d" % i
         var center: Vector3 = lots[i]
@@ -623,7 +674,10 @@ func _create_salvage(replacement: Array[Dictionary] = []) -> void:
         JunkGeometry.scrap_heap(g, center, i, stack_count, pile_pattern)
     # One shared opaque MultiMesh per actual geometry/material type, not
     # hundreds of MeshInstance3D nodes or per-frame random CPU rebuilds.
-    g.flush()
+    if budget != null:
+        await g.flush(budget)
+    else:
+        g.flush()
 
 func _create_player() -> void:
     player = Node3D.new()
@@ -1225,7 +1279,13 @@ func _copy_layout_data() -> void:
     layout_status.text = "コピー完了 / チャットに貼付"
 
 
+func _restore_boot_rendering() -> void:
+    if _boot_render_suspended:
+        get_viewport().disable_3d = _boot_previous_disable_3d
+        _boot_render_suspended = false
+
 func _exit_tree() -> void:
+    _restore_boot_rendering()
     if _frame_budget != null:
         _frame_budget.stop()
     BaseClutter.clear_preview()
@@ -1506,7 +1566,7 @@ func _on_android_back() -> void:
         facility_system.call("navigate_back")
 
 func _input(event: InputEvent) -> void:
-    if scene_changing or hud == null or get_tree().root.get_node_or_null("NexusExitTransition") != null:
+    if not _boot_complete or scene_changing or hud == null or get_tree().root.get_node_or_null("NexusExitTransition") != null:
         return
     if power_view_active:
         _power_input(event)
@@ -1614,7 +1674,7 @@ func _move_player(direction: Vector2, delta: float) -> void:
             player.position = slide_z
 
 func _process(delta: float) -> void:
-    if scene_changing or player == null:
+    if not _boot_complete or scene_changing or player == null:
         return
     elapsed += delta
     SeraSave.record_game_time(delta)

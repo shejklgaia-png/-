@@ -167,7 +167,7 @@ class Batch:
         box("CargoTopRib", at + Vector3(0, size.y * 0.54, 0),
             Vector3(0.08, 0.035, size.z), "edge")
 
-    func flush() -> void:
+    func flush(budget: Variant = null) -> void:
         # Optional images are only usable once Godot's imported cache exists.
         var steel_texture: Texture2D = null
         var canvas_texture: Texture2D = null
@@ -197,6 +197,8 @@ class Batch:
                 selected_by_bucket[bucket] = []
             (selected_by_bucket[bucket] as Array).append(selected)
         for key_variant in keys:
+            if budget != null:
+                await budget.checkpoint("architecture bucket")
             var key: String = str(key_variant)
             var names: PackedStringArray = key.split("|")
             var geometry: String = names[0]
@@ -235,6 +237,8 @@ class Batch:
             if not motion_indices.is_empty():
                 motion_multimeshes[key] = multi
             for i in range(poses.size()):
+                if budget != null:
+                    await budget.checkpoint("architecture instance")
                 var pose: Transform3D = poses[i]
                 multi.set_instance_transform(i, pose)
                 # Only narrow WHITE architectural strips get protected ID
@@ -421,7 +425,7 @@ static func _facade(g: Batch, half_width: float, height: float,
             g.box("WallArmorBands", Vector3(side * (half_width - 0.17),
                 0.72 + float(row) * 1.0, depth), Vector3(0.10, 0.12, 0.24), "edge")
 
-static func build_nexus(parent: Node3D) -> void:
+static func build_nexus(parent: Node3D, budget: Variant = null) -> void:
     var node := Node3D.new()
     node.name = "NexusArchitecture"
     parent.add_child(node)
@@ -442,7 +446,10 @@ static func build_nexus(parent: Node3D) -> void:
         g.detail_scale = 1.0
         g.outline_enabled = false
         BaseClutter.decorate(g, "NEXUS")
-        g.flush()
+        if budget != null:
+            await g.flush(budget)
+        else:
+            g.flush()
         var fresh_motion := BaseFacilityMotion.new()
         fresh_motion.bind_to(node, "NEXUS")
         # Shutter-gap fixture and local light are now built by VFX, not
@@ -462,7 +469,10 @@ static func build_nexus(parent: Node3D) -> void:
     g.detail_scale = 1.0
     g.outline_enabled = false
     BaseClutter.decorate(g, "NEXUS")
-    g.flush()
+    if budget != null:
+        await g.flush(budget)
+    else:
+        g.flush()
     _build_nexus_entry_light(node)
     var archived_motion := BaseFacilityMotion.new()
     archived_motion.bind_to(node, "NEXUS")
@@ -1007,7 +1017,7 @@ static func _construction(g: Batch) -> void:
     g.box("BlueprintAntennaTip", Vector3(0.79, 2.48, -0.54),
         Vector3(0.15, 0.18, 0.15), "amber_light")
 
-static func build_facility(parent: Node3D, key: String) -> void:
+static func build_facility(parent: Node3D, key: String, budget: Variant = null) -> void:
     var node := Node3D.new()
     node.name = "IndustrialModel"
     parent.add_child(node)
@@ -1030,7 +1040,10 @@ static func build_facility(parent: Node3D, key: String) -> void:
     g.detail_scale = 1.0
     g.outline_enabled = false
     BaseClutter.decorate(g, key)
-    g.flush()
+    if budget != null:
+        await g.flush(budget)
+    else:
+        g.flush()
     var device_motion := BaseFacilityMotion.new()
     device_motion.bind_to(node, key)
     _add_facility_lights(node, key)

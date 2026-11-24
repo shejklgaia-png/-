@@ -190,13 +190,15 @@ func _find_network_anchor() -> void:
                 return
 
 
-func _find_dock(key: String, at: Vector2) -> Dock:
+func _find_dock(key: String, at: Vector2, budget: Variant = null) -> Dock:
     var forward: Vector2 = _xz(Basis(Vector3.UP, Architecture.facility_yaw_radians(key)) * Vector3.BACK)
     var candidates: Array[Dictionary] = []
     var base_cell: Vector2i = _cell(at)
     # Choose the closest clear three-part work cell in the service apron.
     # All racks/pedestals and vehicle centers are disjoint from authored props.
     for dx in range(-17, 18):
+        if budget != null:
+            await budget.checkpoint("dock candidates")
         for dz in range(-17, 18):
             var c: Vector2i = base_cell + Vector2i(dx, dz)
             if not _free(c):
@@ -235,6 +237,8 @@ func _find_dock(key: String, at: Vector2) -> Dock:
                         "side": float(sign_value)})
     candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["score"]) < float(b["score"]))
     for candidate_index in range(mini(160, candidates.size())):
+        if budget != null:
+            await budget.checkpoint("dock connectivity")
         var choice: Dictionary = candidates[candidate_index]
         var result := Dock.new()
         result.cell = choice["cell"]
@@ -264,10 +268,12 @@ func _find_dock(key: String, at: Vector2) -> Dock:
     return null
 
 
-func _parking_options(origin: Vector2, destination: Vector2) -> Array[Dictionary]:
+func _parking_options(origin: Vector2, destination: Vector2, budget: Variant = null) -> Array[Dictionary]:
     var result: Array[Dictionary] = []
     var direction: Vector2 = (destination - origin).normalized()
     for z in range(REGION.position.y + 1, REGION.end.y - 1):
+        if budget != null:
+            await budget.checkpoint("parking search")
         for x in range(REGION.position.x + 1, REGION.end.x - 1):
             var c := Vector2i(x, z)
             if not _free(c) or _route_parking_exclusion.has(c):
@@ -357,7 +363,7 @@ func _plan(t: Truck) -> bool:
                 _grid.set_point_weight_scale(c, minf(3.8, _grid.get_point_weight_scale(c) + 0.20))
     return true
 
-func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, crate_path: Array, camera: Camera3D = null) -> void:
+func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, crate_path: Array, camera: Camera3D = null, budget: Variant = null) -> void:
     _camera = camera
     _phase = "GRID"
     print("SERA_BASE_LOGISTICS: setup begin")
@@ -372,12 +378,15 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
         origins[key] = _xz(spec["at"])
         if key not in ["SCRAP_COLLECTOR", "LABO", "SMELTER", "RECYCLER", "STORAGE"]:
             continue
-        var dock: Dock = _find_dock(key, _xz(spec["at"]))
+        var dock: Dock = await _find_dock(key, _xz(spec["at"]), budget)
         if dock != null:
             _docks[key] = dock
         else:
             push_warning("BASE logistics: no clear cargo dock for " + key)
-        await get_tree().process_frame
+        if budget != null:
+            await budget.checkpoint("dock completed")
+        else:
+            await get_tree().process_frame
     _phase = "ROUTES"
     var moving_count: int = 0
     for route in ROUTES:
@@ -399,7 +408,7 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
             t.raw = source == "SCRAP_COLLECTOR"
             t.yaw = Architecture.facility_yaw_radians(source)
             t.wait = -float(t.id) * 0.35
-            var options: Array[Dictionary] = _parking_options(source_at, destination_at)
+            var options: Array[Dictionary] = await _parking_options(source_at, destination_at, budget)
             var planned: bool = false
             if docks_ready:
                 for j in range(mini(48, options.size())):
@@ -407,7 +416,9 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
                     if _plan(t):
                         planned = true
                         break
-                    if j % 4 == 3:
+                    if budget != null:
+                        await budget.checkpoint("route attempt")
+                    elif j % 4 == 3:
                         await get_tree().process_frame
             if not planned:
                 t.mode = "unavailable"
@@ -422,7 +433,10 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
             t.pos = _point(t.home)
             _homes.append(t.home)
             _trucks.append(t)
-            await get_tree().process_frame
+            if budget != null:
+                await budget.checkpoint("route completed")
+            else:
+                await get_tree().process_frame
     _planned_count = moving_count
     print("SERA_BASE_LOGISTICS: docks=", _docks.size(), " vehicles=", _trucks.size(), " routable=", moving_count, " parked=", _trucks.size() - moving_count)
     # The BASE represents an already operating yard. Seed nonconflicting
@@ -435,7 +449,7 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
 
 # Separate public entrypoints: if the routing call terminates early, the
 # BASE can still draw the successfully allocated vehicles and report why.
-func ensure_parked_fleet(specs: Array) -> void:
+func ensure_parked_fleet(specs: Array, budget: Variant = null) -> void:
     # A real parked truck is still part of the fleet. Allocate a safe place
     # for any missing route member without pretending its route succeeded.
     if _trucks.size() >= 12:
@@ -458,6 +472,8 @@ func ensure_parked_fleet(specs: Array) -> void:
             var found: bool = false
             var parking := Vector2i.ZERO
             for x in range(REGION.position.x + 1, REGION.end.x - 1):
+                if budget != null:
+                    await budget.checkpoint("fallback parking")
                 for z in range(REGION.position.y + 1, REGION.end.y - 1):
                     var c := Vector2i(x, z)
                     if not _free(c) or _route_parking_exclusion.has(c):
@@ -498,7 +514,7 @@ func ensure_parked_fleet(specs: Array) -> void:
     _capture_reservations()
 
 
-func build_carriers() -> void:
+func build_carriers(budget: Variant = null) -> void:
     var previous_phase: String = _phase
     _phase = "CARRIER_DRAW"
     _batch = Architecture.Batch.new(self)
@@ -506,27 +522,35 @@ func build_carriers() -> void:
     for t in _trucks:
         _make_chassis(t)
         _truck_pose(t)
-        if t.id % 4 == 3:
+        if budget != null:
+            await budget.checkpoint("carrier model")
+        elif t.id % 4 == 3:
             await get_tree().process_frame
     _phase = "CARGO_DRAW"
     for t in _trucks:
         _make_truck_details(t)
         _truck_pose(t)
-        if t.id % 4 == 3:
+        if budget != null:
+            await budget.checkpoint("carrier model")
+        elif t.id % 4 == 3:
             await get_tree().process_frame
     _phase = "CARRIERS" if previous_phase == "PLANNED" else previous_phase + "/CARRIERS"
     print("SERA_BASE_LOGISTICS: direct chassis=", _vehicle_count, " cargo=", _cargo_count)
 
 
-func build_docks_and_motion() -> void:
+func build_docks_and_motion(budget: Variant = null) -> void:
     var previous_phase: String = _phase
     _phase = "DOCK_DRAW"
     if _batch == null:
         _batch = Architecture.Batch.new(self)
     for dock in _docks.values():
+        if budget != null:
+            await budget.checkpoint("dock model")
         _make_dock(dock)
     # Bake actual world transforms before creating renderers.
     for v in _visuals:
+        if budget != null:
+            await budget.checkpoint("dock transforms")
         var transform: Transform3D = _visible_transform(v)
         for key in v.slots:
             var record: Dictionary = v.slots[key]
@@ -535,7 +559,10 @@ func build_docks_and_motion() -> void:
             var first: int = int(record["start"])
             for i in range(local.size()):
                 dest[first + i] = transform * (local[i] as Transform3D)
-    _batch.flush()
+    if budget != null:
+        await _batch.flush(budget)
+    else:
+        _batch.flush()
     for child in get_children():
         if child is MultiMeshInstance3D:
             var draw: MultiMeshInstance3D = child

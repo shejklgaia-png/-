@@ -233,8 +233,51 @@ static func _make_shaded_material(geometry: GeometryInstance3D,
     return shaded
 
 
-static func apply_to_subtree(root: Node3D,
-        preserve_per_object: bool = false) -> int:
+static func _apply_subtree_node(node: Node, preserve_per_object: bool) -> int:
+    var changed: int = 0
+    if node is MeshInstance3D:
+        var mesh: MeshInstance3D = node as MeshInstance3D
+        if _is_display_piece(mesh):
+            var styled: ShaderMaterial = _make_shaded_material(mesh,
+                _part_material_hint(mesh, ""), preserve_per_object)
+            if styled != null:
+                mesh.material_override = styled
+                changed += 1
+    elif node is MultiMeshInstance3D:
+        var batch: MultiMeshInstance3D = node as MultiMeshInstance3D
+        if batch.multimesh != null and batch.multimesh.mesh != null and (
+                not batch.multimesh.mesh is QuadMesh) and (
+                not batch.multimesh.mesh is PlaneMesh) and (
+                batch.material_override is StandardMaterial3D) and (
+                not bool(batch.get_meta("FX_NO_OUTLINE", false))) and (
+                not bool(batch.get_meta(
+                    "sera_preserve_authored_material", false))):
+            var src: StandardMaterial3D = batch.material_override as StandardMaterial3D
+            if src.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED:
+                var batch_material: ShaderMaterial = _make_shaded_material(
+                    batch, _part_material_hint_batch(batch), false)
+                if batch_material != null:
+                    batch.material_override = batch_material
+                    changed += 1
+    return changed
+
+
+static func apply_to_subtree(root: Node3D, preserve_per_object: bool = false) -> int:
+    if not is_instance_valid(root):
+        return 0
+    var changed: int = 0
+    var pending: Array[Node] = [root]
+    while not pending.is_empty():
+        var node: Node = pending.pop_back()
+        changed += _apply_subtree_node(node, preserve_per_object)
+        for child in node.get_children():
+            if child is Node3D and child.name not in ["ViewEdges", "SeraEdgeInk"]:
+                pending.append(child)
+    return changed
+
+
+static func apply_to_subtree_budgeted(root: Node3D,
+        preserve_per_object: bool = false, budget: Variant = null) -> int:
     # One-shot scene build hook, no recurring tree scan or extra draw target.
     # SERA/BitTaran have their own ViewEdges; architecture keeps its authored
     # silhouette + front-crease meshes. FX shaders are never replaced.
@@ -243,31 +286,10 @@ static func apply_to_subtree(root: Node3D,
     var changed: int = 0
     var pending: Array[Node] = [root]
     while not pending.is_empty():
+        if budget != null:
+            await budget.checkpoint("material shading")
         var node: Node = pending.pop_back()
-        if node is MeshInstance3D:
-            var mesh: MeshInstance3D = node as MeshInstance3D
-            if _is_display_piece(mesh):
-                var styled: ShaderMaterial = _make_shaded_material(mesh,
-                    _part_material_hint(mesh, ""), preserve_per_object)
-                if styled != null:
-                    mesh.material_override = styled
-                    changed += 1
-        elif node is MultiMeshInstance3D:
-            var batch: MultiMeshInstance3D = node as MultiMeshInstance3D
-            if batch.multimesh != null and batch.multimesh.mesh != null and (
-                    not batch.multimesh.mesh is QuadMesh) and (
-                    not batch.multimesh.mesh is PlaneMesh) and (
-                    batch.material_override is StandardMaterial3D) and (
-                    not bool(batch.get_meta("FX_NO_OUTLINE", false))) and (
-                    not bool(batch.get_meta(
-                        "sera_preserve_authored_material", false))):
-                var src: StandardMaterial3D = batch.material_override as StandardMaterial3D
-                if src.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED:
-                    var batch_material: ShaderMaterial = _make_shaded_material(
-                        batch, _part_material_hint_batch(batch), false)
-                    if batch_material != null:
-                        batch.material_override = batch_material
-                        changed += 1
+        changed += _apply_subtree_node(node, preserve_per_object)
         for child in node.get_children():
             if child is Node3D and child.name not in ["ViewEdges", "SeraEdgeInk"]:
                 pending.append(child)
