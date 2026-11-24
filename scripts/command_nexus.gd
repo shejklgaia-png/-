@@ -403,7 +403,7 @@ func _ready() -> void:
     # convex1, while the child SERA rig's character category takes priority.
     set_meta("sera_outline_role", "facility")
     DisplayProfile.apply(get_window())
-    FrameRateSettings.apply("base_nexus")
+    FrameRateSettings.apply("nexus")
     # Godot 4 Android Back is a Window go-back request when auto-quit is off.
     get_window().go_back_requested.connect(_on_android_back)
     # Split only under the existing entry cover; direct entry retains its synchronous contract.
@@ -946,7 +946,7 @@ func _process(delta: float) -> void:
             _refresh_archive_records()
     if _customize_world_drag_dirty:
         _customize_world_drag_elapsed += delta
-        if _customize_world_drag_elapsed >= 0.05 or (customize_touch_id == -1 and not customize_mouse_drag):
+        if _customize_world_drag_elapsed + 0.000001 >= 1.0 / 60.0 or (customize_touch_id == -1 and not customize_mouse_drag):
             _customize_world_drag_elapsed = 0.0
             _customize_world_drag_dirty = false
             if is_instance_valid(sera_display_rig):
@@ -5069,7 +5069,8 @@ func _create_fps_option_controls() -> void:
     system_fps_button.add_child(system_fps_button_label)
 
     for spec in [
-        {"scope": "base_nexus", "title": "BASE / NEXUS"},
+        {"scope": "base_nexus", "title": "BASE"},
+        {"scope": "nexus", "title": "NEXUS"},
         {"scope": "grid", "title": "GRID 操作"},
         {"scope": "combat", "title": "戦闘中"},
         {"scope": "display", "title": "画面表示"},
@@ -5239,9 +5240,9 @@ func _tap_fps_option_control(point: Vector2) -> void:
         var old_fps: int = FrameRateSettings.get_limit(scope)
         var next_fps: int = FrameRateSettings.next_limit(old_fps)
         if FrameRateSettings.set_limit(scope, next_fps):
-            if scope == "base_nexus":
+            if scope == "nexus":
                 # Apply immediately inside NEXUS; other scopes on entry.
-                FrameRateSettings.apply("base_nexus")
+                FrameRateSettings.apply("nexus")
             _refresh_fps_option_controls()
         else:
             system_fps_note.text = "FPS設定の保存に失敗しました。"
@@ -6719,7 +6720,7 @@ func _rebuild_projected_silhouettes() -> void:
     outline.set("clipped_strokes", visible_strokes)
 
 # Reuse static projected shapes while the camera is stationary. The hardware
-# emits only on actual shutter movement (20 Hz), including the final pose.
+# emits only on actual shutter movement (60 Hz), including the final pose.
 func _refresh_live_gate_contour() -> void:
     if not gate_contour_active or not is_instance_valid(outline) or not is_instance_valid(cam):
         return
