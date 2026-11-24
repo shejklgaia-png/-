@@ -158,7 +158,9 @@ static func _build_industrial_services(root: Node3D) -> void:
     var duct := SurfaceTool.new()
     var steel := SurfaceTool.new()
     var fins := SurfaceTool.new()
-    for tool in [duct, steel, fins]:
+    var wall_steel := SurfaceTool.new()
+    var wall_duct := SurfaceTool.new()
+    for tool in [duct, steel, fins, wall_steel, wall_duct]:
         tool.begin(Mesh.PRIMITIVE_TRIANGLES)
         tool.set_smooth_group(-1)
 
@@ -183,6 +185,20 @@ static func _build_industrial_services(root: Node3D) -> void:
         _service_sweep(steel, [Vector3(3.12, 8.60, z-0.14),
             Vector3(3.12, 8.60, z+0.14)], Vector3.RIGHT, _service_round(0.34, 8))
 
+    # Broad load-bearing fascia profiles on the two visible girder faces.
+    # The stepped lower silhouette is real geometry, with its rear half
+    # embedded in the host beam. No loose triangular pendants.
+    _service_sweep(duct, [Vector3(-8.75,8.98,5.12),
+        Vector3(-6.00,8.98,5.12), Vector3(-5.38,8.67,5.12),
+        Vector3(-3.15,8.67,5.12), Vector3(-2.60,8.98,5.12),
+        Vector3(-0.70,8.98,5.12)], Vector3.BACK,
+        _service_section(0.24,0.37,0.11))
+    _service_sweep(duct, [Vector3(0.90,8.98,-2.29),
+        Vector3(3.12,8.98,-2.29), Vector3(3.70,8.65,-2.29),
+        Vector3(6.18,8.65,-2.29), Vector3(6.85,8.98,-2.29),
+        Vector3(8.65,8.98,-2.29)], Vector3.BACK,
+        _service_section(0.25,0.39,0.12))
+
     # Rear-left wall heat exchanger: fins seat in the existing inset face.
     # Keep the cyan indicator above it and the central mark unobstructed.
     _service_sweep(fins, [Vector3(-7.65, 3.50, -26.88),
@@ -197,29 +213,33 @@ static func _build_industrial_services(root: Node3D) -> void:
             Vector3(x, 5.23, -26.81)], Vector3.RIGHT,
             _service_section(0.075, 0.29, 0.05))
     # Bent metal return is continuous from the rear shell into the manifold.
-    _service_sweep(steel, [Vector3(-4.63, 5.42, -26.89),
+    _service_sweep(wall_steel, [Vector3(-4.63, 5.42, -26.89),
         Vector3(-4.27, 5.42, -26.89), Vector3(-4.06, 5.63, -26.89),
         Vector3(-4.06, 6.30, -26.89), Vector3(-3.83, 6.53, -26.89),
         Vector3(-3.38, 6.53, -26.89)],
         Vector3.BACK, _service_round(0.15, 8))
-    _service_sweep(steel, [Vector3(-3.38, 6.53, -26.80),
+    _service_sweep(wall_steel, [Vector3(-3.38, 6.53, -26.80),
         Vector3(-3.38, 6.53, -27.47)], Vector3.RIGHT, _service_round(0.15, 8))
 
     # Right forward wall only: no mesh in the protected rear gate bay.
     # Two unequal wall-mounted conduits are rooted inside the forward shell.
-    _service_sweep(steel, [Vector3(8.82, 7.68, -15.80),
+    _service_sweep(wall_steel, [Vector3(8.82, 7.68, -15.80),
         Vector3(8.82, 7.38, -15.50),
         Vector3(8.82, 5.95, -14.08), Vector3(8.82, 5.95, -8.70)], Vector3.RIGHT,
         _service_round(0.21, 8))
     for end_point in [Vector3(8.82,7.68,-15.80), Vector3(8.82,5.95,-8.70)]:
-        _service_sweep(steel, [end_point-Vector3(0.07,0,0),
+        _service_sweep(wall_steel, [end_point-Vector3(0.07,0,0),
             end_point+Vector3(0.31,0,0)], Vector3.UP, _service_round(0.23,8))
-    _service_sweep(duct, [Vector3(8.91, 4.76, -14.70),
+    _service_sweep(wall_duct, [Vector3(8.91, 4.76, -14.70),
         Vector3(8.91, 4.76, -8.40)], Vector3.RIGHT,
         _service_section(0.25, 0.38, 0.09))
-    _service_submit(root, "CeilingAndWallDuctMesh", duct, Color("#65727b"), 0)
-    _service_submit(root, "IndustrialPipeMesh", steel, Color("#8a8980"), 1)
-    _service_submit(root, "RearHeatExchangerMesh", fins, Color("#60727b"), 2)
+    var coated: ImageTexture = _service_texture(0)
+    var pipe_finish: ImageTexture = _service_texture(1)
+    _service_submit(root, "CeilingDuctMesh", duct, Color("#52616b"), coated)
+    _service_submit(root, "CeilingPipeMesh", steel, Color("#777970"), pipe_finish)
+    _service_submit(root, "WallDuctMesh", wall_duct, Color("#65727b"), coated)
+    _service_submit(root, "WallPipeMesh", wall_steel, Color("#8a8980"), pipe_finish)
+    _service_submit(root, "RearHeatExchangerMesh", fins, Color("#60727b"), _service_texture(2))
 
 
 static func _service_section(w: float, h: float, bevel: float) -> Array:
@@ -294,12 +314,12 @@ static func _service_triangle(tool: SurfaceTool, a: Vector3, b: Vector3,
 
 
 static func _service_submit(root: Node3D, label: String, tool: SurfaceTool,
-        tint: Color, finish: int) -> void:
+        tint: Color, finish: Texture2D) -> void:
     var mesh := MeshInstance3D.new()
     mesh.name = label
     mesh.mesh = tool.commit()
     var material := _mat(tint)
-    material.albedo_texture = _service_texture(finish)
+    material.albedo_texture = finish
     material.texture_repeat = true
     material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
     mesh.material_override = material
