@@ -259,13 +259,13 @@ static func _labo(g: Variant) -> void:
     # One continuous printed part is deposited, lowered into the enclosed
     # stock chamber, and only recycled after the shutters have closed.
     g.poly("LabOutputPartsTray", "tray",
-        Vector3(-1.55, 0.85, 0.32), Vector3(0.98, 0.65, 1.00), "crate")
-    g.poly("LabStockLift", "deck", Vector3(-1.55, 0.69, 0.32),
-        Vector3(0.79, 0.10, 0.83), "slate")
+        Vector3(-1.55, 0.85, 0.02), Vector3(1.04, 0.65, 0.94), "crate")
+    g.poly("LabStockLift", "deck", Vector3(-1.55, 0.69, 0.02),
+        Vector3(0.79, 0.10, 0.70), "slate")
     for side in [-1.0, 1.0]:
-        g.box("LabStockShutter", Vector3(-1.55, 1.20, 0.32 + side * 0.25),
-            Vector3(0.98, 0.09, 0.49), "armor_light")
-    g.box("LabStockStatus", Vector3(-1.55, 0.98, 0.84),
+        g.box("LabStockShutter", Vector3(-1.55, 1.20, 0.02 + side * 0.235),
+            Vector3(1.04, 0.09, 0.46), "armor_light")
+    g.box("LabStockStatus", Vector3(-1.55, 0.98, 0.51),
         Vector3(0.46, 0.15, 0.08), "lab_cyan")
 
 
