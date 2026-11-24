@@ -93,7 +93,7 @@ static func _make_patch_batch(root: Node3D, name: String,
     root.add_child(draw)
 
 static func add_floor_accents(floor: Node3D, nexus_at: Vector3,
-        facility_specs: Array) -> void:
+        facility_specs: Array, facility_poses: Dictionary = {}) -> void:
     var root := Node3D.new()
     root.name = "DeckLightingAccents"
     root.set_meta("FX_NO_OUTLINE", true)
@@ -125,7 +125,7 @@ static func add_floor_accents(floor: Node3D, nexus_at: Vector3,
         })
         # A restrained reflected wash extends just in front of each lamp.
         # Existing spotlights, searchlight shafts and fire stay authoritative.
-        var yaw: float = BaseArchitecture.facility_yaw_radians(key)
+        var yaw: float = BaseArchitecture.facility_yaw_radians(key)+float(facility_poses.get(key,{}).get("yaw",0.0))
         var forward := Vector3(sin(yaw), 0.0, cos(yaw))
         var offset: float = 3.7 if large else 2.2
         var tint := Color(str(SPILL_TINTS.get(key, "#a6c4d7")))
