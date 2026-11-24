@@ -341,6 +341,8 @@ var selection_visible_strokes: Dictionary = {}
 var gate_contour_active: bool = false
 var _selection_pose_dirty: bool = true
 var _gate_pose_dirty: bool = false
+var _scan_pose_dirty: bool = false
+var _customize_scan_contours: Array[PackedVector2Array] = []
 var _selection_camera_signature: Array = []
 # Canonical placement keeps exact source part instances in the shared render
 # batches so touching a console never drags the wall or another nearby model.
@@ -462,6 +464,7 @@ func _ready() -> void:
     nexus_room_motion.configure(SYSTEM_CONSOLE_ORIGIN,
         TRAINING_CONSOLE_ORIGIN, GATE_ORIGIN, _gate_facing_yaw(), GATE_SCALE)
     nexus_room_motion.deployment_pose_changed.connect(_refresh_live_gate_contour)
+    nexus_room_motion.scanner_pose_changed.connect(_refresh_live_scan_contour)
     # Use BASE equipment and universal actor widths in one RGB-ID pass.
     _nexus_tone_background_surfaces()
     _nexus_grade_equipment_castings()
@@ -3229,6 +3232,15 @@ func _capture_sera_silhouette(rig: Node3D) -> void:
     var visible_parts: Array = []
     _collect_sera_geometry(rig, visible_parts)
     target_parts["CUSTOMIZE"] = visible_parts
+    if is_instance_valid(nexus_room_motion):
+        var top: float = 0.40
+        var radius: float = 0.0
+        for group in visible_parts:
+            for point in group:
+                var p: Vector3 = point
+                top = maxf(top,p.y)
+                radius = maxf(radius,Vector2(p.x,p.z+4.75).length())
+        nexus_room_motion.set_scanner_bounds(top,radius)
 
 func _mesh_outline_local_vertices(mesh: Mesh) -> PackedVector3Array:
     # SurfaceTool emits duplicate triangle vertices. Cache their unique local
@@ -6566,14 +6578,20 @@ func _flush_selection_pose() -> void:
     if _selection_pose_dirty:
         _selection_pose_dirty = false
         _gate_pose_dirty = false
+        _scan_pose_dirty = false
         _rebuild_projected_silhouettes()
         outline.queue_redraw()
-    elif _gate_pose_dirty:
+    elif _gate_pose_dirty or _scan_pose_dirty:
+        var gate_changed: bool = _gate_pose_dirty
+        var scan_changed: bool = _scan_pose_dirty
         _gate_pose_dirty = false
-        if gate_contour_active:
+        _scan_pose_dirty = false
+        if gate_changed and gate_contour_active:
             selection_visible_strokes["DEPLOYMENT"] = _live_gate_strokes()
-            outline.set("clipped_strokes", selection_visible_strokes)
-            outline.queue_redraw()
+        if scan_changed and not _customize_scan_contours.is_empty():
+            selection_visible_strokes["CUSTOMIZE"] = _live_customize_scan_strokes()
+        outline.set("clipped_strokes", selection_visible_strokes)
+        outline.queue_redraw()
 
 func _rebuild_projected_silhouettes() -> void:
     if cam == null or outline == null:
@@ -6593,6 +6611,7 @@ func _rebuild_projected_silhouettes() -> void:
             contours[focused_target] = []
     outline.set("polygons", contours)
     gate_contour_active = false
+    _customize_scan_contours.clear()
     if selection_render_sources.is_empty():
         # HUD and input remain usable while optional render sources initialize.
         var pending_strokes: Dictionary = {}
@@ -6617,7 +6636,11 @@ func _rebuild_projected_silhouettes() -> void:
                 shapes = _project_render_contour(target)
             render_shapes[target] = shapes
             if contours.has(target):
-                visible_strokes[target] = _clip_gate_strokes(shapes, [])
+                if target == "CUSTOMIZE":
+                    _customize_scan_contours.append_array(shapes)
+                    visible_strokes[target] = _live_customize_scan_strokes()
+                else:
+                    visible_strokes[target] = _clip_gate_strokes(shapes, [])
     if contours.has("DEPLOYMENT"):
         var gate_occluders: Array = []
         for nearer in ["CUSTOMIZE", "SYSTEM", "TRAINING", "DATA ARCHIVE"]:
@@ -6678,6 +6701,9 @@ func _live_gate_strokes() -> Array[PackedVector2Array]:
 # lettering, VFX and the sliding door remain depth-only in BASE black ink.
 # The separate blue-white selection contour follows the live door leaves.
 func _enable_nexus_base_ink(node: Node) -> void:
+    # Scan hoop contributes only depth, never an independent black edge.
+    if bool(node.get_meta("sera_nexus_scan_depth_only",false)):
+        return
     if node.name == "DeploymentSlidingArmor":
         # Leaves register as corner-only occluders in their own builder.
         # Do not replace the dedicated gate silhouette classification.
@@ -7028,7 +7054,57 @@ func _clip_gate_strokes(gate_shapes: Array, masks: Array) -> Array[PackedVector2
     return visible
 
 func _project_model_contour(target_name: String) -> Array[PackedVector2Array]:
-    return _project_selection_clusters(target_parts.get(target_name, []))
+    var result: Array[PackedVector2Array] = _project_selection_clusters(target_parts.get(target_name, []))
+    # Use the floor ring and platform as the overview interaction region.
+    # Do not feed this into the body-only equipment preview fitting data.
+    if target_name == "CUSTOMIZE" and not (CUSTOMIZE_SPECIAL_PRESENTATION_ENABLED and not focused_target.is_empty()):
+        var pad := PackedVector3Array()
+        for i in range(32):
+            var a: float = TAU*float(i)/32.0
+            pad.append(Vector3(2.02*cos(a),0.29,-4.75+2.02*sin(a)))
+            pad.append(Vector3(1.93*cos(a),0.055,-4.75+1.93*sin(a)))
+        for shape in _project_selection_clusters([pad]):
+            _union_outer_contours(result,shape)
+    return result
+
+
+func _refresh_live_scan_contour() -> void:
+    if not _customize_scan_contours.is_empty():
+        _scan_pose_dirty = true
+
+
+# Clip only the existing outline polylines. Project the foreground half of
+# the physical hoop (not the hole and not a solid bounding ellipse).
+# The rear half cannot obscure SERA's central body. No scanner stroke is added.
+func _live_customize_scan_strokes() -> Array[PackedVector2Array]:
+    if not is_instance_valid(nexus_room_motion) or not is_instance_valid(cam):
+        return _clip_gate_strokes(_customize_scan_contours,[])
+    var pose: Transform3D = nexus_room_motion.scanner_occlusion_pose()
+    var to_camera: Vector3 = cam.global_position-pose.origin
+    to_camera.y = 0.0
+    to_camera = to_camera.normalized()
+    var masks: Array = []
+    for i in range(24):
+        var a: float = TAU*float(i)/24.0
+        var b: float = TAU*float(i+1)/24.0
+        var mid: float = (a+b)*0.5
+        var radial := Vector3(cos(mid),0,sin(mid))
+        if (pose.basis*radial).dot(to_camera) < 0.0:
+            continue
+        var points := PackedVector2Array()
+        for angle in [a,b]:
+            for r in [1.29,1.55]:
+                for y in [-0.075,0.1125]:
+                    var local := Vector3(r*cos(angle),y,r*sin(angle))
+                    var world: Vector3 = pose*local
+                    if not cam.is_position_behind(world):
+                        points.append(cam.unproject_position(world))
+        if points.size() < 3:
+            continue
+        var polygon: PackedVector2Array = Geometry2D.convex_hull(points)
+        if polygon.size() >= 3:
+            masks.append({"polygon":polygon,"bounds":_polygon_bounds(polygon)})
+    return _clip_gate_strokes(_customize_scan_contours,masks)
 
 func _project_selection_clusters(clusters: Array, margin: float = 2.0) -> Array[PackedVector2Array]:
     var projected: Array[PackedVector2Array] = []

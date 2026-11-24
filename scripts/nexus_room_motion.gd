@@ -1,6 +1,11 @@
 extends Node3D
 const Modules = preload("res://assets/base_command_modules.gd")
 signal deployment_pose_changed
+signal scanner_pose_changed
+
+const SCAN_DOCK_Y: float = 6.61
+const SCAN_LOW_Y: float = 0.56
+const SCAN_CYCLE: float = 24.0
 ## NEXUS room hardware animation. Built once at scene entry; no additional
 ## viewports, particles, timers, dynamic mesh rebuilding or lights.
 ## All motion is driven from one 20 Hz sampler and leaves authored selection
@@ -20,6 +25,11 @@ var _door_open_amount: float = 0.0
 var _canopy_rotor: Node3D
 var _canopy_cyan_rotor: Node3D
 var _scanner: Node3D
+var _scan_grid: MeshInstance3D
+var _scan_material: ShaderMaterial
+var _scan_head_y: float = 4.2
+var _scan_radius_scale: float = 1.0
+var _scan_last_pose: Vector2 = Vector2(-1,-1)
 var _launch_scan: Node3D
 var _launch_status: Label3D
 var _launch_indicator: MeshInstance3D
@@ -82,9 +92,7 @@ func _process(delta: float) -> void:
         _arm_heads[i].position.y = -0.10 - 0.16 * (
             0.5 + 0.5 * sin(phase))
 
-    # Contactless scan hoop remains outside SERA's equipment/weapon rig.
-    _scanner.position.y = 2.11 + 0.44 * sin(_elapsed * 0.73)
-    _scanner.rotation.y = 0.12 * sin(_elapsed * 0.41)
+    _update_scanner()
 
     # Small mechanical pivots may sleep offscreen. Their absolute phase
     # still advances; a zoom or editor resumes all before camera movement.
@@ -258,7 +266,8 @@ func _module_vec(values: Array) -> Vector3:
 func _build_scanner(metal: Material, glow: Material) -> void:
     _scanner = Node3D.new()
     _scanner.name = "SeraContactlessScanner"
-    _scanner.position = Vector3(0.0, 2.11, -4.75)
+    _scanner.position = Vector3(0.0, SCAN_DOCK_Y, -4.75)
+    _scanner.set_meta("sera_nexus_scan_depth_only",true)
     add_child(_scanner)
     _segmented_ring(_scanner,"ScannerTrack",[Vector2(1.32,-0.075),
         Vector2(1.46,-0.075),Vector2(1.52,-0.025),Vector2(1.52,0.055),
@@ -273,6 +282,31 @@ func _build_scanner(metal: Material, glow: Material) -> void:
             Vector3(0.19,0.065,0.025),optic_mat)
         _box(emitter,"ScannerCartridge",Vector3(0,0.045,1.47),
             Vector3(0.21,0.135,0.15),metal)
+
+    # Storage collar sits immediately above the scanner's top at rest,
+    # outside the existing servo bearing and tool-head sweep.
+    var socket := Node3D.new()
+    socket.name = "ScannerDockSocket"
+    socket.position = Vector3(0,SCAN_DOCK_Y+0.11,-4.75)
+    add_child(socket)
+    _segmented_ring(socket,"DockCaptureLip",[Vector2(1.48,0.0),
+        Vector2(1.58,0.0),Vector2(1.66,0.08),Vector2(1.66,0.18),
+        Vector2(1.54,0.18),Vector2(1.48,0.12)],8,0.012,Color("#728b98"))
+    # Connect the fixed socket into the upper load ring without occupying
+    # the scanner's radial capture space or the inner rotating tools.
+    for i in range(6):
+        var mount := Node3D.new()
+        mount.rotation.y = TAU*float(i)/6.0
+        socket.add_child(mount)
+        _box(mount,"DockMountBridge",Vector3(0,0.32,1.62),
+            Vector3(0.20,0.40,0.20),metal)
+    _build_scan_grid()
+    for child in _scanner.get_children():
+        if child is GeometryInstance3D:
+            child.set_meta("sera_outline_occluder_only",true)
+        for sub in child.get_children():
+            if sub is GeometryInstance3D:
+                sub.set_meta("sera_outline_occluder_only",true)
 
 
 func _build_system_fan(at: Vector3, dark: Material,
@@ -558,3 +592,97 @@ func _segmented_ring(parent: Node3D,label: String,profile: Array,
 
 func _ring_point(p: Vector2,a: float) -> Vector3:
     return Vector3(p.x*cos(a),p.y,p.x*sin(a))
+
+
+# Geometry bounds are measured when the display pose/equipment changes.
+# No per-frame rig traversal. The dock remains a fixed physical dimension;
+# the ring expands only after clearing it and contracts before docking.
+func set_scanner_bounds(top: float, radius: float) -> void:
+    _scan_head_y = clampf(top+0.36,2.5,5.90)
+    _scan_radius_scale = clampf((radius+0.12)/1.30,1.0,1.62)
+
+
+func _scan_ease(t: float) -> float:
+    var v: float = clampf(t,0.0,1.0)
+    return v*v*v*(v*(v*6.0-15.0)+10.0)
+
+
+func _update_scanner() -> void:
+    var t: float = fposmod(_elapsed,SCAN_CYCLE)
+    var y: float = SCAN_DOCK_Y
+    var radial: float = 1.0
+    var fill: float = 0.0
+    # 0–5 dock; 5–7 descend; 7–8 settle above head;
+    # 8–8.8 deploy; 8.8–14 descend slowly; 14–20 ascend;
+    # 20–20.9 retract to rim; 20.9–23.0 glide into socket.
+    if t >= 5.0 and t < 7.0:
+        var k: float = _scan_ease((t-5.0)/2.0)
+        y = lerpf(SCAN_DOCK_Y,_scan_head_y,k)
+        radial = lerpf(1.0,_scan_radius_scale,_scan_ease((t-5.5)/1.5))
+    elif t >= 7.0 and t < 8.8:
+        y = _scan_head_y
+        radial = _scan_radius_scale
+        fill = _scan_ease((t-8.0)/0.8)
+    elif t >= 8.8 and t < 14.0:
+        y = lerpf(_scan_head_y,SCAN_LOW_Y,_scan_ease((t-8.8)/5.2))
+        radial = _scan_radius_scale
+        fill = 1.0
+    elif t >= 14.0 and t < 20.0:
+        y = lerpf(SCAN_LOW_Y,_scan_head_y,_scan_ease((t-14.0)/6.0))
+        radial = _scan_radius_scale
+        fill = 1.0
+    elif t >= 20.0 and t < 20.9:
+        y = _scan_head_y
+        radial = _scan_radius_scale
+        fill = 1.0-_scan_ease((t-20.0)/0.9)
+    elif t >= 20.9 and t < 23.0:
+        y = lerpf(_scan_head_y,SCAN_DOCK_Y,_scan_ease((t-20.9)/2.1))
+        radial = lerpf(_scan_radius_scale,1.0,_scan_ease((t-20.9)/1.0))
+    _scanner.position.y = y
+    _scanner.scale = Vector3(radial,1.0,radial)
+    _scan_grid.visible = fill > 0.001
+    if _scan_grid.visible:
+        _scan_material.set_shader_parameter("coverage",fill)
+    var pose := Vector2(y,radial)
+    if not pose.is_equal_approx(_scan_last_pose):
+        _scan_last_pose = pose
+        scanner_pose_changed.emit()
+
+
+func scanner_occlusion_pose() -> Transform3D:
+    return _scanner.global_transform
+
+
+func _build_scan_grid() -> void:
+    var plane := PlaneMesh.new()
+    plane.size = Vector2(2.64,2.64)
+    _scan_grid = MeshInstance3D.new()
+    _scan_grid.name = "InspectionGridSurface"
+    _scan_grid.mesh = plane
+    _scan_grid.position.y = 0.022
+    _scan_grid.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    _scan_grid.set_meta("FX_NO_OUTLINE",true)
+    _scan_grid.set_meta("sera_skip_common_id_outline",true)
+    _scan_grid.set_meta("sera_nexus_scan_depth_only",true)
+    var shader := Shader.new()
+    shader.code = """shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, fog_disabled;
+uniform float coverage = 0.0;
+void fragment() {
+    vec2 p = UV*2.0-1.0;
+    float r = length(p);
+    float inner = 1.0-coverage;
+    if (r > 1.0 || r < inner) { discard; }
+    vec2 g = abs(fract((p+1.0)*8.0+0.5)-0.5);
+    float line = 1.0-smoothstep(0.012,0.065,min(g.x,g.y));
+    float edge = 1.0-smoothstep(0.0,0.045,abs(r-inner));
+    float rim = 1.0-smoothstep(0.0,0.025,abs(r-1.0));
+    ALBEDO = mix(vec3(0.19,0.60,0.86),vec3(0.72,0.94,1.0),max(line,edge));
+    ALPHA = max(0.075,max(line*0.52,max(edge*0.67,rim*0.35)));
+}
+"""
+    _scan_material = ShaderMaterial.new()
+    _scan_material.shader = shader
+    _scan_grid.material_override = _scan_material
+    _scan_grid.hide()
+    _scanner.add_child(_scan_grid)
