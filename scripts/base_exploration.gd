@@ -201,6 +201,11 @@ func _ready() -> void:
     await _startup_budget.checkpoint("nexus")
     await _build_field_facilities()
     _restore_facility_poses()
+    if is_instance_valid(logistics) and logistics.has_method("bind_facility_motion"):
+        for key in ["LABO", "SMELTER", "RECYCLER", "STORAGE"]:
+            var station: Node3D = _facility_placement_root(key)
+            if is_instance_valid(station):
+                logistics.call("bind_facility_motion", key, station.get_node_or_null("IndustrialModel/FacilityMotion"))
     _startup_step("SHELL / FACILITY ARRAY ONLINE", 49)
     await _startup_budget.checkpoint("facilities")
     await _create_salvage([], _startup_budget)
