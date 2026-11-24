@@ -3,7 +3,7 @@ extends RefCounted
 const MAX_TRIANGLES = 12000
 const PADDING = 2
 
-static func build(source: MeshInstance3D, density: int, preserve_shape: bool = true) -> Dictionary:
+static func build(source: MeshInstance3D, density: int, preserve_shape: bool = true, balanced_shape: bool = false) -> Dictionary:
     var tris: Array[Dictionary] = []
     var charts: Array[Dictionary] = []
     var scale_basis: Basis = source.global_transform.basis if source.is_inside_tree() else source.transform.basis
@@ -71,6 +71,8 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     var initial_chart_count: int = charts.size()
     if preserve_shape:
         charts = _choose_hinge_layout(tris,charts)
+        if balanced_shape:
+            _relax_affine_islands(tris,charts)
     else:
         _match_rectified_edge_counts(tris,charts)
         _align_triangular_grids(tris,charts)
@@ -146,7 +148,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     arrays[Mesh.ARRAY_TEX_UV2] = diagnostic_uv
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"initial_charts":initial_chart_count,"unwrap_version":"shape-hinge-v2" if preserve_shape else "boundary-v1"}
+    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v1" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
 
 ## Group connected coplanar triangles, and the two halves of slightly
 ## warped authored quads. Never use an internal triangulation diagonal
@@ -966,6 +968,135 @@ static func _refine_residual_grids(tris: Array[Dictionary],charts: Array[Diction
 ## secondary seam inside the merged chart.
 ## Try a second cut topology on modest meshes. All trial UVs are
 ## isolated from the source and the old layout remains a fallback.
+## Uniform affine changes per connected island, not individual vertex
+## snapping. All triangles in an island receive the same invertible map.
+static func _affine_grid_point(p: Vector2,pivot: Vector2,params: PackedFloat32Array) -> Vector2:
+    var q: Vector2 = p-pivot
+    var transformed := Vector2(q.x*(1.0+params[1])+q.y*params[3],q.y*(1.0+params[2])+q.x*params[4])
+    return transformed.rotated(params[0])+pivot+Vector2(params[5],params[6])
+
+static func _affine_link_error(link: Dictionary,params: Array,pivots: PackedVector2Array) -> float:
+    var ca: int = int(link.a)
+    var cb: int = int(link.b)
+    var pa: PackedVector2Array = link.pa
+    var pb: PackedVector2Array = link.pb
+    var a0: Vector2 = _affine_grid_point(pa[0],pivots[ca],params[ca])
+    var a1: Vector2 = _affine_grid_point(pa[1],pivots[ca],params[ca])
+    var b0: Vector2 = _affine_grid_point(pb[0],pivots[cb],params[cb])
+    var b1: Vector2 = _affine_grid_point(pb[1],pivots[cb],params[cb])
+    var da: Vector2 = a1-a0
+    var db: Vector2 = b1-b0
+    var quarter: float = roundf(db.angle_to(da)/(PI*0.5))*(PI*0.5)
+    var error: Vector2 = a0-b0.rotated(quarter)
+    error -= error.round()
+    return maxf(error.length(),(error+da-db.rotated(quarter)).length())
+
+static func _affine_metrics(links: Array[Dictionary],params: Array,pivots: PackedVector2Array) -> Vector3:
+    var score := Vector3.ZERO
+    for link in links:
+        var error: float = _affine_link_error(link,params,pivots)
+        score.x = maxf(score.x,error)
+        score.y += 1.0 if error > 0.25 else 0.0
+        score.z += error*error
+    return score
+
+static func _affine_local_cost(ci: int,links: Array[Dictionary],incident: Array,params: Array,pivots: PackedVector2Array) -> float:
+    var cost: float = 0.0
+    for li in incident:
+        var e: float = _affine_link_error(links[int(li)],params,pivots)
+        cost += e*e + 0.15*maxf(0.0,e-0.25)
+    var p: PackedFloat32Array = params[ci]
+    # Small penalty toward the original metric grid.
+    for k in range(1,5):
+        cost += p[k]*p[k]*2.0
+    return cost
+
+static func _relax_affine_islands(tris: Array[Dictionary],charts: Array[Dictionary]) -> void:
+    if charts.size() > 256 or tris.size() > 2000:
+        return
+    var links: Array[Dictionary] = []
+    var adjacency: Array = []
+    var pivots := PackedVector2Array()
+    var params: Array = []
+    for chart in charts:
+        adjacency.append([])
+        params.append(PackedFloat32Array([0,0,0,0,0,0,0]))
+        var lo: Vector2 = chart.min
+        var hi: Vector2 = chart.max
+        pivots.append((lo+hi)*0.5)
+    for link in _seam_segments(tris):
+        var a: PackedVector2Array = _segment_uv(tris[link.ta],link.ea,link.a0,link.a1,"xy")
+        var b: PackedVector2Array = _segment_uv(tris[link.tb],link.eb,link.b0,link.b1,"xy")
+        if minf(a[0].distance_to(a[1]),b[0].distance_to(b[1])) < 0.00001:
+            continue
+        var li: int = links.size()
+        links.append({"a":int(link.a),"b":int(link.b),"pa":a,"pb":b})
+        (adjacency[int(link.a)] as Array).append(li)
+        (adjacency[int(link.b)] as Array).append(li)
+    if links.is_empty():
+        return
+    var baseline: Vector3 = _affine_metrics(links,params,pivots)
+    var best_score: Vector3 = baseline
+    var best_params: Array = params.duplicate()
+    var limits := PackedFloat32Array([0.2617994,0.1,0.1,0.12,0.12,0.5,0.5])
+    var steps := PackedFloat32Array([0.0872665,0.05,0.05,0.06,0.06,0.25,0.25])
+    for sweep in range(8):
+        for i in range(charts.size()):
+            var ci: int = i if sweep%2 == 0 else charts.size()-1-i
+            if adjacency[ci].is_empty():
+                continue
+            var current: PackedFloat32Array = params[ci]
+            var best: float = _affine_local_cost(ci,links,adjacency[ci],params,pivots)
+            for k in range(7):
+                var chosen: PackedFloat32Array = current
+                var step: float = steps[k]*(0.5 if sweep >= 4 else 1.0)
+                for sign_value in [-1.0,1.0]:
+                    var candidate: PackedFloat32Array = current.duplicate()
+                    candidate[k] = clampf(current[k]+step*float(sign_value),-limits[k],limits[k])
+                    params[ci] = candidate
+                    var cost: float = _affine_local_cost(ci,links,adjacency[ci],params,pivots)
+                    if cost < best-0.000001:
+                        best = cost
+                        chosen = candidate
+                current = chosen
+                params[ci] = current
+        var score: Vector3 = _affine_metrics(links,params,pivots)
+        if score.x <= baseline.x+0.00001 and score.y <= baseline.y and score.z < best_score.z-0.00001:
+            best_score = score
+            best_params = params.duplicate()
+    if best_score.z >= baseline.z-0.00001:
+        return
+    # Calculate proposed bounds before committing; keep atlas size.
+    var next_charts: Array[Dictionary] = []
+    for chart in charts:
+        var c: Dictionary = chart.duplicate()
+        c.min = Vector2(INF,INF)
+        c.max = Vector2(-INF,-INF)
+        next_charts.append(c)
+    var next_xy: Array[PackedVector2Array] = []
+    for t in tris:
+        var ci: int = int(t.chart)
+        var q := PackedVector2Array()
+        var c: Dictionary = next_charts[ci]
+        for point in t.xy:
+            var v: Vector2 = _affine_grid_point(point,pivots[ci],best_params[ci])
+            q.append(v)
+            var lo: Vector2 = c.min
+            var hi: Vector2 = c.max
+            c.min = lo.min(v)
+            c.max = hi.max(v)
+        next_xy.append(q)
+    for c in next_charts:
+        var lo: Vector2 = c.min
+        c.min = lo.floor()
+    if _hinge_pack_side(next_charts) > _hinge_pack_side(charts):
+        return
+    for i in range(tris.size()):
+        tris[i].xy = next_xy[i]
+    for ci in range(charts.size()):
+        charts[ci].min = next_charts[ci].min
+        charts[ci].max = next_charts[ci].max
+
 static func _choose_hinge_layout(tris: Array[Dictionary],charts: Array[Dictionary]) -> Array[Dictionary]:
     var trial_tris: Array[Dictionary] = []
     var trial_charts: Array[Dictionary] = []
