@@ -61,6 +61,8 @@ const SERA_STAGE_ORIGIN: Vector3 = Vector3(0.0, 0.0, -4.75)
 
 var batch_data: Dictionary = {}
 var _nexus_batch_roles: Dictionary = {}
+var _nexus_panel_group_keys: Dictionary = {}
+var _nexus_panel_group_specs: Dictionary = {}
 const NEXUS_AMBIENCE_FILE: String = "user://sera_nexus_ambience.cfg"
 var _ambience_value: float = 1.0
 var _scenery_filter_value: float = 0.28
@@ -1713,6 +1715,7 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
                     batch_key += 800
                 "DEPLOYMENT":
                     batch_key += 1000
+        batch_key = _nexus_panel_group_key(batch_key, str(part[0]), hi - lo)
         var instances: Array = batch_data.get(batch_key, [])
         instances.append(transform)
         var roles: Array = _nexus_batch_roles.get(batch_key, [])
@@ -2058,6 +2061,49 @@ func _mat(index: int) -> StandardMaterial3D:
 # shared RGB12 visible-ID buffer is now the ONLY source of visible lines.
 # All geometry selection and touch data remain on their original meshes.
 
+# Only intended painted service faces receive a patterned chart. A single
+# palette batch previously covered radically different parts, including
+# monitor mounts and slim rails. Keep those as ordinary painted steel.
+# Identical dimensions (e.g. mirrored gate pillars) share a render group.
+func _nexus_panel_group_key(base_key: int, label: String, size: Vector3) -> int:
+    var mode: int = 0
+    var texture_index: int = -1
+    if base_key in [402,403]:
+        if label == "SYSTEM sloped deep keyboard cockpit":
+            mode = 2
+            texture_index = 15
+        elif label in ["SYSTEM armored floor stand", "SYSTEM service power case", "SYSTEM support one-piece narrow spine"]:
+            mode = 1
+            texture_index = 10
+    elif base_key == 603:
+        if label == "TRAINING angled command keyboard":
+            mode = 2
+            texture_index = 15
+        elif label in ["TRAINING upright armored body", "TRAINING integrated left service housing"]:
+            mode = 1
+            texture_index = 11
+    elif base_key in [802,803]:
+        if label.begins_with("Archive flat control shelf"):
+            mode = 2
+            texture_index = 15
+        elif label == "Archive cabinet main lowered machine plinth" or label == "Archive processor access panel":
+            mode = 1
+            texture_index = 12
+    elif base_key in [1002,1003,1004]:
+        if label.begins_with("Independent portal armored load bearing pillar") or label.begins_with("Portal projecting front vertical armor") or label == "Gate angular wide load beam":
+            mode = 3
+            var aspect: float = maxf(size.x,size.y) / maxf(minf(size.x,size.y),0.001)
+            texture_index = 15 if aspect > 2.7 else 13
+    if mode == 0:
+        return base_key
+    var signature: String = "%d:%d:%d:%s" % [base_key,mode,texture_index,str(size.snapped(Vector3.ONE * 0.0001))]
+    if not _nexus_panel_group_keys.has(signature):
+        var key: int = base_key + 2000 * (_nexus_panel_group_keys.size() + 1)
+        _nexus_panel_group_keys[signature] = key
+        _nexus_panel_group_specs[key] = {"size": size, "mode": mode, "texture": texture_index}
+    return int(_nexus_panel_group_keys[signature])
+
+
 func _render_batches() -> void:
     var cube := BoxMesh.new()
     cube.size = Vector3.ONE
@@ -2068,22 +2114,32 @@ func _render_batches() -> void:
     var archive_armor := _nexus_console_casting(2)
     for index_value in batch_data.keys():
         var batch_key: int = int(index_value)
-        var background: bool = batch_key >= 200 and batch_key < 400
-        var featured: bool = batch_key >= 400
-        var no_stroke: bool = batch_key % 200 >= 100
-        var index: int = batch_key % 100
+        var base_key: int = batch_key % 2000
+        var background: bool = base_key >= 200 and base_key < 400
+        var featured: bool = base_key >= 400
+        var no_stroke: bool = base_key % 200 >= 100
+        var index: int = base_key % 100
         var transforms: Array = batch_data[batch_key]
         var multi := MultiMesh.new()
         multi.transform_format = MultiMesh.TRANSFORM_3D
         multi.mesh = machined if featured else cube
-        if batch_key >= 1000:
+        if base_key >= 1000:
             multi.mesh = portal_armor
-        elif batch_key >= 800:
+        elif base_key >= 800:
             multi.mesh = archive_armor
-        elif batch_key >= 600:
+        elif base_key >= 600:
             multi.mesh = training_armor
-        elif batch_key >= 400:
+        elif base_key >= 400:
             multi.mesh = system_armor
+        var panel_spec: Dictionary = _nexus_panel_group_specs.get(batch_key, {})
+        if not panel_spec.is_empty():
+            var size: Vector3 = panel_spec["size"]
+            var mode: int = int(panel_spec["mode"])
+            if mode == 3:
+                multi.mesh = _nexus_portal_armor_mesh(size, int(panel_spec["texture"]) == 15)
+            else:
+                var family_index: int = (base_key - 400) / 200
+                multi.mesh = _nexus_console_casting(family_index, size, mode)
         var roles: Array = _nexus_batch_roles.get(batch_key, [])
         var mixed: bool = roles.has(2) and roles.has(4)
         multi.use_custom_data = mixed
@@ -2101,6 +2157,8 @@ func _render_batches() -> void:
             draw.name = "NexusFeaturedArmor_%04d" % batch_key
         draw.multimesh = multi
         draw.set_meta("nexus_finish_palette", index)
+        if not panel_spec.is_empty():
+            draw.set_meta("nexus_panel_texture_index", int(panel_spec["texture"]))
         draw.set_meta("nexus_ink_class", "facility" if roles.has(2) else "nexus_background")
         if mixed:
             draw.set_meta("sera_outline_instanced_roles", true)
@@ -2119,7 +2177,7 @@ func _render_batches() -> void:
             material.metallic_specular = 0.0
             draw.set_meta("sera_preserve_authored_material", true)
         elif featured:
-            var family: int = batch_key - index
+            var family: int = base_key - index
             var armor_colors: Dictionary = {
                 400: [Color("#5c7c94"), Color("#91b3c8"), Color("#c1dbe7")],
                 600: [Color("#77756b"), Color("#aaa99a"), Color("#e1dccc")],
@@ -2177,7 +2235,7 @@ func _nexus_readable_armor_mesh() -> ArrayMesh:
 # broad SYSTEM housings have stepped shoulders; TRAINING has faceted
 # protective corners; the ARCHIVE is a narrow-bevel rack with flat sides.
 # Existing screens, painted material families and placement refs are kept.
-func _nexus_console_casting(family: int) -> ArrayMesh:
+func _nexus_console_casting(family: int, metric: Vector3 = Vector3.ONE, panel_mode: int = 0) -> ArrayMesh:
     var surface := SurfaceTool.new()
     surface.begin(Mesh.PRIMITIVE_TRIANGLES)
     var corner: float = [0.07, 0.18, 0.035][family]
@@ -2215,25 +2273,24 @@ func _nexus_console_casting(family: int) -> ArrayMesh:
                 outward.y = -0.6
             elif j == 2:
                 outward.y = 0.6
-            # Only the broad, planar middle band receives the hatch.
-            # Each quad shares a UV chart; its diagonal never changes projection.
-            if j == 2 and i == 4:
-                # The wide front shoulder under the keys is visible in
-                # close-ups. Give it its own shallow strip chart, not a
-                # full square hatch distorted onto a narrow bevel.
+            if panel_mode == 2 and j == 2 and i == 4:
+                # A long seam, not a compressed square hatch. Use the
+                # same affine x/y map on both triangles of this trapezoid.
                 _nexus_panel_strip_quad(surface,a,b,c,d,outward)
+            elif panel_mode == 1 and j == 1 and i % 2 == 0:
+                _nexus_metric_panel_quad(surface,a,b,c,d,outward,metric)
             else:
-                _nexus_panel_quad(surface,a,b,c,d,outward,j == 1 and i % 2 == 0)
+                _nexus_panel_quad(surface,a,b,c,d,outward,false)
     for i in range(1,7):
         _nexus_panel_cap(surface,rings[0][0],rings[0][i],rings[0][i+1],Vector3.DOWN,widths[0],false)
-        _nexus_panel_cap(surface,rings[3][0],rings[3][i],rings[3][i+1],Vector3.UP,widths[3],true)
+        _nexus_panel_cap(surface,rings[3][0],rings[3][i],rings[3][i+1],Vector3.UP,widths[3],false)
     return surface.commit()
 
 
 # Portal-only castings: a narrow chamfered silhouette, thick shoulder and
 # recessed front service face. The unit bounds are unchanged, so neither
 # the rotated gate nor its fittings grow into the room shell.
-func _nexus_portal_armor_mesh() -> ArrayMesh:
+func _nexus_portal_armor_mesh(metric: Vector3 = Vector3.ZERO, strip: bool = false) -> ArrayMesh:
     var surface := SurfaceTool.new()
     surface.begin(Mesh.PRIMITIVE_TRIANGLES)
     var profile := PackedVector2Array([
@@ -2269,7 +2326,10 @@ func _nexus_portal_armor_mesh() -> ArrayMesh:
     var last: int = rings.size() - 1
     for i in range(1, 7):
         _nexus_panel_cap(surface,rings[0][0],rings[0][i],rings[0][i+1],Vector3.FORWARD,widths[0],false)
-        _nexus_panel_cap(surface,rings[last][0],rings[last][i],rings[last][i+1],Vector3.BACK,widths[last],true)
+        if metric == Vector3.ZERO:
+            _nexus_panel_cap(surface,rings[last][0],rings[last][i],rings[last][i+1],Vector3.BACK,widths[last],false)
+        else:
+            _nexus_metric_portal_cap(surface,rings[last][0],rings[last][i],rings[last][i+1],widths[last],metric,strip)
     return surface.commit()
 
 
@@ -2288,15 +2348,48 @@ func _nexus_panel_quad(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3,
     _nexus_armor_triangle(surface,a,c,d,outward,ua,uc,ud)
 
 
-func _nexus_panel_strip_quad(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3,
-        d: Vector3, outward: Vector3) -> void:
-    # Reserved texture rows 2..11, entirely separate from the broad hatch.
-    var ua := Vector2(0.0,11.0/64.0)
-    var ub := Vector2(1.0,11.0/64.0)
-    var uc := Vector2(1.0,2.0/64.0)
-    var ud := Vector2(0.0,2.0/64.0)
+# Apply an aspect-correct square detail on a planar rectangle. UVs outside
+# the image intentionally clamp to the neutral paint border. Never clamp
+# individual vertices: doing so would change the interpolation at diagonals.
+func _nexus_metric_panel_quad(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3,
+        d: Vector3, outward: Vector3, metric: Vector3) -> void:
+    var w: float = ((b-a)*metric).length()
+    var h: float = ((d-a)*metric).length()
+    if minf(w,h) < 0.17 or maxf(w,h)/maxf(minf(w,h),0.001) > 3.2:
+        _nexus_panel_quad(surface,a,b,c,d,outward,false)
+        return
+    var scale := Vector2(maxf(1.0,w/h),maxf(1.0,h/w))
+    var center := Vector2(0.5,0.5)
+    var ua: Vector2 = center + Vector2(-0.5,0.5)*scale
+    var ub: Vector2 = center + Vector2(0.5,0.5)*scale
+    var uc: Vector2 = center + Vector2(0.5,-0.5)*scale
+    var ud: Vector2 = center + Vector2(-0.5,-0.5)*scale
     _nexus_armor_triangle(surface,a,b,c,outward,ua,ub,uc)
     _nexus_armor_triangle(surface,a,c,d,outward,ua,uc,ud)
+
+
+func _nexus_panel_strip_quad(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3,
+        d: Vector3, outward: Vector3) -> void:
+    var span: float = maxf(absf(a.x),absf(b.x))*2.0
+    var coords := PackedVector2Array()
+    for point in [a,b,c,d]:
+        coords.append(Vector2(point.x/maxf(span,0.001)+0.5,
+            1.0-(point.y-a.y)/maxf(d.y-a.y,0.001)))
+    _nexus_armor_triangle(surface,a,b,c,outward,coords[0],coords[1],coords[2])
+    _nexus_armor_triangle(surface,a,c,d,outward,coords[0],coords[2],coords[3])
+
+
+func _nexus_metric_portal_cap(surface: SurfaceTool, a: Vector3, b: Vector3,
+        c: Vector3, span: float, metric: Vector3, strip: bool) -> void:
+    var coords := PackedVector2Array()
+    var scale := Vector2(maxf(1.0,metric.x/metric.y),maxf(1.0,metric.y/metric.x))
+    for point in [a,b,c]:
+        var p := Vector2(point.x/span,-point.y/span)
+        var uv := Vector2(0.5,0.5) + p*scale
+        if strip:
+            uv = Vector2(0.5,0.5) + (Vector2(p.y,p.x) if metric.y > metric.x else p)
+        coords.append(uv)
+    _nexus_armor_triangle(surface,a,b,c,Vector3.BACK,coords[0],coords[1],coords[2])
 
 
 func _nexus_panel_cap(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3,
@@ -2332,7 +2425,7 @@ func _nexus_armor_triangle(surface: SurfaceTool, a: Vector3, b: Vector3,
     var coords := PackedVector2Array([ua,ub,uc])
     for i in range(3):
         surface.set_normal(normal)
-        if ua.x >= 0.0:
+        if ua != Vector2(-1.0,-1.0):
             surface.set_uv(coords[i])
         surface.add_vertex(points[i])
 
@@ -2384,6 +2477,7 @@ func _nexus_apply_wear_after_entry() -> void:
     _nexus_pixel_steel.append(_nexus_make_archive_panel_texture())
     _nexus_pixel_steel.append(_nexus_make_gate_panel_texture(false))
     _nexus_pixel_steel.append(_nexus_make_gate_panel_texture(true))
+    _nexus_pixel_steel.append(_nexus_make_long_panel_seam())
     var batch_index: int = 0
     var clean_variants: Dictionary = {}
     for child in deck.get_children():
@@ -2433,7 +2527,6 @@ func _nexus_make_console_panel_texture(training: bool) -> Texture2D:
     var inset := Color("#d5dce0")
     var rim := Color("#ffffff")
     image.fill(paint)
-    _nexus_front_panel_strip(image, training, seam, inset, rim)
     if training:
         # Mechanical stepped service panel; keep the corners of the
         # hatch within the usable flat face even on faceted shells.
@@ -2472,20 +2565,15 @@ func _nexus_panel_fastener(image: Image, at: Vector2i, seam: Color, rim: Color) 
     image.set_pixel(at.x,at.y,rim)
 
 
-func _nexus_front_panel_strip(image: Image, training: bool, seam: Color,
-        inset: Color, rim: Color) -> void:
-    # Independent shallow horizontal design, with end margins. Row 1
-    # and column 1 remain plain for the undecorated-face UV sample.
-    image.fill_rect(Rect2i(8,4,48,6),seam)
-    image.fill_rect(Rect2i(10,6,44,2),inset)
-    image.fill_rect(Rect2i(10,6,44,1),rim)
-    if training:
-        for x in [14,18,22,26]:
-            image.fill_rect(Rect2i(x,5,2,4),seam)
-        image.fill_rect(Rect2i(44,5,6,4),Color("#9aa5ac"))
-    else:
-        for x in [14,47]:
-            image.fill_rect(Rect2i(x,5,3,4),seam)
+# Independent slender seam texture, no repeated pseudo-lettering and no
+# adjacent atlas chart that could bleed through a mip level.
+func _nexus_make_long_panel_seam() -> Texture2D:
+    var image := Image.create(64,16,false,Image.FORMAT_RGBA8)
+    image.fill(Color("#f4f5f5"))
+    image.fill_rect(Rect2i(7,7,50,2),Color("#66757e"))
+    image.fill_rect(Rect2i(8,9,48,1),Color("#ffffff"))
+    image.generate_mipmaps()
+    return ImageTexture.create_from_image(image)
 
 
 # Rack and cartridge design: fewer, broader horizontal details survive
@@ -2496,7 +2584,6 @@ func _nexus_make_archive_panel_texture() -> Texture2D:
     var seam := Color("#4e6268")
     var inset := Color("#ced9d9")
     var rim := Color.WHITE
-    _nexus_front_panel_strip(image,false,seam,inset,rim)
     image.fill_rect(Rect2i(9,15,46,36),seam)
     image.fill_rect(Rect2i(11,17,42,32),inset)
     image.fill_rect(Rect2i(12,17,40,1),rim)
@@ -2540,16 +2627,7 @@ func _nexus_make_gate_panel_texture(leaf: bool) -> Texture2D:
 func _nexus_console_panel_texture_index(geometry: GeometryInstance3D) -> int:
     if bool(geometry.get_meta("nexus_panel_leaf", false)):
         return 14
-    match str(geometry.name):
-        "NexusFeaturedArmor_0402", "NexusFeaturedArmor_0403":
-            return 10
-        "NexusFeaturedArmor_0603":
-            return 11
-        "NexusFeaturedArmor_0802", "NexusFeaturedArmor_0803":
-            return 12
-        "NexusFeaturedArmor_1002", "NexusFeaturedArmor_1003", "NexusFeaturedArmor_1004":
-            return 13
-    return -1
+    return int(geometry.get_meta("nexus_panel_texture_index", -1))
 
 
 func _nexus_finish_tint(tint: Color, gain: float) -> Color:
