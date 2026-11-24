@@ -70,11 +70,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     charts = _split_overlapping_charts(tris,charts)
     var initial_chart_count: int = charts.size()
     if preserve_shape:
-        charts = _connect_hinge_charts(tris,charts)
-        # Keep an orthonormal projection for every chart. Phase alignment
-        # translates the entire grid; never move individual UV vertices.
-        _synchronize_chart_grids(tris,charts,true)
-        _align_rigid_chart_grids(tris,charts)
+        charts = _choose_hinge_layout(tris,charts)
     else:
         _match_rectified_edge_counts(tris,charts)
         _align_triangular_grids(tris,charts)
@@ -150,7 +146,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     arrays[Mesh.ARRAY_TEX_UV2] = diagnostic_uv
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"initial_charts":initial_chart_count,"unwrap_version":"shape-hinge-v1" if preserve_shape else "boundary-v1"}
+    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"initial_charts":initial_chart_count,"unwrap_version":"shape-hinge-v2" if preserve_shape else "boundary-v1"}
 
 ## Group connected coplanar triangles, and the two halves of slightly
 ## warped authored quads. Never use an internal triangulation diagonal
@@ -968,7 +964,90 @@ static func _refine_residual_grids(tris: Array[Dictionary],charts: Array[Diction
 ## phase alignment. Every accepted join is a rigid transform, with
 ## matching endpoints, no positive-area overlap, and no inconsistent
 ## secondary seam inside the merged chart.
-static func _connect_hinge_charts(tris: Array[Dictionary],charts: Array[Dictionary]) -> Array[Dictionary]:
+## Try a second cut topology on modest meshes. All trial UVs are
+## isolated from the source and the old layout remains a fallback.
+static func _choose_hinge_layout(tris: Array[Dictionary],charts: Array[Dictionary]) -> Array[Dictionary]:
+    var trial_tris: Array[Dictionary] = []
+    var trial_charts: Array[Dictionary] = []
+    if tris.size() <= 1000 and charts.size() > 1 and charts.size() <= 256:
+        for t in tris:
+            var copy: Dictionary = t.duplicate()
+            var xy: PackedVector2Array = t.xy
+            copy.xy = xy.duplicate()
+            trial_tris.append(copy)
+        for chart in charts:
+            trial_charts.append(chart.duplicate())
+    var baseline: Array[Dictionary] = _connect_hinge_charts(tris,charts)
+    _synchronize_chart_grids(tris,baseline,true)
+    _align_rigid_chart_grids(tris,baseline)
+    if trial_tris.is_empty():
+        return baseline
+    trial_charts = _connect_hinge_charts(trial_tris,trial_charts,true)
+    _synchronize_chart_grids(trial_tris,trial_charts,true)
+    _align_rigid_chart_grids(trial_tris,trial_charts)
+    var before: Vector3 = _hinge_layout_metrics(tris)
+    var after: Vector3 = _hinge_layout_metrics(trial_tris)
+    # Count the absolute number of offending physical seams, not a
+    # percentage of the remaining cuts. Do not trade for a larger atlas.
+    if after.x > before.x+0.00001 or after.y > before.y or after.z >= before.z-0.00001:
+        return baseline
+    if _hinge_pack_side(trial_charts) > _hinge_pack_side(baseline):
+        return baseline
+    for i in range(tris.size()):
+        tris[i].xy = trial_tris[i].xy
+        tris[i].chart = trial_tris[i].chart
+    return trial_charts
+
+static func _hinge_layout_metrics(tris: Array[Dictionary]) -> Vector3:
+    var worst: float = 0.0
+    var count: float = 0.0
+    var squared: float = 0.0
+    for link in _seam_segments(tris):
+        var a: PackedVector2Array = _segment_uv(tris[int(link.ta)],int(link.ea),float(link.a0),float(link.a1),"xy")
+        var b: PackedVector2Array = _segment_uv(tris[int(link.tb)],int(link.eb),float(link.b0),float(link.b1),"xy")
+        var da: Vector2 = a[1]-a[0]
+        var db: Vector2 = b[1]-b[0]
+        var quarter: float = roundf(db.angle_to(da)/(PI*0.5))*(PI*0.5)
+        var e0: Vector2 = a[0]-b[0].rotated(quarter)
+        e0 -= e0.round()
+        var residual: float = maxf(e0.length(),(e0+da-db.rotated(quarter)).length())
+        worst = maxf(worst,residual)
+        if residual > 0.25:
+            count += 1.0
+        squared += residual*residual
+    return Vector3(worst,count,squared)
+
+static func _hinge_pack_side(charts: Array[Dictionary]) -> int:
+    var sizes: Array[Vector2i] = []
+    var order: Array[int] = []
+    for i in range(charts.size()):
+        var c: Dictionary = charts[i]
+        sizes.append(Vector2i(ceili(c.max.x-c.min.x),ceili(c.max.y-c.min.y))+Vector2i.ONE*(2*PADDING+2))
+        order.append(i)
+    order.sort_custom(func(a: int,b: int) -> bool: return sizes[a].y > sizes[b].y)
+    var side: int = 64
+    while side <= 1024:
+        var x: int = 0
+        var y: int = 0
+        var row: int = 0
+        var fits: bool = true
+        for i in order:
+            var sz: Vector2i = sizes[i]
+            if x+sz.x > side:
+                x = 0
+                y += row
+                row = 0
+            if sz.x > side or y+sz.y > side:
+                fits = false
+                break
+            x += sz.x
+            row = maxi(row,sz.y)
+        if fits:
+            return side
+        side *= 2
+    return side
+
+static func _connect_hinge_charts(tris: Array[Dictionary],charts: Array[Dictionary],alternate: bool = false) -> Array[Dictionary]:
     var members: Array = []
     var incident: Array = []
     for ci in range(charts.size()):
@@ -991,14 +1070,15 @@ static func _connect_hinge_charts(tris: Array[Dictionary],charts: Array[Dictiona
         var na: Vector3 = a.face_normal
         var nb: Vector3 = b.face_normal
         var alignment: float = na.dot(nb)
-        if alignment < 0.4226183:
+        if alignment < (-0.1736482 if alternate else 0.4226183):
             continue
         var pa: PackedVector2Array = _segment_uv(a,link.ea,link.a0,link.a1,"xy")
         var pb: PackedVector2Array = _segment_uv(b,link.eb,link.b0,link.b1,"xy")
         var length: float = minf(pa[0].distance_to(pa[1]),pb[0].distance_to(pb[1]))
         if length < 0.00001 or absf(pa[0].distance_to(pa[1])-pb[0].distance_to(pb[1])) > 0.001:
             continue
-        candidates.append({"id":li,"weight":length*(0.5+alignment)})
+        var weight: float = 3.0*alignment+0.3*minf(length,8.0) if alternate else length*(0.5+alignment)
+        candidates.append({"id":li,"weight":weight})
     candidates.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
         return int(a.id) < int(b.id) if float(a.weight) == float(b.weight) else float(a.weight) > float(b.weight))
     var budget: int = 180000
