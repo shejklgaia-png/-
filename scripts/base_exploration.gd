@@ -178,7 +178,19 @@ func _ready() -> void:
     await _startup_budget.yield_frame()
     if console_screen != null:
         console_screen.set_cyber_font(LaboSkin.display_font())
-    # Build the real scene continuously; resources load synchronously on use.
+    # Decode independent imported resources while the terminal can animate.
+    # Keep strong references through construction; get only after LOADED.
+    var requests: Array[String] = []
+    for path in [WEATHERED_STEEL_PATH, WEATHERED_DECK_PATH, BASE_LOGISTICS_PATH]:
+        if ResourceLoader.exists(path) and ResourceLoader.load_threaded_request(path) == OK:
+            requests.append(path)
+    var boot_resources: Dictionary = {}
+    for path in requests:
+        while ResourceLoader.load_threaded_get_status(path) == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+            await _startup_budget.yield_frame()
+        if ResourceLoader.load_threaded_get_status(path) == ResourceLoader.THREAD_LOAD_LOADED:
+            boot_resources[path] = ResourceLoader.load_threaded_get(path)
+    await _startup_budget.checkpoint("resources")
     await _build_hangar()
     _startup_step("WORLD / FLOOR MATRIX ONLINE", 18)
     await _startup_budget.checkpoint("floor")
@@ -188,7 +200,7 @@ func _ready() -> void:
     await _build_power_distribution_startup()
     _startup_step("GRID / POWER ROUTING ONLINE", 21)
     await _startup_budget.checkpoint("power distribution")
-    await _build_logistics()
+    await _build_logistics(boot_resources.get(BASE_LOGISTICS_PATH))
     await BasePowerDistribution.install_protectors_budgeted(power_distribution, logistics, _startup_budget)
     _boot_panels.clear()
     await _build_nexus_building()
@@ -380,8 +392,24 @@ func _create_grid_plates(floor: Node3D, budget: Variant = null) -> Array[Diction
         var rotated := Vector2(absf(cos(yaw))*body.x+absf(sin(yaw))*body.y,absf(sin(yaw))*body.x+absf(cos(yaw))*body.y)
         var minimum: Vector2 = site["minimum"]
         site["minimum"] = Vector2(maxf(minimum.x,rotated.x+0.8),maxf(minimum.y,rotated.y+0.8))
-    var panels: Array[Dictionary] = BaseDeckLayout.generate_aligned(
-        PLATE_GRID_RADIUS_CELLS, PLATE_GRID_STEP, sites)
+    # Only pure value data crosses the worker boundary. Capture an
+    # independent site array and constants, never a Node or render resource.
+    var panels: Array[Dictionary] = []
+    var radius: int = PLATE_GRID_RADIUS_CELLS
+    var step: float = PLATE_GRID_STEP
+    var worker_sites: Array[Dictionary] = sites.duplicate(true)
+    if budget != null:
+        var worker := Thread.new()
+        var task := func(): return BaseDeckLayout.generate_aligned(radius, step, worker_sites)
+        if worker.start(task) == OK:
+            while worker.is_alive():
+                await budget.yield_frame()
+            panels = worker.wait_to_finish()
+        else:
+            panels = BaseDeckLayout.generate_aligned(radius, step, sites)
+        await budget.checkpoint("deck partition")
+    else:
+        panels = BaseDeckLayout.generate_aligned(radius, step, sites)
     # Physically chamfered eight-sided polygonal unit slab, sharing one
     # CPU-side mesh across all existing six floor MultiMesh draw batches.
     var plate_mesh: ArrayMesh = BasePolygon.make("deck")
@@ -460,7 +488,7 @@ func _build_hangar() -> void:
     # Do not persist fallback textures before editor import finishes.
     if not ResourceLoader.exists(WEATHERED_STEEL_PATH) or not ResourceLoader.exists(WEATHERED_DECK_PATH):
         bake_path = ""
-    var floor: Node3D = StaticBake.load_scene(bake_path, "PatchworkSteelFloor")
+    var floor: Node3D = await StaticBake.load_scene_budgeted(bake_path, "PatchworkSteelFloor", _startup_budget)
     if floor != null:
         add_child(floor)
     else:

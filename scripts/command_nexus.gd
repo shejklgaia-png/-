@@ -1,4 +1,5 @@
 extends Node3D
+const StartupBudget = preload("res://scripts/sera_startup_budget.gd")
 # v147: move exhibition SERA twice as fast (0.14 s) and finalize only after concurrent camera arrival.
 # Preserve v127 kiosk/occlusion, v125 touch navigation and v124 Blockbench geometry.
 const Modules = preload("res://assets/base_command_modules.gd")
@@ -405,6 +406,14 @@ func _ready() -> void:
     FrameRateSettings.apply("base_nexus")
     # Godot 4 Android Back is a Window go-back request when auto-quit is off.
     get_window().go_back_requested.connect(_on_android_back)
+    # Split only under the existing entry cover; direct entry retains its synchronous contract.
+    var entry_budget: RefCounted = null
+    var prior_mode: int = process_mode
+    var prior_3d: bool = get_viewport().disable_3d
+    if get_tree().root.get_node_or_null("NexusEntryTransition") != null:
+        entry_budget = StartupBudget.new(get_tree())
+        process_mode = Node.PROCESS_MODE_DISABLED
+        get_viewport().disable_3d = true
     _load_nexus_ambience()
     _environment()
     _module("hangar_shell", Vector3.ZERO)
@@ -418,6 +427,8 @@ func _ready() -> void:
     _module("system_console", SYSTEM_CONSOLE_ORIGIN, deg_to_rad(18.0))
     _module("training_console", TRAINING_CONSOLE_ORIGIN, deg_to_rad(-14.0))
     _render_batches()
+    if entry_budget != null:
+        await entry_budget.call("checkpoint", "nexus module batches")
     # Replace TRAINING rectangular side tower and flat vent with a single
     # sculpted mechanical casting. Original selectable bounds stay authored.
     NexusTrainingServiceModule.build(
@@ -425,25 +436,35 @@ func _ready() -> void:
     # Replace only the floor surface, retaining the authored foundation,
     # all structures, console hit areas and the original NEXUS ID pipeline.
     NexusFloorPanels.build(self)
+    if entry_budget != null:
+        await entry_budget.call("checkpoint", "nexus floor")
     # The four authored cable paths stay outside the selection clusters.
     _prepare_canonical_placement_specs()
     var floor_cables := NexusHandRoutedCables.new()
     floor_cables.name = "NexusHandRoutedCables"
     add_child(floor_cables)
     floor_cables.build(canonical_placement_specs)
+    if entry_budget != null:
+        await entry_budget.call("checkpoint", "nexus cable")
     # Replace the solid back wall, interfering gate-side column and the
     # horizontal bridge with an actual cut-out shell and shaped trusses.
     NexusBulkheadRefit.build(self, GATE_ORIGIN, _gate_facing_yaw(), GATE_SCALE)
+    if entry_budget != null:
+        await entry_budget.call("checkpoint", "nexus bulkhead")
     # Shared low-poly castings sit inside existing Blockbench silhouettes.
     # Build before the shared material/depth pass, without changing hit zones.
     NexusGeneratedArchitecture.build(
         self, SYSTEM_CONSOLE_ORIGIN, TRAINING_CONSOLE_ORIGIN,
         GATE_ORIGIN, _gate_facing_yaw(), GATE_SCALE)
+    if entry_budget != null:
+        await entry_budget.call("checkpoint", "nexus architecture")
     # Five reusable complex machine profiles, all opaque and depth-tested.
     # Detail instances never become touch targets or ID-outline sources.
     NexusComplexMachining.build(
         self, SYSTEM_CONSOLE_ORIGIN, TRAINING_CONSOLE_ORIGIN,
         GATE_ORIGIN, _gate_facing_yaw(), GATE_SCALE)
+    if entry_budget != null:
+        await entry_budget.call("checkpoint", "nexus machining")
     # Organic, visibly curved castings use three shared procedural ArrayMeshes.
     # Their depth-only geometry never changes interactive Blockbench outlines.
     NexusSculptedFittings.build(
@@ -453,6 +474,8 @@ func _ready() -> void:
     # approach and auxiliary console use the same rotated gate origin.
     NexusDeploymentWallDock.build(self, GATE_ORIGIN,
         _gate_facing_yaw(), GATE_SCALE)
+    if entry_budget != null:
+        await entry_budget.call("checkpoint", "nexus dock")
     var deployment_parts: Array = target_parts.get("DEPLOYMENT", [])
     deployment_parts.append(NexusDeploymentWallDock.console_hit_corners(
         GATE_ORIGIN, _gate_facing_yaw()))
@@ -475,12 +498,16 @@ func _ready() -> void:
     _nexus_practical_lights()
     _enable_nexus_base_ink(self)
     _wall_mark()
+    if entry_budget != null:
+        await entry_budget.call("checkpoint", "nexus shading")
     # Capture the visible room roots before adding the exhibit and preview renderer.
     # Source visibility also controls their copies in the shared RGB-ID pass.
     for child in get_children():
         if child is Node3D and not (child is Light3D) and child.visible:
             nexus_room_visuals.append(child)
     _sera_display()
+    if entry_budget != null:
+        await entry_budget.call("checkpoint", "nexus rig")
     if is_instance_valid(sera_display_rig):
         _nexus_apply_practical_shading(sera_display_rig, true, true)
     _camera()
@@ -518,6 +545,11 @@ func _ready() -> void:
     call_deferred("_start_nexus_bgm_if_direct")
     call_deferred("_nexus_apply_wear_after_entry")
     call_deferred("_build_nexus_atmosphere")
+    if entry_budget != null:
+        get_viewport().disable_3d = prior_3d
+        process_mode = prior_mode
+        entry_budget.call("report")
+    set_meta("sera_nexus_boot_complete", true)
 
 
 # Dedicated NEXUS BGM; the intro plays once before a 64-second loop.
