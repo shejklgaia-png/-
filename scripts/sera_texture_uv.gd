@@ -18,6 +18,7 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
         var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
         var ns: PackedVector3Array = arr[Mesh.ARRAY_NORMAL] if arr[Mesh.ARRAY_NORMAL] != null else PackedVector3Array()
         var old_uv: PackedVector2Array = arr[Mesh.ARRAY_TEX_UV] if arr[Mesh.ARRAY_TEX_UV] != null else PackedVector2Array()
+        var vertex_colors: PackedColorArray = arr[Mesh.ARRAY_COLOR] if arr[Mesh.ARRAY_COLOR] != null else PackedColorArray()
         var ids: PackedInt32Array = arr[Mesh.ARRAY_INDEX] if arr[Mesh.ARRAY_INDEX] != null else PackedInt32Array()
         var count: int = ids.size() if not ids.is_empty() else vs.size()
         var mat := source.get_active_material(s) as StandardMaterial3D
@@ -53,6 +54,7 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
             var xy := PackedVector2Array()
             var normals := PackedVector3Array()
             var prior := PackedVector2Array()
+            var colors := PackedColorArray()
             for k in range(3):
                 var q := Vector2(p[k].dot(chart.u), p[k].dot(chart.v))*density
                 xy.append(q)
@@ -63,7 +65,8 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
                     nn = (ns[ix[k]] / metric.max(Vector3(0.00001,0.00001,0.00001))).normalized()
                 normals.append(nn)
                 prior.append(old_uv[ix[k]] if old_uv.size() == vs.size() else Vector2.ZERO)
-            tris.append({"p":p,"n":normals,"xy":xy,"chart":ci,"base":base,"tex":tex,"prior":prior})
+                colors.append(vertex_colors[ix[k]] if mat != null and mat.vertex_color_use_as_albedo and vertex_colors.size() == vs.size() else Color.WHITE)
+            tris.append({"p":p,"n":normals,"xy":xy,"chart":ci,"base":base,"tex":tex,"prior":prior,"colors":colors,"repeat":mat == null or mat.texture_repeat})
     if tris.is_empty():
         return {"error":"描画可能な三角形がありません"}
     var order: Array[int] = []
@@ -133,6 +136,7 @@ static func _bake_triangle(img: Image,t: Dictionary) -> void:
     var lo := Vector2i(floori(minf(a.x,minf(b.x,c.x))),floori(minf(a.y,minf(b.y,c.y))))
     var hi := Vector2i(ceili(maxf(a.x,maxf(b.x,c.x))),ceili(maxf(a.y,maxf(b.y,c.y))))
     var tex: Image = t.tex
+    var colors: PackedColorArray = t.get("colors",PackedColorArray([Color.WHITE,Color.WHITE,Color.WHITE]))
     for y in range(maxi(0,lo.y),mini(img.get_height(),hi.y+1)):
         for x in range(maxi(0,lo.x),mini(img.get_width(),hi.x+1)):
             var p := Vector2(x+0.5,y+0.5)
@@ -143,9 +147,12 @@ static func _bake_triangle(img: Image,t: Dictionary) -> void:
             var color: Color = t.base
             if tex != null and not tex.is_empty():
                 var old: Vector2 = t.prior[0]*(1-v-w)+t.prior[1]*v+t.prior[2]*w
-                var tx := clampi(floori(fposmod(old.x,1.0)*tex.get_width()),0,tex.get_width()-1)
-                var ty := clampi(floori(fposmod(old.y,1.0)*tex.get_height()),0,tex.get_height()-1)
+                if bool(t.get("repeat",true)):
+                    old = Vector2(fposmod(old.x,1.0),fposmod(old.y,1.0))
+                var tx := clampi(floori(old.x*tex.get_width()),0,tex.get_width()-1)
+                var ty := clampi(floori(old.y*tex.get_height()),0,tex.get_height()-1)
                 color *= tex.get_pixel(tx,ty)
+            color *= colors[0]*(1.0-v-w)+colors[1]*v+colors[2]*w
             img.set_pixel(x,y,Color(color.r,color.g,color.b,1.0))
 
 static func hit(tris: Array,origin: Vector3,direction: Vector3) -> Dictionary:
