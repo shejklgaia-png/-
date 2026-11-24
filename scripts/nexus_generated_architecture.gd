@@ -51,25 +51,8 @@ static func build(room: Node3D, system_at: Vector3,
             Vector3(-0.17 + float(side_value) * 0.16, 0.55, 0.725),
             Vector3(0.037, 0.037, 0.018))
 
-    # DEPLOYMENT: heavier framed castings on the outer vertical cheeks and
-    # under the top lintel. Stay outside the bright cyan aperture blades;
-    # both the geometry and the existing lightspill share the gate transform.
-    for side_value in [-1, 1]:
-        var side: float = float(side_value)
-        _plate(pieces, "outer", gate_at, gate_yaw,
-            (Vector3(side * 1.92, 2.45, 0.89) * gate_scale), (Vector2(0.16, 0.77) * gate_scale))
-        _plate(pieces, "trim", gate_at, gate_yaw,
-            (Vector3(side * 1.55, 4.85, 1.30) * gate_scale), (Vector2(0.46, 0.27) * gate_scale))
-        _plate(pieces, "outer", gate_at, gate_yaw,
-            (Vector3(side * 1.67, 0.74, 1.15) * gate_scale), (Vector2(0.37, 0.26) * gate_scale))
-        _vent(pieces, gate_at, gate_yaw,
-            (Vector3(side * 1.70, 1.56, 0.987) * gate_scale), (Vector2(0.18, 0.31) * gate_scale))
-        _bar(pieces, "pin", gate_at, gate_yaw,
-            (Vector3(side * 1.55, 4.86, 1.374) * gate_scale),
-            (Vector3(0.043, 0.040, 0.016) * gate_scale))
-        _bar(pieces, "glow", gate_at, gate_yaw,
-            (Vector3(side * 1.91, 3.10, 0.955) * gate_scale),
-            (Vector3(0.047, 0.14, 0.018) * gate_scale))
+    # Portal drive covers are now fitted directly to the authored pillars;
+    # do not add independent plates and pins in front of their silhouette.
 
     # The existing twelve-piece canopy gets one low-poly annular bearing
     # inside its luminous rim. It adds a readable circular machine layer
