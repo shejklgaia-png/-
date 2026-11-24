@@ -61,7 +61,7 @@ func animate(time: float, section: String) -> void:
         for index in range(_refinery_impellers.size()):
             _refinery_impellers[index].rotation.y = time * (0.20 + index * 0.08)
     elif section == "STORAGE" and is_instance_valid(_lift):
-        _lift.position.y = 0.19 + 0.13 * (0.5 + 0.5 * sin(time * 0.65))
+        _lift.position.y = 0.13 * (0.5 + 0.5 * sin(time * 0.65))
 
 func _node(parent: Node3D, name: String, at: Vector3 = Vector3.ZERO) -> Node3D:
     var item := Node3D.new()
@@ -700,7 +700,8 @@ func _build_storage() -> void:
     # Crane rail adds a recognizable vertical mass without filling the aisle.
     _line(room, Vector3(3.95, 3.93, -4.30),
         Vector3(3.95, 3.93, 0.50), 0.085, EDGE)
-    _lift = _node(room, "ElevatingCargoPallet", Vector3(4.68, 0.19, -3.42))
+    var lift_mount := _node(room, "ElevatingCargoPallet", Vector3(4.68, 0.19, -3.42))
+    _lift = _node(lift_mount, "AnimatedLift")
     _b(_lift, Vector3(0, 0.02, 0),
         Vector3(1.28, 0.16, 1.15), METAL)
     for x in [-0.50, 0.50]:
@@ -720,8 +721,8 @@ func _build_storage() -> void:
     scan.rotation.x = -0.24
     _screen(scan, "LocalBarcodeScanner",
         Vector3.ZERO, Vector2(0.94, 0.56), 5)
-    host.warehouse_scanner = _node(room, "TravelingInventoryScanner",
-        Vector3(1.53, 1.10, -0.86))
+    var scanner_mount := _node(room, "TravelingInventoryScanner", Vector3(1.53, 1.10, -0.86))
+    host.warehouse_scanner = _node(scanner_mount, "AnimatedScanner")
     _box(host.warehouse_scanner, "ActiveScanLaser",
         Vector3(0, 0, 0), Vector3(0.14, 0.085, 0.22), CYAN, true)
     _label(room, "STORAGE / 03", Vector3(-3.60, 4.01, -7.55), 36)
