@@ -45,28 +45,29 @@ func _make_ui() -> void:
     for id in ["open", "exit", "copy", "zoom_in", "zoom_out",
             "look_left", "look_right", "look_up", "look_down",
             "fov_minus", "fov_plus"]:
-        var button := Button.new()
-        button.name = "Angle_" + id
-        button.text = _button_title(id)
-        button.mouse_filter = Control.MOUSE_FILTER_STOP
-        button.focus_mode = Control.FOCUS_NONE
-        button.add_theme_font_size_override("font_size", 15)
-        button.add_theme_color_override("font_color", Color("#e1f7ff"))
+        var panel := Panel.new()
+        panel.name = "Angle_" + id
+        panel.mouse_filter = Control.MOUSE_FILTER_STOP
         var frame := StyleBoxFlat.new()
         frame.bg_color = Color("#193748", 0.96)
         frame.border_color = Color("#7cbdd6")
         frame.set_border_width_all(2)
         frame.set_corner_radius_all(5)
-        var pressed_style: StyleBoxFlat = frame.duplicate() as StyleBoxFlat
-        pressed_style.bg_color = Color("#2a5970")
-        button.add_theme_stylebox_override("normal", frame)
-        button.add_theme_stylebox_override("hover", pressed_style)
-        button.add_theme_stylebox_override("pressed", pressed_style)
-        add_child(button)
+        panel.add_theme_stylebox_override("panel", frame)
+        add_child(panel)
+        var caption := Label.new()
+        caption.text = _button_title(id)
+        caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        caption.add_theme_font_size_override("font_size", 15)
+        caption.add_theme_color_override("font_color", Color("#e1f7ff"))
+        panel.add_child(caption)
+        caption.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
         if id != "open":
-            button.pressed.connect(_on_editor_button_pressed.bind(id))
-        _buttons[id] = button
-        button.visible = false
+            panel.gui_input.connect(_on_editor_panel_input.bind(id))
+        _buttons[id] = panel
+        panel.visible = false
 
     _status = Label.new()
     _status.name = "CameraPlacementStatus"
@@ -82,13 +83,17 @@ func _make_ui() -> void:
     add_child(_help)
 
 
-func _on_editor_button_pressed(id: String) -> void:
-    # Real Android GUI input supplements the raw SubViewport touch routing.
+func _on_editor_panel_input(event: InputEvent, id: String) -> void:
     if not active or not _buttons.has(id):
         return
-    var button: Button = _buttons[id]
-    if button.visible:
-        _press(Rect2(button.position, button.size).get_center(), -999, false)
+    var pressed: bool = (
+        (event is InputEventScreenTouch and event.pressed)
+        or (event is InputEventMouseButton and event.pressed
+            and event.button_index == MOUSE_BUTTON_LEFT))
+    var panel: Panel = _buttons[id]
+    if pressed and panel.visible:
+        _press(Rect2(panel.position, panel.size).get_center(), -999, false)
+        get_viewport().set_input_as_handled()
 
 
 func _button_title(id: String) -> String:
@@ -128,7 +133,7 @@ func _sync_ui() -> void:
         str(_can_open()), size.x, size.y]
     for id_value in _buttons.keys():
         var id: String = str(id_value)
-        var panel: Button = _buttons[id]
+        var panel: Panel = _buttons[id]
         var show_panel: bool = (
             id != "open" and active)
         # The standalone 'アングル正規配置' entry is always owned by the
@@ -157,10 +162,10 @@ func _button_rect(id: String) -> Rect2:
     match id:
         "open":
             if host != null:
-                var entry_button: Button = host.get("angle_entry_button") as Button
+                var entry_button: Control = host.get("angle_entry_button") as Control
                 if entry_button != null:
                     return Rect2(entry_button.position, entry_button.size)
-            return Rect2(Vector2(maxf(16.0, w - 228.0), 36.0),
+            return Rect2(Vector2(maxf(16.0, w - 228.0), 112.0),
                 Vector2(208.0, 54.0))
         "exit":
             return Rect2(Vector2(15.0, 18.0), Vector2(116.0, 48.0))

@@ -413,7 +413,7 @@ func close_mode() -> void:
 func _toggle_rect() -> Rect2:
     # Use the same HUD button geometry that is actually visible on Android.
     if host != null:
-        var entry_button: Button = host.get("placement_entry_button") as Button
+        var entry_button: Control = host.get("placement_entry_button") as Control
         if entry_button != null:
             return Rect2(entry_button.position, entry_button.size)
     return Rect2(Vector2(20.0, 112.0), Vector2(156.0, 54.0))
@@ -465,28 +465,29 @@ func _create_visible_controls() -> void:
         theme = host_hud.theme
     for key in ["toggle", "close", "copy", "copy_all",
             "rot_l", "rot_r", "up", "down"]:
-        var button := Button.new()
-        button.name = "Placement_" + key
-        button.text = _caption(key)
-        button.mouse_filter = Control.MOUSE_FILTER_STOP
-        button.focus_mode = Control.FOCUS_NONE
-        button.add_theme_font_size_override("font_size", 16)
-        button.add_theme_color_override("font_color", Color("#dcf5ff"))
+        var panel := Panel.new()
+        panel.name = "Placement_" + key
+        panel.mouse_filter = Control.MOUSE_FILTER_STOP
         var style := StyleBoxFlat.new()
         style.bg_color = Color("#163447")
         style.border_color = Color("#72b4ce")
         style.set_border_width_all(2)
         style.set_corner_radius_all(4)
-        var pressed_style: StyleBoxFlat = style.duplicate() as StyleBoxFlat
-        pressed_style.bg_color = Color("#26546a")
-        button.add_theme_stylebox_override("normal", style)
-        button.add_theme_stylebox_override("hover", pressed_style)
-        button.add_theme_stylebox_override("pressed", pressed_style)
-        add_child(button)
+        panel.add_theme_stylebox_override("panel", style)
+        add_child(panel)
+        var caption := Label.new()
+        caption.text = _caption(key)
+        caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+        caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+        caption.add_theme_font_size_override("font_size", 16)
+        caption.add_theme_color_override("font_color", Color("#dcf5ff"))
+        panel.add_child(caption)
+        caption.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
         if key != "toggle":
-            button.pressed.connect(_on_editor_button_pressed.bind(key))
-        _buttons[key] = button
-        button.visible = false
+            panel.gui_input.connect(_on_editor_panel_input.bind(key))
+        _buttons[key] = panel
+        panel.visible = false
 
     _status_label = Label.new()
     _status_label.name = "CanonicalPlacementStatus"
@@ -502,14 +503,17 @@ func _create_visible_controls() -> void:
     add_child(_hint_label)
 
 
-func _on_editor_button_pressed(key: String) -> void:
-    # Native UI signals supplement raw _input forwarding on Android.
-    # The raw handler consumes the press when it runs first, so no double step.
+func _on_editor_panel_input(event: InputEvent, key: String) -> void:
     if not active or not _buttons.has(key):
         return
-    var button: Button = _buttons[key]
-    if button.visible:
-        _press(Rect2(button.position, button.size).get_center(), -999, false)
+    var pressed: bool = (
+        (event is InputEventScreenTouch and event.pressed)
+        or (event is InputEventMouseButton and event.pressed
+            and event.button_index == MOUSE_BUTTON_LEFT))
+    var panel: Panel = _buttons[key]
+    if pressed and panel.visible:
+        _press(Rect2(panel.position, panel.size).get_center(), -999, false)
+        get_viewport().set_input_as_handled()
 
 
 func _caption(key: String) -> String:
@@ -555,7 +559,7 @@ func _sync_ui() -> void:
 
     for name_value in _buttons.keys():
         var name: String = str(name_value)
-        var panel: Button = _buttons[name]
+        var panel: Panel = _buttons[name]
         var enabled: bool = false
         var rect: Rect2
         match name:

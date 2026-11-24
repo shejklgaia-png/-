@@ -300,8 +300,8 @@ var camera_angle_editor
 var placement_ui_layer: CanvasLayer
 # Permanent entry controls live in the exact same viewport/HUD as EXIT TO
 # BASE. Never depend on the heavy 3D placement editor's initialization.
-var placement_entry_button: Button
-var angle_entry_button: Button
+var placement_entry_button: Panel
+var angle_entry_button: Panel
 # Reuse each mesh's actual authored vertices when reprojecting a changed outfit.
 var customize_silhouette_vertex_cache: Dictionary = {}
 
@@ -470,29 +470,43 @@ func _open_camera_angle_placement() -> void:
         get_viewport().set_input_as_handled()
 
 
-func _placement_launcher_button(caption: String, id: String) -> Button:
-    var b := Button.new()
-    b.name = id
-    b.text = caption
-    # This is a REAL interactive Button, not a decorative-only HUD panel.
-    # The old IGNORE value prevented Godot from emitting pressed on Android.
-    b.mouse_filter = Control.MOUSE_FILTER_STOP
-    b.focus_mode = Control.FOCUS_NONE
-    b.add_theme_font_size_override("font_size", 20)
-    b.add_theme_color_override("font_color", Color("#e4f7ff"))
-    b.add_theme_color_override("font_hover_color", Color("#ffffff"))
-    var frame := StyleBoxFlat.new()
-    frame.bg_color = Color("#173548", 0.98)
-    frame.border_color = Color("#6dc8e9")
-    frame.set_border_width_all(2)
-    frame.set_corner_radius_all(4)
-    var hover: StyleBoxFlat = frame.duplicate() as StyleBoxFlat
-    hover.bg_color = Color("#28566b")
-    b.add_theme_stylebox_override("normal", frame)
-    b.add_theme_stylebox_override("hover", hover)
-    b.add_theme_stylebox_override("pressed", hover)
-    hud.add_child(b)
-    return b
+func _placement_launcher_panel(caption: String, id: String) -> Panel:
+    # EXIT TO BASE and all focused menu surfaces are Panels. Reuse the proven
+    # SubViewport HUD rendering path; native Buttons did not appear on Android.
+    var panel := Panel.new()
+    panel.name = id
+    panel.mouse_filter = Control.MOUSE_FILTER_STOP
+    panel.add_theme_stylebox_override("panel", _menu_style())
+    hud.add_child(panel)
+    var caption_label := Label.new()
+    caption_label.name = "Caption"
+    caption_label.text = caption
+    caption_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    caption_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    caption_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    caption_label.add_theme_font_size_override("font_size", 19)
+    caption_label.add_theme_color_override("font_color", Color("#e4f7ff"))
+    panel.add_child(caption_label)
+    caption_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    # Input can be delivered either via GUI or the viewport raw _input route.
+    # Both paths are idempotent once the corresponding editor becomes active.
+    panel.gui_input.connect(_placement_launcher_gui_input.bind(id))
+    panel.z_index = 100
+    return panel
+
+
+func _placement_launcher_gui_input(event: InputEvent, id: String) -> void:
+    var pressed: bool = (
+        (event is InputEventScreenTouch and event.pressed)
+        or (event is InputEventMouseButton and event.pressed
+            and event.button_index == MOUSE_BUTTON_LEFT))
+    if not pressed:
+        return
+    if id == "NexusPlaceEntry" and placement_entry_button.visible:
+        _open_canonical_placement()
+    elif id == "NexusAngleEntry" and angle_entry_button.visible:
+        _open_camera_angle_placement()
+    get_viewport().set_input_as_handled()
 
 
 func _sync_placement_launchers() -> void:
@@ -514,10 +528,11 @@ func _sync_placement_launchers() -> void:
     var in_overview: bool = focused_target.is_empty()
     placement_entry_button.visible = in_overview and (
         placement_editor == null or not placement_editor.active)
+    # Display the launcher whenever the focused menu exists. A stalled
+    # camera tween must never silently hide the entry point again.
     angle_entry_button.visible = (
         ["SYSTEM", "TRAINING", "DATA ARCHIVE", "DEPLOYMENT"].has(focused_target)
-        and not in_transition and camera_angle_editor != null
-        and not camera_angle_editor.active)
+        and (camera_angle_editor == null or not camera_angle_editor.active))
 
 
 func _process(delta: float) -> void:
@@ -1071,11 +1086,10 @@ func _hud() -> void:
     explore_label.size = explore_panel.size
     explore_panel.visible = true
     VersionIndicator.attach(hud)
-    # This HUD is proven visible in the Android SubViewport (EXIT TO BASE).
-    # Keep launcher buttons HERE instead of another CanvasLayer. Even if
-    # editor configuration aborts, the entry points remain visible.
-    placement_entry_button = _placement_launcher_button("正規配置", "NexusPlaceEntry")
-    angle_entry_button = _placement_launcher_button(
+    # Same Panel+Label drawing path as the Android-visible EXIT TO BASE.
+    # In particular, do not rely on a Button's theme/painter to show entry.
+    placement_entry_button = _placement_launcher_panel("正規配置", "NexusPlaceEntry")
+    angle_entry_button = _placement_launcher_panel(
         "アングル正規配置", "NexusAngleEntry")
     placement_entry_button.position = Vector2(20.0, 112.0)
     placement_entry_button.size = Vector2(156.0, 54.0)
@@ -1083,10 +1097,8 @@ func _hud() -> void:
     angle_entry_button.visible = false
     placement_entry_button.z_index = 100
     angle_entry_button.z_index = 100
-    # Native GUI events work even if a touch is consumed before _input() by
-    # the SubViewportContainer. Keep the raw _input rect path as a fallback.
-    placement_entry_button.pressed.connect(_open_canonical_placement)
-    angle_entry_button.pressed.connect(_open_camera_angle_placement)
+    # GUI input is connected in _placement_launcher_panel. The existing
+    # editor.route_input path handles raw Android SubViewport touches.
 
     outline = NexusSelectionOutline.new()
     outline.name = "SelectableSilhouettes"
