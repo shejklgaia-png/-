@@ -29,7 +29,10 @@ void fragment() {
     float fine = noise2(vec2(q.x*3.2,q.y*2.2-t*0.53));
     float envelope = smoothstep(0.0,0.13,UV.x)*smoothstep(0.0,0.13,1.0-UV.x);
     float limit = 0.36+0.86*large+0.12*(fine-0.5);
-    float density = smoothstep(-0.075,0.11,limit-h);
+    float density = smoothstep(-0.055,0.09,limit-h);
+    // Open irregular pockets between rising lobes above the attached base.
+    float breakup = smoothstep(0.15,0.47,large+0.20*fine);
+    density *= mix(1.0,breakup,smoothstep(0.22,0.78,h));
     density *= envelope*smoothstep(0.0,0.035,h)*(1.0-smoothstep(0.82,1.0,h));
     density *= mix(0.63,1.0,smoothstep(0.15,0.77,fine));
     // Blue reaction zone near burner; luminous soot develops farther up.
