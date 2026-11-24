@@ -1209,6 +1209,7 @@ static func _align_rigid_chart_grids(tris: Array[Dictionary],charts: Array[Dicti
                 changed = true
         if not changed:
             break
+    _refine_rigid_seam_quality(links,adjacency,pivots,angles,shifts,extents,priority)
     # Only rigid transforms are committed. Rebuild bounds using every
     # vertex; integer packing translations preserve the resulting phase.
     for chart in charts:
@@ -1229,13 +1230,86 @@ static func _align_rigid_chart_grids(tris: Array[Dictionary],charts: Array[Dicti
         var lo: Vector2 = chart.min
         chart.min = lo.floor()
 
+## A second bounded search prioritizes seam quality instead of bottom
+## alignment. Keep the original rigid solution unless the complete
+## seam network has a non-regressing max, count and squared residual.
+static func _refine_rigid_seam_quality(links: Array[Dictionary],adjacency: Array,pivots: PackedVector2Array,angles: PackedFloat32Array,shifts: PackedVector2Array,extents: PackedFloat32Array,priority: Array[Dictionary]) -> void:
+    var baseline: Vector3 = _rigid_network_metrics(links,pivots,angles,shifts)
+    var best: Vector3 = baseline
+    var saved_angles: PackedFloat32Array = angles.duplicate()
+    var saved_shifts: PackedVector2Array = shifts.duplicate()
+    for sweep in range(5):
+        var changed: bool = false
+        var angle_step: float = deg_to_rad(5.0 if sweep < 2 else 2.0)
+        var phase_step: float = 0.25 if sweep < 2 else 0.125
+        for i in range(mini(128,priority.size())):
+            var ci: int = int(priority[i].id)
+            var best_angle: float = angles[ci]
+            var best_shift: Vector2 = shifts[ci]
+            var cost: float = _rigid_chart_cost(ci,best_angle,best_shift,links,adjacency[ci],pivots,angles,shifts,extents,true)
+            var start: float = cost
+            var candidates: Array[float] = [best_angle]
+            if extents[ci] <= 128.0:
+                for delta in [-2.0,-1.0,1.0,2.0]:
+                    candidates.append(_rigid_quarter_angle(best_angle+float(delta)*angle_step))
+            for candidate_angle in candidates:
+                for dx in [-1.0,0.0,1.0]:
+                    for dy in [-1.0,0.0,1.0]:
+                        var shift: Vector2 = shifts[ci]+Vector2(float(dx),float(dy))*phase_step
+                        shift -= shift.round()
+                        var trial: float = _rigid_chart_cost(ci,candidate_angle,shift,links,adjacency[ci],pivots,angles,shifts,extents,true)
+                        if trial < cost-0.0001:
+                            cost = trial
+                            best_angle = candidate_angle
+                            best_shift = shift
+            if cost < start-0.0001:
+                angles[ci] = best_angle
+                shifts[ci] = best_shift
+                changed = true
+        var metrics: Vector3 = _rigid_network_metrics(links,pivots,angles,shifts)
+        if metrics.x <= best.x+0.00001 and metrics.y <= best.y and metrics.z < best.z-0.00001:
+            best = metrics
+            saved_angles = angles.duplicate()
+            saved_shifts = shifts.duplicate()
+        if not changed:
+            break
+    for ci in range(angles.size()):
+        angles[ci] = saved_angles[ci]
+        shifts[ci] = saved_shifts[ci]
+
+static func _rigid_network_metrics(links: Array[Dictionary],pivots: PackedVector2Array,angles: PackedFloat32Array,shifts: PackedVector2Array) -> Vector3:
+    var worst: float = 0.0
+    var count: float = 0.0
+    var sum: float = 0.0
+    for record in links:
+        var ca: int = int(record.a)
+        var cb: int = int(record.b)
+        var pa: PackedVector2Array = record.pa
+        var pb: PackedVector2Array = record.pb
+        var a0: Vector2 = _rigid_grid_point(pa[0],pivots[ca],angles[ca],shifts[ca])
+        var a1: Vector2 = _rigid_grid_point(pa[1],pivots[ca],angles[ca],shifts[ca])
+        var b0: Vector2 = _rigid_grid_point(pb[0],pivots[cb],angles[cb],shifts[cb])
+        var b1: Vector2 = _rigid_grid_point(pb[1],pivots[cb],angles[cb],shifts[cb])
+        var da: Vector2 = a1-a0
+        var db: Vector2 = b1-b0
+        var quarter: float = roundf(db.angle_to(da)/(PI*0.5))*(PI*0.5)
+        var e0: Vector2 = a0-b0.rotated(quarter)
+        e0 -= e0.round()
+        var e1: Vector2 = e0+da-db.rotated(quarter)
+        var residual: float = maxf(e0.length(),e1.length())
+        worst = maxf(worst,residual)
+        if residual > 0.25:
+            count += 1.0
+        sum += residual*residual
+    return Vector3(worst,count,sum)
+
 static func _rigid_quarter_angle(angle: float) -> float:
     return angle-roundf(angle/(PI*0.5))*(PI*0.5)
 
 static func _rigid_grid_point(p: Vector2,pivot: Vector2,angle: float,shift: Vector2) -> Vector2:
     return (p-pivot).rotated(angle)+pivot+shift
 
-static func _rigid_chart_cost(ci: int,angle: float,shift: Vector2,links: Array[Dictionary],incident: Array,pivots: PackedVector2Array,angles: PackedFloat32Array,shifts: PackedVector2Array,extents: PackedFloat32Array) -> float:
+static func _rigid_chart_cost(ci: int,angle: float,shift: Vector2,links: Array[Dictionary],incident: Array,pivots: PackedVector2Array,angles: PackedFloat32Array,shifts: PackedVector2Array,extents: PackedFloat32Array,seam_priority: bool = false) -> float:
     var cost: float = 0.0
     for li in incident:
         var record: Dictionary = links[li]
@@ -1258,10 +1332,14 @@ static func _rigid_chart_cost(ci: int,angle: float,shift: Vector2,links: Array[D
         e0 -= e0.round()
         var e1: Vector2 = e0+da-db.rotated(quarter)
         cost += float(record.weight)*(maxf(e0.length_squared(),e1.length_squared())+0.2*(e0.length_squared()+e1.length_squared()))
+        if seam_priority:
+            var residual: float = maxf(e0.length(),e1.length())
+            cost += 2.0*pow(maxf(0.0,residual-1.0),2.0)+0.4*clampf((residual-0.25)/0.15,0.0,1.0)
     # The original bottom edge remains a preference, not a hard
     # constraint when adjacent surface orientations are incompatible.
     var span: float = clampf(extents[ci],1.0,24.0)
-    cost += 0.15*span*span*sin(angle)*sin(angle)+0.2*shift.y*shift.y
+    var orientation_weight: float = 0.005 if seam_priority else 0.15
+    cost += orientation_weight*span*span*sin(angle)*sin(angle)+(0.02 if seam_priority else 0.2)*shift.y*shift.y
     return cost
 
 static func _local_edge_residual(tris: Array[Dictionary],link: Dictionary,ci: int,indices: Dictionary,coords: PackedVector2Array) -> float:
