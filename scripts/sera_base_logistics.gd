@@ -14,8 +14,9 @@ const REGION := Rect2i(-46, -46, 93, 93)
 const CLEARANCE: float = 0.84
 const STEP: float = 1.0 / 30.0
 const SPEED: float = 2.35
-const TRAFFIC_GAP: float = 1.90
-const TRAFFIC_FORECAST_GAP: float = 2.15
+const CARRIER_SCALE := Vector3(1.20, 1.0, 1.20)
+const TRAFFIC_GAP: float = 2.18
+const TRAFFIC_FORECAST_GAP: float = 2.40
 const TRAFFIC_HORIZON: float = 1.5
 const TRAFFIC_SAMPLE: float = 0.25
 const TRAFFIC_BRAKE: float = 5.0
@@ -367,8 +368,8 @@ func _keep_parking_clear(t: Truck) -> void:
 
 
 func _expand_cell(target: Dictionary, c: Vector2i) -> void:
-    # A 0.92 x 1.30m vehicle can turn in place within a radius of 0.80m.
-    # One complete neighboring ring also protects diagonal swept segments.
+    # The 1.13 x 1.56m chassis uses a conservative neighboring ring.
+    # Additional clearance for diagonal turns is reserved by trace sampling.
     for x in range(-1, 2):
         for z in range(-1, 2):
             target[c + Vector2i(x, z)] = true
@@ -578,8 +579,8 @@ func setup(_root: Node3D, _nexus_origin: Vector3, _specs: Array, power: Node3D, 
         var forward: Vector2 = spec[2]
         var d := Dock.new()
         d.cell = _cell(center)
-        d.stage = center + side * 1.5
-        d.pivot = center + side * 0.75 + forward * 0.75
+        d.stage = center + side * 1.65
+        d.pivot = center + side * 0.98 + forward * 0.85
         d.yaw = atan2(forward.x,forward.y)
         var right := Vector2(forward.y,-forward.x)
         d.hatch_side = signf(side.dot(right))
@@ -969,7 +970,7 @@ func _direct_visual(g: Variant, cache_key: String, label: String) -> Visual:
 func _make_chassis(t: Truck) -> void:
     var g: Variant = _template()
     # Thin steel flatbed, independent crawler pods, front-facing sensor.
-    g.poly("CarrierDeck", "bevel", Vector3(0, 0.32, 0), Vector3(0.94, 0.14, 1.30), "caution")
+    g.poly("CarrierDeck", "bevel", Vector3(0, 0.32, 0), Vector3(0.94, 0.14, 1.30), "slate")
     g.box("CarrierUnderside", Vector3(0, 0.20, 0), Vector3(0.53, 0.18, 1.02), "dark")
     for s in [-1.0, 1.0]:
         var x: float = s * 0.34
@@ -1147,16 +1148,16 @@ func _carrier_ground_pose(t: Truck) -> Transform3D:
     var turn := Basis(Vector3.UP, t.yaw)
     if not is_instance_valid(_ramp_surface):
         return Transform3D(turn, _v3(t.pos))
-    var fl: float = _ground_height(t.pos + _xz(turn * Vector3(-0.35, 0, 0.54)))
-    var fr: float = _ground_height(t.pos + _xz(turn * Vector3(0.35, 0, 0.54)))
-    var rl: float = _ground_height(t.pos + _xz(turn * Vector3(-0.35, 0, -0.54)))
-    var rr: float = _ground_height(t.pos + _xz(turn * Vector3(0.35, 0, -0.54)))
+    var fl: float = _ground_height(t.pos + _xz(turn * (Vector3(-0.35, 0, 0.54) * CARRIER_SCALE)))
+    var fr: float = _ground_height(t.pos + _xz(turn * (Vector3(0.35, 0, 0.54) * CARRIER_SCALE)))
+    var rl: float = _ground_height(t.pos + _xz(turn * (Vector3(-0.35, 0, -0.54) * CARRIER_SCALE)))
+    var rr: float = _ground_height(t.pos + _xz(turn * (Vector3(0.35, 0, -0.54) * CARRIER_SCALE)))
     var front: float = (fl + fr) * 0.5
     var rear: float = (rl + rr) * 0.5
     var left: float = (fl + rl) * 0.5
     var right: float = (fr + rr) * 0.5
-    var pitch: float = atan2(front - rear, 1.08)
-    var roll: float = atan2(right - left, 0.70)
+    var pitch: float = atan2(front - rear, 1.08 * CARRIER_SCALE.z)
+    var roll: float = atan2(right - left, 0.70 * CARRIER_SCALE.x)
     var tilted: Basis = turn * Basis.from_euler(Vector3(-pitch, 0, roll))
     # Lift the rigid track plane enough to clear the highest sampled contact
     # and the center of a crest; it must not cut through the steel deck.
@@ -1164,7 +1165,7 @@ func _carrier_ground_pose(t: Truck) -> Transform3D:
     for sample in [Vector3(-0.35, fl, 0.54), Vector3(0.35, fr, 0.54),
             Vector3(-0.35, rl, -0.54), Vector3(0.35, rr, -0.54)]:
         var contact: Vector3 = sample
-        height = maxf(height, contact.y - (tilted * Vector3(contact.x, 0, contact.z)).y)
+        height = maxf(height, contact.y - (tilted * (Vector3(contact.x, 0, contact.z) * CARRIER_SCALE)).y)
     return Transform3D(tilted, _v3(t.pos, height))
 
 
@@ -1177,13 +1178,15 @@ func _rack_slot(d: Dock, i: int) -> Vector3:
 func _truck_pose(t: Truck) -> void:
     var p: Transform3D = _carrier_ground_pose(t)
     t.carrier_pose = p
-    _apply_visual_pose(t.body, p)
+    # Enlarge chassis footprint only; cargo and grip dimensions remain matched.
+    var shell := Transform3D(p.basis.scaled_local(CARRIER_SCALE), p.origin)
+    _apply_visual_pose(t.body, shell)
     var waiting: bool = t.mode == "drive" and t.traffic_blocked
-    _apply_visual_pose(t.lamp_go, p, not waiting)
-    _apply_visual_pose(t.lamp_wait, p, waiting)
+    _apply_visual_pose(t.lamp_go, shell, not waiting)
+    _apply_visual_pose(t.lamp_wait, shell, waiting)
     for i in range(t.treads.size()):
         var z: float = -0.56 + fposmod(float(i) * 0.14 - t.tread_distance, 1.12)
-        _apply_visual_pose(t.treads[i], p * _pose(Vector3(0, 0, z)))
+        _apply_visual_pose(t.treads[i], shell * _pose(Vector3(0, 0, z)))
     if t.mode not in ["load", "unload"]:
         for i in range(t.cargo.size()):
             _apply_visual_pose(t.cargo[i], Transform3D(p.basis, _deck_slot(t, i)), t.loaded)
