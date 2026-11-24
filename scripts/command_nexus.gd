@@ -1644,6 +1644,9 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
             selected_shape = "DEPLOYMENT"
     var silhouette_parts: Array = target_parts.get(selected_shape, [])
     var authored_parts: Array = _nexus_console_authored_parts(name)
+    if authored_parts.is_empty():
+        push_warning("NEXUS console refinement returned no parts; restoring authored module: " + name)
+        authored_parts = Modules.MODULES[name]
     for part in authored_parts:
         if WorldMonitors.replaces_screen_marks(str(part[0])):
             continue
@@ -1726,107 +1729,99 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
 
 
 
-# Construct the display and its mechanical mounts from one tilted local
-# frame. Both the opaque geometry and live monitor quad use the returned
-# authored parts, so moving the screen cannot leave its image behind.
-func _nexus_mounted_monitor_parts(module_name: String, authored: Array) -> Array:
-    var training: bool = module_name == "training_console"
-    var screen_name: String = "TRAINING deep cyan screen" if training else "SYSTEM blue operational screen"
-    var obsolete: Array[String] = ["TRAINING higher diagnostic monitor backing",
-        "TRAINING monitor angular bezel", "TRAINING thin bright status eyebrow"] if training else [
-        "SYSTEM horizontal wide monitor back", "SYSTEM bevel-trim panoramic display", "SYSTEM slim blue screen visor"]
-    var parts: Array = []
-    var screen: Array = []
-    for part in authored:
-        var label: String = str(part[0])
-        if obsolete.has(label):
-            continue
-        if label == screen_name:
-            screen = part.duplicate(true)
-            # Raise the complete assembly clear of the keyboard housing.
-            # Keep the original display aspect and original tilt.
-            var shift := Vector3(0, 2.5 if training else 1.5, 0.20 if training else 0.45)
-            var lo: Vector3 = _vec(screen[1]) + shift
-            var hi: Vector3 = _vec(screen[2]) + shift
-            screen[1] = [lo.x,lo.y,lo.z]
-            screen[2] = [hi.x,hi.y,hi.z]
-            parts.append(screen)
-        else:
-            parts.append(part)
-    if screen.is_empty():
-        return authored
-    var low: Vector3 = _vec(screen[1])
-    var high: Vector3 = _vec(screen[2])
-    var center: Vector3 = (low + high) * 0.5
-    var extent: Vector3 = (high - low) * 0.5
-    var basis := Basis.from_euler(_vec(screen[4]) * (PI / 180.0))
-    var prefix: String = "TRAINING" if training else "SYSTEM"
-    var border: float = 0.58 if training else 0.55
-    var outer_x: float = extent.x + border
-    var outer_y: float = extent.y + border
-    # Housing behind glass, then a genuine four-sided bezel. Nothing
-    # crosses the active screen rectangle in its local x/y plane.
-    _nexus_monitor_piece(parts, screen, center, basis, prefix+" monitor rear housing",
-        Vector3(0,0,-1.59), Vector3(2.0*outer_x,2.0*outer_y,2.92), 2)
-    for side in [-1.0,1.0]:
-        _nexus_monitor_piece(parts, screen, center, basis, prefix+" monitor side bezel",
-            Vector3(side*(extent.x+border*0.5),0,-0.18),
-            Vector3(border+0.05,2.0*outer_y,0.94), 4)
-        _nexus_monitor_piece(parts, screen, center, basis, prefix+" monitor horizontal bezel",
-            Vector3(0,side*(extent.y+border*0.5),-0.18),
-            Vector3(2.0*extent.x+0.05,border+0.05,0.94), 4)
-    # Keep the status lamp attached to the actual upper edge, out of the
-    # display area; the lamp back is seated inside the upper bezel.
-    _nexus_monitor_piece(parts, screen, center, basis, prefix+" attached status lamp",
-        Vector3(0,outer_y-0.17,0.32), Vector3(2.0*extent.x*0.92,0.34,0.22), 5, false)
-    # Rear mounting neck connects the lower housing to the existing
-    # upright body; it remains behind the glass and away from the keys.
-    _nexus_monitor_piece(parts, screen, center, basis, prefix+" monitor load bearing mount",
-        Vector3(0,-outer_y+0.15,-2.34), Vector3(5.6 if training else 7.0,2.30,2.0), 3)
-    for side in [-1.0,1.0]:
-        if training:
-            # Narrow telemetry sensor pods with forward optical slits.
-            # The inner side overlaps the rear housing; no detached plates.
-            var x: float = side*(outer_x+0.28)
-            _nexus_monitor_piece(parts, screen, center, basis, prefix+" attached tracking sensor pod",
-                Vector3(x,0.05,-1.20), Vector3(1.0,3.7,2.05), 3)
-            _nexus_monitor_piece(parts, screen, center, basis, prefix+" sensor face",
-                Vector3(x,0.05,-0.15), Vector3(0.72,1.55,0.13), 1, false)
-            for y in [-0.42,0.28]:
-                _nexus_monitor_piece(parts, screen, center, basis, prefix+" tracking optic",
-                    Vector3(x,float(y),-0.063), Vector3(0.36,0.23,0.08), 5, false)
-        else:
-            # Fixed mounting brackets and compact I/O housings, with
-            # sockets and status lights on the lower outer faces.
-            var x: float = side*(outer_x+0.12)
-            _nexus_monitor_piece(parts, screen, center, basis, prefix+" attached monitor bracket",
-                Vector3(x,-0.55,-1.18), Vector3(0.74,4.15,2.15), 3)
-            _nexus_monitor_piece(parts, screen, center, basis, prefix+" I O block",
-                Vector3(x,-1.48,-0.05), Vector3(0.62,1.35,0.28), 1, false)
-            for y in [-1.91,-1.51,-1.11]:
-                _nexus_monitor_piece(parts, screen, center, basis, prefix+" I O socket",
-                    Vector3(x,float(y),0.12), Vector3(0.32,0.16,0.07), 4, false)
-    return parts
+# Fixed NEXUS-only monitor layouts. All original non-monitor components
+# are copied intact from the authored modules. No runtime typed-array
+# conversion or procedural monitor assembly can interrupt body generation.
+const NEXUS_MOUNTED_MONITOR_MODULES = {
+    "system_console": [
+        ["SYSTEM armored floor stand",[-8.1,0.1,-5.5],[8.1,4.7,5.5],2,[0,0,0],true,true],
+        ["SYSTEM service power case",[-6.6,2.5,-5.8],[-1.4,11.3,1.2],3,[0,0,0],true,true],
+        ["SYSTEM support one-piece narrow spine",[-4.75,5.8,-5.05],[4.75,14.8,1.45],3,[0,0,0],true,true],
+        ["SYSTEM blue operational screen",[-7.8,13.65,0.6],[7.8,20.95,1.28],7,[-12,0,0],false,true],
+        ["SYSTEM sloped deep keyboard cockpit",[-9,8.9,1],[9,11.5,10.2],3,[17,0,0],true,true],
+        ["SYSTEM keyboard recessed panel",[-7.7,11.1,4.95],[7.7,12.1,10.45],1,[17,0,0],false,false],
+        ["SYSTEM tactile control grid 0",[-6.8,12.12,8.1],[-5.6,12.52,9.5],5,[0,0,0],false,false],
+        ["SYSTEM tactile control grid 1",[-5,12.12,8.1],[-3.8,12.52,9.5],4,[0,0,0],false,false],
+        ["SYSTEM tactile control grid 2",[-3.2,12.12,8.1],[-2,12.52,9.5],4,[0,0,0],false,false],
+        ["SYSTEM tactile control grid 3",[-1.4,12.12,8.1],[-0.2,12.52,9.5],5,[0,0,0],false,false],
+        ["SYSTEM tactile control grid 4",[0.4,12.12,8.1],[1.6,12.52,9.5],4,[0,0,0],false,false],
+        ["SYSTEM tactile control grid 5",[2.2,12.12,8.1],[3.4,12.52,9.5],4,[0,0,0],false,false],
+        ["SYSTEM tactile control grid 6",[4,12.12,8.1],[5.2,12.52,9.5],5,[0,0,0],false,false],
+        ["SYSTEM tactile control grid 7",[5.8,12.12,8.1],[7,12.52,9.5],4,[0,0,0],false,false],
+        ["SYSTEM display thin telemetry 0",[-6.25,13.66,0.62],[2.25,13.94,1.02],5,[0,0,0],false,false],
+        ["SYSTEM display thin telemetry 1",[-5.25,15.36,0.62],[1.25,15.64,1.02],5,[0,0,0],false,false],
+        ["SYSTEM display thin telemetry 2",[-4.25,17.06,0.62],[0.25,17.34,1.02],5,[0,0,0],false,false],
+        ["SYSTEM auxiliary angled slim right readout",[5.35,7.1,4.6],[10.05,10.7,7.6],4,[12,0,0],true,false],
+        ["SYSTEM lower solid glowing fuse",[-4.5,2.5,2.8],[-2.1,5.9,4],5,[0,0,0],false,false],
+        ["SYSTEM side reinforcing plate -0.66",[-7.55,1,0.8],[-5.65,8,4.8],4,[0,0,0],true,false],
+        ["SYSTEM side reinforcing plate 0.66",[5.65,1,0.8],[7.55,8,4.8],4,[0,0,0],true,false],
+        ["SYSTEM enclosed rear power trunk",[-6.5,3.8,-5.9],[-3.5,9.5,-4.4],3,[0,0,0],false,false],
+        ["SYSTEM power trunk upper gland",[-6.75,9.1,-6.05],[-3.25,9.8,-4.25],4,[0,0,0],false,false],
+        ["SYSTEM power trunk foot flange",[-6.8,3.75,-5.95],[-3.2,4.5,-3.8],4,[0,0,0],false,false],
+        ["SYSTEM monitor rear housing",[-8.35,12.76942,-2.07525],[8.35,21.16942,0.84475],2,[-12,0,0],false,true],
+        ["SYSTEM monitor side bezel",[-8.375,13.06258,0.29393],[-7.775,21.46258,1.23393],4,[-12,0,0],false,true],
+        ["SYSTEM monitor horizontal bezel",[-7.825,13.12335,1.10999],[7.825,13.72335,2.04999],4,[-12,0,0],false,true],
+        ["SYSTEM monitor side bezel",[7.775,13.06258,0.29393],[8.375,21.46258,1.23393],4,[-12,0,0],false,true],
+        ["SYSTEM monitor horizontal bezel",[-7.825,20.80181,-0.52212],[7.825,21.40181,0.41788],4,[-12,0,0],false,true],
+        ["SYSTEM attached status lamp",[-7.176,21.13847,0.30512],[7.176,21.47847,0.52512],5,[-12,0,0],false,false],
+        ["SYSTEM monitor load bearing mount",[-3.5,10.82746,-1.78016],[3.5,14.02746,0.61984],3,[-12,0,0],false,true],
+        ["SYSTEM attached monitor bracket",[-8.84,14.44168,-1.17486],[-8.1,18.59168,0.97514],3,[-12,0,0],false,true],
+        ["SYSTEM I O block",[-8.78,15.16695,1.0588],[-8.16,16.51695,1.3388],1,[-12,0,0],false,false],
+        ["SYSTEM I O socket",[-8.63,15.37669,1.41949],[-8.31,15.53669,1.48949],4,[-12,0,0],false,false],
+        ["SYSTEM I O socket",[-8.63,15.76795,1.33632],[-8.31,15.92795,1.40632],4,[-12,0,0],false,false],
+        ["SYSTEM I O socket",[-8.63,16.15921,1.25316],[-8.31,16.31921,1.32316],4,[-12,0,0],false,false],
+        ["SYSTEM attached monitor bracket",[8.1,14.44168,-1.17486],[8.84,18.59168,0.97514],3,[-12,0,0],false,true],
+        ["SYSTEM I O block",[8.16,15.16695,1.0588],[8.78,16.51695,1.3388],1,[-12,0,0],false,false],
+        ["SYSTEM I O socket",[8.31,15.37669,1.41949],[8.63,15.53669,1.48949],4,[-12,0,0],false,false],
+        ["SYSTEM I O socket",[8.31,15.76795,1.33632],[8.63,15.92795,1.40632],4,[-12,0,0],false,false],
+        ["SYSTEM I O socket",[8.31,16.15921,1.25316],[8.63,16.31921,1.32316],4,[-12,0,0],false,false]
+    ],
+    "training_console": [
+        ["TRAINING compact octagonal base",[-6.85,-0.05,-5.85],[6.85,4.05,5.85],1,[0,0,0],true,true],
+        ["TRAINING upright armored body",[-5.5,2.45,-5.5],[5.5,15.95,2.7],3,[0,0,0],true,true],
+        ["TRAINING deep cyan screen",[-5.9,16.3,0.99],[2.9,25.7,1.65],7,[-17,0,0],false,true],
+        ["TRAINING angled command keyboard",[-6.3,10.75,0.6],[4.3,12.85,9],3,[20,0,0],true,true],
+        ["TRAINING nonmirrored upper controls 0",[-5.55,12.55,7],[-4.25,13.25,8.6],4,[0,0,0],false,false],
+        ["TRAINING nonmirrored upper controls 1",[-3.45,12.55,7],[-2.15,13.25,8.6],5,[0,0,0],false,false],
+        ["TRAINING nonmirrored upper controls 2",[-1.35,12.55,7],[-0.05,13.25,8.6],4,[0,0,0],false,false],
+        ["TRAINING nonmirrored upper controls 3",[0.75,12.55,7],[2.05,13.25,8.6],4,[0,0,0],false,false],
+        ["TRAINING nonmirrored upper controls 4",[2.85,12.55,7],[4.15,13.25,8.6],4,[0,0,0],false,false],
+        ["TRAINING right projecting sensor equipment tower",[6.25,5.55,-5.15],[9.75,20.85,-0.45],3,[0,0,11],true,true],
+        ["TRAINING right lateral data display",[6,12.9,0],[10.2,18.7,1.2],7,[0,0,0],false,true],
+        ["TRAINING lateral analyzer bar 0",[6.7,13.8,1.15],[9.5,14.2,1.55],5,[0,0,0],false,false],
+        ["TRAINING lateral analyzer bar 1",[6.7,15.4,1.15],[9.5,15.8,1.55],5,[0,0,0],false,false],
+        ["TRAINING lateral analyzer bar 2",[6.7,17,1.15],[9.5,17.4,1.55],5,[0,0,0],false,false],
+        ["TRAINING equipment side vent",[2.55,1.9,4.05],[5.85,7.1,5.15],2,[0,0,0],false,false],
+        ["TRAINING cooling louver 0",[3,3.23,5.15],[5.4,3.58,5.45],0,[0,0,0],false,false],
+        ["TRAINING cooling louver 1",[3,4.63,5.15],[5.4,4.98,5.45],0,[0,0,0],false,false],
+        ["TRAINING cooling louver 2",[3,6.03,5.15],[5.4,6.38,5.45],0,[0,0,0],false,false],
+        ["TRAINING integrated left service housing",[-7.35,3.6,-3.8],[-4.85,9.7,1.9],3,[0,0,0],true,true],
+        ["TRAINING sealed left service cover",[-7.15,5,1.75],[-5,8.9,2.2],4,[0,0,0],false,false],
+        ["TRAINING recessed emergency switch carrier",[-7.1,8,2.15],[-5.1,9.1,2.55],1,[0,0,0],false,false],
+        ["TRAINING recessed emergency switch",[-6.65,8.25,2.5],[-5.55,8.85,2.8],6,[0,0,0],false,false],
+        ["TRAINING monitor rear housing",[-6.48,15.25513,-1.66052],[3.48,25.81513,1.25948],2,[-17,0,0],false,true],
+        ["TRAINING monitor side bezel",[-6.505,15.66737,0.67787],[-5.875,26.22737,1.61787],4,[-17,0,0],false,true],
+        ["TRAINING monitor horizontal bezel",[-5.925,15.86041,2.1368],[2.925,16.49041,3.0768],4,[-17,0,0],false,true],
+        ["TRAINING monitor side bezel",[2.875,15.66737,0.67787],[3.505,26.22737,1.61787],4,[-17,0,0],false,true],
+        ["TRAINING monitor horizontal bezel",[-5.925,25.40433,-0.78107],[2.925,26.03433,0.15893],4,[-17,0,0],false,true],
+        ["TRAINING attached status lamp",[-5.548,25.81028,0.022],[2.548,26.15028,0.242],5,[-17,0,0],false,false],
+        ["TRAINING monitor load bearing mount",[-4.3,13.38071,-0.65395],[1.3,16.58071,1.74605],3,[-17,0,0],false,true],
+        ["TRAINING attached tracking sensor pod",[-7.26,18.84697,-0.86718],[-6.26,22.54697,1.18282],3,[-17,0,0],false,true],
+        ["TRAINING sensor face",[-7.12,20.22896,1.09694],[-6.4,21.77896,1.22694],1,[-17,0,0],false,false],
+        ["TRAINING tracking optic",[-6.94,20.46493,1.34255],[-6.58,20.69493,1.42255],5,[-17,0,0],false,false],
+        ["TRAINING tracking optic",[-6.94,21.13435,1.13789],[-6.58,21.36435,1.21789],5,[-17,0,0],false,false],
+        ["TRAINING attached tracking sensor pod",[3.26,18.84697,-0.86718],[4.26,22.54697,1.18282],3,[-17,0,0],false,true],
+        ["TRAINING sensor face",[3.4,20.22896,1.09694],[4.12,21.77896,1.22694],1,[-17,0,0],false,false],
+        ["TRAINING tracking optic",[3.58,20.46493,1.34255],[3.94,20.69493,1.42255],5,[-17,0,0],false,false],
+        ["TRAINING tracking optic",[3.58,21.13435,1.13789],[3.94,21.36435,1.21789],5,[-17,0,0],false,false]
+    ]
+}
 
 
-func _nexus_monitor_piece(parts: Array, screen: Array, center: Vector3, basis: Basis,
-        label: String, local: Vector3, dimensions: Vector3, palette: int,
-        selectable: bool = true) -> void:
-    var at: Vector3 = center + basis * local
-    var lo: Vector3 = at - dimensions * 0.5
-    var hi: Vector3 = at + dimensions * 0.5
-    # Rectangular fitted pieces retain their exact contact surfaces rather
-    # than being shrunk by the general console armor chamfer mesh.
-    parts.append([label,[lo.x,lo.y,lo.z],[hi.x,hi.y,hi.z],
-        palette,screen[4],false,selectable])
-
-
-# Local NEXUS refinements only: shared Blockbench masters remain unchanged.
-# Physical keys follow the actual tilted work surface.
 func _nexus_console_authored_parts(module_name: String) -> Array:
     var authored: Array = Modules.MODULES[module_name]
-    if module_name in ["system_console", "training_console"]:
-        authored = _nexus_mounted_monitor_parts(module_name, authored)
+    if NEXUS_MOUNTED_MONITOR_MODULES.has(module_name):
+        authored = NEXUS_MOUNTED_MONITOR_MODULES[module_name]
     if not module_name in ["system_console", "training_console", "data_bank"]:
         return authored
     var result: Array = []
