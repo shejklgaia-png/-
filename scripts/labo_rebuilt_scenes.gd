@@ -13,10 +13,13 @@ var context_models: Dictionary = {}
 var context_poses: Dictionary = {}
 const IndustrialSurface = preload("res://shaders/sera_labo_industrial_surface.gdshader")
 const FurnaceFlame = preload("res://scripts/sera_furnace_baked_flame.gd")
+const StackInk = preload("res://shaders/sera_refinery_stack_ink.gdshader")
 const EQUIPMENT_SCALE := 1.30
 const WORK_DECK_RISE := 0.32
 var surface_cache: Dictionary = {}
 var fallback_texture: ImageTexture
+var stack_ink_material: ShaderMaterial
+var stack_seam_material: StandardMaterial3D
 var fire_layers: Array[Sprite3D] = []
 var fire_light: OmniLight3D
 const KEYS = ["LABO", "SMELTER", "RECYCLER", "STORAGE"]
@@ -98,7 +101,18 @@ func _finish(b) -> void:
                 fallback_texture = ImageTexture.create_from_image(image)
             texture = fallback_texture
         var tint: Color = source.albedo_color
-        if tint.get_luminance() < 0.26 and tint != Color(Architecture.COLORS["void"]):
+        var refinery_room := rooms.get("SMELTER") as Node3D
+        var is_refinery: bool = is_instance_valid(refinery_room) and refinery_room.is_ancestor_of(b.host)
+        if is_refinery:
+            if tint == Color(Architecture.COLORS["trim"]):
+                tint = Color("#25333e")
+            elif tint == Color(Architecture.COLORS["edge"]):
+                tint = Color("#a2adb3")
+            elif tint == Color(Architecture.COLORS["rust"]):
+                tint = Color("#916044")
+            elif tint == Color(Architecture.COLORS["armor"]):
+                tint = Color("#485b6c")
+        elif tint.get_luminance() < 0.26 and tint != Color(Architecture.COLORS["void"]):
             tint = tint.lerp(Color("#627382"),0.28)
         var cache_key: String = str(texture.get_instance_id()) + "/" + tint.to_html() + "/" + str(source.roughness)
         var mat: ShaderMaterial = surface_cache.get(cache_key) as ShaderMaterial
@@ -110,6 +124,58 @@ func _finish(b) -> void:
             mat.set_shader_parameter("roughness_value",source.roughness)
             surface_cache[cache_key] = mat
         draw.material_override = mat
+
+# Local depth-tested ink on the exact hollow sleeve, not a proxy box.
+func _stack_ink(stack: Node3D) -> void:
+    if stack_ink_material == null:
+        stack_ink_material = ShaderMaterial.new()
+        stack_ink_material.shader = StackInk
+    if stack_seam_material == null:
+        stack_seam_material = StandardMaterial3D.new()
+        stack_seam_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+        stack_seam_material.albedo_color = Color("#10171d")
+    var lines := PackedVector3Array()
+    for child in stack.get_children():
+        var draw := child as MultiMeshInstance3D
+        if draw == null or not String(draw.name).begins_with("Architectural_vent_stack_"):
+            continue
+        var ink := MultiMeshInstance3D.new()
+        ink.name = String(draw.name) + "_LocalInk"
+        ink.multimesh = draw.multimesh
+        ink.material_override = stack_ink_material
+        ink.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        ink.set_meta("FX_NO_OUTLINE",true)
+        ink.set_meta("sera_no_view_edges",true)
+        ink.set_meta("sera_preserve_authored_material",true)
+        stack.add_child(ink)
+        ink.transform = draw.transform
+        for i in range(draw.multimesh.instance_count):
+            var pose: Transform3D = draw.transform * draw.multimesh.get_instance_transform(i)
+            # Match the sixteen-facet sleeve and integral collars.
+            for ring in [Vector2(-0.45,0.543),Vector2(-0.36,0.543),
+                    Vector2(0.37,0.543),Vector2(0.48,0.543),
+                    Vector2(0.501,0.473),Vector2(0.501,0.31)]:
+                for segment in range(16):
+                    var a: float = TAU*float(segment)/16.0
+                    var z: float = TAU*float(segment+1)/16.0
+                    lines.append(pose * Vector3(cos(a)*ring.y,ring.x,sin(a)*ring.y))
+                    lines.append(pose * Vector3(cos(z)*ring.y,ring.x,sin(z)*ring.y))
+    if lines.is_empty():
+        return
+    var arrays := []
+    arrays.resize(Mesh.ARRAY_MAX)
+    arrays[Mesh.ARRAY_VERTEX] = lines
+    var mesh := ArrayMesh.new()
+    mesh.add_surface_from_arrays(Mesh.PRIMITIVE_LINES,arrays)
+    var seams := MeshInstance3D.new()
+    seams.name = "ExhaustFlangeSeams"
+    seams.mesh = mesh
+    seams.material_override = stack_seam_material
+    seams.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    seams.set_meta("FX_NO_OUTLINE",true)
+    seams.set_meta("sera_no_view_edges",true)
+    seams.set_meta("sera_preserve_authored_material",true)
+    stack.add_child(seams)
 
 func _expand_equipment(key: String) -> void:
     # Dedicated industrial models only; never enlarge the BASE icon mesh.
@@ -788,6 +854,18 @@ func _smelter(key: String) -> void:
         _pipe(b,Vector3(x,1.1,2.5),Vector3(x,6.8,2.5),0.38,"rust")
     for i in range(5):
         _box(b,Vector3(0,6.1+i*0.18,3.0),Vector3(4.8,0.09,0.15),"edge")
+    # Strengthen the upper grille and furnace frame outside the fire opening.
+    _shape(b,"bevel",Vector3(0,6.47,3.22),Vector3(5.25,1.02,0.36),"trim")
+    for j in range(5):
+        _box(b,Vector3(0,6.13+float(j)*0.16,3.46),Vector3(4.63,0.085,0.15),"edge")
+    for side in [-1.0,1.0]:
+        var x: float = side*3.05
+        _box(b,Vector3(x,3.18,4.36),Vector3(0.18,3.95,0.14),"trim")
+        for y in [1.35,2.20,3.05,3.90,4.75]:
+            _box(b,Vector3(x,y,4.47),Vector3(0.34,0.16,0.13),"edge")
+        _shape(b,"bevel",Vector3(side*3.72,5.85,2.85),Vector3(0.95,0.52,0.42),"rust")
+        _box(b,Vector3(side*3.72,5.86,3.10),Vector3(0.52,0.10,0.07),"amber_light")
+        _shape(b,"gusset",Vector3(side*3.65,0.93,2.60),Vector3(0.80,1.1,1.45),"trim")
     _finish(b)
     inspection[key] = {"root":furnace,"stand":Vector3(2.4,0,5.3),"focus":Vector3(0,3.0,4.1)}
     var hot := _child(furnace,"RecessedFire",Vector3(0,3.0,3.80))
@@ -837,7 +915,17 @@ func _smelter(key: String) -> void:
         for y in [7.1,8.5,9.9]:
             _shape(b,"octagonal_slew",Vector3(0,y,0),Vector3(1.65,0.24,1.65),"edge")
         _shape(b,"vent_stack",Vector3(0,14.25,0),Vector3(2.0,0.46,2.0),"edge")
+        for y in [9.3,11.5,13.45]:
+            _shape(b,"drum",Vector3(0,y-0.20,0),Vector3(1.84,0.12,1.84),"trim")
+            for j in range(8):
+                var a: float = TAU*float(j)/8.0
+                _box(b,Vector3(cos(a)*0.96,y+0.19,sin(a)*0.96),
+                    Vector3(0.13,0.11,0.13),"edge")
+        for y in [10.0,12.2]:
+            _box(b,Vector3(0,y,0.80),Vector3(0.48,0.50,0.14),"trim")
+            _box(b,Vector3(0,y,0.89),Vector3(0.31,0.09,0.05),"edge")
         _finish(b)
+        _stack_ink(stack)
     var feed := _model(key,"SideChargeHopper",Vector3(-6.6,0,-0.6))
     b = _batch(feed)
     _shape(b,"hopper",Vector3(0,4.5,0),Vector3(3.5,2.7,3.7),"armor")
@@ -848,6 +936,12 @@ func _smelter(key: String) -> void:
     _shape(b,"tray",Vector3(0,1.18,2.25),Vector3(2.5,0.32,2.4),"slate")
     _pipe(b,Vector3(-1.1,1.1,-0.9),Vector3(-1.1,3.7,-0.9),0.20,"edge")
     _panel_detail(b,0,1.72,1.02,1.05,0.9)
+    _box(b,Vector3(0,5.78,1.83),Vector3(3.42,0.23,0.25),"trim")
+    for x in [-1.42,1.42]:
+        _pipe(b,Vector3(x,5.62,1.72),Vector3(x*0.52,3.62,0.83),0.18,"edge")
+        _box(b,Vector3(x,5.84,1.86),Vector3(0.25,0.10,0.18),"caution")
+    _shape(b,"bevel",Vector3(0,4.83,1.72),Vector3(1.18,0.48,0.22),"slate")
+    _box(b,Vector3(0,4.84,1.87),Vector3(0.65,0.10,0.06),"edge")
     _finish(b)
     var conveyor := _conveyor(key,"ChargeConveyor",Vector3(-6.6,0,3.5),2.4,5.0)
     var feed_mount := _child(conveyor,"FeedChargePlacement",Vector3(0,1.12,0))
@@ -887,6 +981,10 @@ func _smelter(key: String) -> void:
     _shape(b,"louver",Vector3(1.55,1.3,-0.50),Vector3(0.96,1.65,0.15),"edge")
     _pipe(b,Vector3(1.55,2.45,-1.25),Vector3(0.3,2.45,-1.25),0.23,"gold")
     _floor_cable(b,[Vector3(1.55,0.1,-0.7),Vector3(1.55,0.1,0.85),Vector3(0,0.1,2.0)])
+    for x in [-0.95,0.95]:
+        _shape(b,"gusset",Vector3(x,0.59,0.45),Vector3(0.27,1.0,1.12),"trim")
+        _pipe(b,Vector3(x,0.45,-0.82),Vector3(x,0.45,1.38),0.15,"blue")
+    _panel_detail(b,1.55,0.85,-0.48,0.72,0.53)
     _finish(b)
     _task_light(cooling,Vector3(0.0,2.1,0.65),Color("#ffae68"),5.0,0.8)
     _console(key,Vector3(-3.3,0,6.7),2)
