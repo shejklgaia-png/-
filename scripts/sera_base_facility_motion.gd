@@ -63,6 +63,8 @@ var _material_running: bool = false
 var _material_has_completed: bool = false
 var _print_variant: int = 0
 var _next_print_variant: int = 0
+var _intake_preparing: bool = false
+var _intake_received: int = 0
 const INTAKE_LOCAL = {
     "SMELTER": Vector3(-1.66,1.58,0.86),
     "RECYCLER": Vector3(0.0,2.68,0.22),
@@ -80,9 +82,19 @@ func material_rail_world_y() -> float:
 func material_print_variant() -> int:
     return _print_variant
 
+func prepare_material_intake() -> void:
+    _intake_preparing = true
+    _intake_received = 0
+    sample_at(float(MATERIAL_SECONDS[facility_key])-0.001)
+
+func receive_material_item() -> void:
+    _intake_received = mini(2,_intake_received+1)
+    sample_at(float(MATERIAL_SECONDS[facility_key])-0.001)
+
 func begin_material_cycle() -> void:
     if not MATERIAL_SECONDS.has(facility_key):
         return
+    _intake_preparing = false
     if facility_key == "LABO":
         _print_variant = _next_print_variant
         _next_print_variant = (_next_print_variant + 1) % PRINT_FEATURES.size()
@@ -566,6 +578,16 @@ func sample_at(seconds: float) -> void:
                     else:
                         pose = _spin_about(rest, _at(Vector3(0.74,1.53,0.78)),
                             _axis(Vector3.BACK), 0.24*press)
+            # While the hoist is delivering, show material only after it
+            # reaches the mouth. Keep the side charge gate open until fed.
+            if _intake_preparing:
+                if feature == "SmelterChargeGate":
+                    pose = rest
+                    pose.origin += _at(Vector3(-0.66,0,0))
+                elif feature in ["SmelterFeedScrap","RecyclerIntactPart","LabInputPellet"]:
+                    pose = rest
+                    if _intake_received == 0 or (i > 0 and _intake_received == 1):
+                        pose.basis = rest.basis.scaled_local(Vector3.ONE*0.0001)
             var multi: MultiMesh = record["mesh"] as MultiMesh
             multi.set_instance_transform(int(record["index"]), pose)
             # Same indexed transform as its real opaque part: no trailing or
