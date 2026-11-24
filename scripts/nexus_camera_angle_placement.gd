@@ -55,7 +55,7 @@ func configure(scene: Node3D) -> void:
     set_process(true)
     initialization_stage = "LAYOUT"
     _sync_ui()
-    initialized = (_buttons.size() == 13
+    initialized = (_buttons.size() == 15
         and is_instance_valid(_status) and is_instance_valid(_help))
     initialization_stage = "READY" if initialized else "INCOMPLETE"
 
@@ -63,7 +63,8 @@ func configure(scene: Node3D) -> void:
 func _make_ui() -> void:
     for id in ["open", "exit", "copy", "zoom_in", "zoom_out",
             "look_left", "look_right", "look_up", "look_down",
-            "fov_minus", "fov_plus", "roll_left", "roll_right"]:
+            "fov_minus", "fov_plus", "orbit_left", "orbit_right",
+            "roll_left", "roll_right"]:
         if _buttons.has(id):
             continue
         var panel := Panel.new()
@@ -129,7 +130,8 @@ func _button_title(id: String) -> String:
         "look_right": "注視 ▶", "look_up": "注視 ▲",
         "look_down": "注視 ▼", "fov_minus": "画角 －",
         "fov_plus": "画角 ＋",
-        "roll_left": "回転 ↺", "roll_right": "回転 ↻"
+        "orbit_left": "旋回 ◀", "orbit_right": "旋回 ▶",
+        "roll_left": "傾き ↺", "roll_right": "傾き ↻"
     }
     return str(captions.get(id, id))
 
@@ -200,7 +202,7 @@ func _button_rect(id: String) -> Rect2:
                 Vector2(158.0, 48.0))
     var cols := ["zoom_in", "zoom_out", "look_left", "look_right",
         "look_up", "look_down", "fov_minus", "fov_plus",
-        "roll_left", "roll_right"]
+        "orbit_left", "orbit_right", "roll_left", "roll_right"]
     var index: int = cols.find(id)
     if index < 0:
         return Rect2()
@@ -301,7 +303,7 @@ func _press(at: Vector2, id: int, is_mouse: bool) -> void:
         return
     var options := ["zoom_in", "zoom_out", "look_left", "look_right",
         "look_up", "look_down", "fov_minus", "fov_plus",
-        "roll_left", "roll_right"]
+        "orbit_left", "orbit_right", "roll_left", "roll_right"]
     for option in options:
         if _button_rect(option).has_point(at):
             _adjust(option)
@@ -339,6 +341,10 @@ func _adjust(option: String) -> void:
             reference_fov = maxf(30.0, reference_fov - 2.0)
         "fov_plus":
             reference_fov = minf(100.0, reference_fov + 2.0)
+        "orbit_left":
+            azimuth = wrapf(azimuth - deg_to_rad(5.0), -PI, PI)
+        "orbit_right":
+            azimuth = wrapf(azimuth + deg_to_rad(5.0), -PI, PI)
         "roll_left":
             roll_deg = wrapf(roll_deg - ROLL_STEP_DEG, -180.0, 180.0)
         "roll_right":
