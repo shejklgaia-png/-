@@ -61,6 +61,8 @@ const NEXUS_SHUTTER_BEAM_SHADER: String = """
 shader_type spatial;
 render_mode unshaded, blend_mix, cull_disabled, depth_draw_never;
 uniform vec4 beam_tint : source_color = vec4(0.8627451, 0.8941176, 0.9098039, 1.0);
+uniform float light_amount = 1.0;
+uniform bool threshold_mode = false;
 void fragment() {
     // 0 at the shutter, 1 at the distant tip. Prior UV inversion
     // incorrectly illuminated the far tip and dimmed the entrance.
@@ -68,15 +70,19 @@ void fragment() {
     float side = abs(UV.x - 0.5) * 2.0;
     float transverse = 1.0 - smoothstep(0.90, 1.0, side);
     float reach = 1.0 - smoothstep(0.09, 1.0, longitudinal);
-    float band = transverse * pow(reach, 1.20);
+    float band = transverse * (threshold_mode ? 1.0 : pow(reach, 1.20));
     ALBEDO = beam_tint.rgb;
     // At the shutter the source color is opaque; the floor fades into
     // the existing scene without additive HDR overshoot.
-    ALPHA = clamp(beam_tint.a * band, 0.0, 1.0);
+    ALPHA = clamp(beam_tint.a * band * light_amount, 0.0, 1.0);
 }
 """
 static var _pool_shader: Shader
 static var _nexus_shutter_beam_shader: Shader
+const NEXUS_SPILL_START_Z: float = 3.02
+const NEXUS_SPILL_MAX_LENGTH: float = 5.80
+var _nexus_floor_spill: MeshInstance3D
+var _nexus_threshold_glow: MeshInstance3D
 static var _shaft_shader: Shader
 static var _fire_floor_shader: Shader
 static var _smoke_material: StandardMaterial3D
@@ -2456,6 +2462,26 @@ func _make_surface(label: String, at: Vector3, span: Vector2,
     add_child(surface)
     return surface
 
+# Called only by the existing shutter tween, including its recovery/reset.
+# Scaling in local Y extends the horizontal quad along +Z; the near edge
+# stays anchored. No new per-frame processing or geometry allocation.
+func set_nexus_shutter_open(progress: float) -> void:
+    if not is_instance_valid(_nexus_floor_spill) or not is_instance_valid(_nexus_threshold_glow):
+        return
+    var amount: float = clampf(progress, 0.0, 1.0)
+    var brightness: float = smoothstep(0.0, 0.25, amount)
+    var length: float = NEXUS_SPILL_MAX_LENGTH * amount
+    var active: bool = amount > 0.001
+    _nexus_floor_spill.visible = active
+    _nexus_threshold_glow.visible = active
+    _nexus_floor_spill.scale.y = maxf(amount, 0.001)
+    _nexus_floor_spill.position.z = NEXUS_SPILL_START_Z + length * 0.5
+    var spill_mat := _nexus_floor_spill.material_override as ShaderMaterial
+    var threshold_mat := _nexus_threshold_glow.material_override as ShaderMaterial
+    spill_mat.set_shader_parameter("light_amount", brightness)
+    threshold_mat.set_shader_parameter("light_amount", brightness)
+
+
 func _add_entrance(key: String) -> void:
     var data: Dictionary = PORTALS.get(key, {})
     if data.is_empty():
@@ -2904,8 +2930,10 @@ func _add_practical_lighting(key: String) -> void:
             gap.position = Vector3(0.0, 0.34, 2.97)
             add_child(gap)
             var gap_size := Vector3(shutter_width, 0.050, 0.06)
-            _box(gap, "RecessedSteelRim", Vector3.ZERO,
-                gap_size + Vector3(0.08, 0.06, 0.04), Color("#283944"))
+            # Extend the existing rim into a real sill under the shutter.
+            # Its top is y=0.395, its front z=3.02; the outside deck is lower.
+            _box(gap, "RecessedSteelRim", Vector3(0.0, -0.1425, -0.205),
+                Vector3(shutter_width + 0.08, 0.395, 0.51), Color("#283944"))
             var gap_face := _box(gap, "IlluminatedGap",
                 Vector3(0.0, 0.0, gap_size.z * 0.71), gap_size, gap_tint)
             gap_face.material_override = entry_material
@@ -2917,12 +2945,20 @@ func _add_practical_lighting(key: String) -> void:
                 Vector3(0.0, 0.37, 4.76),
                 Vector3(0.68, 0.28, 0.43), Color("#c5edff"),
                 1.80, 5.25, 18.0, shutter_width / 1.68, 0.29)
-            # Keep the independently animated-looking spill geometry at
-            # the shutter; it no longer stands in for the aimed projector.
-            _make_surface("ShutterLowerGapSpill",
-                Vector3(0.0, 0.34, 5.89), Vector2(shutter_width, 5.80),
+            # Two unshaded quads share the entry color; no new light or shadow.
+            # The threshold follows the actual sill top, the spill the deck.
+            _nexus_threshold_glow = _make_surface("ShutterThresholdGlow",
+                Vector3(0.0, 0.397, 2.765), Vector2(shutter_width, 0.51),
                 Vector3(-PI * 0.5, 0.0, 0.0),
                 NEXUS_SHUTTER_BEAM_SHADER, gap_tint, false)
+            var threshold_mat := _nexus_threshold_glow.material_override as ShaderMaterial
+            threshold_mat.set_shader_parameter("threshold_mode", true)
+            _nexus_floor_spill = _make_surface("ShutterLowerGapSpill",
+                Vector3(0.0, 0.005, NEXUS_SPILL_START_Z + NEXUS_SPILL_MAX_LENGTH * 0.5),
+                Vector2(shutter_width, NEXUS_SPILL_MAX_LENGTH),
+                Vector3(-PI * 0.5, 0.0, 0.0),
+                NEXUS_SHUTTER_BEAM_SHADER, gap_tint, false)
+            set_nexus_shutter_open(0.0)
         "RECYCLER":
             # Two jaws, two actual aimed lamps. The old central spotlight
             # used a different origin than both visible lamp housings.
