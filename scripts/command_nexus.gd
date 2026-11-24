@@ -283,6 +283,7 @@ const NEXUS_ARM_CLEARANCE: float = 0.018
 const CUSTOMIZE_DRAG_FULL_TURN: float = TAU
 
 const CAMERA_TRANSITION_SECONDS: float = 0.18
+const NexusExitTransition = preload("res://scripts/sera_nexus_exit_transition.gd")
 const BASE_SCENE: String = "res://scenes/base_exploration.tscn"
 const TRAINING_SCENE: String = "res://scenes/main.tscn"
 const BITTARAN_SCENE: String = "res://scenes/bittaran_battle.tscn"
@@ -4594,7 +4595,7 @@ func _polygon_area(poly: PackedVector2Array) -> float:
 # Raw touch support intentionally does not change the training scene's global
 # Input.emulate_mouse_from_touch=false setting. PC mouse taps also work.
 func _on_android_back() -> void:
-    if get_tree().root.get_node_or_null("NexusEntryTransition") != null:
+    if get_tree().root.get_node_or_null("NexusEntryTransition") != null or get_tree().root.get_node_or_null("NexusExitTransition") != null:
         return
     _navigate_back()
 
@@ -4622,7 +4623,7 @@ func _navigate_back() -> void:
         _return_to_overview()
 
 func _input(event: InputEvent) -> void:
-    if get_tree().root.get_node_or_null("NexusEntryTransition") != null:
+    if get_tree().root.get_node_or_null("NexusEntryTransition") != null or get_tree().root.get_node_or_null("NexusExitTransition") != null:
         return
     # Once an editor is active, it exclusively owns the viewport's pointer.
     # Inactive editors must not consume launcher taps before the host sees them.
@@ -4888,6 +4889,8 @@ func _tap_at(point: Vector2) -> void:
     return
 
 func _enter_base() -> void:
+    if get_tree().root.get_node_or_null("NexusExitTransition") != null or get_tree().root.get_node_or_null("NexusEntryTransition") != null:
+        return
     if is_instance_valid(camera_angle_editor) and camera_angle_editor.has_method("open_mode") and bool(camera_angle_editor.get("active")):
         camera_angle_editor.call("close_mode")
     if is_instance_valid(placement_editor) and placement_editor.has_method("open_mode") and bool(placement_editor.get("active")):
@@ -4899,11 +4902,12 @@ func _enter_base() -> void:
         customize_entrance_tween.kill()
     in_transition = false
     nexus_transition_elapsed = 0.0
-    # No walkable NEXUS scene; exit straight back to the exterior base hub.
+    # Keep the current camera pose; only the root black overlay animates.
     SeraSave.requested_nexus_target = ""
-    var err: Error = get_tree().change_scene_to_file(BASE_SCENE)
-    if err != OK:
-        push_error("NEXUS base exploration scene load failed (%d)" % err)
+    var transition := NexusExitTransition.new()
+    transition.name = "NexusExitTransition"
+    get_tree().root.add_child(transition)
+    transition.run(self, _nexus_bgm_player, BASE_SCENE)
 
 func _polygon_bounds(poly: PackedVector2Array) -> Rect2:
     var left := poly[0].x
