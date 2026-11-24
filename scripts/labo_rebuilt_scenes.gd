@@ -71,6 +71,8 @@ func build(stage: Node3D) -> void:
             _open_box_frame(key)
             if key=="LABO":
                 _lab_rear_wall(key)
+        elif key=="SMELTER":
+            _refinery_work_deck(key)
         # Capture relative mechanical alignment after scaling, not the whole room pose.
         _capture_mechanism(key)
         _build_logistics(key)
@@ -300,6 +302,56 @@ func _outdoor_worksite(key: String) -> void:
         if child is GeometryInstance3D:
             child.set_meta("sera_outline_occluder_only",true)
 
+# Shared silver panels with actual narrow seams; two fixed draw batches.
+func _silver_worksite_panels(parent: Node3D,center: Vector2,span: Vector2,cols: int,rows: int,top: float) -> void:
+    var surface := _child(parent,"SilverSteelPanels")
+    var pitch := Vector2((span.x-0.56)/float(cols),(span.y-0.56)/float(rows))
+    var groups: Array = [[],[]]
+    for row in range(rows):
+        for col in range(cols):
+            var x: float = center.x-span.x*0.5+0.28+pitch.x*(float(col)+0.5)
+            var z: float = center.y-span.y*0.5+0.28+pitch.y*(float(row)+0.5)
+            var palette: int = 1 if posmod(row+col,4)==0 else 0
+            groups[palette].append(Transform3D(Basis.IDENTITY.scaled_local(Vector3(pitch.x-0.045,0.07,pitch.y-0.045)),Vector3(x,top-0.035,z)))
+    var mesh: ArrayMesh = Polygon.make("deck")
+    for palette in range(2):
+        var multi := MultiMesh.new()
+        multi.transform_format = MultiMesh.TRANSFORM_3D
+        multi.mesh = mesh
+        multi.instance_count = groups[palette].size()
+        for j in range(multi.instance_count):
+            multi.set_instance_transform(j,groups[palette][j])
+        var draw := MultiMeshInstance3D.new()
+        draw.name = "SilverWorksiteBatch%d"%palette
+        draw.multimesh = multi
+        draw.material_override = DeckLighting.worksite_material(palette==1)
+        draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        draw.set_meta("sera_preserve_authored_material",true)
+        draw.set_meta("sera_outline_occluder_only",true)
+        surface.add_child(draw)
+
+func _refinery_work_deck(key: String) -> void:
+    # 36 x 36 m apron: furnace, hopper, discharge, stacking pad,
+    # both gantries and the stopped carriers. Flat at the existing work level.
+    # The foundation sinks into the outdoor deck; no new raised step or walls.
+    var platform := _model(key,"FacilityWorkDeck",Vector3.ZERO)
+    var center := Vector2(-0.5,5.0)
+    var span := Vector2(36.0,36.0)
+    var b = _batch(platform)
+    _box(b,Vector3(center.x,-0.08,center.y),Vector3(span.x,0.15,span.y),"dark")
+    var left: float = center.x-span.x*0.5
+    var right: float = center.x+span.x*0.5
+    var back: float = center.y-span.y*0.5
+    var front: float = center.y+span.y*0.5
+    for x in [left+0.14,right-0.14]:
+        _box(b,Vector3(x,-0.02,center.y),Vector3(0.28,0.04,span.y),"edge")
+        for j in range(9):
+            _box(b,Vector3(x,0.005,back+2.0+float(j)*4.0),Vector3(0.18,0.012,0.72),"trim")
+    for z in [back+0.14,front-0.14]:
+        _box(b,Vector3(center.x,-0.02,z),Vector3(span.x-0.56,0.04,0.28),"edge")
+    _finish(b)
+    _silver_worksite_panels(platform,center,span,8,8,0.0)
+
 func _raised_worksite(key: String) -> void:
     # BASE's facility pads and partial protection structures are translated
     # into real-size geometry. The two sets have open fronts and open skies.
@@ -318,18 +370,6 @@ func _raised_worksite(key: String) -> void:
     # Slab bottom rests on the BASE floor (-0.03m); deck top at room y=0.
     _shape(b,"bevel",Vector3(center_x,-0.205,center_z),
         Vector3(width,0.29,depth),"dark")
-    # Flush machined plates with narrow genuine joints, no coplanar layer.
-    var cols: int = 6
-    var rows: int = 5
-    var dx: float = (width-0.56)/float(cols)
-    var dz: float = (depth-0.56)/float(rows)
-    for row in range(rows):
-        for col in range(cols):
-            var x: float = left+0.28+dx*(float(col)+0.5)
-            var z: float = rear+0.28+dz*(float(row)+0.5)
-            _shape(b,"deck",Vector3(x,-0.035,z),
-                Vector3(dx-0.045,0.07,dz-0.045),
-                "armor" if posmod(row+col,4)==0 else "slate")
     # Recessed edge rails and service sockets echo the small BASE foundation.
     for x in [left+0.14,right-0.14]:
         _box(b,Vector3(x,-0.055,center_z),Vector3(0.28,0.11,depth),"trim")
@@ -357,6 +397,7 @@ func _raised_worksite(key: String) -> void:
     for x in [left+1.1,right-1.1]:
         _box(b,Vector3(x,0.008,center_z),Vector3(0.10,0.016,depth-3.0),"caution")
     _finish(b)
+    _silver_worksite_panels(platform,Vector2(center_x,center_z),Vector2(width,depth),6,5,0.0)
     for child in platform.get_children():
         if child is GeometryInstance3D:
             child.set_meta("sera_preserve_authored_material",true)
