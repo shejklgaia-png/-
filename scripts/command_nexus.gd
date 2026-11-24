@@ -37,7 +37,10 @@ const NexusSelectionOutline = preload("res://scripts/nexus_selection_outline.gd"
 const CUSTOMIZE_BACKDROP_SHADER = preload("res://shaders/nexus_customize_radial_glow.gdshader")
 const NEXUS_PREVIEW_BACKDROP_COLOR: Color = Color("#afc4d1")
 # Room fallback only; keep the bright equipment-preview backdrop unchanged.
-const NEXUS_ROOM_BACKDROP_COLOR: Color = Color("#17212c")
+const NEXUS_ROOM_BACKDROP_COLOR: Color = Color("#0c141d")
+# Scene-local copies preserve the shared combat/preview materials.
+var _nexus_lighting_shaders: Dictionary = {}
+var _nexus_lighting_materials: Dictionary = {}
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 
 # Widen only the NEXUS side bays, preserving the center pillar and SERA pad.
@@ -402,6 +405,8 @@ func _ready() -> void:
     # NEXUS equipment has 3/0/2+convex1; its displayed SERA remains
     # universal character 4/0/2, all in the exact shared visible RGB-ID pass.
     SharedMaterialShading.apply_to_subtree(self)
+    _nexus_apply_practical_shading(self, true)
+    _nexus_practical_lights()
     _wall_mark()
     # Capture the visible room roots before adding the exhibit and preview renderer.
     # Source visibility also controls their copies in the shared RGB-ID pass.
@@ -409,6 +414,8 @@ func _ready() -> void:
         if child is Node3D and not (child is Light3D) and child.visible:
             nexus_room_visuals.append(child)
     _sera_display()
+    if is_instance_valid(sera_display_rig):
+        _nexus_apply_practical_shading(sera_display_rig, true)
     _camera()
     # One RGB12 ID viewport for the entire NEXUS (architecture + SERA).
     # The numeric preset selects NEXUS equipment only, not actor widths.
@@ -843,26 +850,117 @@ func _environment() -> void:
     env.background_mode = Environment.BG_COLOR
     env.background_color = NEXUS_ROOM_BACKDROP_COLOR
     env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-    env.ambient_light_color = Color("#73889c")
-    env.ambient_light_energy = 0.68
+    env.ambient_light_color = Color("#a1b5cd")
+    env.ambient_light_energy = 0.30
     world.environment = env
     add_child(world)
+    # Retain only a faint neutral directional fill for readable silhouettes.
     var key := DirectionalLight3D.new()
     key.rotation_degrees = Vector3(-48.0, -34.0, 0.0)
-    key.light_energy = 1.10
+    key.light_color = Color("#c2d4e8")
+    key.light_energy = 0.16
+    key.shadow_enabled = false
     add_child(key)
-    # Small, shadowless practical fill: keeps the center stage and the two
-    # consoles visible without new viewports, transparency or postprocessing.
-    for placement in [
-            Vector3(0.0, 7.65, -4.75),
-            Vector3(0.0, 7.0, 1.50)]:
-        var fill := OmniLight3D.new()
-        fill.position = placement
-        fill.light_color = Color("#89c8f0")
-        fill.light_energy = 0.39
-        fill.omni_range = 6.3
-        fill.shadow_enabled = false
-        add_child(fill)
+
+
+# The common toon shader is unshaded, so changing Environment alone has no
+# effect. Keep its authored palette, UVs and quantized normals, but use a
+# scene-local lit variant. Never mutate shared resources used in combat/UI.
+func _nexus_apply_practical_shading(node: Node, enable: bool) -> void:
+    if node is GeometryInstance3D:
+        var geometry := node as GeometryInstance3D
+        var current := geometry.material_override as ShaderMaterial
+        if not enable:
+            if geometry.has_meta("nexus_unlit_original"):
+                var original := geometry.get_meta("nexus_unlit_original") as ShaderMaterial
+                if current != null and _nexus_lighting_shaders.values().has(current.shader):
+                    geometry.material_override = original
+                geometry.remove_meta("nexus_unlit_original")
+        elif current != null and current.shader != null:
+            var source_shader: Shader = current.shader
+            if source_shader.resource_path.get_file().begins_with("sera_fullbody_material_shading"):
+                var shader_key: int = source_shader.get_instance_id()
+                var lit_shader := _nexus_lighting_shaders.get(shader_key) as Shader
+                if lit_shader == null:
+                    lit_shader = Shader.new()
+                    lit_shader.code = source_shader.code.replace(
+                        "render_mode unshaded,", "render_mode diffuse_lambert, specular_disabled,")
+                    _nexus_lighting_shaders[shader_key] = lit_shader
+                var material_key: int = current.get_instance_id()
+                var lit := _nexus_lighting_materials.get(material_key) as ShaderMaterial
+                if lit == null:
+                    lit = current.duplicate() as ShaderMaterial
+                    lit.shader = lit_shader
+                    for uniform_info in source_shader.get_shader_uniform_list():
+                        var parameter: StringName = StringName(uniform_info.get("name", ""))
+                        if parameter != &"":
+                            var value = current.get_shader_parameter(parameter)
+                            if value != null:
+                                lit.set_shader_parameter(parameter, value)
+                    _nexus_lighting_materials[material_key] = lit
+                geometry.set_meta("nexus_unlit_original", current)
+                geometry.material_override = lit
+    for child in node.get_children():
+        _nexus_apply_practical_shading(child, enable)
+
+
+func _nexus_practical_omni(parent: Node3D, label: String, at: Vector3,
+        tint: Color, energy: float, radius: float) -> void:
+    var lamp := OmniLight3D.new()
+    lamp.name = label
+    lamp.position = at
+    lamp.light_color = tint
+    lamp.light_energy = energy
+    lamp.omni_range = radius
+    lamp.omni_attenuation = 1.5
+    lamp.shadow_enabled = false
+    parent.add_child(lamp)
+
+
+func _nexus_practical_lights() -> void:
+    # Combine adjacent strip emitters into light pools on mobile. All authored
+    # luminous geometry remains emissive; no light per LED, shadow pass or fog.
+    var fixtures := Node3D.new()
+    fixtures.name = "NexusPracticalLights"
+    add_child(fixtures)
+    var cyan := Color("#79dfff")
+    var ice := Color("#c5efff")
+    # One broad pool per paired overhead strip row, placed below the lenses.
+    for z in [-22.45, -15.0, -7.55, -0.10, 7.35, 14.8]:
+        _nexus_practical_omni(fixtures, "CeilingStripPool", Vector3(0.0, 8.35, z),
+            ice, 1.35, 11.5)
+    # Canopy, stage ring, stairs/rail and guide lights are separate local pools.
+    _nexus_practical_omni(fixtures, "CanopyOpticPool", Vector3(0, 6.80, -4.75),
+        cyan, 1.75, 8.0)
+    _nexus_practical_omni(fixtures, "StageRingPool", Vector3(0, 0.62, -4.75),
+        cyan, 0.85, 3.5)
+    _nexus_practical_omni(fixtures, "ArchiveStairPool", Vector3(-4.95, 1.65, -7.7),
+        cyan, 0.72, 4.5)
+    for side in [-1.0, 1.0]:
+        _nexus_practical_omni(fixtures, "WallAndGuidePool", Vector3(side * 6.1, 2.5, -14.0),
+            cyan, 0.85, 6.0)
+        _nexus_practical_omni(fixtures, "ForecourtGuidePool", Vector3(side * 3.0, 0.65, 3.0),
+            cyan, 0.50, 4.0)
+    _nexus_practical_omni(fixtures, "GateWarningPool", GATE_ORIGIN + Vector3(0, 5.7, 1.4),
+        Color("#ffe2a0"), 0.60, 4.0)
+    _nexus_attach_monitor_spill(self)
+
+
+func _nexus_attach_monitor_spill(node: Node) -> void:
+    # Child lights follow the actual animated display and canonical placement.
+    if node is MeshInstance3D:
+        var monitor := node as MeshInstance3D
+        if monitor.has_meta("monitor_id"):
+            var screen := monitor.mesh as QuadMesh
+            var width: float = screen.size.x if screen != null else 0.8
+            _nexus_practical_omni(monitor, "ScreenSpill", Vector3(0, -0.10, 0.25),
+                Color("#83ddff"), 0.75, clampf(width * 1.8, 1.6, 3.0))
+        elif monitor.name == "DeploymentReadoutReticleAndStatus":
+            _nexus_practical_omni(monitor, "ScreenSpill", Vector3(2.82, 1.25, 0.9),
+                Color("#83ddff"), 0.65, 2.2)
+    for child in node.get_children():
+        _nexus_attach_monitor_spill(child)
+
 
 func _vec(a: Array) -> Vector3:
     return Vector3(float(a[0]), float(a[1]), float(a[2]))
@@ -1060,7 +1158,7 @@ func _mat(index: int) -> StandardMaterial3D:
     if index in [5, 6, 7]:
         mat.emission_enabled = true
         mat.emission = tint
-        mat.emission_energy_multiplier = 1.05 if index == 7 else 1.75
+        mat.emission_energy_multiplier = 1.10 if index == 7 else (2.25 if index == 5 else 1.55)
     return mat
 
 # Native per-mesh polygon-edge material overlays were removed: the one
@@ -4126,6 +4224,7 @@ func _show_customization_preview() -> void:
     customize_preview_yaw = PI
     customize_preview_pitch = 0.0
     customize_preview_active = true
+    _nexus_apply_practical_shading(sera_display_rig, false)
     _apply_customization_preview_transform()
     _capture_sera_silhouette(sera_display_rig)
     _fit_customization_preview()
@@ -4340,6 +4439,7 @@ func _restore_customization_preview() -> void:
     # Keep the portrait outline hidden until the return camera finishes.
     sera_display_rig.transform = sera_original_transform
     customize_preview_active = false
+    _nexus_apply_practical_shading(sera_display_rig, true)
     _capture_sera_silhouette(sera_display_rig)
     _update_projected_silhouettes()
 
