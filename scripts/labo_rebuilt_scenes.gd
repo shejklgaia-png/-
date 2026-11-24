@@ -676,6 +676,80 @@ func _task_light(parent: Node3D, at: Vector3, tint: Color, reach: float, energy:
     light.shadow_enabled = false
     parent.add_child(light)
 
+# Product dimensions share the print-head and transfer clearance limits.
+# True segmented bores are open geometry, not painted black circles.
+const PART_HEIGHTS := [1.30,0.90,1.10,1.40]
+const PART_WIDTHS := [1.65,1.75,1.90,1.55]
+const PART_NAMES := ["HydraulicActuator","ReductionGearbox","JointMountingYoke","CoolantValveBlock"]
+
+func _part_ring(b,center: Vector3,outer: float,inner: float,h: float,mat: String) -> void:
+    var count: int = 12
+    var radius: float = (outer+inner)*0.5
+    for j in range(count):
+        var angle: float = TAU*(float(j)+0.5)/float(count)
+        var pos := center+Vector3(cos(angle)*radius,0,sin(angle)*radius)
+        b.box_tilt("MachinedAnnularSegment",pos,
+            Vector3(outer-inner,h,2.0*outer*tan(PI/float(count))+0.015),mat,Vector3(0,-angle,0))
+
+func _part_bolts(b,y: float,r: float,count: int) -> void:
+    for j in range(count):
+        var angle: float = TAU*float(j)/float(count)
+        _shape(b,"drum",Vector3(cos(angle)*r,y,sin(angle)*r),Vector3(0.11,0.07,0.11),"edge")
+
+func _fabricated_part(b,i: int) -> void:
+    match i:
+        0:
+            # Hydraulic linear actuator: square mounting flange, pressure body,
+            # piston gland, exposed chrome rod and upper mounting eye.
+            _shape(b,"bevel",Vector3(0,0.09,0),Vector3(1.35,0.18,1.22),"armor_light")
+            _shape(b,"drum",Vector3(0,0.45,0),Vector3(0.88,0.65,0.88),"blue")
+            _shape(b,"octagonal_slew",Vector3(0,0.75,0),Vector3(1.05,0.16,1.05),"edge")
+            _shape(b,"drum",Vector3(0,0.94,0),Vector3(0.36,0.29,0.36),"armor_light")
+            b.poly_tilt("ActuatorClevis","drum",Vector3(0,1.065,0),Vector3(0.40,0.28,0.40),"slate",Vector3(PI*0.5,0,0))
+            _box(b,Vector3(0,1.265,0),Vector3(0.52,0.07,0.38),"edge")
+            for side in [-1.0,1.0]:
+                _pipe(b,Vector3(side*0.44,0.30,0),Vector3(side*0.70,0.30,0),0.16,"gold")
+                _shape(b,"octagonal_slew",Vector3(side*0.68,0.30,0),Vector3(0.20,0.22,0.22),"edge")
+            _part_bolts(b,0.20,0.51,4)
+        1:
+            # Reduction gearbox: finned cast housing, output flange, hub and
+            # two identifiable mounting ears.
+            _shape(b,"bevel",Vector3(0,0.30,0),Vector3(1.32,0.60,1.30),"slate")
+            for side in [-1.0,1.0]:
+                _shape(b,"bevel",Vector3(side*0.70,0.10,0),Vector3(0.35,0.20,0.83),"armor_light")
+                for z in [-0.38,-0.13,0.13,0.38]:
+                    _box(b,Vector3(side*0.69,0.37,z),Vector3(0.12,0.35,0.10),"edge")
+            _shape(b,"drum",Vector3(0,0.64,0),Vector3(1.12,0.16,1.12),"armor_light")
+            _part_ring(b,Vector3(0,0.78,0),0.48,0.25,0.16,"gold")
+            _shape(b,"drum",Vector3(0,0.79,0),Vector3(0.34,0.22,0.34),"edge")
+            _part_bolts(b,0.755,0.51,6)
+        2:
+            # Open joint yoke: reinforced base and twin bearing ears with
+            # a genuine through-bore assembled from an annular profile.
+            _shape(b,"bevel",Vector3(0,0.12,0),Vector3(1.90,0.24,1.48),"armor_light")
+            for side in [-1.0,1.0]:
+                _shape(b,"gusset",Vector3(side*0.66,0.44,0),Vector3(0.32,0.74,1.20),"slate")
+                for j in range(12):
+                    var theta: float = TAU*(float(j)+0.5)/12.0
+                    var pos := Vector3(side*0.66,0.65+cos(theta)*0.27,sin(theta)*0.27)
+                    b.box_tilt("BearingEarSegment",pos,Vector3(0.33,0.16,0.18),"edge",Vector3(theta,0,0))
+            _box(b,Vector3(0,1.055,0),Vector3(1.58,0.09,0.36),"gold")
+            for x in [-0.72,0.72]:
+                for z in [-0.54,0.54]:
+                    _shape(b,"drum",Vector3(x,0.265,z),Vector3(0.13,0.07,0.13),"edge")
+        3:
+            # Coolant valve manifold: cast port block, opposed fittings,
+            # selector cylinder, bolted cap and a central pickup pad.
+            _shape(b,"bevel",Vector3(0,0.31,0),Vector3(1.22,0.62,1.38),"armor_light")
+            for side in [-1.0,1.0]:
+                for z in [-0.40,0.40]:
+                    _pipe(b,Vector3(side*0.48,0.32,z),Vector3(side*0.66,0.32,z),0.22,"gold")
+                    _shape(b,"octagonal_slew",Vector3(side*0.66,0.32,z),Vector3(0.22,0.31,0.31),"edge")
+            _shape(b,"drum",Vector3(0,0.88,0),Vector3(0.72,0.54,0.72),"blue")
+            _shape(b,"octagonal_slew",Vector3(0,1.18,0),Vector3(0.91,0.18,0.91),"gold")
+            _shape(b,"drum",Vector3(0,1.33,0),Vector3(0.42,0.14,0.42),"edge")
+            _part_bolts(b,0.655,0.45,4)
+
 func _labo(key: String) -> void:
     # Independent full-size design: BASE's open two-column fabrication bridge,
     # left feedstock racks, rear extraction, central bed and guided output shuttle.
@@ -683,6 +757,13 @@ func _labo(key: String) -> void:
     var b = _batch(frame)
     _skid(b,13.6,12.2)
     _shape(b,"deck",Vector3(0,0.72,0.65),Vector3(13.2,0.32,10.9),"armor")
+    # Recessed base service panels and visible hardware, outside the shuttle sweep.
+    for side in [-1.0,1.0]:
+        for z in [-3.5,-1.2,1.1,3.4]:
+            _box(b,Vector3(side*6.57,0.69,z),Vector3(0.07,0.19,1.68),"slate")
+            _box(b,Vector3(side*6.62,0.70,z),Vector3(0.04,0.055,0.45),"edge")
+        for z in [-3.9,4.8]:
+            _shape(b,"drum",Vector3(side*6.05,0.91,z),Vector3(0.22,0.09,0.22),"trim")
     _shape(b,"octagonal_slew",Vector3(1.10,1.10,2.0),Vector3(5.9,0.65,4.4),"dark")
     _shape(b,"deck",Vector3(1.10,1.56,2.0),Vector3(6.6,0.46,4.9),"armor_light")
     for side in [-1.0,1.0]:
@@ -693,12 +774,23 @@ func _labo(key: String) -> void:
         _pipe(b,Vector3(x,1.6,-1.4),Vector3(x,6.65,1.5),0.46,"trim")
         _box(b,Vector3(x,4.5,2.24),Vector3(0.25,3.5,0.10),"lab_cyan")
         _panel_detail(b,x,2.4,2.31,0.62,0.82)
+        # Linear guide tracks, fasteners and service access at the back face.
+        for dx in [-0.34,0.34]:
+            _box(b,Vector3(x+dx,4.6,2.24),Vector3(0.10,5.4,0.13),"edge")
+            for y in [2.5,3.7,4.9,6.1,7.1]:
+                _shape(b,"drum",Vector3(x+dx,y,2.30),Vector3(0.10,0.08,0.10),"trim")
+        _shape(b,"louver",Vector3(x,5.12,1.04),Vector3(0.64,1.35,0.13),"trim")
         for y in [2.9,5.7,7.2]:
             _shape(b,"deck",Vector3(x,y,1.65),Vector3(1.25,0.17,1.30),"edge")
     b.poly_tilt("OpenPrinterBridge","octagonal_slew",Vector3(1.10,8.0,1.65),
         Vector3(0.95,7.7,1.10),"slate",Vector3(0,0,PI*0.5))
     _box(b,Vector3(1.10,7.57,1.67),Vector3(6.5,0.22,0.64),"edge")
     _box(b,Vector3(1.10,7.68,2.19),Vector3(6.4,0.11,0.06),"lab_cyan")
+    for j in range(8):
+        var x: float = -2.1+float(j)*0.92
+        _box(b,Vector3(x,8.0,2.18),Vector3(0.13,0.48,0.08),"edge")
+    for x in [-2.25,4.45]:
+        _shape(b,"bevel",Vector3(x,8.15,1.65),Vector3(0.85,0.75,1.13),"armor")
     # A short rear guard only. No surrounding building or ceiling.
     _shape(b,"deck",Vector3(0,2.4,-4.95),Vector3(10.8,3.0,0.42),"armor")
     for x in [-3.8,-0.7,2.4]:
@@ -712,6 +804,10 @@ func _labo(key: String) -> void:
     b.poly_tilt("DriveMotor","drum",Vector3(0,0.12,0),Vector3(1.50,1.10,1.50),"slate",Vector3(0,0,PI*0.5))
     _shape(b,"bevel",Vector3(0,-0.55,0.16),Vector3(1.50,1.1,1.4),"armor")
     _shape(b,"louver",Vector3(0,-0.55,0.91),Vector3(0.96,0.62,0.16),"trim")
+    for x in [-0.56,0.56]:
+        _shape(b,"drum",Vector3(x,0.20,0.58),Vector3(0.22,0.24,0.22),"edge")
+        _box(b,Vector3(x,-0.25,0.84),Vector3(0.10,0.42,0.12),"gold")
+    _box(b,Vector3(0,-0.16,0.88),Vector3(0.44,0.10,0.07),"lab_cyan")
     _finish(b)
     var head_mount := _child(carriage,"PrintHeadPlacement",Vector3(0,-1.0,0.35))
     (targets[key] as Array).append(head_mount)
@@ -720,6 +816,10 @@ func _labo(key: String) -> void:
     _pipe(b,Vector3(0,0,0),Vector3(0,-2.65,0),0.45,"edge")
     _shape(b,"octagonal_slew",Vector3(0,-2.68,0),Vector3(1.00,0.88,1.00),"gold")
     _shape(b,"drum",Vector3(0,-3.22,0),Vector3(0.44,0.24,0.44),"amber_light")
+    for y in [-0.75,-1.22,-1.69,-2.16]:
+        _shape(b,"drum",Vector3(0,y,0),Vector3(0.59,0.11,0.59),"slate")
+    for x in [-0.34,0.34]:
+        _pipe(b,Vector3(x,-2.25,0),Vector3(x,-2.78,0),0.12,"trim")
     _finish(b)
     _moving(key,"bridge",carriage)
     _moving(key,"head",head)
@@ -737,6 +837,11 @@ func _labo(key: String) -> void:
     _shape(b,"drum",Vector3(0.98,4.7,0),Vector3(1.10,1.65,1.10),"blue")
     _shape(b,"gear",Vector3(0.98,5.62,0),Vector3(1.24,0.24,1.24),"gold")
     _shape(b,"roof",Vector3(0,7.25,-0.20),Vector3(4.5,0.22,2.8),"armor")
+    for y in [1.0,3.7,6.3]:
+        for x in [-1.45,1.45]:
+            _box(b,Vector3(x,y,1.19),Vector3(0.42,0.13,0.06),"gold")
+    for x in [-1.62,1.62]:
+        _box(b,Vector3(x,6.84,0.98),Vector3(0.18,0.55,0.11),"lab_cyan")
     _finish(b)
     var supply := _model(key,"ReceivingHopperAndFeed",Vector3(-9.0,0,2.8))
     _moving(key,"supply",supply)
@@ -746,12 +851,19 @@ func _labo(key: String) -> void:
         _shape(b,"gusset",Vector3(x,0.9,0),Vector3(0.50,1.8,1.4),"slate")
     _pipe(b,Vector3(0,1.78,0),Vector3(0.7,1.78,-5.8),0.57,"trim")
     _pipe(b,Vector3(0.7,1.78,-5.8),Vector3(1.7,2.1,-5.8),0.57,"edge")
+    for side in [-1.0,1.0]:
+        _box(b,Vector3(side*1.16,2.9,1.19),Vector3(0.12,0.85,0.09),"edge")
+    _box(b,Vector3(0,2.75,1.24),Vector3(0.55,0.17,0.09),"lab_cyan")
+    _shape(b,"bevel",Vector3(0,1.30,0.25),Vector3(0.80,0.56,0.68),"slate")
     _finish(b)
     var extraction := _model(key,"RearExtractionAndCoolant",Vector3(8.25,0,-4.5))
     b = _batch(extraction)
     _shape(b,"vent_stack",Vector3(0,5.1,0),Vector3(2.0,10.2,2.0),"slate")
     _shape(b,"drum",Vector3(0,8.0,0),Vector3(2.6,0.64,2.6),"edge")
     _shape(b,"louver",Vector3(0,3.5,1.1),Vector3(1.45,1.7,0.25),"trim")
+    for y in [2.3,4.7,6.8]:
+        _shape(b,"gear",Vector3(0,y,0),Vector3(2.12,0.16,2.12),"edge")
+    _box(b,Vector3(0,4.65,1.13),Vector3(0.66,0.15,0.07),"lab_cyan")
     _shape(b,"hood",Vector3(-2.1,8.5,0.8),Vector3(3.7,0.9,2.6),"armor_light")
     _pipe(b,Vector3(0,8.5,0),Vector3(-2.1,8.5,0.8),0.82,"trim")
     _shape(b,"drum",Vector3(-0.4,2.0,2.2),Vector3(1.65,3.6,1.65),"blue")
@@ -777,6 +889,9 @@ func _labo(key: String) -> void:
         _shape(b,"gusset",Vector3(x,0.95,0),Vector3(0.35,1.9,1.8),"slate")
         _box(b,Vector3(x,1.93,0),Vector3(0.24,0.16,2.5),"gold")
     _box(b,Vector3(0,1.3,1.35),Vector3(3.0,0.20,0.18),"edge")
+    for side in [-1.0,1.0]:
+        _box(b,Vector3(side*1.45,1.47,1.80),Vector3(0.15,0.24,2.85),"slate")
+        _box(b,Vector3(side*1.45,1.48,3.13),Vector3(0.19,0.20,0.09),"lab_cyan")
     # The outfeed rollers are flush with the shuttle and beyond its travel end.
     for x in [-1.12,1.12]:
         _shape(b,"gusset",Vector3(x,1.02,2.5),Vector3(0.32,2.0,0.6),"slate")
@@ -799,13 +914,9 @@ func _labo(key: String) -> void:
     var product_root := _child(shuttle,"FabricatedWorkpieces",Vector3(0,2.12,0))
     # Product is physically parented to its carrier, never interpolated independently.
     for i in range(4):
-        var piece := _child(product_root,"Product"+str(i))
+        var piece := _child(product_root,PART_NAMES[i])
         b = _batch(piece)
-        match i:
-            0: _shape(b,"vent_stack",Vector3(0,0.65,0),Vector3(1.65,1.3,1.55),"blue")
-            1: _shape(b,"gear",Vector3(0,0.45,0),Vector3(1.75,0.9,1.75),"edge")
-            2: _shape(b,"bevel",Vector3(0,0.55,0),Vector3(1.9,1.1,1.6),"armor_light")
-            3: _shape(b,"octagonal_slew",Vector3(0,0.7,0),Vector3(1.55,1.4,1.55),"gold")
+        _fabricated_part(b,i)
         _finish(b)
         piece.visible = false
     _moving(key,"products",product_root)
@@ -814,6 +925,9 @@ func _labo(key: String) -> void:
     b = _batch(utility)
     _shape(b,"bevel",Vector3(0,1.0,0),Vector3(1.45,2.0,1.2),"slate")
     _panel_detail(b,0,1.12,0.65,1.1,1.5)
+    _shape(b,"louver",Vector3(0,0.46,0.68),Vector3(0.82,0.41,0.09),"trim")
+    for x in [-0.31,0.0,0.31]:
+        _box(b,Vector3(x,1.76,0.67),Vector3(0.13,0.08,0.05),"lab_cyan" if x==0.0 else "gold")
     _pipe(b,Vector3(0,1.9,0),Vector3(0,6.0,0),0.22,"trim")
     _pipe(b,Vector3(0,6.0,0),Vector3(-1.9,6.0,-0.4),0.22,"edge")
     _shape(b,"hood",Vector3(-1.9,6.0,-0.4),Vector3(1.1,0.35,0.7),"armor")
@@ -1223,8 +1337,7 @@ func _sample_machine(key: String, t: float) -> void:
             var shuttle: Node3D = m["shuttle"]
             var product: Node3D = m["products"]
             var variant: int = int(m["variant"])
-            var heights := [1.30,0.90,1.10,1.40]
-            var product_height: float = float(heights[maxi(0,variant)])
+            var product_height: float = float(PART_HEIGHTS[maxi(0,variant)])
             var grow: float = smoothstep(0.10,0.46,t)
             # Nozzle bottom is 3.06m at zero extension; the shuttle top is 2.12m.
             # Keep a 0.13m gap above the growing part. Retract completely before transfer.
@@ -1336,8 +1449,8 @@ func _sample(key: String,t: float) -> void:
     if key=="LABO":
         var variant: int = int(m["variant"])
         output = (m["products"] as Node3D).get_child(variant) as Node3D
-        payload_height = float([1.30,0.90,1.10,1.40][variant])*EQUIPMENT_SCALE
-        payload_width = float([1.65,1.75,1.90,1.55][variant])*EQUIPMENT_SCALE+0.12
+        payload_height = float(PART_HEIGHTS[variant])*EQUIPMENT_SCALE
+        payload_width = float(PART_WIDTHS[variant])*EQUIPMENT_SCALE+0.12
     elif key=="SMELTER":
         output = m["output"] as Node3D
         payload_height = 0.88
