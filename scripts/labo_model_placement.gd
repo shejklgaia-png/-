@@ -15,6 +15,7 @@ var status: Label
 var pointer := -999
 var last_point := Vector2.ZERO
 var was_processing := false
+var crate_was_visible := true
 
 func configure(owner_node) -> void:
     host = owner_node
@@ -59,6 +60,11 @@ func configure(owner_node) -> void:
             row.add_child(button)
             buttons[id] = button
             button.pressed.connect(_action.bind(id))
+    var crate_button := _make_button("クレート非表示")
+    crate_button.custom_minimum_size.y = 58.0
+    column.add_child(crate_button)
+    buttons["crate_visibility"] = crate_button
+    crate_button.pressed.connect(_action.bind("crate_visibility"))
     for pair in [["left", "↶"], ["right", "↷"], ["up", "▲"], ["down", "▼"]]:
         var button := _make_button(str(pair[1]))
         add_child(button)
@@ -91,6 +97,9 @@ func open_mode() -> bool:
     active = true
     pointer = -999
     selected = null
+    var route: Node3D = stage.get("crate_route") as Node3D
+    crate_was_visible = route.visible if route != null else true
+    _sync_crate_button()
     was_processing = stage.is_processing()
     stage.set_process(false)
     host.call("_set_labo_scroll_input_enabled", false)
@@ -107,6 +116,9 @@ func close_mode() -> void:
     selected = null
     hide()
     if is_instance_valid(stage):
+        var route: Node3D = stage.get("crate_route") as Node3D
+        if route != null:
+            route.visible = crate_was_visible
         stage.set_process(was_processing)
     host.call("_set_labo_scroll_input_enabled", true)
 
@@ -232,11 +244,28 @@ func _remember() -> void:
     changed[section][str(stage.get_path_to(selected))] = {"position": [p.x,p.y,p.z], "rotation_degrees": [r.x,r.y,r.z]}
     _refresh()
 
+func _sync_crate_button() -> void:
+    var route: Node3D = stage.get("crate_route") as Node3D
+    var button: Button = buttons["crate_visibility"]
+    button.disabled = route == null
+    button.text = "クレート非表示" if route == null or route.visible else "クレート表示"
+
+
 func _action(id: String) -> void:
     if not active:
         return
     if id == "exit":
         close_mode()
+        return
+    if id == "crate_visibility":
+        var route: Node3D = stage.get("crate_route") as Node3D
+        if route == null:
+            return
+        route.visible = not route.visible
+        if not route.visible and selected == route:
+            selected = null
+        _sync_crate_button()
+        _refresh()
         return
     if id == "copy":
         var section: String = stage.call("camera_section_id")
@@ -248,12 +277,18 @@ func _action(id: String) -> void:
         status.text = "配置コピー完了 / ChatGPTに貼り付けて確定"
         return
     if id in ["prev", "next"]:
-        var index := targets.find(selected)
+        var available: Array[Node3D] = []
+        for target in targets:
+            if target.is_visible_in_tree():
+                available.append(target)
+        if available.is_empty():
+            return
+        var index := available.find(selected)
         if index < 0:
-            index = 0 if id == "next" else targets.size()-1
+            index = 0 if id == "next" else available.size()-1
         else:
-            index = posmod(index+(1 if id == "next" else -1), targets.size())
-        selected = targets[index]
+            index = posmod(index+(1 if id == "next" else -1), available.size())
+        selected = available[index]
         _refresh()
         return
     if selected == null:
