@@ -66,6 +66,7 @@ var _ambience_env: Environment
 var _ambience_lights: Array[Light3D] = []
 var _ambience_light_base: Array[float] = []
 var _ambience_materials: Array[ShaderMaterial] = []
+var _ambience_floor_filter: ShaderMaterial
 var _ambience_panel: Panel
 var _ambience_slider: HSlider
 var _ambience_label: Label
@@ -1131,6 +1132,9 @@ void fragment() {
         mask = edge * (0.46+0.46*drift+0.08*step(0.965,fine));
     } else if (mode == 2) {
         mask = smoothstep(0.05,0.98,1.0-UV.y);
+    } else if (mode == 4) {
+        // Existing deck mesh UV.y grows from the rear toward the entrance.
+        mask = mix(0.48,1.0,smoothstep(0.12,0.88,1.0-UV.y));
     } else if (mode == 3) {
         float down = UV.y;
         float half_width = mix(0.31,0.49,down);
@@ -1138,7 +1142,7 @@ void fragment() {
         mask = (1.0-smoothstep(half_width*0.5,half_width,across))*pow(1.0-down,1.6);
     }
     ALBEDO = tint.rgb * mix(0.72,1.12,brightness-0.5);
-    ALPHA = clamp(opacity*mask*mix(0.70,1.15,brightness-0.5),0.0,0.6);
+    ALPHA = clamp(opacity*mask*mix(0.70,1.15,brightness-0.5),0.0,0.85);
 }
 """
     var root := Node3D.new()
@@ -1155,12 +1159,16 @@ void fragment() {
         _ambience_hazes[key] = plane
     _refresh_nexus_haze_positions()
     # Match the real rear bulkhead cutout, not a rectangle over the portal.
-    var wall := _nexus_atmosphere_material(shader, 1, Color("#8298a8"), 0.23)
+    var wall := _nexus_atmosphere_material(shader, 1, Color("#9eafbb"), 0.68)
     _nexus_atmosphere_plane(root, "RearWallLeftFilter", Vector3(-3.505,4.18,-27.38), Vector2(13.09,8.46), wall)
     _nexus_atmosphere_plane(root, "RearWallRightFilter", Vector3(9.625,4.18,-27.38), Vector2(0.85,8.46), wall)
     _nexus_atmosphere_plane(root, "RearWallHeaderFilter", Vector3(6.25,9.32,-27.38), Vector2(7.48,1.80), wall)
-    var ceiling := _nexus_atmosphere_material(shader, 2, Color("#8a9eac"), 0.28)
+    var ceiling := _nexus_atmosphere_material(shader, 2, Color("#a6b8c4"), 0.70)
     _nexus_atmosphere_plane(root, "CeilingDepthGradient", Vector3(0,9.39,-7.8), Vector2(19.7,39.4), ceiling, -PI*0.5)
+    _ambience_floor_filter = _nexus_atmosphere_material(shader, 4, Color("#8b9fac"), 0.58)
+    # Match the actual deck triangles, rather than a floating rectangle
+    # across grilles, channels, lettering and step edges.
+    _attach_nexus_floor_filter()
     var shaft := _nexus_atmosphere_material(shader, 3, Color("#d0efff"), 0.17)
     # Source positions come from actual luminous Blockbench strips, not guessed
     # light locations. One static MultiMesh shares all ceiling beam quads.
@@ -1195,10 +1203,64 @@ void fragment() {
         root.add_child(batch)
     var rotor := find_child("LeftRotatingCyanMaintenanceOptics", true, false) as Node3D
     if is_instance_valid(rotor):
-        for child in rotor.get_children():
-            if child is SpotLight3D and str(child.name).begins_with("CanopyOptic"):
-                _nexus_atmosphere_plane(rotor, "CanopyDescendingLight", (child as SpotLight3D).position + Vector3(0,-1.25,0), Vector2(1.25,2.5), shaft)
+        # The real rotor owns twelve visible segments, in two emitter batches.
+        # Derive shafts from ALL their local transforms, not node-name matches
+        # on the two proxy spotlights. Reuse the rotor so there is no lag.
+        var canopy_poses: Array[Transform3D] = []
+        for emitter_name in ["CyanRingSegments", "BrighterCyanRotationMarkers"]:
+            var emitter := rotor.get_node_or_null(emitter_name) as MultiMeshInstance3D
+            if emitter == null or emitter.multimesh == null:
+                continue
+            var source: MultiMesh = emitter.multimesh
+            for i in range(source.instance_count):
+                var optic: Transform3D = emitter.transform * source.get_instance_transform(i)
+                var length: float = 2.5
+                var width: float = optic.basis.x.length() / 0.62
+                var at: Vector3 = optic.origin - Vector3.UP * (optic.basis.y.length() * 0.5 + length * 0.5 + 0.012)
+                # The emitter's tangent determines the plane direction.
+                # Different ring angles prevent all shafts being edge-on at once.
+                var basis: Basis = optic.basis.orthonormalized().scaled_local(Vector3(width,length,1.0))
+                canopy_poses.append(Transform3D(basis,at))
+        if not canopy_poses.is_empty():
+            var canopy_quad := QuadMesh.new()
+            canopy_quad.size = Vector2.ONE
+            var canopy_multi := MultiMesh.new()
+            canopy_multi.transform_format = MultiMesh.TRANSFORM_3D
+            canopy_multi.mesh = canopy_quad
+            canopy_multi.instance_count = canopy_poses.size()
+            for i in range(canopy_poses.size()):
+                canopy_multi.set_instance_transform(i, canopy_poses[i])
+            var canopy_batch := MultiMeshInstance3D.new()
+            canopy_batch.name = "CanopyDescendingLightAllSegments"
+            canopy_batch.multimesh = canopy_multi
+            canopy_batch.material_override = _nexus_atmosphere_material(shader, 3, Color("#a6e9ff"), 0.23)
+            canopy_batch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+            canopy_batch.set_meta("FX_NO_OUTLINE", true)
+            canopy_batch.set_meta("sera_skip_common_id_outline", true)
+            rotor.add_child(canopy_batch)
     _apply_nexus_ambience()
+
+
+# Both deferred builders may finish first; attach once, when both exist.
+# The baked floor light already owns the exact top-face mesh and world UVs.
+func _attach_nexus_floor_filter() -> void:
+    if _ambience_floor_filter == null:
+        return
+    var deck := get_node_or_null("NexusDeckReferenceV3") as Node3D
+    if not is_instance_valid(deck):
+        return
+    var baked := deck.get_node_or_null("BakedDeckIllumination") as MeshInstance3D
+    if baked == null or baked.mesh == null or deck.has_node("DeckAtmosphereFilter"):
+        return
+    var overlay := MeshInstance3D.new()
+    overlay.name = "DeckAtmosphereFilter"
+    overlay.mesh = baked.mesh
+    overlay.transform = baked.transform
+    overlay.material_override = _ambience_floor_filter
+    overlay.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    overlay.set_meta("FX_NO_OUTLINE", true)
+    overlay.set_meta("sera_skip_common_id_outline", true)
+    deck.add_child(overlay)
 
 
 # Canonical placement updates the original selection clusters. Keep each
@@ -1483,6 +1545,7 @@ func _nexus_build_baked_deck_light(pools: Array[Dictionary]) -> void:
     overlay.set_meta("FX_NO_OUTLINE", true)
     overlay.set_meta("sera_skip_common_id_outline", true)
     deck.add_child(overlay)
+    _attach_nexus_floor_filter()
 
 
 func _nexus_attach_monitor_spill(node: Node) -> void:
