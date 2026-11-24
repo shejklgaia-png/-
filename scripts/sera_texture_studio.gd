@@ -68,7 +68,26 @@ var selected_model_label: Label
 var mesh_picker_row: HBoxContainer
 var density_picker: StudioChoice
 var tool_picker: StudioChoice
-var color_picker: ColorPickerButton
+var color_picker: Button
+var paint_color: Color = Color("#8daebd")
+var paint_swatch: ColorRect
+var palette_overlay: Control
+var palette_panel: PanelContainer
+var palette_sv: ColorRect
+var palette_hue: TextureRect
+var palette_sv_marker: ColorRect
+var palette_hue_marker: ColorRect
+var palette_sample: ColorRect
+var palette_hex: Label
+var palette_done: Button
+var palette_cancel: Button
+var palette_original: Color
+var palette_h: float = 0.0
+var palette_s: float = 0.0
+var palette_v: float = 1.0
+var palette_touch: int = -1
+var palette_action: int = 0
+var palette_open_touch: int = -1
 var status: Label
 var host: SubViewportContainer
 var view: SubViewport
@@ -245,11 +264,19 @@ func _build_ui() -> void:
     for name_text in paint_tools:
         tool_picker.add_item(name_text)
     row.add_child(tool_picker)
-    color_picker = ColorPickerButton.new()
-    color_picker.color = Color("#8daebd")
-    color_picker.edit_alpha = false
+    color_picker = Button.new()
     color_picker.custom_minimum_size = Vector2(88,54)
+    color_picker.pressed.connect(_open_palette)
     row.add_child(color_picker)
+    paint_swatch = ColorRect.new()
+    paint_swatch.color = paint_color
+    paint_swatch.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    color_picker.add_child(paint_swatch)
+    paint_swatch.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    paint_swatch.offset_left = 10
+    paint_swatch.offset_right = -10
+    paint_swatch.offset_top = 9
+    paint_swatch.offset_bottom = -9
     var mode: Button = _button(row,"回転 / 描画",_toggle_rotation_mode)
     mode.toggle_mode = true
     row = _row(box)
@@ -264,6 +291,7 @@ func _build_ui() -> void:
     diameter_picker = _new_choice("ブラシサイズ")
     for d in [1,3,5]:
         diameter_picker.add_item("%d px" % d,d)
+    diameter_picker.custom_minimum_size.x = 108
     diameter_picker.item_selected.connect(_set_brush_size)
     row.add_child(diameter_picker)
     symmetric = CheckButton.new()
@@ -484,6 +512,215 @@ func _choice_row_at(at: Vector2) -> int:
             return index
     return -1
 
+func _set_paint_color(value: Color) -> void:
+    paint_color = Color(value.r,value.g,value.b,1.0)
+    if is_instance_valid(paint_swatch):
+        paint_swatch.color = paint_color
+
+func _gradient(colors: PackedColorArray, vertical: bool) -> GradientTexture2D:
+    var gradient := Gradient.new()
+    var offsets := PackedFloat32Array()
+    for i in range(colors.size()):
+        offsets.append(float(i)/float(colors.size()-1))
+    gradient.offsets = offsets
+    gradient.colors = colors
+    var texture := GradientTexture2D.new()
+    texture.gradient = gradient
+    texture.width = 128
+    texture.height = 128
+    texture.fill_from = Vector2.ZERO
+    texture.fill_to = Vector2(0,1) if vertical else Vector2(1,0)
+    return texture
+
+func _gradient_child(parent: Control, colors: PackedColorArray, vertical: bool) -> void:
+    var rect := TextureRect.new()
+    rect.texture = _gradient(colors,vertical)
+    rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+    rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    parent.add_child(rect)
+    rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+
+func _open_palette() -> void:
+    if is_instance_valid(palette_overlay) or is_instance_valid(choice_overlay) or part_loading:
+        return
+    _end_stroke()
+    points.clear()
+    palette_original = paint_color
+    palette_h = paint_color.h
+    palette_s = paint_color.s
+    palette_v = paint_color.v
+    palette_overlay = Control.new()
+    palette_overlay.name = "TouchPaintPalette"
+    add_child(palette_overlay)
+    palette_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    palette_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+    var shade := ColorRect.new()
+    shade.color = Color(0.02,0.05,0.08,0.80)
+    palette_overlay.add_child(shade)
+    shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    shade.mouse_filter = Control.MOUSE_FILTER_STOP
+    palette_panel = PanelContainer.new()
+    palette_overlay.add_child(palette_panel)
+    palette_panel.set_anchor(SIDE_LEFT,0.06)
+    palette_panel.set_anchor(SIDE_RIGHT,0.94)
+    palette_panel.set_anchor(SIDE_TOP,0.12)
+    palette_panel.set_anchor(SIDE_BOTTOM,0.88)
+    var pad := MarginContainer.new()
+    for side in ["left","right","top","bottom"]:
+        pad.add_theme_constant_override("margin_"+side,14)
+    palette_panel.add_child(pad)
+    var box := VBoxContainer.new()
+    box.add_theme_constant_override("separation",12)
+    pad.add_child(box)
+    var title := Label.new()
+    title.text = "PALETTE / 色選択"
+    title.add_theme_font_size_override("font_size",24)
+    box.add_child(title)
+    var field := HBoxContainer.new()
+    field.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    field.add_theme_constant_override("separation",12)
+    box.add_child(field)
+    palette_sv = ColorRect.new()
+    palette_sv.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    palette_sv.custom_minimum_size = Vector2(160,160)
+    field.add_child(palette_sv)
+    _gradient_child(palette_sv,PackedColorArray([Color.WHITE,Color(1,1,1,0)]),false)
+    _gradient_child(palette_sv,PackedColorArray([Color(0,0,0,0),Color.BLACK]),true)
+    palette_sv_marker = ColorRect.new()
+    palette_sv_marker.color = Color.WHITE
+    palette_sv_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    palette_sv.add_child(palette_sv_marker)
+    palette_hue = TextureRect.new()
+    palette_hue.custom_minimum_size.x = 54
+    palette_hue.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+    palette_hue.texture = _gradient(PackedColorArray([Color.RED,Color.YELLOW,Color.GREEN,Color.CYAN,Color.BLUE,Color.MAGENTA,Color.RED]),true)
+    field.add_child(palette_hue)
+    palette_hue_marker = ColorRect.new()
+    palette_hue_marker.color = Color.WHITE
+    palette_hue_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    palette_hue.add_child(palette_hue_marker)
+    var preview_row := _row(box)
+    palette_sample = ColorRect.new()
+    palette_sample.custom_minimum_size = Vector2(100,54)
+    preview_row.add_child(palette_sample)
+    palette_hex = Label.new()
+    palette_hex.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    palette_hex.add_theme_font_size_override("font_size",24)
+    preview_row.add_child(palette_hex)
+    var footer := _row(box)
+    palette_cancel = _button(footer,"取消",_close_palette.bind(false))
+    palette_done = _button(footer,"決定",_close_palette.bind(true))
+    palette_sv.resized.connect(_refresh_palette)
+    palette_hue.resized.connect(_refresh_palette)
+    _refresh_palette()
+
+func _refresh_palette() -> void:
+    if not is_instance_valid(palette_sv_marker) or not is_instance_valid(palette_hue_marker) or not is_instance_valid(palette_hex):
+        return
+    var color: Color = Color.from_hsv(palette_h,palette_s,palette_v)
+    palette_sv.color = Color.from_hsv(palette_h,1.0,1.0)
+    palette_sv_marker.size = Vector2(12,12)
+    palette_sv_marker.position = (Vector2(palette_s,1.0-palette_v)*palette_sv.size-Vector2(6,6)).clamp(Vector2.ZERO,(palette_sv.size-Vector2(12,12)).max(Vector2.ZERO))
+    palette_hue_marker.size = Vector2(palette_hue.size.x,5)
+    palette_hue_marker.position = Vector2(0,clampf(palette_h*palette_hue.size.y-2.5,0,maxf(0.0,palette_hue.size.y-5)))
+    palette_sample.color = color
+    palette_hex.text = "#"+color.to_html(false).to_upper()
+    _set_paint_color(color)
+
+func _close_palette(apply: bool) -> void:
+    if not is_instance_valid(palette_overlay):
+        return
+    if not apply:
+        _set_paint_color(palette_original)
+    palette_overlay.hide()
+    palette_overlay.queue_free()
+    palette_overlay = null
+    palette_sv_marker = null
+    palette_hue_marker = null
+    palette_hex = null
+    palette_touch = -1
+    palette_open_touch = -1
+    palette_action = 0
+
+func _palette_action_at(at: Vector2) -> int:
+    if palette_sv.get_global_rect().has_point(at):
+        return 1
+    if palette_hue.get_global_rect().has_point(at):
+        return 2
+    if palette_done.get_global_rect().has_point(at):
+        return 3
+    if palette_cancel.get_global_rect().has_point(at) or not palette_panel.get_global_rect().has_point(at):
+        return 4
+    return 0
+
+func _palette_drag(at: Vector2) -> void:
+    if palette_action == 1:
+        var bounds: Rect2 = palette_sv.get_global_rect()
+        var value: Vector2 = (at-bounds.position)/bounds.size.max(Vector2.ONE)
+        palette_s = clampf(value.x,0,1)
+        palette_v = 1.0-clampf(value.y,0,1)
+    elif palette_action == 2:
+        var bounds: Rect2 = palette_hue.get_global_rect()
+        palette_h = clampf((at.y-bounds.position.y)/maxf(1.0,bounds.size.y),0,0.99999)
+    else:
+        return
+    _refresh_palette()
+
+func _route_palette_input(event: InputEvent) -> bool:
+    if is_instance_valid(palette_overlay):
+        if event is InputEventScreenTouch:
+            var tap := event as InputEventScreenTouch
+            if tap.pressed and palette_touch < 0:
+                palette_touch = tap.index
+                palette_action = _palette_action_at(tap.position)
+                _palette_drag(tap.position)
+            elif not tap.pressed and tap.index == palette_touch:
+                palette_touch = -1
+                if not tap.canceled:
+                    if palette_action in [1,2]:
+                        _palette_drag(tap.position)
+                    elif palette_action in [3,4] and _palette_action_at(tap.position) == palette_action:
+                        _close_palette(palette_action == 3)
+                palette_action = 0
+            return true
+        if event is InputEventScreenDrag:
+            var drag := event as InputEventScreenDrag
+            if drag.index == palette_touch:
+                _palette_drag(drag.position)
+            return true
+        if event is InputEventMouseButton:
+            var mouse := event as InputEventMouseButton
+            if mouse.button_index == MOUSE_BUTTON_LEFT:
+                if mouse.pressed:
+                    palette_action = _palette_action_at(mouse.position)
+                    _palette_drag(mouse.position)
+                else:
+                    if palette_action in [3,4] and _palette_action_at(mouse.position) == palette_action:
+                        _close_palette(palette_action == 3)
+                    palette_action = 0
+            return true
+        if event is InputEventMouseMotion:
+            var motion := event as InputEventMouseMotion
+            if motion.button_mask & MOUSE_BUTTON_MASK_LEFT:
+                _palette_drag(motion.position)
+            return true
+        return false
+    if is_instance_valid(choice_overlay) or (is_instance_valid(part_panel) and part_panel.visible) or (is_instance_valid(file_dialog) and file_dialog.visible):
+        return false
+    if event is InputEventScreenTouch and is_instance_valid(color_picker):
+        var tap := event as InputEventScreenTouch
+        if tap.pressed and palette_open_touch < 0 and color_picker.get_global_rect().has_point(tap.position):
+            palette_open_touch = tap.index
+            return true
+        if not tap.pressed and tap.index == palette_open_touch:
+            palette_open_touch = -1
+            if not tap.canceled and color_picker.get_global_rect().has_point(tap.position):
+                _open_palette()
+            return true
+    if event is InputEventScreenDrag and (event as InputEventScreenDrag).index == palette_open_touch:
+        return true
+    return false
+
 func _route_choice_input(event: InputEvent) -> bool:
     if is_instance_valid(choice_overlay):
         if event is InputEventScreenTouch:
@@ -551,6 +788,9 @@ func _route_choice_input(event: InputEvent) -> bool:
     return false
 
 func _input(event: InputEvent) -> void:
+    if _route_palette_input(event):
+        get_viewport().set_input_as_handled()
+        return
     if _route_choice_input(event):
         get_viewport().set_input_as_handled()
         return
@@ -716,7 +956,7 @@ func _zoom(ratio: float) -> void:
     _camera_pose()
 
 func _view_input(event: InputEvent) -> void:
-    if is_instance_valid(choice_overlay):
+    if is_instance_valid(choice_overlay) or is_instance_valid(palette_overlay):
         return
     if event is InputEventScreenTouch:
         if event.pressed:
@@ -835,7 +1075,7 @@ func _paint(at: Vector2, flush: bool = true) -> void:
     var p := Vector2i(clampi(floori(uv.x*img.get_width()),0,img.get_width()-1),clampi(floori(uv.y*img.get_height()),0,img.get_height()-1))
     var chart: int = hit.chart
     if tool_picker.selected == 2:
-        color_picker.color = img.get_pixelv(p)
+        _set_paint_color(img.get_pixelv(p))
     elif tool_picker.selected == 3:
         if last_chart != chart:
             _fill_chart(chart)
@@ -905,7 +1145,7 @@ func _dab_one(p: Vector2i) -> void:
     if not _inside(p):
         return
     var old := img.get_pixelv(p)
-    var color := color_picker.color
+    var color := paint_color
     match tool_picker.selected:
         1:
             layers[layer_index].set_pixelv(p,Color.TRANSPARENT)
@@ -933,14 +1173,14 @@ func _stamp(p: Vector2i) -> void:
         for x in range(rows[y].length()):
             var q := p+Vector2i(x-floori(float(rows[y].length())/2.0),y-2)
             if rows[y][x] == "1" and _inside(q):
-                layers[layer_index].set_pixelv(q,color_picker.color)
+                layers[layer_index].set_pixelv(q,paint_color)
 
 func _fill_chart(chart: int) -> void:
     for t in triangles:
         if t.chart != chart:
             continue
         var filled: Dictionary = t.duplicate()
-        filled.base = color_picker.color
+        filled.base = paint_color
         filled.tex = null
         filled.colors = PackedColorArray([Color.WHITE,Color.WHITE,Color.WHITE])
         UV._bake_triangle(layers[layer_index],filled)
@@ -1182,6 +1422,9 @@ func _load_project(path: String) -> void:
     _show_status("編集プロジェクト復元済み: "+prefix.get_file())
 
 func request_close() -> void:
+    if is_instance_valid(palette_overlay):
+        _close_palette(false)
+        return
     if is_instance_valid(choice_overlay):
         _close_choice()
         return
