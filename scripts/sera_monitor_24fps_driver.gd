@@ -1,9 +1,11 @@
 extends Node3D
 ## Reliable, shader-free monitor animation for Godot's GL Compatibility path.
 ## The authored 8-cell image atlas stays on a StandardMaterial3D and each
-## screen receives genuine 24 Hz frame-by-frame movement of 3D ink marks.
+## screen receives genuine 60 Hz (NEXUS) or 24 Hz (BASE) movement of 3D ink marks.
 ## No per-frame Image decoding, texture uploads, or viewport allocations.
 const FPS: float = 24.0
+const NEXUS_FPS: float = 60.0
+var _motion_fps: float = FPS
 var _id: String = ""
 var _mode: int = 0
 var _atlas_rate: float = 1.0
@@ -24,6 +26,7 @@ func setup(id: String, mode: int, atlas_rate: float, screen_size: Vector2,
         screen_mat: StandardMaterial3D) -> void:
     _id = id
     _nexus_only = id.begins_with("N")
+    _motion_fps = NEXUS_FPS if _nexus_only else FPS
     if _nexus_only:
         process_priority = 9100 # after NEXUS camera, before RGB-ID sync
     _mode = mode
@@ -75,7 +78,7 @@ func _quad(name: String, size: Vector2, mat: StandardMaterial3D,
 
 func _process(delta: float) -> void:
     _clock += delta
-    var tick: int = int(floor(_clock * FPS))
+    var tick: int = int(floor(_clock * _motion_fps + 0.00001))
     if tick == _last_tick:
         return
     if _nexus_only and not _nexus_screen_may_be_visible():
@@ -102,7 +105,7 @@ func _nexus_screen_may_be_visible() -> bool:
 
 func _show_tick(tick: int) -> void:
     _last_tick = tick
-    var time: float = float(tick) / FPS
+    var time: float = float(tick) / _motion_fps
     var atlas_index: int = posmod(int(floor(time * _atlas_rate)), 8)
     # Godot's native StandardMaterial3D UV transform; compatible with
     # GL Compatibility on Android. No custom shader compile is required.
@@ -148,7 +151,7 @@ func _show_tick(tick: int) -> void:
         # Target tracking: the two reticle axes smoothly track a target.
         _trace.position.x = _screen_size.x * x
     elif _mode == 3:
-        # Radar: a continuous 24 Hz rotating ray centered in the panel.
+        # Radar: a continuous rotating ray centered in the panel.
         _trace.position = Vector3.ZERO + Vector3(0, 0, 0.010)
         _trace.rotation.z = time * 1.45
         _trace.scale.y = 1.3

@@ -8,16 +8,18 @@ const SCAN_LOW_Y: float = 0.56
 const SCAN_CYCLE: float = 24.0
 ## NEXUS room hardware animation. Built once at scene entry; no additional
 ## viewports, particles, timers, dynamic mesh rebuilding or lights.
-## All motion is driven from one 20 Hz sampler and leaves authored selection
+## All motion is driven from one 60 Hz sampler and leaves authored selection
 ## meshes, source Blockbench parts, and the SERA rig untouched.
 
-const UPDATE_STEP: float = 0.05
+const UPDATE_STEP: float = 1.0 / 60.0
 const FINISH_DARK: Color = Color("#273d4d")
 const FINISH_METAL: Color = Color("#5c7688")
 const FINISH_EDGE: Color = Color("#91aebd")
 const FINISH_GLOW: Color = Color("#64d6ef")
 
 var _accumulator: float = 0.0
+var _sample_clock: float = 0.0
+var _last_sample_tick: int = 0
 var _elapsed: float = 0.0
 var _deployment_requested: bool = false
 var _door_open_amount: float = 0.0
@@ -79,9 +81,13 @@ func is_deployment_fully_open() -> bool:
 func _process(delta: float) -> void:
     if not is_visible_in_tree():
         return
-    _accumulator += minf(delta, 0.1)
-    if _accumulator < UPDATE_STEP:
+    var frame_step: float = minf(delta, 0.1)
+    _accumulator += frame_step
+    _sample_clock += frame_step
+    var sample_tick: int = int(floor(_sample_clock / UPDATE_STEP + 0.00001))
+    if sample_tick == _last_sample_tick:
         return
+    _last_sample_tick = sample_tick
     var step: float = _accumulator
     _accumulator = 0.0
     _elapsed += step

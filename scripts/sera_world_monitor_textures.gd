@@ -7,7 +7,7 @@ const Frames = preload("res://assets/monitors/numbered_frames.gd")
 const ANIMATION_FPS = 24.0
 const MONITOR_MODES = {"N01": 0, "N02": 1, "N03": 2, "N04": 3, "N05": 4, "N06": 5,
     "B01": 6, "B02": 7, "B03": 8, "B04": 9, "B05": 10}
-# Preserve each monitor's authored atlas-typography cadence independently of 24 Hz motion.
+# Preserve each monitor's authored atlas-typography cadence independently of the scene motion cadence.
 const ATLAS_RATES = {"N01": 5.0, "N02": 3.0, "N03": 4.0, "N04": 6.0, "N05": 3.0, "N06": 4.0,
     "B01": 1.5, "B02": 1.33, "B03": 1.0, "B04": 3.0, "B05": 0.85}
 const BLOCKBENCH = [
@@ -35,7 +35,7 @@ static func _v(a: Array) -> Vector3:
 
 static func _fallback_atlas() -> Image:
     # Never leave a monitor blank even when a PNG atlas cannot be decoded.
-    # A 4x2 diagnostic deck also receives 24 Hz moving indicators.
+    # A 4x2 diagnostic deck also receives moving indicators at the scene cadence.
     var image := Image.create(512, 256, false, Image.FORMAT_RGBA8)
     image.fill(Color("#092432"))
     for row in range(2):
@@ -54,7 +54,7 @@ static func _fallback_atlas() -> Image:
 static func _surface(host: Node3D, id: String, pose: Transform3D, size: Vector2) -> void:
     # Replaces the previous all-or-nothing PNG + spatial shader path.
     # StandardMaterial3D is reliable on Android GL Compatibility and
-    # its UV transform is changed only at the exact 24 Hz image cadence.
+    # its UV transform changes only when the authored atlas cell changes.
     var image := Image.new()
     var loaded: bool = false
     if Frames.PNG.has(id):
@@ -85,7 +85,7 @@ static func _surface(host: Node3D, id: String, pose: Transform3D, size: Vector2)
     mat.albedo_color = Color.WHITE
     display.material_override = mat
     var driver := MonitorDriver.new()
-    driver.name = "Monitor24FPS"
+    driver.name = "Monitor60FPS" if id.begins_with("N") else "Monitor24FPS"
     driver.set_meta("FX_NO_OUTLINE", true)
     display.add_child(driver)
     driver.setup(id, int(MONITOR_MODES[id]), float(ATLAS_RATES[id]), size, mat)
