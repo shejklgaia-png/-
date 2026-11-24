@@ -554,6 +554,7 @@ static func _paint_tri(tool: SurfaceTool,a: Vector2,b: Vector2,c: Vector2,
 static func _build_animated_readout(root: Node3D) -> void:
     var scan := Node3D.new()
     scan.name = "LaunchAnimatedScan"
+    scan.position = Vector3(2.82,1.02,_display_depth(1.02,0.085))
     root.add_child(scan)
     var tool := SurfaceTool.new()
     tool.begin(Mesh.PRIMITIVE_TRIANGLES)
@@ -570,6 +571,7 @@ static func _build_animated_readout(root: Node3D) -> void:
     line.set_meta("FX_NO_OUTLINE",true)
     line.set_meta("sera_skip_common_id_outline",true)
     line.set_meta("sera_preserve_authored_material",true)
+    line.position = -scan.position
     scan.add_child(line)
     var status := Label3D.new()
     status.name = "LaunchAnimatedStatus"
