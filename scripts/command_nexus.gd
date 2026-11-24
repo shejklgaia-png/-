@@ -298,6 +298,9 @@ var canonical_render_batches: Dictionary = {}
 var placement_editor
 var camera_angle_editor
 var placement_ui_layer: CanvasLayer
+# Retain the authoritative source placements beyond _ready so the editor can
+# initialize independently of the camera-angle UI and recover on launch.
+var canonical_placement_specs: Dictionary = {}
 # Permanent entry controls live in the exact same viewport/HUD as EXIT TO
 # BASE. Never depend on the heavy 3D placement editor's initialization.
 var placement_entry_button: Panel
@@ -420,7 +423,7 @@ func _ready() -> void:
     var gate_yaw: float = _gate_facing_yaw()
     var gate_console_at: Vector3 = GATE_ORIGIN + Basis(
         Vector3.UP, gate_yaw) * Vector3(2.82, 0.0, 5.30)
-    var placement_specs := {
+    canonical_placement_specs = {
         "SYSTEM": {"module": "system_console",
             "position": SYSTEM_CONSOLE_ORIGIN, "yaw": deg_to_rad(18.0)},
         "TRAINING": {"module": "training_console",
@@ -437,15 +440,15 @@ func _ready() -> void:
     placement_ui_layer.name = "NexusPlacementOverlay"
     placement_ui_layer.layer = 8
     add_child(placement_ui_layer)
-    # Create the light camera editor FIRST. A failure while binding complex
-    # placement meshes must never prevent camera-angle editing from existing.
+    # A camera-angle configuration error must not skip creation of the
+    # canonical placement editor (the former PLACE / NOT READY cause).
+    # Its expensive MultiMesh bindings initialize independently on idle.
+    placement_editor = NexusCanonicalPlacement.new()
+    placement_ui_layer.add_child(placement_editor)
+    call_deferred("_initialize_canonical_placement_editor")
     camera_angle_editor = NexusCameraAnglePlacement.new()
     placement_ui_layer.add_child(camera_angle_editor)
     camera_angle_editor.configure(self)
-    placement_editor = NexusCanonicalPlacement.new()
-    placement_ui_layer.add_child(placement_editor)
-    placement_editor.configure(self, placement_specs,
-        canonical_core_refs, canonical_render_batches)
     # The rejected 2D bounding-box contour is not created in NEXUS.
     # The new depth hull shares the real 3D scene and its current camera.
     SeraSave.mark_location("NEXUS")
@@ -453,6 +456,23 @@ func _ready() -> void:
     SeraSave.requested_nexus_target = ""
     if focus_views.has(route):
         call_deferred("_select_target", route)
+
+func _initialize_canonical_placement_editor() -> bool:
+    if not is_instance_valid(placement_editor):
+        if not is_instance_valid(placement_ui_layer):
+            return false
+        placement_editor = NexusCanonicalPlacement.new()
+        placement_ui_layer.add_child(placement_editor)
+    if not placement_editor.is_inside_tree():
+        return false
+    if bool(placement_editor.get("initialized")):
+        return true
+    if canonical_placement_specs.is_empty():
+        return false
+    placement_editor.configure(self, canonical_placement_specs,
+        canonical_core_refs, canonical_render_batches)
+    return bool(placement_editor.get("initialized"))
+
 
 func _placement_launch_failure(panel: Panel, message: String) -> void:
     push_warning(message)
@@ -463,8 +483,10 @@ func _placement_launch_failure(panel: Panel, message: String) -> void:
 
 
 func _open_canonical_placement() -> void:
-    if placement_editor == null or not placement_editor.is_inside_tree():
-        _placement_launch_failure(placement_entry_button, "PLACE / NOT READY")
+    # Explicit recovery on press covers a deferred initialization that did
+    # not finish. Never treat an unconfigured Control as a usable editor.
+    if not _initialize_canonical_placement_editor():
+        _placement_launch_failure(placement_entry_button, "PLACE / INIT ERROR")
         return
     if placement_editor.open_mode():
         _sync_placement_launchers()
