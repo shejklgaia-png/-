@@ -38,6 +38,7 @@ var shelf_beam: Node3D
 var rng := RandomNumberGenerator.new()
 var storage_committed := false
 var storage_removed := false
+var storage_delivered := false
 var input_finished := false
 var retrieve_only := false
 var stacker_start := Vector3.ZERO
@@ -280,6 +281,7 @@ func begin() -> void:
         store_index = take_index
     storage_committed = retrieve_only
     storage_removed = false
+    storage_delivered = false
     stacker_start = Vector3(shelf_mast.position.x,shelf_carriage.position.y,aisle_z)
 
 func reset() -> void:
@@ -290,6 +292,9 @@ func reset() -> void:
     _arm_pose(in_arm,Vector3(in_dock.x,float(in_arm["height"])-0.55,in_dock.z))
     _arm_pose(out_arm,Vector3(outlet.x,float(out_arm["height"])-0.55,outlet.z))
     if key=="STORAGE":
+        if storage_removed and not storage_delivered and take_index>=0:
+            occupied[take_index] = true
+        storage_removed = false
         pack.visible = false
         shelf_box.visible = false
         pack_raw.visible = false
@@ -494,3 +499,5 @@ func sample_storage(t: float) -> void:
         # Outbound carrier picks up the packed box itself; its shell is hidden.
         out_box.visible = false
         sample_out(0.72+0.28*smoothstep(0.82,1.0,t),shelf_box,1.82,0.92)
+        if t>=1.0:
+            storage_delivered = true
