@@ -253,6 +253,13 @@ static func card_icon_cached(id: String, equipment: bool) -> bool:
     return MATERIAL_INDICES.has(id) and _material_frame_cache.has(int(MATERIAL_INDICES[id]))
 
 static func prewarm_card_icons(ids: Array, budget: Variant, use_atlas: bool) -> void:
+    # Turning the optional atlas OFF must restore independent textures on the
+    # next BASE visit, even within the same process.
+    if not use_atlas and not _small_atlases_ready.is_empty():
+        for key in _presented_equipment_cache.keys():
+            if _presented_equipment_cache[key] is AtlasTexture:
+                _presented_equipment_cache.erase(key)
+        _small_atlases_ready.clear()
     # All decoding/compositing takes place under the BASE loading cover.
     for id in MATERIAL_INDICES:
         material_icon(str(id))
@@ -296,10 +303,13 @@ static func _pack_small_atlas(ids: Array, profile: String) -> void:
             int(i/SMALL_ATLAS_COLUMNS)*stride+SMALL_ATLAS_PAD)
         var pixels: Image = tiles[i]["pixels"]
         # Extrude actual edge colors into the four-pixel gutters.
+        atlas.blit_rect(pixels, Rect2i(Vector2i.ZERO, Vector2i(side,side)), origin)
         for y in range(-SMALL_ATLAS_PAD, side+SMALL_ATLAS_PAD):
             for x in range(-SMALL_ATLAS_PAD, side+SMALL_ATLAS_PAD):
+                if x >= 0 and x < side and y >= 0 and y < side:
+                    continue
                 atlas.set_pixelv(origin+Vector2i(x,y),pixels.get_pixel(clampi(x,0,side-1),clampi(y,0,side-1)))
-        regions[tiles[i]["key"]] = Rect2(origin,Vector2i(side,side))
+        regions[tiles[i]["key"]] = Rect2(Vector2(origin),Vector2(side,side))
     var shared := ImageTexture.create_from_image(atlas)
     for key in regions:
         var region := AtlasTexture.new()
