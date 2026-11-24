@@ -1486,6 +1486,7 @@ static func _finish_grid_refinement(tris: Array[Dictionary],charts: Array[Dictio
             charts[i] = old_charts[i]
     _adapt_quad_boundaries(tris,charts,links,density)
     _refine_paired_seams(tris,charts,links,density)
+    _relax_grid_network(tris,charts,links,density)
 
 ## Prefer rectangles, but do not require equal opposite edge lengths
 ## on every face. A one-corner shift creates a trapezoidal UV without
@@ -1761,6 +1762,173 @@ static func _try_paired_seam(tris: Array[Dictionary],charts: Array[Dictionary],l
     _paired_bounds(charts[int(link.a)],best_a)
     _paired_bounds(charts[int(link.b)],best_b)
     return true
+
+## Joint relaxation of a network of small charts. Each iteration reads
+## the same UV state, accumulates all incident seam endpoint equations,
+## then applies the proposed displacements simultaneously. Intermediate
+## states may be worse; only the best globally non-regressing state is
+## committed. This avoids moving a mismatch around a closed loop.
+static func _relax_grid_network(tris: Array[Dictionary],charts: Array[Dictionary],links: Array[Dictionary],density: int) -> void:
+    var members: Array = []
+    for ci in range(charts.size()):
+        members.append([])
+    for ti in range(tris.size()):
+        (members[int(tris[ti].chart)] as Array).append(ti)
+    var active: Dictionary = {}
+    var priority: Array[Dictionary] = []
+    for li in range(links.size()):
+        var link: Dictionary = links[li]
+        var residual: float = _local_edge_residual(tris,link,-1,{},PackedVector2Array())
+        if residual > 1.0:
+            priority.append({"id":li,"residual":residual})
+    priority.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
+        return int(a.id) < int(b.id) if float(a.residual) == float(b.residual) else float(a.residual) > float(b.residual))
+    for item in priority:
+        var link: Dictionary = links[int(item.id)]
+        for ci in [int(link.a),int(link.b)]:
+            if active.size() >= 96:
+                break
+            if members[ci].size() >= 1 and members[ci].size() <= 2 and not active.has(ci):
+                var data: Dictionary = _paired_chart_data(tris,members[ci])
+                if not data.is_empty():
+                    active[ci] = data
+    var seeds: Dictionary = active.duplicate()
+    for link in links:
+        if active.size() >= 96:
+            break
+        var ca: int = int(link.a)
+        var cb: int = int(link.b)
+        if seeds.has(ca) == seeds.has(cb):
+            continue
+        var ci: int = cb if seeds.has(ca) else ca
+        if not active.has(ci) and members[ci].size() >= 1 and members[ci].size() <= 2:
+            var data: Dictionary = _paired_chart_data(tris,members[ci])
+            if not data.is_empty():
+                active[ci] = data
+    if active.is_empty():
+        return
+    var relevant: Array[Dictionary] = []
+    for link in links:
+        if active.has(int(link.a)) or active.has(int(link.b)):
+            relevant.append(link)
+    var baseline: Vector3 = _refinement_score(tris,-1,relevant,{},PackedVector2Array())
+    var baseline_severe: int = _network_severe_count(tris,relevant)
+    var baseline_density: float = 0.0
+    var current: Dictionary = {}
+    var best: Dictionary = {}
+    for ci in active:
+        var data: Dictionary = active[ci]
+        current[ci] = data.points
+        best[ci] = data.points
+        baseline_density += _grid_density_cost(members[ci],data.indices,data.world,data.points,density)
+    var best_cost: float = baseline.z+baseline_density*0.5+float(baseline_severe)*2.0
+    # Try two regularization levels from the same initial solution.
+    # Bound work independent of the total number of original faces.
+    for regularization in [0.35,0.8]:
+        for ci in active:
+            var data: Dictionary = active[ci]
+            current[ci] = data.points
+            _paired_write(tris,members[ci],data.indices,data.points)
+        for iteration in range(28):
+            var gradients: Dictionary = {}
+            var weights: Dictionary = {}
+            for ci in active:
+                var data: Dictionary = active[ci]
+                var q: PackedVector2Array = current[ci]
+                var old: PackedVector2Array = data.points
+                var g := PackedVector2Array()
+                var w := PackedFloat32Array()
+                for k in range(q.size()):
+                    g.append((old[k]-q[k])*float(regularization))
+                    w.append(float(regularization))
+                gradients[ci] = g
+                weights[ci] = w
+            for link in relevant:
+                var a: PackedVector2Array = _segment_uv(tris[link.ta],link.ea,link.a0,link.a1,"xy")
+                var b: PackedVector2Array = _segment_uv(tris[link.tb],link.eb,link.b0,link.b1,"xy")
+                var da: Vector2 = a[1]-a[0]
+                var db: Vector2 = b[1]-b[0]
+                if minf(da.length_squared(),db.length_squared()) < 0.00000001:
+                    continue
+                var quarter: float = roundf(db.angle_to(da)/(PI*0.5))*(PI*0.5)
+                var e0: Vector2 = a[0]-b[0].rotated(quarter)
+                e0 -= e0.round()
+                var e1: Vector2 = e0+da-db.rotated(quarter)
+                var severity: float = maxf(e0.length(),e1.length())
+                var weight: float = 1.0+minf(4.0,severity*severity)
+                for endpoint in range(2):
+                    var error: Vector2 = e0 if endpoint == 0 else e1
+                    for side in range(2):
+                        var ci: int = int(link.a) if side == 0 else int(link.b)
+                        if not active.has(ci):
+                            continue
+                        var ti: int = int(link.ta) if side == 0 else int(link.tb)
+                        var edge: int = int(link.ea) if side == 0 else int(link.eb)
+                        var fraction: float = float(link.a0 if endpoint == 0 else link.a1) if side == 0 else float(link.b0 if endpoint == 0 else link.b1)
+                        var correction: Vector2 = -error if side == 0 else error.rotated(-quarter)
+                        var data: Dictionary = active[ci]
+                        var ids: PackedInt32Array = data.indices[ti]
+                        var g: PackedVector2Array = gradients[ci]
+                        var w: PackedFloat32Array = weights[ci]
+                        for k in range(2):
+                            var idx: int = ids[(edge+k)%3]
+                            var factor: float = (1.0-fraction) if k == 0 else fraction
+                            g[idx] += correction*factor*weight
+                            w[idx] += factor*factor*weight
+                        gradients[ci] = g
+                        weights[ci] = w
+            for ci in active:
+                var data: Dictionary = active[ci]
+                var q: PackedVector2Array = current[ci]
+                var original: PackedVector2Array = data.points
+                var g: PackedVector2Array = gradients[ci]
+                var w: PackedFloat32Array = weights[ci]
+                for step in [0.35,0.15]:
+                    var candidate: PackedVector2Array = q.duplicate()
+                    for k in range(q.size()):
+                        var v: Vector2 = q[k]+g[k]/maxf(0.0001,w[k])*float(step)
+                        candidate[k] = original[k]+(v-original[k]).limit_length(1.5)
+                    if not _refinement_valid(members[ci],data.indices,data.world,original,candidate,density):
+                        continue
+                    if members[ci].size() == 2:
+                        var ia: PackedInt32Array = data.indices[members[ci][0]]
+                        var ib: PackedInt32Array = data.indices[members[ci][1]]
+                        if _overlaps(PackedVector2Array([candidate[ia[0]],candidate[ia[1]],candidate[ia[2]]]),PackedVector2Array([candidate[ib[0]],candidate[ib[1]],candidate[ib[2]]])):
+                            continue
+                    current[ci] = candidate
+                    break
+            for ci in active:
+                var data: Dictionary = active[ci]
+                _paired_write(tris,members[ci],data.indices,current[ci])
+            if iteration%4 != 3:
+                continue
+            var score: Vector3 = _refinement_score(tris,-1,relevant,{},PackedVector2Array())
+            var severe: int = _network_severe_count(tris,relevant)
+            if score.x > baseline.x+0.0001 or score.y > baseline.y or severe > baseline_severe or score.z > baseline.z+0.0001:
+                continue
+            var density_cost: float = 0.0
+            for ci in active:
+                var data: Dictionary = active[ci]
+                density_cost += _grid_density_cost(members[ci],data.indices,data.world,current[ci],density)
+            if density_cost > baseline_density+0.05*float(active.size()):
+                continue
+            var cost: float = score.z+density_cost*0.5+float(severe)*2.0
+            if cost < best_cost-0.0001:
+                best_cost = cost
+                best = current.duplicate()
+    for ci in active:
+        var data: Dictionary = active[ci]
+        var q: PackedVector2Array = best[ci]
+        _paired_write(tris,members[ci],data.indices,q)
+        if q != data.points:
+            _paired_bounds(charts[ci],q)
+
+static func _network_severe_count(tris: Array[Dictionary],links: Array[Dictionary]) -> int:
+    var count: int = 0
+    for link in links:
+        if _local_edge_residual(tris,link,-1,{},PackedVector2Array()) > 1.0:
+            count += 1
+    return count
 
 static func _refinement_score(tris: Array[Dictionary],ci: int,links: Array,indices: Dictionary,points: PackedVector2Array) -> Vector3:
     var worst: float = 0.0
