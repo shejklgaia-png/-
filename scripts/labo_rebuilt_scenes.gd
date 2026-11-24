@@ -1,8 +1,16 @@
 extends RefCounted
-## Dedicated life-size production sets. BASE icons are design references only.
+## Dedicated life-size OUTDOOR production sets. BASE icons are design references only.
 ## All dimensions are authored in metres, never scaled BASE meshes.
 const Architecture = preload("res://scripts/sera_base_architecture.gd")
 const Monitor = preload("res://scripts/sera_labo_monitor_24fps.gd")
+const DeckLayout = preload("res://scripts/sera_base_deck_layout.gd")
+const DeckLighting = preload("res://scripts/sera_base_floor_lighting.gd")
+const Polygon = preload("res://scripts/sera_base_polygon_meshes.gd")
+const CONTEXT_SPACING := 4.5
+const CONTEXT_MODEL_SCALE := 2.0
+var context_root: Node3D
+var context_models: Dictionary = {}
+var context_poses: Dictionary = {}
 const IndustrialSurface = preload("res://shaders/sera_labo_industrial_surface.gdshader")
 const Combustion = preload("res://shaders/sera_labo_combustion.gdshader")
 const EQUIPMENT_SCALE := 1.30
@@ -24,15 +32,17 @@ var cycle_running: bool = false
 
 func build(stage: Node3D) -> void:
     host = stage
+    _build_outdoor_deck()
+    context_root = _child(host,"DistantBaseFacilities")
     for key in KEYS:
         var room := Node3D.new()
-        room.name = key + "_IndustrialHall"
+        room.name = key + "_OutdoorWorksite"
         host.add_child(room)
         rooms[key] = room
         targets[key] = []
         screens[key] = []
         motion_parts[key] = {}
-        _hall(key)
+        _outdoor_worksite(key)
         match key:
             "LABO": _labo(key)
             "SMELTER": _smelter(key)
@@ -101,9 +111,7 @@ func _expand_equipment(key: String) -> void:
         var model := node as Node3D
         if model.get_parent() != room:
             continue
-        if model.name in ["StructuralFloor","RearServiceWall","UtilityBank_Left",
-                "UtilityBank_Right","OverheadServiceTruss","HighHallCeiling",
-                "SideServiceStructure","RearTransferGallery"]:
+        if model.name == "OutdoorWorkMarkings":
             continue
         model.position *= EQUIPMENT_SCALE
         if model != terminals.get(key):
@@ -121,81 +129,131 @@ func _pipe(b, a: Vector3, z: Vector3, d: float, c: String = "edge") -> void:
 func _moving(key: String, label: String, n: Node3D) -> void:
     motion_parts[key][label] = n
 
-func _hall(key: String) -> void:
-    var floor := _model(key, "StructuralFloor", Vector3.ZERO)
-    var b = _batch(floor)
-    for x in range(-8,9):
-        for z in range(-7,8):
-            _box(b, Vector3(x*3.0,-0.17,z*3.0), Vector3(2.98,0.32,2.98), "slate" if posmod(x+z,4)==0 else "trim")
-    for x in [-6.0,6.0]:
-        _box(b, Vector3(x,0.005,5.5),Vector3(0.09,0.025,9.0),"caution")
-    for x in range(-5,6):
-        _box(b,Vector3(x*0.95,0.01,9.5),Vector3(0.65,0.025,0.14),"caution")
+func _build_outdoor_deck() -> void:
+    # One shared BASE-style patchwork floor, not four repeated indoor rooms.
+    var floor := _child(host,"OutdoorPatchworkSteelDeck")
+    var backing := MeshInstance3D.new()
+    backing.name = "ContinuousGround"
+    var backing_mesh := BoxMesh.new()
+    backing_mesh.size = Vector3(320,0.30,320)
+    backing.mesh = backing_mesh
+    backing.position.y = -0.24
+    var backing_mat := StandardMaterial3D.new()
+    backing_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    backing_mat.albedo_color = Color("#12171b")
+    backing.material_override = backing_mat
+    backing.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    backing.set_meta("sera_outline_occluder_only",true)
+    floor.add_child(backing)
+    var tints := [Color("#1e2326"),Color("#252729"),Color("#292b2a"),
+        Color("#27292c"),Color("#21262a"),Color("#302c29")]
+    var groups: Array = [[],[],[],[],[],[]]
+    for panel in DeckLayout.generate(24,3.0):
+        var center: Vector2 = panel["center"]
+        var span: Vector2 = panel["size"]
+        groups[int(panel["tint"])].append(Transform3D(
+            Basis.IDENTITY.scaled_local(Vector3(span.x,0.30,span.y)),
+            Vector3(center.x,-0.18,center.y)))
+    var plate_mesh: ArrayMesh = Polygon.make("deck")
+    var deck_texture: Texture2D = load("res://assets/base/industrial_deck_wear.svg") as Texture2D
+    for i in range(tints.size()):
+        var multi := MultiMesh.new()
+        multi.transform_format = MultiMesh.TRANSFORM_3D
+        multi.mesh = plate_mesh
+        multi.instance_count = groups[i].size()
+        for j in range(multi.instance_count):
+            multi.set_instance_transform(j,groups[i][j])
+        multi.custom_aabb = AABB(Vector3(-74,-0.4,-74),Vector3(148,0.8,148))
+        var draw := MultiMeshInstance3D.new()
+        draw.name = "OutdoorDeckBatch_"+str(i)
+        draw.multimesh = multi
+        var source := StandardMaterial3D.new()
+        source.albedo_color = tints[i]
+        source.albedo_texture = deck_texture
+        source.uv1_offset = Vector3(0.17*float(i%3),0.21*float(i/3),0)
+        source.uv1_scale = Vector3(0.93+0.07*float(i%3),0.96+0.06*float(i/3),1)
+        var material := DeckLighting.deck_material(source)
+        material.set_shader_parameter("top_edge_darkness",0.0)
+        material.set_shader_parameter("lower_corner_darkness",0.0)
+        draw.material_override = material
+        draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        draw.set_meta("sera_outline_occluder_only",true)
+        draw.set_meta("sera_preserve_authored_material",true)
+        floor.add_child(draw)
+
+func _outdoor_worksite(key: String) -> void:
+    # Open air in every direction. No continuous enclosure or hall ceiling.
+    var markings := _model(key,"OutdoorWorkMarkings",Vector3.ZERO)
+    var b = _batch(markings)
+    for x in [-8.0,8.0]:
+        _box(b,Vector3(x,0.005,6.8),Vector3(0.11,0.025,11.0),"caution")
+    for x in range(-7,8):
+        _box(b,Vector3(float(x)*1.02,0.01,12.3),Vector3(0.68,0.025,0.14),"caution")
     _finish(b)
-    for child in floor.get_children():
+    for child in markings.get_children():
         if child is GeometryInstance3D:
             child.set_meta("sera_outline_occluder_only",true)
-    var wall := _model(key,"RearServiceWall",Vector3(0,0,-18.0))
-    b = _batch(wall)
-    for x in range(-6,7):
-        _box(b,Vector3(x*3.5,8.0,0),Vector3(3.43,16.0,0.36),"dark")
-        _box(b,Vector3(x*3.5,1.15,0.24),Vector3(3.35,1.9,0.17),"trim")
-        _shape(b,"bevel",Vector3(x*3.5,8.0,0.29),Vector3(0.28,16.0,0.40),"slate")
-        _box(b,Vector3(x*3.5,10.5,0.24),Vector3(3.1,0.12,0.12),"edge")
-        _box(b,Vector3(x*3.5,13.0,0.25),Vector3(2.8,0.22,0.12),"blue_light")
-    _box(b,Vector3(0,12.8,0.5),Vector3(45.5,0.5,0.75),"slate")
-    _finish(b)
-    for side in [-1,1]:
-        var utilities := _model(key,"UtilityBank_" + ("Left" if side<0 else "Right"),Vector3(side*17.5,0,-10.8))
-        b = _batch(utilities)
-        _shape(b,"bevel",Vector3(0,2.2,0),Vector3(2.7,4.4,2.5),"slate")
-        for i in range(5):
-            _box(b,Vector3(0,1.3+i*0.45,1.3),Vector3(2.0,0.16,0.13),"trim")
-        _pipe(b,Vector3(0,4.4,0),Vector3(0,7.8,0),0.55)
-        _pipe(b,Vector3(0,7.8,0),Vector3(-side*3.5,7.8,0),0.55)
-        _box(b,Vector3(0,4.9,1.1),Vector3(0.9,0.13,0.15),"blue_light")
-        _finish(b)
-    var gantry := _model(key,"OverheadServiceTruss",Vector3(0,13.6,-9.0))
-    b = _batch(gantry)
-    for z in [-0.8,0.8]:
-        _box(b,Vector3(0,0,z),Vector3(42,0.32,0.32),"slate")
-        _box(b,Vector3(0,1.2,z),Vector3(42,0.28,0.28),"trim")
-        for i in range(-9,9):
-            _pipe(b,Vector3(i*2.2,0,z),Vector3((i+1)*2.2,1.2,z),0.16,"slate")
-    for x in [-9.0,0.0,9.0]:
-        _box(b,Vector3(x,-0.18,0),Vector3(3.1,0.25,0.7),"armor")
-        _box(b,Vector3(x,-0.33,0),Vector3(2.8,0.06,0.52),"blue_light")
-    _finish(b)
-    var structure := _model(key,"SideServiceStructure",Vector3.ZERO)
-    b = _batch(structure)
-    for side in [-1,1]:
-        for z in [-15.0,-5.0,5.0,15.0]:
-            _shape(b,"bevel",Vector3(side*20.5,7.8,z),Vector3(0.95,15.6,1.0),"armor")
-            _shape(b,"gusset",Vector3(side*20.0,1.0,z),Vector3(1.4,2.0,1.5),"edge")
-        _box(b,Vector3(side*20.0,11.9,0),Vector3(0.6,0.7,35),"slate")
-        _pipe(b,Vector3(side*19.3,10.8,-17),Vector3(side*19.3,10.8,17),0.55,"gold")
-        _box(b,Vector3(side*21.0,8.0,0),Vector3(0.28,16.0,36),"dark")
-    _finish(b)
-    var ceiling := _model(key,"HighHallCeiling",Vector3.ZERO)
-    b = _batch(ceiling)
-    for z in [-15.0,-5.0,5.0,15.0]:
-        _box(b,Vector3(0,15.4,z),Vector3(41.5,0.75,0.55),"slate")
-        for x in [-13.0,0.0,13.0]:
-            _box(b,Vector3(x,15.0,z),Vector3(4.2,0.12,0.5),"blue_light")
-    for x in [-15.5,15.5]:
-        _box(b,Vector3(x,14.1,0),Vector3(0.42,0.7,35),"gold")
-    _box(b,Vector3(0,16.1,0),Vector3(42,0.35,36),"dark")
-    _finish(b)
-    var gallery := _model(key,"RearTransferGallery",Vector3(0,0,-16.4))
-    b = _batch(gallery)
-    for x in [-15.0,-7.5,0.0,7.5,15.0]:
-        _shape(b,"bevel",Vector3(x,3.15,0),Vector3(0.42,6.3,0.42),"slate")
-        _box(b,Vector3(x,6.7,1.4),Vector3(0.12,1.1,0.12),"caution")
-        _shape(b,"gusset",Vector3(x,5.8,0.65),Vector3(0.45,1.1,1.5),"edge")
-    _shape(b,"deck",Vector3(0,6.15,0.5),Vector3(34,0.32,2.1),"armor")
-    _pipe(b,Vector3(-17,7.18,1.4),Vector3(17,7.18,1.4),0.11,"gold")
-    _pipe(b,Vector3(-17,6.70,1.4),Vector3(17,6.70,1.4),0.085,"edge")
-    _finish(b)
+
+func set_base_context(sources: Dictionary) -> void:
+    # Copy render nodes only. No duplicated scripts, lights, particles or UI.
+    # Reuse actual BASE mesh resources and current canonical transforms.
+    context_poses.clear()
+    for key in sources:
+        var source := sources[key] as Node3D
+        if not is_instance_valid(source):
+            continue
+        context_poses[key] = {"position":source.global_position,
+            "yaw":source.global_rotation.y}
+        if context_models.has(key):
+            continue
+        var body := source.get_node_or_null(
+            "NexusArchitecture" if key == "NEXUS" else "IndustrialModel") as Node3D
+        if body == null:
+            continue
+        var proxy := _child(context_root,"Distant_"+str(key))
+        proxy.set_meta("sera_outline_role","facility")
+        context_models[key] = proxy
+        for child in body.get_children():
+            if not child is MultiMeshInstance3D:
+                continue
+            var original := child as MultiMeshInstance3D
+            if original.multimesh == null or not original.visible:
+                continue
+            var draw := MultiMeshInstance3D.new()
+            draw.name = original.name
+            draw.multimesh = original.multimesh
+            draw.material_override = original.material_override
+            draw.transform = body.transform * original.transform
+            draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+            draw.set_meta("sera_preserve_authored_material",true)
+            draw.set_meta("FX_NO_OUTLINE",true)
+            draw.set_meta("sera_no_view_edges",true)
+            proxy.add_child(draw)
+    _position_context(active_key)
+
+func _position_context(key: String) -> void:
+    if not context_poses.has(key):
+        for proxy in context_models.values():
+            proxy.visible = false
+        return
+    var focus: Dictionary = context_poses[key]
+    var origin: Vector3 = focus["position"]
+    var focus_yaw: float = float(focus["yaw"])+Architecture.facility_yaw_radians(key)
+    var inverse := Basis(Vector3.UP,-focus_yaw)
+    for id in context_models:
+        var proxy: Node3D = context_models[id]
+        proxy.visible = id != key and context_poses.has(id)
+        if not proxy.visible:
+            continue
+        var entry: Dictionary = context_poses[id]
+        var at: Vector3 = inverse*((entry["position"] as Vector3)-origin)
+        at.y = 0.0
+        at *= CONTEXT_SPACING
+        if at.length() < 29.0 and at.length() > 0.001:
+            at = at.normalized()*29.0
+        proxy.position = at
+        proxy.rotation.y = float(entry["yaw"])-focus_yaw
+        proxy.scale = Vector3.ONE*CONTEXT_MODEL_SCALE
 
 func _console(key: String, at: Vector3, mode: int) -> void:
     var n := _model(key,"CrateOperatorTerminal",at)
@@ -293,6 +351,15 @@ func _labo(key: String) -> void:
         for x in [-1.1,1.1]:
             _shape(b,"cargo_case",Vector3(x,y+0.75,0),Vector3(1.65,1.25,1.75),"armor_light")
             _box(b,Vector3(x,y+0.75,0.91),Vector3(0.68,0.20,0.07),"gold")
+    _finish(b)
+    # Rain cover only above the raw material rack, not an enclosing roof.
+    var shelter := _child(feed_rack,"FeedstockWeatherHood")
+    (targets[key] as Array).append(shelter)
+    b = _batch(shelter)
+    for x in [-2.1,2.1]:
+        _shape(b,"octagonal_slew",Vector3(x,6.8,-1.05),Vector3(0.22,1.2,0.24),"edge")
+        _pipe(b,Vector3(x,6.35,-1.05),Vector3(x,7.4,1.15),0.16,"trim")
+    b.poly_tilt("RainShield","roof",Vector3(0,7.4,0),Vector3(5.0,0.22,2.9),"armor",Vector3(-0.10,0,0))
     _finish(b)
     var extraction := _model(key,"PrinterExtractionManifold",Vector3(3.9,0,-6.2))
     b = _batch(extraction)
@@ -468,6 +535,8 @@ func _storage(key: String) -> void:
             for z in [-2.04,2.04]:
                 _box(b,Vector3(0,y+0.15,z),Vector3(4.9,0.18,0.20),"caution")
         _box(b,Vector3(0,9.1,0),Vector3(5.2,0.38,4.3),"armor")
+        b.poly_tilt("RackWeatherCanopy","roof",Vector3(0,9.62,-0.85),
+            Vector3(5.5,0.24,2.5),"armor",Vector3(-0.12,0,0))
         _pipe(b,Vector3(-2.4,0.5,-2.0),Vector3(2.4,9.0,-2.0),0.16,"trim")
         _finish(b)
         for level in range(4):
@@ -513,6 +582,7 @@ func placement_models(key: String) -> Array[Node3D]:
 
 func select(key: String) -> void:
     active_key = key
+    _position_context(key)
     for id in KEYS:
         (rooms[id] as Node3D).visible = id == key
     elapsed = 0.0
