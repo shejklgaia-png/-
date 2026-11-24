@@ -3,7 +3,7 @@ extends RefCounted
 ## Coordinates are BASE local metres, before the existing yaw and scale.
 ## Geometry is submitted to the existing MultiMesh batches; no new render nodes.
 const BED := Vector3(0.10,0,1.13)
-const MOUNTS := [Vector3(-1.27,0,0.93),Vector3(1.31,0,0.48),Vector3(0.55,0,-0.18)]
+const MOUNTS := [Vector3(-1.27,0,0.93),Vector3(1.43,0,0.42),Vector3(0.55,0,-0.18)]
 const SHOULDER_Y: float = 1.24
 const UPPER: float = 0.88
 const FORE: float = 0.86
@@ -78,7 +78,7 @@ static func poses(index: int, t: float, active: bool) -> Dictionary:
     var phase: float = t*TAU/1.15+float(index)*2.094
     var progress: float = clampf((t-0.35)/5.65,0.025,1.0)
     var work: Vector3 = BED+radial*(0.27+0.045*cos(phase))+tangent*(0.085*sin(phase))
-    work.y = maxf(1.08,0.86+0.40*progress+0.065)
+    work.y = maxf(0.98,0.86+0.40*progress+0.065)
     var park: Vector3 = root-radial*0.28+Vector3.UP*2.23
     var tip: Vector3 = park.lerp(work,blend)
     var tool_axis: Vector3 = (Vector3.DOWN-radial*0.13*blend).normalized()
