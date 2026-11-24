@@ -29,6 +29,11 @@ const WEATHERED_DECK_PATH: String = "res://assets/base/industrial_deck_wear.svg"
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const CrateModel = preload("res://scripts/sera_crate_model.gd")
 const NEXUS_SCENE: String = "res://scenes/command_nexus.tscn"
+const BASE_BGM_PATH: String = "res://BGM/scrap_sanctuary_seamless.ogg"
+# The 174 BPM track has a one-bar crossfade from 141.200 s into
+# 30.855 s. Intro plays once; the decoder loops from the crossfade target.
+const BASE_BGM_LOOP_OFFSET: float = 32.2343125
+const BASE_BGM_VOLUME_DB: float = -9.0
 # Fill nearly the entire 256 m continuous ground with actual visible
 # 3D grid plates, leaving no ungridded view at the extreme camera positions.
 const PLATE_GRID_RADIUS_CELLS: int = 42
@@ -87,6 +92,7 @@ var touch_id: int = -1
 var joystick: Vector2 = Vector2.ZERO
 var mouse_steering: bool = false
 var scene_changing: bool = false
+var base_bgm_player: AudioStreamPlayer
 var elapsed: float = 0.0
 var crate: Node3D
 var batches: Dictionary = {}
@@ -192,6 +198,37 @@ func _ready() -> void:
     startup_layer = null
     console_screen = null
     print("SERA_BASE_BOOT: COMPLETE")
+    call_deferred("_start_base_bgm")
+
+
+func _start_base_bgm() -> void:
+    if scene_changing or is_instance_valid(base_bgm_player):
+        return
+    var music: AudioStreamOggVorbis
+    # Raw GitSync asset is playable before the Android editor reimports it.
+    if FileAccess.file_exists(BASE_BGM_PATH):
+        music = AudioStreamOggVorbis.load_from_file(BASE_BGM_PATH)
+    # Exported APKs may contain only the imported resource.
+    if music == null and ResourceLoader.exists(BASE_BGM_PATH):
+        music = ResourceLoader.load(BASE_BGM_PATH) as AudioStreamOggVorbis
+        if music != null:
+            music = music.duplicate() as AudioStreamOggVorbis
+    if music == null:
+        push_warning("SERA BASE BGM: add BGM/scrap_sanctuary_seamless.ogg")
+        return
+    if music.get_length() <= BASE_BGM_LOOP_OFFSET:
+        push_warning("SERA BASE BGM: invalid loop asset duration")
+        return
+    music.loop = true
+    music.loop_offset = BASE_BGM_LOOP_OFFSET
+    base_bgm_player = AudioStreamPlayer.new()
+    base_bgm_player.name = "BaseBGMScrapSanctuary"
+    base_bgm_player.stream = music
+    base_bgm_player.volume_db = BASE_BGM_VOLUME_DB
+    # One persistent player for this BASE scene, including LABO and GRID.
+    # Leaving for NEXUS frees the scene/player automatically.
+    add_child(base_bgm_player)
+    base_bgm_player.play()
 
 
 func _create_startup_overlay() -> void:
