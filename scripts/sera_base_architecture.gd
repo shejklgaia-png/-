@@ -589,8 +589,15 @@ static func _nexus_command_bunker(g: Batch) -> void:
     _nexus_roof_services(g)
     # Enlarge the canvas-covered service bay on the left of the airlock.
     # All frame members follow the same pitch; leave the door approach open.
-    g.poly_tilt("NexusServiceAwning", "nexus_canvas", Vector3(-2.76, 2.88, 3.24),
-        Vector3(2.00, 0.33, 1.68), "cloth", Vector3(0.12, 0, 0))
+    # Separate bays meet along the fixed centre rafter. Their borders
+    # remain stationary while the fabric lifts at different wind phases.
+    for side in [-1.0, 1.0]:
+        g.poly_tilt("NexusServiceAwning", "nexus_canvas",
+            Vector3(-2.76 + side * 0.50, 2.88, 3.24),
+            Vector3(1.00, 0.72, 1.68), "cloth", Vector3(0.12, 0, 0))
+        g.poly("NexusAwningValance", "nexus_awning_skirt",
+            Vector3(-2.76 + side * 0.44, 2.60, 3.95),
+            Vector3(0.88, 0.38, 0.13), "cloth")
     for side in [-1.0, 1.0]:
         var x: float = -2.76 + side * 0.88
         g.poly("NexusAwningFoot", "nexus_shallow_bevel",
