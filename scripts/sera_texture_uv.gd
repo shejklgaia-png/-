@@ -72,6 +72,8 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
     _align_triangular_grids(tris,charts)
     _synchronize_chart_grids(tris,charts)
     _refine_residual_grids(tris,charts,density)
+    _balance_rectified_groups(tris,charts,density)
+    _refine_residual_grids(tris,charts,density,true)
     var order: Array[int] = []
     for i in range(charts.size()):
         var c: Dictionary = charts[i]
@@ -907,7 +909,7 @@ static func _synchronize_chart_grids(tris: Array[Dictionary],charts: Array[Dicti
 ## Refine the existing UVs against all incident edges, not just the
 ## edges used to construct a rectangle or triangle. Only small charts
 ## with known non-overlapping triangle topology are changed.
-static func _refine_residual_grids(tris: Array[Dictionary],charts: Array[Dictionary],density: int) -> void:
+static func _refine_residual_grids(tris: Array[Dictionary],charts: Array[Dictionary],density: int,balanced: bool = false) -> void:
     var members: Array = []
     var adjacency: Array = []
     for i in range(charts.size()):
@@ -928,14 +930,14 @@ static func _refine_residual_grids(tris: Array[Dictionary],charts: Array[Diction
             var worst: float = 0.0
             for link in adjacency[ci]:
                 worst = maxf(worst,_local_edge_residual(tris,link,-1,{},PackedVector2Array()))
-            if worst > 0.25:
+            if worst > (2.0 if balanced else 0.25):
                 priority.append({"chart":ci,"worst":worst})
         priority.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
             return int(a.chart) < int(b.chart) if float(a.worst) == float(b.worst) else float(a.worst) > float(b.worst))
         var changed: bool = false
         for k in range(mini(128,priority.size())):
             var ci: int = int(priority[k].chart)
-            if _refine_small_chart(tris,charts[ci],ci,members[ci],adjacency[ci],density):
+            if _refine_small_chart(tris,charts[ci],ci,members[ci],adjacency[ci],density,balanced):
                 changed = true
         if not changed:
             break
@@ -966,7 +968,7 @@ static func _local_edge_residual(tris: Array[Dictionary],link: Dictionary,ci: in
     delta -= delta.round()
     return maxf(delta.length(),(delta+da-db.rotated(rotation)).length())
 
-static func _refine_small_chart(tris: Array[Dictionary],chart: Dictionary,ci: int,members: Array,links: Array,density: int) -> bool:
+static func _refine_small_chart(tris: Array[Dictionary],chart: Dictionary,ci: int,members: Array,links: Array,density: int,balanced: bool = false) -> bool:
     var indices: Dictionary = {}
     var vertices: Dictionary = {}
     var points := PackedVector2Array()
@@ -1082,6 +1084,15 @@ static func _refine_small_chart(tris: Array[Dictionary],chart: Dictionary,ci: in
                             var v: Vector2 = q[i0]+axis*along+perpendicular*altitude*orientation
                             tri[k] = v.round() if quantize else v
                             candidates.append(tri)
+                            if balanced and quantize:
+                                # Search the nearby integer lattice with
+                                # one edge anchored, allowing the other
+                                # two edges to share the mismatch.
+                                for dx in range(-3,4):
+                                    for dy in range(-3,4):
+                                        var trial: PackedVector2Array = tri.duplicate()
+                                        trial[k] += Vector2(dx,dy)
+                                        candidates.append(trial)
         # Small lattice moves can improve conflicting edges without
         # rotating the entire island away from its neighboring faces.
         for i in range(points.size()):
@@ -1096,7 +1107,7 @@ static func _refine_small_chart(tris: Array[Dictionary],chart: Dictionary,ci: in
             continue
         var score: Vector3 = _refinement_score(tris,ci,links,indices,q)
         # Never trade a worse maximum or more bad edges for a local win.
-        if score.x > baseline.x+0.0001 or score.y > baseline.y:
+        if not _accept_balanced_score(baseline,score,balanced):
             continue
         if score.z < best_score.z-0.0001:
             best = q
@@ -1114,6 +1125,166 @@ static func _refine_small_chart(tris: Array[Dictionary],chart: Dictionary,ci: in
     chart.min = lo.floor()
     chart.max = hi
     return true
+
+## In the second pass a severe error may be traded for at most two
+## smaller mismatches, but never for a worse maximum or larger total cost.
+static func _accept_balanced_score(before: Vector3,after: Vector3,balanced: bool) -> bool:
+    if after.x > before.x+0.0001:
+        return false
+    if after.y <= before.y:
+        return true
+    return balanced and before.x > 2.0 and after.x <= before.x-0.35 and after.y <= before.y+2.0
+
+## The exact rectangle seams form dimension-equivalence groups. Adjust
+## an entire group together so a good seam does not need to be broken
+## before an incompatible 5/8px seam can be improved.
+static func _balance_rectified_groups(tris: Array[Dictionary],charts: Array[Dictionary],density: int) -> void:
+    var links: Array[Dictionary] = _seam_segments(tris)
+    var parent := PackedInt32Array()
+    parent.resize(charts.size()*2)
+    var members: Array = []
+    var adjacency: Array = []
+    for ci in range(charts.size()):
+        members.append([])
+        adjacency.append([])
+        parent[ci*2] = ci*2
+        parent[ci*2+1] = ci*2+1
+    for i in range(tris.size()):
+        (members[int(tris[i].chart)] as Array).append(i)
+    var mismatches: Array[Dictionary] = []
+    for i in range(links.size()):
+        var link: Dictionary = links[i]
+        var ca: int = int(link.a)
+        var cb: int = int(link.b)
+        (adjacency[ca] as Array).append(i)
+        (adjacency[cb] as Array).append(i)
+        if not bool(charts[ca].get("rectified",false)) or not bool(charts[cb].get("rectified",false)):
+            continue
+        if absf(float(link.a1)-float(link.a0)) < 0.9999 or absf(float(link.b1)-float(link.b0)) < 0.9999:
+            continue
+        var a: PackedVector2Array = _segment_uv(tris[link.ta],link.ea,link.a0,link.a1,"xy")
+        var b: PackedVector2Array = _segment_uv(tris[link.tb],link.eb,link.b0,link.b1,"xy")
+        var da: Vector2 = (a[1]-a[0]).abs()
+        var db: Vector2 = (b[1]-b[0]).abs()
+        if minf(da.x,da.y) > 0.001 or minf(db.x,db.y) > 0.001:
+            continue
+        var aa: int = 0 if da.x > da.y else 1
+        var ab: int = 0 if db.x > db.y else 1
+        var sa: Vector2 = charts[ca].max-charts[ca].min
+        var sb: Vector2 = charts[cb].max-charts[cb].min
+        if absf(da[aa]-sa[aa]) > 0.001 or absf(db[ab]-sb[ab]) > 0.001:
+            continue
+        var diff: float = absf(da[aa]-db[ab])
+        if diff < 0.001:
+            _join(parent,ca*2+aa,cb*2+ab)
+        elif diff > 0.25:
+            mismatches.append({"a":ca*2+aa,"b":cb*2+ab,"diff":diff})
+    var groups: Dictionary = {}
+    for ci in range(charts.size()):
+        if not bool(charts[ci].get("rectified",false)):
+            continue
+        for axis in range(2):
+            var id: int = ci*2+axis
+            var root: int = _root(parent,id)
+            if not groups.has(root):
+                groups[root] = []
+            (groups[root] as Array).append(id)
+    mismatches.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
+        return int(a.a) < int(b.a) if float(a.diff) == float(b.diff) else float(a.diff) > float(b.diff))
+    for n in range(mini(64,mismatches.size())):
+        var item: Dictionary = mismatches[n]
+        var root_a: int = _root(parent,int(item.a))
+        var root_b: int = _root(parent,int(item.b))
+        if root_a == root_b:
+            continue
+        var group_a: Array = groups[root_a]
+        var group_b: Array = groups[root_b]
+        if group_a.size()+group_b.size() > 96:
+            continue
+        var first_a: int = int(group_a[0])
+        var first_b: int = int(group_b[0])
+        var size_a: Vector2 = charts[first_a/2].max-charts[first_a/2].min
+        var size_b: Vector2 = charts[first_b/2].max-charts[first_b/2].min
+        var old_a: int = roundi(size_a[first_a%2])
+        var old_b: int = roundi(size_b[first_b%2])
+        if old_a == old_b or mini(old_a,old_b) < 1:
+            continue
+        var affected: Dictionary = {}
+        for id in group_a+group_b:
+            affected[int(id)/2] = true
+        var local_ids: Dictionary = {}
+        var original: Dictionary = {}
+        for ci in affected:
+            for li in adjacency[ci]:
+                local_ids[li] = true
+            for ti in members[ci]:
+                original[ti] = (tris[ti].xy as PackedVector2Array).duplicate()
+        var local: Array = []
+        for li in local_ids:
+            local.append(links[li])
+        var before: Vector3 = _refinement_score(tris,-1,local,{},PackedVector2Array())
+        var best_score: Vector3 = before
+        var best: int = -1
+        # Candidate common sizes around the midpoint and both endpoints.
+        var choices: Array[int] = [old_a,old_b,floori((old_a+old_b)*0.5),ceili((old_a+old_b)*0.5)]
+        for target in choices:
+            if target < 1:
+                continue
+            var scales: Dictionary = {}
+            for id in group_a+group_b:
+                var ci: int = int(id)/2
+                var axis: int = int(id)%2
+                var scale: Vector2 = scales.get(ci,Vector2.ONE)
+                var dim: Vector2 = charts[ci].max-charts[ci].min
+                scale[axis] = float(target)/maxf(1.0,dim[axis])
+                scales[ci] = scale
+            var valid: bool = true
+            for ci in affected:
+                var scale: Vector2 = scales[ci]
+                var lo: Vector2 = charts[ci].min
+                for ti in members[ci]:
+                    var old: PackedVector2Array = original[ti]
+                    var q := PackedVector2Array()
+                    for point in old:
+                        q.append((point-lo)*scale+lo)
+                    var t: Dictionary = tris[ti]
+                    var index_map: Dictionary = {}
+                    index_map[ti] = PackedInt32Array([0,1,2])
+                    if not _refinement_valid([ti],index_map,t.p,old,q,density):
+                        valid = false
+                    t.xy = q
+            if valid:
+                var score: Vector3 = _refinement_score(tris,-1,local,{},PackedVector2Array())
+                if _accept_balanced_score(before,score,true) and score.z < best_score.z-0.0001:
+                    best = target
+                    best_score = score
+            for ti in original:
+                tris[ti].xy = original[ti]
+        if best < 1:
+            continue
+        var final_scales: Dictionary = {}
+        for id in group_a+group_b:
+            var ci: int = int(id)/2
+            var axis: int = int(id)%2
+            var scale: Vector2 = final_scales.get(ci,Vector2.ONE)
+            var dim: Vector2 = charts[ci].max-charts[ci].min
+            scale[axis] = float(best)/maxf(1.0,dim[axis])
+            final_scales[ci] = scale
+        for ci in affected:
+            var lo: Vector2 = charts[ci].min
+            var scale: Vector2 = final_scales[ci]
+            for ti in members[ci]:
+                var old: PackedVector2Array = original[ti]
+                var q := PackedVector2Array()
+                for point in old:
+                    q.append((point-lo)*scale+lo)
+                tris[ti].xy = q
+            charts[ci].max = lo+(charts[ci].max-lo)*scale
+        # All boundaries in the two accepted groups now agree. Reuse
+        # the union on subsequent mismatches without breaking them.
+        _join(parent,root_a,root_b)
+        var root: int = _root(parent,root_a)
+        groups[root] = group_a+group_b
 
 static func _refinement_score(tris: Array[Dictionary],ci: int,links: Array,indices: Dictionary,points: PackedVector2Array) -> Vector3:
     var worst: float = 0.0
