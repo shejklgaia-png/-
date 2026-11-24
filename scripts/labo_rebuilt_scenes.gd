@@ -133,7 +133,7 @@ func _stack_ink(stack: Node3D) -> void:
     if stack_seam_material == null:
         stack_seam_material = StandardMaterial3D.new()
         stack_seam_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-        stack_seam_material.albedo_color = Color("#10171d")
+        stack_seam_material.albedo_color = Color.BLACK
     var lines := PackedVector3Array()
     for child in stack.get_children():
         var draw := child as MultiMeshInstance3D
