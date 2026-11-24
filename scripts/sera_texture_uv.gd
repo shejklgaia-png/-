@@ -1055,6 +1055,36 @@ static func diagnostic_report(tris: Array, side: Vector2i, density: int, selecte
 ## One pass over the mesh and shared edges, independent of selection size.
 ## Include edges between different selected original faces even when both
 ## belong to the same UV island. Keep the model-wide seam metric unchanged.
+## Same residual definition for the report and heatmap. A shared edge
+## is compared modulo quarter-turns and integer texel translations.
+static func _diagnostic_edge_metrics(tris: Array, link: Dictionary, dimensions: Vector2) -> Dictionary:
+    var a: PackedVector2Array = _segment_uv(tris[link.ta],link.ea,link.a0,link.a1,"uv")
+    var b: PackedVector2Array = _segment_uv(tris[link.tb],link.eb,link.b0,link.b1,"uv")
+    var da: Vector2 = (a[1]-a[0])*dimensions
+    var db: Vector2 = (b[1]-b[0])*dimensions
+    if minf(da.length(),db.length()) < 0.00001:
+        return {}
+    var angle: float = db.angle_to(da)
+    var quarter: float = roundf(angle/(PI*0.5))*(PI*0.5)
+    var error0: Vector2 = a[0]*dimensions-(b[0]*dimensions).rotated(quarter)
+    error0 -= error0.round()
+    var error1: Vector2 = error0+da-db.rotated(quarter)
+    return {"residual":maxf(error0.length(),error1.length()),"length_a":da.length(),"length_b":db.length(),"angle":absf(rad_to_deg(angle-quarter))}
+
+## Per original face, use the maximum of its measured inter-island
+## residuals. Unmeasured faces are absent (not classified as passing).
+static func diagnostic_face_residuals(tris: Array, side: Vector2i) -> Dictionary:
+    var result: Dictionary = {}
+    var dimensions: Vector2 = Vector2(side)
+    for link in _seam_segments(tris):
+        var metric: Dictionary = _diagnostic_edge_metrics(tris,link,dimensions)
+        if metric.is_empty():
+            continue
+        for id in [int(link.ta),int(link.tb)]:
+            var face: int = int(tris[id].get("diagnostic_face",id))
+            result[face] = maxf(float(result.get(face,0.0)),float(metric.residual))
+    return result
+
 static func diagnostic_report_faces(tris: Array, side: Vector2i, density: int, chosen: Dictionary) -> Dictionary:
     var charts: Dictionary = {}
     var members: Dictionary = {}
@@ -1069,38 +1099,33 @@ static func diagnostic_report_faces(tris: Array, side: Vector2i, density: int, c
     var seam_count: int = 0
     var unmatched: int = 0
     var worst: float = 0.0
-    var internal: PackedStringArray = []
-    var external: PackedStringArray = []
+    var internal: Array[Dictionary] = []
+    var external: Array[Dictionary] = []
+    var face_worst: Dictionary = {}
     var dimensions: Vector2 = Vector2(side)
     for link in _seam_segments(tris,not members.is_empty()):
         var ta: int = int(link.ta)
         var tb: int = int(link.tb)
         var fa: int = int(tris[ta].get("diagnostic_face",ta))
         var fb: int = int(tris[tb].get("diagnostic_face",tb))
-        var a: PackedVector2Array = _segment_uv(tris[ta],link.ea,link.a0,link.a1,"uv")
-        var b: PackedVector2Array = _segment_uv(tris[tb],link.eb,link.b0,link.b1,"uv")
-        var da: Vector2 = (a[1]-a[0])*dimensions
-        var db: Vector2 = (b[1]-b[0])*dimensions
-        if minf(da.length(),db.length()) < 0.00001:
+        var metric: Dictionary = _diagnostic_edge_metrics(tris,link,dimensions)
+        if metric.is_empty():
             continue
-        var angle: float = db.angle_to(da)
-        var quarter: float = roundf(angle/(PI*0.5))*(PI*0.5)
-        var error0: Vector2 = a[0]*dimensions-(b[0]*dimensions).rotated(quarter)
-        error0 -= error0.round()
-        var error1: Vector2 = error0+da-db.rotated(quarter)
-        var residual: float = maxf(error0.length(),error1.length())
+        var residual: float = float(metric.residual)
         if int(link.a) != int(link.b):
             seam_count += 1
             worst = maxf(worst,residual)
             if residual > 0.25:
                 unmatched += 1
+            face_worst[fa] = maxf(float(face_worst.get(fa,0.0)),residual)
+            face_worst[fb] = maxf(float(face_worst.get(fb,0.0)),residual)
         if fa == fb:
             continue
         var selected_a: bool = members.has(fa)
         var selected_b: bool = members.has(fb)
         if not selected_a and not selected_b:
             continue
-        var entry: String = "面ID%d↔%d triangle=%d:%d↔%d:%d 島%d↔%d 長さ %.2f/%.2fpx 角度差 %.1f° 残差 %.2fpx" % [fa,fb,ta,link.ea,tb,link.eb,link.a,link.b,da.length(),db.length(),absf(rad_to_deg(angle-quarter)),residual]
+        var entry: Dictionary = {"residual":residual,"text":"面ID%d↔%d triangle=%d:%d↔%d:%d 島%d↔%d 長さ %.2f/%.2fpx 角度差 %.1f° 残差 %.2fpx" % [fa,fb,ta,link.ea,tb,link.eb,link.a,link.b,float(metric.length_a),float(metric.length_b),float(metric.angle),residual]}
         if selected_a and selected_b:
             internal.append(entry)
         else:
@@ -1111,7 +1136,10 @@ static func diagnostic_report_faces(tris: Array, side: Vector2i, density: int, c
         summary = "選択 %d面 / 選択面間共有辺 %d" % [members.size(),internal.size()]
         lines.append(summary)
         var ids: Array = members.keys()
-        ids.sort()
+        ids.sort_custom(func(a: int,b: int) -> bool:
+            var va: float = float(face_worst.get(a,-1.0))
+            var vb: float = float(face_worst.get(b,-1.0))
+            return a < b if va == vb else va > vb)
         for face_id in ids:
             var face_members: Array = members[face_id]
             var selected: int = int(face_members[0])
@@ -1139,16 +1167,20 @@ static func diagnostic_report_faces(tris: Array, side: Vector2i, density: int, c
                         hi_ratio = maxf(hi_ratio,ratio)
             var face_label: String = "原面%d" % int(t.authored_face) if int(t.get("authored_face",-1)) >= 0 else "三角形%d（原面不明）" % selected
             lines.append("")
-            lines.append("面ID%d / %s / surface=%d / 曲がり %.1f° / 密度比 %.2f–%.2f / plane deviation=%.3f mm" % [face_id,face_label,int(t.get("surface",-1)),max_bend,lo_ratio,hi_ratio,max_plane*1000.0])
+            var residual_label: String = "%.2fpx" % float(face_worst[face_id]) if face_worst.has(face_id) else "未測定"
+            lines.append("面ID%d / %s / surface=%d / 最大残差 %s / 曲がり %.1f° / 密度比 %.2f–%.2f / plane deviation=%.3f mm" % [face_id,face_label,int(t.get("surface",-1)),residual_label,max_bend,lo_ratio,hi_ratio,max_plane*1000.0])
             lines.append("UV islands="+str(face_charts.keys()))
             for id in face_members:
                 var part: Dictionary = tris[id]
                 lines.append("triangle=%d geometry=%s / atlasUV=%s" % [id,str(part.p),str(part.uv)])
         lines.append("")
-        lines.append("選択面同士の共有辺 (%d)" % internal.size())
-        lines.append_array(internal)
-        lines.append("選択面と非選択面の共有辺 (%d)" % external.size())
-        lines.append_array(external)
+        var ranked: Array[Dictionary] = internal.duplicate()
+        ranked.append_array(external)
+        ranked.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
+            return str(a.text) < str(b.text) if float(a.residual) == float(b.residual) else float(a.residual) > float(b.residual))
+        lines.append("共有辺残差ランキング（選択面間%d / 選択面外%d）" % [internal.size(),external.size()])
+        for entry in ranked:
+            lines.append(str(entry.text))
     return {"summary":summary,"report":"\n".join(lines)}
 
 ## Restore the exact saved atlas, without repartitioning or resampling.
