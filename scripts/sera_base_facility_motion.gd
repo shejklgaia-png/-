@@ -12,14 +12,14 @@ const MOTION_FEATURES: Dictionary = {
         "NexusAntennaYagiBoom", "NexusAntennaYagiElement",
         "NexusPlenumLouver", "NexusSignalIndicator", "NexusSupplyDrawer", "NexusSupplyCase"],
     "LABO": ["FreshLabPrinterServo", "FreshLabPrinterHotHead",
-        "FreshLabPrinterTip", "FreshLabPrintedShell",
+        "FreshLabPrinterTip", "FreshLabPrintedShell", "LabPrintedGear", "LabPrintedArmor", "LabPrintedJoint", "LabInputPellet",
         "LabArmLinkA", "LabArmLinkB", "LabArmElbow", "LabArmWristHub",
         "LabArmWristShaft", "LabArmWristOffset", "LabArmGripBody",
         "LabArmGripJaw", "LabStockLift", "LabStockShutter", "LabMetalFeedSpool"],
     "SCRAP_COLLECTOR": ["FreshCollectorSuspendedCable", "FreshCollectorClawHead",
         "FreshCollectorJawHinge", "FreshCollectorOpenGrip",
         "FreshCollectorConveyorFlight", "FreshCollectorPickupScrap"],
-    "SMELTER": ["SmelterFeedScrap", "SmelterMoltenPour", "SmelterCastIngot"],
+    "SMELTER": ["SmelterFeedScrap", "SmelterMoltenPour", "SmelterCastIngot", "SmelterChargeGate"],
     "RECYCLER": ["FreshRecyclerRoller", "FreshRecyclerTooth", "RecyclerIntactPart", "RecyclerRecoveredPart"],
     "GENERATOR": ["FreshGeneratorRotorBlade", "FreshGeneratorMeterRow"],
     "STORAGE": ["FreshStorageLoadingLift", "StorageMovingCase", "StorageMovingLock", "StorageTransferFork", "StorageStoredCase", "StorageStoredLock"],
@@ -58,13 +58,34 @@ var _body_yaw: float = 0.0
 var _model_scale: float = 1.0
 var _clock: float = 0.0
 var _accumulator: float = 0.0
-const MATERIAL_SECONDS = {"LABO":18.2, "SMELTER":7.2, "RECYCLER":6.4, "STORAGE":7.5}
+const MATERIAL_SECONDS = {"LABO":21.2, "SMELTER":7.2, "RECYCLER":6.4, "STORAGE":7.5}
 var _material_running: bool = false
 var _material_has_completed: bool = false
+var _print_variant: int = 0
+var _next_print_variant: int = 0
+const INTAKE_LOCAL = {
+    "SMELTER": Vector3(-1.66,1.58,0.86),
+    "RECYCLER": Vector3(0.0,2.68,0.22),
+    "LABO": Vector3(-2.05,1.28,1.45),
+    "STORAGE": Vector3(-1.20,1.09,1.18)}
+const INTAKE_CLEAR_HEIGHT = {"SMELTER":3.4,"RECYCLER":3.35,"LABO":4.05,"STORAGE":3.25}
+const PRINT_FEATURES = ["FreshLabPrintedShell","LabPrintedGear","LabPrintedArmor","LabPrintedJoint"]
+
+func material_intake_world() -> Vector3:
+    return _model.to_global(_at(INTAKE_LOCAL[facility_key]))
+
+func material_rail_world_y() -> float:
+    return _model.to_global(_at(Vector3(0,float(INTAKE_CLEAR_HEIGHT[facility_key]),0))).y
+
+func material_print_variant() -> int:
+    return _print_variant
 
 func begin_material_cycle() -> void:
     if not MATERIAL_SECONDS.has(facility_key):
         return
+    if facility_key == "LABO":
+        _print_variant = _next_print_variant
+        _next_print_variant = (_next_print_variant + 1) % PRINT_FEATURES.size()
     _clock = 0.0
     _accumulator = 0.0
     _material_running = true
@@ -213,7 +234,9 @@ func _lab_pose(feature: String, slot: int, rest: Transform3D, t: float,
                 Vector3(x, 2.27, z), 0.39, 0.39)
         "FreshLabPrinterTip":
             return _lab_position(rest, Vector3(x, tip_y, z))
-        "FreshLabPrintedShell":
+        "FreshLabPrintedShell", "LabPrintedGear", "LabPrintedArmor", "LabPrintedJoint":
+            if feature != PRINT_FEATURES[_print_variant] or t >= 17.2:
+                return Transform3D(rest.basis.scaled_local(Vector3.ONE * 0.0001), rest.origin)
             if t < 6.0:
                 # Keep the bottom fixed to the fabrication bed while growing.
                 return Transform3D(rest.basis.scaled_local(Vector3(1, progress, 1)),
@@ -341,7 +364,7 @@ func sample_at(seconds: float) -> void:
     var lab_elbow := Vector3.ZERO
     var lab_wrist := Vector3.ZERO
     if facility_key == "LABO":
-        lab_t = fposmod(time, LAB_CYCLE)
+        lab_t = clampf(time - 3.0, 0.0, LAB_CYCLE - 0.001)
         lab_target = _lab_arm_target(lab_t)
         lab_wrist = Vector3(lab_target.x, LAB_ARM_ROOT.y, lab_target.z + 0.34)
         # Analytic two-link planar IK: both castings retain fixed lengths.
@@ -368,8 +391,16 @@ func sample_at(seconds: float) -> void:
                 "NEXUS":
                     pose = _nexus_pose(feature, i, rest, time, nexus_scan)
                 "LABO":
-                    pose = _lab_pose(feature, i, rest, lab_t,
-                        lab_target, lab_elbow, lab_wrist)
+                    if feature == "LabInputPellet":
+                        var feed: float = smoothstep(0.15,1.2,time)
+                        pose.origin += _at(Vector3(0,-0.45*feed,0))
+                        if time >= 1.2:
+                            pose.basis = rest.basis.scaled_local(Vector3.ONE*0.0001)
+                    else:
+                        pose = _lab_pose(feature, i, rest, lab_t,
+                            lab_target, lab_elbow, lab_wrist)
+                        if time < 3.0 and feature in PRINT_FEATURES:
+                            pose.basis = rest.basis.scaled_local(Vector3.ONE*0.0001)
                 "SCRAP_COLLECTOR":
                     if feature in CRANE_SLEW_FEATURES:
                         # All sculpted upper boom parts share one genuine
@@ -469,8 +500,10 @@ func sample_at(seconds: float) -> void:
                                     side * crane_grip)
                 "SMELTER":
                     var t: float = minf(time, 7.199)
-                    if feature == "SmelterFeedScrap":
-                        pose.origin += _at(Vector3(0, 0, -0.58 * smoothstep(0.3, 2.1, t)))
+                    if feature == "SmelterChargeGate":
+                        pose.origin += _at(Vector3(-0.66 * (1.0-smoothstep(1.5,2.4,t)),0,0))
+                    elif feature == "SmelterFeedScrap":
+                        pose.origin += _at(Vector3(0.45*smoothstep(0.3,2.1,t), -0.43*smoothstep(0.3,2.1,t), -0.15*smoothstep(0.3,2.1,t)))
                         if t >= 2.1:
                             pose.basis = rest.basis.scaled_local(Vector3.ONE * 0.0001)
                     elif feature == "SmelterMoltenPour":
@@ -491,7 +524,7 @@ func sample_at(seconds: float) -> void:
                         pose = _spin_about(rest, center, _axis(Vector3.RIGHT), t * 2.0 * side)
                     elif feature == "RecyclerIntactPart":
                         var feed: float = smoothstep(0.35 + i*0.35, 2.5 + i*0.35, t)
-                        pose.origin += _at(Vector3(0, -0.73*feed, 0.91*feed))
+                        pose.origin += _at(Vector3(0, -1.13*feed, 0))
                         if feed >= 0.97:
                             pose.basis = rest.basis.scaled_local(Vector3.ONE * 0.0001)
                     elif feature == "RecyclerRecoveredPart":
