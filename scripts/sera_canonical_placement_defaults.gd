@@ -1,3 +1,185 @@
 extends RefCounted
 ## Official initial placement records. Only "正規配置確定" promotes reviewed records here.
-const RECORDS: Dictionary = {}
+const RECORDS: Dictionary = {
+    "base/facility/BUILD_TERMINAL": {
+        "position": [
+            20.7399997711182,
+            0,
+            15.3800001144409
+        ],
+        "space": "base_local",
+        "updated_at": 1795500014.06404,
+        "yaw_rad": 0
+    },
+    "base/facility/LABO": {
+        "position": [
+            8.39999961853027,
+            0,
+            8.94999980926514
+        ],
+        "space": "base_local",
+        "updated_at": 1795500053.2935,
+        "yaw_rad": 0
+    },
+    "base/facility/NEXUS": {
+        "position": [
+            -12.4399995803833,
+            0,
+            -18.9099998474121
+        ],
+        "space": "base_local",
+        "updated_at": 1795500091.67735,
+        "yaw_rad": 0
+    },
+    "base/facility/STORAGE": {
+        "position": [
+            -2.9300000667572,
+            0,
+            4.92000007629395
+        ],
+        "space": "base_local",
+        "updated_at": 1795500110.97798,
+        "yaw_rad": 0
+    },
+    "labo/camera/LABO": {
+        "eye": [
+            3.28238582611084,
+            1.59348523616791,
+            2.88537740707397
+        ],
+        "fov": 68,
+        "look": [
+            0.0353324115276337,
+            2.04999995231628,
+            -0.874850630760193
+        ],
+        "model_id": "LABO",
+        "scene": "res://scenes/labo_hero_stage.tscn",
+        "space": "stage_local",
+        "updated_at": 1795486938.00698
+    },
+    "nexus/camera/DATA ARCHIVE": {
+        "eye": [
+            -2.0243763923645,
+            4.18834209442139,
+            0.98720645904541
+        ],
+        "fov": 61,
+        "look": [
+            -2.23033475875854,
+            3.90000009536743,
+            -12.1426553726196
+        ],
+        "model_id": "DATA ARCHIVE",
+        "roll_deg": 0,
+        "scene": "res://scenes/command_nexus.tscn",
+        "space": "original_model_frame",
+        "updated_at": 1795487056.92381
+    },
+    "nexus/camera/DEPLOYMENT": {
+        "eye": [
+            1.27301979064941,
+            3.5281457901001,
+            -7.58368682861328
+        ],
+        "fov": 59,
+        "look": [
+            5.94448518753052,
+            2.92999887466431,
+            -23.6975555419922
+        ],
+        "model_id": "DEPLOYMENT",
+        "roll_deg": 0,
+        "scene": "res://scenes/command_nexus.tscn",
+        "space": "global",
+        "updated_at": 1795503499.55556
+    },
+    "nexus/camera/SYSTEM": {
+        "eye": [
+            -3.30652618408203,
+            5.24347972869873,
+            9.80829429626465
+        ],
+        "fov": 44,
+        "look": [
+            -1.07439756393433,
+            2.60000038146973,
+            2.22366309165955
+        ],
+        "model_id": "SYSTEM",
+        "roll_deg": 0,
+        "scene": "res://scenes/command_nexus.tscn",
+        "space": "original_model_frame",
+        "updated_at": 1795486838.17536
+    },
+    "nexus/camera/TRAINING": {
+        "eye": [
+            2.59163808822632,
+            3.59999108314514,
+            6.67651224136353
+        ],
+        "fov": 58,
+        "look": [
+            1.28321933746338,
+            2.09000015258789,
+            2.10468983650208
+        ],
+        "model_id": "TRAINING",
+        "roll_deg": 0,
+        "scene": "res://scenes/command_nexus.tscn",
+        "space": "original_model_frame",
+        "updated_at": 1795498135.35886
+    },
+    "nexus/model/DATA ARCHIVE": {
+        "model_id": "DATA ARCHIVE",
+        "module_id": "data_bank",
+        "position": [
+            -4.94999980926514,
+            2.48000001907349,
+            -12.1000003814697
+        ],
+        "scene": "res://scenes/command_nexus.tscn",
+        "space": "global",
+        "updated_at": 1795486691.9318,
+        "yaw_rad": 0
+    },
+    "nexus/model/DEPLOYMENT": {
+        "model_id": "DEPLOYMENT",
+        "module_id": "DeploymentConsolePlacementAnchor",
+        "position": [
+            7.3498797416687,
+            0.899999976158142,
+            -18.8780155181885
+        ],
+        "scene": "res://scenes/command_nexus.tscn",
+        "space": "global",
+        "updated_at": 1795499361.7634,
+        "yaw_rad": -0.279252680319093
+    },
+    "nexus/model/SYSTEM": {
+        "model_id": "SYSTEM",
+        "module_id": "system_console",
+        "position": [
+            -2.09999990463257,
+            0.100000001490116,
+            2.09999990463257
+        ],
+        "scene": "res://scenes/command_nexus.tscn",
+        "space": "global",
+        "updated_at": 1795486671.18165,
+        "yaw_rad": 0.925024503556994
+    },
+    "nexus/model/TRAINING": {
+        "model_id": "TRAINING",
+        "module_id": "training_console",
+        "position": [
+            1.34999990463257,
+            0.200000017881393,
+            4.49999761581421
+        ],
+        "scene": "res://scenes/command_nexus.tscn",
+        "space": "global",
+        "updated_at": 1795486683.01032,
+        "yaw_rad": -0.767944870877505
+    }
+}
