@@ -5986,6 +5986,7 @@ func _archive_view_load_selected(request: int, kind: int, id: String) -> void:
             archive_view_caption.text = display_name + " / RIG UNAVAILABLE"
             return
         archive_view_equipment.set("nexus_brighter_backdrop", true)
+        archive_view_equipment.set_meta("sera_graphics_outline_category", "part" if kind == 1 else "character")
         archive_view_viewport.add_child(archive_view_equipment)
         archive_view_equipment.set_process_input(false)
         for i in range(80):
@@ -5999,6 +6000,15 @@ func _archive_view_load_selected(request: int, kind: int, id: String) -> void:
         if not bool(archive_view_equipment.get("ready_for_commands")):
             archive_view_caption.text = display_name + " / MODEL UNAVAILABLE"
             return
+        var preview_rig: Node3D = archive_view_equipment.get("rig") as Node3D
+        if is_instance_valid(preview_rig):
+            preview_rig.set_meta("sera_graphics_outline_category", "part" if kind == 1 else "character")
+            var preview_edges: Node = preview_rig.get_node_or_null("ViewEdges")
+            if is_instance_valid(preview_edges):
+                # Re-register after the final graphics class is known. Use
+                # shared defaults; no equipment-authoring width override.
+                preview_edges.call("set_contour_enabled", false)
+                preview_edges.call("set_contour_enabled", true)
         var spec: Dictionary = PrototypeCatalog.spec(id) if kind == 1 else {}
         var gear: Dictionary = {}
         if kind == 1:
@@ -6017,14 +6027,17 @@ func _archive_view_load_selected(request: int, kind: int, id: String) -> void:
     environment.background_mode = Environment.BG_COLOR
     environment.background_color = Color("#afc4d1")
     environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-    environment.ambient_light_color = Color("#bbc9e1")
-    environment.ambient_light_energy = 0.65
+    # Reuse the BASE environment's light values for native-lit equipment.
+    # Character shaders preserve their own authored step/threshold rules.
+    environment.ambient_light_color = Color("#8da6c2") if kind == 2 else Color("#bbc9e1")
+    environment.ambient_light_energy = 0.38 if kind == 2 else 0.60
     var world := WorldEnvironment.new()
     world.environment = environment
     archive_view_stage.add_child(world)
     var light := DirectionalLight3D.new()
-    light.rotation_degrees = Vector3(-52,-24,0)
-    light.light_energy = 1.5
+    light.rotation_degrees = Vector3(-56,-25,0) if kind == 2 else Vector3(-52,-24,0)
+    light.light_color = Color.WHITE if kind == 2 else Color("#e3ecff")
+    light.light_energy = 0.36 if kind == 2 else 1.7
     light.shadow_enabled = false
     archive_view_stage.add_child(light)
     archive_view_camera = Camera3D.new()
@@ -6048,29 +6061,49 @@ func _archive_view_load_selected(request: int, kind: int, id: String) -> void:
         var architecture: Script = load("res://scripts/sera_base_architecture.gd") as Script
         if architecture != null and architecture.can_instantiate():
             archive_view_model = Node3D.new()
+            archive_view_model.name = "ArchiveFacility"
+            archive_view_model.set_meta("sera_graphics_outline_category", "base")
+            archive_view_model.set_meta("sera_outline_role", "facility")
             archive_view_center.add_child(archive_view_model)
             if id == "NEXUS":
-                architecture.call("build_nexus", archive_view_model)
+                architecture.call("build_nexus", archive_view_model, null, false)
             else:
-                architecture.call("build_facility", archive_view_model, id)
+                architecture.call("build_facility", archive_view_model, id, null, false)
     if not is_instance_valid(archive_view_model):
         archive_view_caption.text = display_name + " / MODEL UNAVAILABLE"
         return
+    if kind != 2:
+        archive_view_model.set_meta("sera_graphics_outline_category", "character")
+        if id == "BITTARAN":
+            archive_view_model.set_meta("sera_bittaran_id_outline", true)
     if archive_view_model.get_parent() == null:
         archive_view_center.add_child(archive_view_model)
+    # The same shading call as BASE/CRATE and gameplay. The facility's
+    # preserve-authored-material flags keep its native-lit textures.
+    if id != "BITTARAN":
+        SharedMaterialShading.apply_to_subtree(archive_view_model)
+    var edges: Node = archive_view_model.get_node_or_null("ViewEdges")
+    if not is_instance_valid(edges):
+        edges = SeraViewEdges.new()
+        edges.name = "ViewEdges"
+        archive_view_model.add_child(edges)
+    # Keep the common compositor, role classification and graphics switches.
+    # Freeze model animation only; the viewport-owned ink continues to sync.
     archive_view_model.process_mode = Node.PROCESS_MODE_DISABLED
-    var edges := archive_view_model.get_node_or_null("ViewEdges")
-    if is_instance_valid(edges) and edges.has_method("set_contour_enabled"):
-        edges.call("set_contour_enabled",false)
     var bounds: Dictionary = {}
     _archive_view_collect_bounds(archive_view_model, bounds)
     if not bounds.has("box"):
         archive_view_caption.text = display_name + " / MODEL UNAVAILABLE"
         return
     var box: AABB = bounds["box"]
+    # Fit the camera, not the model: native light ranges and authored
+    # metre-mapped surfaces must retain their original physical scale.
     archive_view_center.position = -box.get_center()
-    archive_view_center.scale = Vector3.ONE * (1.7/maxf(0.001,box.size.length()))
-    archive_view_center.position *= archive_view_center.scale.x
+    archive_view_center.scale = Vector3.ONE
+    var extent: float = maxf(0.001, box.size.length())
+    archive_view_fit_size = maxf(0.02, extent * (2.8 / 1.7))
+    archive_view_camera.position.z = maxf(8.0, extent * 5.0)
+    archive_view_camera.far = maxf(50.0, archive_view_camera.position.z + extent * 5.0)
     _archive_view_reset_view()
     archive_view_caption.text = display_name
 
@@ -6086,7 +6119,18 @@ func _archive_view_collect_bounds(node: Node, data: Dictionary) -> void:
         return
     if node is VisualInstance3D and (node is MeshInstance3D or node is MultiMeshInstance3D):
         var visual := node as VisualInstance3D
+        # Exclude non-model overlays and use actual MultiMesh transforms
+        # rather than the BASE animation's deliberately inflated culling AABB.
+        if bool(visual.get_meta("FX_NO_OUTLINE", false)) or bool(visual.get_meta("sera_skip_common_id_outline", false)):
+            return
         var local_box: AABB = visual.get_aabb()
+        if visual is MultiMeshInstance3D:
+            var multi: MultiMesh = (visual as MultiMeshInstance3D).multimesh
+            if multi != null and multi.mesh != null and multi.instance_count > 0:
+                var unit: AABB = multi.mesh.get_aabb()
+                local_box = multi.get_instance_transform(0) * unit
+                for i in range(1, multi.instance_count):
+                    local_box = local_box.merge(multi.get_instance_transform(i) * unit)
         if local_box.size.length_squared() > 0.000001:
             var box: AABB = archive_view_center.global_transform.affine_inverse() * visual.global_transform * local_box
             data["box"] = (data["box"] as AABB).merge(box) if data.has("box") else box
@@ -6192,7 +6236,8 @@ func _archive_view_drag(id: int, point: Vector2) -> void:
         var d: Vector2 = after[1]
         var move: Vector2 = (c+d-a-b)*0.5
         archive_view_pan += Vector2(move.x,-move.y)*archive_view_fit_size/maxf(1.0,archive_view_host.size.y)/archive_view_zoom
-        archive_view_pan = archive_view_pan.clamp(Vector2(-2,-2),Vector2(2,2))
+        var limit: float = archive_view_fit_size * 0.72
+        archive_view_pan = archive_view_pan.clamp(Vector2(-limit,-limit),Vector2(limit,limit))
         if a.distance_to(b)>12 and c.distance_to(d)>12:
             archive_view_zoom = clampf(archive_view_zoom*c.distance_to(d)/a.distance_to(b),0.35,4.0)
     _archive_view_apply_transform()
