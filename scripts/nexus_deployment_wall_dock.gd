@@ -90,6 +90,7 @@ static func build(room: Node3D, gate_at: Vector3,
         for z in [7.40,8.22,9.04,9.86]:
             _box(boxes,"trim",Vector3(side*1.40,deck_y+0.008,z),
                 Vector3(0.21,0.017,0.075))
+    _build_approach_markings(root,entry_y,deck_y)
     # The authored plaque is 2.295m wide after scaling. Text sits on
     # its actual front face, never on the wall or moving shutter.
     var plaque := Label3D.new()
@@ -159,6 +160,7 @@ static func build(room: Node3D, gate_at: Vector3,
     _display_face(console_geometry, "IlluminatedInstrumentGlass",
         2.82, 1.04, 0.94, 1.58, 0.035, dark_glass)
     _display_instruments(console_geometry)
+    _build_animated_readout(console_geometry)
 
     # Real support, hinge, keyboard, raised tactile buttons, side LEDs, and
     # floor-level armored foot. Shared box batches keep draw calls bounded.
@@ -198,6 +200,17 @@ static func build(room: Node3D, gate_at: Vector3,
         _box(console_boxes, "amber", Vector3(2.82 + side * 0.46, 0.62, 6.43),
             Vector3(0.11, 0.045, 0.085))
 
+    # Armored lower service bay, inset radiator slots, protected cable
+    # termination and a dedicated pair of control-bank handles.
+    _box(console_boxes,"steel",Vector3(2.82,-0.27,5.47),Vector3(0.80,0.58,0.55))
+    _box(console_boxes,"iron",Vector3(2.82,-0.27,5.75),Vector3(0.66,0.43,0.08))
+    for i in range(5):
+        _box(console_boxes,"trim",Vector3(2.82,-0.43+float(i)*0.077,5.795),Vector3(0.52,0.027,0.036))
+    for side in [-1.0,1.0]:
+        _box(console_boxes,"steel",Vector3(2.82+side*0.53,0.69,6.39),Vector3(0.095,0.16,0.34))
+        _box(console_boxes,"trim",Vector3(2.82+side*0.53,0.77,6.39),Vector3(0.105,0.038,0.29))
+    _box(console_boxes,"iron",Vector3(2.82,-0.46,4.82),Vector3(0.30,0.31,0.30))
+    _box(console_boxes,"trim",Vector3(2.82,-0.54,4.68),Vector3(0.19,0.16,0.22))
     _flush_boxes(console_geometry, console_boxes, {
         "steel": steel, "iron": iron, "trim": trim,
         "cyan": cyan, "amber": amber
@@ -258,8 +271,8 @@ static func _display_instruments(root: Node3D) -> void:
     var bright := Color("#8ff4ff")
     var muted := Color("#4c9bad")
     var warning := Color("#f1ce6b")
-    _screen_stroke(tool, Vector2(2.36, 1.51), Vector2(3.28, 1.51),
-        0.038, bright)
+    _screen_stroke(tool, Vector2(2.36, 1.51), Vector2(2.65, 1.51),
+        0.026, bright)
     _screen_stroke(tool, Vector2(2.36, 1.44), Vector2(2.76, 1.44),
         0.016, muted)
     _screen_stroke(tool, Vector2(3.02, 1.44), Vector2(3.28, 1.44),
@@ -474,3 +487,111 @@ static func _ramp_finish() -> ImageTexture:
                 image.set_pixel(x+k,y+k+1,Color("#eceee8"))
     image.generate_mipmaps()
     return ImageTexture.create_from_image(image)
+
+
+# Deck markings are fitted to the actual inclined plane. Arrow and warning
+# pictograms are opaque triangulated paint, not separate floating signs.
+static func _build_approach_markings(root: Node3D, top: float, foot: float) -> void:
+    var slope: float = (foot-top)/(RAMP_END-RAMP_START)
+    for spec in [[ "DEPLOYMENT / 01",3.02,0.0042 ],["KEEP CLEAR",5.35,0.0040],["LAUNCH ACCESS",8.55,0.0040]]:
+        var z: float = float(spec[1])
+        var label := Label3D.new()
+        label.name = "RampStencil"
+        label.text = str(spec[0])
+        label.font_size = 64
+        label.pixel_size = float(spec[2])
+        label.outline_size = 0
+        label.modulate = Color("#aabec4")
+        label.position = Vector3(0,_approach_y(z,top,foot)+0.022,z)
+        label.rotation.x = -PI*0.5-(atan(slope) if z<RAMP_END else 0.0)
+        label.set_meta("FX_NO_OUTLINE",true)
+        label.set_meta("sera_skip_common_id_outline",true)
+        root.add_child(label)
+    var tool := SurfaceTool.new()
+    tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+    for z in [3.88,6.55,9.66]:
+        # Arrow points toward negative local Z, toward the portal.
+        var zz: float = float(z)
+        _paint_tri(tool,Vector2(0,zz-0.31),Vector2(-0.31,zz+0.02),Vector2(0.31,zz+0.02),top,foot,Color("#d1b875"))
+        _paint_tri(tool,Vector2(-0.10,zz),Vector2(-0.10,zz+0.31),Vector2(0.10,zz+0.31),top,foot,Color("#d1b875"))
+        _paint_tri(tool,Vector2(-0.10,zz),Vector2(0.10,zz+0.31),Vector2(0.10,zz),top,foot,Color("#d1b875"))
+    # Paired warning triangle pictograms near the deck edges.
+    for side in [-1.0,1.0]:
+        var x: float = side*1.05
+        var z: float = 5.32
+        _paint_tri(tool,Vector2(x,z-0.22),Vector2(x-0.18,z+0.15),Vector2(x+0.18,z+0.15),top,foot,Color("#c8a954"))
+        _paint_tri(tool,Vector2(x-0.022,z-0.08),Vector2(x+0.022,z-0.08),Vector2(x+0.022,z+0.04),top,foot,Color("#283845"),0.003)
+        _paint_tri(tool,Vector2(x-0.022,z-0.08),Vector2(x+0.022,z+0.04),Vector2(x-0.022,z+0.04),top,foot,Color("#283845"),0.003)
+        _paint_tri(tool,Vector2(x-0.026,z+0.065),Vector2(x+0.026,z+0.065),Vector2(x,z+0.115),top,foot,Color("#283845"),0.003)
+    var mesh := MeshInstance3D.new()
+    mesh.name = "RampPaintPictograms"
+    mesh.mesh = tool.commit()
+    var mat := _material(Color.WHITE)
+    mat.vertex_color_use_as_albedo = true
+    mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    mesh.material_override = mat
+    mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    mesh.set_meta("FX_NO_OUTLINE",true)
+    mesh.set_meta("sera_skip_common_id_outline",true)
+    mesh.set_meta("sera_preserve_authored_material",true)
+    root.add_child(mesh)
+
+
+static func _approach_y(z: float, top: float, foot: float) -> float:
+    return lerpf(top,foot,clampf((z-RAMP_START)/(RAMP_END-RAMP_START),0.0,1.0))
+
+
+static func _paint_tri(tool: SurfaceTool,a: Vector2,b: Vector2,c: Vector2,
+        top: float,foot: float,tint: Color,extra: float=0.0) -> void:
+    for p in [a,b,c]:
+        tool.set_color(tint)
+        tool.set_normal(Vector3.UP)
+        tool.add_vertex(Vector3(p.x,_approach_y(p.y,top,foot)+0.018+extra,p.y))
+
+
+# Animated display components are created once; the room's existing
+# 20 Hz sampler moves the scan line and updates real shutter status.
+static func _build_animated_readout(root: Node3D) -> void:
+    var scan := Node3D.new()
+    scan.name = "LaunchAnimatedScan"
+    root.add_child(scan)
+    var tool := SurfaceTool.new()
+    tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+    _screen_stroke(tool,Vector2(2.36,1.02),Vector2(3.28,1.02),0.013,Color("#a2f3ff"))
+    var line := MeshInstance3D.new()
+    line.name = "ScanLine"
+    line.mesh = tool.commit()
+    var mat := _material(Color.WHITE)
+    mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    mat.vertex_color_use_as_albedo = true
+    line.material_override = mat
+    line.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    line.set_meta("nexus_selection_detail_only",true)
+    line.set_meta("FX_NO_OUTLINE",true)
+    line.set_meta("sera_skip_common_id_outline",true)
+    line.set_meta("sera_preserve_authored_material",true)
+    scan.add_child(line)
+    var status := Label3D.new()
+    status.name = "LaunchAnimatedStatus"
+    status.text = "STANDBY"
+    status.font_size = 48
+    status.pixel_size = 0.0017
+    status.outline_size = 0
+    status.modulate = Color("#9ef0f6")
+    status.position = Vector3(3.02,1.51,_display_depth(1.51,0.105))
+    status.rotation.x = -atan(0.445)
+    status.set_meta("FX_NO_OUTLINE",true)
+    status.set_meta("sera_skip_common_id_outline",true)
+    root.add_child(status)
+    var lamp := MeshInstance3D.new()
+    lamp.name = "LaunchAnimatedIndicator"
+    var shape := BoxMesh.new()
+    shape.size = Vector3(0.095,0.055,0.035)
+    lamp.mesh = shape
+    lamp.position = Vector3(2.82,1.72,6.27)
+    lamp.material_override = _material(Color("#f3c763"),true)
+    lamp.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    lamp.set_meta("nexus_selection_detail_only",true)
+    lamp.set_meta("FX_NO_OUTLINE",true)
+    lamp.set_meta("sera_skip_common_id_outline",true)
+    root.add_child(lamp)
