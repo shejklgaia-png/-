@@ -1339,7 +1339,7 @@ static func _make_scrap_crate(g: Variant, at: Vector2, k: float,
             _box(g, "ScrapCrateCornerBolt", at, k,
                 Vector3(x, 0.60, z), Vector3(0.08, 0.06, 0.08),
                 "gold")
-    for i in range(clampi(fragment_count, 5, 9)):
+    for i in range(0 if fragment_count == 0 else clampi(fragment_count, 5, 9)):
         var row: int = int(i / 3)
         var col: int = i % 3
         var skew: int = posmod(i * 11 + order * 3, 7)
