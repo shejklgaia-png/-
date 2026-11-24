@@ -175,6 +175,9 @@ func _set_shutter(progress: float) -> void:
             var tucked := smoothstep(0.0, 0.45, maxf(0.0, travel - rise))
             pose.origin += rear * (float(row) * float(geometry["stack_depth"]) * tucked * scale_factor)
             mesh.set_instance_transform(int(record["index"]), pose)
+    var vfx := _model.get_node_or_null("BaseFacilityVFX")
+    if is_instance_valid(vfx) and vfx.has_method("set_nexus_shutter_open"):
+        vfx.call("set_nexus_shutter_open", progress)
 
 func _zoom_camera(progress: float, end_position: Vector3) -> void:
     var size := _start_size * pow(1.9 / _start_size, progress)
