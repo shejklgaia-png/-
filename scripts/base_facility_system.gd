@@ -129,6 +129,9 @@ var diag_last_header_tap_ms: int = 0
 var hero_host: SubViewportContainer
 var hero_viewport: SubViewport
 var hero_stage: Node3D
+const ModelPlacement = preload("res://scripts/labo_model_placement.gd")
+var model_entry: Button
+var model_editor: Control
 var angle_entry: Button
 var angle_overlay: Control
 var angle_status: Label
@@ -803,6 +806,16 @@ func attach_hud(hud: Control) -> void:
     angle_entry.visible = false
     angle_entry.pressed.connect(_open_hero_angle)
     footer.add_child(angle_entry)
+    model_entry = Button.new()
+    model_entry.name = "FacilityModelPlacement"
+    model_entry.text = "正規配置"
+    model_entry.custom_minimum_size = Vector2(140, LABO_BACK_HEIGHT)
+    model_entry.add_theme_font_override("font", LaboSkin.ui_font())
+    model_entry.add_theme_font_size_override("font_size", 20)
+    _style_terminal_segment(model_entry)
+    model_entry.visible = false
+    model_entry.pressed.connect(_open_hero_models)
+    footer.add_child(model_entry)
     # Own full-screen confirmation layer; does not depend on Android popup
     # window support. It is deliberately outside the scrolling content.
     confirmation_overlay = Control.new()
@@ -1324,8 +1337,12 @@ func _ensure_labo_hero() -> void:
 func _set_labo_hero(enabled: bool, section: String = "") -> void:
     if hero_host == null:
         return
+    _close_hero_models()
     _close_hero_angle()
     hero_host.visible = enabled
+    if model_entry != null:
+        model_entry.visible = enabled
+        model_entry.text = "正規配置"
     if angle_entry != null:
         angle_entry.visible = enabled
     if enabled:
@@ -1352,6 +1369,34 @@ func _set_labo_hero(enabled: bool, section: String = "") -> void:
 # 3D stage or render pass is created by this session-only editor.
 func _hero_angle_available() -> bool:
     return is_menu_open() and is_instance_valid(hero_stage) and is_instance_valid(hero_host) and hero_host.is_visible_in_tree() and active_key in ["LABO", "SMELTER", "RECYCLER", "STORAGE"] and not (confirmation_overlay != null and confirmation_overlay.visible) and not (warehouse_detail_popup != null and warehouse_detail_popup.is_open()) and not (font_diag_overlay != null and font_diag_overlay.visible)
+
+
+func _open_hero_models() -> void:
+    if angle_active or not _hero_angle_available():
+        return
+    if not is_instance_valid(model_editor):
+        model_editor = ModelPlacement.new()
+        modal.add_child(model_editor)
+        model_editor.call("configure", self)
+    if not bool(model_editor.call("open_mode")):
+        model_entry.text = "PLACE NOT READY"
+
+
+func _close_hero_models() -> void:
+    if is_instance_valid(model_editor):
+        model_editor.call("close_mode")
+
+
+func _route_hero_model_input(event: InputEvent) -> bool:
+    if is_instance_valid(model_editor) and bool(model_editor.get("active")):
+        return bool(model_editor.call("route_input", event))
+    if angle_active or not _hero_angle_available() or not is_instance_valid(model_entry) or not model_entry.is_visible_in_tree():
+        return false
+    if (event is InputEventScreenTouch and event.pressed) or (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
+        if model_entry.get_global_rect().has_point(event.position):
+            _open_hero_models()
+            return true
+    return false
 
 
 func _make_hero_angle_overlay() -> void:
@@ -1413,7 +1458,7 @@ func _make_hero_angle_overlay() -> void:
 
 
 func _open_hero_angle() -> void:
-    if angle_active or not _hero_angle_available():
+    if angle_active or (is_instance_valid(model_editor) and bool(model_editor.get("active"))) or not _hero_angle_available():
         return
     var camera: Camera3D = hero_stage.get("hero_camera") as Camera3D
     if camera == null:
@@ -2970,6 +3015,9 @@ func _show_detail(detail: String) -> void:
 func navigate_back() -> void:
     if not is_menu_open():
         return
+    if is_instance_valid(model_editor) and bool(model_editor.get("active")):
+        _close_hero_models()
+        return
     if angle_active:
         _close_hero_angle()
         return
@@ -3009,7 +3057,7 @@ func close_menu() -> void:
 func _input(event: InputEvent) -> void:
     if not is_menu_open():
         return
-    if _route_hero_angle_input(event):
+    if _route_hero_model_input(event) or _route_hero_angle_input(event):
         get_viewport().set_input_as_handled()
         return
     if (font_diag_overlay != null and font_diag_overlay.visible and (
