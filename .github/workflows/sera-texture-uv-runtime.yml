@@ -17,8 +17,7 @@ jobs:
       fail-fast: false
       max-parallel: 4
       matrix:
-        variant: [baseline, direct, paired]
-        part: [H02, H01, L03, WR03]
+        part: [H02, H01, L03, WR03, H03, H04, A02, T02]
     steps:
       - uses: actions/checkout@v4
       - name: Install same Godot version as equipment capture
@@ -29,25 +28,23 @@ jobs:
           unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
           chmod +x "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
           echo "GODOT_BIN=$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" >> "$GITHUB_ENV"
-      - name: Prepare isolated candidate
-        run: python3 tools/texture_studio/uv_candidate.py "${{ matrix.variant }}"
-      - name: Import actual game resources
+      - name: Measure baseline and candidates sequentially on the same runner
         run: |
           set -euo pipefail
           mkdir -p uv-results
-          "$GODOT_BIN" --headless --editor --path . --import --quit 2>&1 | tee uv-results/import.log
-          if grep -E 'SCRIPT ERROR:|Parse Error:' uv-results/import.log; then exit 1; fi
-      - name: Run real equipment UV generation at 32 px/m
-        run: |
-          set -euo pipefail
-          mkdir -p "$GITHUB_WORKSPACE/uv-results"
-          "$GODOT_BIN" --headless --path . --script res://tools/texture_studio/uv_runtime_bench.gd -- "${{ matrix.part }}" "$GITHUB_WORKSPACE/uv-results/${{ matrix.variant }}-${{ matrix.part }}.json" 32 2>&1 | tee "$GITHUB_WORKSPACE/uv-results/runtime.log"
-          test -s "$GITHUB_WORKSPACE/uv-results/${{ matrix.variant }}-${{ matrix.part }}.json"
-          if grep -E 'SCRIPT ERROR:|Parse Error:' "$GITHUB_WORKSPACE/uv-results/runtime.log"; then exit 1; fi
+          for variant in baseline paired cached; do
+            git restore -- scripts/sera_texture_uv.gd
+            python3 tools/texture_studio/uv_candidate.py "$variant"
+            "$GODOT_BIN" --headless --editor --path . --import --quit 2>&1 | tee "uv-results/$variant-import.log"
+            if grep -E 'SCRIPT ERROR:|Parse Error:' "uv-results/$variant-import.log"; then exit 1; fi
+            "$GODOT_BIN" --headless --path . --script res://tools/texture_studio/uv_runtime_bench.gd -- "${{ matrix.part }}" "$GITHUB_WORKSPACE/uv-results/$variant-${{ matrix.part }}.json" 32 2>&1 | tee "uv-results/$variant-runtime.log"
+            test -s "uv-results/$variant-${{ matrix.part }}.json"
+            if grep -E 'SCRIPT ERROR:|Parse Error:' "uv-results/$variant-runtime.log"; then exit 1; fi
+          done
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: uv-${{ matrix.variant }}-${{ matrix.part }}
+          name: uv-${{ matrix.part }}
           path: uv-results/
           if-no-files-found: warn
   compare:

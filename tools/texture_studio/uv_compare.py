@@ -3,8 +3,8 @@ from pathlib import Path
 from math import isfinite
 
 root = Path(sys.argv[1])
-parts = ["H02", "H01", "L03", "WR03"]
-variants = ["baseline", "direct", "paired"]
+parts = ["H02","H01","L03","WR03","H03","H04","A02","T02"]
+variants = ["baseline", "paired", "cached"]
 data = {}
 for f in root.rglob("*.json"):
     variant, part = f.stem.split("-", 1)
@@ -45,6 +45,8 @@ for v in variants[1:]:
         # physical-edge gate must both be non-regressing.
         if c["island_bad"] > b["island_bad"] or c["island_severe"] > b["island_severe"] or c["island_max"] > b["island_max"]+1e-5 or c["island_sum_sq"] > b["island_sum_sq"]+1e-5:
             reasons.append(p+": island residual regression")
+        if b["overlap_pairs"] or c["overlap_pairs"] or b["overlap_unchecked"] or c["overlap_unchecked"]:
+            reasons.append(p+": overlap present or validation incomplete")
         if c["atlas"] > b["atlas"] or c["shape_max"] > b["shape_max"]+0.02 or c["shape_mean"] > b["shape_mean"]*1.05+1e-6 or c["area_max"] > b["area_max"]+0.02:
             reasons.append(p+": atlas or shape regression")
         if c["elapsed_ms"] > max(b["elapsed_ms"]*1.5, b["elapsed_ms"]+500):
