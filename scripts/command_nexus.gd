@@ -315,6 +315,7 @@ const CUSTOMIZE_DRAG_FULL_TURN: float = TAU
 
 const CAMERA_TRANSITION_SECONDS: float = 0.18
 const NexusExitTransition = preload("res://scripts/sera_nexus_exit_transition.gd")
+const NexusMissionTransition = preload("res://scripts/sera_nexus_mission_transition.gd")
 const BASE_SCENE: String = "res://scenes/base_exploration.tscn"
 const TRAINING_SCENE: String = "res://scenes/main.tscn"
 const BITTARAN_SCENE: String = "res://scenes/bittaran_battle.tscn"
@@ -926,6 +927,8 @@ func _advance_nexus_render_tweens(delta: float) -> void:
 # in_transition guard blocked ALL taps permanently, including EXIT TO BASE.
 # Complete the intended menu transition after a generous safety interval.
 func _recover_nexus_transition_if_stalled(delta: float) -> void:
+    if _mission_departing():
+        return
     if not in_transition:
         nexus_transition_elapsed = 0.0
         return
@@ -3308,11 +3311,25 @@ func _tap_deployment_boss(point: Vector2) -> void:
             return
 
 func _start_boss_scene(scene_path: String) -> void:
-    if focused_target != "DEPLOYMENT" or in_transition:
+    if focused_target != "DEPLOYMENT" or in_transition or _mission_departing():
         return
-    var err: Error = get_tree().change_scene_to_file(scene_path)
-    if err != OK:
-        push_error("Bittaran battle scene load failed (%d)" % err)
+    var portal := get_node_or_null("DeploymentGateLightspill") as Node3D
+    if not is_instance_valid(portal) or not is_instance_valid(nexus_room_motion):
+        push_error("NEXUS mission gate geometry unavailable")
+        return
+    in_transition = true
+    var transition := NexusMissionTransition.new()
+    transition.name = "NexusMissionTransition"
+    get_tree().root.add_child(transition)
+    transition.run(self, cam, portal, hud, _nexus_bgm_player, nexus_room_motion, scene_path)
+
+func _mission_departing() -> bool:
+    return get_tree().root.get_node_or_null("NexusMissionTransition") != null
+
+func recover_mission_departure() -> void:
+    in_transition = false
+    nexus_transition_elapsed = 0.0
+    _focus_arrived("DEPLOYMENT")
 
 func _set_training_visible(show: bool) -> void:
     training_heading.visible = show
@@ -6813,6 +6830,8 @@ func _polygon_area(poly: PackedVector2Array) -> float:
 # Raw touch support intentionally does not change the training scene's global
 # Input.emulate_mouse_from_touch=false setting. PC mouse taps also work.
 func _on_android_back() -> void:
+    if _mission_departing():
+        return
     if get_tree().root.get_node_or_null("NexusEntryTransition") != null or get_tree().root.get_node_or_null("NexusExitTransition") != null:
         return
     _navigate_back()
@@ -6841,6 +6860,9 @@ func _navigate_back() -> void:
         _return_to_overview()
 
 func _input(event: InputEvent) -> void:
+    if _mission_departing():
+        get_viewport().set_input_as_handled()
+        return
     if get_tree().root.get_node_or_null("NexusEntryTransition") != null or get_tree().root.get_node_or_null("NexusExitTransition") != null:
         return
     # Once an editor is active, it exclusively owns the viewport's pointer.
@@ -7110,6 +7132,8 @@ func _tap_at(point: Vector2) -> void:
     return
 
 func _enter_base() -> void:
+    if _mission_departing():
+        return
     _save_nexus_ambience()
     if get_tree().root.get_node_or_null("NexusExitTransition") != null or get_tree().root.get_node_or_null("NexusEntryTransition") != null:
         return
