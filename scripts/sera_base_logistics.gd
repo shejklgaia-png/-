@@ -190,6 +190,9 @@ func _feed_stock(t: Truck, dt: float) -> void:
             motion.call("receive_material_item")
     var rack: Vector3 = _rack_slot(d,i)
     var mouth: Vector3 = r["target"]
+    var bare_salvage: bool = key == "RECYCLER"
+    if bare_salvage:
+        mouth = to_local(_facility_motion[key].call("recycler_salvage_drop_world",i))
     var high: float = float(r["rail_y"])-0.65
     var above_rack := Vector3(rack.x,high,rack.z)
     var above_mouth := Vector3(mouth.x,high,mouth.z)
@@ -220,26 +223,36 @@ func _feed_stock(t: Truck, dt: float) -> void:
         lift = lerpf(RACK_Y,RACK_Y-0.48,smoothstep(5.65,5.95,phase))
     var hatch: float = (1.0-smoothstep(0.55,1.35,phase)) if phase < 5.0 else smoothstep(5.0,5.15,phase)*(1.0-smoothstep(5.9,6.0,phase))
     _buffer_pose(d,i,lift,hatch)
-    if key != "STORAGE" and phase >= 3.55:
+    if key != "STORAGE" and not bare_salvage and phase >= 3.55:
         t.cargo[i].node.mesh = r["empty"]
     var pose: Transform3D = _pose(at,d.yaw)
     var tilt: float = 0.0
-    if key != "STORAGE" and phase >= 3.15 and phase < 3.65:
+    if key != "STORAGE" and not bare_salvage and phase >= 3.15 and phase < 3.65:
         tilt = 1.1*smoothstep(3.15,3.55,phase)
         pose.basis = pose.basis * Basis(Vector3.RIGHT,tilt)
+    if bare_salvage and phase >= 3.15:
+        var settled: Vector3 = to_local(_facility_motion[key].call("recycler_salvage_world",i,0.0))
+        var drop: float = clampf((phase-3.15)/0.40,0.0,1.0)
+        pose.origin = mouth.lerp(settled,drop*drop)
+        visible = true
     _apply_visual_pose(t.cargo[i],pose,visible)
     for j in range(t.cargo.size()):
         if j != i:
-            _apply_visual_pose(t.cargo[j],_pose(_rack_slot(d,j),d.yaw),false)
+            if bare_salvage and j < i:
+                var staged: Vector3 = to_local(_facility_motion[key].call("recycler_salvage_world",j,0.0))
+                _apply_visual_pose(t.cargo[j],_pose(staged,d.yaw),true)
+            else:
+                _apply_visual_pose(t.cargo[j],_pose(_rack_slot(d,j),d.yaw),false)
     _intake_pose(r,at,d.yaw,phase < 5.95)
     if tilt > 0.0:
         _apply_visual_pose(r["grip"],Transform3D(pose.basis,at+Vector3.UP*0.37),true)
     if t.clock >= INTAKE_ITEM_TIME*2.0:
-        if key != "STORAGE":
+        if key != "STORAGE" and not bare_salvage:
             _cargo_kind(t,true)
         for j in range(2):
             _buffer_pose(d,j,RACK_Y-0.48,0.0)
-            _apply_visual_pose(t.cargo[j],Transform3D.IDENTITY,false)
+            if not bare_salvage:
+                _apply_visual_pose(t.cargo[j],Transform3D.IDENTITY,false)
         _intake_pose(r,Vector3(rack.x,high,rack.z),d.yaw,false)
         var motion: Node = _facility_motion.get(key)
         if is_instance_valid(motion):
@@ -1170,10 +1183,22 @@ func _make_truck_details(t: Truck) -> void:
 
 
 func _cargo_mesh(raw: bool, i: int, destination: String, variant: int = 0) -> ArrayMesh:
-    var key: String = ("empty_intake" if destination == "EMPTY_INTAKE" else ("raw" if raw else destination+str(variant))) + str(i)
+    var key: String = ("empty_intake" if destination == "EMPTY_INTAKE" else (("raw_recycler" if destination == "RECYCLER" else "raw") if raw else destination+str(variant))) + str(i)
     if not _solid_meshes.has(key):
         var cargo: Variant = _template()
-        if raw:
+        if raw and destination == "RECYCLER":
+            # Two solid salvage assemblies, sized for the existing grippers.
+            # The same cached mesh travels from collection to the cutter throat.
+            if i == 0:
+                cargo.poly("SalvageDriveHousing","octagonal_slew",Vector3(0,0.17,0),Vector3(0.50,0.32,0.48),"slate")
+                cargo.poly("SalvageFlange","gear",Vector3(0,0.30,0),Vector3(0.54,0.09,0.50),"rust")
+                cargo.poly("SalvageShaft","drum",Vector3(0,0.34,0),Vector3(0.16,0.07,0.16),"edge")
+            else:
+                cargo.poly_tilt("SalvageMotor","drum",Vector3(0,0.18,0),Vector3(0.34,0.49,0.34),"armor_light",Vector3(PI*0.5,0,0))
+                cargo.poly("SalvageMotorFoot","bevel",Vector3(0,0.045,0),Vector3(0.54,0.09,0.46),"slate")
+                for side in [-1.0,1.0]:
+                    cargo.poly("SalvageMount","bevel",Vector3(side*0.23,0.19,0),Vector3(0.09,0.24,0.32),"rust")
+        elif raw:
             # Exactly the BASE boxed-scrap construction, scaled for the deck.
             cargo.pivot = Vector3(0, -0.16, 0)
             Clutter._make_scrap_crate(cargo, Vector2.ZERO, 0.62, i, 0 if destination == "EMPTY_INTAKE" else 7)
@@ -1354,7 +1379,7 @@ func _truck_pose(t: Truck) -> void:
     for i in range(t.treads.size()):
         var z: float = -0.56 + fposmod(float(i) * 0.14 - t.tread_distance, 1.12)
         _apply_visual_pose(t.treads[i], shell * _pose(Vector3(0, 0, z)))
-    if t.mode not in ["load", "unload", "feed_stock"]:
+    if t.mode not in ["load", "unload", "feed_stock"] and not (t.mode == "process_stock" and t.leg == 1 and t.destination == "RECYCLER"):
         for i in range(t.cargo.size()):
             _apply_visual_pose(t.cargo[i], Transform3D(p.basis, _deck_slot(t, i)), t.loaded)
 
@@ -1724,6 +1749,14 @@ func advance(delta: float) -> void:
                 "process_stock":
                     var site: String = t.destination if t.leg == 1 else "STORAGE"
                     var motion: Node = _facility_motion.get(site)
+                    if site == "RECYCLER" and is_instance_valid(motion):
+                        t.clock += STEP
+                        var dock: Dock = _dock_for(t)
+                        for i in range(t.cargo.size()):
+                            var feed: float = smoothstep(0.35+i*0.35,2.5+i*0.35,t.clock)
+                            var at: Vector3 = to_local(motion.call("recycler_salvage_world",i,feed))
+                            var turn := Basis(Vector3.UP,dock.yaw) * Basis(Vector3.RIGHT,0.65*feed)
+                            _apply_visual_pose(t.cargo[i],Transform3D(turn,at),feed < 0.97)
                     if not is_instance_valid(motion) or bool(motion.call("material_cycle_complete")):
                         if t.leg == 1:
                             _cargo_kind(t, false)
