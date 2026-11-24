@@ -9,6 +9,7 @@ const SCENE_ID := "res://scenes/command_nexus.tscn"
 const TARGET_ORDER := ["TRAINING", "SYSTEM", "DATA ARCHIVE", "DEPLOYMENT"]
 const TURN_STEP := 5.0
 const HEIGHT_STEP := 0.10
+const TRANSLATE_STEP := 0.10  # 10cm per tap, same precision as height edits.
 const SAFE_MARGIN := 10.0
 
 var host
@@ -271,6 +272,22 @@ func _press(where: Vector2, finger: int, mouse: bool) -> void:
                     var at: Vector3 = pose["position"]
                     at.y = clampf(at.y + rise, -1.0, 8.0)
                     _set_pose(selected, at, float(pose["yaw"]))
+                elif operation in ["move_f", "move_b", "move_l", "move_r"]:
+                    # Match the overview camera's world axes: forward is -Z,
+                    # right is +X. Do not change the selected model's Y/yaw.
+                    var at: Vector3 = pose["position"]
+                    match operation:
+                        "move_f":
+                            at.z -= TRANSLATE_STEP
+                        "move_b":
+                            at.z += TRANSLATE_STEP
+                        "move_l":
+                            at.x -= TRANSLATE_STEP
+                        "move_r":
+                            at.x += TRANSLATE_STEP
+                    at.x = clampf(at.x, -10.0, 10.0)
+                    at.z = clampf(at.z, -30.0, 11.0)
+                    _set_pose(selected, at, float(pose["yaw"]))
                 return
 
     var picked: String = _hit_console(where)
@@ -377,12 +394,14 @@ func _restore_saved_placements() -> void:
             focus["eye"] = PlacementStore.vec(angle["eye"])
             focus["look"] = PlacementStore.vec(angle["look"])
             focus["fov"] = float(angle["fov"])
+            focus["roll_deg"] = float(angle.get("roll_deg", 0.0))
             entry["focus"] = focus
             entries[key] = entry
             var view: Dictionary = host.focus_views[key]
             view["eye"] = focus["eye"]
             view["look"] = focus["look"]
             view["fov"] = focus["fov"]
+            view["roll_deg"] = focus["roll_deg"]
             host.focus_views[key] = view
         var record: Dictionary = PlacementStore.read("nexus/model/" + key)
         if record.has("position") and record.has("yaw_rad"):
@@ -394,7 +413,8 @@ func _restore_saved_placements() -> void:
     host.call("_update_projected_silhouettes")
 
 
-func record_camera_pose(key: String, eye: Vector3, look: Vector3, fov: float) -> void:
+func record_camera_pose(key: String, eye: Vector3, look: Vector3,
+        fov: float, roll_deg: float = 0.0) -> void:
     if not initialized or not entries.has(key):
         return
     var entry: Dictionary = entries[key]
@@ -408,12 +428,14 @@ func record_camera_pose(key: String, eye: Vector3, look: Vector3, fov: float) ->
     focus["eye"] = eye
     focus["look"] = look
     focus["fov"] = fov
+    focus["roll_deg"] = roll_deg
     entry["focus"] = focus
     entries[key] = entry
     PlacementStore.stage("nexus/camera/" + key, {
         "scene": SCENE_ID, "model_id": key,
         "space": "global" if key == "DEPLOYMENT" else "original_model_frame",
-        "eye": PlacementStore.array3(eye), "look": PlacementStore.array3(look), "fov": fov})
+        "eye": PlacementStore.array3(eye), "look": PlacementStore.array3(look),
+        "fov": fov, "roll_deg": roll_deg})
 
 
 func _set_pose(key: String, at: Vector3, yaw: float, persist: bool = true) -> void:
@@ -537,8 +559,9 @@ func _gizmo_boxes() -> Dictionary:
         return {}
     var at: Vector3 = entries[selected]["position"]
     var center: Vector2 = camera.unproject_position(at)
-    center.x = clampf(center.x, 110.0, size.x - 135.0)
-    center.y = clampf(center.y + 86.0, 145.0, size.y - 134.0)
+    center.x = clampf(center.x, 145.0, size.x - 160.0)
+    # Reserve a second gizmo tier for planar translation, above bottom HUD.
+    center.y = clampf(center.y + 86.0, 145.0, size.y - 275.0)
     return {
         "rot_l": Rect2(center + Vector2(-99.0, 0.0),
             Vector2(49.0, 47.0)),
@@ -547,7 +570,15 @@ func _gizmo_boxes() -> Dictionary:
         "up": Rect2(center + Vector2(32.0, -24.0),
             Vector2(47.0, 43.0)),
         "down": Rect2(center + Vector2(32.0, 24.0),
-            Vector2(47.0, 43.0))
+            Vector2(47.0, 43.0)),
+        "move_f": Rect2(center + Vector2(-25.0, 76.0),
+            Vector2(50.0, 43.0)),
+        "move_b": Rect2(center + Vector2(-25.0, 165.0),
+            Vector2(50.0, 43.0)),
+        "move_l": Rect2(center + Vector2(-82.0, 121.0),
+            Vector2(50.0, 43.0)),
+        "move_r": Rect2(center + Vector2(32.0, 121.0),
+            Vector2(50.0, 43.0))
     }
 
 
@@ -560,7 +591,8 @@ func _create_visible_controls() -> void:
     if host_hud != null:
         theme = host_hud.theme
     for key in ["toggle", "close", "copy", "copy_all",
-            "rot_l", "rot_r", "up", "down"]:
+            "rot_l", "rot_r", "up", "down",
+            "move_f", "move_b", "move_l", "move_r"]:
         var panel := Panel.new()
         panel.name = "Placement_" + key
         panel.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -630,6 +662,14 @@ func _caption(key: String) -> String:
             return "▲高さ"
         "down":
             return "▼高さ"
+        "move_f":
+            return "前▲"
+        "move_b":
+            return "後▼"
+        "move_l":
+            return "左◀"
+        "move_r":
+            return "右▶"
     return key
 
 

@@ -3,6 +3,7 @@ extends Control
 # cannot instantiate. Camera-angle editor and normal NEXUS input are untouched.
 const Store = preload("res://scripts/sera_placement_store.gd")
 const ORDER = ["TRAINING", "SYSTEM", "DATA ARCHIVE", "DEPLOYMENT"]
+const TRANSLATE_STEP := 0.10  # world X/Z, 10cm per button tap
 var initialized := false
 var initialization_stage := "NEW"
 var active := false
@@ -49,7 +50,8 @@ func configure(scene: Node3D, specs: Dictionary, source_refs: Dictionary, render
     call_deferred("_restore_saved")
 
 func _make_panels() -> void:
-    for key in ["close", "copy", "copy_all", "rot_l", "rot_r", "up", "down"]:
+    for key in ["close", "copy", "copy_all", "rot_l", "rot_r", "up", "down",
+            "move_f", "move_b", "move_l", "move_r"]:
         var panel := Panel.new()
         panel.name = "Recover_" + key
         panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -66,7 +68,8 @@ func _make_panels() -> void:
         label.add_theme_font_size_override("font_size", 16)
         var captions: Dictionary = {
             "close":"編集終了", "copy":"コピー", "copy_all":"全件コピー",
-            "rot_l":"回転◀", "rot_r":"回転▶", "up":"▲高さ", "down":"▼高さ"
+            "rot_l":"回転◀", "rot_r":"回転▶", "up":"▲高さ", "down":"▼高さ",
+            "move_f":"前▲", "move_b":"後▼", "move_l":"左◀", "move_r":"右▶"
         }
         label.text = str(captions.get(key, key))
         panel.add_child(label)
@@ -85,7 +88,12 @@ func _layout() -> void:
         "rot_l": Rect2(w * 0.5 - 128, h - 164, 54, 52),
         "rot_r": Rect2(w * 0.5 - 69, h - 164, 54, 52),
         "up": Rect2(w * 0.5 + 27, h - 164, 65, 52),
-        "down": Rect2(w * 0.5 + 97, h - 164, 65, 52)
+        "down": Rect2(w * 0.5 + 97, h - 164, 65, 52),
+        # Separate cross-pad above the rotation/height row.
+        "move_f": Rect2(w * 0.5 - 25, h - 292, 50, 47),
+        "move_b": Rect2(w * 0.5 - 25, h - 236, 50, 47),
+        "move_l": Rect2(w * 0.5 - 84, h - 264, 50, 47),
+        "move_r": Rect2(w * 0.5 + 34, h - 264, 50, 47)
     }
     for key in panels.keys():
         var panel: Panel = panels[key]
@@ -232,6 +240,16 @@ func _action(key: String) -> void:
         at.y = minf(8, at.y + 0.1)
     elif key == "down":
         at.y = maxf(-1, at.y - 0.1)
+    elif key == "move_f":
+        at.z -= TRANSLATE_STEP
+    elif key == "move_b":
+        at.z += TRANSLATE_STEP
+    elif key == "move_l":
+        at.x -= TRANSLATE_STEP
+    elif key == "move_r":
+        at.x += TRANSLATE_STEP
+    at.x = clampf(at.x, -10.0, 10.0)
+    at.z = clampf(at.z, -30.0, 11.0)
     _set_pose(selected, at, yaw)
 
 func _ensure_bindings(key: String) -> void:
@@ -326,6 +344,7 @@ func _restore_saved() -> void:
             base_focus["eye"] = Store.vec(angle["eye"])
             base_focus["look"] = Store.vec(angle["look"])
             base_focus["fov"] = float(angle["fov"])
+            base_focus["roll_deg"] = float(angle.get("roll_deg", 0.0))
             entry["focus"] = base_focus
             entries[key] = entry
             var view: Dictionary = host.focus_views.get(key, {})
@@ -333,6 +352,7 @@ func _restore_saved() -> void:
                 view["eye"] = base_focus["eye"]
                 view["look"] = base_focus["look"]
                 view["fov"] = base_focus["fov"]
+                view["roll_deg"] = base_focus["roll_deg"]
                 host.focus_views[key] = view
         var rec: Dictionary = Store.read("nexus/model/" + key)
         if rec.has("position") and rec.has("yaw_rad"):

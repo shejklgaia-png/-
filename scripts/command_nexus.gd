@@ -10,6 +10,7 @@ const NexusSculptedFittings = preload("res://scripts/nexus_sculpted_fittings.gd"
 const NexusDeploymentWallDock = preload("res://scripts/nexus_deployment_wall_dock.gd")
 const NexusCanonicalPlacement = preload("res://scripts/nexus_canonical_placement.gd")
 const NexusCameraAnglePlacement = preload("res://scripts/nexus_camera_angle_placement.gd")
+const NexusPlacementStore = preload("res://scripts/sera_placement_store.gd")
 const NexusBulkheadRefit = preload("res://scripts/nexus_bulkhead_refit.gd")
 const NexusRoomMotion = preload("res://scripts/nexus_room_motion.gd")
 const NexusTrainingServiceModule = preload("res://scripts/nexus_training_service_module.gd")
@@ -4820,7 +4821,18 @@ func _select_target(target_name: String) -> void:
     var view: Dictionary = focus_views[target_name]
     var eye: Vector3 = view["eye"]
     var look: Vector3 = view["look"]
-    var aim_pose := Transform3D(Basis.looking_at(look - eye, Vector3.UP), eye)
+    # Unlike orbital position, optical-axis roll cannot be inferred from
+    # eye/look alone. Restore it for each visit, without loading/model editing.
+    var roll_deg: float = float(view.get("roll_deg", 0.0))
+    if not view.has("roll_deg"):
+        var saved_camera: Dictionary = NexusPlacementStore.read(
+            "nexus/camera/" + target_name)
+        roll_deg = float(saved_camera.get("roll_deg", roll_deg))
+    view["roll_deg"] = roll_deg
+    focus_views[target_name] = view
+    var focus_basis: Basis = Basis.looking_at(look - eye, Vector3.UP)
+    focus_basis = focus_basis * Basis(Vector3.FORWARD, deg_to_rad(roll_deg))
+    var aim_pose := Transform3D(focus_basis, eye)
     if target_name == "CUSTOMIZE":
         # The model needs its fitted target in the *destination* camera frame.
         # Temporarily use that frame only for geometry calculations, then
