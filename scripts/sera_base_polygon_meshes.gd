@@ -388,6 +388,35 @@ static func _welded_gusset(st: SurfaceTool) -> void:
         Vector3(-0.5, -0.5, -0.5), Vector3(0, 0, -1))
 
 
+# One continuous extruded U-shaped portal. The inner clipped corners are
+# formed by the actual profile, not rotated overlapping rectangular parts.
+static func _nexus_portal(st: SurfaceTool) -> void:
+    var profile := PackedVector2Array([
+        Vector2(-0.50, -0.50), Vector2(-0.50, 0.39),
+        Vector2(-0.39, 0.50), Vector2(0.39, 0.50),
+        Vector2(0.50, 0.39), Vector2(0.50, -0.50),
+        Vector2(0.38, -0.50), Vector2(0.38, 0.30),
+        Vector2(0.31, 0.37), Vector2(-0.31, 0.37),
+        Vector2(-0.38, 0.30), Vector2(-0.38, -0.50)
+    ])
+    var triangles := Geometry2D.triangulate_polygon(profile)
+    for i in range(0, triangles.size(), 3):
+        var a: Vector2 = profile[triangles[i]]
+        var b: Vector2 = profile[triangles[i + 1]]
+        var c: Vector2 = profile[triangles[i + 2]]
+        _triangle(st, Vector3(a.x, a.y, 0.5), Vector3(b.x, b.y, 0.5),
+            Vector3(c.x, c.y, 0.5), Vector3.BACK)
+        _triangle(st, Vector3(a.x, a.y, -0.5), Vector3(b.x, b.y, -0.5),
+            Vector3(c.x, c.y, -0.5), Vector3.FORWARD)
+    for i in range(profile.size()):
+        var a: Vector2 = profile[i]
+        var b: Vector2 = profile[(i + 1) % profile.size()]
+        var direction: Vector2 = b - a
+        # Clockwise XY profile: the left normal points out of the solid.
+        _quad(st, Vector3(a.x, a.y, -0.5), Vector3(b.x, b.y, -0.5),
+            Vector3(b.x, b.y, 0.5), Vector3(a.x, a.y, 0.5),
+            Vector3(-direction.y, direction.x, 0.0))
+
 static func make(kind: String) -> ArrayMesh:
     if _mesh_cache.has(kind):
         return _mesh_cache[kind] as ArrayMesh
@@ -398,6 +427,8 @@ static func make(kind: String) -> ArrayMesh:
             _beveled(st, true)
         "bevel":
             _beveled(st, false)
+        "nexus_portal":
+            _nexus_portal(st)
         "hopper":
             _hopper(st)
         "hood":

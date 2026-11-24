@@ -514,21 +514,16 @@ static func _nexus_command_bunker(g: Batch) -> void:
         var y: float = 0.70 + float(row) * 0.62
         g.poly("NexusBlastShutterSlat", "bevel", Vector3(0, y, 2.78),
             Vector3(1.83, 0.55, 0.11), "armor" if row % 2 == 0 else "slate")
+    # Single U-frame with clean planar chamfers. No overlapping diagonal
+    # blocks, exposed intersections, or discontinuous header/column seams.
+    g.poly("NexusIntegratedAirlockPortal", "nexus_portal",
+        Vector3(0, 1.86, 2.94), Vector3(2.94, 3.02, 0.44), "slate")
     for side in [-1.0, 1.0]:
-        g.poly("NexusAirlockGuideColumn", "bevel",
-            Vector3(side * 1.29, 1.72, 2.91),
-            Vector3(0.34, 2.75, 0.50), "trim")
         g.box("NexusGuideLightRecess", Vector3(side * 1.30, 1.64, 3.19),
             Vector3(0.16, 1.73, 0.08), "void")
         g.box("NexusBlueGuideLight", Vector3(side * 1.30, 1.64, 3.24),
             Vector3(0.085, 1.58, 0.035), "blue_light")
-        g.poly_tilt("NexusPortalHaunch", "bevel",
-            Vector3(side * 1.16, 3.12, 2.98),
-            Vector3(0.57, 0.42, 0.46), "armor_light",
-            Vector3(0, 0, side * 0.52))
-    g.poly("NexusAirlockHeader", "bevel", Vector3(0, 3.12, 2.96),
-        Vector3(2.37, 0.26, 0.40), "armor_light")
-    g.box("NexusEntryDirectionStripe", Vector3(0, 3.13, 3.19),
+    g.box("NexusEntryDirectionStripe", Vector3(0, 3.13, 3.1775),
         Vector3(1.69, 0.085, 0.035), "blue_light")
     # Preserve the distinctive V insignia above the projector mount.
     g.poly("NexusInsigniaPlate", "bevel", Vector3(0, 3.87, 2.68),
