@@ -173,6 +173,15 @@ func set_section(section: String,dispatch: bool = true) -> void:
     nav_ready = nav.region.has_point(spawn) and not nav.is_point_solid(spawn)
     crate.visible = nav_ready
     if nav_ready:
+        if dock_plan_ready:
+            # A nearby reachable idle bay creates a visible approach after the
+            # carrier glance. Never spawn across an obstacle from the console.
+            var side_dir: Vector2 = (dock_approach-dock_stand).normalized().orthogonal()
+            for offset in [side_dir*2.0,-side_dir*2.0,side_dir*1.0,-side_dir*1.0]:
+                var candidate: Vector2i = _nearest_free(dock_approach+offset,0.35)
+                if nav.region.has_point(candidate) and _segment_clear(_nav_position(candidate),dock_approach):
+                    spawn = candidate
+                    break
         crate.position = _nav_local(_nav_position(spawn))
     crate.rotation.y = 0.0
     if camera_previews.has(key):
@@ -313,6 +322,8 @@ func _build_navigation() -> void:
         _add_obstacle(reserve,false)
     _plan_console_dock()
     _collect_obstacles(rebuilt_scenes.terminal_node(current_section),true)
+    if dock_plan_ready and nav.is_point_solid(dock_grid):
+        dock_plan_ready = false
     nav_dirty = false
 
 # Plan a real front-facing stand and a reachable grid cell before marking
@@ -322,7 +333,10 @@ func _dock_candidate(terminal: Node3D) -> bool:
     var stand: Vector2 = _terminal_point(DOCK_STAND_DISTANCE)
     if not _segment_clear(center,stand,true):
         return false
-    for distance in [2.35,2.60,2.85,3.10]:
+    var relative: Transform3D = nav_room.global_transform.affine_inverse()*terminal.global_transform
+    var footprint: AABB = relative*AABB(Vector3(-0.60,0,-0.50),Vector3(1.20,1.60,1.04))
+    var terminal_exclusion := Rect2(Vector2(footprint.position.x,footprint.position.z),Vector2(footprint.size.x,footprint.size.z)).grow(NAV_RADIUS+NAV_STEP*0.72)
+    for distance in [2.35,2.60,2.85,3.10,3.35]:
         var approach: Vector2 = _terminal_point(float(distance))
         if not _segment_clear(stand,approach,true):
             continue
@@ -333,7 +347,7 @@ func _dock_candidate(terminal: Node3D) -> bool:
         # The console footprint is 1.15 x 0.98; its expanded navigation
         # rectangle must not contain the chosen staging cell.
         var local: Vector3 = terminal.to_local(nav_room.to_global(Vector3(grid_point.x,0,grid_point.y)))
-        if local.z<2.20:
+        if local.z<2.20 or terminal_exclusion.has_point(grid_point):
             continue
         if not _segment_clear(grid_point,stand,true):
             continue
@@ -717,7 +731,7 @@ func _crate_idle(delta: float) -> void:
 
 func _process(delta: float) -> void:
     clock += delta
-    state_time += minf(delta,0.10) if work_state=="watch_carrier" else delta
+    state_time += minf(delta,0.10) if work_state in ["watch_carrier","operate"] else delta
     rebuilt_scenes.animate(delta,clock,current_section)
     if nav_dirty:
         _build_navigation()
