@@ -2212,11 +2212,12 @@ func _nexus_console_casting(family: int) -> ArrayMesh:
                 outward.y = -0.6
             elif j == 2:
                 outward.y = 0.6
-            _nexus_armor_triangle(surface,a,b,c,outward)
-            _nexus_armor_triangle(surface,a,c,d,outward)
+            # Only the broad, planar middle band receives the hatch.
+            # Each quad shares a UV chart; its diagonal never changes projection.
+            _nexus_panel_quad(surface,a,b,c,d,outward,j == 1 and i % 2 == 0)
     for i in range(1,7):
-        _nexus_armor_triangle(surface,rings[0][0],rings[0][i],rings[0][i+1],Vector3.DOWN)
-        _nexus_armor_triangle(surface,rings[3][0],rings[3][i],rings[3][i+1],Vector3.UP)
+        _nexus_panel_cap(surface,rings[0][0],rings[0][i],rings[0][i+1],Vector3.DOWN,widths[0],false)
+        _nexus_panel_cap(surface,rings[3][0],rings[3][i],rings[3][i+1],Vector3.UP,widths[3],true)
     return surface.commit()
 
 
@@ -2254,28 +2255,66 @@ func _nexus_portal_armor_mesh() -> ArrayMesh:
                 if j == 4:
                     outward.x *= -1.0
                     outward.y *= -1.0
-            _nexus_armor_triangle(surface, a, b, c, outward)
-            _nexus_armor_triangle(surface, a, c, d, outward)
+            # Portal bevels and narrow shoulder bands retain solid paint.
+            _nexus_panel_quad(surface,a,b,c,d,outward,false)
     var last: int = rings.size() - 1
     for i in range(1, 7):
-        _nexus_armor_triangle(surface, rings[0][0], rings[0][i], rings[0][i + 1], Vector3.BACK * -1.0)
-        _nexus_armor_triangle(surface, rings[last][0], rings[last][i], rings[last][i + 1], Vector3.BACK)
+        _nexus_panel_cap(surface,rings[0][0],rings[0][i],rings[0][i+1],Vector3.FORWARD,widths[0],false)
+        _nexus_panel_cap(surface,rings[last][0],rings[last][i],rings[last][i+1],Vector3.BACK,widths[last],true)
     return surface.commit()
 
 
+# Use one face-local chart, never blended world/local triplanar mapping.
+# The corner sample is deliberately plain paint on all four panel textures.
+const NEXUS_PLAIN_PANEL_UV := Vector2(0.025, 0.025)
+
+
+func _nexus_panel_quad(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3,
+        d: Vector3, outward: Vector3, decorated: bool) -> void:
+    var ua := Vector2(0.0, 1.0) if decorated else NEXUS_PLAIN_PANEL_UV
+    var ub := Vector2(1.0, 1.0) if decorated else NEXUS_PLAIN_PANEL_UV
+    var uc := Vector2(1.0, 0.0) if decorated else NEXUS_PLAIN_PANEL_UV
+    var ud := Vector2(0.0, 0.0) if decorated else NEXUS_PLAIN_PANEL_UV
+    _nexus_armor_triangle(surface,a,b,c,outward,ua,ub,uc)
+    _nexus_armor_triangle(surface,a,c,d,outward,ua,uc,ud)
+
+
+func _nexus_panel_cap(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3,
+        outward: Vector3, span: float, decorated: bool) -> void:
+    var uv := PackedVector2Array()
+    for p in [a,b,c]:
+        var at := NEXUS_PLAIN_PANEL_UV
+        if decorated:
+            if absf(outward.y) > 0.5:
+                at = Vector2(p.x / span + 0.5, 0.5 - p.z / span)
+            else:
+                at = Vector2(p.x / span + 0.5, 0.5 - p.y / span)
+        uv.append(at.clamp(Vector2.ZERO,Vector2.ONE))
+    _nexus_armor_triangle(surface,a,b,c,outward,uv[0],uv[1],uv[2])
+
+
 func _nexus_armor_triangle(surface: SurfaceTool, a: Vector3, b: Vector3,
-        c: Vector3, outward: Vector3) -> void:
+        c: Vector3, outward: Vector3, ua: Vector2 = Vector2(-1.0,-1.0),
+        ub: Vector2 = Vector2(-1.0,-1.0), uc: Vector2 = Vector2(-1.0,-1.0)) -> void:
     var normal: Vector3 = (b - a).cross(c - a).normalized()
-    # Godot uses clockwise front faces. Author outward flat normals separately.
+    # Godot uses clockwise front faces. Preserve each vertex's UV if
+    # winding needs to be reversed.
     if normal.dot(outward) > 0.0:
         var swap: Vector3 = b
         b = c
         c = swap
+        var swap_uv: Vector2 = ub
+        ub = uc
+        uc = swap_uv
     else:
         normal = -normal
-    for point in [a, b, c]:
+    var points := PackedVector3Array([a,b,c])
+    var coords := PackedVector2Array([ua,ub,uc])
+    for i in range(3):
         surface.set_normal(normal)
-        surface.add_vertex(point)
+        if ua.x >= 0.0:
+            surface.set_uv(coords[i])
+        surface.add_vertex(points[i])
 
 
 # Only the actual room shell/deck is toned. Keep monitors, emissive practical
@@ -2319,9 +2358,12 @@ func _nexus_apply_wear_after_entry() -> void:
         if texture == null:
             return
         _nexus_pixel_steel.append(texture)
-    # Optional shell finishes: shared 64px textures, one per terminal.
+    # Shared face-local finishes: SYSTEM, TRAINING, ARCHIVE, gate, leaf.
     _nexus_pixel_steel.append(_nexus_make_console_panel_texture(false))
     _nexus_pixel_steel.append(_nexus_make_console_panel_texture(true))
+    _nexus_pixel_steel.append(_nexus_make_archive_panel_texture())
+    _nexus_pixel_steel.append(_nexus_make_gate_panel_texture(false))
+    _nexus_pixel_steel.append(_nexus_make_gate_panel_texture(true))
     var batch_index: int = 0
     var clean_variants: Dictionary = {}
     for child in deck.get_children():
@@ -2365,8 +2407,8 @@ func _nexus_apply_wear_after_entry() -> void:
 func _nexus_make_console_panel_texture(training: bool) -> Texture2D:
     var image := Image.create(64, 64, false, Image.FORMAT_RGBA8)
     var paint := Color("#f1f2f2")
-    var seam := Color("#9aa4aa")
-    var recess := Color("#b9c1c5")
+    var seam := Color("#73828b")
+    var recess := Color("#a7b2b7")
     var lip := Color("#ffffff")
     image.fill(paint)
     if training:
@@ -2405,14 +2447,66 @@ func _nexus_make_console_panel_texture(training: bool) -> Texture2D:
     return ImageTexture.create_from_image(image)
 
 
+# The archive uses rack-style horizontal service seams and a small
+# cartridge identification strip, not the console's large access hatch.
+func _nexus_make_archive_panel_texture() -> Texture2D:
+    var image := Image.create(64,64,false,Image.FORMAT_RGBA8)
+    image.fill(Color("#f1f2f2"))
+    var seam := Color("#7b8990")
+    var rim := Color("#ffffff")
+    image.fill_rect(Rect2i(10,15,44,1),seam)
+    image.fill_rect(Rect2i(10,16,1,33),seam)
+    image.fill_rect(Rect2i(53,16,1,33),seam)
+    image.fill_rect(Rect2i(10,49,44,1),seam)
+    image.fill_rect(Rect2i(12,16,40,1),rim)
+    image.fill_rect(Rect2i(14,32,36,1),Color("#aab5ba"))
+    image.fill_rect(Rect2i(14,33,36,1),rim)
+    image.fill_rect(Rect2i(16,21,12,3),Color("#b4c0c4"))
+    for x in [16,20,24]:
+        image.fill_rect(Rect2i(x,25,2,1),seam)
+    image.generate_mipmaps()
+    return ImageTexture.create_from_image(image)
+
+
+# Portal castings use a restrained long structural seam. The shutter's
+# recessed face uses a different sparse wear pattern clear of raised ribs.
+func _nexus_make_gate_panel_texture(leaf: bool) -> Texture2D:
+    var image := Image.create(64,64,false,Image.FORMAT_RGBA8)
+    image.fill(Color("#f1f2f2"))
+    var seam := Color("#78858d")
+    var rim := Color("#ffffff")
+    if leaf:
+        for x in [9,54]:
+            image.fill_rect(Rect2i(x,8,1,48),seam)
+            image.fill_rect(Rect2i(x+1,8,1,48),rim)
+        image.fill_rect(Rect2i(17,9,10,1),Color("#b0bcc1"))
+        image.fill_rect(Rect2i(37,54,10,1),Color("#b0bcc1"))
+    else:
+        image.fill_rect(Rect2i(11,12,42,1),seam)
+        image.fill_rect(Rect2i(11,13,1,38),seam)
+        image.fill_rect(Rect2i(52,13,1,38),seam)
+        image.fill_rect(Rect2i(11,51,42,1),seam)
+        image.fill_rect(Rect2i(13,13,38,1),rim)
+        image.fill_rect(Rect2i(13,14,1,35),rim)
+        for at in [Vector2i(15,17),Vector2i(47,17),Vector2i(15,46),Vector2i(47,46)]:
+            image.fill_rect(Rect2i(at.x,at.y,2,2),Color("#a9b4ba"))
+            image.set_pixel(at.x,at.y,seam)
+    image.generate_mipmaps()
+    return ImageTexture.create_from_image(image)
+
+
 func _nexus_console_panel_texture_index(geometry: GeometryInstance3D) -> int:
-    # Existing featured batches exclusively contain the primary painted
-    # shell parts, not keyboard, stick, screens, lamps or new monitor trim.
+    if bool(geometry.get_meta("nexus_panel_leaf", false)):
+        return 14
     match str(geometry.name):
         "NexusFeaturedArmor_0402", "NexusFeaturedArmor_0403":
             return 10
         "NexusFeaturedArmor_0603":
             return 11
+        "NexusFeaturedArmor_0802", "NexusFeaturedArmor_0803":
+            return 12
+        "NexusFeaturedArmor_1002", "NexusFeaturedArmor_1003", "NexusFeaturedArmor_1004":
+            return 13
     return -1
 
 
@@ -2557,23 +2651,26 @@ func _nexus_finish_room_mesh(geometry: GeometryInstance3D) -> void:
             has_uv = (int((mesh as ArrayMesh).surface_get_format(0)) & Mesh.ARRAY_FORMAT_TEX_UV) != 0
         var family: int = _nexus_surface_family(geometry, native.albedo_color)
         var panel_index: int = _nexus_console_panel_texture_index(geometry)
+        # These meshes now carry face charts, but untargeted armor batches
+        # must retain their previous generic triplanar finish.
+        if panel_index < 0 and label.begins_with("NexusFeaturedArmor_"):
+            has_uv = false
         var key: String = "native:%s:%s:%s:%s" % [native.get_instance_id(), has_uv, family, panel_index]
         var finish := _nexus_surface_materials.get(key) as StandardMaterial3D
         if finish == null:
             finish = native.duplicate() as StandardMaterial3D
             if native.albedo_texture == null:
-                var use_panel: bool = panel_index >= 0 and panel_index < _nexus_pixel_steel.size()
+                var use_panel: bool = has_uv and panel_index >= 0 and panel_index < _nexus_pixel_steel.size()
                 finish.albedo_texture = _nexus_pixel_steel[panel_index if use_panel else 6 + family]
-                finish.uv1_triplanar = use_panel or not has_uv
+                finish.uv1_triplanar = not has_uv
                 if use_panel:
-                    # Local unit-space projection follows each casting face,
-                    # even after canonical placement. No world-aligned sliding.
-                    finish.uv1_offset = Vector3(0.5, 0.5, 0.5)
+                    # Exact mesh UVs, no projection blend, offset or wrap.
+                    finish.uv1_offset = Vector3.ZERO
                 finish.uv1_world_triplanar = false
                 finish.uv1_scale = Vector3.ONE
                 finish.uv1_triplanar_sharpness = 16.0
                 finish.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
-                finish.texture_repeat = true
+                finish.texture_repeat = not use_panel
                 finish.albedo_color = _nexus_finish_tint(native.albedo_color, 1.04)
                 _nexus_surface_relief(finish, family)
             _nexus_surface_materials[key] = finish

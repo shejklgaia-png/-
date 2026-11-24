@@ -300,6 +300,7 @@ func _build_deployment_shutters(at: Vector3, yaw: float,
         leaf.position = Vector3(side * 0.84, 3.18, -1.12)
         leaf.scale.y = 5.68 / 5.45
         leaf.set_meta("sera_preserve_authored_material", true)
+        leaf.set_meta("nexus_panel_leaf", true)
         _gate_leaves.append(leaf)
     # Gate origin, scales and offsets are already world-space metres (the
     # original Blockbench geometry was expanded by scale_factor in _module).
@@ -348,7 +349,7 @@ func _portal_leaf_mesh(side: float) -> ArrayMesh:
         _portal_tri(surface, rings[0][0], rings[0][i], rings[0][i + 1],
             Vector3.FORWARD, Color("#273847"))
         _portal_tri(surface, rings[4][0], rings[4][i], rings[4][i + 1],
-            Vector3.BACK, Color("#344c5d"))
+            Vector3.BACK, Color("#344c5d"), true)
     # Two stepped load-transfer strips are stamped into the recessed field.
     # These strips stay below the outer lip and away from the meeting seam.
     for offset in [-1.0, 1.0]:
@@ -371,7 +372,7 @@ func _portal_quad(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3,
 
 
 func _portal_tri(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3,
-        outward: Vector3, tint: Color) -> void:
+        outward: Vector3, tint: Color, panel_face: bool = false) -> void:
     var normal: Vector3 = (b - a).cross(c - a).normalized()
     if normal.dot(outward) > 0.0:
         var swap: Vector3 = b
@@ -382,7 +383,12 @@ func _portal_tri(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3,
     for p in [a,b,c]:
         surface.set_normal(normal)
         surface.set_color(tint)
-        surface.set_uv(Vector2((p.x + 0.815) / 1.63, (p.y + 2.725) / 5.45))
+        var uv := Vector2(0.025,0.025)
+        if panel_face:
+            # Map only the inset central face; keep the bevel and relief plain.
+            uv = Vector2(p.x / (1.63 * 0.73) + 0.5,
+                0.5 - p.y / (5.45 * 0.89))
+        surface.set_uv(uv.clamp(Vector2.ZERO,Vector2.ONE))
         surface.add_vertex(p)
 
 
