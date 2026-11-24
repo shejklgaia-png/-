@@ -214,12 +214,13 @@ var deployment_rows: Array[Dictionary] = []
 var training_start_style: StyleBoxFlat
 var training_start_pulse: float = 0.0
 # SYSTEM edits save files; the DATA ARCHIVE tabs never mutate profiles.
-const ARCHIVE_TABS = ["SUMMARY", "COMBAT", "PROGRESS", "PROFILE"]
+const ARCHIVE_TABS = ["SUMMARY", "COMBAT", "PROGRESS", "PROFILE", "MODEL"]
 var archive_record_tabs: Array[Dictionary] = []
 var archive_record_body: Label
 var archive_record_tab: int = 0
 var archive_model_button: Button
 var archive_model_open_pending: bool = false
+var archive_model_active: bool = false
 var archive_model_viewer: Control
 var archive_refresh_elapsed: float = 0.0
 const SYSTEM_ACTIONS = ["SAVE", "LOAD", "NEW", "DELETE"]
@@ -5624,32 +5625,47 @@ func _archive_model_hit(point: Vector2) -> bool:
         return false
     if not archive_model_button.is_visible_in_tree():
         return false
+    # Match the existing archive tab hit test exactly. Also accept the
+    # transformed local hit for a scaled CanvasLayer.
+    var panel_point: Vector2 = point - focus_panel.position
+    if Rect2(archive_model_button.position, archive_model_button.size).has_point(panel_point):
+        return true
     var local: Vector2 = archive_model_button.get_global_transform_with_canvas().affine_inverse() * point
     return Rect2(Vector2.ZERO, archive_model_button.size).has_point(local)
 
 func _request_archive_model_viewer() -> void:
-    if archive_model_open_pending or focused_target != "DATA ARCHIVE":
-        return
-    if is_instance_valid(archive_model_viewer) and archive_model_viewer.visible:
+    if archive_model_open_pending or archive_model_active or focused_target != "DATA ARCHIVE":
         return
     archive_model_open_pending = true
-    _open_archive_model_viewer.call_deferred()
+    archive_model_button.text = "OPENING..."
+    _open_archive_model_viewer()
 
 func _open_archive_model_viewer() -> void:
-    archive_model_open_pending = false
     if focused_target != "DATA ARCHIVE" or not is_instance_valid(hud):
+        archive_model_open_pending = false
         return
     if not is_instance_valid(archive_model_viewer):
         archive_model_viewer = ArchiveModelViewer.new()
         archive_model_viewer.name = "ArchiveModelViewer"
         archive_model_viewer.z_index = 110
         archive_model_viewer.hide()
-        # Give the new panel its final bounds before _ready builds children.
-        _layout_archive_model_viewer()
         hud.add_child(archive_model_viewer)
         archive_model_viewer.connect("close_requested", _close_archive_model_viewer)
     _layout_archive_model_viewer()
+    if not bool(archive_model_viewer.call("is_ui_ready")):
+        archive_model_button.text = "MODEL UI / RETRY"
+        archive_model_open_pending = false
+        push_warning("ARCHIVE: viewer controls did not initialize")
+        archive_model_viewer.queue_free()
+        archive_model_viewer = null
+        return
+    archive_model_active = true
+    # Opening is a distinct menu state, not a second layer over the record UI.
+    focus_panel.hide()
+    archive_model_viewer.show()
     archive_model_viewer.call("open_archive")
+    archive_model_open_pending = false
+    archive_model_button.text = "MODEL ARCHIVE  /  3D"
 
 func _layout_archive_model_viewer() -> void:
     if not is_instance_valid(archive_model_viewer):
@@ -5660,8 +5676,15 @@ func _layout_archive_model_viewer() -> void:
 
 func _close_archive_model_viewer() -> void:
     archive_model_open_pending = false
+    var was_active: bool = archive_model_active
+    archive_model_active = false
     if is_instance_valid(archive_model_viewer) and archive_model_viewer.visible:
         archive_model_viewer.call("close_archive")
+    if is_instance_valid(archive_model_button):
+        archive_model_button.text = "MODEL ARCHIVE  /  3D"
+    if was_active and focused_target == "DATA ARCHIVE" and not in_transition:
+        focus_panel.show()
+        _refresh_archive_records()
 
 func _archive_duration(raw_seconds: float) -> String:
     var seconds: int = maxi(0, int(raw_seconds))
@@ -5739,6 +5762,9 @@ func _tap_archive_record(point: Vector2) -> void:
     for i in range(archive_record_tabs.size()):
         var panel: Panel = archive_record_tabs[i]["panel"]
         if Rect2(panel.position, panel.size).has_point(local):
+            if ARCHIVE_TABS[i] == "MODEL":
+                _request_archive_model_viewer()
+                return
             archive_record_tab = i
             _refresh_archive_records()
             return
@@ -7347,7 +7373,7 @@ func _on_android_back() -> void:
 func _navigate_back() -> void:
     if system_save_pending:
         return
-    if is_instance_valid(archive_model_viewer) and archive_model_viewer.visible:
+    if archive_model_active:
         _close_archive_model_viewer()
         return
     if is_instance_valid(camera_angle_editor) and camera_angle_editor.has_method("open_mode") and bool(camera_angle_editor.get("active")):
@@ -7381,10 +7407,11 @@ func _input(event: InputEvent) -> void:
         return
     if get_tree().root.get_node_or_null("NexusEntryTransition") != null or get_tree().root.get_node_or_null("NexusExitTransition") != null:
         return
-    if is_instance_valid(archive_model_viewer) and archive_model_viewer.visible:
-        if bool(archive_model_viewer.call("route_input", event)):
-            get_viewport().set_input_as_handled()
-            return
+    if archive_model_active:
+        if is_instance_valid(archive_model_viewer):
+            archive_model_viewer.call("route_input", event)
+        get_viewport().set_input_as_handled()
+        return
     # Once an editor is active, it exclusively owns the viewport's pointer.
     # Inactive editors must not consume launcher taps before the host sees them.
     if is_instance_valid(camera_angle_editor) and camera_angle_editor.has_method("open_mode") and bool(camera_angle_editor.get("active")):
@@ -7409,10 +7436,13 @@ func _input(event: InputEvent) -> void:
         if event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
             exit_press = true
             exit_tap = event.position
-    if exit_press and _archive_model_hit(exit_tap):
-        _request_archive_model_viewer()
-        get_viewport().set_input_as_handled()
-        return
+    if exit_press and focused_target == "DATA ARCHIVE" and focus_panel.visible:
+        var local_archive: Vector2 = exit_tap - focus_panel.position
+        var model_tab: Panel = archive_record_tabs.back()["panel"]
+        if _archive_model_hit(exit_tap) or Rect2(model_tab.position, model_tab.size).has_point(local_archive):
+            _request_archive_model_viewer()
+            get_viewport().set_input_as_handled()
+            return
     if exit_press and explore_panel != null and explore_panel.visible:
         if Rect2(explore_panel.position, explore_panel.size).has_point(exit_tap):
             _enter_base()

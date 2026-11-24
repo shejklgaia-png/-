@@ -39,6 +39,7 @@ var pitch: float = -0.16
 var zoom: float = 1.0
 var pan := Vector2.ZERO
 var fit_size: float = 2.8
+var ui_ready: bool = false
 
 func _ready() -> void:
     mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -67,6 +68,10 @@ func _ready() -> void:
     reset_panel.queue_redraw()
     resized.connect(_layout)
     _layout()
+    ui_ready = true
+
+func is_ui_ready() -> bool:
+    return ui_ready and is_instance_valid(host) and buttons.size() == 11
 
 func _label(value: String, font_size: int, parent: Control = null) -> Label:
     var label := Label.new()
@@ -165,8 +170,11 @@ func _set_category(value: int) -> void:
                 entries.append({"id":FACILITIES[i], "name":FACILITY_LABELS[i]})
     for i in range(3):
         _style_button("cat%d" % i, i == category)
-    if not entries.is_empty():
-        _select(0)
+    generation += 1
+    _drop_view()
+    selected = ""
+    caption.text = "モデルを選択 / SELECT MODEL"
+    _refresh_rows()
 
 func _style_button(id: String, active: bool) -> void:
     var p: Panel = buttons[id]
@@ -221,8 +229,12 @@ func _load_selected(request: int, kind: int, id: String) -> void:
             break
     viewport = SubViewport.new()
     viewport.own_world_3d = true
+    viewport.gui_disable_input = true
     viewport.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
     host.add_child(viewport)
+    # The outer NEXUS owns gestures; no nested viewport input forwarding.
+    host.set_process_input(false)
+    host.set_process_unhandled_input(false)
     if kind == 1 or id == "SERA":
         equipment = Equipment.new()
         equipment.set("nexus_brighter_backdrop", true)
