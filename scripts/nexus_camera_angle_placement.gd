@@ -331,10 +331,46 @@ func _apply_pose() -> void:
     focus["look"] = look_at_point
     focus["fov"] = reference_fov
     host.focus_views[target_id] = focus
-    if host.call("_initialize_canonical_placement_editor"):
-        host.placement_editor.record_camera_pose(target_id, eye, look_at_point, reference_fov)
-        if pointer_id == -999:
-            PlacementStore.flush()
+    # Camera editing must never initialize the separate model-placement editor.
+    # Doing so on the first drag can block Android input while MultiMesh
+    # bindings / saved model poses are being restored.
+    if is_instance_valid(host.placement_editor) and bool(
+            host.placement_editor.get("initialized")):
+        host.placement_editor.record_camera_pose(
+            target_id, eye, look_at_point, reference_fov)
+    else:
+        # Preserve original-model-relative camera saves even when the model
+        # editor has not yet initialized. This uses only lightweight data.
+        var relative_eye: Vector3 = eye
+        var relative_look: Vector3 = look_at_point
+        var space_id: String = "global"
+        if target_id != "DEPLOYMENT":
+            space_id = "original_model_frame"
+            var original_spec: Dictionary = host.canonical_placement_specs.get(
+                target_id, {})
+            if not original_spec.is_empty():
+                var source_pose := Transform3D(
+                    Basis(Vector3.UP, float(original_spec["yaw"])),
+                    original_spec["position"])
+                var current_pose: Transform3D = source_pose
+                var stored: Dictionary = PlacementStore.read(
+                    "nexus/model/" + target_id)
+                if stored.has("position") and stored.has("yaw_rad"):
+                    current_pose = Transform3D(
+                        Basis(Vector3.UP, float(stored["yaw_rad"])),
+                        PlacementStore.vec(stored["position"]))
+                var to_original: Transform3D = (
+                    current_pose * source_pose.affine_inverse()).affine_inverse()
+                relative_eye = to_original * eye
+                relative_look = to_original * look_at_point
+        PlacementStore.stage("nexus/camera/" + target_id, {
+            "scene": SCENE_ID, "model_id": target_id,
+            "space": space_id,
+            "eye": PlacementStore.array3(relative_eye),
+            "look": PlacementStore.array3(relative_look),
+            "fov": reference_fov})
+    if pointer_id == -999:
+        PlacementStore.flush()
     host.call("_update_projected_silhouettes")
     var ink: Control = host.get("outline") as Control
     if ink != null:
