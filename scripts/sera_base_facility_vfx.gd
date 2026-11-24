@@ -486,7 +486,7 @@ func _add_entrance(key: String) -> void:
     # Front vertical opening. A second broad ground shaft projects toward
     # the player, so the interior reads as strongly lit from the real camera.
     _make_surface("DoorLightLeak", origin, span, Vector3.ZERO,
-        SHAFT_SHADER, Color(tint.r, tint.g, tint.b, 0.95))
+        SHAFT_SHADER, Color(tint.r, tint.g, tint.b, 0.28 if key == "SMELTER" else 0.95))
     # Keep the light plane just above the 0.32m industrial foundation slab.
     _make_surface("DoorLightFloor",
         Vector3(origin.x, 0.29, origin.z + 1.55),
