@@ -555,8 +555,12 @@ static func _nexus_command_bunker(g: Batch) -> void:
             Vector3(side * 2.30, 2.52, 2.925),
             Vector3(0.28, 0.12, 0.035), "amber_light")
     # Buffered maintenance stock, away from the public entrance.
-    g.box("NexusSupplySleeve", Vector3(3.12, 0.93, -1.53),
-        Vector3(0.38, 0.66, 0.96), "dark")
+    # Open-sided guide sleeve; the moving drawer never intersects a solid box.
+    for side in [-1.0,1.0]:
+        g.box("NexusSupplyGuide", Vector3(3.22, 0.80, -1.53+side*0.44),
+            Vector3(0.56,0.17,0.10), "trim")
+    g.box("NexusSupplySleeveRoof", Vector3(3.12,1.25,-1.53),
+        Vector3(0.38,0.10,0.96), "dark")
     g.poly("NexusSupplyDrawer", "tray", Vector3(3.25, 0.77, -1.53),
         Vector3(0.61, 0.19, 0.76), "armor_light")
     g.poly("NexusSupplyCase", "cargo_case", Vector3(3.25, 1.02, -1.53),
