@@ -112,6 +112,9 @@ func _draw() -> void:
             draw_line(tip, tip + Vector2(-9, -1), c, 2.5, true)
             draw_line(tip, tip + Vector2(-2, -9), c, 2.5, true)
             draw_circle(center, 3.0, c)
+        "REMOVE":
+            draw_line(center + Vector2(-13, -13), center + Vector2(13, 13), c, 2.7, true)
+            draw_line(center + Vector2(13, -13), center + Vector2(-13, 13), c, 2.7, true)
     draw_string(LaboSkin.ui_font(), Vector2(0, h - 6.0), caption,
         HORIZONTAL_ALIGNMENT_CENTER, w, 12, ink)
     if selected:
