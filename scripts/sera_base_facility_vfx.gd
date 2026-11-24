@@ -161,82 +161,24 @@ static var _soft_halo_material: ShaderMaterial
 const MAX_SOFT_HALO_PATCHES: int = 160
 var _soft_halos: Array[Dictionary] = []
 
-# Turbulent combustion and rising embers on one depth-tested surface.
-# No screen texture, extra particle system, or additional flame draw call.
+# Pre-baked 48-frame transparent PNG atlas (8 columns x 6 rows).
+# Each cell is 64x80 px with a two-pixel transparent gutter.
+# Runtime draws one quad and samples one frame at 24 fps; no procedural fire.
+const FURNACE_FLAME_TEXTURE_PATH: String = "res://assets/base/smelter_flame_flipbook.png"
+static var _furnace_flame_atlas: Texture2D
 const FURNACE_FLAME_SHADER: String = """
 shader_type spatial;
 render_mode unshaded, blend_mix, cull_disabled, depth_draw_never, fog_disabled;
-
-float fire_hash(vec2 p) {
-    p = fract(p * vec2(0.1031, 0.11369));
-    p += dot(p, p.yx + vec2(19.19));
-    return fract(p.x * p.y);
-}
-
-float fire_noise(vec2 p) {
-    vec2 cell = floor(p);
-    vec2 f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
-    return mix(mix(fire_hash(cell), fire_hash(cell + vec2(1.0, 0.0)), f.x),
-        mix(fire_hash(cell + vec2(0.0, 1.0)),
-            fire_hash(cell + vec2(1.0, 1.0)), f.x), f.y);
-}
-
+uniform sampler2D flame_atlas : source_color, filter_linear, repeat_disable;
 void fragment() {
-    vec2 p = vec2(UV.x, 1.0 - UV.y);
-    float t = TIME;
-    float y = p.y;
-    // Advect two scales of turbulence upward, anchored to the molten bed.
-    float flow = fire_noise(vec2(p.x * 5.0, y * 3.6 - t * 2.7));
-    float detail = fire_noise(vec2(p.x * 11.0 + flow * 1.4, y * 8.0 - t * 4.4));
-    float bend = (flow - 0.5) * 0.16 * smoothstep(0.02, 0.65, y);
-    float x = p.x + bend;
-    float envelope = 0.0;
-    float core = 0.0;
-    // Broad overlapping tongues with different lengths and moving centers.
-    for (int i = 0; i < 3; i++) {
-        float k = float(i);
-        float phase = t * (2.7 + k * 0.41) + k * 2.31;
-        float h = 0.72 + 0.12 * sin(phase) + 0.08 * sin(phase * 1.79)
-            + (flow - 0.5) * 0.17;
-        float u = clamp(y / max(h, 0.1), 0.0, 1.0);
-        float center = 0.24 + k * 0.26 + 0.10 * u * sin(phase + y * 6.0);
-        float width = (0.23 - 0.035 * k) * pow(max(0.0, 1.0 - u), 0.72);
-        float d = abs(x - center) + (detail - 0.5) * 0.045 * u;
-        float tip = 1.0 - smoothstep(h - 0.14, h, y);
-        float body = (1.0 - smoothstep(width * 0.62, width + 0.035, d)) * tip;
-        envelope = max(envelope, body);
-        core = max(core, (1.0 - smoothstep(width * 0.14, width * 0.70 + 0.009, d))
-            * (1.0 - smoothstep(h * 0.23, h * 0.81, y)));
-    }
-    float side = smoothstep(0.025, 0.13, p.x) * (1.0 - smoothstep(0.87, 0.975, p.x));
-    float bed = (1.0 - smoothstep(0.045, 0.18, y)) * side;
-    float edge_fade = side * (1.0 - smoothstep(0.92, 1.0, y));
-    float opacity = max(envelope * (0.72 + 0.28 * detail), bed * 0.85) * edge_fade;
-    float heat = clamp(core * (0.74 + 0.36 * detail) + bed * 0.75
-        + envelope * (0.11 + 0.19 * flow), 0.0, 1.0);
-    vec3 tint = mix(vec3(0.87, 0.055, 0.009), vec3(1.0, 0.29, 0.025),
-        smoothstep(0.03, 0.40, heat));
-    tint = mix(tint, vec3(1.0, 0.82, 0.28), smoothstep(0.38, 0.82, heat));
-    tint = mix(tint, vec3(1.0, 0.98, 0.84), smoothstep(0.79, 1.0, heat));
-    float hot_root = bed * smoothstep(0.69, 0.98, heat)
-        * (1.0 - smoothstep(0.035, 0.095, y));
-    tint = mix(tint, vec3(0.76, 0.88, 1.0), hot_root * 0.72);
-
-    // Sparse rising sparks inside the existing flame quad, no particle nodes.
-    float lane = floor(p.x * 7.0);
-    float seed = fire_hash(vec2(lane, 13.0));
-    float clock = t * (0.75 + seed * 0.65) + seed * 5.0;
-    float age = fract(clock);
-    float spark_y = 0.18 + age * 0.78;
-    float spark_x = (lane + 0.5) / 7.0 + 0.042 * sin(age * 6.0 + seed * 21.0);
-    vec2 spark_delta = (p - vec2(spark_x, spark_y)) * vec2(1.0, 0.63);
-    float spark = (1.0 - smoothstep(0.009, 0.021, length(spark_delta)))
-        * smoothstep(0.05, 0.17, age) * (1.0 - smoothstep(0.55, 0.96, age))
-        * step(0.45, fire_hash(vec2(lane, floor(clock)))) * side;
-    tint = mix(tint, vec3(1.0, 0.66, 0.24), spark);
-    ALBEDO = tint;
-    ALPHA = clamp(max(opacity, spark * 0.8), 0.0, 1.0);
+    float frame = floor(mod(TIME, 2.0) * 24.0);
+    vec2 cell = vec2(mod(frame, 8.0), floor(frame / 8.0));
+    // Sample inside texel centers; avoid adjacent frames at the edges.
+    vec2 pixel = cell * vec2(64.0, 80.0) + vec2(0.5)
+        + clamp(UV, vec2(0.0), vec2(1.0)) * vec2(63.0, 79.0);
+    vec4 fire = texture(flame_atlas, pixel / vec2(512.0, 480.0));
+    ALBEDO = fire.rgb;
+    ALPHA = fire.a;
 }
 """
 static var _furnace_flame_shader: Shader
@@ -517,6 +459,11 @@ func _make_surface(label: String, at: Vector3, span: Vector2,
         shader.code = shader_source
     var mat := ShaderMaterial.new()
     mat.shader = shader
+    if shader_source == FURNACE_FLAME_SHADER:
+        # Load only for the smelter and share the imported atlas on rebuilds.
+        if _furnace_flame_atlas == null:
+            _furnace_flame_atlas = load(FURNACE_FLAME_TEXTURE_PATH) as Texture2D
+        mat.set_shader_parameter("flame_atlas", _furnace_flame_atlas)
     # All translucent shafts and fire reflections draw AFTER the 3D
     # depth-resolved outlines. The FX is still excluded from ID rendering.
     mat.render_priority = RENDER_ORDER.FACILITY_VFX_FOREGROUND
