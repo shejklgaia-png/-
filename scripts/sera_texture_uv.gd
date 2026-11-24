@@ -251,6 +251,8 @@ static func _edge_aligned_charts(tris: Array[Dictionary],density: int) -> Array[
             edge -= normal*edge.dot(normal)
             longest = maxf(longest,edge.length())
         var best: float = -INF
+        var anchor: Vector3 = Vector3.ZERO
+        var aligned_edge: bool = false
         for item in outline.values():
             if int(item.count) != 1:
                 continue
@@ -274,6 +276,8 @@ static func _edge_aligned_charts(tris: Array[Dictionary],density: int) -> Array[
                 # Keep the grid handedness and up direction consistent.
                 var aligned: Vector3 = direction if direction.dot(u) >= 0.0 else -direction
                 v = normal.cross(aligned).normalized()
+                anchor = a if direction.dot(u) >= 0.0 else b
+                aligned_edge = true
                 # Save selected horizontal axis separately: scoring must
                 # always use the original model-space horizontal reference.
         u = v.cross(normal).normalized()
@@ -284,7 +288,8 @@ static func _edge_aligned_charts(tris: Array[Dictionary],density: int) -> Array[
             var p: PackedVector3Array = t.p
             var xy := PackedVector2Array()
             for point in p:
-                var q := Vector2(point.dot(u),point.dot(v))*density
+                var relative: Vector3 = point-anchor
+                var q := Vector2(relative.dot(u),relative.dot(v))*density
                 xy.append(q)
                 var minimum: Vector2 = chart.min
                 var maximum: Vector2 = chart.max
@@ -292,6 +297,11 @@ static func _edge_aligned_charts(tris: Array[Dictionary],density: int) -> Array[
                 chart.max = maximum.max(q)
             t.xy = xy
             t.chart = ci
+        if aligned_edge:
+            # Keep the chosen baseline on an integer texel boundary. The
+            # bounding box may extend below it on a trapezoid or irregular face.
+            var minimum: Vector2 = chart.min
+            chart.min = minimum.floor()
         charts.append(chart)
     return charts
 
