@@ -70,6 +70,11 @@ var density_picker: StudioChoice
 var uv_mode_button: Button
 var preserve_shape_requested: bool = true
 var atlas_preserve_shape: bool = true
+var uv_applied_label: Label
+var uv_generation: int = 0
+var uv_initial_charts: int = -1
+var uv_final_charts: int = -1
+var uv_unwrap_version: String = "未展開"
 var tool_picker: StudioChoice
 var color_picker: Button
 var paint_color: Color = Color("#8daebd")
@@ -244,6 +249,12 @@ func _build_ui() -> void:
     row.add_child(density_picker)
     uv_mode_button = _button(row,"形状優先",_toggle_uv_mode)
     _button(row,"UV再展開",_rebuild)
+    uv_applied_label = Label.new()
+    uv_applied_label.add_theme_font_size_override("font_size",17)
+    uv_applied_label.clip_text = true
+    box.add_child(uv_applied_label)
+    density_picker.item_selected.connect(_on_density_requested)
+    _refresh_uv_mode_state()
     host = SubViewportContainer.new()
     host.name = "TexturePaintView"
     host.stretch = true
@@ -920,9 +931,26 @@ func _select_model(index: int) -> void:
     mesh_picker_row.hide()
     _rebuild()
 
+func _uv_mode_name(shape: bool) -> String:
+    return "形状優先" if shape else "境界優先"
+
+func _refresh_uv_mode_state() -> void:
+    if not is_instance_valid(uv_applied_label):
+        return
+    var pending: bool = img != null and (preserve_shape_requested != atlas_preserve_shape or density_picker.get_selected_id() != atlas_density)
+    uv_mode_button.text = ("次: " if pending else "")+_uv_mode_name(preserve_shape_requested)
+    if img == null:
+        uv_applied_label.text = "適用中: 未展開"
+        return
+    uv_applied_label.text = "適用中: %s / %dpx/m / UV#%d%s" % [_uv_mode_name(atlas_preserve_shape),atlas_density,uv_generation," / 未適用設定あり" if pending else ""]
+
+func _on_density_requested(_index: int) -> void:
+    _refresh_uv_mode_state()
+    _show_status("密度変更はUV再展開で適用します（描画レイヤー初期化）")
+
 func _toggle_uv_mode() -> void:
     preserve_shape_requested = not preserve_shape_requested
-    uv_mode_button.text = "形状優先" if preserve_shape_requested else "境界優先"
+    _refresh_uv_mode_state()
     _show_status("次のUV再展開に適用します。再展開で描画レイヤーは初期化されます")
 
 func _rebuild() -> void:
@@ -943,21 +971,27 @@ func _rebuild() -> void:
         triangles.clear()
         seam_texels.clear()
         atlas_preview.texture = null
+        _refresh_uv_mode_state()
         _show_status(str(result.error))
         return
     triangles = result.triangles
     img = result.image
     original = img.duplicate() as Image
     atlas_density = density_picker.get_selected_id()
-    atlas_preserve_shape = preserve_shape_requested
+    atlas_preserve_shape = bool(result.preserve_shape)
+    uv_initial_charts = int(result.initial_charts)
+    uv_final_charts = int(result.charts)
+    uv_unwrap_version = str(result.unwrap_version)
     layers.clear()
     layer_visible.clear()
     layer_index = 0
     _add_layer()
     _install_preview(result.mesh)
-    _show_status("%d×%d px / UV島 %d / %s" % [img.get_width(),img.get_height(),result.charts,source.name])
+    _show_status("%s / UV島 %d→%d / %d×%d px" % [_uv_mode_name(atlas_preserve_shape),uv_initial_charts,uv_final_charts,img.get_width(),img.get_height()])
 
 func _install_preview(mesh: ArrayMesh) -> void:
+    uv_generation += 1
+    _refresh_uv_mode_state()
     undo_stack.clear()
     redo_stack.clear()
     _composite()
@@ -1502,9 +1536,14 @@ func _copy_diagnostics() -> void:
         _show_status("モデルを選択してください")
         return
     var result: Dictionary = UV.diagnostic_report_faces(triangles,img.get_size(),atlas_density,selected_diagnostic_faces)
-    diagnostic_text = selected_model_label.text+"\n"+str(result.report)+"\nUV方式: "+("形状優先" if atlas_preserve_shape else "境界優先")
+    var header: String = "%s\nUV方式: %s / UV#%d / %s\n" % [selected_model_label.text,_uv_mode_name(atlas_preserve_shape),uv_generation,uv_unwrap_version]
+    if uv_initial_charts >= 0:
+        header += "折り開き前後の島数: %d → %d\n" % [uv_initial_charts,uv_final_charts]
+    if preserve_shape_requested != atlas_preserve_shape or density_picker.get_selected_id() != atlas_density:
+        header += "未適用設定: %s / %dpx/m\n" % [_uv_mode_name(preserve_shape_requested),density_picker.get_selected_id()]
+    diagnostic_text = header+str(result.report)
     DisplayServer.clipboard_set(diagnostic_text)
-    _show_status("選択 %d面の診断をコピーしました" % selected_diagnostic_faces.size() if not selected_diagnostic_faces.is_empty() else "モデル全体の診断をコピーしました")
+    _show_status("%s / UV#%d / %d面選択の診断をコピーしました" % [_uv_mode_name(atlas_preserve_shape),uv_generation,selected_diagnostic_faces.size()])
 
 func _set_diagnostic_angle(index: int) -> void:
     orthographic_view = index != 0
@@ -1641,7 +1680,7 @@ func _save() -> void:
     if file == null:
         _show_status("合成保存済み・プロジェクト保存失敗")
         return
-    file.store_string(JSON.stringify({"version":1,"density":atlas_density,"preserve_shape":atlas_preserve_shape,"charts":ids,"visible":layer_visible,"face_sources":face_sources}))
+    file.store_string(JSON.stringify({"version":1,"density":atlas_density,"preserve_shape":atlas_preserve_shape,"unwrap_version":uv_unwrap_version,"initial_charts":uv_initial_charts,"final_charts":uv_final_charts,"charts":ids,"visible":layer_visible,"face_sources":face_sources}))
     file.close()
     _show_status("編集プロジェクト保存済み: "+stem)
 
@@ -1694,6 +1733,9 @@ func _load_project(path: String) -> void:
         atlas_density = 32
     density_picker.select([8,16,32,64].find(atlas_density))
     atlas_preserve_shape = bool(data.get("preserve_shape",false))
+    uv_unwrap_version = str(data.get("unwrap_version","旧保存"))
+    uv_initial_charts = int(data.get("initial_charts",-1))
+    uv_final_charts = int(data.get("final_charts",-1))
     preserve_shape_requested = atlas_preserve_shape
     uv_mode_button.text = "形状優先" if preserve_shape_requested else "境界優先"
     _install_preview(mesh)
