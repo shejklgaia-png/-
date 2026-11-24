@@ -30,6 +30,14 @@ func _corners(pad: Dictionary) -> PackedVector2Array:
     return result
 
 
+func _top_corners(pad: Dictionary) -> PackedVector2Array:
+    var result := PackedVector2Array()
+    for x in [-float(pad["wide"]), float(pad["wide"])]:
+        for z in [-float(pad["flat"]), float(pad["flat"])]:
+            result.append(_xz(_world(pad, x, z, 0.0)))
+    return result
+
+
 func _bounds_on(points: PackedVector2Array, axis: Vector2) -> Vector2:
     var low: float = INF
     var high: float = -INF
@@ -59,13 +67,16 @@ func _combine(a: Dictionary, b: Dictionary) -> Dictionary:
     # first travel direction and enclose the two central cable covers.
     var axis: Vector2 = a["axis"]
     var side := Vector2(-axis.y, axis.x)
-    var points: PackedVector2Array = _corners(a)
-    points.append_array(_corners(b))
+    # Merge the raised tops, not the entire sloping footprint. This keeps
+    # both original cable channels under a flat cover after angled merges,
+    # without accumulating a new ramp-width at every coincident crossing.
+    var points: PackedVector2Array = _top_corners(a)
+    points.append_array(_top_corners(b))
     var along: Vector2 = _bounds_on(points, axis)
     var across: Vector2 = _bounds_on(points, side)
     return {"axis": axis, "center": axis * ((along.x + along.y) * 0.5) + side * ((across.x + across.y) * 0.5),
         "wide": (across.y - across.x) * 0.5,
-        "flat": maxf(0.22, (along.y - along.x) * 0.5 - HALF_RAMP),
+        "flat": maxf(0.24, (along.y - along.x) * 0.5),
         "height": maxf(float(a["height"]), float(b["height"]))}
 
 
