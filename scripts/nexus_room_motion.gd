@@ -294,7 +294,11 @@ func _build_deployment_shutters(at: Vector3, yaw: float,
         # All molded relief moves as part of the leaf; no static ribs can
         # remain across the open aperture.
         var leaf := _mesh(root, "SlidingGateLeaf", _portal_leaf_mesh(side), shutter_finish)
-        leaf.position = Vector3(side * 0.84, 3.82, 1.04)
+        # Clear rear slide channel: fixed load beam ends at z=-0.9585,
+        # first tunnel jamb starts at z=-1.404 (1.35x authored gate).
+        # The entire moving leaf occupies z=-1.20..-1.04, independent of x.
+        leaf.position = Vector3(side * 0.84, 3.18, -1.12)
+        leaf.scale.y = 5.68 / 5.45
         leaf.set_meta("sera_preserve_authored_material", true)
         _gate_leaves.append(leaf)
     # Gate origin, scales and offsets are already world-space metres (the

@@ -134,14 +134,21 @@ static func build(room: Node3D, gate_at: Vector3,
         Vector3(1.19, 0.16, 0.41))
     _box(console_boxes, "trim", Vector3(2.82, 0.77, 6.45),
         Vector3(1.06, 0.045, 0.19))
-    for i in range(5):
-        var key_x: float = 2.43 + float(i) * 0.195
-        _box(console_boxes, "iron", Vector3(key_x, 0.805, 6.46),
-            Vector3(0.123, 0.035, 0.095))
-    _box(console_boxes, "cyan", Vector3(2.43, 0.827, 6.46),
-        Vector3(0.093, 0.014, 0.070))
-    _box(console_boxes, "amber", Vector3(3.21, 0.827, 6.46),
-        Vector3(0.093, 0.014, 0.070))
+    # Distinct launch controls: a recessed arming bank and a guarded
+    # confirmation key, seated on the existing shelf's top face.
+    _box(console_boxes, "iron", Vector3(2.57, 0.805, 6.43),
+        Vector3(0.49, 0.028, 0.16))
+    for i in range(3):
+        var key_x: float = 2.43 + float(i) * 0.14
+        _box(console_boxes, "cyan" if i == 0 else "trim",
+            Vector3(key_x, 0.831, 6.43), Vector3(0.10, 0.028, 0.095))
+    _box(console_boxes, "iron", Vector3(3.08, 0.808, 6.43),
+        Vector3(0.32, 0.028, 0.17))
+    _box(console_boxes, "amber", Vector3(3.08, 0.846, 6.43),
+        Vector3(0.17, 0.048, 0.105))
+    for side in [-1.0, 1.0]:
+        _box(console_boxes, "trim", Vector3(3.08 + side * 0.13, 0.854, 6.43),
+            Vector3(0.035, 0.076, 0.15))
     for side_value in [-1, 1]:
         var side: float = float(side_value)
         _box(console_boxes, "iron", Vector3(2.82 + side * 0.68, 1.29, 6.08),
