@@ -8,6 +8,7 @@ extends RefCounted
 const BaseClutter = preload("res://scripts/sera_base_clutter.gd")
 const PowerBoard = preload("res://scripts/sera_base_power_board.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
+const CrossingRamps = preload("res://scripts/sera_base_cable_crossing_ramps.gd")
 
 const WIRE_SIDES: int = 6
 const WIRE_STEP: float = 0.75
@@ -84,11 +85,9 @@ static func _prop_obstacles(sites: Array[Dictionary]) -> Array[Dictionary]:
     for site in sites:
         var key: String = str(site["id"])
         var origin: Vector3 = site["at"]
-        var spin := Basis(Vector3.UP,
-            BaseArchitecture.facility_yaw_radians(key))
         for prop in BaseClutter.props_for(key):
             var spot: Vector2 = prop["at"]
-            var world: Vector3 = origin + spin * Vector3(spot.x, 0.0, spot.y)
+            var world: Vector3 = origin + Vector3(spot.x, 0.0, spot.y)
             var size: Vector2 = BaseClutter.bounds_for(str(prop["kind"])) * (
                 float(prop.get("scale", 1.0)))
             # Rotate conservatively: the occupied radius is the longest
@@ -204,7 +203,7 @@ static func _visible_at_camera(at: Vector2, yaw: float, camera: Camera3D,
 
 static func _locate_device(key: String, all_sites: Array[Dictionary],
         props: Array[Dictionary], placed: Array[Vector2],
-        camera: Camera3D) -> Dictionary:
+        camera: Camera3D, logistics: Node3D = null) -> Dictionary:
     var goal: Vector2 = SCREEN_SAFE_ANCHORS[key]
     var rng := RandomNumberGenerator.new()
     rng.seed = _seed_for("SERA_POWER_VISIBLE_" + key)
@@ -220,6 +219,8 @@ static func _locate_device(key: String, all_sites: Array[Dictionary],
             0.25 + float(attempt / 16) * 0.38 +
             rng.randf_range(0.0, 0.48)))
         var test: Vector2 = goal + Vector2(cos(turn), sin(turn)) * radius
+        if is_instance_valid(logistics) and not bool(logistics.call("power_device_clear", test)):
+            continue
         if not _open_location(test, all_sites, props, placed):
             continue
         if not _terminal_gates_open(key, test, yaw,
@@ -245,6 +246,8 @@ static func _locate_device(key: String, all_sites: Array[Dictionary],
             var phi: float = TAU * float(sample) / 32.0
             var test: Vector2 = goal + Vector2(cos(phi), sin(phi)) * (
                 float(ring) * 0.33)
+            if is_instance_valid(logistics) and not bool(logistics.call("power_device_clear", test)):
+                continue
             if not _open_location(test, all_sites, props, placed):
                 continue
             if not _terminal_gates_open(key, test, yaw,
@@ -788,7 +791,7 @@ static func _wire_data() -> Dictionary:
 
 
 static func build(parent: Node3D, nexus_origin: Vector3,
-        specs: Array, camera: Camera3D = null) -> Node3D:
+        specs: Array, camera: Camera3D = null, logistics: Node3D = null) -> Node3D:
     var network := Node3D.new()
     network.name = "BasePowerDistribution"
     network.set_meta("sera_outline_role", "clutter")
@@ -802,13 +805,25 @@ static func build(parent: Node3D, nexus_origin: Vector3,
         "id": "NEXUS", "at": nexus_origin}]
     all_sites.append_array(specs)
     var props: Array[Dictionary] = _prop_obstacles(all_sites)
+    for child in parent.get_children():
+        if child is Node3D and str(child.name).begins_with("ScrapPile_"):
+            var pile: Node3D = child
+            props.append({"at": _xz(pile.position), "radius": 1.15 * float(pile.get_meta("visual_scale", 1.26))})
+    if is_instance_valid(logistics):
+        props.append_array(logistics.call("cable_dock_obstacles"))
+    var cable_paths: Array[Dictionary] = []
+    var board_path := PackedVector3Array()
+    for i in range(PowerBoard.CABLE_SEGMENTS + 1):
+        board_path.append(PowerBoard.cable_point(float(i) / float(PowerBoard.CABLE_SEGMENTS)))
+    cable_paths.append({"points": board_path, "radius": 0.145})
     var placed: Array[Vector2] = []
     # In the screenshot, the old GRID plug was behind the generator housing.
     # Move the visible seven-port manifold to the foreground gap, then
     # route one short exposed lead FROM that original live cable endpoint.
     var hub_pose: Dictionary = _locate_device(
-        "GENERATOR", all_sites, props, placed, camera)
+        "GENERATOR", all_sites, props, placed, camera, logistics)
     if hub_pose.is_empty():
+        _build_crossing_ramps(network, cable_paths, logistics)
         return network
     var hub: Vector3 = hub_pose["at"]
     var hub_turn := Basis(Vector3.UP, float(hub_pose["yaw"]))
@@ -834,7 +849,7 @@ static func build(parent: Node3D, nexus_origin: Vector3,
             continue
         var origin: Vector3 = site["at"]
         var pose: Dictionary = _locate_device(
-            key, all_sites, props, placed, camera)
+            key, all_sites, props, placed, camera, logistics)
         if pose.is_empty():
             continue
         var world_at: Vector3 = pose["at"]
@@ -859,6 +874,7 @@ static func build(parent: Node3D, nexus_origin: Vector3,
     var junction: PackedVector3Array = _routed_cable(
         route_grid, old_plug, board_gate, hub_in_gate,
         hub_in, "GENERATOR TO MANIFOLD")
+    cable_paths.append({"points": junction, "radius": 0.070})
     _append_tube(wires, junction, 0.070, 0.0)
     _append_tube(traces, junction, 0.019, 0.051)
     for i in range(endpoints.size()):
@@ -878,12 +894,23 @@ static func build(parent: Node3D, nexus_origin: Vector3,
             route_grid, device["output"], device["output_gate"],
             receiver["gate"], receiver["port"], key + " DELIVERY")
         for cable in [feed, delivery]:
+            cable_paths.append({"points": cable, "radius": 0.070})
             _append_tube(wires, cable, 0.070, 0.0)
             _append_tube(traces, cable, 0.019, 0.051)
     # Stable occupied power-device centers for the outdoor logistics grid.
     network.set_meta("logistics_obstacles", placed.duplicate())
     _build_devices(network, items)
     _finish_cables(network, wires, traces)
+    _build_crossing_ramps(network, cable_paths, logistics)
     # Recomputed only at scene construction / user-requested layout reset:
     # no pathfinding or coordinate randomization in the render loop.
     return network
+
+
+static func _build_crossing_ramps(network: Node3D, paths: Array[Dictionary], logistics: Node3D) -> void:
+    if not is_instance_valid(logistics):
+        return
+    var ramps := CrossingRamps.new()
+    ramps.name = "CableCrossingRamps"
+    network.add_child(ramps)
+    ramps.build(paths, logistics)
