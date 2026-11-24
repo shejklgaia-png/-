@@ -591,7 +591,7 @@ func setup(_root: Node3D, _nexus_origin: Vector3, _specs: Array, power: Node3D, 
             t.source = route[0]
             t.destination = route[1]
             t.raw = true
-            var home: Vector2 = FixedLayout.HOMES[t.id]
+            var home: Vector2 = FixedLayout.QUEUE_ENTRY
             t.home = _cell(home)
             t.pos = home
             t.yaw = 0.0
@@ -785,54 +785,34 @@ func _ground_height(p: Vector2) -> float:
 
 
 func _seed_active_deliveries() -> void:
-    # Start distributed across the actual roads. No future route ownership
-    # is required; only the six physical starting positions must be clear.
+    # The six positions are authored on separate working segments, not
+    # selected from a row of parking spaces or assigned from the camera.
     for t in _trucks:
+        var spec: Array = FixedLayout.START_PHASES[t.id]
+        var leg: int = int(spec[0])
+        var desired: Vector2 = spec[1]
+        var path: Array = t.legs[leg]
         var best: float = INF
-        var chosen: int = -1
-        var chosen_leg: int = 1
-        var seed_pos: Vector2 = t.pos
-        var preferred: int = [1, 2, 3, 1, 2, 3][t.id]
-        for leg in [1, 2, 3, 0]:
-            var path: Array = t.legs[leg]
-            for i in range(1, path.size()):
-                var start: Vector2 = _point(path[i - 1])
-                var end: Vector2 = _point(path[i])
-                if start.distance_to(end) < 2.0:
-                    continue
-                for fraction in [0.35, 0.55, 0.75]:
-                    var mid: Vector2 = start.lerp(end, float(fraction))
-                    var clear: bool = true
-                    for other in _trucks:
-                        if other != t and other.pos.distance_to(mid) < 3.2:
-                            clear = false
-                            break
-                    if not clear:
-                        continue
-                    for value in _docks.values():
-                        var dock: Dock = value
-                        if mid.distance_to(_point(dock.cell)) < 2.4:
-                            clear = false
-                            break
-                    if not clear:
-                        continue
-                    var score: float = _screen_penalty(mid)
-                    score += 0.0 if leg == preferred else 4.0
-                    if score < best:
-                        best = score
-                        chosen = i
-                        chosen_leg = leg
-                        seed_pos = mid
-        if chosen < 0:
-            continue
-        t.leg = chosen_leg
-        var path: Array = t.legs[chosen_leg]
+        var chosen: int = 1
+        var seed: Vector2 = _point(path[0])
+        for i in range(1,path.size()):
+            var start: Vector2 = _point(path[i-1])
+            var end: Vector2 = _point(path[i])
+            if start.distance_squared_to(end) < 0.000001:
+                continue
+            var point: Vector2 = Geometry2D.get_closest_point_to_segment(desired,start,end)
+            var score: float = point.distance_squared_to(desired)
+            if score < best:
+                best = score
+                chosen = i
+                seed = point
+        t.leg = leg
         t.waypoint = chosen
-        t.pos = seed_pos
-        var direction: Vector2 = _point(path[chosen]) - t.pos
-        t.yaw = atan2(direction.x, direction.y)
-        t.loaded = chosen_leg in [1, 2]
-        t.raw = chosen_leg != 2
+        t.pos = seed
+        var direction: Vector2 = (_point(path[chosen])-_point(path[chosen-1])).normalized()
+        t.yaw = atan2(direction.x,direction.y)
+        t.loaded = leg in [1,2]
+        t.raw = leg != 2
         t.mode = "drive"
         t.speed = SPEED * 0.7
         t.wait = 0.0
@@ -1359,13 +1339,14 @@ func _drive(t: Truck, dt: float) -> void:
     var path: Array = t.legs[t.leg]
     var last: int = path.size() - 1
     if t.waypoint > last:
-        t.speed = 0.0
         if t.leg == 3:
-            t.mode = "home"
-            t.wait = 0.0
+            # Continuous shared return: no stop or individual turning bay.
+            t.leg = 0
+            t.waypoint = 1
             t.loaded = false
             _cargo_kind(t, true)
             return
+        t.speed = 0.0
         t.mode = "align"
         return
     var goal: Vector2 = _point(path[t.waypoint])
@@ -1394,7 +1375,7 @@ func _drive(t: Truck, dt: float) -> void:
         direction = next_delta.normalized()
         if remaining > 3.0:
             break
-    if remaining <= 3.0 or t.waypoint == last:
+    if t.leg != 3 and (remaining <= 3.0 or t.waypoint == last):
         limit = minf(limit, sqrt(7.0 * remaining))
     # Slow naturally as the leading track approaches a raised protector.
     if is_instance_valid(_ramp_surface):
