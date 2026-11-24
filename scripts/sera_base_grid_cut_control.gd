@@ -112,6 +112,19 @@ func _draw() -> void:
             draw_line(tip, tip + Vector2(-9, -1), c, 2.5, true)
             draw_line(tip, tip + Vector2(-2, -9), c, 2.5, true)
             draw_circle(center, 3.0, c)
+        "ROTATE_LEFT", "ROTATE_RIGHT":
+            var sign_x: float = -1.0 if code == "ROTATE_LEFT" else 1.0
+            var pivot := Vector2(w * 0.5, h * 0.5)
+            var points := PackedVector2Array()
+            for i in range(25):
+                var angle: float = lerpf(-PI * 0.85, PI * 0.65, float(i) / 24.0)
+                points.append(pivot + Vector2(cos(angle) * sign_x, sin(angle)) * 16.5)
+            draw_polyline(points, Color("#bdebf5"), 2.7, true)
+            var end := points[24]
+            var tangent := (end - points[23]).normalized()
+            var wing := Vector2(-tangent.y, tangent.x) * 5.0
+            draw_line(end, end - tangent * 9.0 + wing, Color("#bdebf5"), 2.7, true)
+            draw_line(end, end - tangent * 9.0 - wing, Color("#bdebf5"), 2.7, true)
         "REMOVE":
             draw_line(center + Vector2(-13, -13), center + Vector2(13, 13), c, 2.7, true)
             draw_line(center + Vector2(13, -13), center + Vector2(-13, 13), c, 2.7, true)
