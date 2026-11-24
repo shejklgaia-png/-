@@ -141,6 +141,10 @@ var grid_selected_cell: Vector2i = Vector2i(-1, -1)
 var grid_selection_mesh: MeshInstance3D
 var grid_touch_id: int = -1
 var grid_touch_start: Vector2 = Vector2.ZERO
+var grid_pointer_on_node := false
+var grid_drag_started := false
+var grid_arrow_pressed := 0
+var grid_contacts: Dictionary = {}
 var _frame_budget: RefCounted
 var _startup_budget: Variant
 var _boot_render_suspended: bool = false
@@ -929,6 +933,7 @@ func _layout_hud() -> void:
         layout_tools.size = Vector2(156.0, 440.0)
     if grid_ui != null:
         grid_ui.call("reflow", view)
+        _grid_sync_handles()
     if power_back_button != null:
         power_back_button.position = Vector2(
             minf(284.0, maxf(224.0, view.x * 0.66)) + 18.0, 25.0)
@@ -1634,22 +1639,42 @@ func _power_back_pressed() -> void:
 
 
 func _grid_node_chosen(_code: String) -> void:
+    _grid_cancel_pointer()
     grid_draft.clear_selection()
+    _grid_sync_handles()
 
 
 func _grid_operation_changed(operation: String) -> void:
+    _grid_cancel_pointer()
     grid_draft.clear_selection()
+    _grid_sync_handles()
     if grid_ui == null:
         return
-    match operation:
-        "MOVE":
-            grid_ui.call("set_draft_status", "設備を選択 → 移動先をタップ")
-        "ROTATE":
-            grid_ui.call("set_draft_status", "設備をタップして90°回転")
-        "REMOVE":
-            grid_ui.call("set_draft_status", "撤去する設備をタップ")
-        "PLACE":
-            grid_ui.call("set_draft_status", "設備を選択 → 空きセルに配置")
+    if operation == "REMOVE":
+        grid_ui.call("set_draft_status", "撤去する設備をタップ")
+    else:
+        grid_ui.call("set_draft_status", "空きセルに配置 / 設備をドラッグ")
+
+
+func _grid_sync_handles() -> void:
+    if grid_ui == null:
+        return
+    var rect: Rect2i = grid_draft.selected_rect()
+    if not grid_placement_active or power_transition_busy or grid_drag_started or rect.size == Vector2i.ZERO or str(grid_ui.get("selected_operation")) == "REMOVE":
+        grid_ui.call("hide_rotation_handles")
+        return
+    var half: float = PowerBoard.GRID_SIDE * 0.5
+    var left := PowerBoard.BOARD_CENTER + Vector3((rect.position.x-half)*PowerBoard.CELL_PITCH, 0.79, (rect.position.y-half)*PowerBoard.CELL_PITCH)
+    var right := left + Vector3(rect.size.x*PowerBoard.CELL_PITCH,0,0)
+    grid_ui.call("set_rotation_handles", cam.unproject_position(left), cam.unproject_position(right))
+
+
+func _grid_show_selected() -> void:
+    var code: String = grid_draft.selected_code()
+    if not code.is_empty():
+        grid_ui.call("show_node_description", code)
+        grid_selection_mesh.visible = false
+    _grid_sync_handles()
 
 
 func _grid_select_cell(cell: Vector2i) -> void:
@@ -1662,7 +1687,7 @@ func _grid_select_cell(cell: Vector2i) -> void:
     grid_selection_mesh.visible = true
 
 
-func _grid_cell_from_pixel(pixel: Vector2) -> Vector2i:
+func _grid_cell_from_pixel(pixel: Vector2, allow_gaps: bool = false) -> Vector2i:
     if cam == null:
         return Vector2i(-1, -1)
     var origin: Vector3 = cam.project_ray_origin(pixel)
@@ -1684,22 +1709,22 @@ func _grid_cell_from_pixel(pixel: Vector2) -> Vector2i:
     # Ignore the narrow gaps between actual square tile surfaces.
     var center_x: float = (float(x) - (PowerBoard.GRID_SIDE - 1) * 0.5) * PowerBoard.CELL_PITCH
     var center_z: float = (float(y) - (PowerBoard.GRID_SIDE - 1) * 0.5) * PowerBoard.CELL_PITCH
-    if absf(world_point.x - PowerBoard.BOARD_CENTER.x - center_x) > PowerBoard.TILE_WIDTH * 0.5 or (
+    if not allow_gaps and (absf(world_point.x - PowerBoard.BOARD_CENTER.x - center_x) > PowerBoard.TILE_WIDTH * 0.5 or
             absf(world_point.z - PowerBoard.BOARD_CENTER.z - center_z) > PowerBoard.TILE_WIDTH * 0.5):
         return Vector2i(-1, -1)
     return Vector2i(x, y)
 
 
-func _grid_touch(pixel: Vector2) -> void:
-    if not power_view_active or power_transition_busy:
-        return
+func _grid_interface_hit(pixel: Vector2) -> bool:
     if grid_ui != null and bool(grid_ui.call("is_interface_hit", pixel)):
+        return true
+    return power_back_button != null and power_back_button.visible and Rect2(power_back_button.position, power_back_button.size).has_point(pixel)
+
+
+func _grid_touch(pixel: Vector2) -> void:
+    if not power_view_active or power_transition_busy or _grid_interface_hit(pixel):
         return
-    if power_back_button != null and power_back_button.visible and (
-            Rect2(power_back_button.position,
-                power_back_button.size).has_point(pixel)):
-        return
-    var cell: Vector2i = _grid_cell_from_pixel(pixel)
+    var cell := _grid_cell_from_pixel(pixel)
     if cell.x < 0:
         return
     _grid_select_cell(cell)
@@ -1708,25 +1733,106 @@ func _grid_touch(pixel: Vector2) -> void:
         return
     var message: String = grid_draft.edit(cell, str(grid_ui.get("selected_code")), str(grid_ui.get("selected_operation")))
     grid_ui.call("set_draft_status", message)
+    _grid_show_selected()
+
+
+func _grid_cancel_pointer() -> void:
+    grid_draft.cancel_drag()
+    grid_touch_id = -1
+    grid_pointer_on_node = false
+    grid_drag_started = false
+    grid_arrow_pressed = 0
+
+
+func _grid_pointer_begin(id: int, pixel: Vector2) -> void:
+    if power_transition_busy or grid_touch_id != -1:
+        return
+    var arrow: int = int(grid_ui.call("rotation_at", pixel)) if grid_placement_active else 0
+    if arrow == 0 and _grid_interface_hit(pixel):
+        return
+    grid_touch_id = id
+    grid_touch_start = pixel
+    grid_arrow_pressed = arrow
+    if arrow != 0:
+        return
+    if grid_placement_active and str(grid_ui.get("selected_operation")) != "REMOVE":
+        var cell := _grid_cell_from_pixel(pixel, true)
+        if cell.x >= 0:
+            grid_pointer_on_node = grid_draft.begin_drag(cell)
+            if grid_pointer_on_node:
+                _grid_show_selected()
+            else:
+                _grid_sync_handles()
+
+
+func _grid_pointer_move(id: int, pixel: Vector2) -> void:
+    if id != grid_touch_id or not grid_pointer_on_node or grid_arrow_pressed != 0:
+        return
+    if not grid_drag_started and grid_touch_start.distance_to(pixel) < 12.0:
+        return
+    grid_drag_started = true
+    _grid_sync_handles()
+    var cell := _grid_cell_from_pixel(pixel, true)
+    var valid: bool = false
+    if cell.x >= 0 and not _grid_interface_hit(pixel):
+        valid = grid_draft.move_drag(cell)
+    grid_ui.call("set_draft_status", "移動中 / 指を離して確定" if valid else "配置不可：指を離すと元の位置へ")
+
+
+func _grid_pointer_end(id: int, pixel: Vector2, canceled: bool = false) -> void:
+    if id != grid_touch_id:
+        return
+    if canceled or power_transition_busy:
+        _grid_cancel_pointer()
+        _grid_sync_handles()
+        return
+    if grid_arrow_pressed != 0:
+        if int(grid_ui.call("rotation_at", pixel)) == grid_arrow_pressed and grid_touch_start.distance_to(pixel) < 22.0:
+            grid_ui.call("set_draft_status", grid_draft.rotate_selected(grid_arrow_pressed))
+        _grid_cancel_pointer()
+        _grid_show_selected()
+        return
+    if grid_pointer_on_node:
+        if grid_drag_started or grid_touch_start.distance_to(pixel) >= 12.0:
+            var cell := _grid_cell_from_pixel(pixel, true)
+            var accepted: bool = grid_draft.finish_drag(cell, cell.x >= 0 and not _grid_interface_hit(pixel))
+            grid_ui.call("set_draft_status", "移動完了" if accepted else "移動不可：元の位置へ戻しました")
+        else:
+            grid_draft.cancel_drag()
+            grid_ui.call("set_draft_status", "ドラッグで移動 / 左右の矢印で回転")
+        _grid_cancel_pointer()
+        _grid_show_selected()
+        return
+    var is_tap: bool = grid_touch_start.distance_to(pixel) < 22.0
+    _grid_cancel_pointer()
+    if is_tap:
+        _grid_touch(pixel)
 
 
 func _power_input(event: InputEvent) -> void:
+    if event.device == InputEvent.DEVICE_ID_EMULATION:
+        return
     if event is InputEventScreenTouch:
         if event.pressed:
-            if grid_touch_id != -1:
-                grid_touch_id = -1
+            grid_contacts[event.index] = true
+            if grid_contacts.size() > 1:
+                _grid_cancel_pointer()
+                _grid_sync_handles()
                 return
-            if grid_ui != null and bool(grid_ui.call("is_interface_hit", event.position)):
-                return
-            grid_touch_id = event.index
-            grid_touch_start = event.position
-        elif event.index == grid_touch_id:
-            grid_touch_id = -1
-            if grid_touch_start.distance_to(event.position) <= 22.0:
-                _grid_touch(event.position)
-    elif event is InputEventMouseButton and (
-            event.button_index == MOUSE_BUTTON_LEFT and event.pressed and event.device != -1):
-        _grid_touch(event.position)
+            _grid_pointer_begin(event.index, event.position)
+        else:
+            grid_contacts.erase(event.index)
+            _grid_pointer_end(event.index, event.position, event.canceled)
+    elif event is InputEventScreenDrag:
+        if grid_contacts.size() == 1:
+            _grid_pointer_move(event.index, event.position)
+    elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+        if event.pressed:
+            _grid_pointer_begin(-2, event.position)
+        else:
+            _grid_pointer_end(-2, event.position)
+    elif event is InputEventMouseMotion and grid_touch_id == -2:
+        _grid_pointer_move(-2, event.position)
 
 
 func _grid_edit_ortho_size(for_view: Vector2 = Vector2.ZERO) -> float:
@@ -1793,6 +1899,7 @@ func _grid_camera_arrived() -> void:
     power_transition_busy = false
     # Keep 60 FPS throughout the zoom-out tween, then return to 30 FPS.
     _frame_budget.set_grid_zoomed(grid_placement_active)
+    _grid_sync_handles()
 
 
 func _leave_grid_placement() -> void:
@@ -1801,6 +1908,8 @@ func _leave_grid_placement() -> void:
     grid_placement_active = false
     power_transition_busy = true
     grid_selection_mesh.visible = false
+    _grid_cancel_pointer()
+    grid_contacts.clear()
     grid_draft.clear_selection()
     grid_ui.call("set_edit", false, true)
     hint.visible = true
@@ -1849,6 +1958,8 @@ func _leave_power_board() -> void:
     power_transition_busy = true
     grid_placement_active = false
     grid_selection_mesh.visible = false
+    _grid_cancel_pointer()
+    grid_contacts.clear()
     grid_draft.clear_selection()
     grid_ui.call("set_edit", false, false)
     grid_ui.call("set_grid", false, true)
