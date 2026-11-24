@@ -1405,22 +1405,57 @@ func _open_texture_studio() -> void:
         return
     if is_instance_valid(model_editor) and bool(model_editor.get("active")):
         return
-    var script := load("res://scripts/sera_texture_studio.gd") as Script
-    if script == null or not script.can_instantiate():
-        texture_entry.text = "TEXTURE STUDIO / LOAD FAILED"
+    # Keep optional editor failures isolated from the working LABO scene.
+    # Check leaf dependencies individually before loading the editor so a
+    # parse or missing-file failure has a visible, actionable stage label.
+    var paths: Array[String] = [
+        "res://scripts/sera_texture_uv.gd",
+        "res://scripts/sera_texture_part_source.gd",
+        "res://scripts/sera_texture_studio.gd"
+    ]
+    var stages: Array[String] = ["UV", "PART", "UI"]
+    var editor_script: Script
+    for i in range(paths.size()):
+        var path: String = paths[i]
+        if not ResourceLoader.exists(path) and not FileAccess.file_exists(path):
+            _texture_load_failed(stages[i] + " MISSING", path)
+            return
+        var loaded: Script = ResourceLoader.load(path, "GDScript") as Script
+        if loaded == null or not loaded.can_instantiate():
+            _texture_load_failed(stages[i] + " INVALID", path)
+            return
+        if i == paths.size() - 1:
+            editor_script = loaded
+    if editor_script == null:
+        _texture_load_failed("UI INVALID", paths[2])
         return
-    var editor := script.new() as Control
-    if editor == null:
+    var editor: Control = editor_script.new() as Control
+    if editor == null or not editor.has_method("configure") or not editor.has_signal("closed"):
+        if is_instance_valid(editor):
+            editor.queue_free()
+        _texture_load_failed("UI NEW FAILED", paths[2])
         return
     texture_editor = editor
     editor.theme = LaboSkin.common_theme()
     modal.add_child(editor)
-    editor.call("configure", [hero_stage, get_parent()])
     editor.connect("closed", _texture_studio_closed)
+    editor.call("configure", [hero_stage, get_parent()])
+    if editor.get_node_or_null("EquipmentThumbnailCatalog") == null:
+        editor.hide()
+        editor.queue_free()
+        texture_editor = null
+        _texture_load_failed("UI BUILD FAILED", paths[2])
+        return
+    texture_entry.text = "TEXTURE STUDIO / テクスチャ編集"
     _set_labo_scroll_input_enabled(false)
     modal_panel.hide()
     hero_stage.set_process(false)
     hero_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+
+
+func _texture_load_failed(stage: String, path: String) -> void:
+    texture_entry.text = "TEXTURE STUDIO / " + stage
+    push_error("SERA_TEXTURE_STUDIO: " + stage + " " + path)
 
 
 func _texture_studio_closed() -> void:
