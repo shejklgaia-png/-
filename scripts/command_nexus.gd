@@ -295,9 +295,14 @@ var target_parts: Dictionary = {}
 # batches so touching a console never drags the wall or another nearby model.
 var canonical_core_refs: Dictionary = {}
 var canonical_render_batches: Dictionary = {}
-var placement_editor
-var camera_angle_editor
-var placement_ui_layer: CanvasLayer
+# Bound at scene instantiation, before any work in _ready(). Static nodes
+# survive a partial HUD construction and cannot be skipped by late .new().
+@onready var placement_editor: Control = get_node_or_null(
+    "NexusPlacementOverlay/NexusCanonicalPlacement") as Control
+@onready var camera_angle_editor: Control = get_node_or_null(
+    "NexusPlacementOverlay/NexusCameraAnglePlacement") as Control
+@onready var placement_ui_layer: CanvasLayer = get_node_or_null(
+    "NexusPlacementOverlay") as CanvasLayer
 # Retain the authoritative source placements beyond _ready so the editor can
 # initialize independently of the camera-angle UI and recover on launch.
 var canonical_placement_specs: Dictionary = {}
@@ -457,30 +462,41 @@ func _prepare_canonical_placement_specs() -> void:
 
 
 func _ensure_placement_editor_nodes() -> void:
-    if not is_instance_valid(placement_ui_layer):
-        placement_ui_layer = get_node_or_null(
-            "NexusPlacementOverlay") as CanvasLayer
+    # First trust the nodes saved in command_nexus_world.tscn, not runtime new().
+    # _ready() can abort after creating the working HUD launchers; scene-owned
+    # children are already alive regardless of that partial startup.
+    var scene_layer: CanvasLayer = get_node_or_null(
+        "NexusPlacementOverlay") as CanvasLayer
+    if is_instance_valid(scene_layer):
+        placement_ui_layer = scene_layer
     if not is_instance_valid(placement_ui_layer):
         placement_ui_layer = CanvasLayer.new()
         placement_ui_layer.name = "NexusPlacementOverlay"
         placement_ui_layer.layer = 8
         add_child(placement_ui_layer)
-    if not is_instance_valid(placement_editor):
-        placement_editor = placement_ui_layer.get_node_or_null(
-            "NexusCanonicalPlacement")
+        push_warning("NEXUS: scene placement overlay missing; fallback created")
+    var scene_place: Control = placement_ui_layer.get_node_or_null(
+        "NexusCanonicalPlacement") as Control
+    if is_instance_valid(scene_place):
+        placement_editor = scene_place
     if not is_instance_valid(placement_editor):
         placement_editor = NexusCanonicalPlacement.new()
-        placement_editor.name = "NexusCanonicalPlacement"
-        placement_editor.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        placement_ui_layer.add_child(placement_editor)
-    if not is_instance_valid(camera_angle_editor):
-        camera_angle_editor = placement_ui_layer.get_node_or_null(
-            "NexusCameraAnglePlacement")
+        if is_instance_valid(placement_editor):
+            placement_editor.name = "NexusCanonicalPlacement"
+            placement_editor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+            placement_ui_layer.add_child(placement_editor)
+            push_warning("NEXUS: scene PLACE node missing; fallback created")
+    var scene_angle: Control = placement_ui_layer.get_node_or_null(
+        "NexusCameraAnglePlacement") as Control
+    if is_instance_valid(scene_angle):
+        camera_angle_editor = scene_angle
     if not is_instance_valid(camera_angle_editor):
         camera_angle_editor = NexusCameraAnglePlacement.new()
-        camera_angle_editor.name = "NexusCameraAnglePlacement"
-        camera_angle_editor.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        placement_ui_layer.add_child(camera_angle_editor)
+        if is_instance_valid(camera_angle_editor):
+            camera_angle_editor.name = "NexusCameraAnglePlacement"
+            camera_angle_editor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+            placement_ui_layer.add_child(camera_angle_editor)
+            push_warning("NEXUS: scene ANGLE node missing; fallback created")
 
 
 func _initialize_camera_angle_editor() -> bool:
@@ -542,7 +558,10 @@ func _open_canonical_placement() -> void:
 
 func _open_camera_angle_placement() -> void:
     if not _initialize_camera_angle_editor():
-        _placement_launch_failure(angle_entry_button, "ANGLE / INIT ERROR")
+        var reason: String = "NO NODE"
+        if is_instance_valid(camera_angle_editor):
+            reason = "NO TREE" if not camera_angle_editor.is_inside_tree() else "UI"
+        _placement_launch_failure(angle_entry_button, "ANGLE / " + reason)
         return
     if camera_angle_editor.open_mode():
         var caption: Label = angle_entry_button.get_node_or_null(
