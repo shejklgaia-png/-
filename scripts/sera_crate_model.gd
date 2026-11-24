@@ -386,7 +386,7 @@ static func _tread(b: Batch, a: Vector2, c: Vector2) -> void:
     var p5 := Vector3(x1, start.y + outer.y, start.x + outer.x)
     var p6 := Vector3(x1, finish.y + outer.y, finish.x + outer.x)
     var p7 := Vector3(x0, finish.y + outer.y, finish.x + outer.x)
-    b.quad("tread", p4, p5, p6, p7)
+    b.quad("rubber", p4, p5, p6, p7)
     for lane in range(3):
         var left: float = float(lane) / 3.0 + 0.012
         var right: float = float(lane + 1) / 3.0 - 0.012
@@ -395,7 +395,7 @@ static func _tread(b: Batch, a: Vector2, c: Vector2) -> void:
         var q1: Vector3 = p4.lerp(p5, right)
         var q2: Vector3 = p7.lerp(p6, right)
         var q3: Vector3 = p7.lerp(p6, left)
-        b.quad("tread_edge", q0 + lift, q1 + lift, q2 + lift, q3 + lift)
+        b.quad("tread", q0 + lift, q1 + lift, q2 + lift, q3 + lift)
         b.quad("tread", q0, q1, q1 + lift, q0 + lift)
         b.quad("tread", q1, q2, q2 + lift, q1 + lift)
         b.quad("tread", q2, q3, q3 + lift, q2 + lift)
@@ -432,11 +432,17 @@ static func _make_tracks(robot: Node3D) -> void:
             _disk_x(b, "chrome", Vector3(outside + s * 0.090, 0.31, z),
                 0.029, 0.015, 12)
         # Distinct high-contrast side maintenance panel from the drawing.
-        _bevel(b, "porcelain",
-            Vector3(s * 0.285, 0.255, 0.16),
-            Vector3(0.065, 0.16, 0.30), 0.035)
-        _box(b, "trim", Vector3(s * 0.327, 0.255, 0.16),
-            Vector3(0.007, 0.064, 0.12))
+        var panel: Array[Vector2] = [
+            Vector2(0.015, 0.18), Vector2(0.28, 0.18), Vector2(0.31, 0.21),
+            Vector2(0.31, 0.35), Vector2(0.28, 0.38), Vector2(0.015, 0.38),
+            Vector2(-0.015, 0.35), Vector2(-0.015, 0.21)
+        ]
+        var panel_x: float = s * 0.292
+        _prism_yz(b, "porcelain", panel, panel_x - 0.035, panel_x + 0.035)
+        _box(b, "trim", Vector3(s * 0.333, 0.28, 0.15),
+            Vector3(0.009, 0.045, 0.135))
+        for z in [0.035, 0.26]:
+            _disk_x(b, "joint", Vector3(s * 0.331, 0.33, z), 0.014, 0.009, 8)
         _box(b, "amber", Vector3(s * 0.327, 0.33, -0.26),
             Vector3(0.007, 0.035, 0.14))
         _emit(pivot, "LeftTrack" if side < 0 else "RightTrack", b)
@@ -448,8 +454,6 @@ static func _make_body(robot: Node3D) -> void:
         Vector3(0.90, 0.32, 0.78), 0.09)
     _bevel(b, "shell", Vector3(0, 0.705, 0.005),
         Vector3(0.95, 0.52, 0.83), 0.13)
-    _bevel(b, "armor", Vector3(0, 0.66, -0.397),
-        Vector3(0.81, 0.47, 0.115), 0.11)
     # Broad shoulders, tapering chest and a separate dark lower keel.
     _chest_plate(b, "armor", [
         Vector2(-0.25, 0.43), Vector2(0.25, 0.43), Vector2(0.39, 0.73),
@@ -482,10 +486,10 @@ static func _make_body(robot: Node3D) -> void:
             Vector3(0.23, 0.34, 0.64), 0.07)
         _box(b, "steel", Vector3(s * 0.552, 0.79, 0.16),
             Vector3(0.030, 0.22, 0.20))
-        _box(b, "amber", Vector3(s * 0.27, 0.858, -0.494),
-            Vector3(0.029, 0.12, 0.018))
-        _box(b, "cyan_dim", Vector3(s * 0.28, 0.51, -0.512),
-            Vector3(0.037, 0.047, 0.015))
+        _chest_plate(b, "cyan_dim", [
+            Vector2(s * 0.225 - 0.016, 0.52), Vector2(s * 0.225 + 0.016, 0.52),
+            Vector2(s * 0.225 + 0.016, 0.565), Vector2(s * 0.225 - 0.016, 0.565)
+        ], -0.052, 0.009)
         _disk_x(b, "black", Vector3(s * 0.55, 0.84, -0.14),
             0.125, 0.042)
         _disk_x(b, "steel", Vector3(s * 0.57, 0.84, -0.14),
@@ -559,7 +563,7 @@ static func _make_head(robot: Node3D) -> void:
         Vector3(0.565, 0.061, 0.013), 0.021)
     _bevel(b, "cyan", Vector3(0, 0.297, -0.430),
         Vector3(0.525, 0.034, 0.012), 0.012)
-    _bevel(b, "warm_white", Vector3(0, 0.677, 0.037),
+    _bevel(b, "warm_white", Vector3(0, 0.669, 0.037),
         Vector3(0.48, 0.038, 0.32), 0.025)
     _bevel(b, "armor_shadow", Vector3(0, 0.35, 0.413),
         Vector3(0.33, 0.26, 0.05), 0.038)
