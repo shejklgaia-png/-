@@ -94,14 +94,15 @@ static func _octagonal_slew(st: SurfaceTool) -> void:
             upper[side], upper[next_side], Vector3.UP)
 
 
-static func _beveled(st: SurfaceTool, deck: bool) -> void:
+static func _beveled(st: SurfaceTool, deck: bool, shallow: bool = false) -> void:
     # 8-sided footprint, stepped top lip, individually triangulated bevels.
     # Plate top remains +0.5 so world Y=-0.03 floor level stays unchanged.
-    var clip: float = 0.045 if deck else 0.13
-    var inset: float = 0.028 if deck else 0.075
+    # NEXUS roof armor retains a narrow real chamfer on the same bounds.
+    var clip: float = 0.055 if shallow else (0.045 if deck else 0.13)
+    var inset: float = 0.027 if shallow else (0.028 if deck else 0.075)
     var lower: Array[Vector3] = _octagonal_ring(-0.5, 0.5, clip)
     var shoulder: Array[Vector3] = _octagonal_ring(
-        0.38 if deck else 0.33, 0.5, clip)
+        0.44 if shallow else (0.38 if deck else 0.33), 0.5, clip)
     var upper: Array[Vector3] = _octagonal_ring(0.5, 0.5 - inset, clip)
     for i in range(8):
         var j: int = (i + 1) % 8
@@ -427,6 +428,8 @@ static func make(kind: String) -> ArrayMesh:
             _beveled(st, true)
         "bevel":
             _beveled(st, false)
+        "nexus_shallow_bevel":
+            _beveled(st, false, true)
         "nexus_portal":
             _nexus_portal(st)
         "hopper":
