@@ -22,7 +22,7 @@ const MOTION_FEATURES: Dictionary = {
     "SMELTER": ["SmelterFeedScrap", "SmelterMoltenPour", "SmelterCastIngot"],
     "RECYCLER": ["FreshRecyclerRoller", "FreshRecyclerTooth", "RecyclerIntactPart", "RecyclerRecoveredPart"],
     "GENERATOR": ["FreshGeneratorRotorBlade", "FreshGeneratorMeterRow"],
-    "STORAGE": ["FreshStorageLoadingLift", "StorageMovingCase", "StorageMovingLock", "StorageTransferFork"],
+    "STORAGE": ["FreshStorageLoadingLift", "StorageMovingCase", "StorageMovingLock", "StorageTransferFork", "StorageStoredCase", "StorageStoredLock"],
     "BUILD_TERMINAL": ["FreshBuildModuleLock", "FreshBuildArmForelink", "FreshBuildArmToolChuck", "FreshBuildArmClampJaw"],
 }
 # Bearing and pinion stay fixed while the machine above the slewing ring
@@ -60,6 +60,7 @@ var _clock: float = 0.0
 var _accumulator: float = 0.0
 const MATERIAL_SECONDS = {"LABO":18.2, "SMELTER":7.2, "RECYCLER":6.4, "STORAGE":7.5}
 var _material_running: bool = false
+var _material_has_completed: bool = false
 
 func begin_material_cycle() -> void:
     if not MATERIAL_SECONDS.has(facility_key):
@@ -90,7 +91,8 @@ func bind_to(model: Node3D, key: String) -> void:
     # No processing for models without animated instances.
     set_process(not expected.is_empty())
     if not expected.is_empty():
-        sample_at(0.0)
+        # Idle pose shows finished/stowed equipment; first real delivery starts the batch.
+        sample_at(float(MATERIAL_SECONDS.get(key, 0.0)) - 0.001 if MATERIAL_SECONDS.has(key) else 0.0)
 
 func _process(delta: float) -> void:
     if MATERIAL_SECONDS.has(facility_key) and not _material_running:
@@ -100,6 +102,7 @@ func _process(delta: float) -> void:
         _clock = float(MATERIAL_SECONDS[facility_key]) - 0.001
         sample_at(_clock)
         _material_running = false
+        _material_has_completed = true
         return
     _accumulator += maxf(0.0, delta)
     # A stable 30Hz animation cap amortizes MultiMesh transform uploads on
@@ -510,10 +513,17 @@ func sample_at(seconds: float) -> void:
                     var across: float = smoothstep(2.0, 2.8, t) * (1.0-smoothstep(5.1,5.8,t))
                     var inward: float = smoothstep(2.8, 3.8, t) * (1.0-smoothstep(4.1,5.1,t))
                     if feature == "FreshStorageLoadingLift":
-                        pose.origin += _at(Vector3(0, 0.66*lift, 0))
+                        pose.origin += _at(Vector3(0, 0.57*lift, 0))
+                    elif feature in ["StorageStoredCase", "StorageStoredLock"]:
+                        # Previous buffered case transfers into the rear stock
+                        # chamber before the next case is delivered to this bay.
+                        if t < 0.6 and _material_has_completed:
+                            pose.origin += _at(Vector3(0,0,-0.66*smoothstep(0.0,0.6,t)))
+                        elif t < 3.8 or (not _material_running and not _material_has_completed):
+                            pose.basis = rest.basis.scaled_local(Vector3.ONE*0.0001)
                     else:
-                        pose.origin += _at(Vector3(0.65*across, 0.66*lift, -1.56*inward))
-                        if feature != "StorageTransferFork" and (t < 0.25 or t >= 7.35):
+                        pose.origin += _at(Vector3(0.65*across, 0.57*lift, -1.56*inward))
+                        if feature != "StorageTransferFork" and (t < 0.25 or t >= 3.8):
                             pose.basis = rest.basis.scaled_local(Vector3.ONE*0.0001)
                 "BUILD_TERMINAL":
                     var phase: float = fposmod(time, 8.5)
@@ -522,7 +532,7 @@ func sample_at(seconds: float) -> void:
                         pose.origin += _at(Vector3(0, 0.20*(1.0-smoothstep(1.0,3.1,phase)),0))
                     else:
                         pose = _spin_about(rest, _at(Vector3(0.74,1.53,0.78)),
-                            _axis(Vector3.BACK), -0.38*press)
+                            _axis(Vector3.BACK), 0.24*press)
             var multi: MultiMesh = record["mesh"] as MultiMesh
             multi.set_instance_transform(int(record["index"]), pose)
             # Same indexed transform as its real opaque part: no trailing or
