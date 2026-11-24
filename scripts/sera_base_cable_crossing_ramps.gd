@@ -71,10 +71,9 @@ func _combine(a: Dictionary, b: Dictionary) -> Dictionary:
 
 func _add_crossing(point: Vector2, direction: Vector2, wire_direction: Vector2, height: float) -> void:
     var angle: float = absf(direction.cross(wire_direction))
-    # A near-parallel cable is routed out of the road by the power grid;
-    # do not turn that longitudinal run into an endless raised platform.
-    if angle < 0.30:
-        return
+    # Shallow actual crossings still receive a compact cover; longitudinal
+    # overlap alone never produces a ribbon.
+    angle = maxf(angle, 0.24)
     var pad: Dictionary = {"center": point, "axis": direction,
         "wide": HALF_LANE,
         "flat": clampf(0.24 + 0.35 * absf(direction.dot(wire_direction)) / angle, 0.24, 0.78),
