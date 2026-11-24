@@ -1,0 +1,222 @@
+{
+  "format": "SERA_MODELING_STUDIO_V1",
+  "review_resolution": 768,
+  "materials": {
+    "shell": {
+      "rgb": [
+        0.32,
+        0.39,
+        0.45
+      ],
+      "metallic": 0.45,
+      "roughness": 0.4
+    },
+    "dark": {
+      "rgb": [
+        0.06,
+        0.08,
+        0.1
+      ]
+    },
+    "accent": {
+      "rgb": [
+        0.12,
+        0.55,
+        0.65
+      ]
+    }
+  },
+  "parts": [
+    {
+      "name": "root",
+      "shape": "pivot"
+    },
+    {
+      "name": "housing",
+      "parent": "root",
+      "shape": "loft",
+      "rings": [
+        [
+          [
+            -0.6,
+            -0.4,
+            -0.25
+          ],
+          [
+            0.6,
+            -0.4,
+            -0.25
+          ],
+          [
+            0.6,
+            0.4,
+            -0.25
+          ],
+          [
+            -0.6,
+            0.4,
+            -0.25
+          ]
+        ],
+        [
+          [
+            -0.72,
+            -0.48,
+            0.12
+          ],
+          [
+            0.72,
+            -0.48,
+            0.12
+          ],
+          [
+            0.72,
+            0.48,
+            0.12
+          ],
+          [
+            -0.72,
+            0.48,
+            0.12
+          ]
+        ],
+        [
+          [
+            -0.48,
+            -0.34,
+            0.5
+          ],
+          [
+            0.48,
+            -0.34,
+            0.5
+          ],
+          [
+            0.48,
+            0.34,
+            0.5
+          ],
+          [
+            -0.48,
+            0.34,
+            0.5
+          ]
+        ]
+      ],
+      "material": "shell",
+      "bevel": 0.035,
+      "cuts": [
+        {
+          "shape": "box",
+          "size": [
+            0.48,
+            0.35,
+            0.22
+          ],
+          "location": [
+            0,
+            -0.42,
+            0.05
+          ]
+        }
+      ]
+    },
+    {
+      "name": "recess",
+      "parent": "root",
+      "shape": "box",
+      "size": [
+        0.43,
+        0.06,
+        0.18
+      ],
+      "location": [
+        0,
+        -0.29,
+        0.05
+      ],
+      "material": "dark",
+      "bevel": 0.01
+    },
+    {
+      "name": "indicator",
+      "parent": "root",
+      "shape": "box",
+      "size": [
+        0.28,
+        0.03,
+        0.04
+      ],
+      "location": [
+        0,
+        -0.331,
+        0.05
+      ],
+      "material": "accent",
+      "bevel": 0.006
+    },
+    {
+      "name": "hinge",
+      "parent": "root",
+      "shape": "pivot",
+      "location": [
+        0.66,
+        0,
+        -0.12
+      ]
+    },
+    {
+      "name": "shaft",
+      "parent": "hinge",
+      "shape": "cylinder",
+      "radius": 0.16,
+      "depth": 0.24,
+      "rotation_deg": [
+        0,
+        90,
+        0
+      ],
+      "material": "dark",
+      "bevel": 0.012
+    },
+    {
+      "name": "cable",
+      "parent": "root",
+      "shape": "tube",
+      "path": [
+        [
+          -0.35,
+          0.35,
+          0.16
+        ],
+        [
+          -0.35,
+          0.57,
+          0.16
+        ],
+        [
+          -0.27,
+          0.65,
+          0.24
+        ],
+        [
+          0.1,
+          0.65,
+          0.24
+        ],
+        [
+          0.19,
+          0.52,
+          0.16
+        ],
+        [
+          0.19,
+          0.35,
+          0.16
+        ]
+      ],
+      "radius": 0.035,
+      "material": "dark"
+    }
+  ]
+}
