@@ -25,6 +25,8 @@ var points: Dictionary = {}
 var last_point := Vector2.ZERO
 var last_hit := Vector2i(-1,-1)
 var last_chart := -1
+var previous_mirror := Vector2i(-1,-1)
+var previous_mirror_chart := -1
 var stroke := false
 var rotation_mode := false
 var multi_gesture := false
@@ -319,7 +321,7 @@ func _view_input(event: InputEvent) -> void:
                 if not stroke:
                     _begin_stroke()
                     _paint(before)
-                _paint(event.position)
+                _paint_path(before,event.position)
         points[event.index] = event.position
         accept_event()
     elif event is InputEventMouseButton:
@@ -340,7 +342,7 @@ func _view_input(event: InputEvent) -> void:
         if event.button_mask & MOUSE_BUTTON_MASK_RIGHT or (rotation_mode and event.button_mask & MOUSE_BUTTON_MASK_LEFT):
             _rotate(event.relative)
         elif stroke and event.button_mask & MOUSE_BUTTON_MASK_LEFT:
-            _paint(event.position)
+            _paint_path(event.position-event.relative,event.position)
         accept_event()
 
 func _begin_stroke() -> void:
@@ -349,6 +351,8 @@ func _begin_stroke() -> void:
     stroke = true
     last_hit = Vector2i(-1,-1)
     last_chart = -1
+    previous_mirror = Vector2i(-1,-1)
+    previous_mirror_chart = -1
     shape_start = Vector2i(-1,-1)
     shape_chart = -1
     shape_base = null
@@ -366,7 +370,20 @@ func _end_stroke() -> void:
     last_chart = -1
     shape_base = null
 
-func _paint(at: Vector2) -> void:
+func _paint_path(from: Vector2, to: Vector2) -> void:
+    if not stroke or img == null or tex == null:
+        return
+    if tool_picker.selected in [2,3,7,8,11,12]:
+        _paint(to)
+        return
+    # Recast along the screen drag, including UV seams, with bounded work.
+    var steps := clampi(ceili(from.distance_to(to)/10.0),1,8)
+    for i in range(1,steps+1):
+        _paint(from.lerp(to,float(i)/steps),false)
+    _composite()
+    tex.update(img)
+
+func _paint(at: Vector2, flush: bool = true) -> void:
     if img == null or not stroke or host.size.x <= 0 or host.size.y <= 0:
         return
     var pt := at / host.size * Vector2(view.size)
@@ -375,6 +392,7 @@ func _paint(at: Vector2) -> void:
     var hit: Dictionary = UV.hit(triangles,origin,direction)
     if hit.is_empty():
         last_hit = Vector2i(-1,-1)
+        previous_mirror = Vector2i(-1,-1)
         return
     var uv: Vector2 = hit.uv
     var p := Vector2i(clampi(floori(uv.x*img.get_width()),0,img.get_width()-1),clampi(floori(uv.y*img.get_height()),0,img.get_height()-1))
@@ -416,11 +434,19 @@ func _paint(at: Vector2) -> void:
             var muv: Vector2 = mirrored.uv
             var mp := Vector2i(clampi(floori(muv.x*img.get_width()),0,img.get_width()-1),clampi(floori(muv.y*img.get_height()),0,img.get_height()-1))
             if mp != p:
-                _dab(mp)
+                if previous_mirror.x >= 0 and previous_mirror_chart == int(mirrored.chart):
+                    _line_pixels(previous_mirror,mp)
+                else:
+                    _dab(mp)
+                previous_mirror = mp
+                previous_mirror_chart = int(mirrored.chart)
+        else:
+            previous_mirror = Vector2i(-1,-1)
     last_hit = p
     last_chart = chart
-    _composite()
-    tex.update(img)
+    if flush:
+        _composite()
+        tex.update(img)
 
 func _line_pixels(a: Vector2i,b: Vector2i) -> void:
     var steps := maxi(absi(b.x-a.x),absi(b.y-a.y))
@@ -465,7 +491,7 @@ func _dab_one(p: Vector2i) -> void:
     layers[layer_index].set_pixelv(p,Color(color.r,color.g,color.b,1.0))
 
 func _stamp(p: Vector2i) -> void:
-    var rows: Array[String] = ["111010","101110","101010","101010","111111"] if tool_picker.selected == 11 else ["00100","01110","01010","11011","11111"]
+    var rows := PackedStringArray(["111010","101110","101010","101010","111111"]) if tool_picker.selected == 11 else PackedStringArray(["00100","01110","01010","11011","11111"])
     for y in range(rows.size()):
         for x in range(rows[y].length()):
             var q := p+Vector2i(x-floori(float(rows[y].length())/2.0),y-2)
@@ -568,7 +594,8 @@ func _open_file() -> void:
         file_dialog.add_filter("*.texture.json","テクスタ編集プロジェクト")
         file_dialog.file_selected.connect(_load_glb)
         add_child(file_dialog)
-    file_dialog.current_dir = ProjectSettings.globalize_path(SAVE_DIR)
+    if DirAccess.dir_exists_absolute(SAVE_DIR):
+        file_dialog.current_dir = ProjectSettings.globalize_path(SAVE_DIR)
     file_dialog.popup_centered_ratio(0.9)
 
 func _load_glb(path: String) -> void:
