@@ -15,7 +15,7 @@ command -v inotifywait >/dev/null || { echo "Run: pkg install inotify-tools"; ex
 
 # Use the files already downloaded by authenticated git clone, not
 # unauthenticated raw.githubusercontent.com.
-for file in sera_push_safe.py sera_push_launcher.sh sera_watch_safe.sh; do
+for file in sera_push_safe.py sera_push_launcher.sh sera_watch_safe.sh sera_placement_receiver.py; do
   if [ ! -s "$SCRIPT_DIR/$file" ]; then
     echo "INSTALL ERROR: missing $SCRIPT_DIR/$file" >&2
     exit 1
@@ -24,13 +24,14 @@ done
 cp "$SCRIPT_DIR/sera_push_safe.py" "$TMP/sera_push_safe.py"
 cp "$SCRIPT_DIR/sera_push_launcher.sh" "$TMP/sera_push.sh"
 cp "$SCRIPT_DIR/sera_watch_safe.sh" "$TMP/sera_watch.sh"
+cp "$SCRIPT_DIR/sera_placement_receiver.py" "$TMP/sera_placement_receiver.py"
 cp "$SCRIPT_DIR/../sync_placement_preview.sh" "$TMP/sera_sync_placement_preview.sh"
 
 python -m py_compile "$TMP/sera_push_safe.py"
 bash -n "$TMP/sera_push.sh" "$TMP/sera_watch.sh"
 
 STAMP="$(date +%Y%m%d_%H%M%S)"
-for file in sera_push.sh sera_watch.sh sera_push_safe.py sera_sync_placement_preview.sh; do
+for file in sera_push.sh sera_watch.sh sera_push_safe.py sera_sync_placement_preview.sh sera_placement_receiver.py; do
   if [ -f "$HOME/$file" ]; then
     cp -p "$HOME/$file" "$HOME/$file.before_safe_$STAMP"
   fi
