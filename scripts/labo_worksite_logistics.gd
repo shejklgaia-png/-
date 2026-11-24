@@ -165,59 +165,64 @@ func _support_floor(p: Vector3) -> float:
         return 0.0 if Rect2(-15.4,-10.0,30.0,25.0).has_point(Vector2(p.x,p.z)) else -0.35
     return -0.03
 
-func _gantry(label: String,a: Vector3,z: Vector3,height: float) -> Dictionary:
+func _gantry(label: String,a: Vector3,z: Vector3,height: float,build_structure: bool = true,wide_travel: bool = false) -> Dictionary:
     var n := _node(root,label)
     var direction := Vector3(z.x-a.x,0,z.z-a.z)
     var length: float = maxf(0.1,direction.length())
     var axis: Vector3 = direction/length
     var side := Vector3(axis.z,0,-axis.x)
     var b = _batch(n)
-    # Two braced portals support a continuous twin-rail bridge. Keep the
-    # second portal short of the machine opening so no column blocks loading.
-    var rail_y: float = height+0.55
-    var portal_span: float = 2.18
-    var inner: Vector3 = a+axis*minf(length*0.58,maxf(0.0,length-2.5))
-    var start := Vector3(a.x,rail_y,a.z)-axis*0.65
-    var end := Vector3(z.x,rail_y,z.z)+axis*0.65
-    for offset in [-0.43,0.43]:
-        var lateral: Vector3 = side*float(offset)
-        _rod(b,start+lateral,end+lateral,0.34,"slate")
-        _rod(b,start+lateral+Vector3.UP*0.42,end+lateral+Vector3.UP*0.42,0.18,"edge")
-        _rod(b,start+lateral-Vector3.UP*0.20,end+lateral-Vector3.UP*0.20,0.12,"gold")
-    var ribs: int = maxi(2,ceili(length/1.15))
-    for i in range(ribs+1):
-        var p: Vector3 = start.lerp(end,float(i)/float(ribs))
-        _rod(b,p-side*0.57+Vector3.UP*0.42,p+side*0.57+Vector3.UP*0.42,0.17,"armor_light")
-        if i<ribs:
-            var q: Vector3 = start.lerp(end,float(i+1)/float(ribs))
+    if build_structure:
+        # Two braced portals support a continuous twin-rail bridge. Keep the
+        # second portal short of the machine opening so no column blocks loading.
+        var rail_y: float = height+0.55
+        var portal_span: float = 2.18
+        var inner: Vector3 = a+axis*minf(length*0.58,maxf(0.0,length-2.5))
+        var end_margin: float = 1.65 if wide_travel else 0.65
+        var start := Vector3(a.x,rail_y,a.z)-axis*end_margin
+        var end := Vector3(z.x,rail_y,z.z)+axis*end_margin
+        for offset in [-0.43,0.43]:
+            var lateral: Vector3 = side*float(offset)
+            _rod(b,start+lateral,end+lateral,0.34,"slate")
+            _rod(b,start+lateral+Vector3.UP*0.42,end+lateral+Vector3.UP*0.42,0.18,"edge")
+            _rod(b,start+lateral-Vector3.UP*0.20,end+lateral-Vector3.UP*0.20,0.12,"gold")
+        var ribs: int = maxi(2,ceili(length/1.15))
+        for i in range(ribs+1):
+            var p: Vector3 = start.lerp(end,float(i)/float(ribs))
+            _rod(b,p-side*0.57+Vector3.UP*0.42,p+side*0.57+Vector3.UP*0.42,0.17,"armor_light")
+            if i<ribs:
+                var q: Vector3 = start.lerp(end,float(i+1)/float(ribs))
+                for sign_value in [-1.0,1.0]:
+                    var lateral: Vector3 = side*float(sign_value)*0.43
+                    _rod(b,p+lateral,q+lateral+Vector3.UP*0.42,0.12,"trim")
+        var portals: Array[Vector3] = [a,inner]
+        if wide_travel:
+            portals.append(z-axis*2.0)
+        for portal in portals:
+            var center: Vector3 = portal
             for sign_value in [-1.0,1.0]:
-                var lateral: Vector3 = side*float(sign_value)*0.43
-                _rod(b,p+lateral,q+lateral+Vector3.UP*0.42,0.12,"trim")
-    for portal in [a,inner]:
-        var center: Vector3 = portal
-        for sign_value in [-1.0,1.0]:
-            var foot: Vector3 = center+side*float(sign_value)*portal_span
-            foot.y = _support_floor(foot)
-            var top := Vector3(foot.x,rail_y+0.42,foot.z)
-            var post_height: float = top.y-foot.y
-            _poly(b,"bevel",foot+Vector3.UP*0.18,Vector3(0.84,0.36,0.84),"armor")
-            _box(b,foot+Vector3.UP*(post_height*0.5),Vector3(0.46,post_height,0.46),"slate")
-            for side_sign in [-1.0,1.0]:
-                _rod(b,foot+side*float(side_sign)*0.24+Vector3.UP*0.30,top+side*float(side_sign)*0.24,0.12,"armor_light")
-            for sx in [-0.29,0.29]:
-                for sz in [-0.29,0.29]:
-                    _poly(b,"drum",foot+Vector3(sx,0.38,sz),Vector3(0.13,0.10,0.13),"edge")
-            _box(b,foot+Vector3.UP*1.15,Vector3(0.50,0.18,0.50),"gold")
-            var joint := Vector3(center.x,rail_y+0.42,center.z)
-            _rod(b,top,joint,0.48,"armor")
-            _rod(b,top-Vector3.UP*1.05,top.lerp(joint,0.63),0.22,"trim")
-            reserves.append(AABB(foot-Vector3(0.46,0,0.46),Vector3(0.92,2.4,0.92)))
-    # Drive station and hard end stops terminate the rails rather than floating.
-    for at in [start,end]:
-        var p: Vector3 = at
-        _rod(b,p-side*0.65,p+side*0.65,0.30,"armor")
-        _poly(b,"bevel",p+Vector3.UP*0.28,Vector3(0.75,0.50,0.75),"slate")
-    _finish(b)
+                var foot: Vector3 = center+side*float(sign_value)*portal_span
+                foot.y = _support_floor(foot)
+                var top := Vector3(foot.x,rail_y+0.42,foot.z)
+                var post_height: float = top.y-foot.y
+                _poly(b,"bevel",foot+Vector3.UP*0.18,Vector3(0.84,0.36,0.84),"armor")
+                _box(b,foot+Vector3.UP*(post_height*0.5),Vector3(0.46,post_height,0.46),"slate")
+                for side_sign in [-1.0,1.0]:
+                    _rod(b,foot+side*float(side_sign)*0.24+Vector3.UP*0.30,top+side*float(side_sign)*0.24,0.12,"armor_light")
+                for sx in [-0.29,0.29]:
+                    for sz in [-0.29,0.29]:
+                        _poly(b,"drum",foot+Vector3(sx,0.38,sz),Vector3(0.13,0.10,0.13),"edge")
+                _box(b,foot+Vector3.UP*1.15,Vector3(0.50,0.18,0.50),"gold")
+                var joint := Vector3(center.x,rail_y+0.42,center.z)
+                _rod(b,top,joint,0.48,"armor")
+                _rod(b,top-Vector3.UP*1.05,top.lerp(joint,0.63),0.22,"trim")
+                reserves.append(AABB(foot-Vector3(0.46,0,0.46),Vector3(0.92,2.4,0.92)))
+        # Drive station and hard end stops terminate the rails rather than floating.
+        for at in [start,end]:
+            var p: Vector3 = at
+            _rod(b,p-side*0.65,p+side*0.65,0.30,"armor")
+            _poly(b,"bevel",p+Vector3.UP*0.28,Vector3(0.75,0.50,0.75),"slate")
+        _finish(b)
     var trolley := _node(n,"LinearTrolley")
     b = _batch(trolley)
     _poly(b,"bevel",Vector3(0,0.08,0),Vector3(0.92,0.56,0.92),"armor_light")
@@ -337,7 +342,12 @@ func build(parent: Node3D,section: String,source: Vector3,destination: Vector3) 
     var h_in: float = maxf(8.5,inlet.y+(5.2 if key=="SMELTER" else 4.0))
     var h_out: float = maxf(8.5,outlet.y+4.0)
     in_arm = _gantry("InboundTransferArm",in_dock,inlet,h_in)
-    out_arm = _gantry("OutboundTransferArm",out_dock,outlet,h_out)
+    if key=="SMELTER":
+        # Two independently driven trolleys share one supported rail, so the
+        # packing ram never has to pass through an extraction rail below it.
+        out_arm = _gantry("OutboundTransferArm",out_dock,refinery_pick,h_out,true,true)
+    else:
+        out_arm = _gantry("OutboundTransferArm",out_dock,outlet,h_out)
     _arm_pose(in_arm,Vector3(in_dock.x,h_in-0.55,in_dock.z))
     _arm_pose(out_arm,Vector3(outlet.x,h_out-0.55,outlet.z))
     _truck_pose(truck_in,in_far,in_dock,0.0)
@@ -830,7 +840,7 @@ func _build_refinery() -> void:
     _finish(b)
     reserves.append(AABB(Vector3(7.9,0,-2.4),Vector3(3.4,2.4,5.0)))
     reserves.append(AABB(outlet-Vector3(1.65,1.25,2.0),Vector3(3.30,2.4,4.0)))
-    refinery_extract = _gantry("CastingExtractionArm",outlet,refinery_pick,6.8)
+    refinery_extract = _gantry("CastingExtractionArm",outlet,refinery_pick,float(out_arm["height"]),false)
     _refinery_cross_slide(refinery_extract)
     _refinery_cross_slide(out_arm)
     for i in range(INGOT_COUNT):
@@ -933,7 +943,13 @@ func sample_refinery(t: float) -> void:
         _arm_pose(in_arm,Vector3(pick.x,lerpf(pick.y+1.55,in_h-0.75,smoothstep(26.0,27.0,sec)),pick.z),2.0)
     var poured: float = smoothstep(17.0,20.0,sec)
     for i in range(refinery_chunks.size()):
-        refinery_chunks[i].visible = float(i+1)/float(refinery_chunks.size())>poured
+        var chunk: Node3D = refinery_chunks[i]
+        var col: int = i%6
+        var row: int = int(i/6)%3
+        var layer: int = int(i/18)
+        chunk.position = Vector3(-1.0+float(col)*0.40,0.32+float(layer)*0.37,-1.06+float(row)*1.04)
+        chunk.position.z = maxf(-1.45,chunk.position.z-0.62*smoothstep(16.0,19.5,sec))
+        chunk.visible = float(i+1)/float(refinery_chunks.size())>poured
     for i in range(refinery_falling.size()):
         var f: Node3D = refinery_falling[i]
         var age: float = sec-(16.8+float(i)*0.105)
@@ -1006,8 +1022,8 @@ func sample_refinery(t: float) -> void:
         var aim: Vector3
         if pt<0.23:
             var prev: Vector3 = root.to_local(out_box.to_global(_packed_position(maxi(0,packed-1))))
-            var from: Vector3 = Vector3(prev.x,high+INGOT_HEIGHT,prev.z) if packed>0 else Vector3(out_dock.x,high+INGOT_HEIGHT,out_dock.z)
-            aim = from.lerp(Vector3(start.x,high+INGOT_HEIGHT,start.z),smoothstep(0.0,0.14,pt))
+            var previous_aim: Vector3 = Vector3(prev.x,high+INGOT_HEIGHT,prev.z) if packed>0 else Vector3(out_dock.x,high+INGOT_HEIGHT,out_dock.z)
+            aim = previous_aim.lerp(Vector3(start.x,high+INGOT_HEIGHT,start.z),smoothstep(0.0,0.14,pt))
             if pt>=0.14:
                 aim = Vector3(start.x,lerpf(high+INGOT_HEIGHT,start.y+INGOT_HEIGHT,smoothstep(0.14,0.23,pt)),start.z)
         elif pt<0.88:
@@ -1020,6 +1036,8 @@ func sample_refinery(t: float) -> void:
         _place(ingot,p)
     else:
         var parked := Vector3(out_dock.x,float(out_arm["height"])-0.75,out_dock.z)
+        if sec>=76.0 and sec<78.0:
+            parked.y = lerpf(parked.y,6.29,smoothstep(76.0,78.0,sec))
         if sec>=94.8:
             var last: Vector3 = root.to_local(out_box.to_global(_packed_position(INGOT_COUNT-1)))
             parked = Vector3(last.x,6.29,last.z).lerp(parked,smoothstep(94.8,95.0,sec))
