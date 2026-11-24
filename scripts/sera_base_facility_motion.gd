@@ -1,4 +1,5 @@
 extends Node
+const LabPrintArms = preload("res://scripts/sera_base_labo_print_arms.gd")
 const CollectorConveyor = preload("res://scripts/sera_base_collector_conveyor.gd")
 ## BASE equipment: eight deterministic production-loop motions of actual existing
 ## authored MultiMesh instances. No additional 3D draw nodes, colliders or lights.
@@ -11,8 +12,7 @@ const MOTION_FEATURES: Dictionary = {
         "NexusDishReflector", "NexusDishFeedArm", "NexusDishFeed",
         "NexusAntennaYagiBoom", "NexusAntennaYagiElement",
         "NexusPlenumLouver", "NexusSignalIndicator", "NexusSupplyDrawer", "NexusSupplyCase"],
-    "LABO": ["FreshLabPrinterServo", "FreshLabPrinterHotHead",
-        "FreshLabPrinterTip", "FreshLabPrintedShell", "LabPrintedGear", "LabPrintedArmor", "LabPrintedJoint", "LabInputPellet",
+    "LABO": ["FreshLabPrintedShell", "LabPrintedGear", "LabPrintedArmor", "LabPrintedJoint", "LabInputPellet",
         "LabArmLinkA", "LabArmLinkB", "LabArmElbow", "LabArmWristHub",
         "LabArmWristShaft", "LabArmWristOffset", "LabArmGripBody",
         "LabArmGripJaw", "LabStockLift", "LabStockShutter", "LabMetalFeedSpool"],
@@ -47,6 +47,8 @@ const TICK_SECONDS: float = 1.0 / 30.0
 
 static func animated_features_for(key: String) -> Array:
     var features: Array = (MOTION_FEATURES.get(key, []) as Array).duplicate()
+    if key == "LABO":
+        features.append_array(LabPrintArms.features())
     if key == "SCRAP_COLLECTOR":
         features.append_array(CRANE_SLEW_FEATURES)
     return features
@@ -240,17 +242,8 @@ func _lab_position(rest: Transform3D, local: Vector3) -> Transform3D:
 
 func _lab_pose(feature: String, slot: int, rest: Transform3D, t: float,
         target: Vector3, elbow: Vector3, wrist: Vector3) -> Transform3D:
-    # Ring toolpath and monotonic layer height. The carriage stays on its
-    # guide; the gold telescoping head follows the advancing build surface.
+    # Monotonic layer height; articulated nozzle poses are sampled separately.
     var progress: float = clampf((t - 0.35) / 5.65, 0.025, 1.0)
-    var x: float = 0.10 + 0.29 * cos(t * TAU / 1.15)
-    var z: float = 1.13 + 0.25 * sin(t * TAU / 1.15)
-    var tip_y: float = 0.86 + 0.40 * progress + 0.12
-    if t > 6.0:
-        var park: float = _lab_ease(t, 6.0, 7.0)
-        x = lerpf(0.10 + 0.29 * cos(6.0 * TAU / 1.15), 0.57, park)
-        z = lerpf(1.13 + 0.25 * sin(6.0 * TAU / 1.15), 1.08, park)
-        tip_y = lerpf(1.38, 2.15, park)
     var grip: float = _lab_ease(t, 9.0, 9.5) * (1.0 - _lab_ease(t, 14.2, 14.7))
     var lift: float = _lab_ease(t, 1.4, 2.4) * (1.0 - _lab_ease(t, 15.5, 16.4))
     var opening: float = _lab_ease(t, 0.4, 1.4) * (1.0 - _lab_ease(t, 16.4, 17.2))
@@ -258,13 +251,6 @@ func _lab_pose(feature: String, slot: int, rest: Transform3D, t: float,
     match feature:
         "LabMetalFeedSpool":
             return _spin_about(rest, rest.origin, _axis(Vector3.BACK), minf(t, 6.0)*2.0)
-        "FreshLabPrinterServo":
-            return _lab_position(rest, Vector3(x, 2.40, 1.05))
-        "FreshLabPrinterHotHead":
-            return _lab_segment(Vector3(x, tip_y + 0.08, z),
-                Vector3(x, 2.27, z), 0.39, 0.39)
-        "FreshLabPrinterTip":
-            return _lab_position(rest, Vector3(x, tip_y, z))
         "FreshLabPrintedShell", "LabPrintedGear", "LabPrintedArmor", "LabPrintedJoint":
             if feature != PRINT_FEATURES[_print_variant] or t >= 17.2:
                 return Transform3D(rest.basis.scaled_local(Vector3.ONE * 0.0001), rest.origin)
@@ -394,8 +380,13 @@ func sample_at(seconds: float) -> void:
     var lab_target := Vector3.ZERO
     var lab_elbow := Vector3.ZERO
     var lab_wrist := Vector3.ZERO
+    var lab_print_poses: Dictionary = {}
     if facility_key == "LABO":
         lab_t = clampf(time - 3.0, 0.0, LAB_CYCLE - 0.001)
+        for arm_index in range(3):
+            var groups: Dictionary = LabPrintArms.poses(arm_index,lab_t,time>=3.0 and lab_t<7.0)
+            for group in LabPrintArms.GROUPS:
+                lab_print_poses[LabPrintArms.feature(arm_index,group)] = {"index":arm_index,"pose":groups[group]}
         lab_target = _lab_arm_target(lab_t)
         lab_wrist = Vector3(lab_target.x, LAB_ARM_ROOT.y, lab_target.z + 0.34)
         # Analytic two-link planar IK: both castings retain fixed lengths.
@@ -422,7 +413,10 @@ func sample_at(seconds: float) -> void:
                 "NEXUS":
                     pose = _nexus_pose(feature, i, rest, time, nexus_scan)
                 "LABO":
-                    if feature == "LabInputPellet":
+                    if lab_print_poses.has(feature):
+                        var arm: Dictionary = lab_print_poses[feature]
+                        pose = LabPrintArms.apply_pose(rest,int(arm["index"]),arm["pose"],_body_yaw,_model_scale)
+                    elif feature == "LabInputPellet":
                         var feed: float = smoothstep(0.15,1.2,time)
                         pose.origin += _at(Vector3(0,-0.45*feed,0))
                         if time >= 1.2:
