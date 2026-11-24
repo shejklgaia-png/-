@@ -960,8 +960,12 @@ func _make_mesh(element: Dictionary) -> MeshInstance3D:
     var tool := SurfaceTool.new()
     tool.begin(Mesh.PRIMITIVE_TRIANGLES)
     var triangle_count: int = 0
+    var capture_faces: bool = bool(get_meta("texture_studio_capture_faces",false))
+    var authored_faces := PackedInt32Array()
+    var polygon_index: int = 0
     var is_sword_fx: bool = str(element.get("name", "")) == "Swordeffect"
     for face_id in faces.keys():
+        polygon_index += 1
         var face: Dictionary = faces[face_id]
         # Blockbench free-model UVs are keyed per-face/per-vertex. Preserve
         # their correspondence when changing polygon winding for Godot.
@@ -1012,11 +1016,15 @@ func _make_mesh(element: Dictionary) -> MeshInstance3D:
                 tool.set_uv(face_uvs[index])
                 tool.add_vertex(points[index])
             triangle_count += 1
+            if capture_faces:
+                authored_faces.append(polygon_index)
     if triangle_count == 0:
         return null
 
     var result := MeshInstance3D.new()
     result.mesh = tool.commit()
+    if capture_faces:
+        result.set_meta("texture_studio_authored_faces",authored_faces)
     var material := StandardMaterial3D.new()
     # All six authored orientations are colored in the Blockbench PNG.
     # Use unshaded to avoid lighting undoing the baked upper/side/lower values.
