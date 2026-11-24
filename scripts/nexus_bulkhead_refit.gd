@@ -157,6 +157,7 @@ static func build(room: Node3D) -> void:
 
     _build_industrial_services(root)
     _build_command_spine(root)
+    _build_bridge_service_faces(root)
 
 
 # The old narrow front plate is replaced by a sculpted central structural
@@ -204,31 +205,38 @@ static func _build_industrial_services(root: Node3D) -> void:
         tool.begin(Mesh.PRIMITIVE_TRIANGLES)
         tool.set_smooth_group(-1)
 
-    # New vault: broad faceted haunches instead of repeated box girders.
-    # At the rear launch bay the right half remains completely open.
+    # A hierarchy of two main trusses and three narrow secondary supports,
+    # not five equally prominent arches. Raise the shoulders out of the
+    # equipment silhouettes and leave long stretches of exposed ceiling.
     var ribs := SurfaceTool.new()
-    ribs.begin(Mesh.PRIMITIVE_TRIANGLES)
-    ribs.set_smooth_group(-1)
+    var rib_insets := SurfaceTool.new()
+    for tool in [ribs, rib_insets]:
+        tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+        tool.set_smooth_group(-1)
     for station in [-17.55, -10.10, -2.65, 4.80, 12.25]:
         var z: float = float(station)
-        var broad: bool = z == -2.65 or z == 4.80
-        _service_sweep(ribs, [Vector3(-9.10,7.65,z),
-            Vector3(-7.45,7.65,z), Vector3(-5.70,8.88,z),
-            Vector3(-3.80,9.19,z), Vector3(3.80,9.19,z),
-            Vector3(5.70,8.88,z), Vector3(7.45,7.65,z),
-            Vector3(9.10,7.65,z)], Vector3.BACK,
-            _service_section(0.43 if broad else 0.25,0.32,0.12))
-        # Integrated outer buttress collars, not detached decoration.
+        var main: bool = z == -10.10 or z == 4.80
+        var shoulder: float = 8.02 if main else 8.52
+        var span: Array = [Vector3(-9.10,shoulder,z),
+            Vector3(-7.95,shoulder,z), Vector3(-6.0,9.16,z),
+            Vector3(-3.65,9.43,z), Vector3(3.65,9.43,z),
+            Vector3(6.0,9.16,z), Vector3(7.95,shoulder,z),
+            Vector3(9.10,shoulder,z)]
+        _service_sweep(ribs, span, Vector3.BACK,
+            _service_section(0.33 if main else 0.14,0.24 if main else 0.13,0.08))
         for side in [-1.0,1.0]:
-            _service_sweep(steel, [Vector3(side*8.95,7.65,z),
-                Vector3(side*7.55,7.65,z)], Vector3.BACK,
-                _service_section(0.49 if broad else 0.32,0.40,0.10))
-    # Longitudinal center coffer mounts to the retained roof and divides
-    # the vault into unequal functional sections. No roof-hanging pipes
-    # close to the maintenance canopy silhouette.
-    _service_sweep(duct, [Vector3(0.0,9.42,-27.0),
-        Vector3(0.0,9.42,12.35)], Vector3.RIGHT,
-        _service_section(2.20,0.25,0.22))
+            _service_sweep(steel, [Vector3(side*9.08,shoulder,z),
+                Vector3(side*8.15,shoulder,z)], Vector3.BACK,
+                _service_section(0.37 if main else 0.20,0.28 if main else 0.18,0.07))
+        if main:
+            # A separate metal spline is embedded in the lower truss face.
+            _service_sweep(rib_insets, [Vector3(-5.0,9.13,z),
+                Vector3(-3.65,9.22,z), Vector3(3.65,9.22,z),
+                Vector3(5.0,9.13,z)], Vector3.BACK,
+                _service_section(0.12,0.065,0.035))
+    _service_submit(root, "CeilingTrussInlays", rib_insets, Color("#81817a"), _service_texture(1))
+    _build_roof_access_bays(root)
+
     # Narrow dark service rails sit at the roof shoulder; existing lamps
     # retain their true source positions and project below this cladding.
     for side in [-1.0,1.0]:
@@ -241,13 +249,6 @@ static func _build_industrial_services(root: Node3D) -> void:
         _service_sweep(duct, [Vector3(side*5.58,9.59,-27.0),
             Vector3(side*5.58,9.59,12.35)], Vector3.RIGHT,
             _service_section(0.56,0.13,0.08))
-    # Separate near-field access bay with visible layered channel and endcaps.
-    _service_sweep(steel, [Vector3(-1.32,9.04,-2.65),
-        Vector3(-1.32,9.04,4.80), Vector3(-1.32,9.04,12.25)],
-        Vector3.RIGHT, _service_section(0.24,0.14,0.08))
-    _service_sweep(steel, [Vector3(1.32,9.04,-2.65),
-        Vector3(1.32,9.04,4.80), Vector3(1.32,9.04,12.25)],
-        Vector3.RIGHT, _service_section(0.24,0.14,0.08))
     _service_submit(root, "CeilingVaultRibs", ribs, Color("#74828d"), _service_texture(0))
 
     # Rear-left wall heat exchanger: fins seat in the existing inset face.
@@ -301,6 +302,125 @@ static func _build_industrial_services(root: Node3D) -> void:
     _service_submit(root, "WallDuctMesh", wall_duct, Color("#65727b"), coated)
     _service_submit(root, "WallPipeMesh", wall_steel, Color("#8a8980"), pipe_finish)
     _service_submit(root, "RearHeatExchangerMesh", fins, Color("#60727b"), _service_texture(2))
+
+
+# Actual recessed roof bays. The outer rim joins the roof underside; the
+# chamfer drops into a thin machined frame, then rises to a recessed lid.
+# Four shared material meshes, no transparent overlays or moving parts.
+static func _build_roof_access_bays(root: Node3D) -> void:
+    var rim := SurfaceTool.new()
+    var lid := SurfaceTool.new()
+    var vent := SurfaceTool.new()
+    var trim := SurfaceTool.new()
+    for tool in [rim,lid,vent,trim]:
+        tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+        tool.set_smooth_group(-1)
+    # The near pair is deliberately offset in X/Z and unequal in size.
+    # All fittings stay above y=9.08; the canopy and lamps remain clear.
+    for spec in [
+            Vector4(-1.60,0.10,2.35,4.65),
+            Vector4(1.25,1.25,2.55,2.65),
+            Vector4(1.25,-3.65,2.55,5.25),
+            Vector4(-1.60,-6.45,2.35,6.20),
+            Vector4(-0.25,-14.0,3.90,5.0),
+            Vector4(0.30,-21.0,3.30,5.0),
+            Vector4(0.0,8.0,4.8,5.1)]:
+        var s: Vector4 = spec
+        var center := Vector2(s.x,s.y)
+        var half := Vector2(s.z,s.w)*0.5
+        var outer: Array = _roof_octagon(center,half,0.18,9.66)
+        var lip: Array = _roof_octagon(center,half-Vector2(0.12,0.12),0.14,9.17)
+        var opening: Array = _roof_octagon(center,half-Vector2(0.25,0.25),0.10,9.17)
+        var recess: Array = _roof_octagon(center,half-Vector2(0.30,0.30),0.09,9.48)
+        _roof_band(rim,outer,lip)
+        _roof_band(trim,lip,opening)
+        _roof_band(rim,opening,recess)
+        for k in range(1,recess.size()-1):
+            _roof_face(lid,recess[0],recess[k+1],recess[k])
+        # Louvers occupy just one offset zone, rather than the entire lid.
+        if s.x > 0.5 or s.y < -18.0:
+            var x0: float = s.x-half.x+0.42
+            var x1: float = s.x+half.x-0.42
+            var count: int = mini(9,floori((s.w-0.9)/0.32))
+            for k in range(count):
+                var z: float = s.y-half.y+0.48+float(k)*0.32
+                _service_sweep(vent,[Vector3(x0,9.39,z),Vector3(x1,9.39,z)],
+                    Vector3.BACK,_service_section(0.07,0.105,0.035))
+        else:
+            # Two catches are inset in the lid, seated against its surface.
+            for side in [-1.0,1.0]:
+                var x: float = s.x+side*(half.x-0.44)
+                _service_sweep(trim,[Vector3(x,9.43,s.y-0.28),
+                    Vector3(x,9.43,s.y+0.28)],Vector3.RIGHT,
+                    _service_section(0.085,0.08,0.035))
+    _service_submit(root,"CeilingBayCastRims",rim,Color("#64727b"),_service_texture(0))
+    _service_submit(root,"CeilingBayRecessedLids",lid,Color("#45525b"),_bay_panel_texture())
+    _service_submit(root,"CeilingBayLouvers",vent,Color("#687579"),_service_texture(2))
+    _service_submit(root,"CeilingBayMachinedEdges",trim,Color("#85877d"),_service_texture(1))
+
+
+static func _roof_octagon(center: Vector2, half: Vector2, cut: float, y: float) -> Array:
+    var points: Array = _service_section(half.x,half.y,cut)
+    var result: Array = []
+    for value in points:
+        var p: Vector2 = center+Vector2(value)
+        result.append(Vector3(p.x,y,p.y))
+    return result
+
+
+static func _roof_band(tool: SurfaceTool, outer: Array, inner: Array) -> void:
+    for i in range(outer.size()):
+        var j: int = (i+1)%outer.size()
+        _roof_face(tool,outer[i],inner[i],inner[j])
+        _roof_face(tool,outer[i],inner[j],outer[j])
+
+
+static func _roof_face(tool: SurfaceTool,a: Vector3,b: Vector3,c: Vector3) -> void:
+    _service_triangle(tool,a,b,c,Vector2(a.x,a.z),Vector2(b.x,b.z),Vector2(c.x,c.z))
+
+
+# A visible functional fascia fixed directly to the existing left bridge.
+# No new part crosses the gate-side x=2.7 clearance or obscures the logo.
+static func _build_bridge_service_faces(root: Node3D) -> void:
+    var casing := SurfaceTool.new()
+    var inserts := SurfaceTool.new()
+    for tool in [casing,inserts]:
+        tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+        tool.set_smooth_group(-1)
+    for spec in [Vector2(-7.7,1.65),Vector2(-5.4,2.25),Vector2(-2.95,1.5)]:
+        var s: Vector2 = spec
+        _service_sweep(casing,[Vector3(s.x-s.y*0.5,6.27,-19.22),
+            Vector3(s.x+s.y*0.5,6.27,-19.22)],Vector3.BACK,
+            _service_section(0.14,0.27,0.08))
+        for k in range(4):
+            var x: float = s.x-s.y*0.32+float(k)*s.y*0.21
+            _service_sweep(inserts,[Vector3(x,6.14,-19.075),
+                Vector3(x,6.39,-19.075)],Vector3.RIGHT,
+                _service_section(0.065,0.025,0.018))
+    _service_submit(root,"WallBridgeServiceCasing",casing,Color("#65717a"),_bay_panel_texture())
+    _service_submit(root,"WallBridgeServiceInserts",inserts,Color("#8d8879"),_service_texture(1))
+
+
+static func _bay_panel_texture() -> ImageTexture:
+    # Stronger medium-scale panel seams and locking tabs read at phone scale.
+    # Periodic UVs are metric, not stretched over the entire ceiling bay.
+    var image := Image.create(96,96,false,Image.FORMAT_RGBA8)
+    image.fill(Color("#d9dbd8"))
+    for y in range(96):
+        for x in range(96):
+            var v: float = float(215+((x*7+y*13+x*y)%11)-5)/255.0
+            image.set_pixel(x,y,Color(v,v,v,1.0))
+    image.fill_rect(Rect2i(0,0,96,3),Color("#929c9f"))
+    image.fill_rect(Rect2i(0,3,96,1),Color("#f1f3ec"))
+    image.fill_rect(Rect2i(0,0,3,96),Color("#929c9f"))
+    image.fill_rect(Rect2i(3,0,1,96),Color("#f1f3ec"))
+    for x in [9,83]:
+        for y in [10,82]:
+            image.fill_rect(Rect2i(x,y,5,5),Color("#929b9e"))
+            image.fill_rect(Rect2i(x+1,y+1,3,3),Color("#f0f0e7"))
+            image.set_pixel(x+2,y+2,Color("#717b80"))
+    image.generate_mipmaps()
+    return ImageTexture.create_from_image(image)
 
 
 static func _service_section(w: float, h: float, bevel: float) -> Array:
