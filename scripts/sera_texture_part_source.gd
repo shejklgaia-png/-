@@ -143,4 +143,13 @@ static func _paint_material(source: Material) -> StandardMaterial3D:
         mat.uv1_offset = Vector3(offset_uv.x,offset_uv.y,0.0)
     mat.vertex_color_use_as_albedo = bool(shader_material.get_shader_parameter("use_vertex_color"))
     mat.texture_repeat = false
+    # Match the canonical game's per-mesh winding policy. Flattening all
+    # pieces to two-sided exposes interior faces and changes the shading.
+    match shader_material.shader.resource_path:
+        "res://shaders/sera_fullbody_material_shading_closed.gdshader":
+            mat.cull_mode = BaseMaterial3D.CULL_FRONT
+        "res://shaders/sera_fullbody_material_shading_back.gdshader":
+            mat.cull_mode = BaseMaterial3D.CULL_BACK
+        _:
+            mat.cull_mode = BaseMaterial3D.CULL_DISABLED
     return mat
