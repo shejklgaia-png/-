@@ -41,6 +41,11 @@ func _run() -> void:
     var severe: int = 0
     var counted: int = 0
     var invalid: int = 0
+    var island_edges: int = 0
+    var island_bad: int = 0
+    var island_severe: int = 0
+    var island_max: float = 0.0
+    var island_sum: float = 0.0
     var min_ratio: float = INF
     var max_ratio: float = 0.0
     var physical: Array = UV._seam_segments(tris,true)
@@ -51,6 +56,12 @@ func _run() -> void:
             continue
         var r: float = float(m.residual)
         counted += 1
+        if int(link.a) != int(link.b):
+            island_edges += 1
+            island_bad += 1 if r > 0.25 else 0
+            island_severe += 1 if r > 1.0 else 0
+            island_max = maxf(island_max,r)
+            island_sum += r*r
         max_res = maxf(max_res,r)
         sum_sq += r*r
         if r > 0.25:
@@ -72,7 +83,7 @@ func _run() -> void:
             invalid += 1
     var distortion: Vector3 = UV._topology_distortion(tris,density)
     var diagnostic: Dictionary = UV.diagnostic_report(tris,side,density)
-    var report: Dictionary = {"id":id,"density":density,"version":result.unwrap_version,"triangles":tris.size(),"charts":result.charts,"atlas":side.x,"physical_edges":counted,"bad":bad,"severe":severe,"max":max_res,"sum_sq":sum_sq,"invalid":invalid,"min_ratio":min_ratio,"max_ratio":max_ratio,"shape_max":distortion.x,"shape_mean":distortion.y,"area_max":distortion.z,"elapsed_ms":elapsed,"diagnostic":diagnostic.report,"solver":result.affine_report}
+    var report: Dictionary = {"id":id,"density":density,"version":result.unwrap_version,"triangles":tris.size(),"charts":result.charts,"atlas":side.x,"physical_edges":counted,"island_edges":island_edges,"island_bad":island_bad,"island_severe":island_severe,"island_max":island_max,"island_sum_sq":island_sum,"bad":bad,"severe":severe,"max":max_res,"sum_sq":sum_sq,"invalid":invalid,"min_ratio":min_ratio,"max_ratio":max_ratio,"shape_max":distortion.x,"shape_mean":distortion.y,"area_max":distortion.z,"elapsed_ms":elapsed,"diagnostic":diagnostic.report,"solver":result.affine_report}
     var file := FileAccess.open(dest,FileAccess.WRITE)
     if file == null:
         push_error("Cannot write UV report")

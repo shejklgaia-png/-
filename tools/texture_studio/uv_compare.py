@@ -4,7 +4,7 @@ from math import isfinite
 
 root = Path(sys.argv[1])
 parts = ["H02", "H01", "L03", "WR03"]
-variants = ["baseline", "threshold", "peak"]
+variants = ["baseline", "direct", "paired"]
 data = {}
 for f in root.rglob("*.json"):
     variant, part = f.stem.split("-", 1)
@@ -19,6 +19,12 @@ for v in variants:
             print(f"| {v} | {p} | missing | | | | | | | |")
             continue
         print(f"| {v} | {p} | {x['physical_edges']} | {x['bad']} | {x['severe']} | {x['max']:.4f} | {x['sum_sq']:.4f} | {x['atlas']} | {x['elapsed_ms']} | {x['invalid']} |")
+print("\n### Inter-island residuals (no dilution by internal edges)")
+for v in variants:
+    for p in parts:
+        x = data.get((v,p))
+        if x:
+            print(f"- {v} {p}: {x['island_bad']}/{x['island_edges']} above 0.25px; max {x['island_max']:.5f}px; sum {x['island_sum_sq']:.5f}")
 print("\n### Candidate gate (no automated merge)")
 for v in variants[1:]:
     reasons, improved = [], False
@@ -35,6 +41,10 @@ for v in variants[1:]:
             reasons.append(p+": invalid or coverage changed")
         if c["bad"] > b["bad"] or c["severe"] > b["severe"] or c["max"] > b["max"]+1e-5 or c["sum_sq"] > b["sum_sq"]+1e-5:
             reasons.append(p+": residual regression")
+        # Island counts can change after a cut; the absolute bad count and
+        # physical-edge gate must both be non-regressing.
+        if c["island_bad"] > b["island_bad"] or c["island_severe"] > b["island_severe"] or c["island_max"] > b["island_max"]+1e-5 or c["island_sum_sq"] > b["island_sum_sq"]+1e-5:
+            reasons.append(p+": island residual regression")
         if c["atlas"] > b["atlas"] or c["shape_max"] > b["shape_max"]+0.02 or c["shape_mean"] > b["shape_mean"]*1.05+1e-6 or c["area_max"] > b["area_max"]+0.02:
             reasons.append(p+": atlas or shape regression")
         if c["elapsed_ms"] > max(b["elapsed_ms"]*1.5, b["elapsed_ms"]+500):

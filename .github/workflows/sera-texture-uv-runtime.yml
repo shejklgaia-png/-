@@ -17,7 +17,7 @@ jobs:
       fail-fast: false
       max-parallel: 4
       matrix:
-        variant: [baseline, threshold, peak]
+        variant: [baseline, direct, paired]
         part: [H02, H01, L03, WR03]
     steps:
       - uses: actions/checkout@v4
@@ -61,4 +61,6 @@ jobs:
           pattern: uv-*
           path: results
       - name: Compare all physical edges and distortion; never auto-promote
-        run: python3 tools/texture_studio/uv_compare.py results >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          set -euo pipefail
+          python3 tools/texture_studio/uv_compare.py results | tee -a "$GITHUB_STEP_SUMMARY"
