@@ -15,6 +15,8 @@ var crate_head: Node3D
 var crate_arm: Node3D
 var crate_left_arm: Node3D
 var hero_camera: Camera3D
+var camera_look: Vector3 = Vector3.ZERO
+var camera_previews: Dictionary = {}
 var warehouse_scanner: Node3D
 var printer_nozzle: Node3D
 var printed_part: Node3D
@@ -130,7 +132,8 @@ func set_section(section: String) -> void:
             hero_camera.keep_aspect = Camera3D.KEEP_HEIGHT
             hero_camera.position = Vector3(2.45, 1.28, 5.10)
             hero_camera.fov = 62.0
-            hero_camera.look_at(Vector3(0.05, 2.05, -1.15), Vector3.UP)
+            camera_look = Vector3(0.05, 2.05, -1.15)
+            hero_camera.look_at(camera_look, Vector3.UP)
         "SMELTER", "RECYCLER":
             # Scene B: front LEFT 21 degree viewpoint and raised camera.
             # Orange vessel appears nearer than cyan and violet; four
@@ -140,7 +143,8 @@ func set_section(section: String) -> void:
             work_state = "refinery_audit"
             hero_camera.position = Vector3(-3.40, 2.90, 5.55)
             hero_camera.fov = 55.0
-            hero_camera.look_at(Vector3(-0.10, 1.65, -1.00), Vector3.UP)
+            camera_look = Vector3(-0.10, 1.65, -1.00)
+            hero_camera.look_at(camera_look, Vector3.UP)
         "STORAGE":
             # Frame the freight from INSIDE the front of the enclosed hall,
             # not from outside its open set. The wider racks fill the hero
@@ -152,7 +156,26 @@ func set_section(section: String) -> void:
             hero_camera.keep_aspect = Camera3D.KEEP_HEIGHT
             hero_camera.position = Vector3(0.70, 2.65, 4.65)
             hero_camera.fov = 56.0
-            hero_camera.look_at(Vector3(0.00, 1.95, -2.65), Vector3.UP)
+            camera_look = Vector3(0.00, 1.95, -2.65)
+            hero_camera.look_at(camera_look, Vector3.UP)
+
+    var key: String = camera_section_id()
+    if camera_previews.has(key):
+        var pose: Dictionary = camera_previews[key]
+        apply_camera_preview(pose["eye"], pose["look"], float(pose["fov"]))
+
+
+func camera_section_id() -> String:
+    return "REFINERY" if current_section in ["SMELTER", "RECYCLER"] else current_section
+
+
+func apply_camera_preview(eye: Vector3, look: Vector3, fov: float) -> void:
+    camera_look = look
+    hero_camera.position = eye
+    hero_camera.look_at(camera_look, Vector3.UP)
+    hero_camera.fov = fov
+    camera_previews[camera_section_id()] = {"eye": eye, "look": look, "fov": fov}
+
 
 func _move_to(goal: Vector3, delta: float) -> bool:
     var planar := Vector3(goal.x, crate.position.y, goal.z)
