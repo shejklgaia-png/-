@@ -113,7 +113,7 @@ var _cargo_count: int = 0
 var _ready_for_motion: bool = false
 var _facility_motion: Dictionary = {}
 var _intakes: Dictionary = {}
-const INTAKE_ITEM_TIME: float = 5.0
+const INTAKE_ITEM_TIME: float = 6.0
 
 func bind_facility_motion(key: String, motion: Node) -> void:
     if is_instance_valid(motion):
@@ -142,9 +142,10 @@ func _build_intake(key: String, motion: Node) -> void:
     g.rod("IntakeMast",Vector3(mast.x,0.10,mast.z),mast,0.16,"slate")
     g.rod("IntakeMastBrace",mast,start,0.14,"edge")
     # Machine end is cantilevered from a side support outside the mouth.
-    var anchor: Vector3 = end+side*0.70
-    g.rod("IntakeEndBrace",end,anchor+Vector3.DOWN*0.65,0.14,"edge")
-    g.rod("IntakeEndSupport",anchor+Vector3.DOWN*0.65,anchor+Vector3.DOWN*1.30,0.15,"slate")
+    var support: Vector3 = to_local(motion.call("material_support_world"))
+    var anchor := Vector3(support.x,rail_y,support.z)
+    g.rod("IntakeEndBrace",end,anchor,0.14,"edge")
+    g.rod("IntakeEndSupport",anchor,support,0.15,"slate")
     _direct_visual(g,"intake_rail_"+key,"MaterialIntakeRail_"+key)
     var trolley_model: Variant = _template()
     trolley_model.box("IntakeTrolley",Vector3.ZERO,Vector3(1.12,0.16,0.38),"slate")
@@ -157,7 +158,7 @@ func _build_intake(key: String, motion: Node) -> void:
     for sign in [-1.0,1.0]:
         grip_model.box("IntakeGripJaw",Vector3(sign*0.30,-0.08,0),Vector3(0.06,0.24,0.21),"edge")
     var grip: Visual = _direct_visual(grip_model,"intake_grip","IntakeGrip_"+key)
-    _intakes[key] = {"target":target,"rail_y":rail_y,"start":start,"end":end,
+    _intakes[key] = {"empty":_cargo_mesh(true,0,"EMPTY_INTAKE"),"target":target,"rail_y":rail_y,"start":start,"end":end,
         "trolley":trolley,"hoist":hoist,"grip":grip}
     _apply_visual_pose(trolley,_pose(start),true)
     _apply_visual_pose(hoist,Transform3D.IDENTITY,false)
@@ -208,11 +209,19 @@ func _feed_stock(t: Truck, dt: float) -> void:
         at = mouth
     elif phase < 4.1:
         at = mouth.lerp(above_mouth,smoothstep(3.65,4.1,phase))
-        visible = false
+        visible = key != "STORAGE"
+    elif phase < 5.15:
+        at = above_mouth.lerp(above_rack,smoothstep(4.1,5.15,phase))
+        visible = key != "STORAGE"
     else:
-        at = above_mouth.lerp(above_rack,smoothstep(4.1,5.0,phase))
-        visible = false
-    _buffer_pose(d,i,lift,1.0-smoothstep(0.55,1.35,phase))
+        at = above_rack.lerp(rack,smoothstep(5.15,5.65,phase))
+        at.y -= 0.48*smoothstep(5.65,5.95,phase)
+        visible = key != "STORAGE" and phase < 5.95
+        lift = lerpf(RACK_Y,RACK_Y-0.48,smoothstep(5.65,5.95,phase))
+    var hatch: float = (1.0-smoothstep(0.55,1.35,phase)) if phase < 5.0 else smoothstep(5.0,5.15,phase)*(1.0-smoothstep(5.9,6.0,phase))
+    _buffer_pose(d,i,lift,hatch)
+    if key != "STORAGE" and phase >= 3.55:
+        t.cargo[i].node.mesh = r["empty"]
     var pose: Transform3D = _pose(at,d.yaw)
     var tilt: float = 0.0
     if key != "STORAGE" and phase >= 3.15 and phase < 3.65:
@@ -222,10 +231,12 @@ func _feed_stock(t: Truck, dt: float) -> void:
     for j in range(t.cargo.size()):
         if j != i:
             _apply_visual_pose(t.cargo[j],_pose(_rack_slot(d,j),d.yaw),false)
-    _intake_pose(r,at,d.yaw,phase < 4.99)
+    _intake_pose(r,at,d.yaw,phase < 5.95)
     if tilt > 0.0:
         _apply_visual_pose(r["grip"],Transform3D(pose.basis,at+Vector3.UP*0.37),true)
     if t.clock >= INTAKE_ITEM_TIME*2.0:
+        if key != "STORAGE":
+            _cargo_kind(t,true)
         for j in range(2):
             _buffer_pose(d,j,RACK_Y-0.48,0.0)
             _apply_visual_pose(t.cargo[j],Transform3D.IDENTITY,false)
@@ -1131,6 +1142,10 @@ func _make_truck_details(t: Truck) -> void:
     var wait: Variant = _template()
     wait.box("TrafficYield", Vector3(0.0, 0.36, -0.66), Vector3(0.16, 0.06, 0.035), "amber_light")
     t.lamp_wait = _visual(wait)
+    if t.destination == "LABO":
+        for variant in range(1,4):
+            for slot in range(2):
+                _cargo_mesh(false,slot,t.destination,variant)
     for raw in [true, false]:
         for i in range(2):
             var mesh: ArrayMesh = _cargo_mesh(bool(raw), i, t.destination)
@@ -1155,13 +1170,13 @@ func _make_truck_details(t: Truck) -> void:
 
 
 func _cargo_mesh(raw: bool, i: int, destination: String, variant: int = 0) -> ArrayMesh:
-    var key: String = ("raw" if raw else destination+str(variant)) + str(i)
+    var key: String = ("empty_intake" if destination == "EMPTY_INTAKE" else ("raw" if raw else destination+str(variant))) + str(i)
     if not _solid_meshes.has(key):
         var cargo: Variant = _template()
         if raw:
             # Exactly the BASE boxed-scrap construction, scaled for the deck.
             cargo.pivot = Vector3(0, -0.16, 0)
-            Clutter._make_scrap_crate(cargo, Vector2.ZERO, 0.62, i, 7)
+            Clutter._make_scrap_crate(cargo, Vector2.ZERO, 0.62, i, 0 if destination == "EMPTY_INTAKE" else 7)
             for bucket in cargo.entries:
                 var pieces: Array = cargo.entries[bucket]
                 for j in range(pieces.size()):
