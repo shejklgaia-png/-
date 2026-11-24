@@ -166,12 +166,15 @@ static func road_legs(destination: String, index: int) -> Array:
     match destination:
         "LABO":
             loaded.append(Vector2(13.5,12.0))
-            finished.append(Vector2(-6.75,12.0))
+            # Approach the warehouse from the north; its southbound exit
+            # is shared by all six carriers and must not be a head-on lane.
+            finished.append_array([Vector2(-10.5,12.0),Vector2(-10.5,-0.75),Vector2(-6.75,-0.75)])
         "RECYCLER":
             loaded.append(Vector2(13.5,-10.5))
             finished.append(Vector2(-6.75,-10.5))
         "SMELTER":
-            loaded.append_array([Vector2(13.5,-10.5),Vector2(-6.75,-10.5),Vector2(-6.75,-3.75)])
+            # Enter the smelter from the north, depart east to storage.
+            loaded.append_array([Vector2(13.5,-10.5),Vector2(-9.0,-10.5)])
             finished.append(Vector2(-6.75,-3.75))
     loaded.append(target)
     finished.append(warehouse)
