@@ -666,6 +666,22 @@ static func _socket_drop(port: Vector3,
     return curve
 
 
+# Preserve weighted avoidance when removing intermediate grid points.
+# A straight shortcut must not replace a short transverse crossing with
+# a long cable run down the logistics road.
+static func _shortcut_cost(grid: AStarGrid2D, a: Vector3, b: Vector3) -> float:
+    var distance: float = a.distance_to(b)
+    var count: int = maxi(1, ceili(distance / (WIRE_GRID * 0.4)))
+    var cost: float = 0.0
+    for i in range(count):
+        var p: Vector3 = a.lerp(b, (float(i) + 0.5) / float(count))
+        var cell: Vector2i = _cell_of(_xz(p))
+        if not ROUTE_BOUNDS.has_point(cell) or grid.is_point_solid(cell):
+            return INF
+        cost += grid.get_point_weight_scale(cell) * distance / float(count)
+    return cost
+
+
 static func _routed_cable(grid: AStarGrid2D, from_at: Vector3,
         from_gate: Vector3, to_gate: Vector3,
         to_at: Vector3, label: String) -> PackedVector3Array:
@@ -689,11 +705,15 @@ static func _routed_cable(grid: AStarGrid2D, from_at: Vector3,
     _push_path_point(floor_waypoints, _point_of(begin))
     # Retain the original obstacle-aware line-of-sight simplification. Do
     # not smooth raw A* cells into an unconstrained spline.
+    var cumulative: Array[float] = [0.0]
+    for j in range(1, ids.size()):
+        cumulative.append(cumulative[-1] + _point_of(ids[j - 1]).distance_to(_point_of(ids[j])) * (grid.get_point_weight_scale(ids[j - 1]) + grid.get_point_weight_scale(ids[j])) * 0.5)
     var index: int = 0
     while index < ids.size() - 1:
         var next: int = ids.size() - 1
-        while next > index + 1 and not _segment_open(grid,
-                _point_of(ids[index]), _point_of(ids[next])):
+        while next > index + 1:
+            if _segment_open(grid, _point_of(ids[index]), _point_of(ids[next])) and _shortcut_cost(grid, _point_of(ids[index]), _point_of(ids[next])) <= (cumulative[next] - cumulative[index]) * 1.06:
+                break
             next -= 1
         _push_path_point(floor_waypoints, _point_of(ids[next]))
         index = next
@@ -864,6 +884,14 @@ static func build(parent: Node3D, nexus_origin: Vector3,
     # rotated facilities, existing clutter AND new small power stations.
     var route_grid: AStarGrid2D = _obstacle_grid(
         all_sites, props, placed)
+    if is_instance_valid(logistics):
+        # Route cables outside the vehicle corridor wherever feasible;
+        # short transverse crossings remain possible.
+        for x in range(ROUTE_BOUNDS.position.x, ROUTE_BOUNDS.end.x):
+            for z in range(ROUTE_BOUNDS.position.y, ROUTE_BOUNDS.end.y):
+                var c := Vector2i(x, z)
+                if not route_grid.is_point_solid(c) and bool(logistics.call("road_at", _xz(_point_of(c)))):
+                    route_grid.set_point_weight_scale(c, 4.5)
     var old_plug: Vector3 = PowerBoard.cable_point(0.0)
     var board_gate: Vector3 = old_plug + Vector3(1.10, 0.0, 0.05)
     board_gate.y = FLOOR_WIRE_Y
