@@ -53,3 +53,15 @@ ChatGPT側での画像回収の実証、設定画の自動輪郭抽出・IoU比�
 - Blender 4.5.3を公式配布元から取得し、配布チェックサム照合後、CPUで8方向描画。初回PRではexample.json、別設計は手動入力で指定する。
 - Artifactsの sera-modeling-review にBLEND、GLB、8画像、contact_sheet.jpg、review.json、元設計を保存。失敗時はpartialの可能性がある。画像合格を自動判定しない。
 - ChatGPTはPRのhead SHAから該当制作runのみを探し、run IDでartifact一覧を取得し、ZIPをダウンロードする。実ファイルが取得できたときのみ画像確認済みとする。コネクタのZIP取得後の展開・画像認識は実行結果で確かめる。
+
+## V3 設定画比較
+
+独立した正投影の設定画を透過PNG（mode: alpha）または白前景・黒背景の分離済みマスク（mode: white）にし、同じディレクトリにJSONマニフェストを置く。写真・透視図・角度不明画像はこの方式で評価しない。自動背景分離は未対応。
+
+```json
+{"format":"SERA_REFERENCE_REVIEW_V1","views":{"front":{"mask":"front_mask.png","mode":"alpha","projection":"orthographic","alignment":"bbox","landmarks":{"indicator_center":[384,380]}}}}
+```
+
+数値は形式説明用であり実設定画の測定値ではない。design側の landmarks は名前ごとに node と local XYZを記述する。固定比較では同じ画角・位置・画像寸法の画像を使う。bbox比較は平行移動・等方拡縮を除いて比較するため絶対寸法の評価ではない。赤＝不足、青＝過剰、白＝一致。誤差は参照bbox対角長で正規化。特徴点の可視性は設定画側で判断して登録する。
+
+Actions手動起動時に reference_manifest を指定するか、成果物を展開して `python tools/modeling_studio/reference_review.py <render_dir> <manifest.json> <new_output_dir>` を実行する。Pillowが必要。projections.json に全方向の投影座標が含まれる。自動合否判定なし。実設定画を入手するまでは再現性未評価。
