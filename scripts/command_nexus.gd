@@ -1643,7 +1643,8 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
         "deployment_gate":
             selected_shape = "DEPLOYMENT"
     var silhouette_parts: Array = target_parts.get(selected_shape, [])
-    for part in _nexus_console_authored_parts(name):
+    var authored_parts: Array = _nexus_console_authored_parts(name)
+    for part in authored_parts:
         if WorldMonitors.replaces_screen_marks(str(part[0])):
             continue
         # The floor foundation remains as authored. Suppress only the old
@@ -1721,15 +1722,111 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
         batch_data[batch_key] = instances
     if not selected_shape.is_empty():
         target_parts[selected_shape] = silhouette_parts
-    WorldMonitors.attach_blockbench(self,name,at,yaw,scale_factor,height_factor,"NEXUS")
+    WorldMonitors.attach_blockbench(self,name,at,yaw,scale_factor,height_factor,"NEXUS",authored_parts)
 
 
 
-# Local NEXUS refinements only: the shared Blockbench masters, screen
-# positions and old hit boxes remain unchanged. Physical keys are attached
-# to the actual tilted work surface instead of guessed global coordinates.
+# Construct the display and its mechanical mounts from one tilted local
+# frame. Both the opaque geometry and live monitor quad use the returned
+# authored parts, so moving the screen cannot leave its image behind.
+func _nexus_mounted_monitor_parts(module_name: String, authored: Array) -> Array:
+    var training: bool = module_name == "training_console"
+    var screen_name: String = "TRAINING deep cyan screen" if training else "SYSTEM blue operational screen"
+    var obsolete: Array[String] = ["TRAINING higher diagnostic monitor backing",
+        "TRAINING monitor angular bezel", "TRAINING thin bright status eyebrow"] if training else [
+        "SYSTEM horizontal wide monitor back", "SYSTEM bevel-trim panoramic display", "SYSTEM slim blue screen visor"]
+    var parts: Array = []
+    var screen: Array = []
+    for part in authored:
+        var label: String = str(part[0])
+        if obsolete.has(label):
+            continue
+        if label == screen_name:
+            screen = part.duplicate(true)
+            # Raise the complete assembly clear of the keyboard housing.
+            # Keep the original display aspect and original tilt.
+            var shift := Vector3(0, 2.5 if training else 1.5, 0.20 if training else 0.45)
+            var lo: Vector3 = _vec(screen[1]) + shift
+            var hi: Vector3 = _vec(screen[2]) + shift
+            screen[1] = [lo.x,lo.y,lo.z]
+            screen[2] = [hi.x,hi.y,hi.z]
+            parts.append(screen)
+        else:
+            parts.append(part)
+    if screen.is_empty():
+        return authored
+    var low: Vector3 = _vec(screen[1])
+    var high: Vector3 = _vec(screen[2])
+    var center: Vector3 = (low + high) * 0.5
+    var extent: Vector3 = (high - low) * 0.5
+    var basis := Basis.from_euler(_vec(screen[4]) * (PI / 180.0))
+    var prefix: String = "TRAINING" if training else "SYSTEM"
+    var border: float = 0.58 if training else 0.55
+    var outer_x: float = extent.x + border
+    var outer_y: float = extent.y + border
+    # Housing behind glass, then a genuine four-sided bezel. Nothing
+    # crosses the active screen rectangle in its local x/y plane.
+    _nexus_monitor_piece(parts, screen, center, basis, prefix+" monitor rear housing",
+        Vector3(0,0,-1.59), Vector3(2.0*outer_x,2.0*outer_y,2.92), 2)
+    for side in [-1.0,1.0]:
+        _nexus_monitor_piece(parts, screen, center, basis, prefix+" monitor side bezel",
+            Vector3(side*(extent.x+border*0.5),0,-0.18),
+            Vector3(border+0.05,2.0*outer_y,0.94), 4)
+        _nexus_monitor_piece(parts, screen, center, basis, prefix+" monitor horizontal bezel",
+            Vector3(0,side*(extent.y+border*0.5),-0.18),
+            Vector3(2.0*extent.x+0.05,border+0.05,0.94), 4)
+    # Keep the status lamp attached to the actual upper edge, out of the
+    # display area; the lamp back is seated inside the upper bezel.
+    _nexus_monitor_piece(parts, screen, center, basis, prefix+" attached status lamp",
+        Vector3(0,outer_y-0.17,0.32), Vector3(2.0*extent.x*0.92,0.34,0.22), 5, false)
+    # Rear mounting neck connects the lower housing to the existing
+    # upright body; it remains behind the glass and away from the keys.
+    _nexus_monitor_piece(parts, screen, center, basis, prefix+" monitor load bearing mount",
+        Vector3(0,-outer_y+0.15,-2.34), Vector3(5.6 if training else 7.0,2.30,2.0), 3)
+    for side in [-1.0,1.0]:
+        if training:
+            # Narrow telemetry sensor pods with forward optical slits.
+            # The inner side overlaps the rear housing; no detached plates.
+            var x: float = side*(outer_x+0.28)
+            _nexus_monitor_piece(parts, screen, center, basis, prefix+" attached tracking sensor pod",
+                Vector3(x,0.05,-1.20), Vector3(1.0,3.7,2.05), 3)
+            _nexus_monitor_piece(parts, screen, center, basis, prefix+" sensor face",
+                Vector3(x,0.05,-0.15), Vector3(0.72,1.55,0.13), 1, false)
+            for y in [-0.42,0.28]:
+                _nexus_monitor_piece(parts, screen, center, basis, prefix+" tracking optic",
+                    Vector3(x,float(y),-0.063), Vector3(0.36,0.23,0.08), 5, false)
+        else:
+            # Fixed mounting brackets and compact I/O housings, with
+            # sockets and status lights on the lower outer faces.
+            var x: float = side*(outer_x+0.12)
+            _nexus_monitor_piece(parts, screen, center, basis, prefix+" attached monitor bracket",
+                Vector3(x,-0.55,-1.18), Vector3(0.74,4.15,2.15), 3)
+            _nexus_monitor_piece(parts, screen, center, basis, prefix+" I O block",
+                Vector3(x,-1.48,-0.05), Vector3(0.62,1.35,0.28), 1, false)
+            for y in [-1.91,-1.51,-1.11]:
+                _nexus_monitor_piece(parts, screen, center, basis, prefix+" I O socket",
+                    Vector3(x,float(y),0.12), Vector3(0.32,0.16,0.07), 4, false)
+    return parts
+
+
+func _nexus_monitor_piece(parts: Array, screen: Array, center: Vector3, basis: Basis,
+        label: String, local: Vector3, dimensions: Vector3, palette: int,
+        selectable: bool = true) -> void:
+    var at: Vector3 = center + basis * local
+    var lo: Vector3 = at - dimensions * 0.5
+    var hi: Vector3 = at + dimensions * 0.5
+    # Rectangular fitted pieces retain their exact contact surfaces rather
+    # than being shrunk by the general console armor chamfer mesh.
+    parts.append([label,[lo.x,lo.y,lo.z],[hi.x,hi.y,hi.z],
+        palette,screen[4],false,selectable])
+
+
+# Local NEXUS refinements only: shared Blockbench masters remain unchanged.
+# Physical keys follow the actual tilted work surface.
 func _nexus_console_authored_parts(module_name: String) -> Array:
     var authored: Array = Modules.MODULES[module_name]
+    if module_name in ["system_console", "training_console"]:
+        authored = _nexus_mounted_monitor_parts(module_name, authored)
     if not module_name in ["system_console", "training_console", "data_bank"]:
         return authored
     var result: Array = []

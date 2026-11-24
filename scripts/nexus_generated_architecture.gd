@@ -17,10 +17,7 @@ static func build(room: Node3D, system_at: Vector3,
         Vector3(-0.65, 0.48, 0.58), Vector2(0.20, 0.64))
     _plate(pieces, "outer", system_at, deg_to_rad(18.0),
         Vector3(0.65, 0.48, 0.58), Vector2(0.20, 0.64))
-    _plate(pieces, "trim", system_at, deg_to_rad(18.0),
-        Vector3(-0.855, 1.56, 0.11), Vector2(0.10, 0.63))
-    _plate(pieces, "trim", system_at, deg_to_rad(18.0),
-        Vector3(0.855, 1.56, 0.11), Vector2(0.10, 0.63))
+    # Monitor-side plates now belong to the fitted monitor assembly.
     _plate(pieces, "dark", system_at, deg_to_rad(18.0),
         Vector3(0.24, 0.57, 0.58), Vector2(0.43, 0.34))
     _vent(pieces, system_at, deg_to_rad(18.0),
@@ -40,10 +37,7 @@ static func build(room: Node3D, system_at: Vector3,
         Vector3(-0.48, 0.72, 0.34), Vector2(0.15, 0.72))
     _plate(pieces, "outer", training_at, deg_to_rad(-14.0),
         Vector3(0.48, 0.70, 0.34), Vector2(0.13, 0.65))
-    _plate(pieces, "trim", training_at, deg_to_rad(-14.0),
-        Vector3(-0.68, 1.86, 0.12), Vector2(0.115, 0.61))
-    _plate(pieces, "trim", training_at, deg_to_rad(-14.0),
-        Vector3(0.435, 1.87, 0.12), Vector2(0.10, 0.60))
+    # Old detached monitor trim removed; sensor pods attach to housing.
     _plate(pieces, "dark", training_at, deg_to_rad(-14.0),
         Vector3(-0.17, 0.55, 0.61), Vector2(0.41, 0.36))
     _vent(pieces, training_at, deg_to_rad(-14.0),
