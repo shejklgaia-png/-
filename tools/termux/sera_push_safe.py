@@ -264,10 +264,8 @@ def main():
         fcntl.flock(lock_file, fcntl.LOCK_EX)
         # Placement JSON is published separately; never stage it on main.
         preview = SOURCE / ".sera-placement" / "preview.json"
-        if preview.is_file():
-            decoded = json.loads(preview.read_text(encoding="utf-8"))
-            if decoded.get("schema") != 1 or not isinstance(decoded.get("records"), dict):
-                raise RuntimeError("Invalid placement preview schema")
+        apk_preview = Path.home() / ".sera_apk_placement.json"
+        if preview.is_file() or apk_preview.is_file():
             script = Path.home() / "sera_sync_placement_preview.sh"
             if not script.is_file():
                 raise RuntimeError("Placement sync helper missing; reinstall safe sync")

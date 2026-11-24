@@ -73,6 +73,10 @@ func configure(owner_node) -> void:
         button.pressed.connect(_action.bind(str(pair[0])))
     hide()
 
+func _notification(what: int) -> void:
+    if what == NOTIFICATION_APPLICATION_PAUSED and is_instance_valid(stage):
+        stage.call("flush_model_placement")
+
 func _make_button(caption: String) -> Button:
     var button := Button.new()
     button.text = caption
@@ -116,6 +120,7 @@ func close_mode() -> void:
     selected = null
     hide()
     if is_instance_valid(stage):
+        stage.call("flush_model_placement")
         var route: Node3D = stage.get("crate_route") as Node3D
         if route != null:
             route.visible = crate_was_visible
@@ -303,6 +308,7 @@ func _action(id: String) -> void:
         "down":
             selected.position.y -= 0.10
     _remember()
+    stage.call("flush_model_placement")
 
 func _press(point: Vector2, id: int) -> void:
     if pointer != -999:
@@ -334,6 +340,7 @@ func route_input(event: InputEvent) -> bool:
             _press(event.position, event.index)
         elif event.index == pointer:
             pointer = -999
+            stage.call("flush_model_placement")
     elif event is InputEventScreenDrag and event.index == pointer:
         _drag(event.position)
     elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
@@ -341,6 +348,7 @@ func route_input(event: InputEvent) -> bool:
             _press(event.position, -100)
         elif pointer == -100:
             pointer = -999
+            stage.call("flush_model_placement")
     elif event is InputEventMouseMotion and pointer == -100:
         _drag(event.position)
     return true

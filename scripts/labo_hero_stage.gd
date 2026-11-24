@@ -168,6 +168,11 @@ func set_section(section: String) -> void:
 
     var key: String = camera_section_id()
     crate_route.transform = crate_route_poses.get(key, Transform3D.IDENTITY)
+    for target in placement_models():
+        var model_saved: Dictionary = PlacementStore.read(_model_placement_key(target))
+        if model_saved.get("space") == "parent_local" and model_saved.has("position") and model_saved.has("rotation_degrees"):
+            target.position = PlacementStore.vec(model_saved["position"])
+            target.rotation_degrees = PlacementStore.vec(model_saved["rotation_degrees"])
     if camera_previews.has(key):
         var pose: Dictionary = camera_previews[key]
         apply_camera_preview(pose["eye"], pose["look"], float(pose["fov"]))
@@ -209,9 +214,20 @@ func placement_models() -> Array[Node3D]:
     return targets
 
 
+func _model_placement_key(target: Node3D) -> String:
+    return "labo/model/" + camera_section_id() + "/" + str(get_path_to(target))
+
+
 func remember_model_placement(target: Node3D) -> void:
     if target == crate_route:
         crate_route_poses[camera_section_id()] = target.transform
+    PlacementStore.stage(_model_placement_key(target), {
+        "space": "parent_local", "position": PlacementStore.array3(target.position),
+        "rotation_degrees": PlacementStore.array3(target.rotation_degrees)})
+
+
+func flush_model_placement() -> void:
+    PlacementStore.flush()
 
 
 func _move_to(goal: Vector3, delta: float) -> bool:

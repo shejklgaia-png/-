@@ -14,6 +14,16 @@ if ! flock -n 9; then
 fi
 
 echo "$(date '+%F %T') WATCHER STARTED" >> "$LOG"
+receiver_pid=""
+start_receiver() {
+  if [ -z "$receiver_pid" ] || ! kill -0 "$receiver_pid" 2>/dev/null; then
+    python "$HOME/sera_placement_receiver.py" >> "$LOG" 2>&1 &
+    receiver_pid=$!
+  fi
+}
+trap '[ -z "$receiver_pid" ] || kill "$receiver_pid" 2>/dev/null || true' EXIT
+trap 'exit 0' TERM INT
+start_receiver
 run_push() {
   if bash "$PUSH" >> "$LOG" 2>&1; then
     rm -f "$HOME/sera_upload_error.txt"
@@ -25,6 +35,7 @@ run_push() {
 run_push
 
 while true; do
+  start_receiver
   # 120-second timeout is also a fallback if a Blockbench/Android shared
   # storage save did not emit the usual close_write/moved_to event.
   inotifywait -q -r -t 120 \
