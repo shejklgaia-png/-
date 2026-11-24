@@ -332,7 +332,7 @@ const PANEL_LAYOUTS: Dictionary = {
     "TRAINING": Vector2(0.045, 0.585),
     "SYSTEM": Vector2(0.365, 0.590),
     "DATA ARCHIVE": Vector2(0.365, 0.590),
-    "DEPLOYMENT": Vector2(0.045, 0.465),
+    "DEPLOYMENT": Vector2(0.045, 0.585),
     "CUSTOMIZE": Vector2(0.035, 0.435)
 }
 
@@ -1448,6 +1448,7 @@ func _create_deployment_controls() -> void:
     deployment_heading.name = "DeploymentSelectBoss"
     deployment_heading.text = "SELECT BOSS  /  TAP NAME TO SORTIE"
     deployment_heading.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    deployment_heading.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     deployment_heading.add_theme_font_size_override("font_size", 14)
     deployment_heading.add_theme_color_override("font_color", Color("#bdeaff"))
     deployment_heading.visible = false
@@ -1481,8 +1482,8 @@ func _layout_deployment_controls() -> void:
     if deployment_heading == null:
         return
     var width: float = maxf(10.0, focus_panel.size.x - 32.0)
-    deployment_heading.position = Vector2(16.0, focus_header.size.y + 18.0)
-    deployment_heading.size = Vector2(width, 36.0)
+    deployment_heading.position = Vector2(16.0, focus_header.size.y + 12.0)
+    deployment_heading.size = Vector2(width, 50.0)
     for i in range(deployment_rows.size()):
         var row: Panel = deployment_rows[i]["row"]
         row.position = Vector2(16.0, focus_header.size.y + 72.0 + float(i) * 90.0)
@@ -1523,7 +1524,7 @@ func _layout_training_controls() -> void:
     training_heading.position = Vector2(margin, focus_header.size.y + 12.0)
     training_heading.size = Vector2(content_width, 23.0)
     var top: float = focus_header.size.y + 44.0
-    var bottom: float = action_panel.position.y - 18.0
+    var bottom: float = action_panel.position.y - 30.0
     var gap: float = 9.0
     var height: float = clampf((bottom - top - gap * 2.0) / 3.0, 35.0, 72.0)
     for i in range(training_option_rows.size()):
@@ -2968,11 +2969,12 @@ func _layout_fps_option_controls() -> void:
         return
     var margin: float = 12.0
     var width: float = focus_panel.size.x - margin * 2.0
-    var top: float = focus_header.size.y + 20.0
-    var available: float = maxf(185.0, focus_panel.size.y - top - 143.0)
+    var top: float = focus_header.size.y + 12.0
+    var available: float = maxf(1.0, focus_panel.size.y - top - 136.0)
+    var gap: float = 5.0
     var row_height: float = clampf(
-        available / float(system_fps_rows.size()) - 8.0, 42.0, 70.0)
-    var row_step: float = row_height + 8.0
+        available / float(maxi(1, system_fps_rows.size())) - gap, 30.0, 54.0)
+    var row_step: float = row_height + gap
     for i in range(system_fps_rows.size()):
         var row: Panel = system_fps_rows[i]["panel"]
         row.position = Vector2(margin, top + i * row_step)
@@ -3880,11 +3882,19 @@ func _layout_hud() -> void:
         view.y * (0.61 if focused_target == "DATA ARCHIVE" else 0.535))
     if focused_target == "DATA ARCHIVE":
         focus_panel.position.y = view.y * 0.17
-    if focused_target == "SYSTEM":
-        # Keep the FPS entry and save-slot controls visible on short phones.
-        focus_panel.position.y = minf(focus_panel.position.y, view.y * 0.115)
-        focus_panel.size.y = minf(view.y * 0.76,
-            maxf(610.0, view.y * 0.535))
+    # Keep the physical console models visible below their menus. Use the
+    # existing opposite-side alignment, a shared top margin and content-sized
+    # panels instead of tall empty rectangles. The gate itself may be covered.
+    if focused_target in ["TRAINING", "SYSTEM", "DEPLOYMENT"]:
+        focus_panel.position.y = maxf(margin, view.y * 0.055)
+        var menu_header_height: float = minf(60.0, view.y * 0.068)
+        var menu_height: float = 430.0
+        if focused_target == "SYSTEM":
+            menu_height = 560.0
+        elif focused_target == "DEPLOYMENT":
+            menu_height = menu_header_height + 72.0 + 90.0 * float(deployment_rows.size())
+        focus_panel.size.y = minf(menu_height,
+            view.y - focus_panel.position.y - margin - 82.0)
     _layout_customize_mode_tabs()
     if focused_target == "CUSTOMIZE":
         var square: Rect2 = _customize_square_menu_rect(view)
