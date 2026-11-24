@@ -47,7 +47,7 @@ static func build(room: Node3D) -> void:
             # of almost-identical short rectangles across the whole floor.
             var pitch: float = 3.10 if z < -11.0 else 2.24
             if z > -3.0:
-                pitch = 1.73
+                pitch = 2.85 if lane == 3 else 1.73
             if z > 6.3:
                 pitch = 2.76
             if z > 13.7:
@@ -164,7 +164,7 @@ static func _plate_finish(lane: int, index: int, z: float) -> String:
         return "deck_mid" if phase < 3 else "deck_graphite"
     if z < 7.25:
         if lane == 3:
-            return "deck_steel" if phase < 4 else "deck_light"
+            return "deck_command"
         # Distinguish the command approach from the flanking equipment
         # service lanes with contiguous, restrained material regions.
         if lane in [1, 5]:
@@ -216,7 +216,7 @@ static func _center_panel_with_drains(batches: Dictionary,
                         far_start, piece.y,
                         _plate_finish(3, index + 2,
                             (far_start + piece.y) * 0.5), 3, index + 1)
-            elif index % 4 != 0:
+            elif piece.y <= -3.0 and index % 4 != 0:
                 _armor_panel(batches, x0, -0.032,
                     piece.x, piece.y, finish, 3, index)
                 _armor_panel(batches, 0.032, x1,
@@ -1008,6 +1008,7 @@ static func _material(finish: String, vertex_color: bool) -> StandardMaterial3D:
         "deck_blue": Color("#38566d"),
         "deck_steel": Color("#587183"),
         "deck_bright": Color("#697f8d"),
+        "deck_command": Color("#5b707b"),
         "arc_shell": Color("#8aa7b7"),
         "arc_highlight": Color("#e2e8ea"),
         "stage_lock": Color("#849ba7"),
@@ -1101,5 +1102,32 @@ static func make_service_tread_texture() -> ImageTexture:
     for y in range(128):
         image.set_pixel(1,y,Color("#9a9a9a"))
         image.set_pixel(62,y,Color("#9a9a9a"))
+    image.generate_mipmaps()
+    return ImageTexture.create_from_image(image)
+
+
+# Distinct command walkway: one broad armor slab with edge guidance paint,
+# recessed-looking fastener pockets and sparse machining, leaving the center
+# quiet for the existing world-space stencil labels. No extra floor meshes.
+static func make_command_walkway_texture() -> ImageTexture:
+    var image := Image.create(128,96,false,Image.FORMAT_RGBA8)
+    for y in range(96):
+        for x in range(128):
+            var v: float = float(218+((x*11+y*7+x*y)%11)-5)/255.0
+            var tone := Color(v,v,v,1)
+            if x in [4,5,122,123] or y in [4,91]:
+                tone = Color("#929a9e")
+            elif x in [8,119] or y in [6,89]:
+                tone = Color("#edf0ed")
+            elif (x>=11 and x<=17) or (x>=110 and x<=116):
+                tone = Color("#a4afb3")
+                if (y/8.0-floor(y/8.0))<0.5:
+                    tone = Color("#c7b99a")
+            image.set_pixel(x,y,tone)
+    for x in [21,106]:
+        for y in [12,83]:
+            image.fill_rect(Rect2i(x-2,y-2,5,5),Color("#899398"))
+            image.fill_rect(Rect2i(x-1,y-1,3,3),Color("#cdd2d1"))
+            image.set_pixel(x,y,Color("#666e75"))
     image.generate_mipmaps()
     return ImageTexture.create_from_image(image)
