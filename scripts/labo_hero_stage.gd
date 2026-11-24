@@ -194,6 +194,9 @@ func set_section(section: String,dispatch: bool = true) -> void:
         if saved.has("eye") and saved.has("look") and saved.has("fov"):
             apply_camera_preview(PlacementStore.vec(saved["eye"]),
                 PlacementStore.vec(saved["look"]),float(saved["fov"]))
+    # The effective authored/saved angle is the reset target for this section.
+    # Ordinary player navigation never changes this dictionary.
+    camera_previews[key] = {"eye":hero_camera.position,"look":camera_look,"fov":hero_camera.fov}
     # Menu entry is the dispatch trigger, after saved placement is applied.
     # No dependency on the operator reaching the console first.
     if dispatch:
@@ -204,12 +207,24 @@ func camera_section_id() -> String:
     # the independent rooms must not overwrite the new initial composition.
     return current_section + "_OUTDOOR_V6"
 
-func apply_camera_preview(eye: Vector3, look: Vector3, fov: float) -> void:
+# Temporary view: only the camera moves; the canonical placement is untouched.
+func apply_camera_view(eye: Vector3, look: Vector3, fov: float) -> void:
     camera_look = look
     hero_camera.position = eye
     hero_camera.look_at(camera_look, Vector3.UP)
     hero_camera.fov = fov
+
+
+# The existing canonical angle editor uses this path and PlacementStore.stage.
+func apply_camera_preview(eye: Vector3, look: Vector3, fov: float) -> void:
+    apply_camera_view(eye, look, fov)
     camera_previews[camera_section_id()] = {"eye":eye,"look":look,"fov":fov}
+
+
+func reset_camera_to_default() -> void:
+    var pose: Dictionary = camera_previews.get(camera_section_id(), {})
+    if not pose.is_empty():
+        apply_camera_view(pose["eye"], pose["look"], float(pose["fov"]))
 
 func placement_models() -> Array[Node3D]:
     var targets: Array[Node3D] = rebuilt_scenes.placement_models(current_section)
