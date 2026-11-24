@@ -86,22 +86,22 @@ func set_section(section: String) -> void:
     crate.scale = Vector3.ONE
     match current_section:
         "LABO":
-            hero_camera.position = Vector3(10.0,6.4,25.8)
-            camera_look = Vector3(-0.6,5.1,-0.9)
-            hero_camera.fov = 39.0
+            hero_camera.position = Vector3(9.6,8.4,27.0)
+            camera_look = Vector3(-0.7,6.0,-0.4)
+            hero_camera.fov = 45.0
         "SMELTER":
             # Left-front perspective shows the side charge inlet and hot throat.
-            hero_camera.position = Vector3(-9.4,7.2,26.7)
-            camera_look = Vector3(-0.5,6.0,-0.6)
+            hero_camera.position = Vector3(-9.4,8.8,30.2)
+            camera_look = Vector3(-0.5,8.2,-0.8)
             hero_camera.fov = 39.0
         "RECYCLER":
             # Higher front view reveals both cutter shafts and the feed path.
-            hero_camera.position = Vector3(8.8,10.0,24.5)
-            camera_look = Vector3(0,4.0,-0.8)
-            hero_camera.fov = 38.0
+            hero_camera.position = Vector3(8.8,13.0,24.5)
+            camera_look = Vector3(0,4.5,-0.8)
+            hero_camera.fov = 42.0
         "STORAGE":
-            hero_camera.position = Vector3(-7.5,6.4,27.2)
-            camera_look = Vector3(0,5.8,-1.4)
+            hero_camera.position = Vector3(-8.5,8.1,29.0)
+            camera_look = Vector3(-0.7,7.0,-0.7)
             hero_camera.fov = 39.0
     hero_camera.look_at(camera_look, Vector3.UP)
     var key: String = camera_section_id()
@@ -126,7 +126,7 @@ func set_section(section: String) -> void:
 func camera_section_id() -> String:
     # New geometry has different bounds. Legacy camera/model coordinates from
     # the independent rooms must not overwrite the new initial composition.
-    return current_section + "_OUTDOOR_V5"
+    return current_section + "_OUTDOOR_V6"
 
 func apply_camera_preview(eye: Vector3, look: Vector3, fov: float) -> void:
     camera_look = look
