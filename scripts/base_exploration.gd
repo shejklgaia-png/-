@@ -144,6 +144,14 @@ var _startup_budget: Variant
 var _boot_render_suspended: bool = false
 var _boot_previous_disable_3d: bool = false
 var _boot_complete: bool = false
+var _menu_snapshot_enabled: bool = false
+var _menu_snapshot_view: SubViewport
+var _menu_snapshot_camera: Camera3D
+var _menu_snapshot_rect: TextureRect
+var _menu_snapshot_pending: bool = false
+var _menu_snapshot_active: bool = false
+var _menu_snapshot_previous_disable: bool = false
+var _menu_snapshot_generation: int = 0
 var _boot_previous_process_mode: ProcessMode = Node.PROCESS_MODE_INHERIT
 var _boot_panels: Array[Dictionary] = []
 
@@ -238,6 +246,9 @@ func _ready() -> void:
     _nexus_shutter_clip = NexusEntryTransition.load_shutter_clip()
     await _startup_budget.checkpoint("shutter audio")
     _create_hud()
+    _menu_snapshot_enabled = preload("res://scripts/sera_graphics_settings.gd").get_enabled("freeze_base_background")
+    if _menu_snapshot_enabled and DisplayServer.get_name() != "headless":
+        _prepare_menu_snapshot()
     await _startup_budget.checkpoint("HUD")
     # All three worksite rooms are resident before the BASE completion flag.
     # The loading overlay/entry cover stays opaque and normal input disabled.
@@ -505,6 +516,7 @@ func _build_hangar() -> void:
         _boot_panels = panels
         await BaseFloorDetail.decorate(floor, panels, _startup_budget)
         StaticBake.save_scene(bake_path, floor)
+    floor.set_meta("sera_id_static_group", true)
     # Two small instanced batches: facility contact shade and floor bounce.
     # They are separate FX and never enter the visible-mesh-ID outline pass.
     BaseFloorLighting.add_floor_accents(
@@ -1467,12 +1479,103 @@ func _layout_control_hit(at: Vector2) -> bool:
         Rect2(layout_tools.position, layout_tools.size).has_point(at))
 
 
+func _prepare_menu_snapshot() -> void:
+    # GPU-only texture retained in a separate viewport. No get_image readback.
+    _menu_snapshot_view = SubViewport.new()
+    _menu_snapshot_view.name = "BaseMenuFrozenWorld"
+    _menu_snapshot_view.own_world_3d = false
+    _menu_snapshot_view.world_3d = get_viewport().world_3d
+    _menu_snapshot_view.size = Vector2i(get_viewport().get_visible_rect().size)
+    _menu_snapshot_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
+    _menu_snapshot_view.process_mode = Node.PROCESS_MODE_DISABLED
+    add_child(_menu_snapshot_view)
+    _menu_snapshot_camera = Camera3D.new()
+    _menu_snapshot_camera.name = "FrozenOverheadCamera"
+    _menu_snapshot_view.add_child(_menu_snapshot_camera)
+    _menu_snapshot_camera.current = true
+    var layer := CanvasLayer.new()
+    layer.name = "FrozenBaseBackground"
+    layer.layer = 0
+    add_child(layer)
+    _menu_snapshot_rect = TextureRect.new()
+    _menu_snapshot_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _menu_snapshot_rect.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+    _menu_snapshot_rect.stretch_mode = TextureRect.STRETCH_SCALE
+    _menu_snapshot_rect.texture = _menu_snapshot_view.get_texture()
+    layer.add_child(_menu_snapshot_rect)
+    _menu_snapshot_rect.hide()
+
+func _update_menu_snapshot(wanted: bool) -> void:
+    if not is_instance_valid(_menu_snapshot_view):
+        return
+    if not wanted:
+        if _menu_snapshot_pending or _menu_snapshot_active:
+            _restore_menu_snapshot()
+        return
+    if _menu_snapshot_pending or _menu_snapshot_active:
+        return
+    _menu_snapshot_pending = true
+    _menu_snapshot_generation += 1
+    _capture_menu_snapshot.call_deferred(_menu_snapshot_generation)
+
+func _capture_menu_snapshot(token: int) -> void:
+    if token != _menu_snapshot_generation or not is_inside_tree():
+        return
+    var viewport := get_viewport()
+    var extent := Vector2i(viewport.get_visible_rect().size)
+    if extent.x < 32 or extent.y < 32 or viewport.disable_3d:
+        _menu_snapshot_pending = false
+        return
+    _menu_snapshot_view.size = extent
+    _menu_snapshot_view.scaling_3d_scale = viewport.scaling_3d_scale
+    _menu_snapshot_camera.projection = cam.projection
+    _menu_snapshot_camera.keep_aspect = cam.keep_aspect
+    _menu_snapshot_camera.size = cam.size
+    _menu_snapshot_camera.fov = cam.fov
+    _menu_snapshot_camera.near = cam.near
+    _menu_snapshot_camera.far = cam.far
+    _menu_snapshot_camera.cull_mask = cam.cull_mask
+    _menu_snapshot_camera.global_transform = cam.global_transform
+    _menu_snapshot_view.render_target_update_mode = SubViewport.UPDATE_ONCE
+    await RenderingServer.frame_post_draw
+    if token != _menu_snapshot_generation or not is_inside_tree():
+        return
+    if not bool(facility_system.call("is_menu_open")) or scene_changing:
+        _restore_menu_snapshot()
+        return
+    _menu_snapshot_rect.position = Vector2.ZERO
+    _menu_snapshot_rect.size = Vector2(extent)
+    _menu_snapshot_rect.show()
+    _menu_snapshot_previous_disable = viewport.disable_3d
+    viewport.disable_3d = true
+    _menu_snapshot_pending = false
+    _menu_snapshot_active = true
+    var compositor := viewport.get_node_or_null("SeraIDOutlineLayer/SeraIDOutlineControl")
+    if is_instance_valid(compositor):
+        compositor.call("set_source_suspended", true)
+
+func _restore_menu_snapshot() -> void:
+    _menu_snapshot_generation += 1
+    _menu_snapshot_pending = false
+    if is_instance_valid(_menu_snapshot_view):
+        _menu_snapshot_view.render_target_update_mode = SubViewport.UPDATE_DISABLED
+    if is_instance_valid(_menu_snapshot_rect):
+        _menu_snapshot_rect.hide()
+    if _menu_snapshot_active:
+        _menu_snapshot_active = false
+        if is_inside_tree():
+            get_viewport().disable_3d = _menu_snapshot_previous_disable
+            var compositor := get_viewport().get_node_or_null("SeraIDOutlineLayer/SeraIDOutlineControl")
+            if is_instance_valid(compositor):
+                compositor.call("set_source_suspended", false)
+
 func _restore_boot_rendering() -> void:
     if _boot_render_suspended:
         get_viewport().disable_3d = _boot_previous_disable_3d
         _boot_render_suspended = false
 
 func _exit_tree() -> void:
+    _restore_menu_snapshot()
     PlacementStore.flush()
     _restore_boot_rendering()
     if _frame_budget != null:
@@ -1890,6 +1993,7 @@ func _process(delta: float) -> void:
     # The covered outdoor worksite remains visually frozen during facility UI.
     # Keep game time/GUI alive; no simulation catch-up when the modal closes.
     var facility_open: bool = is_instance_valid(facility_system) and bool(facility_system.call("is_menu_open"))
+    _update_menu_snapshot(facility_open and not power_view_active and not power_transition_busy)
     if not facility_open:
         _update_crate(delta)
     if is_instance_valid(logistics) and not power_view_active and not facility_open:

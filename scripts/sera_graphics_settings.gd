@@ -7,6 +7,7 @@ const OPTIONS: Dictionary = {
     "part_outline": true,
     "motion_blur": true,
     "adaptive_3d_resolution": false,
+    "freeze_base_background": false,
 }
 
 static func get_enabled(key: String, path: String = SETTINGS_PATH) -> bool:

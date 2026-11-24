@@ -42,6 +42,10 @@ var ink: TextureRect
 var _root_refs: Dictionary = {} # owner id -> WeakRef to scene/actor root
 var _copies: Dictionary = {} # source instance id -> ID MeshInstance/MultiMeshInstance
 var _source_refs: Dictionary = {}
+# Explicit immutable floors and retained worksite visibility groups only.
+# All unmarked actors, articulated parts and combat keep the original path.
+var _sync_groups: Dictionary = {}
+var _ungrouped_sync_keys: Array = []
 var _next_id: int = 1
 var _id_allocations: Dictionary = {} # source id -> {first, count}
 var _free_ranges: Array[Dictionary] = []
@@ -740,6 +744,15 @@ func _update_facility_selection_pulse(delta: float) -> void:
             SelectionStyle.pulse_color(_facility_selection_time))
         _screen_material.set_shader_parameter("facility_selection_width",
             SelectionStyle.OVERVIEW_STROKE_PX)
+
+func set_source_suspended(suspended: bool) -> void:
+    set_process(not suspended and not _root_refs.is_empty())
+    if suspended:
+        if is_instance_valid(id_viewport):
+            id_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+    else:
+        _bittaran_pose_frame = -1
+        _scan_dirty = true
 
 func _process(delta: float) -> void:
     if _root_refs.is_empty() or not is_instance_valid(source_viewport):
@@ -1466,7 +1479,49 @@ func _rescan() -> bool:
     if is_instance_valid(_convex_ink):
         _convex_ink.call("sync_sources", desired, _active_scene_profile(),
             id_viewport.get_texture(), _output_px_per_id_pixel)
+    _rebuild_sync_groups()
     return dirty
+
+
+func _rebuild_sync_groups() -> void:
+    _sync_groups.clear()
+    _ungrouped_sync_keys.clear()
+    for key in _copies:
+        var ref: WeakRef = _source_refs.get(key) as WeakRef
+        var source: Node3D = ref.get_ref() as Node3D if ref != null else null
+        var cursor: Node3D = source
+        while is_instance_valid(cursor):
+            if bool(cursor.get_meta("sera_id_static_group", false)) or bool(cursor.get_meta("sera_id_visibility_group", false)):
+                break
+            cursor = cursor.get_parent() as Node3D
+        if not is_instance_valid(cursor) or _combat_scene_mode:
+            _ungrouped_sync_keys.append(key)
+            continue
+        var group_id: int = cursor.get_instance_id()
+        if not _sync_groups.has(group_id):
+            _sync_groups[group_id] = {"root":weakref(cursor), "keys":[],
+                "static":bool(cursor.get_meta("sera_id_static_group",false)),
+                "initialized":false, "visible":false, "pose":Transform3D.IDENTITY}
+        (_sync_groups[group_id]["keys"] as Array).append(key)
+
+func _keys_to_sync() -> Array:
+    var keys: Array = _ungrouped_sync_keys.duplicate()
+    for group_id in _sync_groups:
+        var group: Dictionary = _sync_groups[group_id]
+        var root: Node3D = (group["root"] as WeakRef).get_ref() as Node3D
+        if not is_instance_valid(root):
+            keys.append_array(group["keys"])
+            _scan_dirty = true
+            continue
+        var shown: bool = root.is_visible_in_tree()
+        var pose: Transform3D = root.global_transform
+        var changed: bool = not bool(group["initialized"]) or shown != bool(group["visible"]) or pose != group["pose"]
+        if changed or (shown and not bool(group["static"])):
+            keys.append_array(group["keys"])
+        group["initialized"] = true
+        group["visible"] = shown
+        group["pose"] = pose
+    return keys
 
 
 # Resolve the same world-space render transform as the visible model.
@@ -1503,7 +1558,7 @@ func _visible_combat_pose(source: Node3D) -> Transform3D:
 
 func _sync_copies() -> bool:
     var dirty: bool = false
-    for key in _copies.keys():
+    for key in _keys_to_sync():
         var ref: WeakRef = _source_refs.get(key) as WeakRef
         var source: Node3D = null
         if ref != null:
@@ -1562,6 +1617,8 @@ func _clear_copies() -> void:
             (clone as Node).queue_free()
     _copies.clear()
     _source_refs.clear()
+    _sync_groups.clear()
+    _ungrouped_sync_keys.clear()
     _styled_sources.clear()
     _pose_stamps.clear()
     if is_instance_valid(_convex_ink):

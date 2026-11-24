@@ -26,6 +26,7 @@ var anchors: Dictionary = {}
 var mount_offsets: Dictionary = {}
 var belly_bounds: AABB = AABB()
 var projectiles: Array[Dictionary] = []
+var idle_bolts: Array[MeshInstance3D] = []
 var volley_order: Array[String] = []
 var volley_index: int = 0
 var time_until_shot: float = 0.0
@@ -306,13 +307,13 @@ func setup(rig: Node3D) -> bool:
         mounts[id] = mount
     _sync_mounts()
     reset()
+    while idle_bolts.size() < 3:
+        idle_bolts.append(_make_bolt())
     return mounts.size() == TURRET_IDS.size()
 
 func reset() -> void:
     for projectile in projectiles:
-        var node: Node3D = projectile["node"]
-        if is_instance_valid(node):
-            node.queue_free()
+        _return_bolt(projectile["node"] as MeshInstance3D)
     projectiles.clear()
     volley_order.clear()
     volley_index = 0
@@ -425,19 +426,8 @@ func _fire_next(player_world: Vector3) -> void:
     if muzzle_burst_light != null:
         muzzle_burst_light.light_energy = BURST_LIGHT_ENERGY
         muzzle_burst_light.visible = true
-    var bolt := MeshInstance3D.new()
-    bolt.name = "BellyCannonShot_" + id
-    bolt.set_meta("sera_no_view_edges", true)
-    bolt.mesh = projectile_mesh
-    bolt.material_override = projectile_material
-    bolt.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-    var halo := MeshInstance3D.new()
-    halo.name = "LaserStreakHalo"
-    halo.mesh = projectile_halo_mesh
-    halo.material_override = projectile_halo_material
-    halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-    bolt.add_child(halo)
-    add_child(bolt)
+    var bolt: MeshInstance3D = idle_bolts.pop_back() if not idle_bolts.is_empty() else _make_bolt()
+    bolt.visible = true
     # CapsuleMesh is along local +Y; rotate it into the shot direction.
     # The leading tip exits the muzzle first, while the trailing end
     # touches the muzzle on the emission frame.
@@ -450,6 +440,7 @@ func _fire_next(player_world: Vector3) -> void:
     var shot_center: Vector3 = (
         origin + direction * (PROJECTILE_LENGTH_METERS * 0.5))
     bolt.global_position = shot_center
+    bolt.reset_physics_interpolation()
     projectiles.append({
         "node": bolt,
         "position": shot_center,
@@ -461,6 +452,28 @@ func _fire_next(player_world: Vector3) -> void:
     last_fired_turret = id
     shots_fired += 1
     volley_index = (volley_index + 1) % TURRET_IDS.size()
+
+func _make_bolt() -> MeshInstance3D:
+    var bolt := MeshInstance3D.new()
+    bolt.name = "BellyCannonShot_Pooled"
+    bolt.set_meta("sera_no_view_edges", true)
+    bolt.mesh = projectile_mesh
+    bolt.material_override = projectile_material
+    bolt.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    var halo := MeshInstance3D.new()
+    halo.name = "LaserStreakHalo"
+    halo.mesh = projectile_halo_mesh
+    halo.material_override = projectile_halo_material
+    halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    bolt.add_child(halo)
+    add_child(bolt)
+    bolt.hide()
+    return bolt
+
+func _return_bolt(bolt: MeshInstance3D) -> void:
+    if is_instance_valid(bolt):
+        bolt.hide()
+        idle_bolts.append(bolt)
 
 func _advance_projectiles(delta: float, player_world: Vector3) -> Array[Vector3]:
     var impacts: Array[Vector3] = []
@@ -482,9 +495,7 @@ func _advance_projectiles(delta: float, player_world: Vector3) -> Array[Vector3]
             PROJECTILE_HIT_RADIUS_METERS * PROJECTILE_HIT_RADIUS_METERS)
         var age: float = float(bullet["age"]) + delta
         if hit or age >= PROJECTILE_LIFETIME_SECONDS:
-            var node: Node3D = bullet["node"]
-            if is_instance_valid(node):
-                node.queue_free()
+            _return_bolt(bullet["node"] as MeshInstance3D)
             projectiles.remove_at(i)
             if hit:
                 impacts.append(direction)

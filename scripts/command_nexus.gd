@@ -5079,6 +5079,7 @@ func _create_fps_option_controls() -> void:
         {"scope": "part_outline", "title": "単体パーツ枠線"},
         {"scope": "motion_blur", "title": "モーションブラー"},
         {"scope": "adaptive_3d_resolution", "title": "動的3D解像度"},
+        {"scope": "freeze_base_background", "title": "BASE背景静止"},
     ]:
         var panel := Panel.new()
         panel.name = "FPSRow_" + str(spec["scope"])
