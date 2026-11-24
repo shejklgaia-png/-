@@ -5051,3 +5051,138 @@ static func face_bridge(tris: Array,index: Dictionary,a: Dictionary,b: Dictionar
         var eb: Vector2i = Vector2i(qb.floor()).clamp(Vector2i.ZERO,side-Vector2i.ONE)
         return {"a":ea if ia==int(link.ta) else eb,"b":eb if ia==int(link.ta) else ea,"position":start.lerp(end,f),"fraction":f}
     return {}
+
+# Face tiles are extracted from the working atlas, including the raster fringe.
+# Repack only by integer translations. No resampling, no winding change.
+static func _face_tile_layout(rects: Dictionary,side: int) -> Dictionary:
+    var free: Array[Rect2i] = [Rect2i(0,0,side,side)]
+    var order: Array = rects.keys()
+    order.sort_custom(func(a,b) -> bool:
+        var sa: Vector2i = rects[a].size
+        var sb: Vector2i = rects[b].size
+        var aa: int = sa.x*sa.y
+        var ab: int = sb.x*sb.y
+        return int(a)<int(b) if aa==ab else aa>ab)
+    var placements: Dictionary = {}
+    for id in order:
+        var size: Vector2i = rects[id].size+Vector2i(4,4)
+        var best: int = -1
+        var score := Vector2i(2147483647,2147483647)
+        for i in range(free.size()):
+            var r: Rect2i = free[i]
+            if r.size.x<size.x or r.size.y<size.y:
+                continue
+            var d: Vector2i = r.size-size
+            var cost := Vector2i(mini(d.x,d.y),maxi(d.x,d.y))
+            if cost.x<score.x or (cost.x==score.x and cost.y<score.y):
+                best=i
+                score=cost
+        if best<0:
+            return {}
+        var used := Rect2i(free[best].position,size)
+        placements[id] = used.position+Vector2i(2,2)
+        var next: Array[Rect2i] = []
+        for r in free:
+            if not r.intersects(used):
+                next.append(r)
+                continue
+            if used.position.x>r.position.x:
+                next.append(Rect2i(r.position,Vector2i(used.position.x-r.position.x,r.size.y)))
+            if used.end.x<r.end.x:
+                next.append(Rect2i(Vector2i(used.end.x,r.position.y),Vector2i(r.end.x-used.end.x,r.size.y)))
+            if used.position.y>r.position.y:
+                next.append(Rect2i(r.position,Vector2i(r.size.x,used.position.y-r.position.y)))
+            if used.end.y<r.end.y:
+                next.append(Rect2i(Vector2i(r.position.x,used.end.y),Vector2i(r.size.x,r.end.y-used.end.y)))
+        free.clear()
+        for i in range(next.size()):
+            var contained: bool = false
+            for j in range(next.size()):
+                if i!=j and next[j].encloses(next[i]) and (next[j]!=next[i] or j<i):
+                    contained=true
+                    break
+            if not contained:
+                free.append(next[i])
+        if free.size()>2048:
+            return {}
+    return placements
+
+static func face_bake(tris: Array,mesh: ArrayMesh,images: Array) -> Dictionary:
+    if images.is_empty() or mesh==null or mesh.get_surface_count()!=1 or tris.is_empty():
+        return {"error":"face bake invalid input"}
+    var first: Image = images[0]
+    var old_size: Vector2i = first.get_size()
+    for source in images:
+        if source.get_size()!=old_size or source.get_format()!=Image.FORMAT_RGBA8:
+            return {"error":"face bake image mismatch"}
+    var rects: Dictionary = {}
+    var bounds := Rect2i(Vector2i.ZERO,old_size)
+    for t in tris:
+        var id: int = int(t.chart)
+        var uv: PackedVector2Array = t.uv
+        var a: Vector2 = uv[0]*Vector2(old_size)
+        var b: Vector2 = uv[1]*Vector2(old_size)
+        var c: Vector2 = uv[2]*Vector2(old_size)
+        var lo: Vector2i = Vector2i(a.min(b).min(c).floor())-Vector2i.ONE
+        var hi: Vector2i = Vector2i(a.max(b).max(c).ceil())+Vector2i.ONE
+        var r: Rect2i = Rect2i(lo,hi-lo).intersection(bounds)
+        rects[id] = (rects[id] as Rect2i).merge(r) if rects.has(id) else r
+    var ids: Array = rects.keys()
+    # Overlapping source rectangles cannot be separated losslessly.
+    for i in range(ids.size()):
+        for j in range(i+1,ids.size()):
+            if (rects[ids[i]] as Rect2i).intersects(rects[ids[j]]):
+                return {"error":"face bake source tile overlap"}
+    var side: int = 64
+    var placements: Dictionary = {}
+    if ids.size()<=1024:
+        while side<=maxi(old_size.x,old_size.y):
+            placements = _face_tile_layout(rects,side)
+            if not placements.is_empty():
+                break
+            side*=2
+    # Keep the original integer layout if a smaller/equal atlas cannot fit.
+    var fallback: bool = placements.is_empty()
+    if fallback:
+        return {"mesh":mesh.duplicate() as ArrayMesh,"images":images,"side":old_size.x,"moved":0,"fallback":true,"verified":true}
+    var output: Array[Image] = []
+    for raw in images:
+        var source: Image = raw
+        var dest := Image.create(side,side,false,Image.FORMAT_RGBA8)
+        dest.fill(Color.TRANSPARENT)
+        var covered: int = 0
+        for id in ids:
+            var r: Rect2i = rects[id]
+            var at: Vector2i = placements[id]
+            dest.blit_rect(source,r,at)
+            if dest.get_region(Rect2i(at,r.size)).get_data()!=source.get_region(r).get_data():
+                return {"error":"face bake pixel transfer mismatch"}
+            # Count nontransparent texels to catch lost fringe pixels.
+            for y in range(r.position.y,r.end.y):
+                for x in range(r.position.x,r.end.x):
+                    if source.get_pixel(x,y).a>0.0:
+                        covered+=1
+        var total: int = 0
+        for y in range(old_size.y):
+            for x in range(old_size.x):
+                if source.get_pixel(x,y).a>0.0:
+                    total+=1
+        if covered!=total:
+            return {"error":"face bake uncovered pixels"}
+        output.append(dest)
+    var arrays: Array = mesh.surface_get_arrays(0)
+    var uv_out := PackedVector2Array()
+    var moved: int = 0
+    for t in tris:
+        var id: int = int(t.chart)
+        var offset: Vector2i = Vector2i(placements[id])-Vector2i(rects[id].position)
+        if offset!=Vector2i.ZERO:
+            moved+=1
+        for q in t.uv:
+            uv_out.append((Vector2(q)*Vector2(old_size)+Vector2(offset))/float(side))
+    if uv_out.size()!=arrays[Mesh.ARRAY_VERTEX].size():
+        return {"error":"face bake mesh size mismatch"}
+    arrays[Mesh.ARRAY_TEX_UV]=uv_out
+    var out_mesh := ArrayMesh.new()
+    out_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
+    return {"mesh":out_mesh,"images":output,"side":side,"moved":moved,"fallback":false,"verified":true}

@@ -153,9 +153,36 @@ func _run() -> void:
             if mesh_roundtrip[i].uv!=tris[i].uv or mesh_roundtrip[i].p!=tris[i].p or int(mesh_roundtrip[i].chart)!=int(tris[i].chart):
                 restore_ok = false
                 break
+    var post: Dictionary = UV.face_bake(tris,result.mesh,[painted,atlas]) if variant=="face" else {}
+    var post_ok: bool = not post.has("error") and bool(post.get("verified",false))
+    var post_side: int = int(post.get("side",side.x))
+    var post_moved: int = int(post.get("moved",0))
+    var post_fallback: bool = bool(post.get("fallback",false))
+    var post_samples: int = 0
+    var post_mismatch: int = 0
+    if variant=="face" and post_ok:
+        var post_mesh: ArrayMesh = post.mesh
+        var post_img: Image = post.images[0]
+        var post_tris: Array = UV.restore_triangles(post_mesh,chart_ids,face_ids)
+        if post_tris.size()!=tris.size():
+            post_ok=false
+        else:
+            for i in range(tris.size()):
+                var old: PackedVector2Array = tris[i].uv
+                var fresh: PackedVector2Array = post_tris[i].uv
+                # Interior samples compare identical texels on the same physical triangle.
+                for weights in [Vector3(0.333333,0.333333,0.333334),Vector3(0.6,0.2,0.2),Vector3(0.2,0.6,0.2),Vector3(0.2,0.2,0.6)]:
+                    var p: Vector2 = (old[0]*weights.x+old[1]*weights.y+old[2]*weights.z)*Vector2(side)
+                    var q: Vector2 = (fresh[0]*weights.x+fresh[1]*weights.y+fresh[2]*weights.z)*float(post_side)
+                    # Exact grid boundaries are excluded from nearest-sample comparison.
+                    if absf(p.x-roundf(p.x))<0.0001 or absf(p.y-roundf(p.y))<0.0001:
+                        continue
+                    post_samples+=1
+                    if painted.get_pixelv(Vector2i(p.floor()))!=post_img.get_pixelv(Vector2i(q.floor())):
+                        post_mismatch+=1
     var distortion: Vector3 = UV._topology_distortion(tris,density)
     var diagnostic: Dictionary = UV.diagnostic_report(tris,side,density)
-    var report: Dictionary = {"id":id,"density":density,"version":result.unwrap_version,"triangles":tris.size(),"charts":result.charts,"atlas":side.x,"physical_edges":counted,"island_edges":island_edges,"island_bad":island_bad,"island_severe":island_severe,"island_max":island_max,"island_sum_sq":island_sum,"bad":bad,"severe":severe,"max":max_res,"sum_sq":sum_sq,"invalid":invalid,"winding_signature":winding_signature.sha256_text(),"overlap_pairs":overlap_pairs,"overlap_unchecked":overlap_unchecked,"min_ratio":min_ratio,"max_ratio":max_ratio,"shape_max":distortion.x,"shape_mean":distortion.y,"area_max":distortion.z,"elapsed_ms":elapsed,"diagnostic":diagnostic.report,"solver":result.affine_report,"bridge_count":bridge_count,"bridge_ok":bridge_ok,"png_roundtrip":png_ok,"mesh_restore":restore_ok}
+    var report: Dictionary = {"id":id,"density":density,"version":result.unwrap_version,"triangles":tris.size(),"charts":result.charts,"atlas":side.x,"physical_edges":counted,"island_edges":island_edges,"island_bad":island_bad,"island_severe":island_severe,"island_max":island_max,"island_sum_sq":island_sum,"bad":bad,"severe":severe,"max":max_res,"sum_sq":sum_sq,"invalid":invalid,"winding_signature":winding_signature.sha256_text(),"overlap_pairs":overlap_pairs,"overlap_unchecked":overlap_unchecked,"min_ratio":min_ratio,"max_ratio":max_ratio,"shape_max":distortion.x,"shape_mean":distortion.y,"area_max":distortion.z,"elapsed_ms":elapsed,"diagnostic":diagnostic.report,"solver":result.affine_report,"bridge_count":bridge_count,"bridge_ok":bridge_ok,"png_roundtrip":png_ok,"mesh_restore":restore_ok,"post_bake_ok":post_ok,"post_bake_side":post_side,"post_bake_moved":post_moved,"post_bake_fallback":post_fallback,"post_bake_samples":post_samples,"post_bake_mismatch":post_mismatch,"post_bake_error":str(post.get("error",""))}
     var file := FileAccess.open(dest,FileAccess.WRITE)
     if file == null:
         push_error("Cannot write UV report")

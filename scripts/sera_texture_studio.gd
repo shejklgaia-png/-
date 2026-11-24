@@ -1705,7 +1705,23 @@ func _save() -> void:
     var stem := label.validate_filename()+"_"+str(Time.get_unix_time_from_system()).replace(".","_")
     var png := SAVE_DIR+"/"+stem+".png"
     var mesh_path := SAVE_DIR+"/"+stem+".res"
+    _end_stroke()
+    var save_mesh: ArrayMesh = preview.mesh
+    var save_original: Image = original
+    var save_layers: Array = layers
     var baked := img.duplicate() as Image
+    if atlas_face_paint:
+        var source_images: Array = [img,original]
+        source_images.append_array(layers)
+        var export: Dictionary = UV.face_bake(triangles,save_mesh,source_images)
+        if export.has("error"):
+            _show_status(str(export.error))
+            return
+        save_mesh = export.mesh
+        var packed: Array = export.images
+        baked = packed[0].duplicate() as Image
+        save_original = packed[1]
+        save_layers = packed.slice(2)
     # Two-pixel RGB dilation into unused atlas padding prevents dark seams.
     for pass_index in range(2):
         var prior := baked.duplicate() as Image
@@ -1722,17 +1738,17 @@ func _save() -> void:
         _show_status("PNG保存失敗")
         return
     baked.generate_mipmaps()
-    var saved_mesh := preview.mesh.duplicate() as ArrayMesh
+    var saved_mesh := save_mesh.duplicate() as ArrayMesh
     saved_mesh.surface_set_material(0,_atlas_material(ImageTexture.create_from_image(baked)))
     if ResourceSaver.save(saved_mesh,mesh_path) != OK:
         _show_status("PNG保存済み・メッシュ保存失敗")
         return
     var prefix := SAVE_DIR+"/"+stem
-    if original.save_png(prefix+".base.png") != OK:
+    if save_original.save_png(prefix+".base.png") != OK:
         _show_status("合成保存済み・ベース保存失敗")
         return
-    for i in range(layers.size()):
-        if layers[i].save_png(prefix+".layer%d.png"%i) != OK:
+    for i in range(save_layers.size()):
+        if save_layers[i].save_png(prefix+".layer%d.png"%i) != OK:
             _show_status("合成保存済み・レイヤー保存失敗")
             return
     var ids: Array[int] = []

@@ -27,3 +27,6 @@ packed UV overlap/winding/physical coverage, midpoint bridge and PNG byte
 round-trip, restore triangles from mesh. This does not certify arbitrary
 cross-face brush paths, visual seam quality, independent post-paint repacking,
 or Android hardware. Keep V20 as default until checked.
+
+## Post-paint packing stage
+Integer-only MaxRects-style rectangle placement on completed face tiles; no rotation in this first implementation. Extract base, composite and every layer, verify copied bytes and complete nontransparent coverage, remap mesh UVs identically, retain original atlas if no same-or-smaller fit. Existing editor preview stays unchanged. Save reuses the packed layout for restore. Benchmark tests actual post-bake image and physical triangle sample colors. References: https://github.com/juj/RectangleBinPack and https://www.sciencedirect.com/science/article/abs/pii/S0097849325001888 .

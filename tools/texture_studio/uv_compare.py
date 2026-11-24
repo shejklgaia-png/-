@@ -22,6 +22,9 @@ for part in parts:
         issues.append(part+":geometry/coverage")
     if not c['png_roundtrip'] or not c['mesh_restore']:
         issues.append(part+":roundtrip")
+    print(f"  {part} post-bake: {c['atlas']} -> {c['post_bake_side']}, moved triangles {c['post_bake_moved']}, fallback {c['post_bake_fallback']}, sample mismatch {c['post_bake_mismatch']}/{c['post_bake_samples']}, error {c['post_bake_error']}")
+    if not c["post_bake_ok"] or c["post_bake_mismatch"] or c["post_bake_samples"]==0 or c["post_bake_side"]>c["atlas"]:
+        issues.append(part+":post bake")
     if c['bridge_count'] and c['bridge_ok']!=c['bridge_count']:
         issues.append(part+":bridge coverage")
     if c['atlas']>b['atlas']*2 or c['shape_max']>b['shape_max']+0.02 or c['shape_mean']>b['shape_mean']*1.05+1e-6 or c['area_max']>b['area_max']+0.02:
