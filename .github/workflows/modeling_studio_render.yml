@@ -7,6 +7,10 @@ on:
         default: tools/modeling_studio/example.json
         required: true
         type: string
+      reference_manifest:
+        description: Optional independent orthographic mask manifest under tools/modeling_studio
+        required: false
+        type: string
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
@@ -21,6 +25,7 @@ jobs:
     timeout-minutes: 25
     env:
       DESIGN: ${{ inputs.design || 'tools/modeling_studio/example.json' }}
+      REFERENCE_MANIFEST: ${{ inputs.reference_manifest || '' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -55,6 +60,13 @@ jobs:
           set -euo pipefail
           python3 -m venv "$RUNNER_TEMP/review-venv"
           "$RUNNER_TEMP/review-venv/bin/pip" install Pillow==11.3.0
+          "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/check_reference_metrics.py
+          if [[ -n "$REFERENCE_MANIFEST" ]]; then
+            manifest=$(realpath -- "$REFERENCE_MANIFEST")
+            root=$(realpath tools/modeling_studio)
+            [[ "$manifest" == "$root/"*.json && -f "$manifest" ]]
+            "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/reference_review.py "$RUNNER_TEMP/sera-model" "$manifest" "$RUNNER_TEMP/sera-model/reference"
+          fi
           export GITHUB_SHA="$(git rev-parse HEAD)"
           "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/review_bundle.py "$RUNNER_TEMP/sera-model"
           cat "$RUNNER_TEMP/sera-model/review.json" >> "$GITHUB_STEP_SUMMARY"
