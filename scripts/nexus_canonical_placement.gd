@@ -14,6 +14,8 @@ var host
 # Remains false if configure() aborts before its final binding stage.
 # The NEXUS launcher checks this instead of only is_inside_tree().
 var initialized := false
+# Short setup phase is exposed in the launcher when initialization fails.
+var initialization_stage := "NEW"
 var active := false
 var selected := ""
 var entries: Dictionary = {}
@@ -37,6 +39,7 @@ func configure(scene: Node3D, placements: Dictionary,
         source_refs: Dictionary, batches: Dictionary) -> void:
     if initialized:
         return
+    initialization_stage = "HUD"
     host = scene
     name = "NexusCanonicalPlacement"
     mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -47,6 +50,7 @@ func configure(scene: Node3D, placements: Dictionary,
     if _buttons.is_empty():
         _create_visible_controls()
     set_process(true)
+    initialization_stage = "MODELS"
     entries.clear()
     _source_refs = source_refs
     _render_batches = batches
@@ -73,8 +77,10 @@ func configure(scene: Node3D, placements: Dictionary,
     # exist. Heavy mesh discovery does not belong on the critical start path.
     initialized = entries.size() == placements.size() and not entries.is_empty()
     if initialized:
+        initialization_stage = "READY"
         _sync_ui()
     else:
+        initialization_stage = "NO MODELS"
         push_warning("NEXUS canonical placement: missing placement definitions")
 
 
@@ -83,7 +89,6 @@ func _ensure_visual_bindings(key: String) -> void:
         return
     # The source ref arrays contain exact MultiMesh indices, so no adjacent
     # structure is moved along with the selected terminal.
-    _bound_entries[key] = true
     var items: Array = _source_refs.get(key, [])
     for item_value in items:
         var item: Dictionary = item_value
@@ -138,6 +143,7 @@ func _ensure_visual_bindings(key: String) -> void:
             # Do not move the gate, hull, support pylons or ramp.
             _bind_node(key, host.get_node_or_null(
                 "DeploymentWallDock/DeploymentConsolePlacementAnchor"))
+    _bound_entries[key] = true
 
 
 func _bind_instance(key: String, multi: MultiMesh,
