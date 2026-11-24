@@ -236,5 +236,30 @@
         0
       ]
     }
+  },
+  "motion_sweeps": [
+    {
+      "node": "hinge",
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "degrees": [
+        -45,
+        45
+      ],
+      "samples": 7
+    }
+  ],
+  "lod": {
+    "shaft": {
+      "ratio": 0.6,
+      "max_bounds_error": 0.03
+    },
+    "cable": {
+      "ratio": 0.7,
+      "max_bounds_error": 0.03
+    }
   }
 }
