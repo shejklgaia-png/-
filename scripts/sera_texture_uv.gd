@@ -200,7 +200,7 @@ static func _can_join(a: Dictionary,b: Dictionary,edge_a: int,edge_b: int,preser
             return int(a.surface) == int(b.surface) and fa == fb and dot > 0.5
         # A genuinely warped quad is kept as a common projection only
         # when its bend is modest. Large folds are separate domains.
-        return dot > 0.9781476
+        return dot > 0.8660254
     if dot > 0.999999:
         var pa: PackedVector3Array = a.p
         var pb: PackedVector3Array = b.p
