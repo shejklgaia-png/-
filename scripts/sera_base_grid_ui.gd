@@ -4,8 +4,8 @@ const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const Cut = preload("res://scripts/sera_base_grid_cut_control.gd")
 const Draft = preload("res://scripts/sera_grid_layout_draft.gd")
 const CODES = Draft.CODES
-const MODES = ["PLACE", "MOVE", "ROTATE", "REMOVE"]
-const MODE_LABELS = ["配置", "移動", "回転", "撤去"]
+const MODES = ["PLACE", "REMOVE"]
+const MODE_LABELS = ["配置", "撤去"]
 
 signal node_chosen(code: String)
 signal operation_changed(operation: String)
@@ -18,6 +18,10 @@ var modules: Dictionary = {}
 var rail: Control
 var tools: Dictionary = {}
 var tray_title: Label
+var detail_label: Label
+var status_label: Label
+var rotate_left: Control
+var rotate_right: Control
 var grid_open: bool = false
 var editing: bool = false
 var selected_code: String = ""
@@ -27,7 +31,7 @@ var tray_slide: Tween
 var view_size: Vector2 = Vector2(720, 1280)
 var title_width: float = 284.0
 var title_height: float = 81.0
-var tray_height: float = 146.0
+var tray_height: float = 206.0
 
 
 func _ready() -> void:
@@ -44,10 +48,13 @@ func _ready() -> void:
     tray_title.name = "ModuleTrayTitle"
     tray_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
     tray_title.text = "設計プレビュー / 保存・資源消費なし"
-    tray_title.add_theme_font_override("font", LaboSkin.data_font())
+    tray_title.add_theme_font_override("font", LaboSkin.ui_font())
     tray_title.add_theme_font_size_override("font_size", 17)
     tray_title.add_theme_color_override("font_color", Color("#bacbd6"))
     tray.add_child(tray_title)
+    detail_label = _info_label("NodeDescription", 15, Color("#c4d6df"))
+    status_label = _info_label("NodeStatus", 14, Color("#8ec4d3"))
+    status_label.text = "設備を選択して配置 / ドラッグで移動"
     scroll = ScrollContainer.new()
     scroll.name = "NodeListScroll"
     scroll.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -81,10 +88,28 @@ func _ready() -> void:
         operation.call("configure", "icon", MODES[i], MODE_LABELS[i])
         operation.connect("activated", Callable(self, "_choose_operation"))
         tools[MODES[i]] = operation
+    rotate_left = _cut("RotateLeft", "icon", "ROTATE_LEFT", "")
+    rotate_right = _cut("RotateRight", "icon", "ROTATE_RIGHT", "")
+    for arrow in [rotate_left, rotate_right]:
+        arrow.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        arrow.size = Vector2(52, 52)
+        arrow.visible = false
     _choose_operation("PLACE")
     tray.visible = false
     rail.visible = false
     reflow(get_viewport().get_visible_rect().size)
+
+
+func _info_label(identifier: String, font_size: int, tint: Color) -> Label:
+    var label := Label.new()
+    label.name = identifier
+    label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    label.add_theme_font_override("font", LaboSkin.ui_font())
+    label.add_theme_font_size_override("font_size", font_size)
+    label.add_theme_color_override("font_color", tint)
+    label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    tray.add_child(label)
+    return label
 
 
 func _cut(identifier: String, kind: String, title: String,
@@ -102,7 +127,7 @@ func reflow(dims: Vector2) -> void:
     size = view_size
     title_width = minf(284.0, maxf(224.0, view_size.x * 0.66))
     title_height = 81.0
-    tray_height = 146.0
+    tray_height = 206.0
     base_plate.size = Vector2(title_width, title_height)
     grid_plate.size = Vector2(title_width, title_height)
     base_plate.queue_redraw()
@@ -116,11 +141,15 @@ func reflow(dims: Vector2) -> void:
         view_size.y - tray_height - 10.0 if editing else view_size.y + 12.0)
     tray_title.position = Vector2(18, 11)
     tray_title.size = Vector2(tray.size.x - 36, 28)
-    scroll.position = Vector2(12, 46)
+    detail_label.position = Vector2(18, 39)
+    detail_label.size = Vector2(tray.size.x - 36, 42)
+    status_label.position = Vector2(18, 84)
+    status_label.size = Vector2(tray.size.x - 36, 24)
+    scroll.position = Vector2(12, 112)
     scroll.size = Vector2(tray.size.x - 24, 86)
-    rail.size = Vector2(68, 340)
+    rail.size = Vector2(68, 164)
     rail.position = Vector2(view_size.x - 77.0 if editing else
-        view_size.x + 18.0, maxf(120.0, view_size.y * 0.41 - 94.0))
+        view_size.x + 18.0, maxf(120.0, view_size.y * 0.41 - 6.0))
 
 
 func set_grid(show: bool, animate: bool = true) -> void:
@@ -153,13 +182,15 @@ func set_edit(show: bool, animate: bool = true) -> void:
     if tray_slide != null and tray_slide.is_running():
         tray_slide.kill()
     editing = show
+    if not show:
+        hide_rotation_handles()
     if show:
         tray.visible = true
         rail.visible = true
     var tray_target := Vector2(12.0,
         view_size.y - tray_height - 10.0 if show else view_size.y + 12.0)
     var rail_target := Vector2(view_size.x - 77.0 if show else
-        view_size.x + 18.0, maxf(120.0, view_size.y * 0.41 - 94.0))
+        view_size.x + 18.0, maxf(120.0, view_size.y * 0.41 - 6.0))
     if not animate:
         tray.position = tray_target
         rail.position = rail_target
@@ -191,7 +222,7 @@ func _choose_node(value: String) -> void:
         item.set("selected", code == value)
         item.queue_redraw()
     _choose_operation("PLACE")
-    tray_title.text = Draft.description(value) + " / 配置プレビュー"
+    show_node_description(value)
     node_chosen.emit(value)
 
 
@@ -207,7 +238,44 @@ func _choose_operation(value: String) -> void:
 
 
 func set_draft_status(message: String) -> void:
-    tray_title.text = message
+    status_label.text = message
+
+
+func show_node_description(code: String) -> void:
+    if code.is_empty():
+        tray_title.text = "設計プレビュー / 保存・資源消費なし"
+        detail_label.text = ""
+        return
+    tray_title.text = Draft.description(code) + " / 設計値"
+    detail_label.text = Draft.detail(code)
+
+
+func hide_rotation_handles() -> void:
+    if rotate_left != null:
+        rotate_left.hide()
+        rotate_right.hide()
+
+
+func set_rotation_handles(left: Vector2, right: Vector2) -> void:
+    if not editing or rotate_left == null:
+        return
+    var y: float = maxf(108.0, minf(left.y, right.y) - 52.0)
+    var lx: float = clampf(left.x - 36.0, 4.0, view_size.x - 112.0)
+    var rx: float = clampf(maxf(right.x - 16.0, lx + 56.0), lx + 56.0, view_size.x - 56.0)
+    rotate_left.position = Vector2(lx, y)
+    rotate_right.position = Vector2(rx, y)
+    rotate_left.show()
+    rotate_right.show()
+
+
+func rotation_at(pixel: Vector2) -> int:
+    if not editing or rotate_left == null or not rotate_left.visible:
+        return 0
+    if Rect2(rotate_left.position, rotate_left.size).has_point(pixel):
+        return -1
+    if Rect2(rotate_right.position, rotate_right.size).has_point(pixel):
+        return 1
+    return 0
 
 
 func is_interface_hit(pixel: Vector2) -> bool:
