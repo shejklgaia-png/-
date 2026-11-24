@@ -92,14 +92,16 @@ static func _surface(host: Node3D, id: String, pose: Transform3D, size: Vector2)
     host.add_child(display)
 
 static func attach_blockbench(host: Node3D, module: String, at: Vector3,
-        yaw: float, factor: float, height_factor: float, scene: String) -> void:
+        yaw: float, factor: float, height_factor: float, scene: String,
+        authored_override: Array = []) -> void:
     if not Modules.MODULES.has(module):
         return
+    var authored: Array = Modules.MODULES[module] if authored_override.is_empty() else authored_override
     var facing := Basis(Vector3.UP,yaw)
     for config in BLOCKBENCH:
         if str(config["scene"]) != scene or str(config["module"]) != module:
             continue
-        for part in Modules.MODULES[module]:
+        for part in authored:
             if str(part[0]) != str(config["part"]):
                 continue
             var stretch := Vector3(1,height_factor,1)*Modules.UNIT*factor
