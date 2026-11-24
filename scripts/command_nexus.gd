@@ -218,7 +218,8 @@ const ARCHIVE_TABS = ["SUMMARY", "COMBAT", "PROGRESS", "PROFILE"]
 var archive_record_tabs: Array[Dictionary] = []
 var archive_record_body: Label
 var archive_record_tab: int = 0
-var archive_model_button: Panel
+var archive_model_button: Button
+var archive_model_open_pending: bool = false
 var archive_model_viewer: Control
 var archive_refresh_elapsed: float = 0.0
 const SYSTEM_ACTIONS = ["SAVE", "LOAD", "NEW", "DELETE"]
@@ -5567,20 +5568,20 @@ func _create_archive_records() -> void:
     archive_record_body.visible = false
     archive_record_body.clip_contents = true
     focus_panel.add_child(archive_record_body)
-    archive_model_button = Panel.new()
+    archive_model_button = Button.new()
     archive_model_button.name = "ArchiveModelEntry"
-    archive_model_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    archive_model_button.add_theme_stylebox_override("panel", LaboSkin.terminal_segment_style("selected"))
+    archive_model_button.text = "MODEL ARCHIVE  /  3D"
+    archive_model_button.focus_mode = Control.FOCUS_NONE
+    archive_model_button.mouse_filter = Control.MOUSE_FILTER_STOP
+    archive_model_button.add_theme_stylebox_override("normal", LaboSkin.terminal_segment_style("selected"))
+    archive_model_button.add_theme_stylebox_override("hover", LaboSkin.terminal_segment_style("selected"))
+    archive_model_button.add_theme_stylebox_override("pressed", LaboSkin.terminal_segment_style("normal"))
+    archive_model_button.add_theme_font_override("font", LaboSkin.tracked_display_font())
+    archive_model_button.add_theme_font_size_override("font_size", 17)
+    archive_model_button.add_theme_color_override("font_color", Color("#d7e6ed"))
     archive_model_button.visible = false
     focus_panel.add_child(archive_model_button)
-    var model_label := Label.new()
-    model_label.text = "MODEL ARCHIVE  /  3D"
-    model_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-    model_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-    model_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    _skin_label(model_label, LaboSkin.tracked_display_font(), 17, Color("#d7e6ed"))
-    archive_model_button.add_child(model_label)
-    model_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    archive_model_button.pressed.connect(_request_archive_model_viewer)
     _refresh_archive_records()
 
 func _set_archive_records_visible(show: bool) -> void:
@@ -5616,11 +5617,35 @@ func _layout_archive_records() -> void:
         archive_model_button.size = Vector2(width - 2.0 * margin, 44.0)
     _layout_archive_model_viewer()
 
+# Same raw touch convention as NEXUS EXIT/PLACE. Use the actual viewport
+# transform, not a rectangle in a potentially different canvas space.
+func _archive_model_hit(point: Vector2) -> bool:
+    if focused_target != "DATA ARCHIVE" or not is_instance_valid(archive_model_button):
+        return false
+    if not archive_model_button.is_visible_in_tree():
+        return false
+    var local: Vector2 = archive_model_button.get_global_transform_with_canvas().affine_inverse() * point
+    return Rect2(Vector2.ZERO, archive_model_button.size).has_point(local)
+
+func _request_archive_model_viewer() -> void:
+    if archive_model_open_pending or focused_target != "DATA ARCHIVE":
+        return
+    if is_instance_valid(archive_model_viewer) and archive_model_viewer.visible:
+        return
+    archive_model_open_pending = true
+    _open_archive_model_viewer.call_deferred()
+
 func _open_archive_model_viewer() -> void:
+    archive_model_open_pending = false
+    if focused_target != "DATA ARCHIVE" or not is_instance_valid(hud):
+        return
     if not is_instance_valid(archive_model_viewer):
         archive_model_viewer = ArchiveModelViewer.new()
         archive_model_viewer.name = "ArchiveModelViewer"
-        archive_model_viewer.z_index = 92
+        archive_model_viewer.z_index = 110
+        archive_model_viewer.hide()
+        # Give the new panel its final bounds before _ready builds children.
+        _layout_archive_model_viewer()
         hud.add_child(archive_model_viewer)
         archive_model_viewer.connect("close_requested", _close_archive_model_viewer)
     _layout_archive_model_viewer()
@@ -5634,6 +5659,7 @@ func _layout_archive_model_viewer() -> void:
     archive_model_viewer.size = Vector2(hud.size.x - 2.0 * margin, hud.size.y * 0.88)
 
 func _close_archive_model_viewer() -> void:
+    archive_model_open_pending = false
     if is_instance_valid(archive_model_viewer) and archive_model_viewer.visible:
         archive_model_viewer.call("close_archive")
 
@@ -5706,8 +5732,8 @@ func _refresh_archive_records() -> void:
                 + "Save changes through SYSTEM.")
 
 func _tap_archive_record(point: Vector2) -> void:
-    if is_instance_valid(archive_model_button) and archive_model_button.visible and archive_model_button.get_global_rect().has_point(point):
-        _open_archive_model_viewer()
+    if _archive_model_hit(point):
+        _request_archive_model_viewer()
         return
     var local: Vector2 = point - focus_panel.position
     for i in range(archive_record_tabs.size()):
@@ -7383,6 +7409,10 @@ func _input(event: InputEvent) -> void:
         if event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
             exit_press = true
             exit_tap = event.position
+    if exit_press and _archive_model_hit(exit_tap):
+        _request_archive_model_viewer()
+        get_viewport().set_input_as_handled()
+        return
     if exit_press and explore_panel != null and explore_panel.visible:
         if Rect2(explore_panel.position, explore_panel.size).has_point(exit_tap):
             _enter_base()
