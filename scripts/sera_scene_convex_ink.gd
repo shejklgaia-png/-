@@ -63,6 +63,8 @@ func _material(style: int) -> ShaderMaterial:
         width_px = Standards.BASE_CLUTTER_CONVEX_PX
     elif style == 5:
         width_px = Standards.NEXUS_BACKGROUND_CONCAVE_PX
+    elif style == 6:
+        width_px = Standards.NEXUS_INTERACT_CORNER_PX
     mat.set_shader_parameter("corner_width_px", width_px)
     mat.set_shader_parameter("output_px_per_render_pixel", _scale)
     mat.set_shader_parameter("outlines_enabled", true)
@@ -92,10 +94,12 @@ func _cached_geometry(mesh: Mesh, style: int) -> ArrayMesh:
         return null
     var include_concave: bool = style in [1, 2, 5, 6]
     var include_convex: bool = style != 5
-    var concave_degrees: float = Standards.NEXUS_CONCAVE_DEGREES if style in [5, 6] else Crease.CONCAVE_CREASE_DEGREES
-    var key: String = "%d:%d:%d:%s" % [mesh.get_instance_id(), int(include_concave), int(include_convex), concave_degrees]
+    var all_angles: bool = style == 6
+    var concave_degrees: float = Standards.NEXUS_INTERACT_CORNER_DEGREES if all_angles else (Standards.NEXUS_CONCAVE_DEGREES if style == 5 else Crease.CONCAVE_CREASE_DEGREES)
+    var convex_degrees: float = Standards.NEXUS_INTERACT_CORNER_DEGREES if all_angles else Crease.CONVEX_CREASE_DEGREES
+    var key: String = "%d:%d:%d:%s:%s:%d" % [mesh.get_instance_id(), int(include_concave), int(include_convex), concave_degrees, convex_degrees, int(all_angles)]
     if not _geometry_cache.has(key):
-        _geometry_cache[key] = Crease.build_corner_edges(mesh, include_concave, include_convex, concave_degrees)
+        _geometry_cache[key] = Crease.build_corner_edges(mesh, include_concave, include_convex, concave_degrees, convex_degrees, all_angles)
     return _geometry_cache[key] as ArrayMesh
 
 
@@ -120,11 +124,14 @@ func sync_sources(desired: Dictionary, profile: int, texture: Texture2D,
     var wanted: Dictionary = {}
     for entry_value in desired.values():
         var entry: Dictionary = entry_value
-        if bool(entry.get("occluder", false)):
-            continue
         var source: Node3D = entry.get("node") as Node3D
         if not is_instance_valid(source) or (
                 not source.is_visible_in_tree()):
+            continue
+        # Moving shutter leaves retain their dedicated selection contour.
+        # Only their physical corner ribbons opt into the NEXUS pass.
+        if bool(entry.get("occluder", false)) and not (
+                profile == 4 and bool(source.get_meta("nexus_corner_only", false))):
             continue
         var source_mesh: Mesh = null
         var original_multi: MultiMesh = null
@@ -219,6 +226,12 @@ func sync_sources(desired: Dictionary, profile: int, texture: Texture2D,
             draw.physics_interpolation_mode = (
                 Node.PHYSICS_INTERPOLATION_MODE_OFF)
             source.add_child(draw)
+            if profile == 4 and original_multi != null:
+                # Canonical placement is event driven, not per-frame.
+                # Resource metadata points weakly to the live overlays.
+                var links: Dictionary = original_multi.get_meta("nexus_corner_links", {})
+                links[style] = {"draw": weakref(draw), "mapping": source_to_overlay}
+                original_multi.set_meta("nexus_corner_links", links)
             _draws[key] = {"source": weakref(source), "draw": draw,
                 "mesh": source_mesh, "indices": selected,
                 "motion": _dynamic_indices(source as MultiMeshInstance3D)

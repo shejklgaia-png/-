@@ -12,7 +12,7 @@ static func _position_key(p: Vector3) -> String:
     return "%d:%d:%d" % [roundi(p.x * 10000.0),
         roundi(p.y * 10000.0), roundi(p.z * 10000.0)]
 
-static func _extract_edges(mesh: Mesh) -> Array:
+static func _extract_edges(mesh: Mesh, coplanar_cosine: float = 0.99999) -> Array:
     var by_key: Dictionary = {}
     var triangle_seen: Dictionary = {}
     for surface in range(mesh.get_surface_count()):
@@ -77,7 +77,7 @@ static func _extract_edges(mesh: Mesh) -> Array:
         if edge.has("face_b"):
             var cosine: float = clampf(edge["face_a"].dot(edge["face_b"]), -1.0, 1.0)
             # Internal triangulation seams and near-coplanar faces are never inked.
-            if cosine >= 0.99999:
+            if cosine >= coplanar_cosine:
                 # An exactly duplicated triangle has the same three edges
                 # twice. Its perimeter remains a silhouette, unlike a
                 # coplanar triangulation seam between distinct triangles.
@@ -130,7 +130,8 @@ static func _build_overlay(mesh: Mesh) -> ArrayMesh:
 # Extract only manifold hard corners from the SAME mesh. Include concave
 # edges for buildings; keep small props convex-only. No open edges.
 static func build_corner_edges(mesh: Mesh, include_concave: bool,
-        include_convex: bool = true, concave_degrees: float = CONCAVE_CREASE_DEGREES) -> ArrayMesh:
+        include_convex: bool = true, concave_degrees: float = CONCAVE_CREASE_DEGREES,
+        convex_degrees: float = CONVEX_CREASE_DEGREES, all_angles: bool = false) -> ArrayMesh:
     if mesh == null:
         return null
     var volume: float = 0.0
@@ -154,9 +155,9 @@ static func build_corner_edges(mesh: Mesh, include_concave: bool,
     st.begin(Mesh.PRIMITIVE_TRIANGLES)
     st.set_custom_format(0, SurfaceTool.CUSTOM_RGBA_FLOAT)
     var emitted: int = 0
-    var convex_cosine: float = cos(deg_to_rad(CONVEX_CREASE_DEGREES))
+    var convex_cosine: float = cos(deg_to_rad(convex_degrees))
     var concave_cosine: float = cos(deg_to_rad(concave_degrees))
-    for edge_value in _extract_edges(mesh):
+    for edge_value in _extract_edges(mesh, 0.9999999 if all_angles else 0.99999):
         if emitted >= MAX_EDGES_PER_MESH:
             break
         var edge: Dictionary = edge_value

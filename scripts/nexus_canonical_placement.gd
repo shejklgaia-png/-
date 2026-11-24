@@ -451,7 +451,19 @@ func _set_pose(key: String, at: Vector3, yaw: float, persist: bool = true) -> vo
         var base: Transform3D = binding["base"]
         if binding["kind"] == "multi":
             var multi: MultiMesh = binding["mesh"]
-            multi.set_instance_transform(int(binding["index"]), delta * base)
+            var source_index: int = int(binding["index"])
+            var pose: Transform3D = delta * base
+            multi.set_instance_transform(source_index, pose)
+            # The existing corner ribbons use the same instance pose.
+            # Update only the moved instance, including during saved restore.
+            var links: Dictionary = multi.get_meta("nexus_corner_links", {})
+            for link_value in links.values():
+                var link: Dictionary = link_value
+                var mapping: Dictionary = link.get("mapping", {})
+                var ref: WeakRef = link.get("draw") as WeakRef
+                var draw: MultiMeshInstance3D = ref.get_ref() as MultiMeshInstance3D if ref != null else null
+                if is_instance_valid(draw) and draw.multimesh != null and mapping.has(source_index):
+                    draw.multimesh.set_instance_transform(int(mapping[source_index]), pose)
         else:
             var node: Node3D = binding["node"] as Node3D
             if is_instance_valid(node):

@@ -1776,7 +1776,7 @@ const NEXUS_MOUNTED_MONITOR_MODULES = {
         ["SYSTEM monitor horizontal bezel",[-7.825,13.12335,1.10999],[7.825,13.72335,2.04999],4,[-12,0,0],false,true],
         ["SYSTEM monitor side bezel",[7.775,13.06258,0.29393],[8.375,21.46258,1.23393],4,[-12,0,0],false,true],
         ["SYSTEM monitor horizontal bezel",[-7.825,20.80181,-0.52212],[7.825,21.40181,0.41788],4,[-12,0,0],false,true],
-        ["SYSTEM attached status lamp",[-7.176,21.13847,0.30512],[7.176,21.47847,0.52512],5,[-12,0,0],false,false],
+        ["SYSTEM attached status lamp",[-7.176,21.21123,0.32171],[7.176,21.65123,0.70171],5,[-12,0,0],false,false],
         ["SYSTEM monitor load bearing mount",[-3.5,10.82746,-1.78016],[3.5,14.02746,0.61984],3,[-12,0,0],false,true],
         ["SYSTEM attached monitor bracket",[-8.84,14.44168,-1.17486],[-8.1,18.59168,0.97514],3,[-12,0,0],false,true],
         ["SYSTEM I O block",[-8.78,15.16695,1.0588],[-8.16,16.51695,1.3388],1,[-12,0,0],false,false],
@@ -1817,7 +1817,7 @@ const NEXUS_MOUNTED_MONITOR_MODULES = {
         ["TRAINING monitor horizontal bezel",[-5.925,15.86041,2.1368],[2.925,16.49041,3.0768],4,[-17,0,0],false,true],
         ["TRAINING monitor side bezel",[2.875,15.66737,0.67787],[3.505,26.22737,1.61787],4,[-17,0,0],false,true],
         ["TRAINING monitor horizontal bezel",[-5.925,25.40433,-0.78107],[2.925,26.03433,0.15893],4,[-17,0,0],false,true],
-        ["TRAINING attached status lamp",[-5.548,25.81028,0.022],[2.548,26.15028,0.242],5,[-17,0,0],false,false],
+        ["TRAINING attached status lamp",[-5.548,25.891,0.02752],[2.548,26.331,0.40752],5,[-17,0,0],false,false],
         ["TRAINING monitor load bearing mount",[-4.3,13.38071,-0.65395],[1.3,16.58071,1.74605],3,[-17,0,0],false,true],
         ["TRAINING attached tracking sensor pod",[-7.26,18.84697,-0.86718],[-6.26,22.54697,1.18282],3,[-17,0,0],false,true],
         ["TRAINING sensor face",[-7.12,20.22896,1.09694],[-6.4,21.77896,1.22694],1,[-17,0,0],false,false],
@@ -1912,14 +1912,14 @@ func _nexus_console_authored_parts(module_name: String) -> Array:
             _nexus_desk_key(result, desk, plate_center, plate_size, basis,
                 stick_at, Vector3(1.64,0.35,1.70), 0, 0.255, "TRAINING rubber gaiter")
             _nexus_desk_key(result, desk, plate_center, plate_size, basis,
-                stick_at, Vector3(0.57,1.53,0.60), 4, 0.56, "TRAINING stick shaft")
+                stick_at, Vector3(0.57,1.88,0.60), 4, 0.56, "TRAINING stick shaft")
             _nexus_desk_key(result, desk, plate_center, plate_size, basis,
-                stick_at, Vector3(1.00,1.32,0.92), 1, 1.52, "TRAINING stick grip")
+                stick_at, Vector3(1.15,1.32,1.02), 1, 1.87, "TRAINING stick grip")
             _nexus_desk_key(result, desk, plate_center, plate_size, basis,
-                stick_at, Vector3(1.10,0.22,1.02), 3, 2.795, "TRAINING stick head")
+                stick_at, Vector3(1.25,0.22,1.12), 3, 3.145, "TRAINING stick head")
             _nexus_desk_key(result, desk, plate_center, plate_size, basis,
                 stick_at + Vector2(0.0,0.025), Vector3(0.42,0.18,0.40),
-                6, 2.97, "TRAINING stick thumb switch")
+                6, 3.32, "TRAINING stick thumb switch")
         else:
             # Archive: discrete numbered retrieval keys and a long read bar.
             for col in range(4):
@@ -2093,6 +2093,9 @@ func _nexus_panel_group_key(base_key: int, label: String, size: Vector3) -> int:
         if label.begins_with("Archive flat control shelf"):
             mode = 2
             texture_index = 15
+        elif label.begins_with("Archive removable memory cartridge"):
+            mode = 4
+            texture_index = 16
         elif label == "Archive cabinet main lowered machine plinth" or label == "Archive processor access panel":
             mode = 1
             texture_index = 12
@@ -2291,6 +2294,10 @@ func _nexus_console_casting(family: int, metric: Vector3 = Vector3.ONE, panel_mo
                 # A long seam, not a compressed square hatch. Use the
                 # same affine x/y map on both triangles of this trapezoid.
                 _nexus_panel_strip_quad(surface,a,b,c,d,outward)
+            elif panel_mode == 4 and j == 1 and i == 4:
+                # Cartridge fronts are planar rectangles, mapped once.
+                _nexus_armor_triangle(surface,a,b,c,outward,Vector2(1,1),Vector2(0,1),Vector2(0,0))
+                _nexus_armor_triangle(surface,a,c,d,outward,Vector2(1,1),Vector2(0,0),Vector2(1,0))
             elif panel_mode == 1 and j == 1 and i % 2 == 0:
                 _nexus_metric_panel_quad(surface,a,b,c,d,outward,metric)
             else:
@@ -2497,6 +2504,7 @@ func _nexus_apply_wear_after_entry() -> void:
     _nexus_pixel_steel.append(_nexus_make_gate_panel_texture(false))
     _nexus_pixel_steel.append(_nexus_make_gate_panel_texture(true))
     _nexus_pixel_steel.append(_nexus_make_long_panel_seam())
+    _nexus_pixel_steel.append(_nexus_make_archive_cartridge_finish())
     var batch_index: int = 0
     var clean_variants: Dictionary = {}
     for child in deck.get_children():
@@ -2586,6 +2594,20 @@ func _nexus_panel_fastener(image: Image, at: Vector2i, seam: Color, rim: Color) 
 
 # Independent slender seam texture, no repeated pseudo-lettering and no
 # adjacent atlas chart that could bleed through a mip level.
+# Long rack-cartridge face, with reserved space for the existing handle
+# and indicator hardware. No fake text or large hatch on this narrow face.
+func _nexus_make_archive_cartridge_finish() -> Texture2D:
+    var image := Image.create(64,16,false,Image.FORMAT_RGBA8)
+    image.fill(Color("#f4f5f5"))
+    image.fill_rect(Rect2i(5,3,54,1),Color("#a0afb1"))
+    image.fill_rect(Rect2i(5,12,54,1),Color("#708387"))
+    image.fill_rect(Rect2i(28,5,15,6),Color("#c0cccd"))
+    for x in [30,34,38]:
+        image.fill_rect(Rect2i(x,7,2,2),Color("#607477"))
+    image.generate_mipmaps()
+    return ImageTexture.create_from_image(image)
+
+
 func _nexus_make_long_panel_seam() -> Texture2D:
     var image := Image.create(64,16,false,Image.FORMAT_RGBA8)
     image.fill(Color("#f4f5f5"))
@@ -6546,6 +6568,8 @@ func _live_gate_strokes() -> Array[PackedVector2Array]:
 # The separate blue-white selection contour follows the live door leaves.
 func _enable_nexus_base_ink(node: Node) -> void:
     if node.name == "DeploymentSlidingArmor":
+        # Leaves register as corner-only occluders in their own builder.
+        # Do not replace the dedicated gate silhouette classification.
         return
     if node is MeshInstance3D or node is MultiMeshInstance3D:
         var geometry := node as GeometryInstance3D
@@ -6581,7 +6605,7 @@ func _nexus_assign_ink_class(geometry: GeometryInstance3D) -> void:
     while cursor != null and cursor != self:
         var label: String = str(cursor.name)
         if label in ["TrainingServiceAssembly", "DeploymentConsolePlacementAnchor",
-                "SystemCabinetMotion", "TrainingSensorMotion"]:
+                "SystemCabinetMotion", "TrainingSensorMotion", "DeploymentWallDock"]:
             interactive = true
             break
         if label in ["NexusProceduralArchitecture", "NexusComplexMachining", "NexusSculptedFittings"]:
