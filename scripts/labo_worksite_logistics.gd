@@ -127,10 +127,11 @@ func _gantry(label: String,a: Vector3,z: Vector3,height: float) -> Dictionary:
     # Cantilever supports are beside the vehicle, never in its travel lane.
     for sign_value in [-1.0,1.0]:
         var foot: Vector3 = a+side*float(sign_value)*2.35
-        foot.y = 0.0
+        foot.y = a.y
         _poly(b,"bevel",foot+Vector3.UP*0.20,Vector3(0.85,0.40,0.85),"slate")
-        _box(b,foot+Vector3.UP*(height*0.5),Vector3(0.44,height,0.44),"slate")
-        _rod(b,foot+Vector3.UP*height,Vector3(a.x,height,a.z),0.36,"edge")
+        var post_height: float = height-foot.y
+        _box(b,foot+Vector3.UP*(post_height*0.5),Vector3(0.44,post_height,0.44),"slate")
+        _rod(b,Vector3(foot.x,height,foot.z),Vector3(a.x,height,a.z),0.36,"edge")
         reserves.append(AABB(foot-Vector3(0.46,0,0.46),Vector3(0.92,2.4,0.92)))
     _rod(b,Vector3(a.x,height,a.z)-axis*0.55,Vector3(z.x,height,z.z)+axis*0.55,0.40,"gold")
     _finish(b)
@@ -212,7 +213,7 @@ func build(parent: Node3D,section: String,source: Vector3,destination: Vector3) 
             in_dock = Vector3(inlet.x,ground,-23.0)
             out_dock = Vector3(outlet.x,ground,14.0)
         "STORAGE":
-            inlet = storage_pack_point
+            inlet = storage_pack_point+Vector3.UP*0.14
             outlet = storage_out_point
             in_dock = Vector3(inlet.x,ground,18.0)
             out_dock = Vector3(outlet.x,ground,18.0)
@@ -241,10 +242,10 @@ func build(parent: Node3D,section: String,source: Vector3,destination: Vector3) 
     raw.visible = false
 
 func _room_position(n: Node3D) -> Vector3:
-    return room.to_local(n.global_position)
+    return root.to_local(n.global_position)
 
 func _place(n: Node3D,p: Vector3) -> void:
-    n.global_position = room.to_global(p)
+    n.global_position = root.to_global(p)
 
 func _in_pick() -> Vector3:
     return in_dock+Vector3.UP*(DECK_Y+0.14)
@@ -366,9 +367,9 @@ func _build_storage() -> void:
     var rail := _node(root,"WarehouseStackerRail")
     b = _batch(rail)
     for z in [aisle_z-0.62,aisle_z+0.62]:
-        _box(b,Vector3(0,0.08,z),Vector3(21.0,0.16,0.14),"edge")
-    _box(b,Vector3(0,12.8,aisle_z),Vector3(21.0,0.28,0.50),"gold")
-    for x in [-10.55,10.55]:
+        _box(b,Vector3(0,0.08,z),Vector3(25.0,0.16,0.14),"edge")
+    _box(b,Vector3(0,12.8,aisle_z),Vector3(25.0,0.28,0.50),"gold")
+    for x in [-12.5,12.5]:
         _box(b,Vector3(x,6.4,aisle_z),Vector3(0.45,12.8,0.55),"slate")
     _finish(b)
     shelf_mast = _node(root,"StackerTravelMast")
@@ -430,8 +431,9 @@ func sample_storage(t: float) -> void:
     if not input_finished:
         sample_in(t*1.45)
     pack.visible = t>=0.07 and t<0.26
-    pack_lid.visible = t>=0.21
-    pack_raw.visible = t>=0.16 and t<0.21
+    pack_lid.visible = t>=0.195
+    pack_lid.position.y = lerpf(2.35,1.55,smoothstep(0.195,0.235,t))
+    pack_raw.visible = t>=0.16 and t<0.235
     pack_raw.position = storage_pack_point+Vector3.UP*0.14
     raw.visible = t<0.16
     if t>=0.16:
