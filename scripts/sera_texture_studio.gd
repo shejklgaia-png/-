@@ -101,6 +101,7 @@ var tex: ImageTexture
 var triangles: Array = []
 var seam_texels: Dictionary = {}
 var grid_mode: int = 0
+var selected_diagnostic_chart: int = -1
 var grid_button: Button
 var diagnostic_text: String = ""
 var orthographic_view: bool = false
@@ -929,7 +930,8 @@ func _install_preview(mesh: ArrayMesh) -> void:
     _composite()
     seam_texels = UV.seam_pixels(triangles,img.get_size())
     tex = ImageTexture.create_from_image(img)
-    preview.mesh = mesh
+    selected_diagnostic_chart = -1
+    preview.mesh = UV.with_diagnostic_ids(mesh,triangles)
     preview.material_override = _atlas_material(tex)
     _apply_grid()
     diagnostic_text = ""
@@ -992,9 +994,14 @@ func _view_input(event: InputEvent) -> void:
                 multi_gesture = true
                 _end_stroke()
         else:
-            if points.size() == 1 and not multi_gesture and not rotation_mode and not stroke:
-                _begin_stroke()
-                _paint(event.position)
+            if points.size() == 1 and not multi_gesture and not event.canceled:
+                if grid_mode == 2:
+                    if last_point.distance_to(event.position) <= 12.0:
+                        _begin_stroke()
+                        _paint(event.position)
+                elif not rotation_mode and not stroke:
+                    _begin_stroke()
+                    _paint(event.position)
             points.erase(event.index)
             if points.is_empty():
                 _end_stroke()
@@ -1030,7 +1037,7 @@ func _view_input(event: InputEvent) -> void:
         elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN and event.pressed:
             _zoom(1.15)
         elif event.button_index == MOUSE_BUTTON_LEFT:
-            if event.pressed and not rotation_mode:
+            if event.pressed and (not rotation_mode or grid_mode == 2):
                 _begin_stroke()
                 _paint(event.position)
             elif not event.pressed:
@@ -1096,6 +1103,8 @@ func _paint(at: Vector2, flush: bool = true) -> void:
     var direction := camera.project_ray_normal(pt)
     var hit: Dictionary = UV.hit(triangles,origin,direction)
     if hit.is_empty():
+        if grid_mode == 2:
+            _inspect_uv(-1)
         last_hit = Vector2i(-1,-1)
         previous_mirror = Vector2i(-1,-1)
         return
@@ -1305,12 +1314,14 @@ func _apply_grid() -> void:
     var material: ShaderMaterial = preview.material_override as ShaderMaterial
     if material != null:
         material.set_shader_parameter("grid_mode",grid_mode)
+        material.set_shader_parameter("selected_chart",float(selected_diagnostic_chart+1) if selected_diagnostic_chart >= 0 else -1.0)
         material.set_shader_parameter("atlas_dimensions",Vector2(img.get_size()))
 
 func _cycle_grid() -> void:
     _end_stroke()
     points.clear()
     grid_mode = (grid_mode+1)%3
+    selected_diagnostic_chart = -1
     grid_button.text = ["格子 OFF","格子 ON","面診断"][grid_mode]
     _apply_grid()
     if grid_mode == 2:
@@ -1324,6 +1335,8 @@ func _cycle_grid() -> void:
 func _inspect_uv(triangle_index: int) -> void:
     if img == null or triangles.is_empty():
         return
+    selected_diagnostic_chart = int(triangles[triangle_index].chart) if triangle_index >= 0 and triangle_index < triangles.size() else -1
+    _apply_grid()
     var result: Dictionary = UV.diagnostic_report(triangles,img.get_size(),atlas_density,triangle_index)
     diagnostic_text = selected_model_label.text+"\n"+str(result.report)
     _show_status(str(result.summary))

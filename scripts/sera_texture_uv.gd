@@ -124,7 +124,7 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
             normals_out.append(t.n[k])
             uvs.append(uv[k])
             flags.append(_encode_cull(int(t.cull)))
-            diagnostic_uv.append(Vector2(1.0 if bool(c.get("rectified",false)) else 0.5,0.0))
+            diagnostic_uv.append(Vector2(1.0 if bool(c.get("rectified",false)) else 0.5,float(int(t.chart)+1)))
         t.uv = uv
         _bake_triangle(img,t,distances)
     var arrays: Array = []
@@ -999,3 +999,33 @@ static func mirror_hit(tris: Array, origin: Vector3, direction: Vector3, hit_pos
     if actual.distance_to(target) > tolerance:
         return {}
     return found
+
+## Upgrade legacy restored meshes with chart IDs in UV2.y. Keep the
+## existing UV, positions, normals, colors and diagnostic classification.
+static func with_diagnostic_ids(mesh: ArrayMesh, tris: Array) -> ArrayMesh:
+    if mesh == null or mesh.get_surface_count() != 1:
+        return mesh
+    var arrays: Array = mesh.surface_get_arrays(0)
+    var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+    if vertices.size() != tris.size()*3:
+        return mesh
+    var old: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV2] if arrays[Mesh.ARRAY_TEX_UV2] != null else PackedVector2Array()
+    var complete: bool = old.size() == vertices.size()
+    if complete:
+        for i in range(tris.size()):
+            if absf(old[i*3].y-float(int(tris[i].chart)+1)) > 0.25:
+                complete = false
+                break
+    if complete:
+        return mesh
+    var flags := PackedVector2Array()
+    flags.resize(vertices.size())
+    for i in range(tris.size()):
+        for k in range(3):
+            var index: int = i*3+k
+            flags[index] = Vector2(old[index].x if old.size() == vertices.size() else 0.0,float(int(tris[i].chart)+1))
+    arrays[Mesh.ARRAY_TEX_UV2] = flags
+    var updated := ArrayMesh.new()
+    updated.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
+    updated.surface_set_material(0,mesh.surface_get_material(0))
+    return updated
