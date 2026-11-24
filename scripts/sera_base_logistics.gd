@@ -82,6 +82,7 @@ var _dispatch: float = 0.0
 var _camera: Camera3D
 var _network_anchor := Vector2i(0, 40)
 var _route_parking_exclusion: Dictionary = {}
+var _screen_costs: Dictionary = {}
 
 func _xz(v: Vector3) -> Vector2:
     return Vector2(v.x, v.z)
@@ -160,13 +161,19 @@ func _obstacles(root: Node3D, sites: Array, power: Node3D, crate_path: Array) ->
 func _screen_penalty(p: Vector2) -> float:
     if not is_instance_valid(_camera):
         return 0.0
+    var cell: Vector2i = _cell(p)
+    if _screen_costs.has(cell):
+        return float(_screen_costs[cell])
     var rect: Rect2 = _camera.get_viewport().get_visible_rect()
     if rect.size.x <= 0.0 or rect.size.y <= 0.0:
         return 0.0
     var uv: Vector2 = (_camera.unproject_position(_v3(p, 0.4)) - rect.position) / rect.size
     if not _camera.is_position_behind(_v3(p, 0.4)) and uv.x >= 0.07 and uv.x <= 0.93 and uv.y >= 0.10 and uv.y <= 0.90:
+        _screen_costs[cell] = 0.0
         return 0.0
-    return 25.0 + (uv - Vector2(0.5, 0.5)).length() * 10.0
+    var cost: float = 25.0 + (uv - Vector2(0.5, 0.5)).length() * 10.0
+    _screen_costs[cell] = cost
+    return cost
 
 
 func _find_network_anchor() -> void:
@@ -224,7 +231,8 @@ func _find_dock(key: String, at: Vector2) -> Dock:
                         "yaw": atan2(float(along.x), float(along.y)),
                         "side": float(sign_value)})
     candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["score"]) < float(b["score"]))
-    for choice in candidates:
+    for candidate_index in range(mini(160, candidates.size())):
+        var choice: Dictionary = candidates[candidate_index]
         var result := Dock.new()
         result.cell = choice["cell"]
         result.stage = choice["stage"]
@@ -348,6 +356,7 @@ func _plan(t: Truck) -> bool:
 
 func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, crate_path: Array, camera: Camera3D = null) -> void:
     _camera = camera
+    print("SERA_BASE_LOGISTICS: setup begin")
     var sites: Array = [{"id": "NEXUS", "at": nexus_origin}]
     sites.append_array(specs)
     _obstacles(root, sites, power, crate_path)
@@ -404,7 +413,7 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
             t.pos = _point(t.home)
             _homes.append(t.home)
             _trucks.append(t)
-    print("SERA_BASE_LOGISTICS: docks=", _docks.size(), " vehicles=", _trucks.size(), " routable=", moving_count)
+    print("SERA_BASE_LOGISTICS: docks=", _docks.size(), " vehicles=", _trucks.size(), " routable=", moving_count, " parked=", _trucks.size() - moving_count)
     _batch = Architecture.Batch.new(self)
     for dock in _docks.values():
         _make_dock(dock)
