@@ -9,3 +9,5 @@
   https://docs.godotengine.org/en/latest/classes/class_resourceloader.html
   https://docs.godotengine.org/en/4.7/tutorials/performance/using_multimesh.html
   https://docs.godotengine.org/en/latest/classes/class_renderingserver.html
+
+- 後続変更：ユーザー再指示でロード分散を復活。BASEの60ms協調分割、床ベイク非同期読込・未ベイク床の純データ計算ワーカー、NEXUS入場時の工程分割。キャッシュの初回保存は同期のまま。

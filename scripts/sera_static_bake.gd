@@ -84,6 +84,27 @@ static func load_scene(path: String, expected_name: String) -> Node3D:
         return null
     # Fresh scene/subresources per owner, not a mutable shared instance.
     var scene := ResourceLoader.load(path, "PackedScene", ResourceLoader.CACHE_MODE_IGNORE) as PackedScene
+    return _instantiate_scene(scene, expected_name)
+
+static func load_scene_budgeted(path: String, expected_name: String, budget: Variant) -> Node3D:
+    if budget == null:
+        return load_scene(path, expected_name)
+    if path.is_empty() or not FileAccess.file_exists(path):
+        return null
+    # Decode only on the resource worker. Instantiation and validation
+    # stay on the main thread. Do not share mutable local subresources.
+    if ResourceLoader.load_threaded_request(path, "PackedScene", false, ResourceLoader.CACHE_MODE_IGNORE) != OK:
+        return load_scene(path, expected_name)
+    var status := ResourceLoader.load_threaded_get_status(path)
+    while status == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+        await budget.yield_frame()
+        status = ResourceLoader.load_threaded_get_status(path)
+    if status != ResourceLoader.THREAD_LOAD_LOADED:
+        return load_scene(path, expected_name)
+    var packed := ResourceLoader.load_threaded_get(path) as PackedScene
+    return _instantiate_scene(packed, expected_name)
+
+static func _instantiate_scene(scene: PackedScene, expected_name: String) -> Node3D:
     if scene == null or not scene.can_instantiate():
         return null
     var node := scene.instantiate() as Node3D

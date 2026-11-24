@@ -98,11 +98,13 @@ func run(base: Node3D, camera: Camera3D, model: Node3D, hud: Control,
         await _recover("NEXUS scene change failed: %d" % error)
         return
     await tree.scene_changed
-    # NEXUS synchronous _ready and deferred placement restoration finish
-    # behind the root overlay, including the first completed viewport frame.
-    await tree.process_frame
-    await tree.process_frame
+    # The world can now build over several frames under this opaque cover.
+    # Do not reveal until construction and deferred placement have completed.
     var world := tree.current_scene.get_node_or_null("CompletedFrameContainer/CompletedFrame/CommandNexusWorld")
+    while is_instance_valid(world) and not bool(world.get_meta("sera_nexus_boot_complete", false)):
+        await tree.process_frame
+    await tree.process_frame
+    await tree.process_frame
     var elapsed := float(Time.get_ticks_msec() - _started_ms) / 1000.0
     var hold := TARGET_SECONDS - REVEAL_SECONDS - elapsed
     if hold > 0.0:
