@@ -4,6 +4,15 @@ extends RefCounted
 ## supplies an inclined entry deck, portal trim and a visible auxiliary
 ## launch console without embedding separate room-wall supports.
 
+const RAMP_START: float = 1.78
+const RAMP_END: float = 7.02
+const APRON_END: float = 10.35
+const DECK_HEIGHT: float = 0.173
+
+static func threshold_height(gate_scale: float) -> float:
+    return 0.21*gate_scale
+
+
 static func build(room: Node3D, gate_at: Vector3,
         gate_yaw: float, _gate_scale: float) -> void:
     var root := Node3D.new()
@@ -26,14 +35,20 @@ static func build(room: Node3D, gate_at: Vector3,
     # Do not embed separate wall buttresses or gussets in those cheeks.
 
     # Matched profiles from gate threshold to the deck. The
-    # threshold guide top is 2.7 authored units; the room deck top is .159.
+    # Threshold landing meets the boarding deck (2.1 authored units);
+    # the edge rail meets the threshold guide at 2.7 authored units.
     # The flat apron shares the exact ramp end plane, covering unrelated
     # transverse tile joints without extending into the kiosk footprint.
-    var entry_z: float = 1.28
-    var ramp_end: float = 7.02
-    var apron_end: float = 10.35
-    var entry_y: float = 0.27 * _gate_scale
-    var deck_y: float = 0.173 - gate_at.y
+    var entry_z: float = RAMP_START
+    var ramp_end: float = RAMP_END
+    var apron_end: float = APRON_END
+    var entry_y: float = threshold_height(_gate_scale)
+    var deck_y: float = DECK_HEIGHT - gate_at.y
+    var rail_x: float = 1.18*_gate_scale
+    _prism(root,"DeploymentThresholdLanding",PackedVector2Array([
+        Vector2(0.20,entry_y),Vector2(entry_z,entry_y),
+        Vector2(entry_z,entry_y-0.10),Vector2(0.20,entry_y-0.10)]),
+        1.72,0.0,0.0,ramp_steel)
     _prism(root, "DeploymentInclinedApproach",
         PackedVector2Array([
             Vector2(entry_z, entry_y), Vector2(ramp_end, deck_y),
@@ -49,23 +64,23 @@ static func build(room: Node3D, gate_at: Vector3,
         var side: float = float(side_value)
         _prism(root, "ApproachSteelCarrier%d" % side_value,
             PackedVector2Array([
-                Vector2(entry_z,entry_y+0.035), Vector2(ramp_end,deck_y+0.035),
+                Vector2(entry_z,entry_y+0.069), Vector2(ramp_end,deck_y+0.035),
                 Vector2(ramp_end,deck_y-0.045),Vector2(entry_z,entry_y-0.045)]),
-            0.085, side*1.635, 0.0, trim)
+            0.085, side*rail_x, 0.0, trim)
         _prism(root,"ApproachLevelCarrier%d" % side_value,PackedVector2Array([
             Vector2(ramp_end,deck_y+0.035),Vector2(apron_end,deck_y+0.035),
             Vector2(apron_end,deck_y-0.045),Vector2(ramp_end,deck_y-0.045)]),
-            0.085,side*1.635,0.0,trim)
+            0.085,side*rail_x,0.0,trim)
         _prism(root, "ApproachLightRail%d" % side_value,
             PackedVector2Array([
-                Vector2(entry_z,entry_y+0.046), Vector2(ramp_end,deck_y+0.046),
-                Vector2(ramp_end,deck_y+0.029), Vector2(entry_z,entry_y+0.029)]),
-            0.031, side*1.635, 0.0, cyan)
+                Vector2(entry_z,entry_y+0.081), Vector2(ramp_end,deck_y+0.046),
+                Vector2(ramp_end,deck_y+0.029), Vector2(entry_z,entry_y+0.060)]),
+            0.031, side*rail_x, 0.0, cyan)
         _prism(root, "ApproachApronRail%d" % side_value,
             PackedVector2Array([
                 Vector2(ramp_end,deck_y+0.046), Vector2(apron_end-0.12,deck_y+0.046),
                 Vector2(apron_end-0.12,deck_y+0.029), Vector2(ramp_end,deck_y+0.029)]),
-            0.031, side*1.635, 0.0, iron)
+            0.031, side*rail_x, 0.0, iron)
     var boxes: Dictionary = {}
     for z_value in [2.15,3.46,4.77,6.05,7.95,9.16,10.20]:
         var z: float = float(z_value)
@@ -389,7 +404,7 @@ static func _prism(root: Node3D, label: String,
         node.mesh.set_meta("nexus_selection_convex", true)
     node.position = Vector3(offset_x, 0.0, offset_z)
     node.material_override = mat
-    if label in ["DeploymentInclinedApproach","DeploymentLevelApron"]:
+    if label in ["DeploymentInclinedApproach","DeploymentLevelApron","DeploymentThresholdLanding"]:
         node.set_meta("sera_preserve_authored_material", true)
     node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     node.set_meta("sera_outline_occluder_only", true)
@@ -429,7 +444,7 @@ static func _tri(tool: SurfaceTool, a: Vector3,
 # path. Only the background ramp gets a metric X/Z surface texture.
 static func _prism_tri(tool: SurfaceTool, a: Vector3,b: Vector3,c: Vector3,
         label: String) -> void:
-    if not label in ["DeploymentInclinedApproach","DeploymentLevelApron"]:
+    if not label in ["DeploymentInclinedApproach","DeploymentLevelApron","DeploymentThresholdLanding"]:
         _tri(tool,a,b,c)
         return
     for point in [a,b,c]:
