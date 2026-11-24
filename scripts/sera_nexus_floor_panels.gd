@@ -1,4 +1,5 @@
 extends RefCounted
+const StaticBake = preload("res://scripts/sera_static_bake.gd")
 ## NEXUS industrial deck — structural redesign based on the supplied concept.
 ##
 ## Spatially distinct cast-metal zones: rear freight deck, annular maintenance
@@ -28,6 +29,11 @@ const LANE_OFFSETS: Array = [0.22, -0.48, 0.35, 0.00, -0.14, 0.58, -0.39]
 
 
 static func build(room: Node3D) -> void:
+    var bake_path := StaticBake.cache_path("nexusdeck", ["res://scripts/sera_nexus_floor_panels.gd"])
+    var baked := StaticBake.load_scene(bake_path, "NexusDeckReferenceV3")
+    if baked != null:
+        room.add_child(baked)
+        return
     var batches: Dictionary = {}
     # The support shell ends at y=-0.015. This dark solid underdeck is visible
     # only through joints and the two genuinely open maintenance cutouts.
@@ -153,6 +159,9 @@ static func build(room: Node3D) -> void:
     _access_cover(batches, -1.12, 5.65, 0.66, 0.86)
     _access_cover(batches, 1.06, 6.22, 0.78, 0.96)
     _submit(room, batches)
+    var deck := room.get_node_or_null("NexusDeckReferenceV3") as Node3D
+    if deck != null:
+        StaticBake.save_scene(bake_path, deck)
 
 
 static func _plate_finish(lane: int, index: int, z: float) -> String:
@@ -918,8 +927,7 @@ static func _submit(room: Node3D, batches: Dictionary) -> void:
         multimesh.transform_format = MultiMesh.TRANSFORM_3D
         multimesh.mesh = mesh_data
         multimesh.instance_count = transforms.size()
-        for i in range(transforms.size()):
-            multimesh.set_instance_transform(i, transforms[i])
+        StaticBake.fill_static_transforms(multimesh, transforms)
         var instance := MultiMeshInstance3D.new()
         instance.name = "Deck_" + key
         instance.multimesh = multimesh

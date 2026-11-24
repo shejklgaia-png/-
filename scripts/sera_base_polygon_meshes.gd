@@ -1,4 +1,5 @@
 extends RefCounted
+const StaticBake = preload("res://scripts/sera_static_bake.gd")
 ## SERA BASE physically sculpted meshes, assembled from explicit triangles.
 ## Meshes are immutable shared unit shapes: facility transforms supply size.
 ## Materials and primitive geometry are reused across MultiMesh batches.
@@ -464,6 +465,12 @@ static func _nexus_dish(st: SurfaceTool) -> void:
 static func make(kind: String) -> ArrayMesh:
     if _mesh_cache.has(kind):
         return _mesh_cache[kind] as ArrayMesh
+    var bake_path := StaticBake.cache_path("poly" + kind.replace("_", "-"),
+        ["res://scripts/sera_base_polygon_meshes.gd"], kind, ".res")
+    var baked := StaticBake.load_mesh(bake_path)
+    if baked != null:
+        _mesh_cache[kind] = baked
+        return baked
     var st := SurfaceTool.new()
     st.begin(Mesh.PRIMITIVE_TRIANGLES)
     match kind:
@@ -510,4 +517,5 @@ static func make(kind: String) -> ArrayMesh:
             return null
     var authored: ArrayMesh = st.commit()
     _mesh_cache[kind] = authored
+    StaticBake.save_mesh(bake_path, authored)
     return authored

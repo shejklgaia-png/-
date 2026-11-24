@@ -1,4 +1,5 @@
 extends RefCounted
+const StaticBake = preload("res://scripts/sera_static_bake.gd")
 const BaseClutter = preload("res://scripts/sera_base_clutter.gd")
 const BasePolish = preload("res://scripts/sera_base_reference_polish.gd")
 const BaseSilhouette = preload("res://scripts/sera_base_silhouette_refinement.gd")
@@ -166,6 +167,43 @@ class Batch:
                 size.z * 0.51), Vector3(0.13, 0.07, 0.05), "gold")
         box("CargoTopRib", at + Vector3(0, size.y * 0.54, 0),
             Vector3(0.08, 0.035, size.z), "edge")
+
+    func restore_baked_layout(path: String) -> bool:
+        var raw: Variant = StaticBake.load_data(path)
+        if not raw is Dictionary:
+            return false
+        if not (raw.get("entries") is Dictionary and raw.get("features") is Array
+                and raw.get("outline") is Array and raw.get("motion") is Dictionary):
+            return false
+        var baked_entries: Dictionary = raw["entries"]
+        if baked_entries.is_empty():
+            return false
+        # Preserve bucket and instance ordering, including the animated slots.
+        for bucket in baked_entries:
+            if not baked_entries[bucket] is Array:
+                return false
+            for pose in baked_entries[bucket]:
+                if not pose is Transform3D:
+                    return false
+        for feature in raw["motion"]:
+            if not raw["motion"][feature] is Array:
+                return false
+            for slot in raw["motion"][feature]:
+                if not slot is Dictionary:
+                    return false
+                var bucket: String = str(slot.get("bucket", ""))
+                var index: int = int(slot.get("index", -1))
+                if not baked_entries.has(bucket) or index < 0 or index >= baked_entries[bucket].size():
+                    return false
+        entries = baked_entries
+        features.assign(raw["features"])
+        outline_entries.assign(raw["outline"])
+        motion_indices = raw["motion"]
+        return true
+
+    func save_baked_layout(path: String) -> void:
+        StaticBake.save_data(path, {"entries": entries, "features": features,
+            "outline": outline_entries, "motion": motion_indices})
 
     func flush(budget: Variant = null) -> void:
         # Optional images are only usable once Godot's imported cache exists.
@@ -425,6 +463,17 @@ static func _facade(g: Batch, half_width: float, height: float,
             g.box("WallArmorBands", Vector3(side * (half_width - 0.17),
                 0.72 + float(row) * 1.0, depth), Vector3(0.10, 0.12, 0.24), "edge")
 
+static func _facility_bake_path(key: String) -> String:
+    return StaticBake.cache_path("facility" + key.to_lower().replace("_", "-"), [
+        "res://scripts/sera_base_architecture.gd", "res://scripts/sera_base_clutter.gd",
+        "res://scripts/sera_base_fresh_design.gd", "res://scripts/sera_base_junk_geometry.gd",
+        "res://scripts/sera_base_pile_models.gd", "res://scripts/sera_base_reference_polish.gd",
+        "res://scripts/sera_base_silhouette_refinement.gd", "res://scripts/sera_base_functional_finish.gd",
+        "res://scripts/sera_base_night_facade.gd", "res://scripts/sera_base_structural_mass.gd",
+        "res://scripts/sera_base_roof_identity.gd", "res://scripts/sera_base_facility_motion.gd",
+        "res://scripts/sera_base_labo_print_arms.gd", "res://scripts/sera_base_collector_crane.gd",
+        "res://scripts/sera_base_collector_conveyor.gd"], [key, BaseClutter.props_for(key)], ".bin")
+
 static func build_nexus(parent: Node3D, budget: Variant = null) -> void:
     var node := Node3D.new()
     node.name = "NexusArchitecture"
@@ -465,10 +514,13 @@ static func build_nexus(parent: Node3D, budget: Variant = null) -> void:
         "first_y": NEXUS_SHUTTER_FIRST_Y, "pitch": NEXUS_SHUTTER_ROW_PITCH,
         "store_y": NEXUS_SHUTTER_STORE_Y, "travel": NEXUS_SHUTTER_TRAVEL,
         "stack_depth": NEXUS_SHUTTER_STACK_DEPTH})
-    _nexus_command_bunker(g)
-    g.detail_scale = 1.0
-    g.outline_enabled = false
-    BaseClutter.decorate(g, "NEXUS")
+    var bake_path := _facility_bake_path("NEXUS")
+    if not g.restore_baked_layout(bake_path):
+        _nexus_command_bunker(g)
+        g.detail_scale = 1.0
+        g.outline_enabled = false
+        BaseClutter.decorate(g, "NEXUS")
+        g.save_baked_layout(bake_path)
     if budget != null:
         await g.flush(budget)
     else:
@@ -1044,13 +1096,17 @@ static func build_facility(parent: Node3D, key: String, budget: Variant = null) 
     node.set_meta("body_yaw", g.yaw)
     if ACTIVE_BASE_MODEL == "FRESH_20261122":
         node.set_meta("base_design", ACTIVE_BASE_MODEL)
-        BaseFreshDesign.add_details(g, key)
-    else:
-        # Original geometry remains available and never draws in fresh mode.
-        _build_original_facility_geometry(g, key)
-    g.detail_scale = 1.0
-    g.outline_enabled = false
-    BaseClutter.decorate(g, key)
+    var bake_path := _facility_bake_path(key)
+    if not g.restore_baked_layout(bake_path):
+        if ACTIVE_BASE_MODEL == "FRESH_20261122":
+            BaseFreshDesign.add_details(g, key)
+        else:
+            # Original geometry remains available and never draws in fresh mode.
+            _build_original_facility_geometry(g, key)
+        g.detail_scale = 1.0
+        g.outline_enabled = false
+        BaseClutter.decorate(g, key)
+        g.save_baked_layout(bake_path)
     if budget != null:
         await g.flush(budget)
     else:

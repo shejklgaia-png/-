@@ -1347,7 +1347,7 @@ func is_menu_open() -> bool:
     return modal != null and modal.visible
 
 
-func _ensure_labo_hero() -> void:
+func _ensure_labo_hero(section: String) -> void:
     if hero_viewport != null:
         return
     hero_viewport = SubViewport.new()
@@ -1357,6 +1357,8 @@ func _ensure_labo_hero() -> void:
     hero_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
     hero_host.add_child(hero_viewport)
     hero_stage = load("res://scenes/labo_hero_stage.tscn").instantiate() as Node3D
+    # Set the first requested screen before _ready constructs the worksite.
+    hero_stage.set("current_section", section)
     hero_viewport.add_child(hero_stage)
     hero_stage.set_process(false)
 
@@ -1375,7 +1377,7 @@ func _set_labo_hero(enabled: bool, section: String = "") -> void:
     if angle_entry != null:
         angle_entry.visible = enabled
     if enabled:
-        _ensure_labo_hero()
+        _ensure_labo_hero(section)
         # The content area remains native Android Button rows. The hero owns
         # its dedicated 30%, with smaller cards below and no clipping/scroll.
         hero_host.custom_minimum_size.y = get_viewport().get_visible_rect().size.y * 0.30

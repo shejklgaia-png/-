@@ -1,4 +1,5 @@
 extends RefCounted
+const StaticBake = preload("res://scripts/sera_static_bake.gd")
 ## Dedicated life-size OUTDOOR production sets. BASE icons are design references only.
 ## All dimensions are authored in metres, never scaled BASE meshes.
 const Logistics = preload("res://scripts/labo_worksite_logistics.gd")
@@ -47,35 +48,40 @@ func build(stage: Node3D) -> void:
     industrial_horizon = IndustrialHorizon.new()
     industrial_horizon.build(host)
     context_root = _child(host,"DistantBaseFacilities")
-    for key in KEYS:
-        var room := Node3D.new()
-        room.name = key + "_OutdoorWorksite"
-        host.add_child(room)
-        rooms[key] = room
-        targets[key] = []
-        screens[key] = []
-        motion_parts[key] = {}
-        _outdoor_worksite(key)
-        match key:
-            "LABO": _labo(key)
-            "SMELTER": _smelter(key)
-            "RECYCLER": _recycler(key)
-            "STORAGE": _storage(key)
-        _expand_equipment(key)
-        if key in ["LABO","STORAGE"]:
-            # Lift the complete assembly as a unit. Authored machine offsets,
-            # animation pivots and existing placement coordinates stay intact.
-            room.position.y = WORK_DECK_RISE
-            _raised_worksite(key)
-            _open_box_frame(key)
-            if key=="LABO":
-                _lab_rear_wall(key)
-        elif key=="SMELTER":
-            _refinery_work_deck(key)
-        # Capture relative mechanical alignment after scaling, not the whole room pose.
-        _capture_mechanism(key)
-        _build_logistics(key)
-        room.visible = false
+    # The selected section alone owns its moving machinery. Other sections
+    # are constructed on first entry, then retain their independent nodes.
+
+func _ensure_room(key: String) -> void:
+    if rooms.has(key) or not key in KEYS:
+        return
+    var room := Node3D.new()
+    room.name = key + "_OutdoorWorksite"
+    host.add_child(room)
+    rooms[key] = room
+    targets[key] = []
+    screens[key] = []
+    motion_parts[key] = {}
+    _outdoor_worksite(key)
+    match key:
+        "LABO": _labo(key)
+        "SMELTER": _smelter(key)
+        "RECYCLER": _recycler(key)
+        "STORAGE": _storage(key)
+    _expand_equipment(key)
+    if key in ["LABO","STORAGE"]:
+        # Lift the complete assembly as a unit. Authored machine offsets,
+        # animation pivots and existing placement coordinates stay intact.
+        room.position.y = WORK_DECK_RISE
+        _raised_worksite(key)
+        _open_box_frame(key)
+        if key=="LABO":
+            _lab_rear_wall(key)
+    elif key=="SMELTER":
+        _refinery_work_deck(key)
+    # Capture relative mechanical alignment after scaling, not the whole room pose.
+    _capture_mechanism(key)
+    _build_logistics(key)
+    room.visible = false
 
 func _model(key: String, label: String, at: Vector3) -> Node3D:
     var n := Node3D.new()
@@ -190,6 +196,16 @@ func _moving(key: String, label: String, n: Node3D) -> void:
 
 func _build_outdoor_deck() -> void:
     # One shared BASE-style patchwork floor, not four repeated indoor rooms.
+    var bake_path := StaticBake.cache_path("workdeck", [
+        "res://scripts/labo_rebuilt_scenes.gd", "res://scripts/sera_base_deck_layout.gd",
+        "res://scripts/sera_base_polygon_meshes.gd", "res://scripts/sera_base_floor_lighting.gd",
+        "res://shaders/sera_base_deck_lighting.gdshader", "res://assets/base/industrial_deck_wear.svg"])
+    if not ResourceLoader.exists("res://assets/base/industrial_deck_wear.svg"):
+        bake_path = ""
+    var baked := StaticBake.load_scene(bake_path, "OutdoorPatchworkSteelDeck")
+    if baked != null:
+        host.add_child(baked)
+        return
     var floor := _child(host,"OutdoorPatchworkSteelDeck")
     var backing := MeshInstance3D.new()
     backing.name = "ContinuousGround"
@@ -235,8 +251,7 @@ func _build_outdoor_deck() -> void:
         multi.transform_format = MultiMesh.TRANSFORM_3D
         multi.mesh = plate_mesh
         multi.instance_count = groups[i].size()
-        for j in range(multi.instance_count):
-            multi.set_instance_transform(j,groups[i][j])
+        StaticBake.fill_static_transforms(multi, groups[i])
         multi.custom_aabb = AABB(Vector3(-158,-0.4,-158),Vector3(316,0.8,316))
         var draw := MultiMeshInstance3D.new()
         draw.name = "OutdoorDeckBatch_"+str(i)
@@ -254,6 +269,7 @@ func _build_outdoor_deck() -> void:
         draw.set_meta("sera_outline_occluder_only",true)
         draw.set_meta("sera_preserve_authored_material",true)
         floor.add_child(draw)
+    StaticBake.save_scene(bake_path, floor)
 
 func _outdoor_worksite(key: String) -> void:
     # LABO/STORAGE receive dedicated raised decks with their own markings.
@@ -1391,9 +1407,10 @@ func placement_models(key: String) -> Array[Node3D]:
     return result
 
 func select(key: String) -> void:
+    _ensure_room(key)
     active_key = key
     _position_context(key)
-    for id in KEYS:
+    for id in rooms:
         (rooms[id] as Node3D).visible = id == key
     elapsed = 0.0
     cycle_running = false
