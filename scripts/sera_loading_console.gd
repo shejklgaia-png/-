@@ -12,8 +12,8 @@ const PREVIEW_STEPS: int = 100
 const COMPLETE_CUT_FRAMES: int = 3
 const LOADING_FPS: int = 10
 const MAX_HISTORY: int = 120
-# Loading terminal only: live loading remains at 50%; BASE previews may use
-# two lower internal raster resolutions without changing gameplay or UI sizes.
+# Loading terminal only: internal raster resolution is finalized at 50%.
+# Gameplay and UI display sizes remain unchanged.
 const CONSOLE_RENDER_SCALE: float = 0.5
 const PREVIEW_RENDER_SCALE_1: float = 0.375
 const PREVIEW_RENDER_SCALE_2: float = 0.25
@@ -94,12 +94,12 @@ func _exit_tree() -> void:
         Engine.max_fps = _previous_max_fps
         _fps_limit_active = false
 
-func set_render_scale(scale_value: float) -> void:
-    # Preview-only quality selection. Real loading keeps CONSOLE_RENDER_SCALE.
+func set_render_scale(_scale_value: float) -> void:
+    # Retained for compatibility; the finalized raster scale is always 50%.
     # The offscreen replica never changes the controller's render scale.
     if pixel_source_mode:
         return
-    console_render_scale = clampf(scale_value, PREVIEW_RENDER_SCALE_2, CONSOLE_RENDER_SCALE)
+    console_render_scale = CONSOLE_RENDER_SCALE
     _resize_pixel_renderer()
 
 func _setup_pixel_renderer() -> void:
