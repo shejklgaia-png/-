@@ -89,6 +89,10 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
                 var topology: Dictionary = _retry_seam_topology(tris,charts,topology_tris,topology_charts,density)
                 charts = topology.charts
                 affine_report += " / "+str(topology.report)
+            if tris.size() <= 600 and charts.size() <= 192:
+                var weld: Dictionary = _weld_local_uv_charts(tris,charts,density)
+                charts = weld.charts
+                affine_report += " / "+str(weld.report)
             else:
                 affine_report += " / 切断再選択 規模上限"
     else:
@@ -166,7 +170,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     arrays[Mesh.ARRAY_TEX_UV2] = diagnostic_uv
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v11" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
+    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v12" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
 
 ## Group connected coplanar triangles, and the two halves of slightly
 ## warped authored quads. Never use an internal triangulation diagonal
@@ -2111,6 +2115,185 @@ static func _topology_distortion(tris: Array[Dictionary],density: int) -> Vector
 # Retry exactly one alternative cut graph, prioritizing the worst seams
 # of the final V10 result. Start from untouched metric charts, not from
 # the already distorted output. Never replace the baseline on a regression.
+# Reuse the accepted layout. Try joining only a pair of charts, fitting
+# every shared endpoint in one affine map. No global realignment.
+static func _weld_local_uv_charts(tris: Array[Dictionary],charts: Array[Dictionary],density: int) -> Dictionary:
+    var start: Vector3 = _hinge_layout_metrics(tris)
+    var start_count: int = charts.size()
+    var capacity: int = _hinge_pack_side(charts)
+    var initial_shape: Vector3 = _topology_distortion(tris,density)
+    var accepted: int = 0
+    var tested: int = 0
+    var rejected: Dictionary = {}
+    for sweep in range(3):
+        var members: Array = []
+        for ci in range(charts.size()):
+            members.append([])
+        for ti in range(tris.size()):
+            (members[int(tris[ti].chart)] as Array).append(ti)
+        var pairs: Dictionary = {}
+        for link in _seam_segments(tris):
+            var a: int = mini(int(link.a),int(link.b))
+            var b: int = maxi(int(link.a),int(link.b))
+            var key := Vector2i(a,b)
+            if not pairs.has(key):
+                pairs[key] = {"a":a,"b":b,"links":[],"worst":0.0}
+            var entry: Dictionary = pairs[key]
+            (entry.links as Array).append(link)
+            entry.worst = maxf(float(entry.worst),_local_uv_link_error(tris,link))
+        var ranking: Array = pairs.values()
+        ranking.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
+            if absf(float(a.worst)-float(b.worst)) > 0.000001:
+                return float(a.worst) > float(b.worst)
+            return int(a.a) < int(b.a) if int(a.a) != int(b.a) else int(a.b) < int(b.b))
+        var before: Vector3 = _hinge_layout_metrics(tris)
+        var best: Vector3 = before
+        var best_trial: Dictionary = {}
+        for ri in range(mini(10,ranking.size())):
+            var pair: Dictionary = ranking[ri]
+            if float(pair.worst) <= 0.25:
+                break
+            for flip in [false,true]:
+                var keep: int = int(pair.a) if not flip else int(pair.b)
+                var move: int = int(pair.b) if not flip else int(pair.a)
+                if members[move].size() > 24 or members[keep].size()+members[move].size() > 96:
+                    continue
+                for uniform in [false,true]:
+                    tested += 1
+                    var candidate: Dictionary = _local_weld_candidate(tris,charts,members,pair.links,keep,move,density,uniform)
+                    if not candidate.has("tris"):
+                        var why: String = str(candidate.get("reject","接合"))
+                        rejected[why] = int(rejected.get(why,0))+1
+                        continue
+                    var ct: Array[Dictionary] = candidate.tris
+                    var cc: Array[Dictionary] = candidate.charts
+                    var after: Vector3 = _hinge_layout_metrics(ct)
+                    if after.x > before.x+0.000001 or after.y > before.y or after.z >= before.z-0.000001:
+                        rejected["残差"] = int(rejected.get("残差",0))+1
+                        continue
+                    if _hinge_pack_side(cc) > capacity:
+                        rejected["容量"] = int(rejected.get("容量",0))+1
+                        continue
+                    var shape: Vector3 = _topology_distortion(ct,density)
+                    if not shape.is_finite() or shape.x > initial_shape.x+0.02 or shape.y > initial_shape.y*1.05+0.000001 or shape.z > initial_shape.z+0.02:
+                        rejected["全体歪み"] = int(rejected.get("全体歪み",0))+1
+                        continue
+                    if best_trial.is_empty() or after.x < best.x-0.000001 or (absf(after.x-best.x) <= 0.000001 and (after.y < best.y or (after.y == best.y and after.z < best.z-0.000001))):
+                        best = after
+                        best_trial = candidate
+        if best_trial.is_empty():
+            break
+        var chosen: Array[Dictionary] = best_trial.tris
+        for ti in range(tris.size()):
+            tris[ti].xy = chosen[ti].xy
+            tris[ti].chart = chosen[ti].chart
+        charts = best_trial.charts
+        accepted += 1
+    var finish: Vector3 = _hinge_layout_metrics(tris)
+    var report: String = "局所島接合 %d採用/%d試行・島 %d→%d・問題辺 %d→%d・最大 %.3f→%.3fpx・二乗和 %.3f→%.3f・拒否 %s / %s" % [accepted,tested,start_count,charts.size(),int(start.y),int(finish.y),start.x,finish.x,start.z,finish.z,str(rejected),"採用" if accepted > 0 else "不採用・前段維持"]
+    return {"charts":charts,"report":report}
+
+static func _local_weld_candidate(tris: Array[Dictionary],charts: Array[Dictionary],members: Array,links: Array,keep: int,move: int,density: int,uniform: bool) -> Dictionary:
+    var src := PackedVector2Array()
+    var dst := PackedVector2Array()
+    for link in links:
+        var a: PackedVector2Array = _segment_uv(tris[int(link.ta)],int(link.ea),float(link.a0),float(link.a1),"xy")
+        var b: PackedVector2Array = _segment_uv(tris[int(link.tb)],int(link.eb),float(link.b0),float(link.b1),"xy")
+        for k in range(2):
+            src.append(a[k] if int(link.a) == move else b[k])
+            dst.append(b[k] if int(link.a) == move else a[k])
+    if src.size() < 2:
+        return {"reject":"接合点"}
+    var i0: int = 0
+    var i1: int = 1
+    var span: float = 0.0
+    for i in range(src.size()):
+        for j in range(i+1,src.size()):
+            var dist: float = src[i].distance_squared_to(src[j])
+            if dist > span:
+                span = dist
+                i0 = i
+                i1 = j
+    if span < 0.000001:
+        return {"reject":"接合点"}
+    var u: Vector2 = src[i1]-src[i0]
+    var v: Vector2 = dst[i1]-dst[i0]
+    if v.length_squared() < 0.000001:
+        return {"reject":"接合点"}
+    var i2: int = -1
+    var cross: float = 0.0
+    for i in range(src.size()):
+        var height: float = absf(u.cross(src[i]-src[i0]))
+        if height > cross:
+            cross = height
+            i2 = i
+    var us: Vector2 = u.orthogonal()
+    var vs: Vector2 = v.orthogonal() if uniform else v.orthogonal().normalized()*u.length()
+    if i2 >= 0 and cross > maxf(0.00001,span*0.0001):
+        us = src[i2]-src[i0]
+        vs = dst[i2]-dst[i0]
+    var from := Transform2D(u,us,src[i0])
+    var to := Transform2D(v,vs,dst[i0])
+    var map: Transform2D = to*from.affine_inverse()
+    if not map.is_finite() or map.determinant() <= 0.000001:
+        return {"reject":"反転"}
+    # All common boundaries, including partial edges, must agree.
+    for i in range(src.size()):
+        if (map*src[i]).distance_to(dst[i]) > 0.001:
+            return {"reject":"共有点不一致"}
+    var projected: Dictionary = {}
+    for ti in members[move]:
+        var p: PackedVector3Array = tris[int(ti)].p
+        var old: PackedVector2Array = tris[int(ti)].xy
+        var q := PackedVector2Array()
+        for point in old:
+            q.append(map*point)
+        var ref_area: float = (p[1]-p[0]).cross(p[2]-p[0]).length()*float(density)*float(density)
+        var old_area: float = (old[1]-old[0]).cross(old[2]-old[0])
+        var new_area: float = (q[1]-q[0]).cross(q[2]-q[0])
+        if ref_area < 0.000001 or old_area*new_area <= 0.0:
+            return {"reject":"反転"}
+        var old_ratio: float = absf(old_area)/ref_area
+        var new_ratio: float = absf(new_area)/ref_area
+        if new_ratio < minf(0.65,old_ratio)-0.000001 or new_ratio > maxf(1.40,old_ratio)+0.000001:
+            return {"reject":"面積"}
+        for k in range(3):
+            var ref_length: float = p[k].distance_to(p[(k+1)%3])*float(density)
+            if ref_length < 0.000001:
+                return {"reject":"辺長"}
+            var prior: float = old[k].distance_to(old[(k+1)%3])/ref_length
+            var ratio: float = q[k].distance_to(q[(k+1)%3])/ref_length
+            if ratio < minf(0.78,prior)-0.000001 or ratio > maxf(1.28,prior)+0.000001:
+                return {"reject":"辺長"}
+        for tj in members[keep]:
+            var other: PackedVector2Array = tris[int(tj)].xy
+            if _overlaps(q,other):
+                return {"reject":"重複"}
+        projected[ti] = q
+    # The affine map preserves all internal incidences of the moving
+    # chart. Positive determinant preserves its internal non-overlap.
+    var trial: Array[Dictionary] = []
+    var cc: Array[Dictionary] = []
+    var remap: Dictionary = {}
+    var new_members: Array = []
+    for ci in range(charts.size()):
+        if ci == move:
+            continue
+        remap[ci] = cc.size()
+        cc.append(charts[ci].duplicate())
+        new_members.append([])
+    remap[move] = remap[keep]
+    for ti in range(tris.size()):
+        var t: Dictionary = tris[ti].duplicate()
+        if projected.has(ti):
+            t.xy = projected[ti]
+        t.chart = int(remap[int(t.chart)])
+        (new_members[int(t.chart)] as Array).append(ti)
+        trial.append(t)
+    cc[int(remap[keep])].rectified = false
+    cc = _global_uv_chart_bounds(trial,cc,new_members)
+    return {"tris":trial,"charts":cc}
+
 static func _retry_seam_topology(tris: Array[Dictionary],charts: Array[Dictionary],trial: Array[Dictionary],trial_charts: Array[Dictionary],density: int) -> Dictionary:
     var baseline_links: Array[Dictionary] = _seam_segments(tris)
     var eligible: Dictionary = {}
