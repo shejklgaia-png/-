@@ -22,16 +22,7 @@ static func build(room: Node3D, system_at: Vector3,
     _place(batches, "impeller", "steel", training_at, deg_to_rad(-14.0),
         Vector3(0.25, 0.63, 0.710), Vector3(0.43, 0.43, 0.43))
 
-    # The deployment portal gains two genuinely curved hydraulic pistons,
-    # positioned OUTSIDE its luminous opening, not across the aperture.
-    for side in [-1.0, 1.0]:
-        _place(batches, "actuator", "pale", gate_at, gate_yaw,
-            (Vector3(side * 2.18, 2.58, 0.93) * gate_scale),
-            (Vector3(0.46, 3.71, 0.46) * gate_scale), side < 0.0)
-        # Remove the open-backed external fairing. It projected beyond
-        # the portal shoulders and read as a black hole in the room wall.
-        # The existing reinforced upper cheek remains the closed housing.
-
+    # Gate side fittings are now integral to the authored pillar armor.
     # Archive tower's side-mounted thermal spines are swept, hollow
     # castings; they do not cover the data displays or SERA wordmark.
     for side in [-1.0, 1.0]:
