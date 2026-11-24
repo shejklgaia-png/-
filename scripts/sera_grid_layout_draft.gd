@@ -5,6 +5,9 @@ const CODES = ["S1","S2","S3","A1","A2","A3","E1","E2","E3","O1","O2","O3","GEN"
 const NAMES = ["スクラップ・低","スクラップ・中","スクラップ・高","金属複合材・低","金属複合材・中","金属複合材・高","電子部品・低","電子部品・中","電子部品・高","有機素材・低","有機素材・中","有機素材・高","変換炉","蓄電池","送電線","容量増幅","生産補助","省電制御","出力増幅","破砕制御","耐久補強","装甲安定","駆動補助","EN循環"]
 var entries: Array[Dictionary] = []
 var picked: int = -1
+var drag_origin := Vector2i.ZERO
+var grab_offset := Vector2i.ZERO
+var dragging := false
 var bodies: MultiMeshInstance3D
 var marks: MultiMeshInstance3D
 
@@ -71,58 +74,112 @@ func _valid(entry: Dictionary, skip: int = -1) -> bool:
             return false
     return true
 
+static func detail(code: String) -> String:
+    if code in CODES.slice(0,12):
+        match code.right(1):
+            "1": return "低品質素材を生産 / 原料10まで・最大10個 / 0.6EP/原料"
+            "2": return "中品質素材を生産 / 原料20まで・最大7個 / 1EP/原料"
+            "3": return "高品質素材を生産 / 原料40まで・最大5個 / 1.4EP/原料"
+    match code:
+        "GEN": return "帰還時に外部エネルギーを最大140EP変換"
+        "BAT": return "蓄電容量を500EP拡張"
+        "WIRE": return "設備を給電網に接続 / 維持費0.25EP/出撃"
+        "AMP": return "隣接する変換炉1基の容量＋15%"
+        "YIELD": return "隣接する生産設備1基の収率＋5%"
+        "SAVE": return "隣接する生産設備1基の加工電力−10%"
+        "ATK": return "近接ダメージ＋6% / 出撃前25EP（暫定）"
+        "BREAK": return "部位破壊ダメージ＋10% / 出撃前20EP（暫定）"
+        "HP": return "最大HP＋8% / 出撃前15EP（暫定）"
+        "DEF": return "最終被ダメージ−6% / 出撃前20EP（暫定）"
+        "SPD": return "移動・ブースト速度＋5% / 出撃前18EP（暫定）"
+        "EN": return "EN自然回復速度＋10% / 出撃前18EP（暫定）"
+    return ""
+
+func selected_code() -> String:
+    return str(entries[picked]["code"]) if picked >= 0 and picked < entries.size() else ""
+
+func selected_rect() -> Rect2i:
+    return _area(entries[picked]) if not selected_code().is_empty() else Rect2i()
+
 func clear_selection() -> void:
+    cancel_drag()
     picked = -1
     _refresh()
 
+func select_at(cell: Vector2i) -> bool:
+    picked = _at(cell)
+    _refresh()
+    return picked >= 0
+
+func begin_drag(cell: Vector2i) -> bool:
+    if not select_at(cell):
+        return false
+    drag_origin = Vector2i(entries[picked]["cell"])
+    grab_offset = cell - drag_origin
+    dragging = true
+    return true
+
+func move_drag(cell: Vector2i) -> bool:
+    if not dragging or picked < 0:
+        return false
+    var moved: Dictionary = entries[picked].duplicate()
+    moved["cell"] = cell - grab_offset
+    if not _valid(moved, picked):
+        return false
+    if moved["cell"] != entries[picked]["cell"]:
+        entries[picked] = moved
+        _refresh()
+    return true
+
+func cancel_drag() -> void:
+    if dragging and picked >= 0:
+        entries[picked]["cell"] = drag_origin
+        dragging = false
+        _refresh()
+    dragging = false
+
+func finish_drag(cell: Vector2i, valid_target: bool) -> bool:
+    if not dragging:
+        return false
+    if not valid_target or not move_drag(cell):
+        cancel_drag()
+        return false
+    dragging = false
+    return true
+
+func rotate_selected(direction: int) -> String:
+    if picked < 0:
+        return "設備を選択してください"
+    var rotated: Dictionary = entries[picked].duplicate()
+    rotated["rot"] = posmod(int(rotated["rot"]) + direction, 4)
+    if not _valid(rotated, picked):
+        return "回転不可：盤外または重複"
+    entries[picked] = rotated
+    _refresh()
+    return "90°回転"
+
 func edit(cell: Vector2i, code: String, mode: String) -> String:
     var idx := _at(cell)
-    match mode:
-        "PLACE":
-            picked = -1
-            if not CODES.has(code):
-                _refresh()
-                return "設備を選択してください"
-            var entry := {"cell":cell,"code":code,"rot":0}
-            if not _valid(entry):
-                _refresh()
-                return "配置不可：盤外または重複"
-            entries.append(entry)
-            _refresh()
-            return "配置：" + description(code)
-        "MOVE":
-            if picked < 0:
-                if idx < 0:
-                    return "移動する設備を選択"
-                picked = idx
-                _refresh()
-                return "移動先の左上セルをタップ"
-            var moved: Dictionary = entries[picked].duplicate()
-            moved["cell"] = cell
-            if not _valid(moved, picked):
-                return "移動不可：盤外または重複"
-            entries[picked] = moved
-            picked = -1
-            _refresh()
-            return "移動完了"
-        "ROTATE":
-            if idx < 0:
-                return "回転する設備を選択"
-            var rotated: Dictionary = entries[idx].duplicate()
-            rotated["rot"] = (int(rotated["rot"]) + 1) % 4
-            if not _valid(rotated, idx):
-                return "回転不可：盤外または重複"
-            entries[idx] = rotated
-            _refresh()
-            return "90°回転"
-        "REMOVE":
-            if idx < 0:
-                return "撤去する設備を選択"
-            entries.remove_at(idx)
-            picked = -1
-            _refresh()
-            return "撤去完了"
-    return ""
+    if mode == "REMOVE":
+        if idx < 0:
+            return "撤去する設備を選択"
+        entries.remove_at(idx)
+        picked = -1
+        _refresh()
+        return "撤去完了"
+    if idx >= 0:
+        select_at(cell)
+        return "選択：ドラッグで移動 / 矢印で回転"
+    if not CODES.has(code):
+        clear_selection()
+        return "設備を選択してください"
+    var entry := {"cell":cell,"code":code,"rot":0}
+    if not _valid(entry):
+        return "配置不可：盤外または重複"
+    entries.append(entry)
+    picked = entries.size()-1
+    _refresh()
+    return "配置完了：ドラッグで移動 / 矢印で回転"
 
 func _color(code: String) -> Color:
     if code in ["S1","S2","S3"]:
