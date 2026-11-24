@@ -120,8 +120,8 @@ func _process(delta: float) -> void:
         _door_open_amount, target, step / 1.25)
     if _motion_may_be_visible(_launch_scan, 1.5, planes, interior):
         var scan_y: float = 0.05 + 0.36*fposmod(_elapsed*0.55,1.0)
-        _launch_scan.position.y = scan_y
-        _launch_scan.position.z = -scan_y*0.445
+        _launch_scan.position.y = 1.02+scan_y
+        _launch_scan.position.z = 6.62-(1.02-0.84)*0.445+0.085-scan_y*0.445
         if is_instance_valid(_launch_status):
             var next_status: String = "READY" if _door_open_amount >= 1.0 else ("UNLOCK" if _deployment_requested else ("STANDBY" if fposmod(_elapsed,3.0)<2.6 else "SYNC"))
             if _launch_status.text != next_status:
@@ -168,6 +168,11 @@ func _build_ceiling(metal: Material, edge: Material,
     _segmented_ring(fixed,"UpperServiceFlange",[Vector2(1.65,0.57),
         Vector2(2.08,0.57),Vector2(2.12,0.67),Vector2(1.75,0.74),
         Vector2(1.65,0.68)],6,0.045,Color("#465c6d"))
+    for i in range(3):
+        var spoke := Node3D.new()
+        spoke.rotation.y = TAU*float(i)/3.0
+        fixed.add_child(spoke)
+        _box(spoke,"LoadTransferSpoke",Vector3(0,0.65,0.92),Vector3(0.27,0.19,1.78),metal)
     _build_canopy_cyan_optics()
     for i in range(3):
         var angle: float = TAU * float(i) / 3.0
