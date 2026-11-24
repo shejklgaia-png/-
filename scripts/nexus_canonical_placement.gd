@@ -469,6 +469,8 @@ func _set_pose(key: String, at: Vector3, yaw: float, persist: bool = true) -> vo
             vertices.append(delta * vertex if movable else vertex)
         moved_clusters.append(vertices)
     host.target_parts[key] = moved_clusters
+    if host.has_method("_refresh_nexus_haze_positions"):
+        host.call("_refresh_nexus_haze_positions")
     if key != "DEPLOYMENT" and not (entry["focus"] as Dictionary).is_empty():
         var base_focus: Dictionary = entry["focus"]
         var view: Dictionary = host.focus_views[key]

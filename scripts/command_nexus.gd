@@ -60,6 +60,20 @@ const SERA_STAGE_ORIGIN: Vector3 = Vector3(0.0, 0.0, -4.75)
 
 var batch_data: Dictionary = {}
 var _nexus_batch_roles: Dictionary = {}
+const NEXUS_AMBIENCE_FILE: String = "user://sera_nexus_ambience.cfg"
+var _ambience_value: float = 1.0
+var _ambience_env: Environment
+var _ambience_lights: Array[Light3D] = []
+var _ambience_light_base: Array[float] = []
+var _ambience_materials: Array[ShaderMaterial] = []
+var _ambience_panel: Panel
+var _ambience_slider: HSlider
+var _ambience_label: Label
+var _ambience_touch: int = -1
+var _ambience_mouse: bool = false
+var _ambience_dirty: bool = false
+var _ambience_save_delay: float = 0.0
+var _ambience_hazes: Dictionary = {}
 var hud: Control
 var cam: Camera3D
 var outline: Control
@@ -378,6 +392,7 @@ func _ready() -> void:
     FrameRateSettings.apply("base_nexus")
     # Godot 4 Android Back is a Window go-back request when auto-quit is off.
     get_window().go_back_requested.connect(_on_android_back)
+    _load_nexus_ambience()
     _environment()
     _module("hangar_shell", Vector3.ZERO)
     _module("maintenance_pad", Vector3(0.0, 0.0, -4.75))
@@ -480,6 +495,7 @@ func _ready() -> void:
     call_deferred("_restore_nexus_placement_previews", route)
     call_deferred("_start_nexus_bgm_if_direct")
     call_deferred("_nexus_apply_wear_after_entry")
+    call_deferred("_build_nexus_atmosphere")
 
 
 # Dedicated NEXUS BGM; the intro plays once before a 64-second loop.
@@ -535,6 +551,7 @@ func _notification(what: int) -> void:
 
 
 func _exit_tree() -> void:
+    _save_nexus_ambience()
     NexusPlacementStore.flush()
 
 
@@ -844,6 +861,8 @@ func _sync_placement_launchers() -> void:
         (is_instance_valid(placement_editor) and placement_editor.has_method("open_mode") and bool(placement_editor.get("active")))
         or (is_instance_valid(camera_angle_editor) and camera_angle_editor.has_method("open_mode") and bool(camera_angle_editor.get("active"))))
     placement_entry_button.visible = focused_target.is_empty() and not editor_open
+    if is_instance_valid(_ambience_panel):
+        _ambience_panel.visible = focused_target.is_empty() and not editor_open and not in_transition
     # Show the camera launcher for every supported focused menu, even when
     # its controller has not yet been created. No tween visibility dependency.
     angle_entry_button.visible = (
@@ -872,6 +891,10 @@ func _process(delta: float) -> void:
             archive_refresh_elapsed = 0.0
             _refresh_archive_records()
     _flush_selection_pose()
+    if _ambience_dirty:
+        _ambience_save_delay -= delta
+        if _ambience_save_delay <= 0.0:
+            _save_nexus_ambience()
 
 # Idle Tweens normally advance AFTER every Node._process, including the ID
 # compositor. Pause automatic stepping and advance both from this one phase.
@@ -914,6 +937,7 @@ func _environment() -> void:
     env.ambient_light_color = Color("#d1dae4")
     env.ambient_light_energy = 0.68
     world.environment = env
+    _ambience_env = env
     add_child(world)
     # Neutral diffuse fill reveals the non-emissive equipment faces.
     var key := DirectionalLight3D.new()
@@ -923,6 +947,288 @@ func _environment() -> void:
     key.light_specular = 0.24
     key.shadow_enabled = false
     add_child(key)
+
+
+# NEXUS-only preferences. Save on release, after a quiet drag interval and
+# on exit. No slot data, settings migration, or write every frame.
+func _load_nexus_ambience() -> void:
+    var cfg := ConfigFile.new()
+    if cfg.load(NEXUS_AMBIENCE_FILE) == OK:
+        _ambience_value = clampf(float(cfg.get_value("nexus", "brightness", 1.0)), 0.5, 1.5)
+
+
+func _save_nexus_ambience() -> void:
+    if not _ambience_dirty:
+        return
+    var cfg := ConfigFile.new()
+    cfg.set_value("nexus", "brightness", _ambience_value)
+    if cfg.save(NEXUS_AMBIENCE_FILE) == OK:
+        _ambience_dirty = false
+    else:
+        _ambience_save_delay = 2.0
+        push_warning("NEXUS ambience preference could not be saved")
+
+
+func _apply_nexus_ambience() -> void:
+    if is_instance_valid(_ambience_env):
+        _ambience_env.ambient_light_energy = 0.68 * _ambience_value
+        _ambience_env.background_color = NEXUS_ROOM_BACKDROP_COLOR * _ambience_value
+        _ambience_env.background_color.a = 1.0
+    for i in range(_ambience_lights.size()):
+        if is_instance_valid(_ambience_lights[i]):
+            _ambience_lights[i].light_energy = _ambience_light_base[i] * _ambience_value
+    for material in _ambience_materials:
+        material.set_shader_parameter("brightness", _ambience_value)
+
+
+func _create_nexus_ambience_ui() -> void:
+    _ambience_panel = Panel.new()
+    _ambience_panel.name = "NexusBrightness"
+    _ambience_panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _ambience_panel.add_theme_stylebox_override("panel", _menu_style())
+    hud.add_child(_ambience_panel)
+    _ambience_label = Label.new()
+    _ambience_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _ambience_label.add_theme_font_size_override("font_size", 15)
+    _ambience_label.add_theme_color_override("font_color", Color("#ddfaff"))
+    _ambience_panel.add_child(_ambience_label)
+    _ambience_slider = HSlider.new()
+    _ambience_slider.name = "BrightnessSlider"
+    _ambience_slider.min_value = 0.5
+    _ambience_slider.max_value = 1.5
+    _ambience_slider.step = 0.01
+    _ambience_slider.value = _ambience_value
+    _ambience_slider.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _ambience_slider.focus_mode = Control.FOCUS_NONE
+    _ambience_panel.add_child(_ambience_slider)
+    _ambience_label.text = "明暗 / LIGHT  %d%%" % roundi(_ambience_value * 100.0)
+
+
+func _layout_nexus_ambience(view: Vector2) -> void:
+    if not is_instance_valid(_ambience_panel):
+        return
+    var width: float = minf(255.0, view.x * 0.49)
+    _ambience_panel.position = Vector2(maxf(12.0, view.x * 0.035), maxf(12.0, view.y * 0.018))
+    _ambience_panel.size = Vector2(width, 58.0)
+    _ambience_label.position = Vector2(10.0, 4.0)
+    _ambience_label.size = Vector2(width - 20.0, 22.0)
+    _ambience_slider.position = Vector2(12.0, 29.0)
+    _ambience_slider.size = Vector2(width - 24.0, 23.0)
+
+
+func _nexus_ambience_at(point: Vector2) -> void:
+    var rect: Rect2 = _ambience_slider.get_global_rect()
+    var ratio: float = clampf((point.x - rect.position.x - 6.0) / maxf(rect.size.x - 12.0, 1.0), 0.0, 1.0)
+    var next: float = snappedf(0.5 + ratio, 0.01)
+    if is_equal_approx(next, _ambience_value):
+        return
+    _ambience_value = next
+    _ambience_slider.value = next
+    _ambience_label.text = "明暗 / LIGHT  %d%%" % roundi(next * 100.0)
+    _apply_nexus_ambience()
+    _ambience_dirty = true
+    _ambience_save_delay = 0.45
+
+
+func _route_nexus_ambience_input(event: InputEvent) -> bool:
+    if not is_instance_valid(_ambience_panel) or not _ambience_panel.visible:
+        return false
+    var area: Rect2 = _ambience_panel.get_global_rect()
+    if event is InputEventScreenTouch:
+        if event.pressed and _ambience_touch < 0 and area.has_point(event.position):
+            _ambience_touch = event.index
+            _nexus_ambience_at(event.position)
+            return true
+        if not event.pressed and event.index == _ambience_touch:
+            _nexus_ambience_at(event.position)
+            _ambience_touch = -1
+            _save_nexus_ambience()
+            return true
+    elif event is InputEventScreenDrag and event.index == _ambience_touch:
+        _nexus_ambience_at(event.position)
+        return true
+    elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+        if event.pressed and area.has_point(event.position):
+            _ambience_mouse = true
+            _nexus_ambience_at(event.position)
+            return true
+        if not event.pressed and _ambience_mouse:
+            _nexus_ambience_at(event.position)
+            _ambience_mouse = false
+            _save_nexus_ambience()
+            return true
+    elif event is InputEventMouseMotion and _ambience_mouse:
+        _nexus_ambience_at(event.position)
+        return true
+    return false
+
+
+# One small shared shader, ordinary depth test, no depth writes, no particle
+# simulation, no screen copies, no additional light nodes or viewport.
+func _nexus_atmosphere_material(shader: Shader, mode: int, tint: Color, opacity: float) -> ShaderMaterial:
+    var mat := ShaderMaterial.new()
+    mat.shader = shader
+    mat.render_priority = RENDER_ORDER.FACILITY_VFX_FOREGROUND
+    mat.set_shader_parameter("mode", mode)
+    mat.set_shader_parameter("tint", tint)
+    mat.set_shader_parameter("opacity", opacity)
+    _ambience_materials.append(mat)
+    return mat
+
+
+func _nexus_atmosphere_plane(parent: Node3D, label: String, at: Vector3, dimensions: Vector2, mat: Material, rotation_x: float = 0.0) -> MeshInstance3D:
+    var node := MeshInstance3D.new()
+    node.name = label
+    var plane := QuadMesh.new()
+    plane.size = dimensions
+    node.mesh = plane
+    node.position = at
+    node.rotation.x = rotation_x
+    node.material_override = mat
+    node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    node.set_meta("FX_NO_OUTLINE", true)
+    node.set_meta("sera_skip_common_id_outline", true)
+    parent.add_child(node)
+    return node
+
+
+func _build_nexus_atmosphere() -> void:
+    # Run only after the usable HUD and scene are present; failure cannot
+    # become a required imported resource or block the NEXUS entry.
+    if not is_inside_tree():
+        return
+    var pending: Array[Node] = [self]
+    while not pending.is_empty():
+        var n: Node = pending.pop_back()
+        if n is Light3D:
+            _ambience_lights.append(n as Light3D)
+            _ambience_light_base.append((n as Light3D).light_energy)
+        for child in n.get_children():
+            if child is Node3D:
+                pending.append(child)
+    _apply_nexus_ambience()
+    var shader := Shader.new()
+    shader.code = """// RENDER_POLICY: FACILITY_VFX_FOREGROUND; depth_test=on
+shader_type spatial;
+render_mode unshaded, blend_mix, depth_draw_never, cull_disabled, fog_disabled;
+uniform int mode = 0;
+uniform vec4 tint : source_color = vec4(0.58,0.68,0.74,1.0);
+uniform float opacity = 0.15;
+uniform float brightness = 1.0;
+float hash21(vec2 p) { return fract(sin(dot(p,vec2(127.1,311.7))) * 43758.5453); }
+float dust(vec2 p) {
+    vec2 i = floor(p); vec2 f = fract(p); f = f*f*(3.0-2.0*f);
+    return mix(mix(hash21(i),hash21(i+vec2(1,0)),f.x),
+        mix(hash21(i+vec2(0,1)),hash21(i+vec2(1,1)),f.x),f.y);
+}
+void fragment() {
+    float mask = 1.0;
+    if (mode == 0) {
+        vec2 p = (UV-vec2(0.5))*2.0;
+        float edge = 1.0-smoothstep(0.28,0.99,length(p));
+        float drift = dust(UV*vec2(6.0,5.0)+vec2(TIME*0.025,0.0));
+        float fine = hash21(floor(UV*vec2(96.0,80.0)));
+        mask = edge * (0.46+0.46*drift+0.08*step(0.965,fine));
+    } else if (mode == 2) {
+        mask = smoothstep(0.05,0.98,1.0-UV.y);
+    } else if (mode == 3) {
+        float down = UV.y;
+        float half_width = mix(0.31,0.49,down);
+        float across = abs(UV.x-0.5);
+        mask = (1.0-smoothstep(half_width*0.5,half_width,across))*pow(1.0-down,1.6);
+    }
+    ALBEDO = tint.rgb * mix(0.72,1.12,brightness-0.5);
+    ALPHA = clamp(opacity*mask*mix(0.70,1.15,brightness-0.5),0.0,0.6);
+}
+"""
+    var root := Node3D.new()
+    root.name = "NexusAtmosphere"
+    root.set_meta("FX_NO_OUTLINE", true)
+    root.set_meta("sera_skip_common_id_outline", true)
+    add_child(root)
+    nexus_room_visuals.append(root)
+    if CUSTOMIZE_SPECIAL_PRESENTATION_ENABLED and focused_target == "CUSTOMIZE":
+        root.hide()
+    var haze := _nexus_atmosphere_material(shader, 0, Color("#9baebc"), 0.26)
+    for key in ["SYSTEM", "TRAINING", "DATA ARCHIVE", "DEPLOYMENT", "CUSTOMIZE"]:
+        var plane := _nexus_atmosphere_plane(root, "Haze_" + key.replace(" ", "_"), Vector3.ZERO, Vector2(4.0, 3.6), haze)
+        _ambience_hazes[key] = plane
+    _refresh_nexus_haze_positions()
+    # Match the real rear bulkhead cutout, not a rectangle over the portal.
+    var wall := _nexus_atmosphere_material(shader, 1, Color("#8298a8"), 0.23)
+    _nexus_atmosphere_plane(root, "RearWallLeftFilter", Vector3(-3.505,4.18,-27.38), Vector2(13.09,8.46), wall)
+    _nexus_atmosphere_plane(root, "RearWallRightFilter", Vector3(9.625,4.18,-27.38), Vector2(0.85,8.46), wall)
+    _nexus_atmosphere_plane(root, "RearWallHeaderFilter", Vector3(6.25,9.32,-27.38), Vector2(7.48,1.80), wall)
+    var ceiling := _nexus_atmosphere_material(shader, 2, Color("#8a9eac"), 0.28)
+    _nexus_atmosphere_plane(root, "CeilingDepthGradient", Vector3(0,9.39,-7.8), Vector2(19.7,39.4), ceiling, -PI*0.5)
+    var shaft := _nexus_atmosphere_material(shader, 3, Color("#d0efff"), 0.17)
+    # Source positions come from actual luminous Blockbench strips, not guessed
+    # light locations. One static MultiMesh shares all ceiling beam quads.
+    var poses: Array[Transform3D] = []
+    for part in Modules.MODULES["hangar_shell"]:
+        if not str(part[0]).begins_with("Recessed ceiling strip ") or NexusBulkheadRefit.suppresses_authored_part(str(part[0])):
+            continue
+        var center: Vector3 = _nexus_fixture_center(part)
+        var lo: Vector3 = _vec(part[1]) * Modules.UNIT
+        var hi: Vector3 = _vec(part[2]) * Modules.UNIT
+        center.x = _expanded_hangar_x(center.x)
+        var width: float = absf(_expanded_hangar_x(hi.x)-_expanded_hangar_x(lo.x)) / 0.62
+        var length: float = 3.9
+        center.y = lo.y - length*0.5 - 0.018
+        poses.append(Transform3D(Basis().scaled_local(Vector3(width,length,1)),center))
+    if not poses.is_empty():
+        var quad := QuadMesh.new()
+        quad.size = Vector2.ONE
+        var multi := MultiMesh.new()
+        multi.transform_format = MultiMesh.TRANSFORM_3D
+        multi.mesh = quad
+        multi.instance_count = poses.size()
+        for i in range(poses.size()):
+            multi.set_instance_transform(i, poses[i])
+        var batch := MultiMeshInstance3D.new()
+        batch.name = "CeilingDescendingLight"
+        batch.multimesh = multi
+        batch.material_override = shaft
+        batch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        batch.set_meta("FX_NO_OUTLINE", true)
+        batch.set_meta("sera_skip_common_id_outline", true)
+        root.add_child(batch)
+    var rotor := find_child("LeftRotatingCyanMaintenanceOptics", true, false) as Node3D
+    if is_instance_valid(rotor):
+        for child in rotor.get_children():
+            if child is SpotLight3D and str(child.name).begins_with("CanopyOptic"):
+                _nexus_atmosphere_plane(rotor, "CanopyDescendingLight", (child as SpotLight3D).position + Vector3(0,-1.25,0), Vector2(1.25,2.5), shaft)
+    _apply_nexus_ambience()
+
+
+# Canonical placement updates the original selection clusters. Keep each
+# haze on the overview camera's far side of its current equipment bounds.
+func _refresh_nexus_haze_positions() -> void:
+    for key in _ambience_hazes.keys():
+        var plane := _ambience_hazes[key] as MeshInstance3D
+        if not is_instance_valid(plane):
+            continue
+        var bounds := AABB()
+        var found: bool = false
+        for cluster in target_parts.get(key, []):
+            for point_value in cluster:
+                if not point_value is Vector3:
+                    continue
+                var point: Vector3 = point_value
+                if not found:
+                    bounds = AABB(point, Vector3.ZERO)
+                    found = true
+                else:
+                    bounds = bounds.expand(point)
+        plane.visible = found
+        if not found:
+            continue
+        var center: Vector3 = bounds.get_center()
+        var z: float = maxf(-27.22, bounds.position.z - 0.32)
+        if key == "DEPLOYMENT":
+            z = maxf(-27.22, center.z - 0.8)
+        plane.position = Vector3(center.x, center.y, z)
+        (plane.mesh as QuadMesh).size = Vector2(maxf(3.0,bounds.size.x*1.65),maxf(3.0,bounds.size.y*1.55))
 
 
 # The common toon shader is unshaded, so changing Environment alone has no
@@ -2300,6 +2606,7 @@ func _hud() -> void:
     _apply_labo_typography()
     _refresh_customization_stats()
     _create_outline_debug()
+    _create_nexus_ambience_ui()
     _layout_hud()
     _update_projected_silhouettes()
 
@@ -4770,6 +5077,7 @@ func _layout_hud() -> void:
     if back_panel == null or focus_panel == null:
         return
     var margin := maxf(16.0, view.x * 0.04)
+    _layout_nexus_ambience(view)
     _layout_outline_debug(view)
     # Dedicated raw-touch hit area: GUI mouse emulation remains off.
     explore_panel.position = Vector2(margin, view.y - margin - 66.0)
@@ -5979,6 +6287,9 @@ func _input(event: InputEvent) -> void:
             _open_camera_angle_placement()
             get_viewport().set_input_as_handled()
             return
+    if _route_nexus_ambience_input(event):
+        get_viewport().set_input_as_handled()
+        return
     if _route_fullscreen_preview_input(event):
         get_viewport().set_input_as_handled()
         return
@@ -6204,6 +6515,7 @@ func _tap_at(point: Vector2) -> void:
     return
 
 func _enter_base() -> void:
+    _save_nexus_ambience()
     if get_tree().root.get_node_or_null("NexusExitTransition") != null or get_tree().root.get_node_or_null("NexusEntryTransition") != null:
         return
     if is_instance_valid(camera_angle_editor) and camera_angle_editor.has_method("open_mode") and bool(camera_angle_editor.get("active")):
