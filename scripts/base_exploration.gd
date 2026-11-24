@@ -102,7 +102,6 @@ var facility_touch_key: String = ""
 var facility_touch_start: Vector2 = Vector2.ZERO
 var startup_layer: CanvasLayer
 var console_screen: Control
-var preview_layer: CanvasLayer
 var layout_tools: VBoxContainer
 var layout_shuffle_button: Button
 var layout_copy_button: Button
@@ -250,30 +249,6 @@ func _startup_step(message: String, completed_percent: int) -> void:
     if console_screen != null:
         console_screen.set_stage(message, completed_percent)
 
-
-func _play_loading_preview(render_scale: float = LoadingConsole.CONSOLE_RENDER_SCALE) -> void:
-    if preview_layer != null or scene_changing or power_view_active:
-        return
-    if facility_system != null and bool(facility_system.call("is_menu_open")):
-        return
-    preview_layer = CanvasLayer.new()
-    preview_layer.name = "LoadingPreviewLayer"
-    preview_layer.layer = 110
-    add_child(preview_layer)
-    var screen := LoadingConsole.new() as Control
-    screen.name = "SeraLoadingConsolePreview"
-    preview_layer.add_child(screen)
-    screen.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    screen.set_render_scale(render_scale)
-    screen.set_cyber_font(LaboSkin.display_font())
-    screen.preview_finished.connect(_loading_preview_complete)
-    screen.start_preview()
-
-
-func _loading_preview_complete() -> void:
-    if preview_layer != null:
-        preview_layer.queue_free()
-        preview_layer = null
 
 func _setup_world() -> void:
     var world := WorldEnvironment.new()
@@ -924,11 +899,6 @@ func _create_layout_tools() -> void:
         "小物を再配置", "LayoutShuffleButton", _shuffle_layout)
     layout_copy_button = _layout_tool_button(
         "配置データコピー", "LayoutCopyButton", _copy_layout_data)
-    _layout_tool_button("ロード演出 50%", "LoadingPreviewButton", _play_loading_preview)
-    _layout_tool_button("ロード演出 37.5%", "LoadingPreviewMediumButton",
-        _play_loading_preview.bind(LoadingConsole.PREVIEW_RENDER_SCALE_1))
-    _layout_tool_button("ロード演出 25%", "LoadingPreviewLowButton",
-        _play_loading_preview.bind(LoadingConsole.PREVIEW_RENDER_SCALE_2))
     outline_probe_button = _layout_tool_button(
         "輪郭ID：状態", "OutlineProbeButton", _cycle_outline_probe)
     nexus_material_probe_button = _layout_tool_button(
@@ -1441,8 +1411,6 @@ func _power_camera_return_finished() -> void:
 
 
 func _on_android_back() -> void:
-    if preview_layer != null:
-        return
     if power_view_active:
         _power_back_pressed()
         return
@@ -1450,7 +1418,7 @@ func _on_android_back() -> void:
         facility_system.call("navigate_back")
 
 func _input(event: InputEvent) -> void:
-    if scene_changing or hud == null or preview_layer != null:
+    if scene_changing or hud == null:
         return
     if power_view_active:
         _power_input(event)
