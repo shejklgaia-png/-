@@ -739,6 +739,7 @@ func _labo(key: String) -> void:
     _shape(b,"roof",Vector3(0,7.25,-0.20),Vector3(4.5,0.22,2.8),"armor")
     _finish(b)
     var supply := _model(key,"ReceivingHopperAndFeed",Vector3(-9.0,0,2.8))
+    _moving(key,"supply",supply)
     b = _batch(supply)
     _shape(b,"hopper",Vector3(0,2.65,0),Vector3(2.8,2.0,2.7),"armor_light")
     for x in [-0.9,0.9]:
@@ -1129,12 +1130,17 @@ func _build_logistics(key: String) -> void:
     var flow := Logistics.new()
     flow.build(room,key,source,destination)
     logistics[key] = flow
+    # The complete connected logistics assembly is a single editable model.
+    (targets[key] as Array).append(flow.root)
 
 func logistics_reservations(key: String) -> Array[AABB]:
     var flow = logistics.get(key)
     if flow==null:
         return []
-    return flow.reserves
+    var result: Array[AABB] = []
+    for bounds in flow.reserves:
+        result.append(flow.root.transform*bounds)
+    return result
 
 func placement_models(key: String) -> Array[Node3D]:
     var result: Array[Node3D] = []
@@ -1205,6 +1211,7 @@ func animate(delta: float, time: float, key: String) -> void:
     else:
         idle_seconds += delta
         if idle_seconds>=5.0:
+            idle_seconds = 0.0
             start_cycle(key)
 
 func _sample_machine(key: String, t: float) -> void:
@@ -1324,11 +1331,22 @@ func _sample(key: String,t: float) -> void:
         return
     _sample_machine(key,1.0)
     var output: Node3D
+    var payload_height: float = 0.90
+    var payload_width: float = 1.0
     if key=="LABO":
-        output = (m["products"] as Node3D).get_child(int(m["variant"])) as Node3D
+        var variant: int = int(m["variant"])
+        output = (m["products"] as Node3D).get_child(variant) as Node3D
+        payload_height = float([1.30,0.90,1.10,1.40][variant])*EQUIPMENT_SCALE
+        payload_width = float([1.65,1.75,1.90,1.55][variant])*EQUIPMENT_SCALE+0.12
+    elif key=="SMELTER":
+        output = m["output"] as Node3D
+        payload_height = 0.88
+        payload_width = 2.45
     else:
         output = m["output"] as Node3D
-    flow.sample_out(t,output)
+        payload_height = 0.55
+        payload_width = 1.7
+    flow.sample_out(t,output,payload_height,payload_width)
 
 # Linked machinery must retain its relative alignment. The entire room or a
 # complete mechanism may move; independent unsafe placement stops animation.
@@ -1337,7 +1355,7 @@ func _mechanism_nodes(key: String) -> Array[Node3D]:
     var result: Array[Node3D] = []
     var names: Array = []
     match key:
-        "LABO": names = ["print_frame","rail","tray","carriage_mount","head_mount"]
+        "LABO": names = ["print_frame","rail","tray","carriage_mount","head_mount","supply"]
         "SMELTER": names = ["hopper","charge_conveyor","charge_hoist","charge_mount","furnace","casting_line","ingot_mount","cooling"]
         "RECYCLER": names = ["crusher","feed_conveyor","scrap_mount","shaft_root0","shaft_root1","ramp","sorted_line","sorted_mount"]
         "STORAGE": names = ["storage_anchor"]
@@ -1348,6 +1366,8 @@ func _mechanism_nodes(key: String) -> Array[Node3D]:
     return result
 
 func _mechanism_pose(nodes: Array[Node3D], i: int) -> Transform3D:
+    if i==0:
+        return (nodes[0].get_parent() as Node3D).global_transform.affine_inverse()*nodes[0].global_transform
     if nodes[i].name == "PrintHeadPlacement":
         return nodes[i].transform
     return nodes[0].global_transform.affine_inverse()*nodes[i].global_transform
@@ -1364,7 +1384,9 @@ func _mechanism_aligned(key: String) -> bool:
     var poses: Array = mechanism_layouts.get(key,[])
     if poses.size()!=nodes.size():
         return false
-    for i in range(1,nodes.size()):
+    if logistics.has(key) and not (logistics[key].root as Node3D).transform.is_equal_approx(Transform3D.IDENTITY):
+        return false
+    for i in range(nodes.size()):
         var original: Transform3D = poses[i]
         var current: Transform3D = _mechanism_pose(nodes,i)
         if not current.is_equal_approx(original):
