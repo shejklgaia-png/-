@@ -471,7 +471,7 @@ func _build_logistics() -> void:
     logistics.set_meta("sera_outline_role", "clutter")
     add_child(logistics)
     logistics.call("setup", self, NEXUS_BUILDING_ORIGIN,
-        BaseFacilities.FACILITY_SPECS, power_distribution, CRATE_WAYPOINTS)
+        BaseFacilities.FACILITY_SPECS, power_distribution, CRATE_WAYPOINTS, cam)
 
 
 func _create_grid_selection() -> void:

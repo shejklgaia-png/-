@@ -79,6 +79,10 @@ var _draws: Dictionary = {}
 var _batch: Variant
 var _acc: float = 0.0
 var _dispatch: float = 0.0
+var _camera: Camera3D
+var _network_anchor := Vector2i(0, 40)
+var _route_parking_exclusion: Dictionary = {}
+var _screen_costs: Dictionary = {}
 
 func _xz(v: Vector3) -> Vector2:
     return Vector2(v.x, v.z)
@@ -95,14 +99,15 @@ func _cell(p: Vector2) -> Vector2i:
 func _free(c: Vector2i) -> bool:
     return REGION.has_point(c) and not _grid.is_point_solid(c)
 
-func _block_circle(p: Vector2, radius: float) -> void:
+func _block_circle(p: Vector2, radius: float, changed: Array[Vector2i] = []) -> void:
     var c: Vector2i = _cell(p)
     var n: int = ceili(radius / CELL) + 1
     for x in range(c.x - n, c.x + n + 1):
         for z in range(c.y - n, c.y + n + 1):
             var q := Vector2i(x, z)
-            if REGION.has_point(q) and _point(q).distance_to(p) <= radius:
+            if _free(q) and _point(q).distance_to(p) <= radius:
                 _grid.set_point_solid(q, true)
+                changed.append(q)
 
 func _block_rect(origin: Vector2, yaw: float, local: Vector2, half: Vector2) -> void:
     var turn := Basis(Vector3.UP, yaw)
@@ -153,21 +158,49 @@ func _obstacles(root: Node3D, sites: Array, power: Node3D, crate_path: Array) ->
         for j in range(count + 1):
             _block_circle(a.lerp(b, float(j) / count), 1.0)
 
+func _screen_penalty(p: Vector2) -> float:
+    if not is_instance_valid(_camera):
+        return 0.0
+    var cell: Vector2i = _cell(p)
+    if _screen_costs.has(cell):
+        return float(_screen_costs[cell])
+    var rect: Rect2 = _camera.get_viewport().get_visible_rect()
+    if rect.size.x <= 0.0 or rect.size.y <= 0.0:
+        return 0.0
+    var uv: Vector2 = (_camera.unproject_position(_v3(p, 0.4)) - rect.position) / rect.size
+    if not _camera.is_position_behind(_v3(p, 0.4)) and uv.x >= 0.07 and uv.x <= 0.93 and uv.y >= 0.10 and uv.y <= 0.90:
+        _screen_costs[cell] = 0.0
+        return 0.0
+    var cost: float = 25.0 + (uv - Vector2(0.5, 0.5)).length() * 10.0
+    _screen_costs[cell] = cost
+    return cost
+
+
+func _find_network_anchor() -> void:
+    if _free(_network_anchor):
+        return
+    for z in range(REGION.position.y + 1, REGION.end.y - 1):
+        for x in [REGION.position.x + 1, REGION.end.x - 2]:
+            var c := Vector2i(x, z)
+            if _free(c):
+                _network_anchor = c
+                return
+
+
 func _find_dock(key: String, at: Vector2) -> Dock:
     var forward: Vector2 = _xz(Basis(Vector3.UP, Architecture.facility_yaw_radians(key)) * Vector3.BACK)
-    var best: float = INF
-    var result: Dock
+    var candidates: Array[Dictionary] = []
     var base_cell: Vector2i = _cell(at)
     # Choose the closest clear three-part work cell in the service apron.
     # All racks/pedestals and vehicle centers are disjoint from authored props.
-    for dx in range(-11, 12):
-        for dz in range(-11, 12):
+    for dx in range(-17, 18):
+        for dz in range(-17, 18):
             var c: Vector2i = base_cell + Vector2i(dx, dz)
             if not _free(c):
                 continue
             var offset: Vector2 = _point(c) - at
             var length: float = offset.length()
-            if length < 2.4 or length > 7.9:
+            if length < 2.4 or length > 12.0:
                 continue
             for direction in [Vector2i(0, 1), Vector2i(1, 0), Vector2i(0, -1), Vector2i(-1, 0)]:
                 var along: Vector2i = direction
@@ -192,41 +225,57 @@ func _find_dock(key: String, at: Vector2) -> Dock:
                     # Prefer the rack on the facility side and the dock facing
                     # along its open service apron; no arbitrary visual shift.
                     score += (_point(stage_cell).distance_to(at) - length) * 0.45
-                    if score >= best:
-                        continue
-                    best = score
-                    result = Dock.new()
-                    result.cell = c
-                    result.stage = _point(stage_cell)
-                    result.pivot = _point(pivot_cell)
-                    result.yaw = atan2(float(along.x), float(along.y))
-                    result.hatch_side = float(sign_value)
-    if result != null:
-        _block_circle(result.stage, 0.72 + CLEARANCE)
+                    score += _screen_penalty(_point(c)) * 0.45
+                    candidates.append({"score": score, "cell": c,
+                        "stage": _point(stage_cell), "pivot": _point(pivot_cell),
+                        "yaw": atan2(float(along.x), float(along.y)),
+                        "side": float(sign_value)})
+    candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["score"]) < float(b["score"]))
+    for candidate_index in range(mini(160, candidates.size())):
+        var choice: Dictionary = candidates[candidate_index]
+        var result := Dock.new()
+        result.cell = choice["cell"]
+        result.stage = choice["stage"]
+        result.pivot = choice["pivot"]
+        result.yaw = choice["yaw"]
+        result.hatch_side = choice["side"]
+        var changed: Array[Vector2i] = []
+        _block_circle(result.stage, 0.72 + CLEARANCE, changed)
         var slide: Vector2 = _xz(Basis(Vector3.UP, result.yaw) * Vector3(0.74 * result.hatch_side, 0, 0))
-        _block_circle(result.stage + slide, 0.47 + CLEARANCE)
-        _block_circle(result.pivot, 0.23 + CLEARANCE)
-        # The central parking cell was explicitly checked before the rack
-        # was installed. Its center has 1.50m side spacing from the rack.
+        _block_circle(result.stage + slide, 0.47 + CLEARANCE, changed)
+        _block_circle(result.pivot, 0.23 + CLEARANCE, changed)
         _grid.set_point_solid(result.cell, false)
-    return result
+        var connected: bool = _free(_network_anchor)
+        if connected:
+            connected = not _grid.get_id_path(_network_anchor, result.cell).is_empty()
+        if connected:
+            for old_value in _docks.values():
+                var old: Dock = old_value
+                if not _free(old.cell) or _grid.get_id_path(_network_anchor, old.cell).is_empty():
+                    connected = false
+                    break
+        if connected:
+            return result
+        for c in changed:
+            _grid.set_point_solid(c, false)
+    return null
 
-func _find_home(source: Dock, target: Dock) -> Vector2i:
-    var best: float = INF
-    var answer := Vector2i(999, 999)
-    var a: Vector2 = _point(source.cell)
-    var direction: Vector2 = (_point(target.cell) - a).normalized()
-    for x in range(-12, 13):
-        for z in range(-12, 13):
-            var c: Vector2i = source.cell + Vector2i(x, z)
-            if not _free(c):
+
+func _parking_options(origin: Vector2, destination: Vector2) -> Array[Dictionary]:
+    var result: Array[Dictionary] = []
+    var direction: Vector2 = (destination - origin).normalized()
+    for z in range(REGION.position.y + 1, REGION.end.y - 1):
+        for x in range(REGION.position.x + 1, REGION.end.x - 1):
+            var c := Vector2i(x, z)
+            if not _free(c) or _route_parking_exclusion.has(c):
                 continue
             var p: Vector2 = _point(c)
-            var d: float = p.distance_to(a)
-            if d < 2.9 or d > 9.1:
+            var d: float = p.distance_to(origin)
+            if d < 2.0:
                 continue
             var ok: bool = true
-            for dock in _docks.values():
+            for dock_value in _docks.values():
+                var dock: Dock = dock_value
                 if p.distance_to(_point(dock.cell)) < 2.7:
                     ok = false
                     break
@@ -238,18 +287,27 @@ func _find_home(source: Dock, target: Dock) -> Vector2i:
                     break
             if not ok:
                 continue
-            # Parking is an off-dock holding bay, preferably to the side of
-            # the loaded direction, not immediately in the transfer lane.
-            var score: float = d + absf((p - a).normalized().dot(direction)) * 1.9
-            if score < best:
-                var exits: int = 0
-                for delta in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
-                    if _free(c + delta):
-                        exits += 1
-                if exits >= 2:
-                    best = score
-                    answer = c
-    return answer
+            var exits: int = 0
+            for offset_value in [Vector2i.LEFT, Vector2i.RIGHT, Vector2i.UP, Vector2i.DOWN]:
+                var offset: Vector2i = offset_value
+                if _free(c + offset):
+                    exits += 1
+            if exits < 2:
+                continue
+            var score: float = d + absf((p - origin).normalized().dot(direction)) * 1.9 + _screen_penalty(p)
+            result.append({"cell": c, "score": score})
+    result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool: return float(a["score"]) < float(b["score"]))
+    return result
+
+
+func _keep_parking_clear(t: Truck) -> void:
+    for leg in t.legs:
+        for c in leg:
+            for x in range(-2, 3):
+                for z in range(-2, 3):
+                    if Vector2(x, z).length() * CELL < 1.51:
+                        _route_parking_exclusion[c + Vector2i(x, z)] = true
+
 
 func _expand_cell(target: Dictionary, c: Vector2i) -> void:
     # A 0.92 x 1.30m vehicle can turn in place within a radius of 0.80m.
@@ -296,12 +354,17 @@ func _plan(t: Truck) -> bool:
                 _grid.set_point_weight_scale(c, minf(3.8, _grid.get_point_weight_scale(c) + 0.20))
     return true
 
-func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, crate_path: Array) -> void:
+func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, crate_path: Array, camera: Camera3D = null) -> void:
+    _camera = camera
+    print("SERA_BASE_LOGISTICS: setup begin")
     var sites: Array = [{"id": "NEXUS", "at": nexus_origin}]
     sites.append_array(specs)
     _obstacles(root, sites, power, crate_path)
+    _find_network_anchor()
+    var origins: Dictionary = {}
     for spec in specs:
         var key: String = str(spec["id"])
+        origins[key] = _xz(spec["at"])
         if key not in ["SCRAP_COLLECTOR", "LABO", "SMELTER", "RECYCLER", "STORAGE"]:
             continue
         var dock: Dock = _find_dock(key, _xz(spec["at"]))
@@ -309,37 +372,68 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
             _docks[key] = dock
         else:
             push_warning("BASE logistics: no clear cargo dock for " + key)
+    var moving_count: int = 0
     for route in ROUTES:
         var source: String = route[0]
         var destination: String = route[1]
-        if not _docks.has(source) or not _docks.has(destination):
-            continue
+        var source_at: Vector2 = origins[source]
+        var destination_at: Vector2 = origins[destination]
+        var docks_ready: bool = _docks.has(source) and _docks.has(destination)
+        if docks_ready:
+            var sd: Dock = _docks[source]
+            var dd: Dock = _docks[destination]
+            source_at = _point(sd.cell)
+            destination_at = _point(dd.cell)
         for i in range(2):
-            var home: Vector2i = _find_home(_docks[source], _docks[destination])
-            if not REGION.has_point(home):
-                push_warning("BASE logistics: no safe holding bay for " + source + " -> " + destination)
-                continue
             var t := Truck.new()
             t.id = _trucks.size()
             t.source = source
             t.destination = destination
             t.raw = source == "SCRAP_COLLECTOR"
-            t.home = home
-            t.pos = _point(home)
-            t.yaw = (_docks[source] as Dock).yaw
-            t.wait = -float(t.id) * 0.65
-            _homes.append(home)
+            t.yaw = Architecture.facility_yaw_radians(source)
+            t.wait = -float(t.id) * 0.35
+            var options: Array[Dictionary] = _parking_options(source_at, destination_at)
+            var planned: bool = false
+            if docks_ready:
+                for j in range(mini(48, options.size())):
+                    t.home = options[j]["cell"]
+                    if _plan(t):
+                        planned = true
+                        break
+            if not planned:
+                t.mode = "unavailable"
+                if options.is_empty():
+                    push_warning("BASE logistics: no collision-free parking for " + source + " -> " + destination)
+                    continue
+                t.home = options[0]["cell"]
+                push_warning("BASE logistics: parked; no route " + source + " -> " + destination)
+            else:
+                moving_count += 1
+                _keep_parking_clear(t)
+            t.pos = _point(t.home)
+            _homes.append(t.home)
             _trucks.append(t)
-    for t in _trucks:
-        if not _plan(t):
-            t.mode = "unavailable"
-            push_warning("BASE logistics: route obstructed for " + t.source + " -> " + t.destination)
+    print("SERA_BASE_LOGISTICS: docks=", _docks.size(), " vehicles=", _trucks.size(), " routable=", moving_count, " parked=", _trucks.size() - moving_count)
+    # The BASE represents an already operating yard. Seed nonconflicting
+    # loaded trips on the visible delivery legs instead of starting every
+    # truck empty behind its source facility.
+    _seed_active_deliveries()
     _batch = Architecture.Batch.new(self)
     for dock in _docks.values():
         _make_dock(dock)
     for t in _trucks:
-        if t.mode != "unavailable":
-            _make_truck(t)
+        _make_truck(t)
+        _truck_pose(t)
+    # Bake actual world transforms before creating renderers.
+    for v in _visuals:
+        var transform: Transform3D = _visible_transform(v)
+        for key in v.slots:
+            var record: Dictionary = v.slots[key]
+            var local: Array = record["local"]
+            var dest: Array = _batch.entries[key]
+            var first: int = int(record["start"])
+            for i in range(local.size()):
+                dest[first + i] = transform * (local[i] as Transform3D)
     _batch.flush()
     for child in get_children():
         if child is MultiMeshInstance3D:
@@ -353,10 +447,34 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
                     if parts[1] == "caution":
                         (draw.material_override as StandardMaterial3D).albedo_color = Color("#e7b637")
                     break
-    for t in _trucks:
-        if t.mode != "unavailable":
-            _truck_pose(t)
+    print("SERA_BASE_LOGISTICS: render_buckets=", _draws.size(), "/", _batch.entries.size())
     _flush_poses()
+
+func _seed_active_deliveries() -> void:
+    for t in _trucks:
+        if t.mode != "home" or _conflict(t.cells, t.id):
+            continue
+        var path: Array = t.legs[1]
+        var chosen: int = -1
+        var best: float = INF
+        for i in range(1, path.size() - 1):
+            var p: Vector2 = _point(path[i])
+            var score: float = _screen_penalty(p) + absf(float(i) / float(path.size() - 1) - 0.5) * 6.0
+            if score < best:
+                best = score
+                chosen = i
+        if chosen < 0 or best >= 25.0:
+            continue
+        t.leg = 1
+        t.waypoint = chosen + 1
+        t.pos = _point(path[chosen])
+        var direction: Vector2 = _point(path[chosen + 1]) - t.pos
+        t.yaw = atan2(direction.x, direction.y)
+        t.loaded = true
+        t.mode = "drive"
+        t.wait = 0.0
+        _held[t.id] = t.cells
+
 
 func _template() -> Variant:
     return Architecture.Batch.new(self)
@@ -385,11 +503,15 @@ func _set(v: Visual, pose: Transform3D, shown: bool = true) -> void:
 func _pose(p: Vector3, yaw: float = 0.0) -> Transform3D:
     return Transform3D(Basis(Vector3.UP, yaw), p)
 
+func _visible_transform(v: Visual) -> Transform3D:
+    return v.pose if v.shown else Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 0.0001), Vector3(0, -10, 0))
+
+
 func _flush_poses() -> void:
     for v in _visuals:
         if not v.dirty:
             continue
-        var transform: Transform3D = v.pose if v.shown else Transform3D(Basis.IDENTITY.scaled(Vector3.ONE * 0.0001), Vector3(0, -10, 0))
+        var transform: Transform3D = _visible_transform(v)
         for key in v.slots:
             if not _draws.has(key):
                 continue
@@ -548,7 +670,7 @@ func _rack_slot(d: Dock, i: int) -> Vector3:
 func _truck_pose(t: Truck) -> void:
     var p: Transform3D = _pose(_v3(t.pos), t.yaw)
     _set(t.body, p)
-    var waiting: bool = t.mode == "home" or (t.mode == "approach" and t.waypoint > t.prefix_end)
+    var waiting: bool = t.mode in ["home", "unavailable"] or (t.mode == "approach" and t.waypoint > t.prefix_end)
     _set(t.lamp_go, p, not waiting)
     _set(t.lamp_wait, p, waiting)
     for i in range(t.treads.size()):
