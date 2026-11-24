@@ -32,6 +32,8 @@ var targets: Dictionary = {}
 var terminals: Dictionary = {}
 var inspection: Dictionary = {}
 var motion_parts: Dictionary = {}
+const PRINT_TRACK_STEPS: int = 512
+var print_pose_cache: Dictionary = {}
 var screens: Dictionary = {}
 var active_key: String = ""
 var elapsed: float = 0.0
@@ -90,6 +92,7 @@ func advance_room(key: String) -> bool:
         0:
             var room := Node3D.new()
             room.name = key + "_OutdoorWorksite"
+            room.set_meta("sera_id_visibility_group", true)
             room.visible = false
             room.process_mode = Node.PROCESS_MODE_DISABLED
             host.add_child(room)
@@ -250,9 +253,11 @@ func _build_outdoor_deck() -> void:
         bake_path = ""
     var baked := StaticBake.load_scene(bake_path, "OutdoorPatchworkSteelDeck")
     if baked != null:
+        baked.set_meta("sera_id_static_group", true)
         host.add_child(baked)
         return
     var floor := _child(host,"OutdoorPatchworkSteelDeck")
+    floor.set_meta("sera_id_static_group", true)
     var backing := MeshInstance3D.new()
     backing.name = "ContinuousGround"
     var backing_mesh := BoxMesh.new()
@@ -941,7 +946,51 @@ func _print_link_pose(n: Node3D,a: Vector3,z: Vector3,hinge: Vector3) -> void:
     x = y.cross(depth).normalized()
     n.transform = Transform3D(Basis(x,y,depth),a)
 
+func _print_pose_nodes(arm: Dictionary) -> Array[Node3D]:
+    var result: Array[Node3D] = []
+    for key in ["swivel","shoulder","upper","elbow","fore","wrist","tool"]:
+        result.append(arm[key] as Node3D)
+    return result
+
+func prepare_print_motion(budget: Variant) -> void:
+    if not room_ready("LABO") or not print_pose_cache.is_empty():
+        return
+    var tracks: Dictionary = {}
+    for variant in range(PART_HEIGHTS.size()):
+        for i in range(3):
+            var arm: Dictionary = motion_parts["LABO"]["print_arms"][i]
+            var nodes := _print_pose_nodes(arm)
+            var track: Array[Transform3D] = []
+            var original: Array[Transform3D] = []
+            for node in nodes:
+                original.append(node.transform)
+            for step in range(PRINT_TRACK_STEPS + 1):
+                var t: float = float(step) / float(PRINT_TRACK_STEPS)
+                _sample_print_arm(arm, i, t, float(PART_HEIGHTS[variant]), smoothstep(0.10,0.46,t))
+                for node in nodes:
+                    track.append(node.transform)
+                if step % 32 == 31:
+                    await budget.checkpoint("printer pose track")
+            for j in range(nodes.size()):
+                nodes[j].transform = original[j]
+            tracks[Vector2i(variant, i)] = track
+    print_pose_cache = tracks
+
 func _sample_print_arm(arm: Dictionary,index: int,t: float,height: float,grow: float) -> void:
+    var variant: int = PART_HEIGHTS.find(height)
+    var key := Vector2i(variant,index)
+    if print_pose_cache.has(key) and is_equal_approx(grow,smoothstep(0.10,0.46,t)):
+        var track: Array = print_pose_cache[key]
+        var frame: float = clampf(t,0.0,1.0)*float(PRINT_TRACK_STEPS)
+        var lo: int = mini(floori(frame),PRINT_TRACK_STEPS)
+        var hi: int = mini(lo+1,PRINT_TRACK_STEPS)
+        var alpha: float = frame-float(lo)
+        var nodes := _print_pose_nodes(arm)
+        for j in range(nodes.size()):
+            var first: Transform3D = track[lo*7+j]
+            var second: Transform3D = track[hi*7+j]
+            nodes[j].transform = first.interpolate_with(second,alpha)
+        return
     var radial: Vector3 = arm["radial"]
     var tangent: Vector3 = Vector3.UP.cross(radial)
     var blend: float = smoothstep(0.015+float(index)*0.018,0.10,t)*(1.0-smoothstep(0.46,0.56-float(index)*0.014,t))

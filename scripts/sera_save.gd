@@ -284,8 +284,9 @@ func award_materials(rewards: Dictionary) -> bool:
     return true
 
 func get_owned_prototypes(slot: String = "") -> Array:
-    var all_items: Array = _sanitize_crafted_items(
-        active_data.get("crafted_items", []))
+    # Documents are sanitized when loaded and on every transaction; each
+    # item returned to a caller is still a defensive deep copy.
+    var all_items: Array = active_data.get("crafted_items", [])
     if slot.is_empty():
         return all_items.duplicate(true)
     var result: Array = []
@@ -324,9 +325,10 @@ func count_junk_prototypes(slot: String = "") -> int:
     # Keep equipped UIDs out of deletion counts.
     var equipped: Dictionary = active_data.get("equipped_crafted", {})
     var count: int = 0
-    for item in get_owned_prototypes(slot):
-        if bool(item.get("junk", false)) and (
-                not equipped.values().has(str(item.get("uid", "")))):
+    var equipped_ids: Array = equipped.values()
+    for item in active_data.get("crafted_items", []):
+        if (slot.is_empty() or str(item.get("slot", "")) == slot) and bool(item.get("junk", false)) and (
+                not equipped_ids.has(str(item.get("uid", "")))):
             count += 1
     return count
 

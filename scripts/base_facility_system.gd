@@ -145,6 +145,7 @@ var hero_scene_resource: PackedScene
 # Static craft/refinery cards retain native controls, artwork and signal bindings.
 var resident_card_pages: Dictionary = {}
 var card_cache_root: Control
+var resident_warehouse_grids: Dictionary = {}
 const ModelPlacement = preload("res://scripts/labo_model_placement.gd")
 var texture_entry: Button
 var texture_editor: Control
@@ -1469,6 +1470,7 @@ func prewarm_hero_startup(budget: Variant) -> void:
             await budget.checkpoint("worksite geometry " + key)
     hero_stage.call("set_base_context", _hero_context_sources())
     await budget.checkpoint("worksite distant context")
+    await hero_stage.call("prepare_print_motion", budget)
     # First select prepares real navigation and saved poses without dispatch.
     # Keep the stage and every child animation disabled throughout.
     hero_stage.call("enable_hero_outline")
@@ -2838,10 +2840,8 @@ func _show_inventory(section: String = "equipment") -> void:
         button.pressed.connect(_invoke_scroll_action.bind(
             _show_inventory.bind(str(choice["key"])), actions_scroll))
         switcher.add_child(button)
-    var grid := WarehouseGrid.new()
-    grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    var grid := _resident_warehouse_grid(section)
     if section == "materials":
-        item_layer.add_child(grid)
         var stock: Dictionary = SeraSave.get_material_inventory()
         var entries: Array = []
         # Four families, each with low/mid/high in a single row.
@@ -2851,7 +2851,7 @@ func _show_inventory(section: String = "equipment") -> void:
                 entries.append({"id": id, "name": BaseMaterials.display_name(id),
                     "count": int(stock[id])})
         grid.name = "WarehouseMaterials"
-        grid.configure(entries, 2, "materials")
+        grid.call("configure", entries, 2, "materials")
     else:
         # Seven fixed tabs. The entire hanger stays visible without a
         # horizontal ScrollContainer, even when Android has a narrow viewport.
@@ -2895,7 +2895,6 @@ func _show_inventory(section: String = "equipment") -> void:
             tab.pressed.connect(_invoke_scroll_action.bind(
                 _select_warehouse_slot.bind(slot_index), actions_scroll))
             hanger.add_child(tab)
-        grid.entry_pressed.connect(_on_warehouse_entry_pressed)
         var junk_button := Button.new()
         junk_button.name = "BulkDeleteJunk"
         var junk_count: int = SeraSave.count_junk_prototypes(warehouse_slot)
@@ -2911,7 +2910,7 @@ func _show_inventory(section: String = "equipment") -> void:
         # action-tab area. Both navigation rows stay in place and fully visible.
         junk_button.pressed.connect(_confirm_bulk_junk_deletion)
         item_layer.add_child(junk_button)
-        item_layer.add_child(grid)
+        item_layer.move_child(grid, item_layer.get_child_count() - 1)
         # WarehouseGrid._ready sets its default node name. Assign the stable
         # search identity only AFTER entering the tree, as in the old layout.
         grid.name = "WarehouseEquipment"
@@ -2919,6 +2918,22 @@ func _show_inventory(section: String = "equipment") -> void:
     _configure_page_scroll(80 if section == "materials" else 140)
     actions_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
     _sync_section_tabs()
+
+func _resident_warehouse_grid(section: String) -> Control:
+    var grid := resident_warehouse_grids.get(section) as Control
+    if not is_instance_valid(grid):
+        grid = WarehouseGrid.new()
+        grid.size_flags_vertical = Control.SIZE_EXPAND_FILL
+        grid.set_meta("resident_card_page", "warehouse_" + section)
+        item_layer.add_child(grid)
+        if section == "equipment":
+            grid.connect("entry_pressed", _on_warehouse_entry_pressed)
+        resident_warehouse_grids[section] = grid
+    elif grid.get_parent() != item_layer:
+        grid.reparent(item_layer, false)
+    grid.show()
+    grid.call("reset_touch_state")
+    return grid
 
 func _slot_tab_caption(slot: String) -> String:
     # Two Japanese glyphs on tablets; single glyph on narrow phones.
@@ -3283,6 +3298,11 @@ func _prewarm_card_pages(budget: Variant) -> void:
         await budget.checkpoint("craft UI " + str(slot))
     _park_card_page(_show_resident_material_grid(SeraSave.get_material_inventory()))
     await budget.checkpoint("refine UI")
+    for section in ["materials", "equipment"]:
+        var grid := _resident_warehouse_grid(section)
+        grid.call("prewarm", section, 16)
+        _park_card_page(grid)
+        await budget.checkpoint("warehouse UI " + section)
 
 func _select_conversion_family(family: String) -> void:
     if not BaseMaterials.FAMILY_IDS.has(family) or page != "families":

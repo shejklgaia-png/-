@@ -133,6 +133,10 @@ func advance_prewarm(key: String) -> bool:
 func prewarm_ready(key: String) -> bool:
     return rebuilt_scenes != null and rebuilt_scenes.room_ready(key)
 
+func prepare_print_motion(budget: Variant) -> void:
+    if rebuilt_scenes != null:
+        await rebuilt_scenes.prepare_print_motion(budget)
+
 func enable_hero_outline() -> void:
     if is_instance_valid(hero_ink):
         hero_ink.call("set_contour_enabled", true)

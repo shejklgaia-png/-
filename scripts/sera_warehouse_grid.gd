@@ -54,6 +54,13 @@ func configure(data: Array, new_columns: int, new_mode: String) -> void:
         scroll_vertical = 0
         _relayout()
 
+func prewarm(new_mode: String, capacity: int) -> void:
+    configure([], 2, new_mode)
+    while pool.size() < mini(MAX_POOL_CARDS, capacity):
+        _make_card()
+    for card in pool:
+        card.hide()
+
 func _card_height() -> float:
     return CARD_HEIGHT_MATERIALS if mode == "materials" else CARD_HEIGHT_EQUIPMENT
 
