@@ -3,7 +3,7 @@ extends RefCounted
 const MAX_TRIANGLES = 12000
 const PADDING = 2
 
-static func build(source: MeshInstance3D, density: int, preserve_shape: bool = true, balanced_shape: bool = false) -> Dictionary:
+static func build(source: MeshInstance3D, density: int, preserve_shape: bool = true, balanced_shape: bool = false, exact_block: bool = true) -> Dictionary:
     var tris: Array[Dictionary] = []
     var charts: Array[Dictionary] = []
     var scale_basis: Basis = source.global_transform.basis if source.is_inside_tree() else source.transform.basis
@@ -109,6 +109,8 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
                 affine_report += " / 連立再展開 規模上限"
             if tris.size() <= 600 and charts.size() <= 192:
                 affine_report += " / "+_threshold_joint_search(tris,charts,density)
+                if exact_block:
+                    affine_report += " / "+_exact_block_search(tris,charts,density,true)
             else:
                 affine_report += " / 閾値連立 規模上限"
     else:
@@ -186,7 +188,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     arrays[Mesh.ARRAY_TEX_UV2] = diagnostic_uv
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v19" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
+    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":(("shape-affine-v20" if exact_block else "shape-affine-v19") if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
 
 ## Group connected coplanar triangles, and the two halves of slightly
 ## warped authored quads. Never use an internal triangulation diagonal
@@ -4850,3 +4852,133 @@ static func with_diagnostic_ids(mesh: ArrayMesh, tris: Array) -> ArrayMesh:
     updated.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
     updated.surface_set_material(0,mesh.surface_get_material(0))
     return updated
+
+# Bounded exact-metric block search (V20). Each proposal is a positive
+# determinant chart-wide affine map; existing welds and overlaps are invariant.
+static func _exact_block_trial(tris: Array[Dictionary],charts: Array[Dictionary],links: Array[Dictionary],members: Array,incident: Array,changes: Dictionary,density: int,shape: Vector3,capacity: int,score: Vector3) -> bool:
+    var touched: Dictionary = {}
+    var backup: Dictionary = {}
+    var bounds: Dictionary = {}
+    for key in changes:
+        var ci: int = int(key)
+        for li in incident[ci]:
+            touched[li] = true
+    var affected: Array = touched.keys()
+    var before: Vector3 = _local_uv_metrics(tris,links,affected)
+    for key in changes:
+        var ci: int = int(key)
+        var delta: Array = changes[key]
+        var pivot: Vector2 = (charts[ci].min+charts[ci].max)*0.5
+        var lo := Vector2(INF,INF)
+        var hi := Vector2(-INF,-INF)
+        bounds[ci] = [charts[ci].min,charts[ci].max]
+        for ti in members[ci]:
+            var old: PackedVector2Array = tris[int(ti)].xy
+            backup[ti] = old
+            var xy := PackedVector2Array()
+            for point in old:
+                var d: Vector2 = point-pivot
+                var q: Vector2 = point+Vector2(delta[0])+Vector2(delta[1])*d.x+Vector2(delta[2])*d.y
+                xy.append(q)
+                lo = lo.min(q)
+                hi = hi.max(q)
+            tris[int(ti)].xy = xy
+        charts[ci].min = lo.floor()
+        charts[ci].max = hi
+    var candidate: Vector3 = _local_uv_metrics(tris,links,affected)
+    var ok: bool = candidate.x <= score.x+0.000001 and candidate.y <= before.y and candidate.z <= before.z+0.000001 and (candidate.y < before.y or candidate.z < before.z-0.000001)
+    if ok:
+        ok = _joint_shape_ok(shape,_topology_distortion(tris,density)) and _hinge_pack_side(charts)<=capacity
+    if not ok:
+        for ti in backup:
+            tris[int(ti)].xy = backup[ti]
+        for ci in bounds:
+            charts[int(ci)].min = bounds[ci][0]
+            charts[int(ci)].max = bounds[ci][1]
+    return ok
+
+static func _exact_block_search(tris: Array[Dictionary],charts: Array[Dictionary],density: int,paired: bool) -> String:
+    if tris.size()>600 or charts.size()>192:
+        return "exact block size limit"
+    var links: Array[Dictionary] = _seam_segments(tris)
+    var members: Array = []
+    var incident: Array = []
+    for ci in range(charts.size()):
+        members.append([])
+        incident.append([])
+    for ti in range(tris.size()):
+        (members[int(tris[ti].chart)] as Array).append(ti)
+    for li in range(links.size()):
+        (incident[int(links[li].a)] as Array).append(li)
+        (incident[int(links[li].b)] as Array).append(li)
+    var all_links: Array = range(links.size())
+    var base: Vector3 = _local_uv_metrics(tris,links,all_links)
+    var score: Vector3 = base
+    var shape: Vector3 = _topology_distortion(tris,density)
+    var capacity: int = _hinge_pack_side(charts)
+    var accepted: int = 0
+    var tested: int = 0
+    if base.y==0:
+        return "exact block: already within threshold"
+    for sweep in range(4):
+        var priority: Array[Vector3] = []
+        var order: Array[int] = []
+        for ci in range(charts.size()):
+            var local: Vector3 = _local_uv_metrics(tris,links,incident[ci])
+            priority.append(local)
+            if local.y>0:
+                order.append(ci)
+        order.sort_custom(func(a: int,b: int) -> bool: return priority[a].x>priority[b].x if priority[a].x!=priority[b].x else a<b)
+        var step: float = 0.04*pow(0.5,sweep)
+        var phase: float = 0.16*pow(0.5,sweep)
+        for j in range(mini(32,order.size())):
+            var ci: int = order[j]
+            for direction in [-1.0,1.0]:
+                var d: float = float(direction)
+                var v: float = step*d
+                var p: float = phase*d
+                var options: Array = [
+                    [Vector2(p,0),Vector2.ZERO,Vector2.ZERO],
+                    [Vector2(0,p),Vector2.ZERO,Vector2.ZERO],
+                    [Vector2.ZERO,Vector2(v,0),Vector2.ZERO],
+                    [Vector2.ZERO,Vector2.ZERO,Vector2(0,v)],
+                    [Vector2.ZERO,Vector2(0,v),Vector2.ZERO],
+                    [Vector2.ZERO,Vector2.ZERO,Vector2(v,0)],
+                    [Vector2.ZERO,Vector2(0,v),Vector2(-v,0)]]
+                for delta in options:
+                    var changes: Dictionary = {}
+                    changes[ci] = delta
+                    tested += 1
+                    if _exact_block_trial(tris,charts,links,members,incident,changes,density,shape,capacity,score):
+                        accepted += 1
+                        score = _local_uv_metrics(tris,links,all_links)
+        if paired:
+            var ranked: Array[int] = []
+            var errors: Array[float] = []
+            for li in range(links.size()):
+                var e: float = _local_uv_link_error(tris,links[li])
+                errors.append(e)
+                if e>0.25:
+                    ranked.append(li)
+            ranked.sort_custom(func(a: int,b: int) -> bool: return errors[a]>errors[b] if errors[a]!=errors[b] else a<b)
+            for j in range(mini(24,ranked.size())):
+                var link: Dictionary = links[ranked[j]]
+                var a: PackedVector2Array = _segment_uv(tris[int(link.ta)],int(link.ea),float(link.a0),float(link.a1),"xy")
+                var b: PackedVector2Array = _segment_uv(tris[int(link.tb)],int(link.eb),float(link.b0),float(link.b1),"xy")
+                var da: Vector2 = a[1]-a[0]
+                var db: Vector2 = b[1]-b[0]
+                var quarter: float = roundf(db.angle_to(da)/(PI*0.5))*(PI*0.5)
+                var e0: Vector2 = a[0]-b[0].rotated(quarter)
+                e0 -= e0.round()
+                var middle: Vector2 = e0+(da-db.rotated(quarter))*0.5
+                for rate in [0.5,0.25,0.125]:
+                    var f: float = float(rate)
+                    var changes: Dictionary = {}
+                    changes[int(link.a)] = [(-middle*f).limit_length(phase),Vector2.ZERO,Vector2.ZERO]
+                    changes[int(link.b)] = [(middle.rotated(-quarter)*f).limit_length(phase),Vector2.ZERO,Vector2.ZERO]
+                    tested += 1
+                    if _exact_block_trial(tris,charts,links,members,incident,changes,density,shape,capacity,score):
+                        accepted += 1
+                        score = _local_uv_metrics(tris,links,all_links)
+                        break
+    return "exact block %d/%d; bad %d->%d, max %.4f->%.4f, sum %.4f->%.4f" % [accepted,tested,int(base.y),int(score.y),base.x,score.x,base.z,score.z]

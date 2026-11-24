@@ -1,0 +1,61 @@
+name: Texture Studio UV runtime evaluation
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/sera_texture_uv.gd'
+      - 'scripts/sera_texture_part_source.gd'
+      - 'tools/texture_studio/**'
+      - '.github/workflows/sera-texture-uv-runtime.yml'
+permissions:
+  contents: read
+jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        part: [H01, H02, H03, H04, T01, T02, A01, A02, L01, L02, L03, L04, B01, B02, WR01, WR02, WR03, WL01, WL02]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install same Godot version as equipment capture
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/godot"
+          curl --fail --location --retry 3 -o "$RUNNER_TEMP/godot.zip" 'https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip'
+          unzip -q "$RUNNER_TEMP/godot.zip" -d "$RUNNER_TEMP/godot"
+          chmod +x "$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64"
+          echo "GODOT_BIN=$RUNNER_TEMP/godot/Godot_v4.7.2-stable_linux.x86_64" >> "$GITHUB_ENV"
+      - name: Measure baseline and candidates sequentially on the same runner
+        run: |
+          set -euo pipefail
+          mkdir -p uv-results
+          for variant in baseline v20; do
+            "$GODOT_BIN" --headless --editor --path . --import --quit 2>&1 | tee "uv-results/$variant-import.log"
+            if grep -E 'SCRIPT ERROR:|Parse Error:' "uv-results/$variant-import.log"; then exit 1; fi
+            "$GODOT_BIN" --headless --path . --script res://tools/texture_studio/uv_runtime_bench.gd -- "${{ matrix.part }}" "$GITHUB_WORKSPACE/uv-results/$variant-${{ matrix.part }}.json" 32 "$variant" 2>&1 | tee "uv-results/$variant-runtime.log"
+            test -s "uv-results/$variant-${{ matrix.part }}.json"
+            if grep -E 'SCRIPT ERROR:|Parse Error:' "uv-results/$variant-runtime.log"; then exit 1; fi
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: uv-${{ matrix.part }}
+          path: uv-results/
+          if-no-files-found: warn
+  compare:
+    if: always()
+    needs: measure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: uv-*
+          path: results
+      - name: Compare all physical edges and distortion; never auto-promote
+        run: |
+          set -euo pipefail
+          python3 tools/texture_studio/uv_compare.py results | tee -a "$GITHUB_STEP_SUMMARY"
