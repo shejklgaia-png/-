@@ -32,6 +32,9 @@ var work_state: String = "walk_to_terminal"
 var state_time: float = 0.0
 var clock: float = 0.0
 var current_section: String = "LABO"
+# BASE warmup constructs geometry without selecting a room or dispatching.
+var prewarm_only: bool = false
+var hero_ink: Node3D
 var rebuilt_scenes: RefCounted
 # Lightweight, cached 2D clearance map of actual industrial mesh instances.
 const NAV_STEP := 0.25
@@ -96,14 +99,17 @@ func _ready() -> void:
     add_child(sun)
     # Every facility now has a separately generated open industrial worksite.
     rebuilt_scenes = RebuiltScenes.new()
-    rebuilt_scenes.build(self)
+    rebuilt_scenes.build(self, prewarm_only)
     _build_crate()
     # Industrial meshes use metre-mapped native-lit shaders. Only CRATE
     # goes through the character material pipeline.
     SharedMaterialShading.apply_to_subtree(crate)
     var ink := SeraViewEdges.new()
     ink.name = "ViewEdges"
+    if prewarm_only:
+        ink.set_contour_enabled(false)
     add_child(ink)
+    hero_ink = ink
     hero_camera = Camera3D.new()
     hero_camera.name = "HeroCamera"
     add_child(hero_camera)
@@ -111,7 +117,23 @@ func _ready() -> void:
     hero_camera.near = 0.10
     hero_camera.far = 220.0
     hero_camera.keep_aspect = Camera3D.KEEP_HEIGHT
-    set_section(current_section,false)
+    if not prewarm_only:
+        set_section(current_section,false)
+    else:
+        set_process(false)
+        crate.visible = false
+
+func advance_prewarm(key: String) -> bool:
+    if rebuilt_scenes == null:
+        return false
+    return rebuilt_scenes.advance_room(key)
+
+func prewarm_ready(key: String) -> bool:
+    return rebuilt_scenes != null and rebuilt_scenes.room_ready(key)
+
+func enable_hero_outline() -> void:
+    if is_instance_valid(hero_ink):
+        hero_ink.call("set_contour_enabled", true)
 
 func set_base_context(sources: Dictionary) -> void:
     if rebuilt_scenes != null:

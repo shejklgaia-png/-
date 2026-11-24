@@ -131,6 +131,13 @@ var diag_last_header_tap_ms: int = 0
 var hero_host: SubViewportContainer
 var hero_viewport: SubViewport
 var hero_stage: Node3D
+const HERO_SCENE_PATH := "res://scenes/labo_hero_stage.tscn"
+const HERO_PREWARM_KEYS: Array[String] = ["LABO", "SMELTER", "STORAGE"]
+const HERO_PREWARM_INTERVAL: float = 0.16
+var hero_prewarm_delay: float = 0.8
+var hero_prewarm_index: int = 0
+var hero_load_requested: bool = false
+var hero_scene_resource: PackedScene
 const ModelPlacement = preload("res://scripts/labo_model_placement.gd")
 var texture_entry: Button
 var texture_editor: Control
@@ -1347,20 +1354,92 @@ func is_menu_open() -> bool:
     return modal != null and modal.visible
 
 
+func _request_hero_scene() -> void:
+    if hero_scene_resource != null or hero_load_requested:
+        return
+    # Adopt an unfinished request from an earlier BASE instance if present.
+    var status := ResourceLoader.load_threaded_get_status(HERO_SCENE_PATH)
+    if status in [ResourceLoader.THREAD_LOAD_IN_PROGRESS, ResourceLoader.THREAD_LOAD_LOADED]:
+        hero_load_requested = true
+    elif ResourceLoader.load_threaded_request(HERO_SCENE_PATH, "PackedScene", false) == OK:
+        hero_load_requested = true
+
+func _resolve_hero_scene(foreground: bool) -> bool:
+    if hero_scene_resource != null:
+        return true
+    if hero_load_requested:
+        var status := ResourceLoader.load_threaded_get_status(HERO_SCENE_PATH)
+        if status == ResourceLoader.THREAD_LOAD_IN_PROGRESS and not foreground:
+            return false
+        if status in [ResourceLoader.THREAD_LOAD_IN_PROGRESS, ResourceLoader.THREAD_LOAD_LOADED]:
+            # Foreground user entry may wait for the SAME request; never
+            # launch a competing load or instantiate the same stage twice.
+            hero_scene_resource = ResourceLoader.load_threaded_get(HERO_SCENE_PATH) as PackedScene
+        hero_load_requested = false
+    if hero_scene_resource == null and foreground:
+        hero_scene_resource = load(HERO_SCENE_PATH) as PackedScene
+    return hero_scene_resource != null
+
 func _ensure_labo_hero(section: String) -> void:
-    if hero_viewport != null:
+    if is_instance_valid(hero_stage):
+        return
+    if not _resolve_hero_scene(true):
+        push_error("SERA_HERO: stage resource unavailable")
         return
     hero_viewport = SubViewport.new()
     hero_viewport.name = "LabViewport"
     hero_viewport.own_world_3d = true
     hero_viewport.size = Vector2i(480, 240)
+    hero_viewport.process_mode = Node.PROCESS_MODE_DISABLED
     hero_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
     hero_host.add_child(hero_viewport)
-    hero_stage = load("res://scenes/labo_hero_stage.tscn").instantiate() as Node3D
-    # Set the first requested screen before _ready constructs the worksite.
+    hero_stage = hero_scene_resource.instantiate() as Node3D
     hero_stage.set("current_section", section)
+    hero_stage.set("prewarm_only", true)
     hero_viewport.add_child(hero_stage)
-    hero_stage.set_process(false)
+    _set_hero_running(false)
+
+func _set_hero_running(running: bool) -> void:
+    if not is_instance_valid(hero_stage) or not is_instance_valid(hero_viewport):
+        return
+    hero_stage.set_process(running)
+    hero_viewport.process_mode = Node.PROCESS_MODE_INHERIT if running else Node.PROCESS_MODE_DISABLED
+    hero_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if running else SubViewport.UPDATE_DISABLED
+    if running:
+        hero_stage.call("enable_hero_outline")
+    else:
+        # The shared ID compositor owns a second SubViewport. Suspend that
+        # target too; it will restore UPDATE_ALWAYS on the next active frame.
+        var compositor := hero_viewport.get_node_or_null("SeraIDOutlineLayer/SeraIDOutlineControl")
+        if is_instance_valid(compositor):
+            var id_target := compositor.get("id_viewport") as SubViewport
+            if is_instance_valid(id_target):
+                id_target.render_target_update_mode = SubViewport.UPDATE_DISABLED
+
+func prewarm_hero_tick(delta: float) -> void:
+    if hero_host == null or is_menu_open() or hero_prewarm_index >= HERO_PREWARM_KEYS.size():
+        return
+    hero_prewarm_delay -= minf(delta, 0.10)
+    if hero_prewarm_delay > 0.0:
+        return
+    hero_prewarm_delay = HERO_PREWARM_INTERVAL
+    if not is_instance_valid(hero_stage):
+        _request_hero_scene()
+        if not _resolve_hero_scene(false):
+            return
+        _ensure_labo_hero(HERO_PREWARM_KEYS[hero_prewarm_index])
+        return
+    var key: String = HERO_PREWARM_KEYS[hero_prewarm_index]
+    var started: int = Time.get_ticks_usec()
+    # A main-thread, single-phase step, not a background scene-tree mutation.
+    # The menu can finish the same room at any later input boundary.
+    if bool(hero_stage.call("advance_prewarm", key)):
+        hero_prewarm_index += 1
+        print("SERA_HERO_PREWARM READY: ", key)
+    _set_hero_running(false)
+    var used: float = float(Time.get_ticks_usec() - started) / 1000.0
+    if used > 16.0:
+        print("SERA_HERO_PREWARM phase ", key, " ", used, "ms")
 
 
 func _set_labo_hero(enabled: bool, section: String = "") -> void:
@@ -1378,6 +1457,9 @@ func _set_labo_hero(enabled: bool, section: String = "") -> void:
         angle_entry.visible = enabled
     if enabled:
         _ensure_labo_hero(section)
+        if not is_instance_valid(hero_stage):
+            hero_host.hide()
+            return
         # The content area remains native Android Button rows. The hero owns
         # its dedicated 30%, with smaller cards below and no clipping/scroll.
         hero_host.custom_minimum_size.y = get_viewport().get_visible_rect().size.y * 0.30
@@ -1393,16 +1475,13 @@ func _set_labo_hero(enabled: bool, section: String = "") -> void:
                 context_sources["NEXUS"] = nexus
         hero_stage.call("set_base_context",context_sources)
         hero_stage.call("set_section", section)
-        hero_stage.set_process(true)
         # WHEN_VISIBLE can stop refreshing the offscreen stage on some Android
         # GL Compatibility devices. Animate while this modal is actually open.
-        hero_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+        _set_hero_running(true)
     else:
         modal_panel.anchor_top = 0.08
         modal_panel.anchor_bottom = 0.92
-        if hero_stage != null:
-            hero_stage.set_process(false)
-            hero_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+        _set_hero_running(false)
 
 
 # The existing hero SubViewport is the actual camera preview. No additional
@@ -1460,8 +1539,7 @@ func _open_texture_studio() -> void:
     texture_entry.text = "TEXTURE STUDIO / テクスチャ編集"
     _set_labo_scroll_input_enabled(false)
     modal_panel.hide()
-    hero_stage.set_process(false)
-    hero_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+    _set_hero_running(false)
 
 
 func _texture_load_failed(stage: String, path: String) -> void:
@@ -1474,8 +1552,7 @@ func _texture_studio_closed() -> void:
     modal_panel.show()
     _set_labo_scroll_input_enabled(true)
     if is_instance_valid(hero_stage) and is_menu_open():
-        hero_stage.set_process(true)
-        hero_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+        _set_hero_running(true)
 
 
 func _open_hero_models() -> void:

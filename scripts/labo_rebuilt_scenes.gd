@@ -41,47 +41,92 @@ var logistics: Dictionary = {}
 var idle_seconds: float = 0.0
 var print_idle_rng := RandomNumberGenerator.new()
 
-func build(stage: Node3D) -> void:
+# No coroutine spans a room build. Each step is atomic on the main thread;
+# foreground entry can finish a partially built room without racing a worker.
+var shared_phase: int = 0
+var room_phases: Dictionary = {}
+const ROOM_READY: int = 4
+
+func build(stage: Node3D, defer_shared: bool = false) -> void:
     host = stage
     print_idle_rng.randomize()
-    _build_outdoor_deck()
-    industrial_horizon = IndustrialHorizon.new()
-    industrial_horizon.build(host)
-    context_root = _child(host,"DistantBaseFacilities")
-    # The selected section alone owns its moving machinery. Other sections
-    # are constructed on first entry, then retain their independent nodes.
+    if not defer_shared:
+        ensure_shared()
+
+func shared_ready() -> bool:
+    return shared_phase >= 3
+
+func advance_shared() -> bool:
+    match shared_phase:
+        0:
+            _build_outdoor_deck()
+        1:
+            industrial_horizon = IndustrialHorizon.new()
+            industrial_horizon.build(host)
+        2:
+            context_root = _child(host,"DistantBaseFacilities")
+        _:
+            return true
+    shared_phase += 1
+    return shared_ready()
+
+func ensure_shared() -> void:
+    while not shared_ready():
+        advance_shared()
+
+func room_ready(key: String) -> bool:
+    return int(room_phases.get(key, 0)) >= ROOM_READY
+
+func advance_room(key: String) -> bool:
+    if not key in KEYS:
+        return true
+    if not shared_ready():
+        advance_shared()
+        return false
+    var phase: int = int(room_phases.get(key, 0))
+    if phase >= ROOM_READY:
+        return true
+    match phase:
+        0:
+            var room := Node3D.new()
+            room.name = key + "_OutdoorWorksite"
+            room.visible = false
+            room.process_mode = Node.PROCESS_MODE_DISABLED
+            host.add_child(room)
+            rooms[key] = room
+            targets[key] = []
+            screens[key] = []
+            motion_parts[key] = {}
+            _outdoor_worksite(key)
+        1:
+            match key:
+                "LABO": _labo(key)
+                "SMELTER": _smelter(key)
+                "RECYCLER": _recycler(key)
+                "STORAGE": _storage(key)
+        2:
+            var room := rooms[key] as Node3D
+            _expand_equipment(key)
+            if key in ["LABO","STORAGE"]:
+                room.position.y = WORK_DECK_RISE
+                _raised_worksite(key)
+                _open_box_frame(key)
+                if key == "LABO":
+                    _lab_rear_wall(key)
+            elif key == "SMELTER":
+                _refinery_work_deck(key)
+        3:
+            _capture_mechanism(key)
+            _build_logistics(key)
+    room_phases[key] = phase + 1
+    return room_ready(key)
 
 func _ensure_room(key: String) -> void:
-    if rooms.has(key) or not key in KEYS:
+    if not key in KEYS:
         return
-    var room := Node3D.new()
-    room.name = key + "_OutdoorWorksite"
-    host.add_child(room)
-    rooms[key] = room
-    targets[key] = []
-    screens[key] = []
-    motion_parts[key] = {}
-    _outdoor_worksite(key)
-    match key:
-        "LABO": _labo(key)
-        "SMELTER": _smelter(key)
-        "RECYCLER": _recycler(key)
-        "STORAGE": _storage(key)
-    _expand_equipment(key)
-    if key in ["LABO","STORAGE"]:
-        # Lift the complete assembly as a unit. Authored machine offsets,
-        # animation pivots and existing placement coordinates stay intact.
-        room.position.y = WORK_DECK_RISE
-        _raised_worksite(key)
-        _open_box_frame(key)
-        if key=="LABO":
-            _lab_rear_wall(key)
-    elif key=="SMELTER":
-        _refinery_work_deck(key)
-    # Capture relative mechanical alignment after scaling, not the whole room pose.
-    _capture_mechanism(key)
-    _build_logistics(key)
-    room.visible = false
+    ensure_shared()
+    while not room_ready(key):
+        advance_room(key)
 
 func _model(key: String, label: String, at: Vector3) -> Node3D:
     var n := Node3D.new()
@@ -580,6 +625,7 @@ func _open_box_frame(key: String) -> void:
             Color("#c4efff") if is_lab else Color("#ffdda1"),9.0,0.65)
 
 func set_base_context(sources: Dictionary) -> void:
+    ensure_shared()
     # Copy render nodes only. No duplicated scripts, lights, particles or UI.
     # Reuse actual BASE mesh resources and current canonical transforms.
     context_poses.clear()
@@ -1412,7 +1458,10 @@ func select(key: String) -> void:
     active_key = key
     _position_context(key)
     for id in rooms:
-        (rooms[id] as Node3D).visible = id == key
+        var room := rooms[id] as Node3D
+        var selected: bool = id == key and room_ready(id)
+        room.visible = selected
+        room.process_mode = Node.PROCESS_MODE_INHERIT if selected else Node.PROCESS_MODE_DISABLED
     elapsed = 0.0
     cycle_running = false
     idle_seconds = 0.0

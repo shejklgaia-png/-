@@ -11,3 +11,10 @@
   https://docs.godotengine.org/en/latest/classes/class_renderingserver.html
 
 - 後続変更：ユーザー再指示でロード分散を復活。BASEの60ms協調分割、床ベイク非同期読込・未ベイク床の純データ計算ワーカー、NEXUS入場時の工程分割。キャッシュの初回保存は同期のまま。
+
+## BASE操作開始後のLABO系先読み（2026-11-24）
+- 対象はLABO・SMELTER・STORAGE。BASE起動完了後0.8秒の操作可能な通常俯瞰から開始。共通PackedSceneはResourceLoaderの非同期リクエスト。表示中メニュー・GRID・正規配置・入退出中は新規工程を停止。
+- 同じ既存Hero SubViewportに共通床、遠景、コンテキストルートを個別工程で生成し、各作業場をノード初期化、機器、床/外装、機構/物流の4工程に分割して約160ms間隔で進める。描画ノード生成はメインスレッド。各工程内部は同期で上限保証なし。
+- 部分構築の部屋をready扱いしない。ユーザーが先読み途中で開いた場合、その部屋の残工程を同期完了して既存set_sectionを一度実行、正規配置・カメラ・ナビゲーション・搬入開始を従来どおり処理。粉砕機は必要時構築。生成済みの部屋は再利用。
+- 非表示時はHeroのprocess_mode、描画更新、ID描画ターゲットを停止。部屋単位でも非選択時は非表示/停止。初回の枠線登録・GPU描画・経路探索は実メニューで行うため、全ての初回待ちを除去するものではない。メモリ増加、実機時間・FPS未計測。CIなし。
+- 参考: https://docs.godotengine.org/en/stable/tutorials/io/background_loading.html ; https://docs.godotengine.org/en/stable/tutorials/performance/thread_safe_apis.html ; https://forum.godotengine.org/t/understanding-and-smoothing-resource-management-of-godot-4/95761

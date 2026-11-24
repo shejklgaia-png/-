@@ -1870,6 +1870,10 @@ func _process(delta: float) -> void:
         return
     elapsed += delta
     SeraSave.record_game_time(delta)
+    # Prewarm only in the interactive BASE overview, never during boot,
+    # GRID, canonical placement, menu operations or a scene transition.
+    if is_instance_valid(facility_system) and not power_view_active and not power_transition_busy and not facility_placement_active and get_tree().root.get_node_or_null("NexusExitTransition") == null:
+        facility_system.call("prewarm_hero_tick", delta)
     if HUB_SERA_CONTROLS_ENABLED:
         var direction: Vector2 = joystick
         var keys := Vector2(
