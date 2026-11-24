@@ -244,6 +244,18 @@ static func _armor_panel(batches: Dictionary, x0: float, x1: float,
         for x in [x0 + 0.17, x1 - 0.17]:
             _bolt(batches, float(x), z0 + 0.19)
 
+    # Recessed-looking stamped lines: dark groove and a fine adjacent steel lip.
+    # Reuse existing static material batches, not a node per scratch or bolt.
+    if width > 0.85 and length > 1.20 and (index + lane) % 3 != 2:
+        var line_x: float = x0 + 0.115
+        var line_z: float = z1 - 0.15
+        var line_w: float = minf(width * 0.72, 1.45)
+        _cube(batches, "engraved_seam", Vector3(line_x + line_w * 0.5, PLATE_TOP + 0.003, line_z),
+            Vector3(line_w, 0.004, 0.022))
+        _cube(batches, "seam_lip", Vector3(line_x + line_w * 0.5, PLATE_TOP + 0.003, line_z - 0.024),
+            Vector3(line_w, 0.004, 0.009))
+        _cube(batches, "engraved_seam", Vector3(line_x, PLATE_TOP + 0.003, line_z - 0.19),
+            Vector3(0.021, 0.004, 0.38))
     # Narrow inset tooling lines, two-stage panel labels and locking ribs.
     # Keep the interior clear: the bevel and seams should carry the detail.
     if length > 1.12 and (index + lane) % 3 == 0:
@@ -809,12 +821,36 @@ static func _submit(room: Node3D, batches: Dictionary) -> void:
         instance.set_meta("sera_outline_occluder_only", true)
         instance.set_meta("FX_NO_OUTLINE", true)
         root.add_child(instance)
+    # Paint is flush with the deck, depth-tested, and never an input target.
+    _floor_stencil(root, "NEXUS", Vector3(-0.93, 0.178, 5.45), 0.0047, Color("#aeb8bd"))
+    _floor_stencil(root, "A1 / HUB", Vector3(0.94, 0.178, 5.45), 0.0036, Color("#a3afb6"))
+    _floor_stencil(root, "SERVICE", Vector3(-2.69, 0.178, 4.88), 0.0033, Color("#9f8d57"))
+    _floor_stencil(root, "KEEP CLEAR", Vector3(2.69, 0.178, 4.88), 0.0028, Color("#9f8d57"))
+
+
+static func _floor_stencil(root: Node3D, wording: String, at: Vector3,
+        glyph_scale: float, tint: Color) -> void:
+    var label := Label3D.new()
+    label.name = "DeckStencil_" + wording.replace(" ", "_").replace("/", "_")
+    label.text = wording
+    label.font_size = 96
+    label.pixel_size = glyph_scale
+    label.outline_size = 0
+    label.modulate = tint
+    label.shaded = true
+    label.alpha_cut = Label3D.ALPHA_CUT_DISCARD
+    label.rotation_degrees.x = -90.0
+    label.position = at
+    label.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    label.set_meta("FX_NO_OUTLINE", true)
+    label.set_meta("sera_no_view_edges", true)
+    root.add_child(label)
 
 
 static func _material(finish: String, vertex_color: bool) -> StandardMaterial3D:
     var palette: Dictionary = {
-        "underdeck": Color("#1b2b38"),
-        "plate_skirt": Color("#293d4d"),
+        "underdeck": Color("#13212b"),
+        "plate_skirt": Color("#243440"),
         "deck_mid": Color("#425b6e"),
         "deck_deep": Color("#374e60"),
         "deck_light": Color("#4c6476"),
@@ -836,6 +872,8 @@ static func _material(finish: String, vertex_color: bool) -> StandardMaterial3D:
         "crossing_lip": Color("#8499a4"),
         "vent_cassette": Color("#b4c7d0"),
         "edge_engraving": Color("#607987"),
+        "engraved_seam": Color("#172632"),
+        "seam_lip": Color("#80929d"),
         "pinstripe": Color("#4a6675"),
         "reflection_fringe": Color("#476575"),
         "gutter": Color("#111b25"),

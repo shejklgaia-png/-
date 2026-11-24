@@ -4,6 +4,7 @@ extends Node3D
 const Modules = preload("res://assets/base_command_modules.gd")
 const WorldMonitors = preload("res://scripts/sera_world_monitor_textures.gd")
 const NexusFloorPanels = preload("res://scripts/sera_nexus_floor_panels.gd")
+const NEXUS_WORN_STEEL = preload("res://textures/nexus_worn_steel.svg")
 const NexusGeneratedArchitecture = preload("res://scripts/nexus_generated_architecture.gd")
 const NexusComplexMachining = preload("res://scripts/nexus_complex_machining.gd")
 const NexusSculptedFittings = preload("res://scripts/nexus_sculpted_fittings.gd")
@@ -877,7 +878,7 @@ func _environment() -> void:
     key.rotation_degrees = Vector3(-32.0, -24.0, 0.0)
     key.light_color = Color("#e0e8f0")
     key.light_energy = 0.56
-    key.light_specular = 0.0
+    key.light_specular = 0.24
     key.shadow_enabled = false
     add_child(key)
 
@@ -1391,10 +1392,36 @@ func _nexus_tone_background_node(node: Node) -> void:
             toned.metallic = minf(source.metallic, 0.15)
             toned.metallic_specular = 0.0
             toned.clearcoat_enabled = false
+            # Keep the dark backdrop grade; only metal faces gain a worn finish.
+            var surface_name: String = str(geometry.name)
+            if surface_name.begins_with("Deck_armor_") or surface_name.begins_with("Deck_wedge_"):
+                _nexus_worn_metal(toned, 0.48, 0.64, 0.42, 0.42)
+            elif surface_name in ["Deck_cover", "Deck_arc_shell", "Deck_vent_cassette",
+                    "Deck_lid_steel", "Deck_guard_edge", "Deck_drain_frame"]:
+                _nexus_worn_metal(toned, 0.34, 0.71, 0.32, 0.65)
+            elif not surface_name.begins_with("Deck_") and source.albedo_color.get_luminance() > 0.035:
+                _nexus_worn_metal(toned, 0.22, 0.79, 0.22, 0.32)
             geometry.material_override = toned
             geometry.set_meta("sera_preserve_authored_material", true)
     for child in node.get_children():
         _nexus_tone_background_node(child)
+
+
+## A single imported, mipmapped texture works on generated meshes with no UVs.
+## World triplanar coordinates avoid stretching on scaled MultiMesh instances.
+func _nexus_worn_metal(mat: StandardMaterial3D, metal: float,
+        rough: float, specular: float, scale: float) -> void:
+    if mat.albedo_texture != null:
+        return
+    mat.albedo_texture = NEXUS_WORN_STEEL
+    mat.uv1_triplanar = true
+    mat.uv1_world_triplanar = true
+    mat.uv1_scale = Vector3.ONE * scale
+    mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+    mat.texture_repeat = true
+    mat.metallic = metal
+    mat.roughness = rough
+    mat.metallic_specular = specular
 
 
 # Generated machine castings must not remain charcoal while their main
@@ -1421,6 +1448,8 @@ func _nexus_grade_casting_node(node: Node) -> void:
             graded.roughness = maxf(source.roughness, 0.70)
             graded.metallic = minf(source.metallic, 0.18)
             graded.metallic_specular = 0.12
+            if tint.get_luminance() > 0.07:
+                _nexus_worn_metal(graded, 0.18, 0.77, 0.16, 0.72)
             geometry.material_override = graded
             geometry.set_meta("sera_preserve_authored_material", true)
     for child in node.get_children():
@@ -1634,13 +1663,23 @@ func _wall_mark() -> void:
     logo.position = Vector3(0.0, 5.57, -11.33)
     add_child(logo)
     var name := Label3D.new()
-    name.text = "S E R A"
+    name.text = "S E R A   /   N E X U S"
     name.font = LaboSkin.display_font()
     name.font_size = 80
     name.pixel_size = 0.006
     name.modulate = Color("#b4c5dd")
     name.position = Vector3(0.0, 4.88, -11.32)
+    name.set_meta("FX_NO_OUTLINE", true)
     add_child(name)
+    var subtitle := Label3D.new()
+    subtitle.text = "CENTRAL OPERATIONS  /  A1"
+    subtitle.font = LaboSkin.display_font()
+    subtitle.font_size = 54
+    subtitle.pixel_size = 0.004
+    subtitle.modulate = Color("#8598a9")
+    subtitle.position = Vector3(0.0, 4.46, -11.32)
+    subtitle.set_meta("FX_NO_OUTLINE", true)
+    add_child(subtitle)
 
 # Outline geometry is derived from the actual visible 3D display/model meshes,
 # not approximate hand-authored screen-space hexagons or extra GPU geometry.
