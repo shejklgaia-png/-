@@ -326,11 +326,15 @@ static func _smelter(g: Variant) -> void:
         Vector3(0, 2.96, -0.23), Vector3(1.74, 0.25, 1.74), "slate")
     g.poly("FreshSmelterPressureCap", "hood",
         Vector3(0, 3.17, -0.26), Vector3(1.36, 0.28, 1.30), "armor_light")
-    # Recessed combustion plane z=1.185, front safety cage z=1.34.
-    # Keep the central viewing aperture open and use real depth-tested solids.
+    # Deep combustion cavity: back wall front z=0.79, flame z=0.92,
+    # front safety cage z=1.36. Refractory returns give actual parallax.
     g.box("FreshSmelterRefractoryBacking",
-        Vector3(0, 1.45, 0.91), Vector3(1.46, 1.12, 0.18), "dark")
+        Vector3(0, 1.45, 0.73), Vector3(1.46, 1.12, 0.12), "dark")
     for side in [-1.0, 1.0]:
+        g.box("FreshSmelterRefractoryReturn",
+            Vector3(side * 0.65, 1.45, 1.055), Vector3(0.10, 0.99, 0.53), "dark")
+        g.box("FreshSmelterHeatStainedInnerEdge",
+            Vector3(side * 0.60, 1.45, 1.22), Vector3(0.035, 0.96, 0.10), "rust")
         g.poly_tilt("FreshSmelterHotThroat", "octagonal_slew",
             Vector3(side * 0.77, 1.46, 1.05), Vector3(0.30, 1.29, 0.37),
             "edge", Vector3(0, 0, -side * 0.10))
@@ -363,7 +367,9 @@ static func _smelter(g: Variant) -> void:
     g.poly("FreshSmelterSlagChannel", "tray",
         Vector3(0, 0.86, 1.18), Vector3(1.46, 0.24, 0.70), "rust")
     g.box("FreshSmelterMoltenBed",
-        Vector3(0, 0.99, 1.20), Vector3(1.16, 0.07, 0.22), "amber")
+        Vector3(0, 0.99, 1.045), Vector3(1.16, 0.07, 0.45), "rust")
+    g.box("FreshSmelterIncandescentFuelBed",
+        Vector3(0, 1.027, 0.97), Vector3(0.96, 0.026, 0.25), "amber")
     for side in [-1.0, 1.0]:
         # Exhaust branches physically lead to two open stacks, outlet y=4.345.
         g.rod("FreshSmelterExhaustManifold",
