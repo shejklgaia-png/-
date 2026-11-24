@@ -172,7 +172,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     arrays[Mesh.ARRAY_TEX_UV2] = diagnostic_uv
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v12" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
+    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v13" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
 
 ## Group connected coplanar triangles, and the two halves of slightly
 ## warped authored quads. Never use an internal triangulation diagonal
@@ -1288,7 +1288,8 @@ static func _relax_uv_boundary_vertices(tris: Array[Dictionary],charts: Array[Di
     var rigid_report: String = _relax_rigid_uv_islands(tris,charts,members,links)
     var coupled_report: String = _relax_coupled_seam_clusters(tris,charts,original,members,nodes,corner_nodes,links,locked)
     var adaptive_report: String = _relax_coupled_seam_clusters(tris,charts,original,members,nodes,corner_nodes,links,locked,true)
-    return note+" / 採用 / "+paired_report+" / "+global_report+" / "+convergence_report+" / "+rigid_report+" / "+coupled_report+" / "+adaptive_report
+    var coherent_report: String = _relax_coupled_seam_clusters(tris,charts,original,members,nodes,corner_nodes,links,locked,true,true) if tris.size() <= 600 and charts.size() <= 192 else "共通格子補正 規模上限"
+    return note+" / 採用 / "+paired_report+" / "+global_report+" / "+convergence_report+" / "+rigid_report+" / "+coupled_report+" / "+adaptive_report+" / "+coherent_report
 
 
 # Try simultaneous moves of corresponding endpoints on both sides of
@@ -1418,7 +1419,57 @@ static func _relax_paired_uv_endpoints(tris: Array[Dictionary],charts: Array[Dic
 # Freeze quarter-turn and integer phase choices during the linear solve.
 # Intermediate iterates need not pass the discrete global edge-count gate;
 # only actual committed layouts do. This lets coupled moves cross plateaus.
-static func _relax_coupled_seam_clusters(tris: Array[Dictionary],charts: Array[Dictionary],original: Array[PackedVector2Array],members: Array,nodes: Array[Dictionary],corner_nodes: Array[PackedInt32Array],links: Array[Dictionary],locked: Dictionary,adaptive: bool = false) -> String:
+# An island pair must use a single quarter-turn and integer translation
+# across connected boundaries. Search distinct lattice branches instead
+# of rounding each edge's first endpoint independently in the solver.
+static func _coherent_grid_frames(tris: Array[Dictionary],links: Array[Dictionary],ca: int,cb: int) -> Array[Dictionary]:
+    var left := PackedVector2Array()
+    var right := PackedVector2Array()
+    var count: int = 0
+    for link in links:
+        if not ((int(link.a)==ca and int(link.b)==cb) or (int(link.a)==cb and int(link.b)==ca)):
+            continue
+        var a: PackedVector2Array = _segment_uv(tris[int(link.ta)],int(link.ea),float(link.a0),float(link.a1),"xy")
+        var b: PackedVector2Array = _segment_uv(tris[int(link.tb)],int(link.eb),float(link.b0),float(link.b1),"xy")
+        for k in range(2):
+            left.append(a[k] if int(link.a)==ca else b[k])
+            right.append(b[k] if int(link.a)==ca else a[k])
+        count += 1
+    var choices: Array[Dictionary] = []
+    if count < 2:
+        return choices
+    for turn in range(4):
+        var theta: float = float(turn)*PI*0.5
+        var differences := PackedVector2Array()
+        var mean := Vector2.ZERO
+        for k in range(left.size()):
+            var difference: Vector2 = left[k]-right[k].rotated(theta)
+            differences.append(difference)
+            mean += difference
+        mean /= float(differences.size())
+        var center: Vector2 = mean.round()
+        for x in range(-1,2):
+            for y in range(-1,2):
+                var offset: Vector2 = center+Vector2(x,y)
+                var cost: float = 0.0
+                var worst: float = 0.0
+                for difference in differences:
+                    var error: float = difference.distance_squared_to(offset)
+                    cost += error
+                    worst = maxf(worst,error)
+                choices.append({"angle":theta,"offset":offset,"cost":cost/float(differences.size())+worst,"turn":turn})
+    choices.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
+        if absf(float(a.cost)-float(b.cost)) > 0.000001:
+            return float(a.cost) < float(b.cost)
+        if int(a.turn) != int(b.turn):
+            return int(a.turn) < int(b.turn)
+        var av: Vector2 = a.offset
+        var bv: Vector2 = b.offset
+        return av.x < bv.x if av.x != bv.x else av.y < bv.y)
+    choices.resize(mini(3,choices.size()))
+    return choices
+
+static func _relax_coupled_seam_clusters(tris: Array[Dictionary],charts: Array[Dictionary],original: Array[PackedVector2Array],members: Array,nodes: Array[Dictionary],corner_nodes: Array[PackedInt32Array],links: Array[Dictionary],locked: Dictionary,adaptive: bool = false,coherent: bool = false) -> String:
     var all_links: Array = []
     var incident: Array = []
     var chart_nodes: Array = []
@@ -1440,7 +1491,8 @@ static func _relax_coupled_seam_clusters(tris: Array[Dictionary],charts: Array[D
     var rejected_capacity: int = 0
     var reasons := PackedInt32Array([0,0,0,0])
     var relaxed_accepted: int = 0
-    for sweep in range(3):
+    var frame_pairs: int = 0
+    for sweep in range(2 if coherent else 3):
         var ranking: Array = all_links.duplicate()
         ranking.sort_custom(func(a: int,b: int) -> bool:
             var ea: float = _local_uv_link_error(tris,links[a])
@@ -1458,6 +1510,12 @@ static func _relax_coupled_seam_clusters(tris: Array[Dictionary],charts: Array[D
             if seen.has(key):
                 continue
             seen[key] = true
+            var frames: Array[Dictionary] = []
+            if coherent:
+                frames = _coherent_grid_frames(tris,links,ca,cb)
+                if frames.is_empty():
+                    continue
+                frame_pairs += 1
             var base: Array[PackedVector2Array] = []
             for t in tris:
                 var xy: PackedVector2Array = t.xy
@@ -1466,7 +1524,7 @@ static func _relax_coupled_seam_clusters(tris: Array[Dictionary],charts: Array[D
             var best_xy: Array[PackedVector2Array] = []
             var found: bool = false
             var best_relaxed: bool = false
-            var groups: Array = [[ca],[cb],[ca,cb]]
+            var groups: Array = [[ca,cb]] if coherent else [[ca],[cb],[ca,cb]]
             if adaptive:
                 # Include the strongest neighboring constraint of either island.
                 var third: int = -1
@@ -1525,8 +1583,26 @@ static func _relax_coupled_seam_clusters(tris: Array[Dictionary],charts: Array[D
                     for endpoint in range(2):
                         var fa: float = float(link.a0) if endpoint == 0 else float(link.a1)
                         var fb: float = float(link.b0) if endpoint == 0 else float(link.b1)
-                        equations.append({"ids":ids,"coef":PackedFloat32Array([1.0-fa,fa,1.0-fb,fb]),"quarter":quarter,"error":err0 if endpoint == 0 else err1,"severity":error,"seed":is_seed_pair})
-                for boost in ([2.0,6.0,16.0,32.0] if adaptive else [2.0,6.0,16.0]):
+                        var equation: Dictionary = {"ids":ids,"coef":PackedFloat32Array([1.0-fa,fa,1.0-fb,fb]),"quarter":quarter,"error":err0 if endpoint == 0 else err1,"severity":error,"seed":is_seed_pair}
+                        if coherent and is_seed_pair:
+                            var alternatives: Array[Dictionary] = []
+                            for frame in frames:
+                                var theta: float = float(frame.angle)
+                                var offset: Vector2 = frame.offset
+                                if int(link.a) != ca:
+                                    theta = -theta
+                                    offset = -offset.rotated(theta).round()
+                                alternatives.append({"quarter":theta,"error":a[endpoint]-b[endpoint].rotated(theta)-offset})
+                            equation.alternatives = alternatives
+                        equations.append(equation)
+                var boosts: Array = [2.0,6.0,16.0,32.0] if adaptive else [2.0,6.0,16.0]
+                if coherent:
+                    boosts = []
+                    for frame in frames:
+                        boosts.append(6.0)
+                        boosts.append(24.0)
+                for attempt in range(boosts.size()):
+                    var boost: float = float(boosts[attempt])
                     var delta := PackedVector2Array()
                     delta.resize(nodes.size())
                     # Damped Jacobi solution of the fixed linear equations.
@@ -1540,6 +1616,10 @@ static func _relax_coupled_seam_clusters(tris: Array[Dictionary],charts: Array[D
                             var coefficients: PackedFloat32Array = eq.coef
                             var quarter: float = float(eq.quarter)
                             var err: Vector2 = eq.error
+                            if eq.has("alternatives"):
+                                var option: Dictionary = eq.alternatives[attempt >> 1]
+                                quarter = float(option.quarter)
+                                err = option.error
                             var weight: float = (1.0+float(eq.severity))* (float(boost) if bool(eq.seed) else 1.0)
                             for k in range(4):
                                 var value: Vector2 = delta[ids[k]]*coefficients[k]
@@ -1614,6 +1694,8 @@ static func _relax_coupled_seam_clusters(tris: Array[Dictionary],charts: Array[D
                 improved = true
         if not improved:
             break
+    if coherent:
+        return "共通格子補正 %d採用/%d試行・島ペア%d・形状拒否%d・容量拒否%d・問題辺 %d→%d・最大 %.3f→%.3fpx・二乗和 %.3f→%.3f / %s" % [accepted,tested,frame_pairs,rejected_shape,rejected_capacity,int(baseline.y),int(score.y),baseline.x,score.x,baseline.z,score.z,"採用" if accepted > 0 else "不採用・前段維持"]
     if adaptive:
         return "段階形状補正 %d採用/%d試行・追加変形%d・反転/退化拒否%d・面積拒否%d・辺長拒否%d・重複拒否%d・容量拒否%d・問題辺 %d→%d・最大 %.3f→%.3fpx・二乗和 %.3f→%.3f / %s" % [accepted,tested,relaxed_accepted,reasons[0],reasons[1],reasons[2],reasons[3],rejected_capacity,int(baseline.y),int(score.y),baseline.x,score.x,baseline.z,score.z,"採用" if accepted > 0 else "不採用・V9維持"]
     return "連立境界補正 %d採用/%d試行・形状拒否%d・容量拒否%d・問題辺 %d→%d・最大 %.3f→%.3fpx・二乗和 %.3f→%.3f / %s" % [accepted,tested,rejected_shape,rejected_capacity,int(baseline.y),int(score.y),baseline.x,score.x,baseline.z,score.z,"採用" if accepted > 0 else "不採用・V8維持"]
