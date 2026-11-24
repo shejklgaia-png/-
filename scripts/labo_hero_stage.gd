@@ -86,10 +86,10 @@ func set_section(section: String) -> void:
     crate.scale = Vector3.ONE
     match current_section:
         "LABO":
-            # Show the raised front floor and partial rear/side shielding.
-            hero_camera.position = Vector3(11.0,11.8,34.0)
-            camera_look = Vector3(-0.7,4.7,1.4)
-            hero_camera.fov = 45.0
+            # Fit the complete open portal frame, including the near feet.
+            hero_camera.position = Vector3(11.5,12.0,42.0)
+            camera_look = Vector3(-0.7,8.0,1.1)
+            hero_camera.fov = 47.0
         "SMELTER":
             # Left-front perspective shows the side charge inlet and hot throat.
             hero_camera.position = Vector3(-9.4,8.8,30.2)
@@ -101,10 +101,10 @@ func set_section(section: String) -> void:
             camera_look = Vector3(0,4.5,-0.8)
             hero_camera.fov = 42.0
         "STORAGE":
-            # Include both the left mast top and front receiving floor.
-            hero_camera.position = Vector3(-10.0,11.4,36.0)
-            camera_look = Vector3(-0.4,6.1,1.0)
-            hero_camera.fov = 45.0
+            # Full-height storage portal and receiving ramps in the same view.
+            hero_camera.position = Vector3(-11.5,13.0,46.0)
+            camera_look = Vector3(-0.4,9.2,2.5)
+            hero_camera.fov = 47.0
     hero_camera.look_at(camera_look, Vector3.UP)
     var key: String = camera_section_id()
     crate_route.transform = crate_route_poses.get(key, Transform3D.IDENTITY)
