@@ -32,7 +32,11 @@ jobs:
       - name: Prepare isolated candidate
         run: python3 tools/texture_studio/uv_candidate.py "${{ matrix.variant }}"
       - name: Import actual game resources
-        run: '"$GODOT_BIN" --headless --editor --path . --import --quit'
+        run: |
+          set -euo pipefail
+          mkdir -p uv-results
+          "$GODOT_BIN" --headless --editor --path . --import --quit 2>&1 | tee uv-results/import.log
+          if grep -E 'SCRIPT ERROR:|Parse Error:' uv-results/import.log; then exit 1; fi
       - name: Run real equipment UV generation at 32 px/m
         run: |
           set -euo pipefail
