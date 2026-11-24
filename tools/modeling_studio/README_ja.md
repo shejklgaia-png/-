@@ -78,3 +78,10 @@ Actions手動起動時に reference_manifest を指定するか、成果物を�
 - interference.json は静止姿勢で世界座標AABBとBlender BVHによる表面交差候補、AABB包含候補を記録する。接触と貫通を厳密に区別しない。自己交差、可動範囲、貫通体積は未評価。intentional_overlaps に {"parts":["部品A","部品B"],"reason":"理由"} を指定すると意図的な接合として区別し、候補自体は削除しない。
 - 専用Actionsで既知カメラの投影再現・平面点の拒否・交差/包含/離隔ケースを独立確認する。
 - API: https://docs.blender.org/api/current/mathutils.bvhtree.html
+
+## V6 可動範囲・軽量化・Godot検査
+
+- motion_sweeps: [{"node":"hinge","axis":[0,0,1],"degrees":[-45,45],"samples":7}] のように明示したpivotのローカル軸で離散姿勢を検査する。元の姿勢に復帰する。複数関節の同時運動・連続衝突・正確な貫通体積は未対応。
+- lod: {"shaft":{"ratio":0.6,"max_bounds_error":0.03}} のように選択した部品だけDecimate Collapseを適用した別GLBを生成。三角形削減、境界箱の変化、非多様体・ゼロ面積・UV層数を確認し不適合部品を元に戻す。元BLEND/GLBは保持。輪郭・UV・陰影の品質は別途目視確認が必要。自動LOD切替は行わない。
+- 専用ActionsでGodot 4.7.2の独立プロジェクトを使い、GLTFDocumentで元GLBと軽量版GLBの読み込み・シーン生成・メッシュ/三角形/階層情報を記録する。ゲーム本体の描画やAndroid性能を保証するものではない。
+- 成果物: motion_review.json、lod_report.json、model_lod.glb（LOD指定時）、godot_import.json。
