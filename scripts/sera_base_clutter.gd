@@ -187,7 +187,7 @@ static func _yaw_rect(item: Dictionary, degrees: float) -> Rect2:
 
 static func _clear_zone(key: String) -> Rect2:
     if key == "NEXUS":
-        return Rect2(Vector2(-3.38, -2.85), Vector2(6.76, 6.60))
+        return Rect2(Vector2(-3.38, -2.85), Vector2(6.76, 9.15)) # Reserve the expanded, rotated service awning and entrance apron.
     if key == "LABO":
         return Rect2(Vector2(-2.18, -1.98), Vector2(4.36, 4.98))
     return Rect2(Vector2(-1.37, -1.37), Vector2(2.74, 2.86))
