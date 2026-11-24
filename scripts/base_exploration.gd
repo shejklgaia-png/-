@@ -76,6 +76,9 @@ var stick_outer: Panel
 var stick_knob: Panel
 var nexus_building: Node3D
 var nexus_tag: Label
+var facility_name_button: Button
+var facility_names_enabled: bool = true
+const FACILITY_NAME_CONFIG: String = "user://base_facility_names.cfg"
 var nexus_touch_id: int = -1
 var nexus_touch_start: Vector2 = Vector2.ZERO
 var crate_waypoint: int = 0
@@ -174,6 +177,9 @@ func _ready() -> void:
     id_outline.name = "ViewEdges"
     add_child(id_outline)
     _startup_step("CRATE / SIGNAL CONFIRMED", 92)
+    var name_config := ConfigFile.new()
+    if name_config.load(FACILITY_NAME_CONFIG) == OK:
+        facility_names_enabled = bool(name_config.get_value("base", "names", true))
     _create_hud()
     _startup_step("OS / INTERFACE ONLINE", 99)
     SeraSave.mark_location("BASE")
@@ -699,7 +705,7 @@ func _layout_hud() -> void:
     hint.add_theme_font_size_override("font_size", 16 if view.x < 600.0 else 19)
     if layout_tools != null:
         layout_tools.position = Vector2(view.x - 168.0, 14.0)
-        layout_tools.size = Vector2(156.0, 392.0)
+        layout_tools.size = Vector2(156.0, 440.0)
     if grid_ui != null:
         grid_ui.call("reflow", view)
     if power_back_button != null:
@@ -710,19 +716,138 @@ func _layout_hud() -> void:
     stick_outer.size = Vector2(164, 164)
     stick_knob.size = Vector2(72, 72)
     _update_stick_visual()
-    _update_nexus_tag()
-    facility_system.call("update_tags", cam)
+    _refresh_facility_names()
 
-func _update_nexus_tag() -> void:
-    if cam == null or nexus_building == null or nexus_tag == null:
+# Project actual solid model geometry rather than the smaller tap-picking volume.
+# Called only for layout/viewport changes, not every idle BASE frame.
+func _name_project_box(bounds: AABB, pose: Transform3D, points: Array[Vector2]) -> void:
+    for i in range(8):
+        var vertex: Vector3 = pose * bounds.get_endpoint(i)
+        if not cam.is_position_behind(vertex):
+            points.append(cam.unproject_position(vertex))
+
+func _name_model_bounds(root_node: Node3D, key: String) -> Rect2:
+    var points: Array[Vector2] = []
+    # The architecture batches contain both structural geometry and peripheral
+    # decorative props; retain the building and its emissive solid details.
+    var architecture: Node = root_node.get_node_or_null(
+        "NexusArchitecture" if key == "NEXUS" else "IndustrialModel")
+    if architecture != null:
+        for child in architecture.get_children():
+            if child is MultiMeshInstance3D:
+                var draw := child as MultiMeshInstance3D
+                var multi: MultiMesh = draw.multimesh
+                if multi == null or multi.mesh == null or not draw.visible:
+                    continue
+                var bounds: AABB = multi.mesh.get_aabb()
+                for i in range(multi.instance_count):
+                    if multi.use_custom_data and draw.has_meta("sera_outline_instanced_roles"):
+                        if absf(multi.get_instance_custom_data(i).r - 0.375) < 0.04:
+                            continue
+                    _name_project_box(bounds,
+                        draw.global_transform * multi.get_instance_transform(i), points)
+                # LABO's authored culling envelope contains the moving SCARA arm
+                # and transferred payload even at their extreme positions.
+                if key == "LABO" and multi.custom_aabb.size.length_squared() > 0.0:
+                    _name_project_box(multi.custom_aabb, draw.global_transform, points)
+            elif child is MeshInstance3D:
+                var solid := child as MeshInstance3D
+                if solid.visible and solid.mesh != null:
+                    _name_project_box(solid.mesh.get_aabb(), solid.global_transform, points)
+    var foundation := root_node.get_node_or_null("Foundation") as MeshInstance3D
+    if foundation != null and foundation.mesh != null:
+        _name_project_box(foundation.mesh.get_aabb(), foundation.global_transform, points)
+    if points.is_empty():
+        return Rect2()
+    var result := Rect2(points[0], Vector2.ZERO)
+    for point in points:
+        result = result.expand(point)
+    # Leave room for contours and the collector's sweeping articulated crane.
+    return result.grow(28.0 if key == "SCRAP_COLLECTOR" else 8.0)
+
+func _name_rect_free(candidate: Rect2, safe: Rect2, occupied: Array[Rect2]) -> bool:
+    if not safe.encloses(candidate):
+        return false
+    for blocked in occupied:
+        if candidate.intersects(blocked):
+            return false
+    return true
+
+func _refresh_facility_names() -> void:
+    if cam == null or hud == null or nexus_tag == null or facility_system == null:
         return
-    var point: Vector3 = nexus_building.global_position + Vector3(0, 5.1, 0)
-    nexus_tag.visible = not cam.is_position_behind(point)
-    if not nexus_tag.visible:
+    var tags: Dictionary = facility_system.get("facility_tags")
+    var nodes: Dictionary = facility_system.get("facility_nodes")
+    var entries: Array[Dictionary] = [{"key": "NEXUS", "tag": nexus_tag,
+        "root": nexus_building}]
+    for spec in BaseFacilities.FACILITY_SPECS:
+        var key: String = str(spec["id"])
+        entries.append({"key": key, "tag": tags.get(key), "root": nodes.get(key)})
+    var show_names: bool = facility_names_enabled and not power_view_active and (
+        not power_transition_busy) and not bool(facility_system.call("is_menu_open"))
+    for entry in entries:
+        var tag: Label = entry["tag"] as Label
+        if tag != null:
+            tag.hide()
+    if not show_names or hud.size.x < 40.0 or hud.size.y < 200.0:
         return
-    var pixel: Vector2 = cam.unproject_position(point)
-    nexus_tag.position = pixel - Vector2(105.0, 18.0)
-    nexus_tag.size = Vector2(210.0, 38.0)
+    var safe := Rect2(Vector2(8.0, 90.0),
+        Vector2(hud.size.x - 16.0, hud.size.y - 200.0))
+    var occupied: Array[Rect2] = []
+    if layout_tools != null:
+        occupied.append(Rect2(layout_tools.position, layout_tools.size).grow(5.0))
+    var models: Dictionary = {}
+    for entry in entries:
+        var root_node: Node3D = entry["root"] as Node3D
+        if root_node == null:
+            continue
+        var key: String = str(entry["key"])
+        var bounds: Rect2 = _name_model_bounds(root_node, key)
+        if bounds.has_area():
+            models[key] = bounds
+            occupied.append(bounds)
+    for entry in entries:
+        var key: String = str(entry["key"])
+        var tag: Label = entry["tag"] as Label
+        if tag == null or not models.has(key):
+            continue
+        var bounds: Rect2 = models[key]
+        if not bounds.intersects(Rect2(Vector2.ZERO, hud.size)):
+            continue
+        var minimum: Vector2 = tag.get_combined_minimum_size()
+        var extent := Vector2(maxf(minimum.x, clampf(
+            30.0 + float(tag.text.length()) * 18.0, 96.0, 172.0)),
+            maxf(28.0, minimum.y))
+        if extent.x > safe.size.x or extent.y > safe.size.y:
+            continue
+        var center: Vector2 = bounds.get_center()
+        var anchors: Array[Vector2] = [
+            Vector2(center.x - extent.x * 0.5, bounds.position.y - extent.y - 6.0),
+            Vector2(center.x - extent.x * 0.5, bounds.end.y + 6.0),
+            Vector2(bounds.position.x - extent.x - 6.0, center.y - extent.y * 0.5),
+            Vector2(bounds.end.x + 6.0, center.y - extent.y * 0.5)]
+        var chosen := Rect2()
+        # Prefer the space directly above. If blocked, try nearby gaps around
+        # the other sides; never force a label over a neighboring 3D model.
+        for radius in [0.0, 18.0, 36.0, 54.0, 72.0, 96.0, 120.0]:
+            for anchor in anchors:
+                for direction in [Vector2.ZERO, Vector2.LEFT, Vector2.RIGHT,
+                        Vector2.UP, Vector2.DOWN]:
+                    var pos: Vector2 = anchor + direction * float(radius)
+                    pos = pos.clamp(safe.position, safe.end - extent)
+                    var candidate := Rect2(pos, extent)
+                    if _name_rect_free(candidate, safe, occupied):
+                        chosen = candidate
+                        break
+                if chosen.has_area():
+                    break
+            if chosen.has_area():
+                break
+        if chosen.has_area():
+            tag.position = chosen.position
+            tag.size = chosen.size
+            tag.show()
+            occupied.append(chosen.grow(4.0))
 
 func _stick_center() -> Vector2:
     return stick_outer.position + stick_outer.size * 0.5
@@ -744,6 +869,9 @@ func _create_layout_tools() -> void:
     layout_tools.mouse_filter = Control.MOUSE_FILTER_PASS
     layout_tools.add_theme_constant_override("separation", 5)
     hud.add_child(layout_tools)
+    facility_name_button = _layout_tool_button(
+        "設備名称：ON" if facility_names_enabled else "設備名称：OFF",
+        "FacilityNameToggle", _toggle_facility_names)
     layout_shuffle_button = _layout_tool_button(
         "小物を再配置", "LayoutShuffleButton", _shuffle_layout)
     layout_copy_button = _layout_tool_button(
@@ -767,6 +895,16 @@ func _create_layout_tools() -> void:
     layout_status.add_theme_color_override("font_color", Color("#a7c4d3"))
     layout_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
     layout_tools.add_child(layout_status)
+
+
+func _toggle_facility_names() -> void:
+    facility_names_enabled = not facility_names_enabled
+    facility_name_button.text = "設備名称：ON" if facility_names_enabled else "設備名称：OFF"
+    var config := ConfigFile.new()
+    config.set_value("base", "names", facility_names_enabled)
+    if config.save(FACILITY_NAME_CONFIG) != OK:
+        push_warning("BASE facility name preference could not be saved")
+    _refresh_facility_names()
 
 
 func _cycle_outline_probe() -> void:
@@ -949,7 +1087,7 @@ func _apply_layout_preview(selected: Dictionary) -> void:
     SharedMaterialShading.apply_to_subtree(self)
     layout_seed = int(selected["seed"])
     layout_rerolls += 1
-    facility_system.call("update_tags", cam)
+    _refresh_facility_names()
 
 
 func _layout_export_text() -> String:
@@ -1026,6 +1164,7 @@ func _sync_base_grid_plate_visibility() -> void:
     if grid_ui == null or facility_system == null:
         return
     grid_ui.visible = not bool(facility_system.call("is_menu_open"))
+    _refresh_facility_names()
 
 
 func _power_back_pressed() -> void:
@@ -1212,9 +1351,8 @@ func _enter_power_board() -> void:
     power_view_active = true
     power_transition_busy = true
     grid_iso_rotation = cam.rotation
-    facility_system.call("set_field_tags_visible", false)
+    _refresh_facility_names()
     hud_title.visible = false
-    nexus_tag.visible = false
     grid_ui.call("set_grid", true, true)
     layout_tools.visible = false
     power_back_button.visible = true
@@ -1251,7 +1389,7 @@ func _leave_power_board() -> void:
 func _power_camera_return_finished() -> void:
     power_transition_busy = false
     if not power_view_active and is_instance_valid(facility_system):
-        facility_system.call("set_field_tags_visible", true)
+        _refresh_facility_names()
 
 
 func _on_android_back() -> void:
@@ -1399,9 +1537,8 @@ func _process(delta: float) -> void:
         cam.position = cam.position.lerp(BASE_CAMERA_POSITION + follow_shift,
             minf(1.0, delta * 2.5))
         cam.look_at(BASE_CAMERA_TARGET + follow_shift, Vector3.UP)
-    if not power_view_active:
-        _update_nexus_tag()
-        facility_system.call("update_tags", cam)
+    if not power_view_active and HUB_SERA_CONTROLS_ENABLED:
+        _refresh_facility_names()
     if layout_tools != null:
         layout_tools.visible = not power_view_active and not bool(
             facility_system.call("is_menu_open"))
