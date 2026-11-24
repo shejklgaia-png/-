@@ -310,6 +310,9 @@ var gate_occluder_cache: Array = []
 var gate_terminal_strokes_cache: Array[PackedVector2Array] = []
 var selection_visible_strokes: Dictionary = {}
 var gate_contour_active: bool = false
+var _selection_pose_dirty: bool = true
+var _gate_pose_dirty: bool = false
+var _selection_camera_signature: Array = []
 # Canonical placement keeps exact source part instances in the shared render
 # batches so touching a console never drags the wall or another nearby model.
 var canonical_core_refs: Dictionary = {}
@@ -357,6 +360,9 @@ const PANEL_LAYOUTS: Dictionary = {
 }
 
 func _ready() -> void:
+    # Advance all NEXUS camera/model motion after normal hardware processing,
+    # but before the shared ID compositor (priority 10000).
+    process_priority = 9000
     set_meta("sera_graphics_outline_category", "base")
     # Any untagged opaque room equipment receives NEXUS inner 3/0/2 +
     # convex1, while the child SERA rig's character category takes priority.
@@ -840,6 +846,8 @@ func _sync_placement_launchers() -> void:
 
 
 func _process(delta: float) -> void:
+    _advance_nexus_render_tweens(delta)
+    _flush_selection_pose()
     # Recover focus transitions BEFORE touching optional placement UI. If an
     # editor is missing its script, a UI failure must not leave NEXUS consoles
     # permanently blocked behind in_transition.
@@ -856,6 +864,18 @@ func _process(delta: float) -> void:
             archive_refresh_elapsed = 0.0
             _refresh_archive_records()
 
+# Idle Tweens normally advance AFTER every Node._process, including the ID
+# compositor. Pause automatic stepping and advance both from this one phase.
+func _advance_nexus_render_tweens(delta: float) -> void:
+    if customize_entrance_tween != null and customize_entrance_tween.is_valid():
+        var model_tween: Tween = customize_entrance_tween
+        if not model_tween.custom_step(delta) and customize_entrance_tween == model_tween:
+            customize_entrance_tween = null
+    if focus_tween != null and focus_tween.is_valid():
+        var camera_tween: Tween = focus_tween
+        if not camera_tween.custom_step(delta) and focus_tween == camera_tween:
+            focus_tween = null
+
 # A focus tween normally finishes in 0.18s. On rare failures the former
 # in_transition guard blocked ALL taps permanently, including EXIT TO BASE.
 # Complete the intended menu transition after a generous safety interval.
@@ -867,7 +887,7 @@ func _recover_nexus_transition_if_stalled(delta: float) -> void:
     if nexus_transition_elapsed < NEXUS_TRANSITION_STALL_SECONDS:
         return
     nexus_transition_elapsed = 0.0
-    if focus_tween != null and focus_tween.is_running():
+    if focus_tween != null and focus_tween.is_valid():
         focus_tween.kill()
     in_transition = false
     if focused_target.is_empty():
@@ -4644,12 +4664,13 @@ func _show_customization_preview() -> void:
     outline.queue_redraw()
     # Start this SERA Tween in the same tap callback as the camera Tween:
     # the target camera pose was temporarily applied for final-pose fitting.
-    if customize_entrance_tween != null and customize_entrance_tween.is_running():
+    if customize_entrance_tween != null and customize_entrance_tween.is_valid():
         customize_entrance_tween.kill()
     _prepare_customization_motion(start_camera_local, end_camera_local,
         customize_transition_start_camera_fov, cam.fov)
     in_transition = true
     customize_entrance_tween = create_tween()
+    customize_entrance_tween.pause()
     # A linear time parameter makes the 2D position travel with constant
     # velocity on its straight line. Scale/yaw ease separately below.
     customize_entrance_tween.set_trans(Tween.TRANS_LINEAR)
@@ -4754,6 +4775,11 @@ func _apply_customization_entrance(progress: float,
         camera_relative.origin.x += offset_ndc.x * depth * half_tan * aspect
         camera_relative.origin.y += offset_ndc.y * depth * half_tan
     sera_display_rig.global_transform = cam.global_transform * camera_relative
+    # Hidden portrait strokes need no projection; keep world-space capture
+    # current when a visible character contour is used during motion.
+    if is_instance_valid(outline) and not bool(outline.get("hide_customize_preview_outline")):
+        _capture_sera_silhouette(sera_display_rig)
+        _update_projected_silhouettes()
 
 func _customization_entrance_arrived(final_world: Transform3D) -> void:
     if not customize_preview_active or focused_target != "CUSTOMIZE":
@@ -4762,7 +4788,7 @@ func _customization_entrance_arrived(final_world: Transform3D) -> void:
     # Keep its camera-relative endpoint tracking until the camera lands,
     # otherwise snapping to final_world mid-camera-move causes a visible jump.
     customize_motion_progress = 1.0
-    if focus_tween != null and focus_tween.is_running():
+    if focus_tween != null and focus_tween.is_valid():
         return
     customize_motion_active = false
     sera_display_rig.global_transform = final_world
@@ -4785,7 +4811,7 @@ func _begin_customization_retraction() -> void:
     if sera_display_rig == null or sera_display_stand == null:
         _restore_customization_preview()
         return
-    if customize_entrance_tween != null and customize_entrance_tween.is_running():
+    if customize_entrance_tween != null and customize_entrance_tween.is_valid():
         customize_entrance_tween.kill()
     var initial_world: Transform3D = sera_display_rig.global_transform
     var stowed_world: Transform3D = sera_display_stand.global_transform * sera_original_transform
@@ -4801,6 +4827,7 @@ func _begin_customization_retraction() -> void:
     _prepare_customization_motion(start_camera_local, stowed_camera_local,
         cam.fov, overview_fov)
     customize_entrance_tween = create_tween()
+    customize_entrance_tween.pause()
     customize_entrance_tween.set_trans(Tween.TRANS_LINEAR)
     customize_entrance_tween.tween_method(_apply_customization_entrance.bind(
         start_camera_local, stowed_camera_local,
@@ -4814,7 +4841,7 @@ func _customization_retraction_arrived() -> void:
     # Let the 0.14s retraction reach its camera-relative endpoint and track
     # the camera until 0.18s. Do not restore the world-space display rig early.
     customize_motion_progress = 1.0
-    if focus_tween == null or not focus_tween.is_running():
+    if focus_tween == null or not focus_tween.is_valid():
         _restore_customization_preview()
         _overview_arrived()
 
@@ -4823,7 +4850,7 @@ func _restore_customization_preview() -> void:
     customize_motion_active = false
     customize_touch_id = -1
     customize_mouse_drag = false
-    if customize_entrance_tween != null and customize_entrance_tween.is_running():
+    if customize_entrance_tween != null and customize_entrance_tween.is_valid():
         customize_entrance_tween.kill()
     if not customize_preview_active or sera_display_rig == null:
         return
@@ -4972,6 +4999,31 @@ func _rotate_customization_preview(delta: Vector2) -> void:
     # traversal of every visible Blockbench vertex.
 
 func _update_projected_silhouettes() -> void:
+    # All input, resize, placement and tween callbacks request a single final
+    # projection rather than publishing geometry from different pose phases.
+    _selection_pose_dirty = true
+
+func _flush_selection_pose() -> void:
+    if not is_instance_valid(cam) or not is_instance_valid(outline):
+        return
+    var signature: Array = [cam.global_transform, cam.fov, cam.size,
+        cam.projection, cam.h_offset, cam.v_offset, get_viewport().get_visible_rect().size]
+    if signature != _selection_camera_signature:
+        _selection_camera_signature = signature
+        _selection_pose_dirty = true
+    if _selection_pose_dirty:
+        _selection_pose_dirty = false
+        _gate_pose_dirty = false
+        _rebuild_projected_silhouettes()
+        outline.queue_redraw()
+    elif _gate_pose_dirty:
+        _gate_pose_dirty = false
+        if gate_contour_active:
+            selection_visible_strokes["DEPLOYMENT"] = _live_gate_strokes()
+            outline.set("clipped_strokes", selection_visible_strokes)
+            outline.queue_redraw()
+
+func _rebuild_projected_silhouettes() -> void:
     if cam == null or outline == null:
         return
     # Cache the overview until the camera changes/viewport resizes. During a
@@ -5023,9 +5075,7 @@ func _update_projected_silhouettes() -> void:
 func _refresh_live_gate_contour() -> void:
     if not gate_contour_active or not is_instance_valid(outline) or not is_instance_valid(cam):
         return
-    selection_visible_strokes["DEPLOYMENT"] = _live_gate_strokes()
-    outline.set("clipped_strokes", selection_visible_strokes)
-    outline.queue_redraw()
+    _gate_pose_dirty = true
 
 func _live_gate_strokes() -> Array[PackedVector2Array]:
     var joined: Array[PackedVector2Array] = []
@@ -5627,9 +5677,9 @@ func _enter_base() -> void:
     if is_instance_valid(placement_editor) and placement_editor.has_method("open_mode") and bool(placement_editor.get("active")):
         placement_editor.call("close_mode")
     # Explicit EXIT TO BASE must not be blocked by an interrupted tween.
-    if focus_tween != null and focus_tween.is_running():
+    if focus_tween != null and focus_tween.is_valid():
         focus_tween.kill()
-    if customize_entrance_tween != null and customize_entrance_tween.is_running():
+    if customize_entrance_tween != null and customize_entrance_tween.is_valid():
         customize_entrance_tween.kill()
     in_transition = false
     nexus_transition_elapsed = 0.0
@@ -5705,7 +5755,7 @@ func _focus_arrived(target_name: String) -> void:
     # Either tween may finish first. Finalize the CUSTOMIZE model and reveal
     # the backdrop only after BOTH are finished, not at the early 0.14s mark.
     if target_name == "CUSTOMIZE" and customize_preview_active:
-        if customize_entrance_tween == null or not customize_entrance_tween.is_running():
+        if customize_entrance_tween == null or not customize_entrance_tween.is_valid():
             _customization_entrance_arrived(customize_preview_final_world)
     else:
         in_transition = false
@@ -5817,7 +5867,7 @@ func _overview_arrived() -> void:
     # The SERA retraction now finishes at 0.14s; keep its model aligned to the
     # moving camera until 0.18s. Only then restore the exact stand transform.
     if focused_target == "CUSTOMIZE" and customize_preview_active:
-        if customize_entrance_tween != null and customize_entrance_tween.is_running():
+        if customize_entrance_tween != null and customize_entrance_tween.is_valid():
             return
         _restore_customization_preview()
     in_transition = false
@@ -5828,11 +5878,12 @@ func _overview_arrived() -> void:
     outline.queue_redraw()
 
 func _move_camera(destination: Transform3D, next_fov: float, arrived: Callable) -> void:
-    if focus_tween != null and focus_tween.is_running():
+    if focus_tween != null and focus_tween.is_valid():
         focus_tween.kill()
     var start_pose := cam.transform
     var start_fov := cam.fov
     focus_tween = create_tween()
+    focus_tween.pause()
     focus_tween.set_trans(Tween.TRANS_CUBIC)
     focus_tween.set_ease(Tween.EASE_OUT)
     focus_tween.tween_method(_apply_camera_transition.bind(start_pose, destination,
