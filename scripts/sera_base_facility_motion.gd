@@ -326,6 +326,9 @@ func sample_at(seconds: float) -> void:
         nexus_scan = _nexus_scan(time)
     for name_variant in _parts.keys():
         var feature: String = str(name_variant)
+        # The one-shot entry transition owns these transforms, not the idle cycle.
+        if feature in ["NexusBlastDoor", "NexusBlastShutterSlat"]:
+            continue
         var records: Array = _parts[feature]
         for i in range(records.size()):
             var record: Dictionary = records[i]
