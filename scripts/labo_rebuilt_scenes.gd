@@ -24,9 +24,7 @@ var motions: Dictionary = {}
 var screens: Dictionary = {}
 var furnace_vfx: Node
 var active_key: String = ""
-var cycle_clock: float = 0.0
 var cycle_running: bool = false
-var tick_accumulator: float = 0.0
 
 func build(stage: Node3D) -> void:
     host = stage
@@ -152,8 +150,6 @@ func select(key: String) -> void:
     for id in KEYS:
         (rooms[id] as Node3D).visible = id == key
     cycle_running = false
-    cycle_clock = 0.0
-    tick_accumulator = 0.0
     var motion = motions[key]
     motion.prepare_material_intake()
 
@@ -180,8 +176,6 @@ func start_cycle(key: String) -> void:
     motion.receive_material_item()
     motion.receive_material_item()
     motion.begin_material_cycle()
-    cycle_clock = 0.0
-    tick_accumulator = 0.0
     cycle_running = true
 
 func cycle_complete() -> bool:
@@ -196,12 +190,8 @@ func animate(delta: float, time: float, key: String) -> void:
         furnace_vfx.sample_fire(time)
     if not cycle_running:
         return
-    cycle_clock += delta
-    tick_accumulator += delta
-    var duration: float = float(Motion.MATERIAL_SECONDS[key])
-    if cycle_clock >= duration:
-        motions[key].sample_at(duration-0.001)
-        cycle_running = false
-    elif tick_accumulator >= Motion.TICK_SECONDS:
-        tick_accumulator = fmod(tick_accumulator,Motion.TICK_SECONDS)
-        motions[key].sample_at(cycle_clock)
+    # Use the original 30 Hz sampler and completion bookkeeping; explicitly
+    # drive only the currently displayed machine from the hero stage.
+    var motion = motions[key]
+    motion.call("_process",delta)
+    cycle_running = not motion.material_cycle_complete()
