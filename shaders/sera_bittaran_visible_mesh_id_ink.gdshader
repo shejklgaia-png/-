@@ -19,8 +19,8 @@ uniform float facility_selection_width = 4.5;
 // from the interactive equipment, actors and protected emissive cores.
 // Composite a low-contrast blue-grey veil over the actual background pixels,
 // INCLUDING its mesh seams. No new screen texture or viewport is required.
-uniform vec4 nexus_scenery_tint : source_color = vec4(0.44, 0.53, 0.60, 1.0);
-uniform float nexus_scenery_filter = 0.76;
+uniform vec4 nexus_scenery_tint : source_color = vec4(0.27, 0.35, 0.42, 1.0);
+uniform float nexus_scenery_filter = 0.28;
 
 float facility_selection_coverage(vec2 uv, float black_alpha) {
     int role = sera_role_of(sera_sample_visible_id(uv));
