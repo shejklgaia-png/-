@@ -86,6 +86,12 @@ func _carrier(label: String) -> Node3D:
         _box(b,Vector3(side*0.34,0.33,0.66),Vector3(0.16,0.055,0.035),"blue_light")
         _box(b,Vector3(side*0.35,0.30,-0.66),Vector3(0.13,0.055,0.035),"amber")
     _poly(b,"bevel",Vector3(0,0.23,0.67),Vector3(0.32,0.22,0.13),"slate")
+    b.poly_tilt("CarrierSensorLens","drum",Vector3(0,0.23,0.75),Vector3(0.15,0.045,0.15),"blue_light",Vector3(PI*0.5,0,0))
+    for side in [-1.0,1.0]:
+        for z in [-0.48,0.48]:
+            _box(b,Vector3(side*0.44,0.40,z),Vector3(0.07,0.065,0.11),"edge")
+        for i in range(10):
+            _box(b,Vector3(side*0.34,0.29,-0.52+float(i)*0.115),Vector3(0.22,0.028,0.045),"edge")
     _finish(b)
     return n
 
@@ -100,6 +106,10 @@ func _container(parent: Node3D,label: String,closed: bool) -> Node3D:
         for z in [-1.55,1.55]:
             _box(b,Vector3(side*1.35,0.78,z),Vector3(0.14,1.55,0.14),"edge")
         _box(b,Vector3(side*1.35,1.49,0),Vector3(0.15,0.12,3.50),"gold")
+        for z in [-0.92,0.0,0.92]:
+            _box(b,Vector3(side*1.40,0.78,z),Vector3(0.035,1.18,0.14),"slate")
+        for z in [-1.42,1.42]:
+            _box(b,Vector3(side*1.40,0.30,z),Vector3(0.035,0.18,0.22),"edge")
     _box(b,Vector3(0,0.83,1.76),Vector3(0.65,0.24,0.08),"lab_cyan")
     _finish(b)
     var lid := _node(n,"Lid")
@@ -120,6 +130,14 @@ func _material(parent: Node3D,label: String) -> Node3D:
     _finish(b)
     return n
 
+func _support_floor(p: Vector3) -> float:
+    # Raised LABO/STORAGE platform top is y=0; surrounding deck is y=-0.32.
+    if key=="LABO":
+        return 0.0 if Rect2(-15.2,-10.9,29.0,24.0).has_point(Vector2(p.x,p.z)) else -0.32
+    if key=="STORAGE":
+        return 0.0 if Rect2(-15.4,-10.0,30.0,25.0).has_point(Vector2(p.x,p.z)) else -0.32
+    return 0.0
+
 func _gantry(label: String,a: Vector3,z: Vector3,height: float) -> Dictionary:
     var n := _node(root,label)
     var direction := Vector3(z.x-a.x,0,z.z-a.z)
@@ -127,30 +145,80 @@ func _gantry(label: String,a: Vector3,z: Vector3,height: float) -> Dictionary:
     var axis: Vector3 = direction/length
     var side := Vector3(axis.z,0,-axis.x)
     var b = _batch(n)
-    # Cantilever supports are beside the vehicle, never in its travel lane.
-    for sign_value in [-1.0,1.0]:
-        var foot: Vector3 = a+side*float(sign_value)*2.35
-        foot.y = a.y
-        _poly(b,"bevel",foot+Vector3.UP*0.20,Vector3(0.85,0.40,0.85),"slate")
-        var post_height: float = height-foot.y
-        _box(b,foot+Vector3.UP*(post_height*0.5),Vector3(0.44,post_height,0.44),"slate")
-        _rod(b,Vector3(foot.x,height,foot.z),Vector3(a.x,height,a.z),0.36,"edge")
-        reserves.append(AABB(foot-Vector3(0.46,0,0.46),Vector3(0.92,2.4,0.92)))
-    _rod(b,Vector3(a.x,height,a.z)-axis*0.55,Vector3(z.x,height,z.z)+axis*0.55,0.40,"gold")
+    # Two braced portals support a continuous twin-rail bridge. Keep the
+    # second portal short of the machine opening so no column blocks loading.
+    var rail_y: float = height+0.55
+    var portal_span: float = 2.18
+    var inner: Vector3 = a+axis*minf(length*0.58,maxf(0.0,length-2.5))
+    var start := Vector3(a.x,rail_y,a.z)-axis*0.65
+    var end := Vector3(z.x,rail_y,z.z)+axis*0.65
+    for offset in [-0.43,0.43]:
+        var lateral: Vector3 = side*float(offset)
+        _rod(b,start+lateral,end+lateral,0.34,"slate")
+        _rod(b,start+lateral+Vector3.UP*0.42,end+lateral+Vector3.UP*0.42,0.18,"edge")
+        _rod(b,start+lateral-Vector3.UP*0.20,end+lateral-Vector3.UP*0.20,0.12,"gold")
+    var ribs: int = maxi(2,ceili(length/1.15))
+    for i in range(ribs+1):
+        var p: Vector3 = start.lerp(end,float(i)/float(ribs))
+        _rod(b,p-side*0.57,p+side*0.57,0.17,"armor_light")
+        if i<ribs:
+            var q: Vector3 = start.lerp(end,float(i+1)/float(ribs))
+            for sign_value in [-1.0,1.0]:
+                var lateral: Vector3 = side*float(sign_value)*0.43
+                _rod(b,p+lateral,q+lateral+Vector3.UP*0.42,0.12,"trim")
+    for portal in [a,inner]:
+        var center: Vector3 = portal
+        for sign_value in [-1.0,1.0]:
+            var foot: Vector3 = center+side*float(sign_value)*portal_span
+            foot.y = _support_floor(foot)
+            var top := Vector3(foot.x,rail_y+0.15,foot.z)
+            var post_height: float = top.y-foot.y
+            _poly(b,"bevel",foot+Vector3.UP*0.18,Vector3(0.84,0.36,0.84),"armor")
+            _box(b,foot+Vector3.UP*(post_height*0.5),Vector3(0.46,post_height,0.46),"slate")
+            for side_sign in [-1.0,1.0]:
+                _rod(b,foot+side*float(side_sign)*0.24+Vector3.UP*0.30,top+side*float(side_sign)*0.24,0.12,"armor_light")
+            for sx in [-0.29,0.29]:
+                for sz in [-0.29,0.29]:
+                    _poly(b,"drum",foot+Vector3(sx,0.38,sz),Vector3(0.13,0.10,0.13),"edge")
+            _box(b,foot+Vector3.UP*1.15,Vector3(0.50,0.18,0.50),"gold")
+            var joint := Vector3(center.x,rail_y+0.15,center.z)
+            _rod(b,top,joint,0.48,"armor")
+            _rod(b,top-Vector3.UP*1.05,top.lerp(joint,0.63),0.22,"trim")
+            reserves.append(AABB(foot-Vector3(0.46,0,0.46),Vector3(0.92,2.4,0.92)))
+    # Drive station and hard end stops terminate the rails rather than floating.
+    for at in [start,end]:
+        var p: Vector3 = at
+        _rod(b,p-side*0.65,p+side*0.65,0.30,"armor")
+        _poly(b,"bevel",p+Vector3.UP*0.28,Vector3(0.75,0.50,0.75),"slate")
     _finish(b)
     var trolley := _node(n,"LinearTrolley")
     b = _batch(trolley)
-    _poly(b,"bevel",Vector3.ZERO,Vector3(0.84,0.56,0.80),"armor_light")
+    _poly(b,"bevel",Vector3(0,0.08,0),Vector3(0.92,0.56,0.92),"armor_light")
+    # Wheel bogies straddle the two rails; hanger reaches their lower flanges.
+    for lateral in [-0.43,0.43]:
+        for longitudinal in [-0.30,0.30]:
+            var p: Vector3 = side*float(lateral)+axis*float(longitudinal)+Vector3.UP*0.38
+            _poly(b,"drum",p,Vector3(0.29,0.34,0.29),"edge")
+            _rod(b,p,Vector3(p.x,0.12,p.z),0.18,"slate")
+    _box(b,Vector3(0,0.08,0.47),Vector3(0.42,0.14,0.06),"lab_cyan")
     _finish(b)
     var stem := _node(trolley,"TelescopingVerticalArm")
     b = _batch(stem)
-    _box(b,Vector3(0,-0.5,0),Vector3(0.22,1.0,0.22),"edge")
+    _box(b,Vector3(0,-0.5,0),Vector3(0.30,1.0,0.30),"edge")
+    # Outer sleeve and inner ram overlap at every extension; no free gripper.
+    var sleeve := _node(trolley,"FixedRamSleeve")
+    var sb = _batch(sleeve)
+    _poly(sb,"bevel",Vector3(0,-0.28,0),Vector3(0.48,0.64,0.48),"slate")
+    _poly(sb,"drum",Vector3(0,-0.58,0),Vector3(0.44,0.12,0.44),"gold")
+    _finish(sb)
     _finish(b)
     var grip := _node(trolley,"Gripper")
     var crossbar := _node(grip,"AdjustableCrossbar")
     b = _batch(crossbar)
     _box(b,Vector3(0,0.15,0),Vector3(0.95,0.20,0.48),"gold")
     _box(b,Vector3(0,0.025,0),Vector3(0.65,0.05,0.38),"edge")
+    for x in [-0.26,0.26]:
+        _poly(b,"drum",Vector3(x,0.05,0),Vector3(0.19,0.10,0.22),"dark")
     _finish(b)
     var jaws: Array[Node3D] = []
     for side_value in [-1.0,1.0]:
@@ -168,8 +236,8 @@ func _arm_pose(arm: Dictionary,p: Vector3,span: float = 0.75) -> void:
     var grip: Node3D = arm["grip"]
     var h: float = float(arm["height"])
     trolley.position = Vector3(p.x,h,p.z)
-    var d: float = maxf(0.20,h-p.y)
-    stem.scale.y = d
+    var d: float = maxf(0.74,h-p.y)
+    stem.scale.y = d+0.05
     grip.position.y = -d
     span = minf(span,2.20)
     (arm["crossbar"] as Node3D).scale.x = maxf(1.0,(span+0.16)/0.95)
