@@ -37,6 +37,9 @@ var nav_dirty := true
 var nav_bounds := Rect2()
 var nav_docked := false
 var nav_ready := false
+var nav_route_failed := false
+var nav_dock_checked := false
+var nav_dock_allowed := false
 
 func _build_crate() -> void:
     # Exact same factory and mesh as the roaming robot in the base.
@@ -207,8 +210,8 @@ func _add_obstacle(bounds: AABB, terminal: bool) -> void:
         nav_other_obstacles.append(rect)
     var lo := _nav_cell(rect.position-Vector2.ONE*NAV_STEP)
     var hi := _nav_cell(rect.end+Vector2.ONE*NAV_STEP)
-    lo = lo.max(nav.region.position)
-    hi = hi.min(nav.region.end-Vector2i.ONE)
+    lo = Vector2i(maxi(lo.x,nav.region.position.x),maxi(lo.y,nav.region.position.y))
+    hi = Vector2i(mini(hi.x,nav.region.end.x-1),mini(hi.y,nav.region.end.y-1))
     for z in range(lo.y,hi.y+1):
         for x in range(lo.x,hi.x+1):
             var id := Vector2i(x,z)
@@ -244,6 +247,8 @@ func _build_navigation() -> void:
     nav_path.clear()
     nav_index = 0
     nav_goal = Vector2i(99999,99999)
+    nav_route_failed = false
+    nav_dock_checked = false
     # Stay on the raised deck, not its edge or the lower surrounding floor.
     nav_bounds = Rect2(-22,-22,44,44)
     if current_section == "LABO":
@@ -317,18 +322,21 @@ func _move_to(goal: Vector3, delta: float, turn: bool = true) -> bool:
     return false
 
 func _walk_route(destination: Vector2, delta: float) -> bool:
-    if not nav_ready:
+    if not nav_ready or nav_route_failed:
         return false
     var here: Vector2 = _room_point(crate.global_position)
     if nav_path.is_empty():
         var goal := _nearest_free(destination)
         var origin := _nearest_free(here,0.60)
         if not nav.region.has_point(origin) or not nav.region.has_point(goal):
+            nav_route_failed = true
             return false
         if not _segment_clear(here,_nav_position(origin)):
+            nav_route_failed = true
             return false
         var ids: Array[Vector2i] = nav.get_id_path(origin,goal)
         if ids.is_empty():
+            nav_route_failed = true
             return false
         nav_goal = goal
         nav_path = ids
@@ -355,11 +363,14 @@ func _dock(delta: float, reverse: bool = false) -> bool:
     var here: Vector2 = _room_point(crate.global_position)
     # Only the last straight, aligned approach may use the tighter terminal
     # envelope. The body and forward hand stay outside the console face.
-    if not _segment_clear(here,approach if reverse else stand,true):
+    if not nav_dock_checked:
+        nav_dock_checked = true
+        nav_dock_allowed = _segment_clear(stand,approach,true)
+        if not reverse:
+            nav_dock_allowed = nav_dock_allowed and _segment_clear(here,approach)
+    if not nav_dock_allowed:
         return false
     if not reverse and here.distance_to(approach)>0.035 and not nav_docked:
-        if not _segment_clear(here,approach):
-            return false
         if not _move_to(_nav_local(approach),delta):
             return false
         nav_docked = true
@@ -380,6 +391,8 @@ func _enter(state: String) -> void:
     state_time = 0.0
     nav_path.clear()
     nav_index = 0
+    nav_route_failed = false
+    nav_dock_checked = false
 
 func _process(delta: float) -> void:
     clock += delta
