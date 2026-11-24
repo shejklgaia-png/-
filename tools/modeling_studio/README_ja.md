@@ -71,3 +71,10 @@ Actions手動起動時に reference_manifest を指定するか、成果物を�
 - 既存のalpha/whiteに加え、mode: uniform_background と background_tolerance（既定20）を使用可能。画像四辺がほぼ均一の場合のみ境界連結した近似色領域を除去する。内部の同色ディテールは保持する。複雑な背景、接地影、輪郭に触れる同色部位には手動マスクを使用する。抽出結果のPNGを出力し、目視確認必須とする。
 - 設計JSONの review_cameras に8方向の既存名をキーとして、direction（対象からカメラへのXYZ方向）、target（注視点XYZ）、ortho_scale（正投影幅）、roll_degrees を個別指定できる。省略時は従来値。projections.jsonに撮影位置・回転・注視点を保存する。カメラはまだ自動推定しない。
 - 公式配布のHTTP 403対策として公式ミラーを予備経路とし、各経路でSHA256を照合する。Blender導入前に比較演算の独立チェックを行う。既存ゲームCIは変更しない。
+
+## V5 カメラ推定・部品干渉候補
+
+- design JSONの camera_fits に既存ビュー名をキーとして {"projection":"orthographic","resolution":768,"landmarks":{"点名":[x,y], ...}} を指定する。既存 landmarks の対応する3D座標を使う。最低4点かつ非共面、同じ正方形画像寸法が必要。手動カメラ指定と同じビューには併用不可。SVDで正投影の向き・倍率・画面内移動を推定し camera_fit.json に残差を保存。奥行き位置は正投影から決まらない。透視図、誤対応、平面点、隠れた点には注意。自動特徴点認識や合否判定ではない。
+- interference.json は静止姿勢で世界座標AABBとBlender BVHによる表面交差候補、AABB包含候補を記録する。接触と貫通を厳密に区別しない。自己交差、可動範囲、貫通体積は未評価。intentional_overlaps に {"parts":["部品A","部品B"],"reason":"理由"} を指定すると意図的な接合として区別し、候補自体は削除しない。
+- 専用Actionsで既知カメラの投影再現・平面点の拒否・交差/包含/離隔ケースを独立確認する。
+- API: https://docs.blender.org/api/current/mathutils.bvhtree.html
