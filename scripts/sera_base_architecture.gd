@@ -10,7 +10,7 @@ const BaseFreshDesign = preload("res://scripts/sera_base_fresh_design.gd")
 const BaseFacilityMotion = preload("res://scripts/sera_base_facility_motion.gd")
 const BaseFacilityVfx = preload("res://scripts/sera_base_facility_vfx.gd")
 const ACTIVE_BASE_MODEL: String = "FRESH_20261122"
-# User reverted the NEXUS two versions: the pre-FRESH archived geometry is intact.
+# Keep the established command-bunker design family rather than the FRESH alternative.
 const ARCHIVED_NEXUS_MODEL: bool = true
 const BasePolygon = preload("res://scripts/sera_base_polygon_meshes.gd")
 const WEATHERED_STEEL_PATH: String = "res://assets/base/industrial_steel_grunge.svg"
@@ -59,7 +59,7 @@ class Batch:
     # Optional per-salvage uniform scale; equipment models stay at 1x.
     var detail_scale: float = 1.0
     # Seven outdoor machines use rectangular, sharp 90-degree mesh edges.
-    # The archived NEXUS is deliberately NOT affected by this flag.
+    # The NEXUS command bunker deliberately retains shaped bevels.
     var hard_edges: bool = false
     # Only selected machine features record their existing batched instance slots.
     var motion_names: Array = []
@@ -435,118 +435,10 @@ static func build_nexus(parent: Node3D) -> void:
         var fresh_vfx := BaseFacilityVfx.new()
         fresh_vfx.setup(node, "NEXUS")
         return
-    # Exact pre-FRESH archived NEXUS geometry. Its original shell, facade,
-    # roof modules and mechanical service add-ons remain byte-for-byte intact.
-    node.set_meta("base_design", "ARCHIVED_20261122")
-    # Wide reinforced shell, individual roof modules, recessed front blast door.
-    g.poly("NexusCutCornerShell", "bevel", Vector3(0, 2.25, -0.08), Vector3(5.70, 3.98, 4.95), "armor")
-    g.poly("ArmoredRoof", "bevel", Vector3(0, 4.38, -0.15), Vector3(6.27, 0.32, 5.27), "slate")
-    g.box("ArmoredRoofRim", Vector3(0, 4.62, 2.27), Vector3(6.20, 0.17, 0.22), "edge")
-    g.box("ArmoredRoofRim", Vector3(0, 4.62, -2.50), Vector3(6.20, 0.15, 0.20), "trim")
-    for i in range(7):
-        var x: float = -2.64 + float(i) * 0.88
-        g.box("RoofPanelSeams", Vector3(x, 4.57, 0), Vector3(0.04, 0.02, 4.70), "dark")
-        g.box("RoofFrontRivet", Vector3(x, 4.63, 2.20), Vector3(0.11, 0.05, 0.12), "edge")
-    for side in [-1.0, 1.0]:
-        g.box("FacadeBlastArmor", Vector3(side * 2.80, 2.10, 0),
-            Vector3(0.35, 3.5, 4.75), "trim")
-        g.box("SideServicePod", Vector3(side * 2.75, 1.90, 1.04),
-            Vector3(0.45, 2.45, 1.65), "armor_light")
-        g.poly("RoofUtilityCabinet", "bevel", Vector3(side * 1.75, 4.86, -1.20),
-            Vector3(0.94, 0.42, 0.88), "crate")
-        for row in range(4):
-            g.box("RoofVentSlits", Vector3(side * 1.75, 5.09,
-                -1.49 + row * 0.18), Vector3(0.71, 0.035, 0.07), "dark")
-        g.rod("RoofPiping", Vector3(side * 2.23, 4.60, -2.10),
-            Vector3(side * 2.23, 4.60, 1.20), 0.16, "gold")
-        g.box("FacadeRail", Vector3(side * 2.0, 2.10, 2.42),
-            Vector3(0.11, 3.5, 0.15), "edge")
-        g.box("WarningSideLamp", Vector3(side * 2.25, 2.38, 2.65),
-            Vector3(0.44, 0.17, 0.10), "amber_light")
-    # Asymmetric, multi-piece facade cladding conceals the primary wall cube.
-    # Each narrow panel has raised edges, several fasteners and a service seam.
-    for side in [-1.0, 1.0]:
-        for row in range(3):
-            var y: float = 0.71 + float(row) * 1.04
-            g.poly("NexusFacadeArmor", "bevel", Vector3(side * 2.13, y, 2.55),
-                Vector3(0.89, 0.88, 0.15),
-                "armor_light" if row == 1 else "armor")
-            g.box("NexusFacadePanelSeam", Vector3(side * 2.13,
-                y + 0.455, 2.651), Vector3(0.92, 0.055, 0.058), "dark")
-            for corner in [-1.0, 1.0]:
-                g.box("NexusFacadeBolt", Vector3(side * 2.13 + corner * 0.35,
-                    y + 0.33, 2.67), Vector3(0.10, 0.08, 0.06), "edge")
-        for row in range(4):
-            var sz: float = -1.76 + float(row) * 1.04
-            g.poly("NexusSideArmorPlate", "bevel", Vector3(side * 2.97, 2.12, sz),
-                Vector3(0.14, 3.02, 0.88), "slate" if row % 2 else "armor")
-            g.box("NexusSideVerticalRib", Vector3(side * 3.06, 2.12, sz + 0.39),
-                Vector3(0.07, 3.21, 0.08), "edge")
-        g.box("NexusWindowFrame", Vector3(side * 2.45, 2.35, 2.71),
-            Vector3(0.57, 0.40, 0.12), "dark")
-        g.box("NexusWindowGlow", Vector3(side * 2.45, 2.35, 2.79),
-            Vector3(0.43, 0.25, 0.045), "amber_light")
-    for panel in range(4):
-        var rx: float = -1.85 + float(panel) * 1.23
-        g.box("NexusRoofServiceRack", Vector3(rx, 4.79, 0.65),
-            Vector3(1.08, 0.22, 1.35), "armor_light")
-        # One real open-louver mesh replaces four coplanar fake vent bars.
-        g.poly_tilt("NexusRoofServiceVent", "louver",
-            Vector3(rx, 4.96, 0.65), Vector3(0.78, 1.09, 0.16),
-            "slate", Vector3(-PI * 0.5, 0, 0))
-    for level in range(3):
-        g.rod("NexusAntennas", Vector3(2.42, 4.63 + float(level) * 0.48, -1.78),
-            Vector3(2.42, 5.08 + float(level) * 0.48, -1.78),
-            0.08 if level == 0 else 0.045, "edge")
-    # The static mast remains in the architectural batch. A separately
-    # addressable beacon lens/fixture is built by BaseFacilityVFX so its
-    # emission can blink without scaling the mast or the amber-light batch.
-    g.poly("GatePortal", "bevel", Vector3(0, 1.50, 2.51), Vector3(2.65, 2.85, 0.38), "dark")
-    g.box("SealedGate", Vector3(0, 1.25, 2.77), Vector3(1.94, 2.35, 0.10), "slate")
-    g.box("GatePortalLintel", Vector3(0, 2.97, 2.68), Vector3(2.42, 0.25, 0.27), "edge")
-    # No luminous bar above the sealed gate: the new physical lamp emits
-    # exclusively through the low shutter gap at the floor.
-    for side in [-1.0, 1.0]:
-        g.box("GateBlueWayfinder", Vector3(side * 1.07, 1.39, 2.89),
-            Vector3(0.065, 0.76, 0.045), "blue_light")
-        g.box("GateTrack", Vector3(side * 0.82, 1.22, 2.84),
-            Vector3(0.045, 2.32, 0.05), "dark")
-    for row in range(4):
-        g.box("BlastDoorSeam", Vector3(0, 0.56 + 0.47 * row, 2.84),
-            Vector3(1.77, 0.025, 0.034), "dark")
-    # Distinctive wall insignia made of physical crossed steel strips.
-    g.rod("FrontEmblem", Vector3(-0.49, 3.70, 2.49),
-        Vector3(0, 3.24, 2.49), 0.075, "white")
-    g.rod("FrontEmblem", Vector3(0.49, 3.70, 2.49),
-        Vector3(0, 3.24, 2.49), 0.075, "white")
-    g.box("FrontEmblemCenter", Vector3(0, 3.62, 2.52),
-        Vector3(0.16, 0.31, 0.06), "edge")
-    # Crooked salvage-yard awning along the exposed left side of the building.
-    for p in range(3):
-        g.poly("CanopyCanvas", "canvas", Vector3(-3.21 + p * 0.49, 2.80 - p * 0.09, 2.67),
-            Vector3(0.62, 0.40, 1.72), "cloth", -0.04)
-    for side in [-1.0, 1.0]:
-        g.rod("CanopySupport", Vector3(-2.88 + side * 0.72, 0.20, 3.42),
-            Vector3(-2.88 + side * 0.72, 2.74, 3.42), 0.09, "trim")
-    for i in range(4):
-        g.crate(Vector3(-3.13 + float(i % 2) * 0.65, 0.43,
-            3.11 - float(i / 2) * 0.70), Vector3(0.55, 0.70, 0.58), i)
-    # More crates, spare panels and a cable cabinet around the entrance.
-    for i in range(5):
-        var sign_side: float = -1.0 if i % 2 == 0 else 1.0
-        g.crate(Vector3(sign_side * (2.10 + float(i % 3) * 0.31),
-            0.32 + float(i / 3) * 0.38, 2.95 + float(i % 2) * 0.28),
-            Vector3(0.41, 0.52, 0.42), i)
-    g.box("ScrapYardSpareParts", Vector3(2.13, 0.28, 3.28),
-        Vector3(0.62, 0.13, 0.38), "edge", 0.16)
-    g.box("ScrapYardSpareParts", Vector3(1.94, 0.39, 3.19),
-        Vector3(0.33, 0.13, 0.55), "rust", -0.28)
-    BasePolish.add_details(g, "NEXUS")
-    BaseSilhouette.add_details(g, "NEXUS")
-    BaseFinish.add_details(g, "NEXUS")
-    BaseNightFacade.add_details(g, "NEXUS")
-    BaseStructuralMass.add_details(g, "NEXUS")
-    BaseRoofIdentity.add_details(g, "NEXUS")
+    # Reinterpret the archived command bunker as one coherent architectural
+    # assembly. Keep its flat roof, V insignia, blast gate and service mast.
+    node.set_meta("base_design", "NEXUS_COMMAND_BUNKER_20261124")
+    _nexus_command_bunker(g)
     g.detail_scale = 1.0
     g.outline_enabled = false
     BaseClutter.decorate(g, "NEXUS")
@@ -556,6 +448,142 @@ static func build_nexus(parent: Node3D) -> void:
     # A narrow shutter-gap fixture replaces the old exterior floodlight.
     var archived_vfx := BaseFacilityVfx.new()
     archived_vfx.setup(node, "NEXUS")
+
+
+static func _nexus_command_bunker(g: Batch) -> void:
+    # All dimensions are in the established pre-scale local space. +Z is
+    # the public entrance. The existing 1.14 scale and yaw remain unchanged.
+    # Split the shell so the central gate is genuinely recessed, rather than
+    # a decorative door glued onto the face of a solid building.
+    g.poly("NexusArmoredRearCore", "bevel", Vector3(0, 2.20, -0.87),
+        Vector3(5.68, 3.60, 3.30), "armor")
+    g.poly("NexusFoundationSkirt", "bevel", Vector3(0, 0.51, -0.02),
+        Vector3(5.80, 0.25, 5.00), "trim")
+    for side in [-1.0, 1.0]:
+        g.poly("NexusFrontStructuralWing", "bevel",
+            Vector3(side * 2.04, 2.17, 1.65),
+            Vector3(1.64, 3.55, 2.00), "armor")
+        g.poly_tilt("NexusLoadBearingButtress", "bevel",
+            Vector3(side * 2.70, 2.22, 2.37),
+            Vector3(0.47, 3.55, 0.62), "slate",
+            Vector3(0, 0, side * 0.08))
+        g.poly("NexusButtressFoot", "bevel", Vector3(side * 2.66, 0.65, 2.39),
+            Vector3(0.76, 0.46, 0.86), "trim")
+        g.poly("NexusButtressShoulder", "bevel",
+            Vector3(side * 2.60, 3.88, 2.24),
+            Vector3(0.75, 0.42, 0.78), "armor_light")
+        # Broad, mechanically plausible removable armor plates, not rivet noise.
+        for row in range(2):
+            var y: float = 1.30 + float(row) * 1.56
+            g.poly("NexusFrontalArmorCassette", "bevel",
+                Vector3(side * 1.96, y, 2.68),
+                Vector3(0.99, 1.39, 0.28), "armor_light" if row == 1 else "armor")
+            g.box("NexusArmorCassetteRetainer",
+                Vector3(side * 1.96, y - 0.57, 2.84),
+                Vector3(0.78, 0.12, 0.07), "trim")
+        # Actual service/thermal grille and warning window on the outer flank.
+        g.poly("NexusCoolingBayHousing", "bevel",
+            Vector3(side * 2.92, 2.42, 0.15),
+            Vector3(0.25, 1.45, 1.92), "trim")
+        g.poly_tilt("NexusCoolingBayLouvers", "louver",
+            Vector3(side * 3.06, 2.42, 0.15),
+            Vector3(1.65, 1.18, 0.15), "slate",
+            Vector3(0, side * PI * 0.5, 0))
+        g.poly("NexusServiceAccessPanel", "bevel",
+            Vector3(side * 2.93, 1.42, -1.54),
+            Vector3(0.24, 1.62, 1.02), "armor_light")
+        g.box("NexusServiceHandle",
+            Vector3(side * 3.08, 1.46, -1.23),
+            Vector3(0.09, 0.29, 0.15), "dark")
+        g.box("NexusStatusWindowRecess",
+            Vector3(side * 2.30, 2.52, 2.86),
+            Vector3(0.38, 0.25, 0.10), "dark")
+        g.box("NexusStatusWindow",
+            Vector3(side * 2.30, 2.52, 2.925),
+            Vector3(0.28, 0.12, 0.035), "amber_light")
+    # Layered lintel carries the roof across the recessed airlock.
+    g.poly("NexusGateLoadBearingLintel", "bevel", Vector3(0, 3.58, 1.71),
+        Vector3(2.74, 0.80, 1.87), "armor")
+    g.poly("NexusAirlockBackplate", "bevel", Vector3(0, 1.72, 2.39),
+        Vector3(2.45, 2.72, 0.24), "dark")
+    g.poly("NexusBlastDoor", "bevel", Vector3(0, 1.65, 2.63),
+        Vector3(1.96, 2.52, 0.24), "slate")
+    # Four overlapping shutter slats and visible guides, with open lower gap
+    # facing the existing VFX lamp at (0, 0.34, 2.97).
+    for row in range(4):
+        var y: float = 0.70 + float(row) * 0.62
+        g.poly("NexusBlastShutterSlat", "bevel", Vector3(0, y, 2.78),
+            Vector3(1.83, 0.55, 0.11), "armor" if row % 2 == 0 else "slate")
+    for side in [-1.0, 1.0]:
+        g.poly("NexusAirlockGuideColumn", "bevel",
+            Vector3(side * 1.29, 1.72, 2.91),
+            Vector3(0.34, 2.75, 0.50), "trim")
+        g.box("NexusGuideLightRecess", Vector3(side * 1.30, 1.64, 3.19),
+            Vector3(0.16, 1.73, 0.08), "void")
+        g.box("NexusBlueGuideLight", Vector3(side * 1.30, 1.64, 3.24),
+            Vector3(0.085, 1.58, 0.035), "blue_light")
+        g.poly_tilt("NexusPortalHaunch", "bevel",
+            Vector3(side * 1.16, 3.12, 2.98),
+            Vector3(0.57, 0.42, 0.46), "armor_light",
+            Vector3(0, 0, side * 0.52))
+    g.poly("NexusAirlockHeader", "bevel", Vector3(0, 3.12, 2.96),
+        Vector3(2.37, 0.26, 0.40), "armor_light")
+    g.box("NexusEntryDirectionStripe", Vector3(0, 3.13, 3.19),
+        Vector3(1.69, 0.085, 0.035), "blue_light")
+    # Preserve the distinctive V insignia above the projector mount.
+    g.poly("NexusInsigniaPlate", "bevel", Vector3(0, 3.87, 2.68),
+        Vector3(1.10, 0.60, 0.13), "trim")
+    g.rod("NexusVInsignia", Vector3(-0.43, 4.08, 2.77),
+        Vector3(0, 3.65, 2.77), 0.105, "white")
+    g.rod("NexusVInsignia", Vector3(0.43, 4.08, 2.77),
+        Vector3(0, 3.65, 2.77), 0.105, "white")
+    g.box("NexusVInsigniaCenter", Vector3(0, 3.99, 2.78),
+        Vector3(0.13, 0.26, 0.06), "edge")
+    # Flat, low, overhanging armored roof. Three readable roof zones:
+    # armored central deck, two accessible HVAC housings, and a rear mast.
+    g.poly("NexusRoofSlab", "bevel", Vector3(0, 4.25, -0.12),
+        Vector3(6.08, 0.42, 5.17), "slate")
+    g.poly("NexusRoofCentralArmor", "bevel", Vector3(0, 4.52, -0.05),
+        Vector3(2.55, 0.26, 4.48), "armor")
+    g.poly("NexusRoofFrontFascia", "bevel", Vector3(0, 4.48, 2.35),
+        Vector3(5.76, 0.30, 0.36), "armor_light")
+    for side in [-1.0, 1.0]:
+        g.poly("NexusRoofCoolingModule", "bevel",
+            Vector3(side * 1.99, 4.62, 0.48),
+            Vector3(1.35, 0.53, 2.13), "armor")
+        g.poly_tilt("NexusRoofExhaustLouvers", "louver",
+            Vector3(side * 1.99, 4.91, 0.48),
+            Vector3(1.04, 1.74, 0.15), "trim",
+            Vector3(-PI * 0.5, 0, 0))
+        g.rod("NexusRoofCoolantPipe", Vector3(side * 2.73, 4.55, -1.84),
+            Vector3(side * 2.73, 4.55, 1.68), 0.16, "gold")
+        g.rod("NexusRoofPipeElbow", Vector3(side * 2.73, 4.55, 1.68),
+            Vector3(side * 2.43, 4.55, 1.68), 0.16, "gold")
+    # Existing VFX beacon is at (2.42, 6.18, -1.78); support the housing.
+    g.poly("NexusAntennaPedestal", "bevel", Vector3(2.42, 4.58, -1.78),
+        Vector3(0.66, 0.38, 0.66), "armor_light")
+    g.rod("NexusCommunicationMast", Vector3(2.42, 4.76, -1.78),
+        Vector3(2.42, 5.67, -1.78), 0.16, "trim")
+    g.rod("NexusCommunicationMast", Vector3(2.42, 5.67, -1.78),
+        Vector3(2.42, 6.10, -1.78), 0.075, "edge")
+    g.rod("NexusMastCrossbar", Vector3(2.09, 5.48, -1.78),
+        Vector3(2.75, 5.48, -1.78), 0.09, "edge")
+    g.rod("NexusMastAntenna", Vector3(2.09, 5.48, -1.78),
+        Vector3(2.09, 5.81, -1.78), 0.06, "edge")
+    g.rod("NexusMastAntenna", Vector3(2.75, 5.48, -1.78),
+        Vector3(2.75, 5.81, -1.78), 0.06, "edge")
+    # Retain the salvaged canvas service awning, with its own frame and
+    # one readable equipment case instead of many tiny overlapping crates.
+    g.poly_tilt("NexusServiceAwning", "canvas", Vector3(-2.67, 2.73, 3.05),
+        Vector3(1.38, 0.23, 1.17), "cloth", Vector3(0.12, 0, 0))
+    for side in [-1.0, 1.0]:
+        var x: float = -2.67 + side * 0.56
+        g.rod("NexusAwningFrame", Vector3(x, 0.44, 3.53),
+            Vector3(x, 2.65, 3.53), 0.10, "trim")
+        g.rod("NexusAwningRafter", Vector3(x, 2.65, 3.53),
+            Vector3(x, 2.78, 2.53), 0.09, "edge")
+    g.poly("NexusServiceEquipmentCase", "cargo_case", Vector3(-2.68, 0.77, 3.12),
+        Vector3(0.78, 0.65, 0.55), "crate")
 
 static func _labo(g: Batch) -> void:
     # Smaller, busy semi-open workshop: tarpaulin canopy, worktables and consoles.
