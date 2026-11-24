@@ -409,6 +409,7 @@ func _ready() -> void:
         TRAINING_CONSOLE_ORIGIN, GATE_ORIGIN, _gate_facing_yaw(), GATE_SCALE)
     # NEXUS equipment has 3/0/2+convex1; its displayed SERA remains
     # universal character 4/0/2, all in the exact shared visible RGB-ID pass.
+    _nexus_tone_background_surfaces()
     SharedMaterialShading.apply_to_subtree(self)
     _nexus_apply_practical_shading(self, true)
     _nexus_practical_lights()
@@ -867,14 +868,14 @@ func _environment() -> void:
     env.background_color = NEXUS_ROOM_BACKDROP_COLOR
     env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
     env.ambient_light_color = Color("#a1b5cd")
-    env.ambient_light_energy = 0.30
+    env.ambient_light_energy = 0.38
     world.environment = env
     add_child(world)
     # Retain only a faint neutral directional fill for readable silhouettes.
     var key := DirectionalLight3D.new()
     key.rotation_degrees = Vector3(-48.0, -34.0, 0.0)
     key.light_color = Color("#c2d4e8")
-    key.light_energy = 0.16
+    key.light_energy = 0.28
     key.light_specular = 0.0
     key.shadow_enabled = false
     add_child(key)
@@ -1101,7 +1102,13 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
         # no independent 2px polygon edge. Only authored primary armor does.
         # The legacy five-field modules still use their original ink behavior.
         var no_stroke: bool = part.size() >= 6 and not bool(part[5])
-        var batch_key: int = index + 100 if no_stroke else index
+        var batch_key: int = index + (100 if no_stroke else 0)
+        # Separate distant structure from interactive equipment, even when
+        # both use the same authored palette index. Keep canonical refs intact.
+        if name == "hangar_shell":
+            batch_key += 200
+        elif not selected_shape.is_empty() and part_hit and not no_stroke and index in [2, 3, 4]:
+            batch_key += 400
         var instances: Array = batch_data.get(batch_key, [])
         instances.append(transform)
         if selected_shape in ["SYSTEM", "TRAINING", "DATA ARCHIVE"]:
@@ -1242,33 +1249,128 @@ func _mat(index: int) -> StandardMaterial3D:
 func _render_batches() -> void:
     var cube := BoxMesh.new()
     cube.size = Vector3.ONE
+    var machined := _nexus_readable_armor_mesh()
     for index_value in batch_data.keys():
         var batch_key: int = int(index_value)
-        var no_stroke: bool = batch_key >= 100
+        var background: bool = batch_key >= 200 and batch_key < 400
+        var featured: bool = batch_key >= 400
+        var no_stroke: bool = batch_key % 200 >= 100
         var index: int = batch_key % 100
         var transforms: Array = batch_data[batch_key]
         var multi := MultiMesh.new()
         multi.transform_format = MultiMesh.TRANSFORM_3D
-        multi.mesh = cube
+        multi.mesh = machined if featured else cube
         multi.instance_count = transforms.size()
         for i in range(transforms.size()):
             multi.set_instance_transform(i, transforms[i])
         var draw := MultiMeshInstance3D.new()
         draw.name = ("NexusDetailBatch_%02d" % index
             if no_stroke else "BlockbenchBatch_%02d" % index)
+        if background:
+            draw.name = "NexusBackdropBatch_%03d" % batch_key
+        elif featured:
+            draw.name = "NexusFeaturedArmor_%02d" % index
         draw.multimesh = multi
         canonical_render_batches[batch_key] = multi
         # Only meshes with an original 2px architectural line receive ID
         # role=facility. Unstroked/emissive details remain depth occluders.
-        if not no_stroke and index not in [5, 6, 7]:
+        if not background and not no_stroke and index not in [5, 6, 7]:
             draw.set_meta("sera_outline_role", "facility")
         else:
             draw.set_meta("sera_outline_occluder_only", true)
         var material: StandardMaterial3D = _mat(index)
+        if background and index not in [5, 6, 7]:
+            material.albedo_color = material.albedo_color.lerp(Color("#101924"), 0.48)
+            material.metallic = 0.05
+            material.roughness = 0.88
+            material.metallic_specular = 0.0
+            draw.set_meta("sera_preserve_authored_material", true)
+        elif featured:
+            var armor_colors: Dictionary = {2: Color("#465b6c"), 3: Color("#72899b"), 4: Color("#a4b7c3")}
+            material.albedo_color = armor_colors[index]
+            material.metallic = 0.10
+            material.roughness = 0.72
+            material.metallic_specular = 0.12
+            draw.set_meta("sera_preserve_authored_material", true)
         draw.material_override = material
         draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         add_child(draw)
         # No legacy material_overlay: the shared ID shader applies 2px.
+
+# Shared clipped-corner armor casting: actual geometry, not a screen overlay.
+# Unit bounds match the legacy cube, so placement and selection stay stable.
+func _nexus_readable_armor_mesh() -> ArrayMesh:
+    var surface := SurfaceTool.new()
+    surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+    var profile := PackedVector2Array([
+        Vector2(-0.38, -0.5), Vector2(0.38, -0.5),
+        Vector2(0.5, -0.38), Vector2(0.5, 0.38),
+        Vector2(0.38, 0.5), Vector2(-0.38, 0.5),
+        Vector2(-0.5, 0.38), Vector2(-0.5, -0.38)])
+    var levels: Array[float] = [-0.5, -0.40, 0.40, 0.5]
+    var rings: Array[PackedVector3Array] = []
+    for j in range(levels.size()):
+        var ring := PackedVector3Array()
+        var inset: float = 0.82 if j == 0 or j == 3 else 1.0
+        for p in profile:
+            ring.append(Vector3(p.x * inset, levels[j], p.y * inset))
+        rings.append(ring)
+    for j in range(3):
+        for i in range(8):
+            var k: int = (i + 1) % 8
+            var a: Vector3 = rings[j][i]
+            var b: Vector3 = rings[j][k]
+            var c: Vector3 = rings[j + 1][k]
+            var d: Vector3 = rings[j + 1][i]
+            var outward: Vector3 = (a + b + c + d) * 0.25
+            _nexus_armor_triangle(surface, a, b, c, outward)
+            _nexus_armor_triangle(surface, a, c, d, outward)
+    for i in range(1, 7):
+        _nexus_armor_triangle(surface, rings[0][0], rings[0][i], rings[0][i + 1], Vector3.DOWN)
+        _nexus_armor_triangle(surface, rings[3][0], rings[3][i], rings[3][i + 1], Vector3.UP)
+    return surface.commit()
+
+
+func _nexus_armor_triangle(surface: SurfaceTool, a: Vector3, b: Vector3,
+        c: Vector3, outward: Vector3) -> void:
+    var normal: Vector3 = (b - a).cross(c - a).normalized()
+    # Godot uses clockwise front faces. Author outward flat normals separately.
+    if normal.dot(outward) > 0.0:
+        var swap: Vector3 = b
+        b = c
+        c = swap
+    else:
+        normal = -normal
+    for point in [a, b, c]:
+        surface.set_normal(normal)
+        surface.add_vertex(point)
+
+
+# Only the actual room shell/deck is toned. Keep monitors, emissive practical
+# fixtures, SERA and equipment preview materials unchanged.
+func _nexus_tone_background_surfaces() -> void:
+    for root_name in ["NexusDeckReferenceV3", "NexusBulkheadRebuild"]:
+        var root: Node = find_child(root_name, true, false)
+        if root != null:
+            _nexus_tone_background_node(root)
+
+
+func _nexus_tone_background_node(node: Node) -> void:
+    if node is GeometryInstance3D:
+        var geometry := node as GeometryInstance3D
+        var source := geometry.material_override as StandardMaterial3D
+        if source != null and not source.emission_enabled and source.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED:
+            var toned := source.duplicate() as StandardMaterial3D
+            toned.albedo_color = source.albedo_color.lerp(Color("#101924"), 0.24)
+            toned.roughness = maxf(source.roughness, 0.78)
+            toned.metallic = minf(source.metallic, 0.15)
+            toned.metallic_specular = 0.0
+            toned.clearcoat_enabled = false
+            geometry.material_override = toned
+            geometry.set_meta("sera_preserve_authored_material", true)
+    for child in node.get_children():
+        _nexus_tone_background_node(child)
+
 
 func _pad_center() -> void:
     var surface := MeshInstance3D.new()
