@@ -97,6 +97,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
                 affine_report += " / "+str(weld.report)
             else:
                 affine_report += " / 局所島接合 規模上限"
+            affine_report += " / "+_relax_all_chart_phases(tris,charts)
     else:
         _match_rectified_edge_counts(tris,charts)
         _align_triangular_grids(tris,charts)
@@ -172,7 +173,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     arrays[Mesh.ARRAY_TEX_UV2] = diagnostic_uv
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v14" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
+    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v15" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
 
 ## Group connected coplanar triangles, and the two halves of slightly
 ## warped authored quads. Never use an internal triangulation diagonal
@@ -1846,6 +1847,128 @@ static func _relax_rigid_uv_islands(tris: Array[Dictionary],charts: Array[Dictio
             break
     return "島位相補正 %d採用/%d試行・問題辺 %d→%d・最大 %.3f→%.3fpx・二乗和 %.3f→%.3f / %s" % [accepted,tested,int(baseline.y),int(score.y),baseline.x,score.x,baseline.z,score.z,"採用" if accepted > 0 else "不採用・V7維持"]
 
+
+# Optimize coverage rather than repeatedly selecting the worst four pairs.
+# Pure per-island translation leaves all internal UV lengths, angles, area,
+# winding, relative vertex positions and overlaps unchanged. A fractional
+# phase is preserved by integer chart minima and integer atlas placement.
+static func _relax_all_chart_phases(tris: Array[Dictionary],charts: Array[Dictionary]) -> String:
+    if tris.size() > 600 or charts.size() > 192:
+        return "全島位相探索 規模上限"
+    var links: Array[Dictionary] = _seam_segments(tris)
+    var members: Array = []
+    var incident: Array = []
+    var all_links: Array = []
+    for ci in range(charts.size()):
+        members.append([])
+        incident.append([])
+    for ti in range(tris.size()):
+        (members[int(tris[ti].chart)] as Array).append(ti)
+    for li in range(links.size()):
+        var link: Dictionary = links[li]
+        (incident[int(link.a)] as Array).append(li)
+        (incident[int(link.b)] as Array).append(li)
+        all_links.append(li)
+    var baseline: Vector3 = _local_uv_metrics(tris,links,all_links)
+    var score: Vector3 = baseline
+    var capacity: int = _hinge_pack_side(charts)
+    var accepted: int = 0
+    var tested: int = 0
+    var rejected_capacity: int = 0
+    for sweep in range(3):
+        var ranking: Array[int] = []
+        var priority: Array[Vector3] = []
+        for ci in range(charts.size()):
+            var local: Vector3 = _local_uv_metrics(tris,links,incident[ci])
+            priority.append(local)
+            if local.y > 0 and not (members[ci] as Array).is_empty():
+                ranking.append(ci)
+        ranking.sort_custom(func(a: int,b: int) -> bool:
+            if priority[a].y != priority[b].y:
+                return priority[a].y > priority[b].y
+            return priority[a].z > priority[b].z if absf(priority[a].z-priority[b].z)>0.000001 else a<b)
+        var improved: bool = false
+        for ci in ranking:
+            var before: Vector3 = _local_uv_metrics(tris,links,incident[ci])
+            if before.y <= 0:
+                continue
+            var base: Array[PackedVector2Array] = []
+            for ti in members[ci]:
+                var xy: PackedVector2Array = tris[int(ti)].xy
+                base.append(xy.duplicate())
+            var offsets: Array[Vector2] = []
+            var step: float = 0.20 if sweep==0 else (0.10 if sweep==1 else 0.05)
+            for x in range(-2,3):
+                for y in range(-2,3):
+                    if x != 0 or y != 0:
+                        offsets.append(Vector2(x,y)*step)
+            # Exact midpoint phase targets for each incident seam, including
+            # near-threshold seams that are not ranked by their maximum error.
+            for li in incident[ci]:
+                var link: Dictionary = links[int(li)]
+                var a: PackedVector2Array = _segment_uv(tris[int(link.ta)],int(link.ea),float(link.a0),float(link.a1),"xy")
+                var b: PackedVector2Array = _segment_uv(tris[int(link.tb)],int(link.eb),float(link.b0),float(link.b1),"xy")
+                var da: Vector2 = a[1]-a[0]
+                var db: Vector2 = b[1]-b[0]
+                var quarter: float = roundf(db.angle_to(da)/(PI*0.5))*(PI*0.5)
+                var e: Vector2 = a[0]-b[0].rotated(quarter)
+                e -= e.round()
+                var middle: Vector2 = e+(da-db.rotated(quarter))*0.5
+                var offset: Vector2 = -middle if int(link.a)==ci else middle.rotated(-quarter)
+                offset -= offset.round()
+                offsets.append(offset)
+                offsets.append(offset*0.5)
+            var best: Vector3 = before
+            var chosen := Vector2.ZERO
+            var old_min: Vector2 = charts[ci].min
+            var old_max: Vector2 = charts[ci].max
+            for offset in offsets:
+                if offset.length_squared() < 0.00000001:
+                    continue
+                _apply_rigid_uv_island(tris,members[ci],base,Vector2.ZERO,0.0,offset)
+                tested += 1
+                var candidate: Vector3 = _local_uv_metrics(tris,links,incident[ci])
+                if candidate.x > score.x+0.000001 or candidate.y > before.y or candidate.z > before.z+0.000001:
+                    continue
+                if candidate.y > best.y or (candidate.y == best.y and candidate.z >= best.z-0.000001):
+                    continue
+                var lo := Vector2(INF,INF)
+                var hi := Vector2(-INF,-INF)
+                for ti in members[ci]:
+                    for point in tris[int(ti)].xy:
+                        lo = lo.min(point)
+                        hi = hi.max(point)
+                charts[ci].min = lo.floor()
+                charts[ci].max = hi
+                var fits: bool = _hinge_pack_side(charts) <= capacity
+                charts[ci].min = old_min
+                charts[ci].max = old_max
+                if not fits:
+                    rejected_capacity += 1
+                    continue
+                best = candidate
+                chosen = offset
+            _apply_rigid_uv_island(tris,members[ci],base,Vector2.ZERO,0.0,chosen)
+            if chosen.length_squared() <= 0.00000001:
+                continue
+            var next: Vector3 = _local_uv_metrics(tris,links,all_links)
+            if next.x > score.x+0.000001 or next.y > score.y or next.z > score.z+0.000001:
+                _apply_rigid_uv_island(tris,members[ci],base,Vector2.ZERO,0.0,Vector2.ZERO)
+                continue
+            var lo := Vector2(INF,INF)
+            var hi := Vector2(-INF,-INF)
+            for ti in members[ci]:
+                for point in tris[int(ti)].xy:
+                    lo = lo.min(point)
+                    hi = hi.max(point)
+            charts[ci].min = lo.floor()
+            charts[ci].max = hi
+            score = next
+            accepted += 1
+            improved = true
+        if not improved:
+            break
+    return "全島位相探索 %d採用/%d試行・容量拒否%d・問題辺 %d→%d・最大 %.3f→%.3fpx・二乗和 %.3f→%.3f / %s" % [accepted,tested,rejected_capacity,int(baseline.y),int(score.y),baseline.x,score.x,baseline.z,score.z,"採用" if accepted>0 else "不採用・前段維持"]
 
 static func _relax_global_uv_boundaries(tris: Array[Dictionary],charts: Array[Dictionary],original: Array[PackedVector2Array],members: Array,nodes: Array[Dictionary],corner_nodes: Array[PackedInt32Array],links: Array[Dictionary],locked: Dictionary,extra: bool = false) -> String:
     var all_links: Array = []
