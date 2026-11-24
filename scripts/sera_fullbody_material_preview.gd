@@ -366,7 +366,8 @@ static func _apply_native_flat(node: GeometryInstance3D) -> void:
             bool(node.get_meta("sera_no_view_edges", false))):
         return
     if node is MultiMeshInstance3D:
-        var batch: MultiMesh = node.multimesh
+        var batch_node: MultiMeshInstance3D = node as MultiMeshInstance3D
+        var batch: MultiMesh = batch_node.multimesh
         if batch == null or batch.mesh == null:
             return
         var material: Material = node.material_override
@@ -381,19 +382,20 @@ static func _apply_native_flat(node: GeometryInstance3D) -> void:
         if flat != batch.mesh:
             batch.mesh = flat
     elif node is MeshInstance3D:
-        var source: Mesh = node.mesh
+        var mesh_node: MeshInstance3D = node as MeshInstance3D
+        var source: Mesh = mesh_node.mesh
         if source == null:
             return
         var overrides: Array[Material] = []
         for i in range(source.get_surface_count()):
-            if not _native_lit(node.get_active_material(i)):
+            if not _native_lit(mesh_node.get_active_material(i)):
                 return
-            overrides.append(node.get_surface_override_material(i))
+            overrides.append(mesh_node.get_surface_override_material(i))
         var flat: Mesh = _flat_native_mesh(source)
         if flat != source:
-            node.mesh = flat
+            mesh_node.mesh = flat
             for i in range(overrides.size()):
-                node.set_surface_override_material(i, overrides[i])
+                mesh_node.set_surface_override_material(i, overrides[i])
 
 static func _apply_subtree_node(node: Node, preserve_per_object: bool) -> int:
     var changed: int = 0
@@ -422,7 +424,7 @@ static func _apply_subtree_node(node: Node, preserve_per_object: bool) -> int:
                     batch.material_override = batch_material
                     changed += 1
     if node is MeshInstance3D or node is MultiMeshInstance3D:
-        _apply_native_flat(node)
+        _apply_native_flat(node as GeometryInstance3D)
     return changed
 
 
