@@ -379,6 +379,8 @@ func begin() -> void:
     if store_index>=0:
         active_box = _new_storage_box(truck_in)
         active_box.position = Vector3.UP*DECK_Y
+        # Keep the box label facing the same world direction during every handoff.
+        active_box.rotation.y = PI
 
 func _new_storage_box(parent: Node3D) -> Node3D:
     box_serial += 1
@@ -533,8 +535,8 @@ func _build_storage() -> void:
     shelf_carriage = _node(shelf_mast,"VerticalCarriage")
     b = _batch(shelf_carriage)
     _box(b,Vector3(0,-0.16,0),Vector3(3.0,0.28,1.6),"armor")
-    for x in [-1.50,1.50]:
-        _poly(b,"bevel",Vector3(x,0.20,0),Vector3(0.40,0.62,0.58),"slate")
+    for x in [-1.70,1.70]:
+        _poly(b,"bevel",Vector3(x,0.20,0),Vector3(0.24,0.62,0.58),"slate")
         _box(b,Vector3(x,0.28,0.31),Vector3(0.18,0.13,0.08),"lab_cyan")
     _finish(b)
     shelf_fork = _node(shelf_carriage,"TelescopingFork")
@@ -580,7 +582,20 @@ func _storage_arm(arm: Dictionary,p: Vector3) -> void:
 
 func _storage_truck(n: Node3D,a: Vector3,b: Vector3,u: float,reverse: bool = false) -> void:
     # Slight acceleration at either end, near-constant cruise on the long road.
-    _truck_pose(n,a,b,clampf(u,0.0,1.0),reverse)
+    var progress: float = clampf(u,0.0,1.0)
+    # Integrated trapezoidal velocity profile, 12% acceleration and deceleration.
+    var ramp: float = 0.12
+    var travel: float
+    if progress<ramp:
+        travel = progress*progress/(2.0*ramp*(1.0-ramp))
+    elif progress>1.0-ramp:
+        travel = 1.0-pow(1.0-progress,2.0)/(2.0*ramp*(1.0-ramp))
+    else:
+        travel = (progress-ramp*0.5)/(1.0-ramp)
+    n.position = a.lerp(b,travel)
+    var heading: Vector3 = a-b if reverse else b-a
+    if heading.length_squared()>0.001:
+        n.rotation.y = atan2(heading.x,heading.z)
 
 func sample_storage(t: float) -> void:
     if inbound_operation:
@@ -685,6 +700,7 @@ func _sample_storage_departure(t: float) -> void:
     else:
         if active_box.get_parent()!=truck_out:
             _attach_box(active_box,truck_out,Vector3.UP*DECK_Y)
+            active_box.rotation.y = PI
         _arm_pose(out_arm,Vector3(drop.x,lerpf(drop.y+STORAGE_BOX_HEIGHT,float(out_arm["height"])-0.74,smoothstep(0.61,0.64,t)),drop.z),1.15)
         if t>=1.0 and not storage_delivered:
             storage_delivered = true
