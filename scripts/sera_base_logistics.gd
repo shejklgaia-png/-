@@ -32,6 +32,7 @@ class Dock:
     var stage: Vector2
     var pivot: Vector2
     var yaw: float
+    var hatch_side: float
     var link_a: Visual
     var link_b: Visual
     var elbow: Visual
@@ -177,7 +178,7 @@ func _find_dock(key: String, at: Vector2) -> Dock:
                     var pivot_cell: Vector2i = c + side + along
                     if not _free(stage_cell) or not _free(pivot_cell) or not _free(c + along) or not _free(c - along):
                         continue
-                    if not _free(stage_cell + along) or not _free(stage_cell - along):
+                    if not _free(stage_cell + along) or not _free(stage_cell - along) or not _free(stage_cell + side):
                         continue
                     var separated: bool = true
                     for old_value in _docks.values():
@@ -199,8 +200,11 @@ func _find_dock(key: String, at: Vector2) -> Dock:
                     result.stage = _point(stage_cell)
                     result.pivot = _point(pivot_cell)
                     result.yaw = atan2(float(along.x), float(along.y))
+                    result.hatch_side = float(sign_value)
     if result != null:
         _block_circle(result.stage, 0.72 + CLEARANCE)
+        var slide: Vector2 = _xz(Basis(Vector3.UP, result.yaw) * Vector3(0.74 * result.hatch_side, 0, 0))
+        _block_circle(result.stage + slide, 0.47 + CLEARANCE)
         _block_circle(result.pivot, 0.23 + CLEARANCE)
         # The central parking cell was explicitly checked before the rack
         # was installed. Its center has 1.50m side spacing from the rack.
@@ -458,6 +462,8 @@ func _make_dock(d: Dock) -> void:
         fixed.box("LogisticsBufferRim", Vector3(s * 0.37, 0.61, 0), Vector3(0.12, 0.07, 1.48), "caution")
         fixed.box("LogisticsBufferEnd", Vector3(0, 0.36, s * 0.71), Vector3(0.76, 0.58, 0.09), "armor_light")
     fixed.box("LogisticsBufferDivider", Vector3(0, 0.36, 0), Vector3(0.70, 0.48, 0.07), "trim")
+    for z in [-0.68, 0.0, 0.68]:
+        fixed.box("LogisticsHatchGuide", Vector3(d.hatch_side * 0.58, 0.64, z), Vector3(1.14, 0.07, 0.045), "trim")
     fixed.box("LogisticsBufferStatus", Vector3(0, 0.40, 0.765), Vector3(0.28, 0.07, 0.035), "blue_light")
     _set(_visual(fixed), _pose(_v3(d.stage), d.yaw))
     var lift: Variant = _template()
@@ -528,7 +534,7 @@ func _buffer_pose(d: Dock, i: int, y: float, opening: float) -> void:
     var turn := Basis(Vector3.UP, d.yaw)
     var lift_at := Vector3(rack.x, y, rack.z)
     # Hatch slides sideways into a raised external guide, never through cargo.
-    var cover_at: Vector3 = rack + turn * Vector3(0.73 * opening, 0.075, 0)
+    var cover_at: Vector3 = rack + turn * Vector3(d.hatch_side * 0.73 * opening, 0.075, 0)
     _set(d.lifts[i], _pose(lift_at, d.yaw))
     _set(d.shutters[i], _pose(cover_at, d.yaw))
 
