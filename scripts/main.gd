@@ -150,11 +150,12 @@ const STEP_SIDE_DISTANCE: float = 4.0
 const STEP_LAUNCH_WARP_DISTANCE: float = 0.1
 const STEP_LAUNCH_FX_SECONDS: float = 0.05
 const STEP_SPEED: float = 15.0  # m/s, equipment-adjusted
-# Extend only the ordinary STEP braking tail; keep the old launch burst
-# (velocity and clock), the 0.1m warp, and all side-kick timing unchanged.
-const STEP_BRAKE_DURATION_MULTIPLIER: float = 1.6
-const STEP_BRAKE_BURST_FRACTION: float = 0.15
-const STEP_BRAKE_EASE_POWER: float = 3.6
+# Normal STEP covers its original 4m while accelerating from 15m/s,
+# then spends additional time on a smooth braking tail. BOOST keeps the
+# better sustained distance/time efficiency. Side kicks are independent.
+const STEP_ACCEL_FRACTION: float = 0.15
+const STEP_BRAKE_TAIL_DURATION_RATIO: float = 1.35
+const STEP_BRAKE_EASE_POWER: float = 4.0
 const SIDE_KICK_STEP_SPEED: float = 10.0  # preserve legacy combo kick timing
 # Legacy speed policy retained for historic tests, not called by STEP.
 const STEP_CLOSE_SPEED: float = 8.0
@@ -3596,9 +3597,10 @@ func _start_omni_step(flick: Vector2) -> bool:
     step_signed_angle = 0.0
     step_linear_offset = Vector2(world_step.x, world_step.z)
 
-    step_duration_current = (step_arc_length / step_speed_current
+    var accel_duration: float = (step_arc_length / step_speed_current
         * float(part_stats.get("step_time_mult", 1.0))
-        * STEP_BRAKE_DURATION_MULTIPLIER)
+        / (1.0 + STEP_ACCEL_FRACTION * 0.5))
+    step_duration_current = accel_duration * (1.0 + STEP_BRAKE_TAIL_DURATION_RATIO)
     # Side kicks preserve close-combat camera protection through pursuit
     # and the 4m straight exit; ordinary STEP retains
     # the older 1m proximity threshold and committed screen trajectory.
@@ -3666,11 +3668,16 @@ func _start_omni_step(flick: Vector2) -> bool:
         var actual_launch: Vector3 = player.global_position - launch_origin
         var launch_distance: float = Vector2(
             actual_launch.x, actual_launch.z).length()
-        # Keep the original launch clock (15m/s), even though only the
-        # subsequent deceleration is longer. Do not change the 0.1m warp.
+        # Invert the acceleration distance curve so the 0.1m swept launch
+        # starts at precisely the corresponding time, without a speed jump.
         step_traveled_distance = launch_distance
-        step_elapsed = (step_duration_current / STEP_BRAKE_DURATION_MULTIPLIER) * clampf(
+        var launch_fraction: float = clampf(
             launch_distance / maxf(step_arc_length, 0.0001), 0.0, 1.0)
+        var launch_phase: float = (sqrt(1.0 + 2.0 * STEP_ACCEL_FRACTION
+            * (1.0 + STEP_ACCEL_FRACTION * 0.5) * launch_fraction) - 1.0
+            ) / STEP_ACCEL_FRACTION
+        step_elapsed = (step_duration_current
+            / (1.0 + STEP_BRAKE_TAIL_DURATION_RATIO)) * launch_phase
         if launch_distance > 0.00001:
             player.reset_physics_interpolation()
     _refresh_step_status_ui()
@@ -3885,19 +3892,24 @@ func _advance_side_step(delta: float) -> void:
                 line_goal.x - player.position.x, 0.0,
                 line_goal.y - player.position.z), true)
     else:
-        # Keep the original 15m/s launch for exactly the same 0.04s.
-        # Extend only the braking tail and ease off more gradually, ending
-        # with zero velocity. Base travel is ~2.21m over 0.43s; BOOST still
-        # outruns two ordinary STEPs over equal time.
-        var brake_start: float = (STEP_BRAKE_BURST_FRACTION
-            / STEP_BRAKE_DURATION_MULTIPLIER)
-        var motion_progress: float = progress * STEP_BRAKE_DURATION_MULTIPLIER
-        if progress > brake_start:
+        # First travel the original 4m at increasing velocity (15m/s at
+        # launch). Only after that distance, add a smooth zero-speed tail.
+        # The 0.1m swept warp is already included in the original 4m.
+        var accel_end: float = 1.0 / (1.0 + STEP_BRAKE_TAIL_DURATION_RATIO)
+        var motion_progress: float
+        if progress <= accel_end:
+            var accel_t: float = clampf(progress / accel_end, 0.0, 1.0)
+            motion_progress = ((accel_t + STEP_ACCEL_FRACTION
+                * 0.5 * accel_t * accel_t)
+                / (1.0 + STEP_ACCEL_FRACTION * 0.5))
+        else:
             var brake_t: float = clampf(
-                (progress - brake_start) / (1.0 - brake_start), 0.0, 1.0)
-            motion_progress = STEP_BRAKE_BURST_FRACTION + (
-                (STEP_BRAKE_DURATION_MULTIPLIER - STEP_BRAKE_BURST_FRACTION)
-                / STEP_BRAKE_EASE_POWER * (1.0 - pow(1.0 - brake_t, STEP_BRAKE_EASE_POWER)))
+                (progress - accel_end) / (1.0 - accel_end), 0.0, 1.0)
+            var brake_distance_ratio: float = ((1.0 + STEP_ACCEL_FRACTION)
+                * STEP_BRAKE_TAIL_DURATION_RATIO
+                / ((1.0 + STEP_ACCEL_FRACTION * 0.5) * STEP_BRAKE_EASE_POWER))
+            motion_progress = 1.0 + brake_distance_ratio * (
+                1.0 - pow(1.0 - brake_t, STEP_BRAKE_EASE_POWER))
         var new_offset: Vector2 = step_start_offset + step_linear_offset * motion_progress
         var requested: Vector3 = Vector3(
             step_target_center.x + new_offset.x - player.position.x,
