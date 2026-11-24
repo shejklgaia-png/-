@@ -1195,7 +1195,8 @@ func _close_facility_placement() -> void:
     if facility_placement_dirty:
         # Reuse the existing small-object rebuild path, not the logistics,
         # power, ramp or vehicle builders. Their placement_clear is read-only.
-        _apply_layout_preview({"sites": {}, "scrap": [] as Array[Dictionary], "seed": layout_seed})
+        var scrap: Array[Dictionary] = []
+        _apply_layout_preview({"sites": {}, "scrap": scrap, "seed": layout_seed})
     facility_placement_dirty = false
     facility_placement_key = ""
     _refresh_facility_names()
