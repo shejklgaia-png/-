@@ -1381,6 +1381,15 @@ func _set_labo_hero(enabled: bool, section: String = "") -> void:
         hero_host.custom_minimum_size.y = get_viewport().get_visible_rect().size.y * 0.30
         modal_panel.anchor_top = 0.015
         modal_panel.anchor_bottom = 0.985
+        # Read live canonical BASE placements after the user edits them.
+        # The hero only consumes the geometry and transforms, never changes BASE.
+        var context_sources: Dictionary = facility_nodes.duplicate()
+        var base := get_parent()
+        if is_instance_valid(base):
+            var nexus := base.get_node_or_null("NEXUSBuilding") as Node3D
+            if is_instance_valid(nexus):
+                context_sources["NEXUS"] = nexus
+        hero_stage.call("set_base_context",context_sources)
         hero_stage.call("set_section", section)
         hero_stage.set_process(true)
         # WHEN_VISIBLE can stop refreshing the offscreen stage on some Android
