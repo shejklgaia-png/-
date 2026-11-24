@@ -3168,6 +3168,13 @@ func _input(event: InputEvent) -> void:
             texture_editor.call("request_close")
             get_viewport().set_input_as_handled()
         return
+    if is_instance_valid(texture_entry) and texture_entry.is_visible_in_tree() and _hero_angle_available() and (
+            (event is InputEventScreenTouch and event.pressed) or
+            (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT)):
+        if texture_entry.get_global_rect().has_point(event.position):
+            _open_texture_studio()
+            get_viewport().set_input_as_handled()
+            return
     if _route_hero_model_input(event) or _route_hero_angle_input(event):
         get_viewport().set_input_as_handled()
         return
