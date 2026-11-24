@@ -6,9 +6,11 @@ const CollectorConveyor = preload("res://scripts/sera_base_collector_conveyor.gd
 ## The already-restored archived NEXUS geometry is never replaced or reauthored.
 
 const MOTION_FEATURES: Dictionary = {
-    # NEXUS antennas are now rigid. Only the beacon's emissive diode
-    # toggles on Morse-like timer events in BaseFacilityVFX.
-    "NEXUS": [],
+    "NEXUS": ["NexusServiceAwning", "NexusFanBlade",
+        "NexusDishAzimuthBearing", "NexusDishYoke", "NexusDishHinge",
+        "NexusDishReflector", "NexusDishFeedArm", "NexusDishFeed",
+        "NexusAntennaYagiBoom", "NexusAntennaYagiElement",
+        "NexusPlenumLouver", "NexusSignalIndicator"],
     "LABO": ["FreshLabPrinterServo", "FreshLabPrinterHotHead",
         "FreshLabPrinterTip", "FreshLabPrintedShell",
         "LabArmLinkA", "LabArmLinkB", "LabArmElbow", "LabArmWristHub",
@@ -60,6 +62,8 @@ var _accumulator: float = 0.0
 func bind_to(model: Node3D, key: String) -> void:
     var source: Dictionary = model.get_meta("motion_entries", {})
     var expected: Array = animated_features_for(key)
+    if key == "NEXUS" and model.get_meta("base_design", "") != "NEXUS_COMMAND_BUNKER_20261124":
+        expected = []
     for feature in expected:
         if not source.has(feature) or (source[feature] as Array).is_empty():
             push_error("SERA_BASE_MOTION_MISSING: " + key + "/" + str(feature))
@@ -71,7 +75,7 @@ func bind_to(model: Node3D, key: String) -> void:
     _body_yaw = float(model.get_meta("body_yaw", 0.0))
     _model_scale = float(model.get_meta("visual_model_scale", 1.0))
     model.add_child(self)
-    # Stop per-frame work (and GPU MultiMesh uploads) for static NEXUS.
+    # No processing for models without animated instances.
     set_process(not expected.is_empty())
     if not expected.is_empty():
         sample_at(0.0)
@@ -224,6 +228,54 @@ func _lab_pose(feature: String, slot: int, rest: Transform3D, t: float,
     return rest
 
 
+# Distinct hold / traverse phases make the dish acquire a target rather
+# than spin like a factory motor. Angles interpolate with zero end velocity.
+func _nexus_scan(t: float) -> Vector2:
+    var phase: float = fposmod(t, 19.0)
+    if phase < 3.0: return Vector2(-0.65, 0.38)
+    if phase < 7.0: return Vector2(-0.65, 0.38).lerp(Vector2(0.84, 0.62), smoothstep(3.0, 7.0, phase))
+    if phase < 11.0: return Vector2(0.84, 0.62)
+    if phase < 14.0: return Vector2(0.84, 0.62).lerp(Vector2(0.10, 0.27), smoothstep(11.0, 14.0, phase))
+    if phase < 16.0: return Vector2(0.10, 0.27)
+    return Vector2(0.10, 0.27).lerp(Vector2(-0.65, 0.38), smoothstep(16.0, 19.0, phase))
+
+func _nexus_pose(feature: String, slot: int, rest: Transform3D, t: float,
+        scan: Vector2) -> Transform3D:
+    var pose: Transform3D = rest
+    match feature:
+        "NexusServiceAwning":
+            # Its actual mesh has a fixed zero-height perimeter, so the
+            # cloth billows without moving the frame or its outline source.
+            var billow: float = 0.78 + 0.30 * sin(t * 1.7) + 0.14 * sin(t * 3.1 + 0.8)
+            pose.basis = rest.basis.scaled_local(Vector3(1.0, billow, 1.0))
+        "NexusFanBlade":
+            var local: Vector3 = Basis(Vector3.UP, -_body_yaw) * rest.origin / _model_scale
+            var side: float = -1.0 if local.x < 0.0 else 1.0
+            var row: int = 0 if local.z < 0.48 else 1
+            var center := Vector3(side * 1.99, 4.96, 0.04 + float(row) * 0.88)
+            pose = _spin_about(rest, _at(center), _axis(Vector3.UP),
+                t * (5.0 + float(row) * 1.2) * side)
+        "NexusDishAzimuthBearing", "NexusDishYoke", "NexusDishHinge", "NexusDishReflector", "NexusDishFeedArm", "NexusDishFeed":
+            var pivot: Vector3 = _at(Vector3(0, 5.90, 0.32))
+            # Elevation applies to dish and its focal feed only. The yoke
+            # rotates around the vertical bearing but never pitches.
+            if feature in ["NexusDishReflector", "NexusDishFeedArm", "NexusDishFeed"]:
+                pose = _spin_about(pose, pivot, _axis(Vector3.RIGHT), -scan.y)
+            pose = _spin_about(pose, pivot, _axis(Vector3.UP), scan.x)
+        "NexusAntennaYagiBoom", "NexusAntennaYagiElement":
+            var angle: float = 0.52 * sin(t * 0.30 + 1.2)
+            pose = _spin_about(rest, _at(Vector3(0.62, 5.68, -1.58)),
+                _axis(Vector3.UP), angle)
+        "NexusPlenumLouver":
+            var open: float = smoothstep(0.4, 1.7, fposmod(t, 9.7)) * (
+                1.0 - smoothstep(6.3, 7.6, fposmod(t, 9.7)))
+            pose = _spin_about(rest, rest.origin, _axis(Vector3.RIGHT), -open * 0.78)
+        "NexusSignalIndicator":
+            var phase: float = fposmod(t + float(slot) * 0.35, 2.4)
+            var glow: float = 1.0 if phase < 0.38 or phase > 2.12 else 0.001
+            pose.basis = rest.basis.scaled_local(Vector3.ONE * glow)
+    return pose
+
 func sample_at(seconds: float) -> void:
     # This exact public sampler is used during normal _process and by live
     # Godot CI to compare real MultiMesh poses at multiple animation times.
@@ -260,6 +312,9 @@ func sample_at(seconds: float) -> void:
         var offset: float = sqrt(maxf(0.0,
             LAB_ARM_LINK * LAB_ARM_LINK - distance * distance * 0.25))
         lab_elbow = LAB_ARM_ROOT + reach * 0.5 + perpendicular * offset
+    var nexus_scan := Vector2.ZERO
+    if facility_key == "NEXUS":
+        nexus_scan = _nexus_scan(time)
     for name_variant in _parts.keys():
         var feature: String = str(name_variant)
         var records: Array = _parts[feature]
@@ -268,6 +323,8 @@ func sample_at(seconds: float) -> void:
             var rest: Transform3D = record["bind"]
             var pose: Transform3D = rest
             match facility_key:
+                "NEXUS":
+                    pose = _nexus_pose(feature, i, rest, time, nexus_scan)
                 "LABO":
                     pose = _lab_pose(feature, i, rest, lab_t,
                         lab_target, lab_elbow, lab_wrist)
