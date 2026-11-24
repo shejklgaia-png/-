@@ -537,7 +537,7 @@ static func _split_overlapping_charts(tris: Array[Dictionary],charts: Array[Dict
 ## two-sided edges first; subdivided edges sharing an endpoint can also
 ## match their overlapping interval. Ambiguous/non-manifold exact edges
 ## are excluded, and no seam links are made to parallel stacked faces.
-static func _seam_segments(tris: Array) -> Array[Dictionary]:
+static func _seam_segments(tris: Array, include_same_chart: bool = false) -> Array[Dictionary]:
     var edges: Dictionary = {}
     var result: Array[Dictionary] = []
     for i in range(tris.size()):
@@ -551,7 +551,7 @@ static func _seam_segments(tris: Array) -> Array[Dictionary]:
     var endpoints: Dictionary = {}
     for group in edges.values():
         if group.size() == 2:
-            var link: Dictionary = _make_seam(tris,group[0],group[1])
+            var link: Dictionary = _make_seam(tris,group[0],group[1],include_same_chart)
             if not link.is_empty():
                 result.append(link)
         elif group.size() == 1:
@@ -575,15 +575,15 @@ static func _seam_segments(tris: Array) -> Array[Dictionary]:
                 if used.has(key):
                     continue
                 used[key] = true
-                var link: Dictionary = _make_seam(tris,a,b)
+                var link: Dictionary = _make_seam(tris,a,b,include_same_chart)
                 if not link.is_empty():
                     result.append(link)
     return result
 
-static func _make_seam(tris: Array,ia: Vector2i,ib: Vector2i) -> Dictionary:
+static func _make_seam(tris: Array,ia: Vector2i,ib: Vector2i,include_same_chart: bool = false) -> Dictionary:
     var a: Dictionary = tris[ia.x]
     var b: Dictionary = tris[ib.x]
-    if int(a.chart) == int(b.chart):
+    if int(a.chart) == int(b.chart) and not include_same_chart:
         return {}
     var pa: PackedVector3Array = a.p
     var pb: PackedVector3Array = b.p
@@ -908,80 +908,108 @@ static func hit(tris: Array,origin: Vector3,direction: Vector3) -> Dictionary:
 ## Inspect the actual packed atlas rather than the original palette UV.
 ## Reports distinguish geometry, UV distortion and incompatible seams.
 static func diagnostic_report(tris: Array, side: Vector2i, density: int, selected: int = -1) -> Dictionary:
-    var groups: Dictionary = {}
+    var chosen: Dictionary = {}
+    if selected >= 0 and selected < tris.size():
+        chosen[int(tris[selected].get("diagnostic_face",selected))] = true
+    return diagnostic_report_faces(tris,side,density,chosen)
+
+## One pass over the mesh and shared edges, independent of selection size.
+## Include edges between different selected original faces even when both
+## belong to the same UV island. Keep the model-wide seam metric unchanged.
+static func diagnostic_report_faces(tris: Array, side: Vector2i, density: int, chosen: Dictionary) -> Dictionary:
+    var charts: Dictionary = {}
+    var members: Dictionary = {}
     for i in range(tris.size()):
         var t: Dictionary = tris[i]
-        var ci: int = int(t.chart)
-        if not groups.has(ci):
-            groups[ci] = []
-        (groups[ci] as Array).append(i)
+        charts[int(t.chart)] = true
+        var id: int = int(t.get("diagnostic_face",i))
+        if chosen.has(id):
+            if not members.has(id):
+                members[id] = []
+            (members[id] as Array).append(i)
     var seam_count: int = 0
     var unmatched: int = 0
     var worst: float = 0.0
-    var selected_members: Dictionary = {}
-    var selected_face: int = -1
-    if selected >= 0 and selected < tris.size():
-        selected_face = int(tris[selected].get("diagnostic_face",selected))
-        for i in range(tris.size()):
-            if int(tris[i].get("diagnostic_face",i)) == selected_face:
-                selected_members[i] = true
-    var selected_seams: Array[String] = []
-    for link in _seam_segments(tris):
-        var a: PackedVector2Array = _segment_uv(tris[link.ta],link.ea,link.a0,link.a1,"uv")
-        var b: PackedVector2Array = _segment_uv(tris[link.tb],link.eb,link.b0,link.b1,"uv")
-        var size: Vector2 = Vector2(side)
-        var da: Vector2 = (a[1]-a[0])*size
-        var db: Vector2 = (b[1]-b[0])*size
+    var internal: PackedStringArray = []
+    var external: PackedStringArray = []
+    var dimensions: Vector2 = Vector2(side)
+    for link in _seam_segments(tris,not members.is_empty()):
+        var ta: int = int(link.ta)
+        var tb: int = int(link.tb)
+        var fa: int = int(tris[ta].get("diagnostic_face",ta))
+        var fb: int = int(tris[tb].get("diagnostic_face",tb))
+        var a: PackedVector2Array = _segment_uv(tris[ta],link.ea,link.a0,link.a1,"uv")
+        var b: PackedVector2Array = _segment_uv(tris[tb],link.eb,link.b0,link.b1,"uv")
+        var da: Vector2 = (a[1]-a[0])*dimensions
+        var db: Vector2 = (b[1]-b[0])*dimensions
         if minf(da.length(),db.length()) < 0.00001:
             continue
         var angle: float = db.angle_to(da)
         var quarter: float = roundf(angle/(PI*0.5))*(PI*0.5)
-        var error0: Vector2 = a[0]*size-(b[0]*size).rotated(quarter)
+        var error0: Vector2 = a[0]*dimensions-(b[0]*dimensions).rotated(quarter)
         error0 -= error0.round()
         var error1: Vector2 = error0+da-db.rotated(quarter)
         var residual: float = maxf(error0.length(),error1.length())
-        seam_count += 1
-        worst = maxf(worst,residual)
-        if residual > 0.25:
-            unmatched += 1
-        if selected_face >= 0 and (selected_members.has(int(link.ta)) != selected_members.has(int(link.tb))) and selected_seams.size() < 16:
-            selected_seams.append("島%d↔%d 長さ %.2f/%.2fpx 角度差 %.1f° 残差 %.2fpx" % [link.a,link.b,da.length(),db.length(),absf(rad_to_deg(angle-quarter)),residual])
-    var summary: String = "UV島 %d / 共有辺 %d / 残差>0.25px %d / 最大 %.2fpx" % [groups.size(),seam_count,unmatched,worst]
+        if int(link.a) != int(link.b):
+            seam_count += 1
+            worst = maxf(worst,residual)
+            if residual > 0.25:
+                unmatched += 1
+        if fa == fb:
+            continue
+        var selected_a: bool = members.has(fa)
+        var selected_b: bool = members.has(fb)
+        if not selected_a and not selected_b:
+            continue
+        var entry: String = "面ID%d↔%d triangle=%d:%d↔%d:%d 島%d↔%d 長さ %.2f/%.2fpx 角度差 %.1f° 残差 %.2fpx" % [fa,fb,ta,link.ea,tb,link.eb,link.a,link.b,da.length(),db.length(),absf(rad_to_deg(angle-quarter)),residual]
+        if selected_a and selected_b:
+            internal.append(entry)
+        else:
+            external.append(entry)
+    var summary: String = "UV島 %d / 共有辺 %d / 残差>0.25px %d / 最大 %.2fpx" % [charts.size(),seam_count,unmatched,worst]
     var lines: PackedStringArray = PackedStringArray([summary,"atlas=%dx%d density=%d" % [side.x,side.y,density]])
-    if selected_face >= 0:
-        var t: Dictionary = tris[selected]
-        var members: Array = selected_members.keys()
-        var face_charts: Dictionary = {}
-        var p: PackedVector3Array = t.p
-        var normal: Vector3 = (p[1]-p[0]).cross(p[2]-p[0]).normalized()
-        var max_bend: float = 0.0
-        var max_plane: float = 0.0
-        var lo_ratio: float = INF
-        var hi_ratio: float = 0.0
-        for id in members:
-            var part: Dictionary = tris[id]
-            face_charts[int(part.chart)] = true
-            var pp: PackedVector3Array = part.p
-            var uv: PackedVector2Array = part.uv
-            var n: Vector3 = (pp[1]-pp[0]).cross(pp[2]-pp[0]).normalized()
-            max_bend = maxf(max_bend,rad_to_deg(acos(clampf(normal.dot(n),-1,1))))
-            for k in range(3):
-                max_plane = maxf(max_plane,absf((pp[k]-p[0]).dot(normal)))
-                var world_length: float = pp[k].distance_to(pp[(k+1)%3])
-                if world_length > 0.000001:
-                    var ratio: float = ((uv[k]-uv[(k+1)%3])*Vector2(side)).length()/maxf(0.000001,world_length*density)
-                    lo_ratio = minf(lo_ratio,ratio)
-                    hi_ratio = maxf(hi_ratio,ratio)
-        var face_label: String = "原面%d" % int(t.authored_face) if int(t.get("authored_face",-1)) >= 0 else "三角形%d（原面不明）" % selected
-        summary = "%s / UV島%d個 / 曲がり %.1f° / 密度比 %.2f–%.2f" % [face_label,face_charts.size(),max_bend,lo_ratio,hi_ratio]
+    if not members.is_empty():
+        summary = "選択 %d面 / 選択面間共有辺 %d" % [members.size(),internal.size()]
         lines.append(summary)
-        lines.append("surface=%d triangle=%d triangles=%d plane deviation=%.3f mm" % [int(t.get("surface",-1)),selected,members.size(),max_plane*1000.0])
-        lines.append("UV islands="+str(face_charts.keys()))
-        for id in members:
-            var part: Dictionary = tris[id]
-            lines.append("triangle=%d geometry=%s / atlasUV=%s" % [id,str(part.p),str(part.uv)])
-        for entry in selected_seams:
-            lines.append(entry)
+        var ids: Array = members.keys()
+        ids.sort()
+        for face_id in ids:
+            var face_members: Array = members[face_id]
+            var selected: int = int(face_members[0])
+            var t: Dictionary = tris[selected]
+            var p: PackedVector3Array = t.p
+            var normal: Vector3 = (p[1]-p[0]).cross(p[2]-p[0]).normalized()
+            var face_charts: Dictionary = {}
+            var max_bend: float = 0.0
+            var max_plane: float = 0.0
+            var lo_ratio: float = INF
+            var hi_ratio: float = 0.0
+            for id in face_members:
+                var part: Dictionary = tris[id]
+                face_charts[int(part.chart)] = true
+                var pp: PackedVector3Array = part.p
+                var uv: PackedVector2Array = part.uv
+                var n: Vector3 = (pp[1]-pp[0]).cross(pp[2]-pp[0]).normalized()
+                max_bend = maxf(max_bend,rad_to_deg(acos(clampf(normal.dot(n),-1,1))))
+                for k in range(3):
+                    max_plane = maxf(max_plane,absf((pp[k]-p[0]).dot(normal)))
+                    var world_length: float = pp[k].distance_to(pp[(k+1)%3])
+                    if world_length > 0.000001:
+                        var ratio: float = ((uv[k]-uv[(k+1)%3])*dimensions).length()/maxf(0.000001,world_length*density)
+                        lo_ratio = minf(lo_ratio,ratio)
+                        hi_ratio = maxf(hi_ratio,ratio)
+            var face_label: String = "原面%d" % int(t.authored_face) if int(t.get("authored_face",-1)) >= 0 else "三角形%d（原面不明）" % selected
+            lines.append("")
+            lines.append("面ID%d / %s / surface=%d / 曲がり %.1f° / 密度比 %.2f–%.2f / plane deviation=%.3f mm" % [face_id,face_label,int(t.get("surface",-1)),max_bend,lo_ratio,hi_ratio,max_plane*1000.0])
+            lines.append("UV islands="+str(face_charts.keys()))
+            for id in face_members:
+                var part: Dictionary = tris[id]
+                lines.append("triangle=%d geometry=%s / atlasUV=%s" % [id,str(part.p),str(part.uv)])
+        lines.append("")
+        lines.append("選択面同士の共有辺 (%d)" % internal.size())
+        lines.append_array(internal)
+        lines.append("選択面と非選択面の共有辺 (%d)" % external.size())
+        lines.append_array(external)
     return {"summary":summary,"report":"\n".join(lines)}
 
 ## Restore the exact saved atlas, without repartitioning or resampling.
