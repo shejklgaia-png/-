@@ -1,8 +1,9 @@
 extends Control
-## NEXUS canonical placement editor. Runtime previews only: permanent placements
-## are written to the source scene after the copied transform is sent to ChatGPT.
+## NEXUS placement editor: persistent developer previews and official defaults.
 ## The hosting command_nexus.gd routes ALL raw input here before normal tap UI.
-## No save mutation, new viewport, mesh generation or physics dependency.
+## Separate developer data, no player-save mutation or new viewport.
+const PlacementStore = preload("res://scripts/sera_placement_store.gd")
+
 
 const SCENE_ID := "res://scenes/command_nexus.tscn"
 const TARGET_ORDER := ["TRAINING", "SYSTEM", "DATA ARCHIVE", "DEPLOYMENT"]
@@ -124,6 +125,8 @@ func configure(scene: Node3D, placements: Dictionary,
     initialized = entries.size() == placements.size() and not entries.is_empty()
     if not initialized:
         push_warning("NEXUS canonical placement: incomplete editor setup")
+        return
+    _restore_saved_placements()
 
 
 func _bind_instance(key: String, multi: MultiMesh,
@@ -184,6 +187,7 @@ func route_input(event: InputEvent) -> bool:
             _press(event.position, event.index, false)
         elif event.index == pointer_id:
             pointer_id = -999
+            PlacementStore.flush()
         return true
     if event is InputEventScreenDrag:
         if event.index == pointer_id:
@@ -196,6 +200,7 @@ func route_input(event: InputEvent) -> bool:
             else:
                 pointer_mouse = false
                 pointer_id = -999
+                PlacementStore.flush()
         return true
     if event is InputEventMouseMotion:
         if pointer_mouse and pointer_id == -100:
@@ -341,7 +346,54 @@ func _current_delta(entry: Dictionary) -> Transform3D:
     return pose * base_pose.affine_inverse()
 
 
-func _set_pose(key: String, at: Vector3, yaw: float) -> void:
+func _restore_saved_placements() -> void:
+    for key_value in entries.keys():
+        var key: String = str(key_value)
+        var entry: Dictionary = entries[key]
+        var angle: Dictionary = PlacementStore.read("nexus/camera/" + key)
+        if angle.has("eye") and angle.has("look") and angle.has("fov") and host.focus_views.has(key):
+            var focus: Dictionary = entry["focus"]
+            focus["eye"] = PlacementStore.vec(angle["eye"])
+            focus["look"] = PlacementStore.vec(angle["look"])
+            focus["fov"] = float(angle["fov"])
+            entry["focus"] = focus
+            entries[key] = entry
+            var view: Dictionary = host.focus_views[key]
+            view["eye"] = focus["eye"]
+            view["look"] = focus["look"]
+            view["fov"] = focus["fov"]
+            host.focus_views[key] = view
+        var record: Dictionary = PlacementStore.read("nexus/model/" + key)
+        if record.has("position") and record.has("yaw_rad"):
+            _set_pose(key, PlacementStore.vec(record["position"]), float(record["yaw_rad"]), false)
+        elif not angle.is_empty():
+            _set_pose(key, entry["position"], float(entry["yaw"]), false)
+    host.call("_update_projected_silhouettes")
+
+
+func record_camera_pose(key: String, eye: Vector3, look: Vector3, fov: float) -> void:
+    if not initialized or not entries.has(key):
+        return
+    var entry: Dictionary = entries[key]
+    # Store the camera relative to the original model placement, so subsequent
+    # model movement preserves the chosen framing instead of resetting it.
+    if key != "DEPLOYMENT":
+        var inverse: Transform3D = _current_delta(entry).affine_inverse()
+        eye = inverse * eye
+        look = inverse * look
+    var focus: Dictionary = entry["focus"]
+    focus["eye"] = eye
+    focus["look"] = look
+    focus["fov"] = fov
+    entry["focus"] = focus
+    entries[key] = entry
+    PlacementStore.stage("nexus/camera/" + key, {
+        "scene": SCENE_ID, "model_id": key,
+        "space": "global" if key == "DEPLOYMENT" else "original_model_frame",
+        "eye": PlacementStore.array3(eye), "look": PlacementStore.array3(look), "fov": fov})
+
+
+func _set_pose(key: String, at: Vector3, yaw: float, persist: bool = true) -> void:
     var entry: Dictionary = entries[key]
     entry["position"] = at
     entry["yaw"] = wrapf(yaw, -PI, PI)
@@ -378,6 +430,13 @@ func _set_pose(key: String, at: Vector3, yaw: float) -> void:
         view["eye"] = delta * focus_eye
         view["look"] = delta * focus_look
         host.focus_views[key] = view
+    if persist:
+        PlacementStore.stage("nexus/model/" + key, {
+            "scene": SCENE_ID, "model_id": key, "module_id": entry["module"],
+            "space": "global", "position": PlacementStore.array3(at),
+            "yaw_rad": float(entry["yaw"])})
+        if pointer_id == -999:
+            PlacementStore.flush()
     # The view contours are hidden during edit; only recalculate on exit.
     _sync_ui()
     queue_redraw()
@@ -407,6 +466,7 @@ func _copy_selected(all_items: bool) -> void:
 func close_mode() -> void:
     if not active:
         return
+    PlacementStore.flush()
     active = false
     selected = ""
     pointer_id = -999
