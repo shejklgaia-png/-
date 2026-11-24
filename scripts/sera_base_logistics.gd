@@ -1088,36 +1088,64 @@ func _leg_remainder(t: Truck, leg: int, waypoint: int) -> Dictionary:
     return result
 
 
-func _safe_completion(candidate: Truck, leg: int, claim: Dictionary) -> bool:
-    # Banker's-style admission: there must remain an order in which each
-    # active truck can finish and free its claim. Only current leg claims
-    # physically block other vehicles; future legs are not locked.
-    var claims: Dictionary = _held.duplicate()
-    claims[candidate.id] = claim
-    var remaining: Dictionary = {}
+# A short production admission search, not a full-loop lock. Assume each
+# already-reserved leg finishes, then find an order of the next dock visits.
+# With three trucks and four legs the bounded state space is small.
+func _safe_completion(candidate: Truck, leg: int, _claim: Dictionary) -> bool:
+    var positions: Dictionary = {}
+    var stages: Dictionary = {}
     for t in _trucks:
-        if not claims.has(t.id):
+        if t == candidate:
+            if leg < 3:
+                var end: Dictionary = {}
+                _expand_cell(end, _cell(_point(t.legs[leg][-1])))
+                positions[t.id] = end
+                stages[t.id] = leg + 1
+        elif _held.has(t.id):
+            if t.mode == "leg_wait":
+                positions[t.id] = _held[t.id]
+                stages[t.id] = t.leg
+            elif t.leg < 3:
+                var end: Dictionary = {}
+                _expand_cell(end, _cell(_point(t.legs[t.leg][-1])))
+                positions[t.id] = end
+                stages[t.id] = t.leg + 1
+    return _completion_order(positions, stages, {})
+
+
+func _completion_order(positions: Dictionary, stages: Dictionary, seen: Dictionary) -> bool:
+    if stages.is_empty():
+        return true
+    var key: String = ""
+    for t in _trucks:
+        key += str(stages.get(t.id, 4)) + ":"
+    if seen.has(key):
+        return false
+    seen[key] = true
+    for t in _trucks:
+        if not stages.has(t.id):
             continue
-        var need: Dictionary = (claims[t.id] as Dictionary).duplicate()
-        var first: int = leg + 1 if t == candidate else (t.leg if t.mode == "leg_wait" else t.leg + 1)
-        for j in range(first, t.leg_cells.size()):
-            need.merge(t.leg_cells[j], true)
-        remaining[t.id] = need
-    while not claims.is_empty():
-        var released: bool = false
-        for id in claims.keys():
-            var clear: bool = true
-            for other in claims:
-                if id != other and _overlap(remaining[id], claims[other]):
-                    clear = false
-                    break
-            if clear:
-                claims.erase(id)
-                released = true
+        var leg: int = stages[t.id]
+        var clear: bool = true
+        for other in positions:
+            if other != t.id and _overlap(t.leg_cells[leg], positions[other]):
+                clear = false
                 break
-        if not released:
-            return false
-    return true
+        if not clear:
+            continue
+        var next_positions: Dictionary = positions.duplicate()
+        var next_stages: Dictionary = stages.duplicate()
+        if leg == 3:
+            next_positions.erase(t.id)
+            next_stages.erase(t.id)
+        else:
+            var end: Dictionary = {}
+            _expand_cell(end, _cell(_point(t.legs[leg][-1])))
+            next_positions[t.id] = end
+            next_stages[t.id] = leg + 1
+        if _completion_order(next_positions, next_stages, seen):
+            return true
+    return false
 
 
 func _dispatch_waiting() -> void:
@@ -1142,7 +1170,9 @@ func _dispatch_waiting() -> void:
 func _advance_waypoint(t: Truck) -> void:
     t.waypoint += 1
     t.released_at = Vector2i(999, 999)
-    _held[t.id] = _leg_remainder(t, t.leg, t.waypoint)
+    var claim: Dictionary = _leg_remainder(t, t.leg, t.waypoint)
+    _expand_cell(claim, _cell(t.pos))
+    _held[t.id] = claim
 
 
 func _release_passed(t: Truck) -> void:
@@ -1161,6 +1191,7 @@ func _release_passed(t: Truck) -> void:
             claim[c] = true
     for i in range(t.waypoint, segments.size()):
         claim.merge(segments[i], true)
+    _expand_cell(claim, current)
     _held[t.id] = claim
 
 
@@ -1181,30 +1212,50 @@ func _drive(t: Truck, dt: float) -> void:
     var goal: Vector2 = _point(path[t.waypoint])
     var delta: Vector2 = goal - t.pos
     if delta.length() < 0.001:
-        t.pos = goal
         _advance_waypoint(t)
         return
     var target_yaw: float = atan2(delta.x, delta.y)
     var error: float = absf(angle_difference(t.yaw, target_yaw))
-    t.yaw = rotate_toward(t.yaw, target_yaw, 4.8 * dt)
-    if error > 0.20:
+    t.yaw = rotate_toward(t.yaw, target_yaw, 5.5 * dt)
+    if error > 0.48:
         t.speed = move_toward(t.speed, 0.0, 7.0 * dt)
         return
+    # Brake for the final dock and genuinely tight bends, not each sample
+    # of the baked curve. Carry unused movement into the next sample.
     var remaining: float = delta.length()
-    var end_speed: float = 0.0
-    if t.waypoint < last:
-        var next_direction: Vector2 = (_point(path[t.waypoint + 1]) - goal).normalized()
-        var corner: float = absf(delta.normalized().angle_to(next_direction))
-        end_speed = SPEED if corner < 0.12 else SPEED * clampf(1.0 - corner / 1.4, 0.0, 0.7)
-    var desired: float = minf(SPEED, sqrt(end_speed * end_speed + 2.0 * 3.5 * remaining))
-    t.speed = move_toward(t.speed, desired, 3.5 * dt)
-    var distance: float = minf(delta.length(), t.speed * dt)
-    t.pos = t.pos.move_toward(goal, distance)
-    t.tread_distance += distance
-    if t.pos.distance_to(goal) < 0.001:
-        t.pos = goal
-        _advance_waypoint(t)
-    else:
+    var limit: float = SPEED
+    var direction: Vector2 = delta.normalized()
+    for j in range(t.waypoint, last):
+        var next_delta: Vector2 = _point(path[j + 1]) - _point(path[j])
+        var angle: float = absf(direction.angle_to(next_delta.normalized()))
+        if angle > 0.18:
+            var curve_speed: float = clampf(next_delta.length() * 4.2 / angle, 0.6, SPEED)
+            limit = minf(limit, sqrt(curve_speed * curve_speed + 7.0 * remaining))
+        remaining += next_delta.length()
+        direction = next_delta.normalized()
+        if remaining > 3.0:
+            break
+    if remaining <= 3.0 or t.waypoint == last:
+        limit = minf(limit, sqrt(7.0 * remaining))
+    t.speed = move_toward(t.speed, limit, 3.5 * dt)
+    var budget: float = t.speed * dt
+    while budget > 0.0001 and t.waypoint <= last:
+        goal = _point(path[t.waypoint])
+        var distance: float = t.pos.distance_to(goal)
+        var travel: float = minf(distance, budget)
+        t.pos = t.pos.move_toward(goal, travel)
+        t.tread_distance += travel
+        budget -= travel
+        if distance - travel <= 0.0001:
+            t.pos = goal
+            _advance_waypoint(t)
+            if t.waypoint <= last:
+                var next_dir: Vector2 = (_point(path[t.waypoint]) - t.pos).normalized()
+                if absf(angle_difference(t.yaw, atan2(next_dir.x, next_dir.y))) > 0.48:
+                    break
+        else:
+            break
+    if t.waypoint <= last:
         _release_passed(t)
 
 
