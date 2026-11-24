@@ -64,10 +64,11 @@ func _make_panels() -> void:
         label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
         label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
         label.add_theme_font_size_override("font_size", 16)
-        label.text = {
+        var captions: Dictionary = {
             "close":"編集終了", "copy":"コピー", "copy_all":"全件コピー",
             "rot_l":"回転◀", "rot_r":"回転▶", "up":"▲高さ", "down":"▼高さ"
-        }[key]
+        }
+        label.text = str(captions.get(key, key))
         panel.add_child(label)
         label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
         panel.visible = false
@@ -282,8 +283,9 @@ func _set_pose(key: String, at: Vector3, yaw: float, persist: bool = true) -> vo
     e["position"] = at
     e["yaw"] = wrapf(yaw, -PI, PI)
     entries[key] = e
+    var base_pose: Transform3D = e["base"]
     var delta: Transform3D = Transform3D(
-        Basis(Vector3.UP, float(e["yaw"])), at) * (e["base"] as Transform3D).affine_inverse()
+        Basis(Vector3.UP, float(e["yaw"])), at) * base_pose.affine_inverse()
     for binding in bindings[key]:
         var base: Transform3D = binding["base"]
         if binding["kind"] == "multi":
