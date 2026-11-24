@@ -10,7 +10,9 @@ from pathlib import Path
 
 import bpy
 import bmesh
-from mathutils import Vector
+from mathutils import Vector, Quaternion
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from geometry_review import fit_camera, mesh_interference
 from bpy_extras.object_utils import world_to_camera_view
 
 VIEWS = {
@@ -223,7 +225,7 @@ def aim(obj, target):
     obj.rotation_euler = (Vector(target)-obj.location).to_track_quat('-Z','Y').to_euler()
 
 
-def render_views(objects, out, resolution, landmarks, cameras):
+def render_views(objects, out, resolution, landmarks, cameras, camera_fits):
     corners = [obj.matrix_world @ Vector(c) for obj in objects if obj.type=='MESH' for c in obj.bound_box]
     if not corners:
         raise ValueError("model contains no mesh")
@@ -267,6 +269,18 @@ def render_views(objects, out, resolution, landmarks, cameras):
         lights.append(light)
     projections = {}
     nodes = {obj.name: obj for obj in objects}
+    cameras = dict(cameras)
+    fitted = {}
+    for name, cfg in camera_fits.items():
+        if name in cameras:
+            raise ValueError('camera fit and manual override conflict: '+name)
+        if cfg.get('projection') != 'orthographic' or cfg.get('resolution') != resolution:
+            raise ValueError('camera fit requires matching square orthographic image resolution')
+        labels = cfg['landmarks']
+        world = [list(nodes[landmarks[k]['node']].matrix_world @ Vector(landmarks[k]['local'])) for k in labels]
+        fitted[name] = fit_camera(world,list(labels.values()),resolution)
+        cameras[name] = fitted[name]
+    (out/'camera_fit.json').write_text(json.dumps(fitted,indent=2),encoding='utf-8')
     if not set(cameras) <= set(VIEWS):
         raise ValueError("camera overrides must name an existing review view")
     for name,direction in VIEWS.items():
@@ -282,9 +296,10 @@ def render_views(objects, out, resolution, landmarks, cameras):
             camera.rotation_euler = (0,0,0) if direction.z>0 else (math.pi,0,0)
         else:
             aim(camera, target)
+        if "quaternion" in cfg:
+            camera.rotation_euler = Quaternion(cfg["quaternion"]).to_euler()
         roll = math.radians(float(cfg.get("roll_degrees",0)))
         if roll:
-            from mathutils import Quaternion
             camera.rotation_euler = (camera.rotation_euler.to_quaternion() @ Quaternion((0,0,1),roll)).to_euler()
         bpy.context.view_layer.update()
         points = {}
@@ -314,6 +329,8 @@ def main():
     out.mkdir(parents=True,exist_ok=False)
     objects = build(spec)
     report = mesh_report(objects)
+    interference = mesh_interference(objects,spec.get("intentional_overlaps",[]))
+    (out/"interference.json").write_text(json.dumps(interference,indent=2),encoding="utf-8")
     (out/"mesh_report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
     bpy.ops.wm.save_as_mainfile(filepath=str(out/"model.blend"))
     bpy.ops.object.select_all(action='DESELECT')
@@ -324,7 +341,7 @@ def main():
     resolution = int(spec.get("review_resolution",768))
     if not 128<=resolution<=2048:
         raise ValueError("review_resolution must be 128..2048")
-    render_views(objects,out,resolution,spec.get("landmarks", {}),spec.get("review_cameras", {}))
+    render_views(objects,out,resolution,spec.get("landmarks", {}),spec.get("review_cameras", {}),spec.get("camera_fits", {}))
     (out/"complete.json").write_text(json.dumps(dict(format=spec["format"],views=list(VIEWS),
         triangles=sum(row["triangles"] for row in report)),indent=2),encoding="utf-8")
 
