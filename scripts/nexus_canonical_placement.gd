@@ -469,6 +469,11 @@ func _set_pose(key: String, at: Vector3, yaw: float, persist: bool = true) -> vo
             vertices.append(delta * vertex if movable else vertex)
         moved_clusters.append(vertices)
     host.target_parts[key] = moved_clusters
+    # Rebuild only the affected hand-authored cable on a placement event.
+    # The floor inlet and all fixed route points remain in world space.
+    var floor_cables = host.get_node_or_null("NexusHandRoutedCables")
+    if is_instance_valid(floor_cables) and floor_cables.has_method("set_terminal_pose"):
+        floor_cables.call("set_terminal_pose", key, at, float(entry["yaw"]))
     if host.has_method("_refresh_nexus_haze_positions"):
         host.call("_refresh_nexus_haze_positions")
     if key != "DEPLOYMENT" and not (entry["focus"] as Dictionary).is_empty():
