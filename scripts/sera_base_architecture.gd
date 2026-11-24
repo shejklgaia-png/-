@@ -246,6 +246,12 @@ class Batch:
                         0.25 if facility_indices.has(i) else 0.375),
                     0.0, 0.0, 1.0))
                 # Clutter RGB-ID role=3 is resolved by the common pass.
+            # LABO's articulated arm and single payload move between material
+            # batches' original rest-pose bounds. Keep the full local work
+            # envelope visible, including the shared outline pass.
+            if motion_names.has("LabArmLinkA"):
+                multi.custom_aabb = AABB(Vector3(-5.0, 0.0, -5.0),
+                    Vector3(10.0, 6.2, 10.0)).merge(multi.get_aabb())
             var surface := StandardMaterial3D.new()
             # Texture audit: the industrial steel/armor/oxide SVGs have
             # near-white substrates, not black pixels. The BASE NEXUS front
