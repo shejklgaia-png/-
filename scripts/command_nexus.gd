@@ -1751,30 +1751,70 @@ func _nexus_console_authored_parts(module_name: String) -> Array:
         # A key's position is on the local top face; rotate its center
         # and its own cuboid by the same authored desk orientation.
         if module_name == "system_console":
-            # Main command bank: two compact rows, amber confirmation,
-            # a separate long switch and a raised cyan power key.
-            for row in range(2):
-                for col in range(5):
+            # A compact 45-key industrial keyboard: three full rows plus
+            # a bottom row with a wide space bar. All keys follow the
+            # existing dark keyboard plane and share the old render batches.
+            for row in range(3):
+                for col in range(12):
+                    var key_x: float = (float(col) - 5.5) * 1.13
+                    var key_z: float = -1.78 + float(row) * 1.13
+                    var palette: int = 4 if row == 0 else 3
+                    if row == 0 and col == 0:
+                        palette = 5
+                    elif row == 0 and col == 11:
+                        palette = 6
                     _nexus_desk_key(result, desk, center, size, basis,
-                        Vector2(-0.32 + float(col)*0.115, -0.22 + float(row)*0.37),
-                        Vector3(1.13,0.24,1.02), 5 if col == 0 and row == 0 else 4)
+                        Vector2(key_x / size.x, key_z / size.z),
+                        Vector3(0.91,0.23,0.88), palette)
+            for side in [-1.0, 1.0]:
+                for col in range(4):
+                    var key_x: float = side * (2.89 + float(col) * 1.13)
+                    _nexus_desk_key(result, desk, center, size, basis,
+                        Vector2(key_x / size.x, 1.64 / size.z),
+                        Vector3(0.91,0.23,0.88), 4)
             _nexus_desk_key(result, desk, center, size, basis,
-                Vector2(0.33,-0.20), Vector3(2.0,0.30,1.12), 6)
-            _nexus_desk_key(result, desk, center, size, basis,
-                Vector2(0.33,0.19), Vector3(2.0,0.26,1.12), 1)
+                Vector2(0.0,1.64 / size.z), Vector3(4.65,0.25,0.88), 4)
         elif module_name == "training_console":
-            # Diagnostic controller: paired directional keys, a large
-            # guarded amber stop key and separate mode selector.
-            for pos in [Vector2(-0.28,0.0), Vector2(-0.12,-0.23),
-                    Vector2(0.04,0.0), Vector2(-0.12,0.23)]:
-                _nexus_desk_key(result, desk, center, size, basis, pos,
-                    Vector3(1.05,0.37,1.10), 4)
-            _nexus_desk_key(result, desk, center, size, basis,
-                Vector2(0.31,-0.17), Vector3(1.48,0.18,1.72), 1)
-            _nexus_desk_key(result, desk, center, size, basis,
-                Vector2(0.31,-0.17), Vector3(0.92,0.43,1.02), 6)
-            _nexus_desk_key(result, desk, center, size, basis,
-                Vector2(0.31,0.24), Vector3(1.40,0.31,1.03), 5)
+            # The faceted worktop's upper ring is 83% of its original
+            # footprint. Fit the dark inset plate inside that ring.
+            var plate_size := Vector3(size.x * 0.80, 0.30, size.z * 0.76)
+            _nexus_desk_key(result, desk, center, size, basis, Vector2.ZERO,
+                plate_size, 1, 0.0, "TRAINING dark control face")
+            # The plate sinks 0.045 units into the casting; every control
+            # starts from the actual exposed top, not the cream housing.
+            var plate_center: Vector3 = center + basis * Vector3(0,
+                size.y * 0.5 + plate_size.y * 0.5 - 0.045, 0)
+            for row in range(2):
+                for col in range(3):
+                    var tint: int = 4
+                    if row == 0 and col == 0:
+                        tint = 5
+                    elif row == 1 and col == 2:
+                        tint = 6
+                    _nexus_desk_key(result, desk, plate_center, plate_size, basis,
+                        Vector2(-0.34 + float(col)*0.135, -0.26 + float(row)*0.26),
+                        Vector3(0.85,0.28,0.96), tint)
+            _nexus_desk_key(result, desk, plate_center, plate_size, basis,
+                Vector2(-0.25,0.30), Vector3(2.1,0.24,0.85), 4)
+            _nexus_desk_key(result, desk, plate_center, plate_size, basis,
+                Vector2(0.02,0.30), Vector3(0.86,0.30,0.85), 5)
+            # Right-hand flight stick: stepped metal mount, rubber gaiter,
+            # shaft, substantial grip and small amber thumb switch.
+            # All components overlap their supporting face by 0.045 units.
+            var stick_at := Vector2(0.28,-0.025)
+            _nexus_desk_key(result, desk, plate_center, plate_size, basis,
+                stick_at, Vector3(2.35,0.30,2.42), 3, 0.0, "TRAINING stick mounting flange")
+            _nexus_desk_key(result, desk, plate_center, plate_size, basis,
+                stick_at, Vector3(1.64,0.35,1.70), 0, 0.255, "TRAINING rubber gaiter")
+            _nexus_desk_key(result, desk, plate_center, plate_size, basis,
+                stick_at, Vector3(0.57,1.53,0.60), 4, 0.56, "TRAINING stick shaft")
+            _nexus_desk_key(result, desk, plate_center, plate_size, basis,
+                stick_at, Vector3(1.00,1.32,0.92), 1, 1.52, "TRAINING stick grip")
+            _nexus_desk_key(result, desk, plate_center, plate_size, basis,
+                stick_at, Vector3(1.10,0.22,1.02), 3, 2.795, "TRAINING stick head")
+            _nexus_desk_key(result, desk, plate_center, plate_size, basis,
+                stick_at + Vector2(0.0,0.025), Vector3(0.42,0.18,0.40),
+                6, 2.97, "TRAINING stick thumb switch")
         else:
             # Archive: discrete numbered retrieval keys and a long read bar.
             for col in range(4):
@@ -1789,13 +1829,14 @@ func _nexus_console_authored_parts(module_name: String) -> Array:
 
 
 func _nexus_desk_key(result: Array, desk: Array, center: Vector3, size: Vector3,
-        basis: Basis, uv: Vector2, dimensions: Vector3, palette: int) -> void:
+        basis: Basis, uv: Vector2, dimensions: Vector3, palette: int,
+        lift: float = 0.0, label: String = "NEXUS fitted tactile control") -> void:
     var local := Vector3(uv.x * size.x,
-        size.y * 0.5 + dimensions.y * 0.5 - 0.045, uv.y * size.z)
+        size.y * 0.5 + dimensions.y * 0.5 - 0.045 + lift, uv.y * size.z)
     var at: Vector3 = center + basis * local
     var lo: Vector3 = at - dimensions * 0.5
     var hi: Vector3 = at + dimensions * 0.5
-    result.append(["NEXUS fitted tactile control", [lo.x,lo.y,lo.z],
+    result.append([label, [lo.x,lo.y,lo.z],
         [hi.x,hi.y,hi.z], palette, desk[4], false, false])
 
 
