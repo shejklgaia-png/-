@@ -2319,6 +2319,9 @@ func _nexus_apply_wear_after_entry() -> void:
         if texture == null:
             return
         _nexus_pixel_steel.append(texture)
+    # Optional shell finishes: shared 64px textures, one per terminal.
+    _nexus_pixel_steel.append(_nexus_make_console_panel_texture(false))
+    _nexus_pixel_steel.append(_nexus_make_console_panel_texture(true))
     var batch_index: int = 0
     var clean_variants: Dictionary = {}
     for child in deck.get_children():
@@ -2355,6 +2358,62 @@ func _nexus_apply_wear_after_entry() -> void:
     # Only the already-built room roots, not editor, HUD or later preview
     # nodes. Yield between material groups so entry never waits for texture.
     await _nexus_expand_room_surface_finish()
+
+
+# Neutral luminance detail multiplies the original painted shell color.
+# All strokes are baked pixels, not extra geometry or ID/selection lines.
+func _nexus_make_console_panel_texture(training: bool) -> Texture2D:
+    var image := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+    var paint := Color("#f1f2f2")
+    var seam := Color("#9aa4aa")
+    var recess := Color("#b9c1c5")
+    var lip := Color("#ffffff")
+    image.fill(paint)
+    if training:
+        # Stepped service panel: asymmetric mechanical access cover.
+        image.fill_rect(Rect2i(12, 13, 31, 1), seam)
+        image.fill_rect(Rect2i(12, 14, 1, 35), seam)
+        image.fill_rect(Rect2i(43, 13, 1, 9), seam)
+        image.fill_rect(Rect2i(43, 22, 8, 1), seam)
+        image.fill_rect(Rect2i(50, 23, 1, 26), seam)
+        image.fill_rect(Rect2i(12, 49, 39, 1), seam)
+        image.fill_rect(Rect2i(14, 15, 27, 1), lip)
+        image.fill_rect(Rect2i(14, 48, 35, 1), recess)
+        image.fill_rect(Rect2i(27, 39, 11, 1), recess)
+        image.fill_rect(Rect2i(27, 40, 11, 1), lip)
+    else:
+        # Rectilinear service hatch, appropriate to the SYSTEM terminal.
+        image.fill_rect(Rect2i(10, 15, 44, 1), seam)
+        image.fill_rect(Rect2i(10, 16, 1, 31), seam)
+        image.fill_rect(Rect2i(53, 16, 1, 31), seam)
+        image.fill_rect(Rect2i(10, 47, 44, 1), seam)
+        image.fill_rect(Rect2i(12, 16, 40, 1), lip)
+        image.fill_rect(Rect2i(12, 46, 40, 1), recess)
+        image.fill_rect(Rect2i(40, 35, 10, 1), recess)
+        image.fill_rect(Rect2i(40, 36, 10, 1), lip)
+    # Four recessed captive screw heads; do not scatter random dots.
+    var screw_x: int = 48 if training else 50
+    for at in [Vector2i(16, 19), Vector2i(39 if training else 48, 19),
+            Vector2i(16, 43), Vector2i(screw_x, 43)]:
+        image.fill_rect(Rect2i(at.x, at.y, 2, 2), recess)
+        image.set_pixel(at.x, at.y, seam)
+        image.set_pixel(at.x + 1, at.y + 1, lip)
+    # Two unobtrusive short wear marks maintain the existing pixel finish.
+    image.fill_rect(Rect2i(6, 8, 5, 1), recess)
+    image.fill_rect(Rect2i(55, 54, 4, 1), recess)
+    image.generate_mipmaps()
+    return ImageTexture.create_from_image(image)
+
+
+func _nexus_console_panel_texture_index(geometry: GeometryInstance3D) -> int:
+    # Existing featured batches exclusively contain the primary painted
+    # shell parts, not keyboard, stick, screens, lamps or new monitor trim.
+    match str(geometry.name):
+        "NexusFeaturedArmor_0402", "NexusFeaturedArmor_0403":
+            return 10
+        "NexusFeaturedArmor_0603":
+            return 11
+    return -1
 
 
 func _nexus_finish_tint(tint: Color, gain: float) -> Color:
@@ -2497,13 +2556,19 @@ func _nexus_finish_room_mesh(geometry: GeometryInstance3D) -> void:
         if mesh is ArrayMesh and mesh.get_surface_count() > 0:
             has_uv = (int((mesh as ArrayMesh).surface_get_format(0)) & Mesh.ARRAY_FORMAT_TEX_UV) != 0
         var family: int = _nexus_surface_family(geometry, native.albedo_color)
-        var key: String = "native:%s:%s:%s" % [native.get_instance_id(), has_uv, family]
+        var panel_index: int = _nexus_console_panel_texture_index(geometry)
+        var key: String = "native:%s:%s:%s:%s" % [native.get_instance_id(), has_uv, family, panel_index]
         var finish := _nexus_surface_materials.get(key) as StandardMaterial3D
         if finish == null:
             finish = native.duplicate() as StandardMaterial3D
             if native.albedo_texture == null:
-                finish.albedo_texture = _nexus_pixel_steel[6 + family]
-                finish.uv1_triplanar = not has_uv
+                var use_panel: bool = panel_index >= 0 and panel_index < _nexus_pixel_steel.size()
+                finish.albedo_texture = _nexus_pixel_steel[panel_index if use_panel else 6 + family]
+                finish.uv1_triplanar = use_panel or not has_uv
+                if use_panel:
+                    # Local unit-space projection follows each casting face,
+                    # even after canonical placement. No world-aligned sliding.
+                    finish.uv1_offset = Vector3(0.5, 0.5, 0.5)
                 finish.uv1_world_triplanar = false
                 finish.uv1_scale = Vector3.ONE
                 finish.uv1_triplanar_sharpness = 16.0
