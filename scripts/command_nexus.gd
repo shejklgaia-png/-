@@ -437,13 +437,15 @@ func _ready() -> void:
     placement_ui_layer.name = "NexusPlacementOverlay"
     placement_ui_layer.layer = 8
     add_child(placement_ui_layer)
+    # Create the light camera editor FIRST. A failure while binding complex
+    # placement meshes must never prevent camera-angle editing from existing.
+    camera_angle_editor = NexusCameraAnglePlacement.new()
+    placement_ui_layer.add_child(camera_angle_editor)
+    camera_angle_editor.configure(self)
     placement_editor = NexusCanonicalPlacement.new()
     placement_ui_layer.add_child(placement_editor)
     placement_editor.configure(self, placement_specs,
         canonical_core_refs, canonical_render_batches)
-    camera_angle_editor = NexusCameraAnglePlacement.new()
-    placement_ui_layer.add_child(camera_angle_editor)
-    camera_angle_editor.configure(self)
     # The rejected 2D bounding-box contour is not created in NEXUS.
     # The new depth hull shares the real 3D scene and its current camera.
     SeraSave.mark_location("NEXUS")
@@ -452,22 +454,34 @@ func _ready() -> void:
     if focus_views.has(route):
         call_deferred("_select_target", route)
 
+func _placement_launch_failure(panel: Panel, message: String) -> void:
+    push_warning(message)
+    if panel != null:
+        var caption: Label = panel.get_node_or_null("Caption") as Label
+        if caption != null:
+            caption.text = message
+
+
 func _open_canonical_placement() -> void:
     if placement_editor == null or not placement_editor.is_inside_tree():
-        push_warning("NEXUS canonical placement editor is not ready")
+        _placement_launch_failure(placement_entry_button, "PLACE / NOT READY")
         return
     if placement_editor.open_mode():
         _sync_placement_launchers()
         get_viewport().set_input_as_handled()
+    else:
+        _placement_launch_failure(placement_entry_button, "PLACE / BLOCKED")
 
 
 func _open_camera_angle_placement() -> void:
     if camera_angle_editor == null or not camera_angle_editor.is_inside_tree():
-        push_warning("NEXUS camera angle editor is not ready")
+        _placement_launch_failure(angle_entry_button, "ANGLE / NOT READY")
         return
     if camera_angle_editor.open_mode():
         _sync_placement_launchers()
         get_viewport().set_input_as_handled()
+    else:
+        _placement_launch_failure(angle_entry_button, "ANGLE / BLOCKED")
 
 
 func _placement_launcher_panel(caption: String, id: String) -> Panel:
@@ -475,7 +489,9 @@ func _placement_launcher_panel(caption: String, id: String) -> Panel:
     # SubViewport HUD rendering path; native Buttons did not appear on Android.
     var panel := Panel.new()
     panel.name = id
-    panel.mouse_filter = Control.MOUSE_FILTER_STOP
+    # Like EXIT TO BASE, this visible Panel is activated by the host _input.
+    # IGNORE prevents competing GUI capture and matches the known-good route.
+    panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
     panel.add_theme_stylebox_override("panel", _menu_style())
     hud.add_child(panel)
     var caption_label := Label.new()
@@ -488,51 +504,43 @@ func _placement_launcher_panel(caption: String, id: String) -> Panel:
     caption_label.add_theme_color_override("font_color", Color("#e4f7ff"))
     panel.add_child(caption_label)
     caption_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-    # Input can be delivered either via GUI or the viewport raw _input route.
-    # Both paths are idempotent once the corresponding editor becomes active.
-    panel.gui_input.connect(_placement_launcher_gui_input.bind(id))
+    # Both launchers now share the bottom navigation row with EXIT TO BASE.
+    # The host _input hit-tests them exactly like the proven EXIT panel.
+    # Keep these independent from the editor's creation/CanvasLayer state.
     panel.z_index = 100
     return panel
-
-
-func _placement_launcher_gui_input(event: InputEvent, id: String) -> void:
-    var pressed: bool = (
-        (event is InputEventScreenTouch and event.pressed)
-        or (event is InputEventMouseButton and event.pressed
-            and event.button_index == MOUSE_BUTTON_LEFT))
-    if not pressed:
-        return
-    if id == "NexusPlaceEntry" and placement_entry_button.visible:
-        _open_canonical_placement()
-    elif id == "NexusAngleEntry" and angle_entry_button.visible:
-        _open_camera_angle_placement()
-    get_viewport().set_input_as_handled()
 
 
 func _sync_placement_launchers() -> void:
     if hud == null or placement_entry_button == null or angle_entry_button == null:
         return
-    var view: Vector2 = get_viewport().get_visible_rect().size
-    # Keep these in the same DESIGN coordinate system as the SubViewport HUD.
-    # They do not depend on an editor state poll or a one-shot redraw event.
-    # Keep both launchers BELOW the portrait viewport's upper inset.
-    # The former y=36 placement could be clipped by the phone-safe HUD.
-    # Place the focused camera control opposite the menu (left for SYSTEM,
-    # right for TRAINING) so it stays unobscured and visibly tappable.
-    placement_entry_button.position = Vector2(20.0, 112.0)
-    placement_entry_button.size = Vector2(156.0, 54.0)
-    var angle_x: float = 18.0 if focused_target in [
-        "SYSTEM", "DATA ARCHIVE"] else maxf(16.0, view.x - 228.0)
-    angle_entry_button.position = Vector2(angle_x, 112.0)
-    angle_entry_button.size = Vector2(208.0, 54.0)
-    var in_overview: bool = focused_target.is_empty()
-    placement_entry_button.visible = in_overview and (
-        placement_editor == null or not placement_editor.active)
-    # Display the launcher whenever the focused menu exists. A stalled
-    # camera tween must never silently hide the entry point again.
+    var view: Vector2 = hud.size
+    if view.x <= 1.0 or view.y <= 1.0:
+        view = get_viewport().get_visible_rect().size
+    var margin: float = maxf(16.0, view.x * 0.04)
+    var exit_right: float = margin + minf(190.0, view.x * 0.43)
+    var available_left: float = exit_right + 12.0
+    var available_right: float = view.x - margin - 62.0 - 12.0
+    var available_width: float = maxf(72.0, available_right - available_left)
+    var width: float = minf(300.0, available_width)
+    var launcher_pos := Vector2(
+        available_left + maxf(0.0, (available_width - width) * 0.5),
+        view.y - margin - 66.0)
+    var launcher_size := Vector2(width, 66.0)
+    placement_entry_button.position = launcher_pos
+    placement_entry_button.size = launcher_size
+    angle_entry_button.position = launcher_pos
+    angle_entry_button.size = launcher_size
+
+    var editor_open: bool = (
+        (placement_editor != null and placement_editor.active)
+        or (camera_angle_editor != null and camera_angle_editor.active))
+    placement_entry_button.visible = focused_target.is_empty() and not editor_open
+    # Show the camera launcher for every supported focused menu, even when
+    # its controller has not yet been created. No tween visibility dependency.
     angle_entry_button.visible = (
-        ["SYSTEM", "TRAINING", "DATA ARCHIVE", "DEPLOYMENT"].has(focused_target)
-        and (camera_angle_editor == null or not camera_angle_editor.active))
+        focused_target in ["SYSTEM", "TRAINING", "DATA ARCHIVE", "DEPLOYMENT"]
+        and not editor_open)
 
 
 func _process(delta: float) -> void:
@@ -1086,19 +1094,15 @@ func _hud() -> void:
     explore_label.size = explore_panel.size
     explore_panel.visible = true
     VersionIndicator.attach(hud)
-    # Same Panel+Label drawing path as the Android-visible EXIT TO BASE.
-    # In particular, do not rely on a Button's theme/painter to show entry.
-    placement_entry_button = _placement_launcher_panel("正規配置", "NexusPlaceEntry")
+    # The launchers use precisely the same Panel HUD and raw hit-test as EXIT.
+    # Bilingual fallback keeps the entry legible if a Japanese glyph is absent.
+    placement_entry_button = _placement_launcher_panel(
+        "正規配置 / PLACE", "NexusPlaceEntry")
     angle_entry_button = _placement_launcher_panel(
-        "アングル正規配置", "NexusAngleEntry")
-    placement_entry_button.position = Vector2(20.0, 112.0)
-    placement_entry_button.size = Vector2(156.0, 54.0)
+        "アングル正規配置 / ANGLE", "NexusAngleEntry")
     placement_entry_button.visible = true
     angle_entry_button.visible = false
-    placement_entry_button.z_index = 100
-    angle_entry_button.z_index = 100
-    # GUI input is connected in _placement_launcher_panel. The existing
-    # editor.route_input path handles raw Android SubViewport touches.
+    _sync_placement_launchers()
 
     outline = NexusSelectionOutline.new()
     outline.name = "SelectableSilhouettes"
@@ -4359,16 +4363,18 @@ func _navigate_back() -> void:
         _return_to_overview()
 
 func _input(event: InputEvent) -> void:
-    # A camera-angle edit is available only in a settled zoom view.
-    # It captures normal menu/Back input until explicitly closed.
-    if camera_angle_editor != null and camera_angle_editor.route_input(event):
-        get_viewport().set_input_as_handled()
-        return
-    # Canonical placement takes precedence over ALL existing actions, including
-    # EXIT TO BASE, focus menus, animations, debug taps, and equipment pickers.
-    if placement_editor != null and placement_editor.route_input(event):
-        get_viewport().set_input_as_handled()
-        return
+    # Once an editor is active, it exclusively owns the viewport's pointer.
+    # Inactive editors must not consume launcher taps before the host sees them.
+    if camera_angle_editor != null and camera_angle_editor.active:
+        if camera_angle_editor.route_input(event):
+            get_viewport().set_input_as_handled()
+            return
+    if placement_editor != null and placement_editor.active:
+        if placement_editor.route_input(event):
+            get_viewport().set_input_as_handled()
+            return
+    # EXIT and both placement launchers use identical manual hit-testing on
+    # _input, independent of the GUI/Panel delivery path in a SubViewport.
     # Always honor the exit area, including a camera tween that has not
     # completed yet. This bypasses the in_transition lock intentionally.
     var exit_press: bool = false
@@ -4384,6 +4390,16 @@ func _input(event: InputEvent) -> void:
     if exit_press and explore_panel != null and explore_panel.visible:
         if Rect2(explore_panel.position, explore_panel.size).has_point(exit_tap):
             _enter_base()
+            get_viewport().set_input_as_handled()
+            return
+    if exit_press and placement_entry_button != null and placement_entry_button.visible:
+        if Rect2(placement_entry_button.position, placement_entry_button.size).has_point(exit_tap):
+            _open_canonical_placement()
+            get_viewport().set_input_as_handled()
+            return
+    if exit_press and angle_entry_button != null and angle_entry_button.visible:
+        if Rect2(angle_entry_button.position, angle_entry_button.size).has_point(exit_tap):
+            _open_camera_angle_placement()
             get_viewport().set_input_as_handled()
             return
     if _route_fullscreen_preview_input(event):
