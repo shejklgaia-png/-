@@ -187,8 +187,6 @@ func _find_network_anchor() -> void:
     if _free(_network_anchor):
         return
     for z in range(REGION.position.y + 1, REGION.end.y - 1):
-        if budget != null:
-            await budget.checkpoint("parking search")
         for x in [REGION.position.x + 1, REGION.end.x - 2]:
             var c := Vector2i(x, z)
             if _free(c):
@@ -278,6 +276,8 @@ func _parking_options(origin: Vector2, destination: Vector2, budget: Variant = n
     var result: Array[Dictionary] = []
     var direction: Vector2 = (destination - origin).normalized()
     for z in range(REGION.position.y + 1, REGION.end.y - 1):
+        if budget != null:
+            await budget.checkpoint("parking search")
         for x in range(REGION.position.x + 1, REGION.end.x - 1):
             var c := Vector2i(x, z)
             if not _free(c) or _route_parking_exclusion.has(c):
