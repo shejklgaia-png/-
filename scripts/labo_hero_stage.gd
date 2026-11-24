@@ -42,6 +42,8 @@ const NAV_RADIUS := 1.42
 const NAV_HEIGHT := 2.30
 const OPERATE_SECONDS := 6.0
 var nav := AStarGrid2D.new()
+# The grid is immutable during path queries; retain one per room and layout.
+var section_nav_cache: Dictionary = {}
 var nav_room: Node3D
 var nav_obstacles: Array[Rect2] = []
 var nav_other_obstacles: Array[Rect2] = []
@@ -192,7 +194,7 @@ func set_section(section: String,dispatch: bool = true) -> void:
     # Start on a clear approach lane; previous room coordinates are never reused.
     nav_docked = false
     nav_dirty = true
-    _build_navigation()
+    _restore_or_build_navigation()
     var spawn: Vector2i = dock_grid if dock_plan_ready else _nearest_free(_terminal_point(2.7))
     nav_ready = nav.region.has_point(spawn) and not nav.is_point_solid(spawn)
     crate.visible = nav_ready
@@ -260,6 +262,7 @@ func remember_model_placement(target: Node3D) -> void:
     if target == crate_route:
         crate_route_poses[camera_section_id()] = target.transform
     nav_dirty = true
+    section_nav_cache.erase(current_section)
     PlacementStore.stage(_model_placement_key(target), {
         "space":"parent_local","position":PlacementStore.array3(target.position),
         "rotation_degrees":PlacementStore.array3(target.rotation_degrees)})
@@ -327,16 +330,51 @@ func _collect_obstacles(node: Node3D, terminal: bool = false) -> void:
         if child is Node3D:
             _collect_obstacles(child as Node3D,terminal)
 
-func _build_navigation() -> void:
-    nav_room = rebuilt_scenes.navigation_room(current_section)
-    nav_obstacles.clear()
-    nav_other_obstacles.clear()
+func _nav_layout_signature() -> Array:
+    var result: Array = []
+    for model in placement_models():
+        result.append([str(get_path_to(model)), model.transform])
+    return result
+
+func _reset_nav_route() -> void:
     nav_path.clear()
     nav_index = 0
     nav_speed = 0.0
     nav_goal = Vector2i(99999,99999)
     nav_route_failed = false
     nav_dock_checked = false
+    nav_dock_allowed = false
+
+func _restore_or_build_navigation() -> void:
+    var saved: Dictionary = section_nav_cache.get(current_section, {})
+    var signature := _nav_layout_signature()
+    if not saved.is_empty() and (signature == saved["before"] or signature == saved["after"]):
+        nav_room = rebuilt_scenes.navigation_room(current_section)
+        # The dock planner may have chosen a safer runtime terminal pose.
+        # Reapply it after canonical placement restoration, as on a fresh build.
+        var terminal: Node3D = rebuilt_scenes.terminal_node(current_section)
+        terminal.transform = saved["terminal"]
+        nav = saved["grid"] as AStarGrid2D
+        nav_obstacles.assign(saved["obstacles"])
+        nav_other_obstacles.assign(saved["other"])
+        nav_bounds = saved["bounds"]
+        dock_plan_ready = saved["dock_ready"]
+        dock_grid = saved["dock_grid"]
+        dock_approach = saved["approach"]
+        dock_stand = saved["stand"]
+        terminal_fallback = saved["fallback"]
+        _reset_nav_route()
+        nav_dirty = false
+        return
+    _build_navigation()
+
+func _build_navigation() -> void:
+    var signature := _nav_layout_signature()
+    nav_room = rebuilt_scenes.navigation_room(current_section)
+    nav = AStarGrid2D.new()
+    nav_obstacles.clear()
+    nav_other_obstacles.clear()
+    _reset_nav_route()
     # Stay on the raised deck, not its edge or the lower surrounding floor.
     nav_bounds = Rect2(-22,-22,44,44)
     if current_section == "LABO":
@@ -363,6 +401,13 @@ func _build_navigation() -> void:
     _collect_obstacles(rebuilt_scenes.terminal_node(current_section),true)
     if dock_plan_ready and nav.is_point_solid(dock_grid):
         dock_plan_ready = false
+    var terminal: Node3D = rebuilt_scenes.terminal_node(current_section)
+    section_nav_cache[current_section] = {
+        "before": signature, "after": _nav_layout_signature(),
+        "terminal": terminal.transform, "grid": nav,
+        "obstacles": nav_obstacles.duplicate(), "other": nav_other_obstacles.duplicate(),
+        "bounds": nav_bounds, "dock_ready": dock_plan_ready, "dock_grid": dock_grid,
+        "approach": dock_approach, "stand": dock_stand, "fallback": terminal_fallback}
     nav_dirty = false
 
 # Plan a real front-facing stand and a reachable grid cell before marking
