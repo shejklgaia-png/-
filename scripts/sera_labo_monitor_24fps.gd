@@ -61,6 +61,8 @@ var _clock: float = 0.0
 var _tick: int = -1
 var _image: Image
 var _texture: ImageTexture
+var _backdrop: Image
+var _glyph_cache: Dictionary = {}
 
 func configure(screen_size: Vector2, display_mode: int) -> void:
     _mode = clampi(display_mode, 0, 5)
@@ -69,6 +71,13 @@ func configure(screen_size: Vector2, display_mode: int) -> void:
     quad.size = screen_size
     mesh = quad
     _image = Image.create(WIDTH, _height, false, Image.FORMAT_RGBA8)
+    _glyph_cache.clear()
+    _build_backdrop()
+    _backdrop = _image.duplicate() as Image
+    # Spread the REFINE screen updates across different 24 Hz phases.
+    # Low render FPS may still cause overlap; the animation rate is unchanged.
+    _clock = float(_mode % 3) / (3.0 * FPS)
+    _tick = 0
     _draw_frame(0, 0.0)
     _texture = ImageTexture.create_from_image(_image)
     var surface := StandardMaterial3D.new()
@@ -132,13 +141,30 @@ func _line(x1: int, y1: int, x2: int, y2: int, color: Color, thick: int = 1) -> 
             y += sy
 
 func _text(message: String, x: int, y: int, tint: Color) -> void:
+    # Bounded glyph/palette cache; preserve the original 5x7 pixels.
+    var color_key: String = tint.to_html()
     for i in range(message.length()):
-        var glyph: Variant = FONT.get(message.substr(i, 1).to_upper(), FONT[" "])
-        for row in range(7):
-            var bits: String = str(glyph[row])
-            for col in range(5):
-                if bits[col] == "1":
-                    _pixel(x + i * 6 + col, y + row, tint)
+        var letter: String = message.substr(i, 1).to_upper()
+        if letter == " " or not FONT.has(letter):
+            continue
+        var key: String = letter + color_key
+        var stamp: Image = _glyph_cache.get(key) as Image
+        if stamp == null:
+            stamp = Image.create(5, 7, false, Image.FORMAT_RGBA8)
+            stamp.fill(Color.TRANSPARENT)
+            var glyph: Array = FONT[letter]
+            for row in range(7):
+                var bits: String = str(glyph[row])
+                for col in range(5):
+                    if bits[col] == "1":
+                        stamp.set_pixel(col, row, tint)
+            _glyph_cache[key] = stamp
+        var at := Vector2i(x + i * 6, y)
+        var clipped := Rect2i(at, Vector2i(5, 7)).intersection(
+            Rect2i(0, 0, WIDTH, _height))
+        if clipped.has_area():
+            _image.blend_rect(stamp,
+                Rect2i(clipped.position - at, clipped.size), clipped.position)
 
 func _outline(x: int, y: int, w: int, h: int, color: Color) -> void:
     _rect(x, y, w, 1, color)
@@ -146,7 +172,7 @@ func _outline(x: int, y: int, w: int, h: int, color: Color) -> void:
     _rect(x, y, 1, h, color)
     _rect(x + w - 1, y, 1, h, color)
 
-func _base(frame: int) -> void:
+func _build_backdrop() -> void:
     _image.fill(BG)
     for x in range(8, WIDTH - 8, 16):
         _rect(x, 8, 1, _height - 16, GRID)
@@ -158,11 +184,11 @@ func _base(frame: int) -> void:
     _text("SERA / " + LABELS[_mode], 12, 14, WHITE)
     _text("24", WIDTH - 32, 14, AMBER)
     _rect(7, _height - 20, WIDTH - 14, 13, PANEL)
-    _text("FRAME " + str(posmod(frame, 1000)), 12, _height - 17, CYAN)
     _text("24HZ", WIDTH - 40, _height - 17, WHITE)
 
 func _draw_frame(frame: int, time: float) -> void:
-    _base(frame)
+    _image.blit_rect(_backdrop, Rect2i(0, 0, WIDTH, _height), Vector2i.ZERO)
+    _text("FRAME " + str(posmod(frame, 1000)), 12, _height - 17, CYAN)
     match _mode:
         0:
             _draw_print(time)

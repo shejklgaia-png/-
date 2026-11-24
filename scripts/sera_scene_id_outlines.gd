@@ -34,7 +34,6 @@ const MAX_IDENTIFIED_MESHES: int = 4095
 # Keep some RGB12 IDs available for SERA/targets/CRATE when dense BASE
 # facilities or MultiMesh batches consume the ordinary ID pool.
 const ACTOR_ID_RESERVE: int = 256
-const SCAN_INTERVAL: float = 0.65
 
 var source_viewport: Viewport
 var id_viewport: SubViewport
@@ -48,7 +47,7 @@ var _id_allocations: Dictionary = {} # source id -> {first, count}
 var _free_ranges: Array[Dictionary] = []
 var _base_scene: WeakRef
 var _facility_selection_time: float = 0.0
-var _scan_elapsed: float = 0.0
+var _scan_dirty: bool = true
 var _last_camera: Transform3D = Transform3D.IDENTITY
 var _last_camera_fov: float = -1.0
 var _last_camera_size: float = -1.0
@@ -108,7 +107,7 @@ func refresh_graphics_preferences() -> void:
     _base_outline_enabled = GraphicsSettings.get_enabled("base_outline")
     _character_outline_enabled = GraphicsSettings.get_enabled("character_outline")
     _part_outline_enabled = GraphicsSettings.get_enabled("part_outline")
-    _scan_elapsed = 0.0
+    _scan_dirty = true
 
 func _graphics_outline_allowed(part: Node3D) -> bool:
     var cursor: Node = part
@@ -394,7 +393,7 @@ func set_shared_scene_mode(enabled: bool) -> void:
     elif is_instance_valid(_screen_quad):
         _screen_quad.visible = false
     _clear_copies()
-    _scan_elapsed = 0.0
+    _scan_dirty = true
 
 
 # The SAME ID pose commit is made from late _process in every 3D scene,
@@ -442,7 +441,7 @@ func set_scene_profile(profile: int) -> void:
             ink.material is ShaderMaterial):
         (ink.material as ShaderMaterial).set_shader_parameter(
             "scene_profile", _active_scene_profile())
-    _scan_elapsed = 0.0
+    _scan_dirty = true
 
 
 func set_bittaran_id_mode(enabled: bool) -> void:
@@ -459,7 +458,7 @@ func set_bittaran_id_mode(enabled: bool) -> void:
             ink.material is ShaderMaterial):
         (ink.material as ShaderMaterial).set_shader_parameter(
             "scene_profile", _active_scene_profile())
-    _scan_elapsed = 0.0
+    _scan_dirty = true
     _last_camera_projection = -1
 
 
@@ -516,38 +515,76 @@ func register_root(root: Node3D, owner: Node) -> void:
         return
     if root.get_meta("sera_graphics_outline_category", "") == "base":
         _base_scene = weakref(root)
-        if not get_tree().node_added.is_connected(_base_geometry_changed):
-            get_tree().node_added.connect(_base_geometry_changed)
-            get_tree().node_removed.connect(_base_geometry_changed)
     _root_refs[owner.get_instance_id()] = weakref(root)
+    if not get_tree().node_added.is_connected(_outline_node_added):
+        get_tree().node_added.connect(_outline_node_added)
+        get_tree().node_removed.connect(_outline_node_removed)
     _refresh_part_preview_canvas_mode()
     _refresh_combat_viewport_mode()
     _refresh_shared_ink_color()
-    _scan_elapsed = 0.0
+    _scan_dirty = true
     visible = true
     set_process(true)
 
 
-func _base_geometry_changed(node: Node) -> void:
-    if _scan_elapsed == 0.0 or not (node is MeshInstance3D or node is MultiMeshInstance3D):
+# Structural changes only; pose/visibility synchronization remains per frame.
+func _outline_node_added(node: Node) -> void:
+    if _scan_dirty or not (node is MeshInstance3D or node is MultiMeshInstance3D):
         return
-    var base := _base_scene.get_ref() as Node3D
-    if is_instance_valid(base) and base.is_ancestor_of(node):
-        _scan_elapsed = 0.0
+    if id_viewport.is_ancestor_of(node) or is_ancestor_of(node):
+        return
+    var cursor: Node = node
+    while cursor != null:
+        if cursor.name == "ViewEdges" or cursor.name == "SeraEdgeInk":
+            return
+        cursor = cursor.get_parent()
+    for value in _root_refs.values():
+        var ref: WeakRef = value as WeakRef
+        var root: Node3D = ref.get_ref() as Node3D if ref != null else null
+        if is_instance_valid(root) and (root == node or root.is_ancestor_of(node)):
+            var part: Node3D = node as Node3D
+            # Exclude transient FX unless they are actual depth occluders.
+            if root == (_base_scene.get_ref() if _base_scene != null else null) or (
+                    _is_visual_part(part) or _background_occluder(part) or bool(
+                        part.get_meta("sera_outline_emissive_protect", false))):
+                _scan_dirty = true
+            return
+
+
+func _outline_node_removed(node: Node) -> void:
+    # Ancestry may already be gone on node_removed.
+    if _copies.has(node.get_instance_id()):
+        _scan_dirty = true
+        return
+    if not node is Node3D:
+        return
+    for value in _root_refs.values():
+        var ref: WeakRef = value as WeakRef
+        if ref != null and ref.get_ref() == node:
+            _scan_dirty = true
+            return
+
+
+# For explicit in-place outline eligibility changes without tree mutations.
+func invalidate_geometry() -> void:
+    _scan_dirty = true
+
 
 func unregister_root(owner: Node) -> void:
     if is_instance_valid(owner):
         var ref := _root_refs.get(owner.get_instance_id()) as WeakRef
         if _base_scene != null and ref != null and ref.get_ref() == _base_scene.get_ref():
-            get_tree().node_added.disconnect(_base_geometry_changed)
-            get_tree().node_removed.disconnect(_base_geometry_changed)
             _base_scene = null
         _root_refs.erase(owner.get_instance_id())
-        _scan_elapsed = 0.0
+        _scan_dirty = true
     _refresh_part_preview_canvas_mode()
     _refresh_combat_viewport_mode()
     _refresh_shared_ink_color()
     if _root_refs.is_empty():
+        if get_tree().node_added.is_connected(_outline_node_added):
+            get_tree().node_added.disconnect(_outline_node_added)
+        if get_tree().node_removed.is_connected(_outline_node_removed):
+            get_tree().node_removed.disconnect(_outline_node_removed)
         _clear_copies()
         id_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
         visible = false
@@ -721,10 +758,8 @@ func _process(delta: float) -> void:
     # Exactly the Bittaran late _process pose capture for each shared-ID
     # scene; the part preview only differs in how the final pixels are shown.
     var dirty: bool = false
-    if _base_scene == null or not is_instance_valid(_base_scene.get_ref()):
-        _scan_elapsed -= delta
-    if _scan_elapsed <= 0.0:
-        _scan_elapsed = SCAN_INTERVAL
+    if _scan_dirty:
+        _scan_dirty = false
         dirty = _rescan()
     if _shared_scene_mode:
         _commit_visible_render_pose(source_camera, dirty)
@@ -1439,9 +1474,12 @@ func _sync_copies() -> bool:
         var source: Node3D = null
         if ref != null:
             source = ref.get_ref() as Node3D
-        if not is_instance_valid(source):
-            continue
         var clone: Node3D = _copies[key] as Node3D
+        if not is_instance_valid(source):
+            if is_instance_valid(clone):
+                clone.visible = false
+            _scan_dirty = true
+            continue
         if not is_instance_valid(clone):
             continue
         var show_id: bool = source.is_visible_in_tree()
