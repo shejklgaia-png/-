@@ -2359,4 +2359,4 @@ static func sample(sheet: Sprite3D, seconds: float) -> void:
 static func radiance(seconds: float, offset: int = 0) -> float:
     var phase: float = fposmod(seconds*FPS+float(offset),float(FRAMES))
     var index: int = int(floor(phase))
-    return lerpf(float(FRAME_RADIANCE[index]),float(FRAME_RADIANCE[(index+1)%FRAMES]),fract(phase))
+    return lerpf(float(FRAME_RADIANCE[index]),float(FRAME_RADIANCE[(index+1)%FRAMES]),phase-float(index))
