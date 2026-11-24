@@ -488,6 +488,11 @@ func _build_logistics() -> void:
     add_child(logistics)
     logistics.call("setup", self, NEXUS_BUILDING_ORIGIN,
         BaseFacilities.FACILITY_SPECS, power_distribution, CRATE_WAYPOINTS, cam)
+    # Independent calls keep the carrier rendering available if route or
+    # dock construction aborts. The on-screen report identifies that stage.
+    logistics.call("ensure_parked_fleet", BaseFacilities.FACILITY_SPECS)
+    logistics.call("build_carriers")
+    logistics.call("build_docks_and_motion")
 
 
 func _create_grid_selection() -> void:
@@ -953,6 +958,15 @@ func _create_layout_tools() -> void:
     layout_status.add_theme_color_override("font_color", Color("#a7c4d3"))
     layout_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
     layout_tools.add_child(layout_status)
+    var logistics_status := Label.new()
+    logistics_status.name = "LogisticsStatus"
+    logistics_status.text = str(logistics.call("diagnostic_text")) if is_instance_valid(logistics) else "物流 NODE MISSING"
+    logistics_status.add_theme_font_override("font", LaboSkin.ui_font())
+    logistics_status.add_theme_font_size_override("font_size", 13)
+    logistics_status.add_theme_color_override("font_color", Color("#b9dbe8"))
+    logistics_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    logistics_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+    layout_tools.add_child(logistics_status)
 
 
 func _toggle_facility_names() -> void:
