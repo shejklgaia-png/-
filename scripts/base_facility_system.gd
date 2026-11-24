@@ -1,5 +1,7 @@
 extends Node3D
 
+const PlacementStore = preload("res://scripts/sera_placement_store.gd")
+
 signal power_board_requested
 const BaseMaterials = preload("res://scripts/sera_base_materials.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
@@ -1437,6 +1439,7 @@ func _open_hero_angle() -> void:
 func _close_hero_angle() -> void:
     if not angle_active:
         return
+    PlacementStore.flush()
     angle_active = false
     angle_pointer = -999
     if is_instance_valid(angle_overlay):
@@ -1452,6 +1455,13 @@ func _apply_hero_angle() -> void:
     var planar: float = cos(angle_pitch)
     var eye: Vector3 = angle_look + Vector3(sin(angle_yaw) * planar, sin(angle_pitch), cos(angle_yaw) * planar) * angle_distance
     hero_stage.call("apply_camera_preview", eye, angle_look, angle_fov)
+    var key: String = hero_stage.call("camera_section_id")
+    PlacementStore.stage("labo/camera/" + key, {
+        "scene": "res://scenes/labo_hero_stage.tscn", "model_id": key,
+        "space": "stage_local", "eye": PlacementStore.array3(eye),
+        "look": PlacementStore.array3(angle_look), "fov": angle_fov})
+    if angle_pointer == -999:
+        PlacementStore.flush()
     _refresh_hero_angle()
 
 
@@ -1529,6 +1539,7 @@ func _route_hero_angle_input(event: InputEvent) -> bool:
             _hero_angle_press(event.position, event.index)
         elif event.index == angle_pointer:
             angle_pointer = -999
+            PlacementStore.flush()
     elif event is InputEventScreenDrag and event.index == angle_pointer:
         _hero_angle_drag(event.position)
     elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
@@ -1536,6 +1547,7 @@ func _route_hero_angle_input(event: InputEvent) -> bool:
             _hero_angle_press(event.position, -100)
         elif angle_pointer == -100:
             angle_pointer = -999
+            PlacementStore.flush()
     elif event is InputEventMouseMotion and angle_pointer == -100:
         _hero_angle_drag(event.position)
     # The editor owns input exclusively while active.
