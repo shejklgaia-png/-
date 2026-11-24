@@ -73,8 +73,21 @@ void fragment() {
     // In fragment(), NORMAL is in VIEW space. Convert to WORLD space before
     // comparing against the fixed world light, so orbiting the preview
     // camera cannot change which authored side is in shadow.
+    // Derive one geometric normal per rasterized triangle, rather than
+    // interpolating vertex normals. Orient it to the authored facing side.
+    // VERTEX is view-space here; this also handles nonuniform instance scale.
+    vec3 face = cross(dFdx(VERTEX), dFdy(VERTEX));
+    vec3 authored_normal = normalize(NORMAL);
+    float face_length_sq = dot(face, face);
+    vec3 flat_normal = authored_normal;
+    if (face_length_sq > 1e-20) {
+        flat_normal = face * inversesqrt(face_length_sq);
+        if (dot(flat_normal, authored_normal) < 0.0) {
+            flat_normal = -flat_normal;
+        }
+    }
     vec3 world_normal = normalize((INV_VIEW_MATRIX *
-        vec4(normalize(NORMAL), 0.0)).xyz);
+        vec4(flat_normal, 0.0)).xyz);
     float illumination = clamp(
         dot(world_normal, normalize(vec3(-0.45, 0.65, 0.70)))
         * 0.5 + 0.5, 0.0, 1.0);
