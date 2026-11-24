@@ -13,6 +13,8 @@ const Affixes = preload("res://scripts/sera_craft_affixes.gd")
 var active_slot: int = 0
 var active_data: Dictionary = {}
 var working_equipment: Dictionary = {}
+var _manual_save_thread: Thread
+var _manual_save_busy: bool = false
 # Transient route request; never written to profile JSON.
 var requested_nexus_target: String = ""
 
@@ -215,6 +217,8 @@ func get_material_inventory() -> Dictionary:
 
 
 func claim_trial_materials() -> bool:
+    if _manual_save_busy:
+        return false
     # Optional, explicit one-time test stock for exercising refinement UI.
     # Separate from real boss drops, and never repeated within this profile.
     if not _valid_slot(active_slot) or active_data.is_empty() or (
@@ -244,6 +248,8 @@ func can_convert_material(family: String, rank: int,
 
 func convert_material(family: String, rank: int,
         direction: int, batches: int = 1) -> bool:
+    if _manual_save_busy:
+        return false
     # Atomic transaction: reject an empty slot, invalid recipe, shortage or
     # failed file write without mutating in-memory resources. Save first.
     if not _valid_slot(active_slot) or active_data.is_empty():
@@ -261,6 +267,8 @@ func convert_material(family: String, rank: int,
     return true
 
 func award_materials(rewards: Dictionary) -> bool:
+    if _manual_save_busy:
+        return false
     # Explicit future boss-reward integration point; does not mint rewards
     # on a timer, at boot or from tapping equipment. Quality IDs are fixed.
     if not _valid_slot(active_slot) or active_data.is_empty() or rewards.is_empty():
@@ -296,6 +304,8 @@ func get_owned_prototypes(slot: String = "") -> Array:
     return result
 
 func set_prototype_mark(uid: String, mark: String, enabled: bool) -> bool:
+    if _manual_save_busy:
+        return false
     # Per-instance, per-save marks. Favorite and junk are mutually exclusive;
     # a failed disk commit must never alter the in-memory inventory.
     if not _valid_slot(active_slot) or active_data.is_empty() or (
@@ -333,6 +343,8 @@ func count_junk_prototypes(slot: String = "") -> int:
     return count
 
 func delete_junk_prototypes(slot: String = "") -> int:
+    if _manual_save_busy:
+        return 0
     if not _valid_slot(active_slot) or active_data.is_empty() or (
             not slot.is_empty() and not EQUIPMENT_SLOTS.has(slot)):
         return 0
@@ -366,6 +378,8 @@ func get_equipped_prototype(slot: String) -> String:
     return str(chosen.get(slot, ""))
 
 func craft_prototype(blueprint: String) -> String:
+    if _manual_save_busy:
+        return ""
     # v511 is a testing-only, clearly marked no-material-cost craft. This
     # never grants materials or invents permanent economic recipes.
     if not _valid_slot(active_slot) or active_data.is_empty() or (
@@ -404,6 +418,8 @@ func craft_prototype(blueprint: String) -> String:
     return uid
 
 func equip_prototype(slot: String, uid: String) -> bool:
+    if _manual_save_busy:
+        return false
     if not _valid_slot(active_slot) or active_data.is_empty() or (
             not EQUIPMENT_SLOTS.has(slot)):
         return false
@@ -431,6 +447,8 @@ func equip_prototype(slot: String, uid: String) -> bool:
     return true
 
 func clear_equipped_prototype(slot: String) -> bool:
+    if _manual_save_busy:
+        return false
     if not _valid_slot(active_slot) or active_data.is_empty() or (
             not EQUIPMENT_SLOTS.has(slot)):
         return false
@@ -492,6 +510,8 @@ func record_training_time(delta: float) -> void:
     active_data["training_visited"] = true
 
 func create_data(slot: int) -> bool:
+    if _manual_save_busy:
+        return false
     if not _valid_slot(slot):
         return false
     var fresh: Dictionary = _new_document(slot)
@@ -504,9 +524,7 @@ func create_data(slot: int) -> bool:
     working_equipment = fresh["equipment"].duplicate(true)
     return true
 
-func save_data(slot: int, equipment: Dictionary) -> bool:
-    if not _valid_slot(slot):
-        return false
+func _prepare_manual_save(slot: int, equipment: Dictionary) -> Dictionary:
     var current: Dictionary = active_data.duplicate(true)
     if current.is_empty():
         current = _new_document(slot)
@@ -525,16 +543,58 @@ func save_data(slot: int, equipment: Dictionary) -> bool:
         current.get("craft_serials", {}), current["crafted_items"])
     current["equipped_crafted"] = _sanitize_crafted_selection(
         current.get("equipped_crafted", {}), current["crafted_items"])
-    if not _write_json(_slot_path(slot), current):
-        return false
-    if not _write_index(slot):
-        return false
+    return current
+
+func _write_manual_save(slot: int, current: Dictionary) -> bool:
+    # Only detached JSON data and FileAccess/DirAccess on the worker.
+    return _write_json(_slot_path(slot),current) and _write_index(slot)
+
+func _commit_manual_save(slot: int, current: Dictionary) -> void:
     active_slot = slot
     active_data = current
     working_equipment = current["equipment"].duplicate(true)
+
+func save_data(slot: int, equipment: Dictionary) -> bool:
+    if _manual_save_busy or not _valid_slot(slot):
+        return false
+    var current := _prepare_manual_save(slot,equipment)
+    if not _write_manual_save(slot,current):
+        return false
+    _commit_manual_save(slot,current)
     return true
 
+func save_data_async(slot: int, equipment: Dictionary) -> bool:
+    if _manual_save_busy or not _valid_slot(slot):
+        return false
+    _manual_save_busy = true
+    var current := _prepare_manual_save(slot,equipment)
+    var start_play: float = float(active_data.get("play_seconds",0.0))
+    _manual_save_thread = Thread.new()
+    var error: Error = _manual_save_thread.start(_write_manual_save.bind(slot,current))
+    var success: bool
+    if error == OK:
+        while _manual_save_thread.is_alive():
+            await get_tree().process_frame
+        success = bool(_manual_save_thread.wait_to_finish())
+    else:
+        success = _write_manual_save(slot,current)
+    _manual_save_thread = null
+    if success:
+        # Preserve play time accumulated on the main thread while disk I/O
+        # was running; the on-disk snapshot still represents the SAVE tap.
+        current["play_seconds"] = float(current.get("play_seconds",0.0)) + maxf(0.0,float(active_data.get("play_seconds",0.0))-start_play)
+        _commit_manual_save(slot,current)
+    _manual_save_busy = false
+    return success
+
+func _exit_tree() -> void:
+    if _manual_save_thread != null and _manual_save_thread.is_started():
+        _manual_save_thread.wait_to_finish()
+    _manual_save_thread = null
+
 func load_data(slot: int) -> bool:
+    if _manual_save_busy:
+        return false
     var stored: Dictionary = _read_slot(slot)
     if stored.is_empty() or not _write_index(slot):
         return false
@@ -544,6 +604,8 @@ func load_data(slot: int) -> bool:
     return true
 
 func delete_data(slot: int) -> bool:
+    if _manual_save_busy:
+        return false
     if not _valid_slot(slot) or _read_slot(slot).is_empty():
         return false
     var err: Error = DirAccess.remove_absolute(

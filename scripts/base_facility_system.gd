@@ -2509,7 +2509,10 @@ func _apply_card_skin(card: Button) -> void:
 func _queue_card_icon(card: Button, item_id: String, equipment: bool = false) -> void:
     # Cards and their hit areas exist before any import-dependent icon load.
     # A failed editor texture import cannot abort the entire 7/12-card loop.
-    call_deferred("_apply_card_icon", card, item_id, equipment)
+    if bool(get_parent().get_meta("sera_base_boot_complete", false)) and not IconAtlas.card_icon_cached(item_id, equipment):
+        SeraRuntimePerf.enqueue_ui_job(card, Callable(self,"_apply_card_icon").bind(card,item_id,equipment))
+    else:
+        call_deferred("_apply_card_icon", card, item_id, equipment)
 
 
 func _apply_card_icon(card: Button, item_id: String, equipment: bool = false) -> void:
@@ -3293,6 +3296,8 @@ func _show_resident_material_grid(inventory: Dictionary) -> Control:
 
 func _prewarm_card_pages(budget: Variant) -> void:
     # Hidden BASE boot only. No page selection, save writes or craft actions.
+    var atlas_enabled: bool = preload("res://scripts/sera_graphics_settings.gd").get_enabled("compact_ui_atlas")
+    await IconAtlas.prewarm_card_icons(PrototypeCatalog.ORDER, budget, atlas_enabled)
     for slot in SeraSave.EQUIPMENT_SLOTS:
         _park_card_page(_show_resident_craft_grid(str(slot)))
         await budget.checkpoint("craft UI " + str(slot))

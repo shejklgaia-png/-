@@ -18,6 +18,13 @@ var districts: Array[Dictionary] = []
 var district: int = -1
 var visibility_signature: String = ""
 var train_time: float = 0.0
+# Noninteractive far skyline only; all near facilities and authored placement
+# nodes keep their original geometry and IDs.
+const FAR_DISTRICTS: int = 18
+const LOD_ENTER: float = 150.0
+const LOD_EXIT: float = 140.0
+var far_models: Dictionary = {}
+var lod_elapsed: float = 0.0
 
 func build(parent: Node3D) -> void:
     root = Node3D.new()
@@ -80,6 +87,7 @@ func build(parent: Node3D) -> void:
     # The highline is an independent through-route, not the local carrier lane.
     _district(Vector3(0,0,RAIL_Z),0.0)
     _highline()
+    _build_far_models()
     _flush_static([])
     visibility_signature = "[]"
     _build_train()
@@ -258,14 +266,109 @@ func _highline() -> void:
         _box(Vector3(x,10,RAIL_Z),Vector3(15,20,12),steel)
         _box(Vector3(x,21,RAIL_Z),Vector3(16,2,13),dark)
 
+func _build_far_models() -> void:
+    var low_shapes: Dictionary = {}
+    for kind in shapes:
+        var source: Mesh = shapes[kind]
+        if source is CylinderMesh:
+            var simplified := source.duplicate() as CylinderMesh
+            simplified.radial_segments = 6
+            low_shapes[kind] = simplified
+        else:
+            low_shapes[kind] = source
+    for id in range(FAR_DISTRICTS):
+        var center: Vector3 = districts[id]["center"]
+        var full := _merge_district(id, center, shapes, false)
+        var low := _merge_district(id, center, low_shapes, true)
+        if full == null or low == null:
+            continue
+        var draw := MeshInstance3D.new()
+        draw.name = "MergedFarDistrict_%02d" % id
+        draw.mesh = full
+        draw.material_override = material
+        draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        draw.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+        _no_ink(draw)
+        root.add_child(draw)
+        draw.position = center
+        far_models[id] = {"draw":draw, "full":full, "low":low, "simplified":false}
+
+func _merge_district(id: int, center: Vector3, meshes: Dictionary, simplified: bool) -> ArrayMesh:
+    # Preserve the exact primitive triangles, instance tints and world normals
+    # in the high-detail combined mesh. No colliders or edit targets here.
+    var vertices := PackedVector3Array()
+    var normals := PackedVector3Array()
+    var colors := PackedColorArray()
+    var indices := PackedInt32Array()
+    for kind in groups:
+        var source: Mesh = meshes[kind]
+        var arrays: Array = source.surface_get_arrays(0)
+        var src_vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+        var src_normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+        if src_vertices.is_empty() or src_normals.size() != src_vertices.size():
+            return null
+        for piece in groups[kind]:
+            if int(piece["district"]) != id:
+                continue
+            var pose: Transform3D = piece["pose"]
+            # Remove only sub-half-metre horizontal facade strips in far LOD.
+            var span: Vector3 = pose.basis.get_scale().abs()
+            if simplified and kind == "box" and span.z < 0.5 and span.y < 1.0:
+                continue
+            var normal_basis: Basis = pose.basis.inverse().transposed()
+            var offset: int = vertices.size()
+            var tint: Color = piece["tint"]
+            for i in range(src_vertices.size()):
+                vertices.append(pose * src_vertices[i] - center)
+                normals.append((normal_basis * src_normals[i]).normalized())
+                colors.append(tint)
+            if arrays[Mesh.ARRAY_INDEX] is PackedInt32Array and not arrays[Mesh.ARRAY_INDEX].is_empty():
+                for index in arrays[Mesh.ARRAY_INDEX]:
+                    indices.append(offset + int(index))
+            else:
+                for i in range(src_vertices.size()):
+                    indices.append(offset+i)
+    if vertices.is_empty() or indices.is_empty():
+        return null
+    var result := []
+    result.resize(Mesh.ARRAY_MAX)
+    result[Mesh.ARRAY_VERTEX] = vertices
+    result[Mesh.ARRAY_NORMAL] = normals
+    result[Mesh.ARRAY_COLOR] = colors
+    result[Mesh.ARRAY_INDEX] = indices
+    var mesh := ArrayMesh.new()
+    mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, result)
+    return mesh
+
+func _refresh_far_lod() -> void:
+    if not is_instance_valid(root):
+        return
+    var camera := root.get_viewport().get_camera_3d()
+    if not is_instance_valid(camera):
+        return
+    for id in far_models:
+        var entry: Dictionary = far_models[id]
+        var draw: MeshInstance3D = entry["draw"]
+        if not draw.visible:
+            continue
+        var distance: float = camera.global_position.distance_to(draw.global_position)
+        var was_low: bool = entry["simplified"]
+        var low: bool = distance > LOD_EXIT if was_low else distance > LOD_ENTER
+        if low != was_low:
+            draw.mesh = entry["low"] if low else entry["full"]
+            entry["simplified"] = low
+
 func _flush_static(blocked: Array[int]) -> void:
+    for id in far_models:
+        (far_models[id]["draw"] as MeshInstance3D).visible = not blocked.has(id)
     var signature: String = str(blocked)
     if not batch_variants.has(signature):
         var variant: Dictionary = {}
         for kind in groups:
             var selected: Array = []
             for piece in groups[kind]:
-                if not blocked.has(int(piece["district"])):
+                var id: int = int(piece["district"])
+                if not blocked.has(id) and not far_models.has(id):
                     selected.append(piece)
             var multi := MultiMesh.new()
             multi.transform_format = MultiMesh.TRANSFORM_3D
@@ -346,6 +449,10 @@ func animate(delta: float) -> void:
     if not is_instance_valid(train):
         return
     # One moving node, no new geometry. Reversals ease into terminal buildings.
+    lod_elapsed += minf(delta,0.1)
+    if lod_elapsed >= 0.25:
+        lod_elapsed = 0.0
+        _refresh_far_lod()
     train_time = fposmod(train_time+minf(delta,0.1),96.0)
     var phase: float = train_time/48.0
     var u: float = phase if phase<=1.0 else 2.0-phase

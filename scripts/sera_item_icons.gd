@@ -11,6 +11,9 @@ const CustomEquipmentIcons = preload("res://assets/ui/sera_custom_equipment_icon
 const IconBackground = preload("res://scripts/sera_icon_background.gd")
 static var _presented_equipment_cache: Dictionary = {}
 static var _custom_equipment_icon_cache: Dictionary = {}
+static var _small_atlases_ready: Dictionary = {}
+const SMALL_ATLAS_PAD: int = 4
+const SMALL_ATLAS_COLUMNS: int = 8
 
 # The old matte equipment atlas remains an archival asset, NOT a blueprint.
 # 12 material sprites live in a separate transparent 3-column x 4-row sheet.
@@ -243,6 +246,68 @@ static func equipment_icon(blueprint_id: String,
     var presented: Texture2D = IconBackground.composite(source)
     _presented_equipment_cache[cache_key] = presented
     return presented
+
+static func card_icon_cached(id: String, equipment: bool) -> bool:
+    if equipment:
+        return _presented_equipment_cache.has(id + ":craft")
+    return MATERIAL_INDICES.has(id) and _material_frame_cache.has(int(MATERIAL_INDICES[id]))
+
+static func prewarm_card_icons(ids: Array, budget: Variant, use_atlas: bool) -> void:
+    # All decoding/compositing takes place under the BASE loading cover.
+    for id in MATERIAL_INDICES:
+        material_icon(str(id))
+        await budget.checkpoint("material icon " + str(id))
+    for profile in ["craft", "warehouse"]:
+        for id in ids:
+            equipment_icon(str(id), profile)
+            await budget.checkpoint("equipment icon " + str(id) + " " + profile)
+        if use_atlas and not _small_atlases_ready.has(profile):
+            _pack_small_atlas(ids, profile)
+            await budget.checkpoint("padded UI atlas " + profile)
+
+static func _pack_small_atlas(ids: Array, profile: String) -> void:
+    # Previous material atlas had Android bleed: do not replace that
+    # independent-tile path. Small equipment portraits have padded slots,
+    # filter_clip and exact-size checks; 512px full fallback is never packed.
+    var side: int = 96 if profile == "craft" else 82
+    var stride: int = side + SMALL_ATLAS_PAD*2
+    var tiles: Array[Dictionary] = []
+    for id in ids:
+        var key: String = str(id) + ":" + profile
+        var texture := _presented_equipment_cache.get(key) as Texture2D
+        if texture == null or texture is AtlasTexture or texture.get_size() != Vector2(side,side):
+            continue
+        var pixels := texture.get_image()
+        if pixels == null or pixels.is_empty():
+            continue
+        if pixels.is_compressed() and pixels.decompress() != OK:
+            continue
+        pixels = pixels.duplicate() as Image
+        pixels.convert(Image.FORMAT_RGBA8)
+        tiles.append({"key":key, "pixels":pixels})
+    if tiles.is_empty():
+        return
+    var rows: int = ceili(float(tiles.size())/float(SMALL_ATLAS_COLUMNS))
+    var atlas := Image.create(SMALL_ATLAS_COLUMNS*stride, rows*stride, false, Image.FORMAT_RGBA8)
+    atlas.fill(Color.TRANSPARENT)
+    var regions: Dictionary = {}
+    for i in range(tiles.size()):
+        var origin := Vector2i((i%SMALL_ATLAS_COLUMNS)*stride+SMALL_ATLAS_PAD,
+            int(i/SMALL_ATLAS_COLUMNS)*stride+SMALL_ATLAS_PAD)
+        var pixels: Image = tiles[i]["pixels"]
+        # Extrude actual edge colors into the four-pixel gutters.
+        for y in range(-SMALL_ATLAS_PAD, side+SMALL_ATLAS_PAD):
+            for x in range(-SMALL_ATLAS_PAD, side+SMALL_ATLAS_PAD):
+                atlas.set_pixelv(origin+Vector2i(x,y),pixels.get_pixel(clampi(x,0,side-1),clampi(y,0,side-1)))
+        regions[tiles[i]["key"]] = Rect2(origin,Vector2i(side,side))
+    var shared := ImageTexture.create_from_image(atlas)
+    for key in regions:
+        var region := AtlasTexture.new()
+        region.atlas = shared
+        region.region = regions[key]
+        region.filter_clip = true
+        _presented_equipment_cache[key] = region
+    _small_atlases_ready[profile] = true
 
 static func icon_for(item_id: String) -> Texture2D:
     if MATERIAL_INDICES.has(item_id):

@@ -24,3 +24,11 @@
 - 倉庫読み取りで全装備を繰り返しsanitizeする処理を省略。ロード/変更時のsanitizeと同期原子保存は維持。
 - 全面メッシュ統合、新規アトラス、遠景LOD、汎用実行時ジョブ予算、非同期セーブは未実装。既存処理の部分改善であり、CI/実機未実施。
 - 参考: https://docs.godotengine.org/en/4.7/classes/class_node3d.html ; https://docs.godotengine.org/en/stable/tutorials/rendering/viewports.html ; https://github.com/godotengine/godot/issues/75877 ; https://docs.godotengine.org/en/stable/tutorials/performance/thread_safe_apis.html
+
+## 第4実装
+- 遠景18地区の非インタラクト固定形状を地区単位ArrayMeshに統合。元頂点/色/法線を高精細版に保持、150m超で薄い横帯省略・円柱6分割の低精細版、140mで復帰。0.25秒間隔判定。近景・正規配置・当たり判定は変更なし。実描画の色差やdraw callの実測は必要。
+- 装備の82px/96pxアイコンを起動中に全準備。任意の装備アイコン統合（既定OFF）で4px押出しガター＋filter_clipのアトラスを使用。512px/素材の独立テクスチャは維持。Android検証後に設定ON。
+- 実行時UIキャッシュミスをオーナー生存確認付きキューに投入、1.8ms/最大3件の協調予算。個別の不可分処理には上限保証なし。戦闘・入力・判定はキューに入れない。
+- NEXUS手動SAVEのJSON書込みをThreadへ分離。操作を短時間ロック、成功後のみメイン状態確定。既存slot/indexの原子的置換を維持。製作/素材/報酬等は同期トランザクションを維持、同時保存中は拒否。終了時join。
+- 13項目全カテゴリに具体策あり。ただし全画面・全資産への全面適用は未完了。特にUIのタブ等の軽量再構築、動的機構以外の全メッシュ統合、全テクスチャ統合、全演出プール、全モーションベイク、全処理のイベント化・予算化、製作等の非同期化は残る。実機/CI未実施。
+- 参考: https://docs.godotengine.org/en/stable/tutorials/3d/visibility_ranges.html ; https://docs.godotengine.org/en/stable/classes/class_atlastexture.html ; https://docs.godotengine.org/en/stable/tutorials/performance/thread_safe_apis.html ; https://docs.godotengine.org/en/stable/tutorials/3d/procedural_geometry/index.html
