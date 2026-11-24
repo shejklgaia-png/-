@@ -165,7 +165,7 @@ func _button_rect(id: String) -> Rect2:
                 var entry_button: Control = host.get("angle_entry_button") as Control
                 if entry_button != null:
                     return Rect2(entry_button.position, entry_button.size)
-            return Rect2(Vector2(maxf(16.0, w - 228.0), 36.0),
+            return Rect2(Vector2(maxf(16.0, w - 228.0), 112.0),
                 Vector2(208.0, 54.0))
         "exit":
             return Rect2(Vector2(15.0, 18.0), Vector2(116.0, 48.0))
