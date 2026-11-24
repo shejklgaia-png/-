@@ -112,7 +112,7 @@ const LAB_CYCLE: float = 18.2
 const LAB_ARM_ROOT := Vector3(-0.43, 3.60, -0.10)
 const LAB_ARM_LINK: float = 1.30
 const LAB_BED_CENTER := Vector3(0.10, 1.06, 1.13)
-const LAB_STOCK_CENTER := Vector3(-1.55, 1.39, 0.32)
+const LAB_STOCK_CENTER := Vector3(-1.55, 1.39, 0.02)
 const LAB_ARM_IDLE := Vector3(-0.55, 1.90, 0.30)
 
 func _lab_ease(t: float, a: float, b: float) -> float:
@@ -125,9 +125,9 @@ func _lab_arm_target(t: float) -> Vector3:
     var up := Vector3(0.10, 1.53, 1.13)
     var front := Vector3(0.10, 1.53, 1.70)
     var outer := Vector3(-1.78, 1.53, 1.70)
-    var outer_stock := Vector3(-1.78, 1.53, 0.32)
-    var above_stock := Vector3(-1.55, 1.53, 0.32)
-    var retreat := Vector3(-1.55, 1.95, 0.32)
+    var outer_stock := Vector3(-1.78, 1.53, 0.02)
+    var above_stock := Vector3(-1.55, 1.53, 0.02)
+    var retreat := Vector3(-1.55, 1.95, 0.02)
     if t < 7.0: return LAB_ARM_IDLE
     if t < 7.45: return LAB_ARM_IDLE.lerp(Vector3(0.10, 1.90, 0.30), _lab_ease(t, 7.0, 7.45))
     if t < 8.0: return Vector3(0.10, 1.90, 0.30).lerp(up, _lab_ease(t, 7.45, 8.0))
@@ -210,10 +210,10 @@ func _lab_pose(feature: String, slot: int, rest: Transform3D, t: float,
             return _lab_position(rest, target + Vector3(
                 side * lerpf(0.56, 0.45, grip), 0.08, 0))
         "LabStockLift":
-            return _lab_position(rest, Vector3(-1.55, 0.69 + 0.45 * lift, 0.32))
+            return _lab_position(rest, Vector3(-1.55, 0.69 + 0.45 * lift, 0.02))
         "LabStockShutter":
             var side: float = -1.0 if slot == 0 else 1.0
-            return _spin_about(rest, _at(Vector3(-1.55, 1.20, 0.32 + side * 0.50)),
+            return _spin_about(rest, _at(Vector3(-1.55, 1.20, 0.02 + side * 0.47)),
                 _axis(Vector3.RIGHT), side * opening * PI * 0.5)
     return rest
 
