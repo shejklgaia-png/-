@@ -46,6 +46,7 @@ var _next_id: int = 1
 var _id_allocations: Dictionary = {} # source id -> {first, count}
 var _free_ranges: Array[Dictionary] = []
 var _base_scene: WeakRef
+var _nexus_room_budget: bool = false
 var _facility_selection_time: float = 0.0
 var _scan_dirty: bool = true
 var _last_camera: Transform3D = Transform3D.IDENTITY
@@ -483,9 +484,11 @@ func _sync_screen_quad(camera: Camera3D) -> void:
     if _screen_quad.material_override != _screen_material:
         _screen_quad.material_override = _screen_material
     _screen_camera = camera
-    _screen_quad.position = Vector3(0.0, 0.0,
-        -maxf(0.2, camera.near * 1.5))
-    _screen_quad.visible = true
+    var quad_position := Vector3(0.0, 0.0, -maxf(0.2, camera.near * 1.5))
+    if _screen_quad.position != quad_position:
+        _screen_quad.position = quad_position
+    if not _screen_quad.visible:
+        _screen_quad.visible = true
 
 
 func _refresh_shared_ink_color() -> void:
@@ -516,6 +519,8 @@ func register_root(root: Node3D, owner: Node) -> void:
     if root.get_meta("sera_graphics_outline_category", "") == "base":
         _base_scene = weakref(root)
     _root_refs[owner.get_instance_id()] = weakref(root)
+    if bool(root.get_meta("sera_nexus_room_budget", false)):
+        _nexus_room_budget = true
     if not get_tree().node_added.is_connected(_outline_node_added):
         get_tree().node_added.connect(_outline_node_added)
         get_tree().node_removed.connect(_outline_node_removed)
@@ -576,6 +581,13 @@ func unregister_root(owner: Node) -> void:
         if _base_scene != null and ref != null and ref.get_ref() == _base_scene.get_ref():
             _base_scene = null
         _root_refs.erase(owner.get_instance_id())
+    _nexus_room_budget = false
+    for value in _root_refs.values():
+        var ref: WeakRef = value as WeakRef
+        var root: Node3D = ref.get_ref() as Node3D if ref != null else null
+        if is_instance_valid(root) and bool(root.get_meta("sera_nexus_room_budget", false)):
+            _nexus_room_budget = true
+            break
         _scan_dirty = true
     _refresh_part_preview_canvas_mode()
     _refresh_combat_viewport_mode()
@@ -712,7 +724,8 @@ func _update_facility_selection_pulse(delta: float) -> void:
     var enabled: bool = is_instance_valid(base) and base.has_method(
         "is_facility_selection_outline_visible") and bool(
         base.call("is_facility_selection_outline_visible"))
-    _screen_material.set_shader_parameter("facility_selection_enabled", enabled)
+    if _screen_material.get_shader_parameter("facility_selection_enabled") != enabled:
+        _screen_material.set_shader_parameter("facility_selection_enabled", enabled)
     if enabled:
         _facility_selection_time = fposmod(_facility_selection_time + delta, TAU / 3.6)
         _screen_material.set_shader_parameter("facility_selection_color",
@@ -883,12 +896,13 @@ func _update_shared_screen_bounds(camera: Camera3D) -> void:
         # Reuse this exact visible-bounds projection for the narrower
         # player-only contact halo; no new scene tree or viewport pass.
         var player_source: bool = false
-        var ancestor: Node = source
-        while ancestor != null:
-            if ancestor.has_meta("sera_player_outline"):
-                player_source = true
-                break
-            ancestor = ancestor.get_parent()
+        if not _nexus_room_budget:
+            var ancestor: Node = source
+            while ancestor != null:
+                if ancestor.has_meta("sera_player_outline"):
+                    player_source = true
+                    break
+                ancestor = ancestor.get_parent()
         var box: AABB = source.get_aabb()
         # The ID mesh uses an interpolated render-space pose in combat.
         # Bound the SAME pose; bounding the raw physics pose can clip the
@@ -919,6 +933,13 @@ func _update_shared_screen_bounds(camera: Camera3D) -> void:
                         player_low = player_low.min(projected)
                         player_high = player_high.max(projected)
                         player_found = true
+        # NEXUS has no player/target combat contacts. Once the exact union
+        # already covers the screen, further bounds can only enlarge it.
+        if _nexus_room_budget and (near_plane or (found and low.x <= 0.0 and
+                low.y <= 0.0 and high.x >= screen_size.x and high.y >= screen_size.y)):
+            _set_shared_screen_bounds(Vector4(0.0, 0.0, 1.0, 1.0))
+            _set_player_contact_bounds(Vector4.ZERO)
+            return
     if near_plane:
         _set_shared_screen_bounds(Vector4(0.0, 0.0, 1.0, 1.0))
     elif found:
