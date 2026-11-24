@@ -11,6 +11,7 @@ from pathlib import Path
 import bpy
 import bmesh
 from mathutils import Vector
+from bpy_extras.object_utils import world_to_camera_view
 
 VIEWS = {
     "front": (0, -1, 0), "back": (0, 1, 0),
@@ -222,7 +223,7 @@ def aim(obj, target):
     obj.rotation_euler = (Vector(target)-obj.location).to_track_quat('-Z','Y').to_euler()
 
 
-def render_views(objects, out, resolution):
+def render_views(objects, out, resolution, landmarks):
     corners = [obj.matrix_world @ Vector(c) for obj in objects if obj.type=='MESH' for c in obj.bound_box]
     if not corners:
         raise ValueError("model contains no mesh")
@@ -264,14 +265,25 @@ def render_views(objects, out, resolution):
         light.location = center+Vector(direction).normalized()*span*2
         aim(light,center)
         lights.append(light)
+    projections = {}
+    nodes = {obj.name: obj for obj in objects}
     for name,direction in VIEWS.items():
         camera.location = center+Vector(direction).normalized()*span*3
         if name in ("top","bottom"):
             camera.rotation_euler = (0,0,0) if name=="top" else (math.pi,0,0)
         else:
             aim(camera, center)
+        bpy.context.view_layer.update()
+        points = {}
+        for label, point in landmarks.items():
+            world = nodes[point["node"]].matrix_world @ Vector(point["local"])
+            ndc = world_to_camera_view(scene, camera, world)
+            points[label] = [ndc.x * resolution, (1-ndc.y) * resolution]
+        projections[name] = {"landmarks": points, "resolution": resolution,
+                             "ortho_scale": camera_data.ortho_scale}
         scene.render.filepath = str(out/(name+".png"))
         bpy.ops.render.render(write_still=True)
+    (out/"projections.json").write_text(json.dumps(projections, indent=2), encoding="utf-8")
     for obj in [camera,*lights]:
         bpy.data.objects.remove(obj, do_unlink=True)
 
@@ -298,7 +310,7 @@ def main():
     resolution = int(spec.get("review_resolution",768))
     if not 128<=resolution<=2048:
         raise ValueError("review_resolution must be 128..2048")
-    render_views(objects,out,resolution)
+    render_views(objects,out,resolution,spec.get("landmarks", {}))
     (out/"complete.json").write_text(json.dumps(dict(format=spec["format"],views=list(VIEWS),
         triangles=sum(row["triangles"] for row in report)),indent=2),encoding="utf-8")
 
