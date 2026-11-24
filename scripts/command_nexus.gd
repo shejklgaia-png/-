@@ -560,7 +560,9 @@ func _open_camera_angle_placement() -> void:
     if not _initialize_camera_angle_editor():
         var reason: String = "NO NODE"
         if is_instance_valid(camera_angle_editor):
-            reason = "NO TREE" if not camera_angle_editor.is_inside_tree() else "UI"
+            reason = str(camera_angle_editor.get("initialization_stage"))
+            if not camera_angle_editor.is_inside_tree():
+                reason = "NO TREE"
         _placement_launch_failure(angle_entry_button, "ANGLE / " + reason)
         return
     if camera_angle_editor.open_mode():
