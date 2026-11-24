@@ -1468,7 +1468,11 @@ func _apply_layout_preview(selected: Dictionary) -> void:
             pile.free()
     _create_salvage(scrap)
     # Rerolled facility geometry is newly instantiated after initial shading.
-    SharedMaterialShading.apply_to_subtree(self)
+    SharedMaterialShading.apply_to_subtree(nexus_building)
+    SharedMaterialShading.apply_to_subtree(facility_system)
+    var salvage_meshes: Node = get_node_or_null("SalvageMeshes")
+    if salvage_meshes != null:
+        SharedMaterialShading.apply_to_subtree(salvage_meshes)
     layout_seed = int(selected["seed"])
     layout_rerolls += 1
     _refresh_facility_names()
