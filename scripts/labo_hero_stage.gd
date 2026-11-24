@@ -405,6 +405,11 @@ func _walk_route(destination: Vector2, delta: float) -> bool:
     var remaining: float = here.distance_to(nav_path[nav_index])
     for i in range(nav_index,nav_path.size()-1):
         remaining += nav_path[i].distance_to(nav_path[i+1])
+    if remaining<=0.008:
+        crate.position = _nav_local(nav_path[-1])
+        nav_index = nav_path.size()
+        nav_speed = 0.0
+        return true
     var desired: float = minf(1.8,sqrt(maxf(0.0,remaining)*4.0))
     nav_speed = move_toward(nav_speed,desired,delta*3.0)
     var budget: float = minf(nav_speed*delta,0.25)
