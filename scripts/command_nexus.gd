@@ -1663,8 +1663,14 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
         if name == "hangar_shell" and NexusBulkheadRefit.suppresses_authored_part(
                 str(part[0])):
             continue
-        # The actual cyan optics now rotate left as a shared group. Leave
-        # the fixed amber carrier and mechanical canopy castings intact.
+        # Replace the old rectangular armor with the radial machined castings.
+        # Preserve the original lamps and center deck (light source coordinates).
+        var part_label: String = str(part[0])
+        if name == "maintenance_canopy" and (part_label.begins_with("Overhead twelve-panel working armature ") or part_label.begins_with("Underhang tool nozzle ")):
+            continue
+        if name == "maintenance_pad" and (part_label.begins_with("Maintenance bevel armor ") or part_label.begins_with("Maintenance hydraulic locking shoe ")):
+            continue
+        # The actual cyan optics now rotate left as a shared group.
         if name == "maintenance_canopy" and str(part[0]).begins_with(
                 "Overhead cyan maintenance optic "):
             continue
@@ -1851,6 +1857,30 @@ func _nexus_console_authored_parts(module_name: String) -> Array:
                     [lo+0.34,27.0,6.57],[hi-0.34,45.5,7.1],1,[0,0,0],false,true])
             else:
                 fitted.append(part)
+        # Source units (0.1m before gate scaling). All casings overlap the
+        # original pillar at x=18.3 and stay outside the sliding leaf channel.
+        # Left: cooling manifold; right: power and interlock distribution.
+        for side in [-1.0,1.0]:
+            var x0: float = -25.0 if side < 0.0 else 17.65
+            var x1: float = -17.65 if side < 0.0 else 25.0
+            var center: float = (x0+x1)*0.5
+            var role: String = "Thermal" if side < 0.0 else "Interlock"
+            fitted.append(["Gate "+role+" load case",[x0,3.5,-2.8],[x1,41.4,6.5],3,[0,0,0],true,true])
+            fitted.append(["Gate "+role+" lower mounting foot",[x0-0.15,0,-3.6],[x1+0.15,4.2,8.1],2,[0,0,0],true,true])
+            fitted.append(["Gate "+role+" upper shoulder",[x0+0.45,40.8,-2.2],[x1-0.45,44.0,6.1],2,[0,0,0],true,true])
+            fitted.append(["Gate "+role+" recessed face",[x0+0.75,8.0,6.45],[x1-0.75,37.0,7.0],1,[0,0,0],false,true])
+            if side < 0.0:
+                for i in range(9):
+                    var y: float = 10.0+float(i)*2.9
+                    fitted.append(["Gate thermal heat exchanger fin "+str(i),[x0+1.0,y,6.95],[x1-1.0,y+0.8,7.65],4,[0,0,0],false,true])
+                fitted.append(["Gate coolant pressure strip",[center-1.9,34.7,7.0],[center+1.9,35.5,7.52],5,[0,0,0],false,true])
+            else:
+                for i in range(3):
+                    var y: float = 10.0+float(i)*8.1
+                    fitted.append(["Gate interlock power cartridge "+str(i),[x0+1.0,y,6.9],[x1-1.0,y+5.9,7.65],2,[0,0,0],true,true])
+                    fitted.append(["Gate cartridge status "+str(i),[center+0.65,y+4.5,7.6],[center+1.7,y+5.0,7.85],5 if i!=2 else 6,[0,0,0],false,true])
+            for y in [6.0,39.1]:
+                fitted.append(["Gate "+role+" fastener",[center-0.48,y,6.45],[center+0.48,y+0.92,7.15],4,[0,0,0],false,true])
         return fitted
     if not module_name in ["system_console", "training_console", "data_bank"]:
         return authored
