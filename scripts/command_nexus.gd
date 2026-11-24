@@ -417,10 +417,9 @@ func _ready() -> void:
     id_outline.set_outline_profile(2)
     add_child(id_outline)
     _create_customization_glow()
-    # EXIT and PLACE/ANGLE launchers are constructed inside the large _hud()
-    # routine. If its later menu setup aborts, _ready() never reaches code
-    # below it. Create BOTH editor nodes first so the working launchers can
-    # initialize them independently on tap in that partially built scene.
+    # Keep editor startup out of this complex scene build. The editor nodes
+    # already exist in command_nexus_world.tscn; configure them on demand
+    # after the working EXIT/PLACE/ANGLE HUD has been created.
     _prepare_canonical_placement_specs()
     _hud()
     # Like the working LABO editors: initialize a placement tool only when
@@ -500,8 +499,10 @@ func _placement_editor_failure(kind: String, editor) -> String:
             # Both editors expose the last completed setup phase. This
             # distinguishes a failed script, HUD construction and model load.
             stage = str(editor.get("initialization_stage"))
+        var node_path: String = (
+            str(editor.get_path()) if editor.is_inside_tree() else "<outside-tree>")
         push_warning("NEXUS %s editor failure: %s, node=%s, script=%s" % [
-            kind, stage, str(editor.get_path()), str(editor.get_script())])
+            kind, stage, node_path, str(editor.get_script())])
     else:
         push_warning("NEXUS %s editor missing, overlay=%s" % [
             kind, str(placement_ui_layer)])
