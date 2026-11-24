@@ -109,7 +109,7 @@ func part_pose(feature: String, slot: int = 0) -> Transform3D:
 # BASE LABO: 18.2s mechanical production cell. All positions are authored
 # local metres; the existing yaw and scale are applied once by _at().
 const LAB_CYCLE: float = 18.2
-const LAB_ARM_ROOT := Vector3(-0.43, 3.45, -0.10)
+const LAB_ARM_ROOT := Vector3(-0.43, 3.60, -0.10)
 const LAB_ARM_LINK: float = 1.30
 const LAB_BED_CENTER := Vector3(0.10, 1.06, 1.13)
 const LAB_STOCK_CENTER := Vector3(-1.55, 1.39, 0.32)
@@ -129,7 +129,8 @@ func _lab_arm_target(t: float) -> Vector3:
     var above_stock := Vector3(-1.55, 1.53, 0.32)
     var retreat := Vector3(-1.55, 1.95, 0.32)
     if t < 7.0: return LAB_ARM_IDLE
-    if t < 8.0: return LAB_ARM_IDLE.lerp(up, _lab_ease(t, 7.0, 8.0))
+    if t < 7.45: return LAB_ARM_IDLE.lerp(Vector3(0.10, 1.90, 0.30), _lab_ease(t, 7.0, 7.45))
+    if t < 8.0: return Vector3(0.10, 1.90, 0.30).lerp(up, _lab_ease(t, 7.45, 8.0))
     if t < 9.0: return up.lerp(LAB_BED_CENTER, _lab_ease(t, 8.0, 9.0))
     if t < 9.5: return LAB_BED_CENTER
     if t < 10.4: return LAB_BED_CENTER.lerp(up, _lab_ease(t, 9.5, 10.4))
