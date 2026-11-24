@@ -32,7 +32,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p uv-results
-          for variant in baseline v20; do
+          for variant in baseline v23; do
             "$GODOT_BIN" --headless --editor --path . --import --quit 2>&1 | tee "uv-results/$variant-import.log"
             if grep -E 'SCRIPT ERROR:|Parse Error:' "uv-results/$variant-import.log"; then exit 1; fi
             "$GODOT_BIN" --headless --path . --script res://tools/texture_studio/uv_runtime_bench.gd -- "${{ matrix.part }}" "$GITHUB_WORKSPACE/uv-results/$variant-${{ matrix.part }}.json" 32 "$variant" 2>&1 | tee "uv-results/$variant-runtime.log"
