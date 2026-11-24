@@ -10,6 +10,7 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
     var metric := Vector3(scale_basis.x.length(), scale_basis.y.length(), scale_basis.z.length())
     if source.mesh == null or source.skin != null:
         return {"error": "静的メッシュを選択してください"}
+    var authored_by_surface: Dictionary = source.get_meta("texture_studio_authored_by_surface",{})
     for s in range(source.mesh.get_surface_count()):
         if source.mesh is ArrayMesh and (source.mesh as ArrayMesh).surface_get_primitive_type(s) != Mesh.PRIMITIVE_TRIANGLES:
             continue
@@ -20,6 +21,7 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
         var vertex_colors: PackedColorArray = arr[Mesh.ARRAY_COLOR] if arr[Mesh.ARRAY_COLOR] != null else PackedColorArray()
         var ids: PackedInt32Array = arr[Mesh.ARRAY_INDEX] if arr[Mesh.ARRAY_INDEX] != null else PackedInt32Array()
         var count: int = ids.size() if not ids.is_empty() else vs.size()
+        var face_ids: PackedInt32Array = authored_by_surface.get(s,PackedInt32Array())
         var active: Material = source.get_active_material(s)
         var mat: StandardMaterial3D = active as StandardMaterial3D
         var encoded_culling: bool = false
@@ -60,11 +62,13 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
             var cull: int = BaseMaterial3D.CULL_DISABLED if mat == null else mat.cull_mode
             if encoded_culling and vertex_colors.size() == vs.size():
                 cull = _decode_cull(vertex_colors[ix[0]])
-            tris.append({"p":p,"n":normals,"face_normal":n,"surface":s,"base":base,"tex":tex,"prior":prior,"colors":colors,"repeat":mat == null or mat.texture_repeat,"cull":cull})
+            var face_id: int = face_ids[i/3] if face_ids.size()*3 == count else -1
+            tris.append({"p":p,"n":normals,"face_normal":n,"surface":s,"authored_face":face_id,"base":base,"tex":tex,"prior":prior,"colors":colors,"repeat":mat == null or mat.texture_repeat,"cull":cull})
     if tris.is_empty():
         return {"error":"描画可能な三角形がありません"}
     charts = _edge_aligned_charts(tris,density)
     charts = _split_overlapping_charts(tris,charts)
+    _match_rectified_edge_counts(tris,charts)
     _synchronize_chart_grids(tris,charts)
     var order: Array[int] = []
     for i in range(charts.size()):
@@ -172,6 +176,12 @@ static func _can_join(a: Dictionary,b: Dictionary,edge_a: int,edge_b: int) -> bo
     var na: Vector3 = a.face_normal
     var nb: Vector3 = b.face_normal
     var dot: float = na.dot(nb)
+    var fa: int = int(a.get("authored_face",-1))
+    var fb: int = int(b.get("authored_face",-1))
+    # Authored faces define the grid domain, not accidental coplanarity.
+    # Keep every original quad intact even when its neighbor is coplanar.
+    if fa >= 0 and fb >= 0:
+        return int(a.surface) == int(b.surface) and fa == fb and dot > 0.5
     if dot > 0.999999:
         var pa: PackedVector3Array = a.p
         var pb: PackedVector3Array = b.p
@@ -610,6 +620,78 @@ static func _segment_uv(t: Dictionary, edge: int, start: float, finish: float, f
     var b: Vector2 = coords[(edge+1)%3]
     return PackedVector2Array([a.lerp(b,start),a.lerp(b,finish)])
 
+## A rectangular face has two independent integer edge counts. Connect
+## equal physical edges in the same constraint group (including opposite
+## sides of each rectangle), then choose one count for the entire group.
+## Reject excessive stretching instead of sacrificing the original shape.
+static func _match_rectified_edge_counts(tris: Array[Dictionary],charts: Array[Dictionary]) -> void:
+    var parent := PackedInt32Array()
+    parent.resize(charts.size()*2)
+    for i in range(parent.size()):
+        parent[i] = i
+    var constraints: Array[Vector2i] = []
+    for link in _seam_segments(tris):
+        var ca: int = int(link.a)
+        var cb: int = int(link.b)
+        if not bool(charts[ca].get("rectified",false)) or not bool(charts[cb].get("rectified",false)):
+            continue
+        # Partial-edge links must not equate whole rectangle dimensions.
+        if absf(float(link.a1)-float(link.a0)) < 0.9999 or absf(float(link.b1)-float(link.b0)) < 0.9999:
+            continue
+        var a: PackedVector2Array = _segment_uv(tris[link.ta],link.ea,link.a0,link.a1,"xy")
+        var b: PackedVector2Array = _segment_uv(tris[link.tb],link.eb,link.b0,link.b1,"xy")
+        var da: Vector2 = (a[1]-a[0]).abs()
+        var db: Vector2 = (b[1]-b[0]).abs()
+        if minf(da.x,da.y) > 0.001 or minf(db.x,db.y) > 0.001:
+            continue
+        var axis_a: int = 0 if da.x > da.y else 1
+        var axis_b: int = 0 if db.x > db.y else 1
+        var size_a: Vector2 = charts[ca].max
+        var size_b: Vector2 = charts[cb].max
+        if absf(da[axis_a]-size_a[axis_a]) > 0.001 or absf(db[axis_b]-size_b[axis_b]) > 0.001:
+            continue
+        if maxf(da[axis_a],db[axis_b])/maxf(1.0,minf(da[axis_a],db[axis_b])) > 1.4:
+            continue
+        constraints.append(Vector2i(ca*2+axis_a,cb*2+axis_b))
+    for pair in constraints:
+        _join(parent,pair.x,pair.y)
+    var totals: Dictionary = {}
+    for i in range(charts.size()):
+        if not bool(charts[i].get("rectified",false)):
+            continue
+        var size: Vector2 = charts[i].max
+        for axis in range(2):
+            var root: int = _root(parent,i*2+axis)
+            var old: float = size[axis]
+            if not totals.has(root):
+                totals[root] = {"sum":0.0,"count":0,"min":old,"max":old}
+            var group: Dictionary = totals[root]
+            group.sum = float(group.sum)+old
+            group.count = int(group.count)+1
+            group.min = minf(float(group.min),old)
+            group.max = maxf(float(group.max),old)
+    var scales := PackedVector2Array()
+    scales.resize(charts.size())
+    for i in range(charts.size()):
+        scales[i] = Vector2.ONE
+        if not bool(charts[i].get("rectified",false)):
+            continue
+        var old: Vector2 = charts[i].max
+        var target: Vector2 = old
+        for axis in range(2):
+            var group: Dictionary = totals[_root(parent,i*2+axis)]
+            var count: float = maxf(1.0,roundf(float(group.sum)/float(group.count)))
+            if count/float(group.min) <= 1.25 and count/float(group.max) >= 0.8:
+                target[axis] = count
+        scales[i] = target/old.max(Vector2.ONE)
+        charts[i].max = target
+    for t in tris:
+        var coords: PackedVector2Array = t.xy
+        var scale: Vector2 = scales[int(t.chart)]
+        for k in range(coords.size()):
+            coords[k] *= scale
+        t.xy = coords
+
 ## Global phase relaxation includes non-tree links. Preserve the
 ## face-aligned axes rather than rotating a rectangle away from its edges.
 ## For incompatible rotations/edge lengths, brush seam correspondence
@@ -643,7 +725,12 @@ static func _synchronize_chart_grids(tris: Array[Dictionary],charts: Array[Dicti
         var next: PackedVector2Array = phase.duplicate()
         for i in range(charts.size()):
             var total := Vector2.ZERO
-            var weight: float = 4.0 if bool(charts[i].get("rectified",false)) else 0.5
+            if bool(charts[i].get("rectified",false)):
+                # Its four boundaries already lie on integer grid lines.
+                # A fractional phase shift would move every boundary off-grid.
+                next[i] = Vector2.ZERO
+                continue
+            var weight: float = 0.5
             var current: Vector2 = phase[i]
             total -= (current-current.round())*weight
             for link in adjacency[i]:
