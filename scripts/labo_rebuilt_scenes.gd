@@ -961,6 +961,13 @@ func _smelter(key: String) -> void:
         _pipe(b,Vector3(side*2.7,7.8,-1.5),Vector3(side*2.65,8.65,-2.7),0.85,"trim")
     for x in [-2.4,2.4]:
         _panel_detail(b,x,4.9,2.32,1.8,1.8)
+        for y in [2.0,3.0,4.0,6.1]:
+            _box(b,Vector3(x,y,2.30),Vector3(1.45,0.14,0.16),"edge")
+        _box(b,Vector3(x,5.75,2.40),Vector3(0.70,0.14,0.08),"amber_light")
+    for side in [-1.0,1.0]:
+        for y in [2.1,3.4,4.7,6.0]:
+            _shape(b,"gear",Vector3(side*4.15,y,-0.55),Vector3(1.86,0.10,1.86),"trim")
+        _pipe(b,Vector3(side*3.35,1.0,-2.8),Vector3(side*3.35,6.9,-2.8),0.24,"rust")
     # Separate refractory throat in front of the sealed vessel; unobstructed window.
     _box(b,Vector3(0,3.0,3.55),Vector3(4.8,4.2,0.42),"void")
     for x in [-2.7,2.7]:
@@ -1061,65 +1068,17 @@ func _smelter(key: String) -> void:
     _shape(b,"bevel",Vector3(0,4.83,1.72),Vector3(1.18,0.48,0.22),"slate")
     _box(b,Vector3(0,4.84,1.87),Vector3(0.65,0.10,0.06),"edge")
     _finish(b)
-    var conveyor := _conveyor(key,"ChargeConveyorV2",Vector3(-6.6,0,5.55),2.8,4.1)
-    var feed_mount := _child(conveyor,"FeedChargePlacement",Vector3(0,1.12,0))
-    (targets[key] as Array).append(feed_mount)
-    var raw := _cargo(feed_mount,"FeedCharge",Vector3(0,0,1.7),Vector3(1.3,0.6,1.0))
-    _moving(key,"feed",raw)
     _moving(key,"hopper",feed)
-    var hoist := _child(feed,"ChargeHoistV2")
-    (targets[key] as Array).append(hoist)
-    b = _batch(hoist)
-    for side in [-1.0,1.0]:
-        _shape(b,"bevel",Vector3(side*1.48,3.65,3.0),Vector3(0.30,7.3,0.34),"slate")
-        _pipe(b,Vector3(side*1.48,0.3,3.0),Vector3(side*1.48,7.25,3.0),0.12,"edge")
-    _shape(b,"deck",Vector3(0,7.3,3.0),Vector3(3.4,0.4,0.72),"armor")
-    _shape(b,"drum",Vector3(0,7.55,3.0),Vector3(0.95,0.44,0.95),"edge")
-    _finish(b)
-    var charge_carrier := _child(hoist,"ChargeTransferTray")
-    b = _batch(charge_carrier)
-    _shape(b,"deck",Vector3(0,-0.10,0),Vector3(2.20,0.20,1.95),"gold")
-    for x in [-1.0,1.0]:
-        _box(b,Vector3(x,0.12,0),Vector3(0.12,0.24,1.95),"edge")
-    _finish(b)
-    _moving(key,"charge_carrier",charge_carrier)
-    _moving(key,"charge_conveyor",conveyor)
-    _moving(key,"charge_hoist",hoist)
-    _moving(key,"charge_mount",feed_mount)
     _moving(key,"furnace",furnace)
-    # Fixed chute receives cargo only when the hoist reaches its upper stop.
-    b = _batch(hoist)
-    b.box_tilt("UpperChargeSlide",Vector3(0,6.06,1.55),Vector3(1.75,0.12,1.65),"slate",Vector3(0.12,0,0))
+    # Feed neck is enclosed, with visible flanges and a grounded service drive.
+    var service := _child(feed,"ChargeMeteringService")
+    b = _batch(service)
+    _shape(b,"bevel",Vector3(1.15,0.75,-0.65),Vector3(1.1,1.5,1.3),"slate")
+    _shape(b,"louver",Vector3(1.15,0.78,0.03),Vector3(0.75,0.75,0.12),"edge")
+    _pipe(b,Vector3(1.15,1.5,-0.65),Vector3(1.15,3.5,-0.65),0.22,"gold")
+    for y in [3.15,3.55]:
+        _shape(b,"gear",Vector3(2.55,y,0),Vector3(0.24,0.32,0.32),"edge")
     _finish(b)
-    var cast := _conveyor(key,"CastingCoolingLine",Vector3(9.6,0,3.65),2.5,6.2)
-    var ingot_mount := _child(cast,"IngotPlacement",Vector3(0,1.15,0))
-    (targets[key] as Array).append(ingot_mount)
-    var ingot := _child(ingot_mount,"CooledIngot",Vector3(0,0,-2.1))
-    b = _batch(ingot)
-    _shape(b,"bevel",Vector3(0,0.30,0),Vector3(1.9,0.60,1.2),"amber")
-    _box(b,Vector3(0,0.64,0),Vector3(1.55,0.07,0.9),"amber_light")
-    _finish(b)
-    _moving(key,"output",ingot)
-    _moving(key,"casting_line",cast)
-    _moving(key,"ingot_mount",ingot_mount)
-    var cooling := _model(key,"CastingSpoutAndCoolingService",Vector3(6.15,0,1.2))
-    b = _batch(cooling)
-    _shape(b,"tray",Vector3(0,1.35,0.35),Vector3(2.7,0.45,2.8),"rust")
-    _pipe(b,Vector3(-1.3,1.65,-0.45),Vector3(-0.15,1.40,0.35),0.36,"rust")
-    _shape(b,"deck",Vector3(0.25,1.60,0.65),Vector3(1.2,0.07,1.30),"amber")
-    # Elevated discharge chute reaches the now separate cooling conveyor.
-    b.box_tilt("CastingTransferChute",Vector3(2.30,1.36,0.35),Vector3(2.45,0.18,1.25),"slate",Vector3(0,0,-0.14))
-    _shape(b,"bevel",Vector3(1.55,1.2,-1.25),Vector3(1.3,2.4,1.4),"slate")
-    _shape(b,"louver",Vector3(1.55,1.3,-0.50),Vector3(0.96,1.65,0.15),"edge")
-    _pipe(b,Vector3(1.55,2.45,-1.25),Vector3(0.3,2.45,-1.25),0.23,"gold")
-    _floor_cable(b,[Vector3(1.55,0.1,-0.7),Vector3(1.55,0.1,0.85),Vector3(0,0.1,2.0)])
-    for x in [-0.95,0.95]:
-        _shape(b,"gusset",Vector3(x,0.59,0.45),Vector3(0.27,1.0,1.12),"trim")
-        _pipe(b,Vector3(x,0.45,-0.82),Vector3(x,0.45,1.38),0.15,"blue")
-    _panel_detail(b,1.55,0.85,-0.48,0.72,0.53)
-    _finish(b)
-    _moving(key,"cooling",cooling)
-    _task_light(cooling,Vector3(0.0,2.1,0.65),Color("#ffae68"),5.0,0.8)
     _console(key,Vector3(-3.3,0,6.7),2)
 
 func _recycler(key: String) -> void:
@@ -1233,6 +1192,11 @@ func _build_logistics(key: String) -> void:
         destination = room.to_local(product.global_position)
         m["variant"] = -1
         _sample_machine(key,0.0)
+    elif key=="SMELTER":
+        var hopper: Node3D = m["hopper"]
+        # The box front lower lip is directly above the real hopper opening.
+        source = room.to_local(hopper.to_global(Vector3(0,5.85,0)))+Vector3(0,0.85,1.75)
+        destination = Vector3(9.6,1.25,7.5)
     elif key!="STORAGE":
         _sample_machine(key,0.0)
         source = room.to_local((m["feed"] as Node3D).global_position)
@@ -1272,7 +1236,7 @@ func select(key: String) -> void:
     idle_seconds = 0.0
     if logistics.has(key):
         logistics[key].reset()
-    if key!="STORAGE":
+    if key not in ["STORAGE","SMELTER"]:
         _sample_machine(key,0.0)
         _hide_machine_payloads(key)
 
@@ -1320,7 +1284,7 @@ func animate(delta: float, time: float, key: String) -> void:
             return
         var duration: float = logistics[key].duration()
         # Do not skip a reserved stock handoff after a long app/frame pause.
-        var advance: float = minf(delta,0.25) if key=="STORAGE" else delta
+        var advance: float = minf(delta,0.25) if key in ["STORAGE","SMELTER"] else delta
         elapsed = minf(duration,elapsed+advance)
         _sample(key,elapsed/duration)
         cycle_running = elapsed < duration
@@ -1360,36 +1324,6 @@ func _sample_machine(key: String, t: float) -> void:
                 p.position = Vector3.ZERO
                 if t>=0.76:
                     p.position.z = 3.7+2.50*smoothstep(0.76,0.91,t)-shuttle.position.z
-        "SMELTER":
-            var feed: Node3D = m["feed"]
-            var output: Node3D = m["output"]
-            var hopper: Node3D = m["hopper"]
-            var carrier: Node3D = m["charge_carrier"]
-            var parent := feed.get_parent() as Node3D
-            var carrier_parent := carrier.get_parent() as Node3D
-            var dock := Vector3(0,1.08,3.0)
-            var high := Vector3(0,6.24,3.0)
-            var lip := Vector3(0,6.24,0.0)
-            var inside := Vector3(0,5.63,0.0)
-            var incoming: Vector3 = parent.to_local((m["charge_conveyor"] as Node3D).to_global(Vector3(0,1.08,1.20)))
-            var dock_local: Vector3 = parent.to_local(hopper.to_global(dock))
-            carrier.position = carrier_parent.to_local(hopper.to_global(dock.lerp(high,smoothstep(0.17,0.35,t))))
-            if t>=0.55:
-                carrier.position = carrier_parent.to_local(hopper.to_global(high.lerp(dock,smoothstep(0.55,0.78,t))))
-            feed.scale = Vector3.ONE
-            feed.visible = t<0.53
-            if t<0.17:
-                feed.position = incoming.lerp(dock_local,smoothstep(0.0,0.17,t))
-            elif t<0.35:
-                feed.position = parent.to_local(carrier.global_position)
-            elif t<0.44:
-                feed.position = parent.to_local(hopper.to_global(high.lerp(lip,smoothstep(0.35,0.44,t))))
-            else:
-                # The carrier stays outside the hopper; only the charge enters its open mouth.
-                feed.position = parent.to_local(hopper.to_global(lip.lerp(inside,smoothstep(0.44,0.53,t))))
-                feed.scale = Vector3.ONE*(1.0-0.85*smoothstep(0.48,0.53,t))
-            output.visible = t>0.60
-            output.position.z = -2.1+3.4*smoothstep(0.60,1.0,t)
         "RECYCLER":
             var feed: Node3D = m["feed"]
             var output: Node3D = m["output"]
@@ -1423,7 +1357,7 @@ func _hide_machine_payloads(key: String) -> void:
     if key=="LABO":
         for p in (m["products"] as Node3D).get_children():
             (p as Node3D).visible = false
-    elif key!="STORAGE":
+    elif key not in ["STORAGE","SMELTER"]:
         (m["feed"] as Node3D).visible = false
         (m["output"] as Node3D).visible = false
 
@@ -1431,6 +1365,9 @@ func _sample(key: String,t: float) -> void:
     var flow = logistics[key]
     if key=="STORAGE":
         flow.sample_storage(t)
+        return
+    if key=="SMELTER":
+        flow.sample_refinery(t)
         return
     var m: Dictionary = motion_parts[key]
     if t<0.29:
@@ -1453,10 +1390,6 @@ func _sample(key: String,t: float) -> void:
         output = (m["products"] as Node3D).get_child(variant) as Node3D
         payload_height = float(PART_HEIGHTS[variant])*EQUIPMENT_SCALE
         payload_width = float(PART_WIDTHS[variant])*EQUIPMENT_SCALE+0.12
-    elif key=="SMELTER":
-        output = m["output"] as Node3D
-        payload_height = 0.88
-        payload_width = 2.45
     else:
         output = m["output"] as Node3D
         payload_height = 0.55
@@ -1471,7 +1404,7 @@ func _mechanism_nodes(key: String) -> Array[Node3D]:
     var names: Array = []
     match key:
         "LABO": names = ["print_frame","rail","tray","carriage_mount","head_mount","supply"]
-        "SMELTER": names = ["hopper","charge_conveyor","charge_hoist","charge_mount","furnace","casting_line","ingot_mount","cooling"]
+        "SMELTER": names = ["hopper","furnace"]
         "RECYCLER": names = ["crusher","feed_conveyor","scrap_mount","shaft_root0","shaft_root1","ramp","sorted_line","sorted_mount"]
         "STORAGE": names = ["storage_anchor"]
     for label in names:
