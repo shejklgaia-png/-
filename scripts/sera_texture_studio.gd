@@ -101,7 +101,7 @@ var tex: ImageTexture
 var triangles: Array = []
 var seam_texels: Dictionary = {}
 var grid_mode: int = 0
-var selected_diagnostic_chart: int = -1
+var selected_diagnostic_face: int = -1
 var grid_button: Button
 var diagnostic_text: String = ""
 var orthographic_view: bool = false
@@ -930,7 +930,7 @@ func _install_preview(mesh: ArrayMesh) -> void:
     _composite()
     seam_texels = UV.seam_pixels(triangles,img.get_size())
     tex = ImageTexture.create_from_image(img)
-    selected_diagnostic_chart = -1
+    selected_diagnostic_face = -1
     preview.mesh = UV.with_diagnostic_ids(mesh,triangles)
     preview.material_override = _atlas_material(tex)
     _apply_grid()
@@ -1314,14 +1314,14 @@ func _apply_grid() -> void:
     var material: ShaderMaterial = preview.material_override as ShaderMaterial
     if material != null:
         material.set_shader_parameter("grid_mode",grid_mode)
-        material.set_shader_parameter("selected_chart",float(selected_diagnostic_chart+1) if selected_diagnostic_chart >= 0 else -1.0)
+        material.set_shader_parameter("selected_face",float(selected_diagnostic_face+1) if selected_diagnostic_face >= 0 else -1.0)
         material.set_shader_parameter("atlas_dimensions",Vector2(img.get_size()))
 
 func _cycle_grid() -> void:
     _end_stroke()
     points.clear()
     grid_mode = (grid_mode+1)%3
-    selected_diagnostic_chart = -1
+    selected_diagnostic_face = -1
     grid_button.text = ["格子 OFF","格子 ON","面診断"][grid_mode]
     _apply_grid()
     if grid_mode == 2:
@@ -1335,7 +1335,7 @@ func _cycle_grid() -> void:
 func _inspect_uv(triangle_index: int) -> void:
     if img == null or triangles.is_empty():
         return
-    selected_diagnostic_chart = int(triangles[triangle_index].chart) if triangle_index >= 0 and triangle_index < triangles.size() else -1
+    selected_diagnostic_face = int(triangles[triangle_index].get("diagnostic_face",triangle_index)) if triangle_index >= 0 and triangle_index < triangles.size() else -1
     _apply_grid()
     var result: Dictionary = UV.diagnostic_report(triangles,img.get_size(),atlas_density,triangle_index)
     diagnostic_text = selected_model_label.text+"\n"+str(result.report)
@@ -1477,13 +1477,15 @@ func _save() -> void:
             _show_status("合成保存済み・レイヤー保存失敗")
             return
     var ids: Array[int] = []
+    var face_sources: Array = []
     for t in triangles:
         ids.append(int(t.chart))
+        face_sources.append([int(t.get("surface",-1)),int(t.get("authored_face",-1))])
     var file := FileAccess.open(prefix+".texture.json",FileAccess.WRITE)
     if file == null:
         _show_status("合成保存済み・プロジェクト保存失敗")
         return
-    file.store_string(JSON.stringify({"version":1,"density":atlas_density,"charts":ids,"visible":layer_visible}))
+    file.store_string(JSON.stringify({"version":1,"density":atlas_density,"charts":ids,"visible":layer_visible,"face_sources":face_sources}))
     file.close()
     _show_status("編集プロジェクト保存済み: "+stem)
 
@@ -1505,7 +1507,9 @@ func _load_project(path: String) -> void:
         return
     var prefix := absolute.trim_suffix(".texture.json")
     var mesh := ResourceLoader.load(prefix+".res","ArrayMesh") as ArrayMesh
-    var restored: Array = UV.restore_triangles(mesh,ids as Array)
+    var raw_faces: Variant = data.get("face_sources",[])
+    var face_sources: Array = raw_faces if raw_faces is Array else []
+    var restored: Array = UV.restore_triangles(mesh,ids as Array,face_sources)
     var base := Image.load_from_file(prefix+".base.png")
     if restored.is_empty() or base == null or base.is_empty() or base.get_width() > 1024 or base.get_height() > 1024:
         _show_status("保存メッシュまたはベース画像が無効です")
