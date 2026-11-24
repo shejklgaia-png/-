@@ -309,104 +309,176 @@ func _cargo(parent: Node3D, label: String, at: Vector3, s: Vector3) -> Node3D:
     _finish(b)
     return n
 
+func _skid(b, width: float, depth: float) -> void:
+    _shape(b,"deck",Vector3(0,0.28,0),Vector3(width,0.56,depth),"slate")
+    for side in [-1.0,1.0]:
+        _shape(b,"deck",Vector3(side*(width*0.5-0.28),0.34,0),
+            Vector3(0.36,0.34,depth-0.35),"edge")
+        for z in [-depth*0.39,depth*0.39]:
+            _shape(b,"octagonal_slew",Vector3(side*(width*0.5-0.55),0.61,z),
+                Vector3(0.30,0.16,0.30),"trim")
+
+func _panel_detail(b, x: float, y: float, z: float, width: float, height: float) -> void:
+    _shape(b,"bevel",Vector3(x,y,z),Vector3(width,height,0.16),"slate")
+    for side in [-1.0,1.0]:
+        for v in [-1.0,1.0]:
+            _shape(b,"octagonal_slew",Vector3(x+side*(width*0.5-0.12),y+v*(height*0.5-0.12),z+0.10),
+                Vector3(0.12,0.08,0.12),"edge")
+    _box(b,Vector3(x,y+height*0.32,z+0.10),Vector3(width*0.54,0.07,0.04),"blue_light")
+
+func _floor_cable(b, points: Array, diameter: float = 0.12) -> void:
+    for i in range(points.size()-1):
+        _pipe(b,points[i],points[i+1],diameter,"rubber")
+        _shape(b,"drum",points[i],Vector3(diameter*1.14,diameter*1.14,diameter*1.14),"rubber")
+
 func _labo(key: String) -> void:
-    var frame := _model(key,"AdditiveFabricationCell",Vector3(0,0,-1.8))
+    # Independent full-size design: BASE's open two-column fabrication bridge,
+    # left feedstock racks, rear extraction, central bed and SCARA output arm.
+    var frame := _model(key,"OpenFabricationCell",Vector3(0,0,-1.0))
     var b = _batch(frame)
-    _shape(b,"deck",Vector3(0,0.42,0),Vector3(10.0,0.84,7.0),"slate")
-    for x in [-4.1,4.1]:
-        for z in [-2.8,2.8]:
-            _shape(b,"bevel",Vector3(x,4.0,z),Vector3(0.80,7.8,0.85),"armor")
-            _box(b,Vector3(x,4.0,z+0.46),Vector3(0.20,5.5,0.10),"edge")
-            _box(b,Vector3(x,6.8,z+0.52),Vector3(0.42,0.22,0.13),"blue_light")
-        _box(b,Vector3(x,7.8,0),Vector3(1.15,0.68,6.6),"slate")
-        _box(b,Vector3(x,1.1,0),Vector3(1.0,0.55,6.3),"trim")
-    for z in [-2.8,2.8]:
-        _shape(b,"bevel",Vector3(0,7.8,z),Vector3(9.2,0.9,0.9),"armor")
-    for x in [-3.5,3.5]:
-        _box(b,Vector3(x,4.0,-3.0),Vector3(1.0,5.2,0.36),"trim")
-        for i in range(7):
-            _box(b,Vector3(x,2.0+i*0.6,-2.77),Vector3(0.75,0.12,0.09),"edge")
-    _box(b,Vector3(0,0.95,0),Vector3(5.2,0.3,4.7),"edge")
-    _box(b,Vector3(0,1.16,0),Vector3(4.6,0.17,4.2),"dark")
+    _skid(b,15.4,12.2)
+    _shape(b,"deck",Vector3(0,0.72,0.65),Vector3(14.3,0.32,10.9),"armor")
+    _shape(b,"octagonal_slew",Vector3(1.10,1.10,2.0),Vector3(5.9,0.65,4.4),"dark")
+    _shape(b,"tray",Vector3(1.10,1.56,2.0),Vector3(6.6,0.46,4.9),"armor_light")
+    for side in [-1.0,1.0]:
+        var x: float = 1.1+side*3.35
+        _shape(b,"gusset",Vector3(x,1.46,1.65),Vector3(1.30,1.45,2.4),"slate")
+        _shape(b,"octagonal_slew",Vector3(x,4.70,1.65),Vector3(1.05,6.35,1.1),"armor_light")
+        _shape(b,"drum",Vector3(x,7.82,1.65),Vector3(1.38,0.48,1.38),"edge")
+        _pipe(b,Vector3(x,1.6,-1.4),Vector3(x,6.65,1.5),0.46,"trim")
+        _box(b,Vector3(x,4.5,2.24),Vector3(0.25,3.5,0.10),"lab_cyan")
+        _panel_detail(b,x,2.4,2.31,0.62,0.82)
+        for y in [2.9,5.7,7.2]:
+            _shape(b,"deck",Vector3(x,y,1.65),Vector3(1.25,0.17,1.30),"edge")
+    b.poly_tilt("OpenPrinterBridge","octagonal_slew",Vector3(1.10,8.0,1.65),
+        Vector3(0.95,7.7,1.10),"slate",Vector3(0,0,PI*0.5))
+    _box(b,Vector3(1.10,7.57,1.67),Vector3(6.5,0.22,0.64),"edge")
+    _box(b,Vector3(1.10,7.68,2.19),Vector3(6.4,0.11,0.06),"lab_cyan")
+    # A short rear guard only. No surrounding building or ceiling.
+    _shape(b,"deck",Vector3(0,2.4,-4.95),Vector3(10.8,3.0,0.42),"armor")
+    for x in [-3.8,-0.7,2.4]:
+        _panel_detail(b,x,2.4,-4.69,2.3,1.9)
     _finish(b)
-    inspection[key] = {"root":frame,"stand":Vector3(-2.4,0,4.5),"focus":Vector3(0,2.1,0)}
-    var bridge_root := _model(key,"PrinterTravelBridge",Vector3(0,7.15,-1.8))
-    var bridge := _child(bridge_root,"Travel")
-    b = _batch(bridge)
-    _shape(b,"bevel",Vector3(0,0,0),Vector3(8.1,0.65,0.95),"armor_light")
-    _box(b,Vector3(0,-0.41,0),Vector3(7.2,0.14,0.55),"trim")
+    inspection[key] = {"root":frame,"stand":Vector3(-0.8,0,7.0),"focus":Vector3(1.1,2.0,2.0)}
+    var carriage_mount := _child(frame,"PrinterCarriagePlacement",Vector3(1.10,7.40,1.65))
+    (targets[key] as Array).append(carriage_mount)
+    var carriage := _child(carriage_mount,"Carriage")
+    b = _batch(carriage)
+    b.poly_tilt("DriveMotor","drum",Vector3(0,0.12,0),Vector3(1.50,1.10,1.50),"slate",Vector3(0,0,PI*0.5))
+    _shape(b,"bevel",Vector3(0,-0.55,0.16),Vector3(1.50,1.1,1.4),"armor")
+    _shape(b,"louver",Vector3(0,-0.55,0.91),Vector3(0.96,0.62,0.16),"trim")
     _finish(b)
-    var head_mount := _child(bridge,"PrintHeadPlacement")
+    var head_mount := _child(carriage,"PrintHeadPlacement",Vector3(0,-1.0,0.35))
     (targets[key] as Array).append(head_mount)
-    var head := _child(head_mount,"PrintHead")
+    var head := _child(head_mount,"HotEnd")
     b = _batch(head)
-    _shape(b,"bevel",Vector3(0,-0.72,0),Vector3(1.28,1.05,1.35),"slate")
-    _pipe(b,Vector3(0,-1.2,0),Vector3(0,-3.5,0),0.40,"edge")
-    _shape(b,"hood",Vector3(0,-3.65,0),Vector3(0.90,0.38,0.90),"armor")
-    _box(b,Vector3(0,-3.86,0),Vector3(0.38,0.08,0.38),"lab_cyan")
+    _pipe(b,Vector3(0,0,0),Vector3(0,-2.65,0),0.45,"edge")
+    _shape(b,"octagonal_slew",Vector3(0,-2.68,0),Vector3(1.00,0.88,1.00),"gold")
+    _shape(b,"drum",Vector3(0,-3.22,0),Vector3(0.44,0.24,0.44),"amber_light")
     _finish(b)
-    _moving(key,"bridge",bridge)
+    _moving(key,"bridge",carriage)
     _moving(key,"head",head)
-    var stock := _model(key,"RawMaterialFeedTower",Vector3(-7.1,0,-3.2))
-    b = _batch(stock)
-    _shape(b,"bevel",Vector3(0,3.0,0),Vector3(3.5,6.0,3.5),"slate")
-    for x in [-1.2,1.2]:
-        _pipe(b,Vector3(x,0.3,1.8),Vector3(x,5.4,1.8),0.38)
-    _shape(b,"hopper",Vector3(0,6.0,0),Vector3(3.7,2.0,3.6),"armor")
-    _pipe(b,Vector3(1.0,5.0,0),Vector3(3.2,5.0,0),0.65,"gold")
+    var rack := _model(key,"FeedstockRacks",Vector3(-6.4,0,-3.0))
+    b = _batch(rack)
+    for x in [-1.7,1.7]:
+        for z in [-0.9,0.9]:
+            _shape(b,"octagonal_slew",Vector3(x,3.5,z),Vector3(0.36,7.0,0.36),"slate")
+        _pipe(b,Vector3(x,0.5,-0.9),Vector3(x,6.4,0.9),0.18,"edge")
+    for y in [1.0,3.7,6.3]:
+        _shape(b,"tray",Vector3(0,y,0),Vector3(3.9,0.36,2.35),"armor_light")
+    _shape(b,"cargo_case",Vector3(0,1.75,0),Vector3(3.1,1.2,1.8),"crate")
+    b.poly_tilt("FeedSpool","vent_stack",Vector3(-0.94,4.6,0),Vector3(1.75,0.78,1.75),"edge",Vector3(PI*0.5,0,0))
+    _shape(b,"drum",Vector3(0.98,4.7,0),Vector3(1.10,1.65,1.10),"blue")
+    _shape(b,"gear",Vector3(0.98,5.62,0),Vector3(1.24,0.24,1.24),"gold")
+    _shape(b,"roof",Vector3(0,7.25,-0.20),Vector3(4.5,0.22,2.8),"armor")
     _finish(b)
-    _conveyor(key,"FinishedPartConveyor",Vector3(6.6,0,1.5),2.6,6.0)
-    var feed_rack := _model(key,"FeedstockCassetteBank",Vector3(-9.7,0,-7.1))
-    b = _batch(feed_rack)
-    for x in [-2.1,0.0,2.1]:
-        for z in [-1.05,1.05]:
-            _shape(b,"octagonal_slew",Vector3(x,3.2,z),Vector3(0.25,6.4,0.3),"edge")
-    for y in [0.5,2.6,4.7]:
-        _shape(b,"deck",Vector3(0,y,0),Vector3(4.7,0.25,2.4),"slate")
-        for x in [-1.1,1.1]:
-            _shape(b,"cargo_case",Vector3(x,y+0.75,0),Vector3(1.65,1.25,1.75),"armor_light")
-            _box(b,Vector3(x,y+0.75,0.91),Vector3(0.68,0.20,0.07),"gold")
+    var supply := _model(key,"ReceivingHopperAndFeed",Vector3(-8.1,0,2.8))
+    b = _batch(supply)
+    _shape(b,"hopper",Vector3(0,2.65,0),Vector3(2.8,2.0,2.7),"armor_light")
+    for x in [-0.9,0.9]:
+        _shape(b,"gusset",Vector3(x,0.9,0),Vector3(0.50,1.8,1.4),"slate")
+    _pipe(b,Vector3(0,1.78,0),Vector3(0.7,1.78,-5.8),0.57,"trim")
+    _pipe(b,Vector3(0.7,1.78,-5.8),Vector3(1.7,2.1,-5.8),0.57,"edge")
     _finish(b)
-    # Rain cover only above the raw material rack, not an enclosing roof.
-    var shelter := _child(feed_rack,"FeedstockWeatherHood")
-    (targets[key] as Array).append(shelter)
-    b = _batch(shelter)
-    for x in [-2.1,2.1]:
-        _shape(b,"octagonal_slew",Vector3(x,6.8,-1.05),Vector3(0.22,1.2,0.24),"edge")
-        _pipe(b,Vector3(x,6.35,-1.05),Vector3(x,7.4,1.15),0.16,"trim")
-    b.poly_tilt("RainShield","roof",Vector3(0,7.4,0),Vector3(5.0,0.22,2.9),"armor",Vector3(-0.10,0,0))
-    _finish(b)
-    var extraction := _model(key,"PrinterExtractionManifold",Vector3(3.9,0,-6.2))
+    var extraction := _model(key,"RearExtractionAndCoolant",Vector3(5.4,0,-4.5))
     b = _batch(extraction)
-    _shape(b,"vent_stack",Vector3(0,4.1,0),Vector3(1.65,8.2,1.65),"armor")
-    _shape(b,"gear",Vector3(0,7.85,0),Vector3(2.0,0.42,2.0),"edge")
-    _pipe(b,Vector3(0,7.6,0),Vector3(-3.8,7.6,0),0.8,"trim")
-    _pipe(b,Vector3(-3.8,7.6,0),Vector3(-3.8,6.9,0),0.8,"trim")
+    _shape(b,"vent_stack",Vector3(0,5.1,0),Vector3(2.0,10.2,2.0),"slate")
+    _shape(b,"drum",Vector3(0,8.0,0),Vector3(2.6,0.64,2.6),"edge")
+    _shape(b,"louver",Vector3(0,3.5,1.1),Vector3(1.45,1.7,0.25),"trim")
+    _shape(b,"hood",Vector3(-2.1,8.5,0.8),Vector3(3.7,0.9,2.6),"armor_light")
+    _pipe(b,Vector3(0,8.5,0),Vector3(-2.1,8.5,0.8),0.82,"trim")
+    _shape(b,"drum",Vector3(-2.2,2.0,-0.5),Vector3(1.65,3.6,1.65),"blue")
+    for y in [0.65,3.55]:
+        _shape(b,"gear",Vector3(-2.2,y,-0.5),Vector3(1.9,0.28,1.9),"edge")
+    _pipe(b,Vector3(-2.2,0.9,0.1),Vector3(-2.2,0.9,4.6),0.34,"gold")
     _finish(b)
-    var product_root := _child(frame,"FabricatedWorkpieces",Vector3(0,1.26,0))
+    # Left output stock pocket is connected by an articulated two-link arm.
+    var tray := _child(frame,"FinishedStockReceiver",Vector3(-5.4,0,0.3))
+    (targets[key] as Array).append(tray)
+    b = _batch(tray)
+    _shape(b,"tray",Vector3(0,1.12,0),Vector3(3.1,1.1,3.1),"crate")
+    _shape(b,"deck",Vector3(0,1.50,0),Vector3(2.6,0.18,2.6),"edge")
+    _box(b,Vector3(0,1.15,1.58),Vector3(1.7,0.2,0.08),"lab_cyan")
+    _finish(b)
+    var arm_mount := _child(frame,"SCARAPlacement",Vector3(-2.25,0,-0.6))
+    (targets[key] as Array).append(arm_mount)
+    b = _batch(arm_mount)
+    _shape(b,"octagonal_slew",Vector3(0,0.95,0),Vector3(1.65,0.55,1.65),"dark")
+    _shape(b,"octagonal_slew",Vector3(0,4.35,0),Vector3(0.88,6.8,0.88),"slate")
+    _shape(b,"drum",Vector3(0,7.85,0),Vector3(1.45,0.55,1.45),"edge")
+    _finish(b)
+    var shoulder := _child(arm_mount,"Shoulder",Vector3(0,7.85,0))
+    b = _batch(shoulder)
+    _shape(b,"bevel",Vector3(0,0,1.95),Vector3(0.94,0.66,4.05),"gold")
+    _pipe(b,Vector3(0.34,0.35,0.30),Vector3(0.34,0.35,3.6),0.13,"rubber")
+    _finish(b)
+    var elbow := _child(shoulder,"Elbow",Vector3(0,0,3.9))
+    b = _batch(elbow)
+    _shape(b,"drum",Vector3(0,0,0),Vector3(1.05,0.72,1.05),"edge")
+    _shape(b,"bevel",Vector3(0,0,1.95),Vector3(0.72,0.50,4.05),"armor_light")
+    _finish(b)
+    var wrist := _child(elbow,"Wrist",Vector3(0,0,3.9))
+    b = _batch(wrist)
+    _shape(b,"drum",Vector3(0,0,0),Vector3(0.85,0.48,0.85),"slate")
+    _pipe(b,Vector3(0,0,0),Vector3(0,-2.5,0),0.28,"edge")
+    _finish(b)
+    var gripper := _child(wrist,"TelescopingGrip",Vector3(0,-2.5,0))
+    b = _batch(gripper)
+    _pipe(b,Vector3(0,0,0),Vector3(0,-1.75,0),0.17,"edge")
+    _shape(b,"deck",Vector3(0,-1.75,0),Vector3(2.1,0.27,0.72),"gold")
+    for x in [-0.96,0.96]:
+        _shape(b,"deck",Vector3(x,-2.1,0),Vector3(0.22,0.74,0.72),"edge")
+    _finish(b)
+    _moving(key,"shoulder",shoulder)
+    _moving(key,"elbow",elbow)
+    _moving(key,"gripper",gripper)
+    _moving(key,"arm_mount",arm_mount)
+    _moving(key,"tray",tray)
+    var product_root := _child(frame,"FabricatedWorkpieces",Vector3(1.1,1.8,2.0))
     (targets[key] as Array).append(product_root)
     for i in range(4):
         var piece := _child(product_root,"Product"+str(i))
         b = _batch(piece)
         match i:
-            0:
-                _shape(b,"bevel",Vector3(0,0.85,0),Vector3(2.6,1.7,1.9),"armor_light")
-                _box(b,Vector3(0,0.95,0.99),Vector3(1.3,0.4,0.12),"blue_light")
-            1:
-                _shape(b,"octagonal_slew",Vector3(0,0.85,0),Vector3(1.75,1.7,1.75),"armor")
-                _pipe(b,Vector3(0,1.5,0),Vector3(0,2.25,0),0.75)
-            2:
-                for x in [-0.65,0.65]:
-                    _shape(b,"bevel",Vector3(x,0.6,0),Vector3(0.9,1.2,2.2),"armor")
-                _box(b,Vector3(0,0.4,0),Vector3(1.4,0.45,1.5),"slate")
-            3:
-                _shape(b,"gusset",Vector3(0,1.0,0),Vector3(2.0,2.0,1.65),"armor_light")
-                _box(b,Vector3(0,0.25,0),Vector3(2.4,0.5,2.0),"slate")
+            0: _shape(b,"vent_stack",Vector3(0,0.65,0),Vector3(1.65,1.3,1.55),"blue")
+            1: _shape(b,"gear",Vector3(0,0.45,0),Vector3(1.75,0.9,1.75),"edge")
+            2: _shape(b,"bevel",Vector3(0,0.55,0),Vector3(1.9,1.1,1.6),"armor_light")
+            3: _shape(b,"octagonal_slew",Vector3(0,0.7,0),Vector3(1.55,1.4,1.55),"gold")
         _finish(b)
         piece.visible = false
     _moving(key,"products",product_root)
     motion_parts[key]["variant"] = -1
-    _console(key,Vector3(3.1,0,4.5),0)
+    var utility := _model(key,"LabPowerAndTaskLighting",Vector3(7.3,0,2.5))
+    b = _batch(utility)
+    _shape(b,"bevel",Vector3(0,1.0,0),Vector3(1.45,2.0,1.2),"slate")
+    _panel_detail(b,0,1.12,0.65,1.1,1.5)
+    _pipe(b,Vector3(0,1.9,0),Vector3(0,6.0,0),0.22,"trim")
+    _pipe(b,Vector3(0,6.0,0),Vector3(-1.9,6.0,-0.4),0.22,"edge")
+    _shape(b,"hood",Vector3(-1.9,6.0,-0.4),Vector3(1.1,0.35,0.7),"armor")
+    _box(b,Vector3(-1.9,5.79,-0.4),Vector3(0.8,0.07,0.52),"amber_light")
+    _floor_cable(b,[Vector3(0,0.1,0.6),Vector3(0,0.1,2.1),Vector3(-1.7,0.1,2.8),Vector3(-3.3,0.1,2.8)])
+    _finish(b)
+    _console(key,Vector3(3.2,0,6.6),0)
 
 func _smelter(key: String) -> void:
     var furnace := _model(key,"RefractorySmeltingFurnace",Vector3(0,0,-2.0))
