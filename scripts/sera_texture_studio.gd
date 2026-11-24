@@ -1,6 +1,9 @@
 extends Control
 signal closed
 const UV = preload("res://scripts/sera_texture_uv.gd")
+const PartSource = preload("res://scripts/sera_texture_part_source.gd")
+const PartCatalog = preload("res://scripts/sera_prototype_catalog.gd")
+const PartIcons = preload("res://scripts/sera_item_icons.gd")
 const SAVE_DIR := "user://texture_studio"
 var candidates: Array[MeshInstance3D] = []
 var external_root: Node3D
@@ -51,6 +54,16 @@ var layer_index := 0
 var brush_size := 1
 var atlas_density := 32
 const MAX_LAYERS := 4
+var part_rig: Node3D
+var part_source: MeshInstance3D
+var part_panel: PanelContainer
+var part_scroll: ScrollContainer
+var part_cards: Dictionary = {}
+var part_loading := false
+var catalog_touch := -1
+var catalog_start := Vector2.ZERO
+var catalog_scroll_start := 0
+var catalog_dragged := false
 
 func configure(roots: Array) -> void:
     for root in roots:
@@ -58,8 +71,8 @@ func configure(roots: Array) -> void:
             _collect(root)
     _build_ui()
     _refresh_picker()
-    if not candidates.is_empty():
-        _select_model(0)
+    picker.select(-1)
+    _open_part_catalog()
 
 func _collect(node: Node) -> void:
     if node is MeshInstance3D and node.mesh != null and node.skin == null and not candidates.has(node):
@@ -112,7 +125,8 @@ func _build_ui() -> void:
     picker.clip_text = true
     picker.item_selected.connect(_select_model)
     row.add_child(picker)
-    _button(row,"モデル読込",_open_file)
+    _button(row,"パーツ選択",_open_part_catalog)
+    _button(row,"読込",_open_file)
     row = _row(box)
     density_picker = OptionButton.new()
     for d in [8,16,32,64]:
@@ -206,6 +220,162 @@ func _build_ui() -> void:
     box.add_child(status)
     _button(box,"‹ LABOへ戻る",request_close)
     _camera_pose()
+
+func _open_part_catalog() -> void:
+    if part_loading:
+        return
+    if not is_instance_valid(part_panel):
+        _build_part_catalog()
+    _end_stroke()
+    points.clear()
+    catalog_touch = -1
+    part_panel.show()
+    view.render_target_update_mode = SubViewport.UPDATE_DISABLED
+
+func _build_part_catalog() -> void:
+    part_panel = PanelContainer.new()
+    part_panel.name = "EquipmentThumbnailCatalog"
+    part_panel.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    part_panel.mouse_filter = Control.MOUSE_FILTER_STOP
+    var background := StyleBoxFlat.new()
+    background.bg_color = Color("#101d28")
+    part_panel.add_theme_stylebox_override("panel",background)
+    add_child(part_panel)
+    var margin := MarginContainer.new()
+    for side in ["left","right","top","bottom"]:
+        margin.add_theme_constant_override("margin_"+side,14)
+    part_panel.add_child(margin)
+    var box := VBoxContainer.new()
+    box.add_theme_constant_override("separation",8)
+    margin.add_child(box)
+    var title := Label.new()
+    title.text = "PARTS / パーツ選択"
+    title.add_theme_font_size_override("font_size",25)
+    box.add_child(title)
+    var hint := Label.new()
+    hint.text = "既存装備をタップして3D編集"
+    box.add_child(hint)
+    part_scroll = ScrollContainer.new()
+    part_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    part_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+    part_scroll.mouse_filter = Control.MOUSE_FILTER_STOP
+    box.add_child(part_scroll)
+    var list := VBoxContainer.new()
+    list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    list.add_theme_constant_override("separation",8)
+    part_scroll.add_child(list)
+    var groups := {"head":"頭部","torso":"胴体","arms":"腕部","legs":"脚部","booster":"ブースター","weapon_r":"右手武器","weapon_l":"左手武器"}
+    for slot in groups:
+        var heading := Label.new()
+        heading.text = str(groups[slot])
+        heading.add_theme_font_size_override("font_size",19)
+        list.add_child(heading)
+        var grid := GridContainer.new()
+        grid.columns = 2
+        grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        grid.add_theme_constant_override("h_separation",8)
+        grid.add_theme_constant_override("v_separation",6)
+        list.add_child(grid)
+        for raw_id in PartCatalog.ORDER:
+            var id := str(raw_id)
+            var spec: Dictionary = PartCatalog.spec(id)
+            if str(spec.get("slot","")) != slot:
+                continue
+            var card := Button.new()
+            card.name = "Part_"+id
+            card.custom_minimum_size = Vector2(0,120)
+            card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+            card.pressed.connect(_choose_part.bind(id))
+            grid.add_child(card)
+            part_cards[id] = card
+            var inside := HBoxContainer.new()
+            inside.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+            inside.offset_left = 6
+            inside.offset_right = -6
+            inside.offset_top = 6
+            inside.offset_bottom = -6
+            inside.mouse_filter = Control.MOUSE_FILTER_IGNORE
+            card.add_child(inside)
+            var image := TextureRect.new()
+            image.texture = PartIcons.equipment_icon(id,"craft")
+            image.custom_minimum_size = Vector2(96,96)
+            image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+            image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+            image.mouse_filter = Control.MOUSE_FILTER_IGNORE
+            inside.add_child(image)
+            var label := Label.new()
+            label.text = id+"\n"+str(spec.get("name",""))
+            label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+            label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+            label.add_theme_font_size_override("font_size",18)
+            label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+            inside.add_child(label)
+    _button(box,"‹ 編集画面へ",_close_part_catalog)
+
+func _close_part_catalog() -> void:
+    if is_instance_valid(part_panel):
+        part_panel.hide()
+    catalog_touch = -1
+    view.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
+
+func _input(event: InputEvent) -> void:
+    if not is_instance_valid(part_panel) or not part_panel.is_visible_in_tree():
+        return
+    # The game disables mouse emulation from touch. Route explicit Android
+    # taps and scroll gestures here; native Button.pressed still serves PC.
+    if event is InputEventScreenTouch:
+        if event.pressed and catalog_touch == -1 and part_scroll.get_global_rect().has_point(event.position):
+            catalog_touch = event.index
+            catalog_start = event.position
+            catalog_scroll_start = part_scroll.scroll_vertical
+            catalog_dragged = false
+            get_viewport().set_input_as_handled()
+        elif not event.pressed and event.index == catalog_touch:
+            catalog_touch = -1
+            get_viewport().set_input_as_handled()
+            if not catalog_dragged and part_scroll.get_global_rect().has_point(event.position):
+                for id in part_cards:
+                    var card: Button = part_cards[id]
+                    if card.get_global_rect().has_point(event.position):
+                        _choose_part(str(id))
+                        break
+    elif event is InputEventScreenDrag and event.index == catalog_touch:
+        var delta := event.position-catalog_start
+        if delta.length() > 10.0:
+            catalog_dragged = true
+        if catalog_dragged:
+            part_scroll.scroll_vertical = maxi(0,catalog_scroll_start-roundi(delta.y))
+        get_viewport().set_input_as_handled()
+
+func _choose_part(id: String) -> void:
+    if part_loading:
+        return
+    part_loading = true
+    _close_part_catalog()
+    _show_status(PartCatalog.display_name(id)+" 読み込み中")
+    await get_tree().process_frame
+    if not is_inside_tree() or is_queued_for_deletion():
+        return
+    if not is_instance_valid(part_rig):
+        part_rig = PartSource.create_rig(pivot)
+    var result: Dictionary = PartSource.snapshot(part_rig,id)
+    part_loading = false
+    if result.has("error"):
+        _show_status(str(result.error))
+        return
+    if is_instance_valid(part_source):
+        candidates.erase(part_source)
+        if source == part_source:
+            source = null
+        part_source.queue_free()
+    part_source = result.source as MeshInstance3D
+    pivot.add_child(part_source)
+    candidates.append(part_source)
+    _refresh_picker()
+    picker.select(candidates.size()-1)
+    _select_model(candidates.size()-1)
+    if img != null:
+        _show_status(PartCatalog.display_name(id)+" / %dメッシュ / %d×%d px" % [result.pieces,img.get_width(),img.get_height()])
 
 func _refresh_picker() -> void:
     picker.clear()
@@ -507,6 +677,7 @@ func _fill_chart(chart: int) -> void:
         var filled: Dictionary = t.duplicate()
         filled.base = color_picker.color
         filled.tex = null
+        filled.colors = PackedColorArray([Color.WHITE,Color.WHITE,Color.WHITE])
         UV._bake_triangle(layers[layer_index],filled)
 
 func _composite() -> void:
@@ -748,6 +919,9 @@ func _load_project(path: String) -> void:
     _show_status("編集プロジェクト復元済み: "+prefix.get_file())
 
 func request_close() -> void:
+    if is_instance_valid(part_panel) and part_panel.visible:
+        _close_part_catalog()
+        return
     if is_instance_valid(file_dialog) and file_dialog.visible:
         file_dialog.hide()
         return
