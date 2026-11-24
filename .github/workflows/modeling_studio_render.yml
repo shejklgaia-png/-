@@ -55,6 +55,7 @@ jobs:
           set -euo pipefail
           python3 -m venv "$RUNNER_TEMP/review-venv"
           "$RUNNER_TEMP/review-venv/bin/pip" install Pillow==11.3.0
+          export GITHUB_SHA="$(git rev-parse HEAD)"
           "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/review_bundle.py "$RUNNER_TEMP/sera-model"
           cat "$RUNNER_TEMP/sera-model/review.json" >> "$GITHUB_STEP_SUMMARY"
       - name: Upload model and review bundle
