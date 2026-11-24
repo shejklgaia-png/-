@@ -13,6 +13,10 @@ static func build(room: Node3D, gate_at: Vector3,
     room.add_child(root)
 
     var steel := _material(Color("#344b5e"))
+    var ramp_steel := _material(Color("#425766"))
+    ramp_steel.albedo_texture = _ramp_finish()
+    ramp_steel.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+    ramp_steel.texture_repeat = true
     var iron := _material(Color("#202f3e"))
     var trim := _material(Color("#758b9b"))
     var cyan := _material(Color("#6bd5ff"), true)
@@ -27,7 +31,7 @@ static func build(room: Node3D, gate_at: Vector3,
         PackedVector2Array([
             Vector2(1.28, 0.04), Vector2(7.02, -0.73),
             Vector2(7.02, -0.91), Vector2(1.28, -0.14)]),
-        1.72, 0.0, 0.0, steel)
+        1.72, 0.0, 0.0, ramp_steel)
     for side_value in [-1, 1]:
         var side: float = float(side_value)
         _prism(root, "ApproachLightRail%d" % side_value,
@@ -342,20 +346,20 @@ static func _prism(root: Node3D, label: String,
     tool.begin(Mesh.PRIMITIVE_TRIANGLES)
     var count: int = profile.size()
     for i in range(1, count - 1):
-        _tri(tool, _v(profile[0], -half_width),
+        _prism_tri(tool, _v(profile[0], -half_width),
             _v(profile[i], -half_width),
-            _v(profile[i + 1], -half_width))
-        _tri(tool, _v(profile[0], half_width),
+            _v(profile[i + 1], -half_width), label)
+        _prism_tri(tool, _v(profile[0], half_width),
             _v(profile[i + 1], half_width),
-            _v(profile[i], half_width))
+            _v(profile[i], half_width), label)
     for i in range(count):
         var next_i: int = (i + 1) % count
         var a := _v(profile[i], -half_width)
         var b := _v(profile[next_i], -half_width)
         var c := _v(profile[next_i], half_width)
         var d := _v(profile[i], half_width)
-        _tri(tool, a, b, c)
-        _tri(tool, a, c, d)
+        _prism_tri(tool, a, b, c, label)
+        _prism_tri(tool, a, c, d, label)
     tool.generate_normals()
     var node := MeshInstance3D.new()
     node.name = label
@@ -364,6 +368,8 @@ static func _prism(root: Node3D, label: String,
         node.mesh.set_meta("nexus_selection_convex", true)
     node.position = Vector3(offset_x, 0.0, offset_z)
     node.material_override = mat
+    if label == "DeploymentInclinedApproach":
+        node.set_meta("sera_preserve_authored_material", true)
     node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     node.set_meta("sera_outline_occluder_only", true)
     node.set_meta("FX_NO_OUTLINE", true)
@@ -396,3 +402,39 @@ static func _tri(tool: SurfaceTool, a: Vector3,
     tool.add_vertex(a)
     tool.add_vertex(b)
     tool.add_vertex(c)
+
+
+# Keep other dock components byte-for-byte in the same geometry and UV
+# path. Only the background ramp gets a metric X/Z surface texture.
+static func _prism_tri(tool: SurfaceTool, a: Vector3,b: Vector3,c: Vector3,
+        label: String) -> void:
+    if label != "DeploymentInclinedApproach":
+        _tri(tool,a,b,c)
+        return
+    for point in [a,b,c]:
+        var p: Vector3 = point
+        tool.set_uv(Vector2(p.x/3.44+0.5,p.z/1.31))
+        tool.add_vertex(p)
+
+
+static func _ramp_finish() -> ImageTexture:
+    var image := Image.create(128,64,false,Image.FORMAT_RGBA8)
+    for y in range(64):
+        for x in range(128):
+            var v: float = float(220+((x*7+y*11+x*y)%9)-4)/255.0
+            var tone := Color(v,v,v,1.0)
+            if x < 11 or x > 116:
+                tone = Color("#999a96")
+            elif x in [12,13,114,115]:
+                tone = Color("#b3a17b")
+            elif (x in [18,19,108,109]) and y%16 < 10:
+                tone = Color("#939da2")
+            image.set_pixel(x,y,tone)
+    # Fine traction strokes on steel, offset from the real crossbars.
+    for x in range(24,105,8):
+        for y in [16,34,52]:
+            for k in range(4):
+                image.set_pixel(x+k,y+k,Color("#a1a9ac"))
+                image.set_pixel(x+k,y+k+1,Color("#eceee8"))
+    image.generate_mipmaps()
+    return ImageTexture.create_from_image(image)
