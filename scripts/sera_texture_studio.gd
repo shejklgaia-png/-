@@ -104,6 +104,12 @@ var grid_mode: int = 0
 var selected_diagnostic_faces: Dictionary = {}
 var diagnostic_mask: Image
 var diagnostic_mask_texture: ImageTexture
+var residual_mask_texture: ImageTexture
+var diagnostic_residuals: Dictionary = {}
+var residual_ready: bool = false
+var auto_select_row: HBoxContainer
+var auto_select_threshold: StudioChoice
+var auto_select_button: Button
 const DIAGNOSTIC_MASK_SIDE: int = 128
 var diagnostic_copy_button: Button
 var diagnostic_clear_button: Button
@@ -325,6 +331,16 @@ func _build_ui() -> void:
     diagnostic_copy_button = _button(row,"診断コピー",_copy_diagnostics)
     diagnostic_clear_button = _button(row,"全解除",_clear_diagnostics)
     diagnostic_clear_button.hide()
+    auto_select_row = _row(box)
+    auto_select_threshold = _new_choice("残差しきい値")
+    auto_select_threshold.add_item(">0.25px")
+    auto_select_threshold.add_item(">1px")
+    auto_select_threshold.add_item(">2px")
+    auto_select_threshold.select(0)
+    auto_select_threshold.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    auto_select_row.add_child(auto_select_threshold)
+    auto_select_button = _button(auto_select_row,"問題面を自動選択",_select_problem_faces)
+    auto_select_row.hide()
     atlas_preview = TextureRect.new()
     atlas_preview.custom_minimum_size.y = 160
     atlas_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -938,11 +954,16 @@ func _install_preview(mesh: ArrayMesh) -> void:
     seam_texels = UV.seam_pixels(triangles,img.get_size())
     tex = ImageTexture.create_from_image(img)
     selected_diagnostic_faces.clear()
+    residual_ready = false
+    residual_mask_texture = null
+    diagnostic_residuals.clear()
     diagnostic_mask = Image.create(DIAGNOSTIC_MASK_SIDE,DIAGNOSTIC_MASK_SIDE,false,Image.FORMAT_R8)
     diagnostic_mask.fill(Color.BLACK)
     diagnostic_mask_texture = ImageTexture.create_from_image(diagnostic_mask)
     preview.mesh = UV.with_diagnostic_ids(mesh,triangles)
     preview.material_override = _atlas_material(tex)
+    if grid_mode == 2:
+        _prepare_residual_heatmap()
     _apply_grid()
     _refresh_diagnostic_buttons()
     diagnostic_text = ""
@@ -1327,6 +1348,8 @@ func _apply_grid() -> void:
         material.set_shader_parameter("grid_mode",grid_mode)
         if diagnostic_mask_texture != null:
             material.set_shader_parameter("diagnostic_selection",diagnostic_mask_texture)
+        if residual_mask_texture != null:
+            material.set_shader_parameter("diagnostic_residual",residual_mask_texture)
         material.set_shader_parameter("atlas_dimensions",Vector2(img.get_size()))
 
 func _cycle_grid() -> void:
@@ -1334,10 +1357,12 @@ func _cycle_grid() -> void:
     points.clear()
     grid_mode = (grid_mode+1)%3
     grid_button.text = ["格子 OFF","格子 ON","面診断"][grid_mode]
+    if grid_mode == 2:
+        _prepare_residual_heatmap()
     _apply_grid()
     _refresh_diagnostic_buttons()
     if grid_mode == 2:
-        _show_status("選択 %d面 / タップで追加・解除" % selected_diagnostic_faces.size())
+        _show_status("緑≤0.25 黄≤1 橙≤2 赤>2px / 選択 %d面" % selected_diagnostic_faces.size())
     elif grid_mode == 1:
         _show_status("実UVの1px格子を表示（拡大すると見えます）")
     else:
@@ -1349,6 +1374,55 @@ func _refresh_diagnostic_buttons() -> void:
     if is_instance_valid(diagnostic_clear_button):
         diagnostic_clear_button.visible = grid_mode == 2
         diagnostic_clear_button.disabled = selected_diagnostic_faces.is_empty()
+    if is_instance_valid(auto_select_row):
+        auto_select_row.visible = grid_mode == 2
+        auto_select_button.disabled = img == null
+
+func _prepare_residual_heatmap() -> void:
+    if residual_ready or img == null or triangles.is_empty():
+        return
+    diagnostic_residuals = UV.diagnostic_face_residuals(triangles,img.get_size())
+    var mask := Image.create(DIAGNOSTIC_MASK_SIDE,DIAGNOSTIC_MASK_SIDE,false,Image.FORMAT_R8)
+    mask.fill(Color.BLACK)
+    for raw in diagnostic_residuals:
+        var face: int = int(raw)
+        if face < 0 or face >= DIAGNOSTIC_MASK_SIDE*DIAGNOSTIC_MASK_SIDE:
+            continue
+        var residual: float = float(diagnostic_residuals[face])
+        var code: float = 0.25
+        if residual > 2.0:
+            code = 1.0
+        elif residual > 1.0:
+            code = 0.75
+        elif residual > 0.25:
+            code = 0.5
+        mask.set_pixel(face % DIAGNOSTIC_MASK_SIDE,floori(float(face)/DIAGNOSTIC_MASK_SIDE),Color(code,0,0))
+    residual_mask_texture = ImageTexture.create_from_image(mask)
+    residual_ready = true
+
+func _select_problem_faces() -> void:
+    if img == null or grid_mode != 2:
+        return
+    _prepare_residual_heatmap()
+    if diagnostic_mask == null or diagnostic_mask_texture == null:
+        return
+    var thresholds: Array[float] = [0.25,1.0,2.0]
+    var threshold: float = thresholds[clampi(auto_select_threshold.selected,0,2)]
+    selected_diagnostic_faces.clear()
+    diagnostic_mask.fill(Color.BLACK)
+    for raw in diagnostic_residuals:
+        var face: int = int(raw)
+        if face < 0 or face >= DIAGNOSTIC_MASK_SIDE*DIAGNOSTIC_MASK_SIDE:
+            continue
+        if float(diagnostic_residuals[face]) <= threshold:
+            continue
+        selected_diagnostic_faces[face] = true
+        diagnostic_mask.set_pixel(face % DIAGNOSTIC_MASK_SIDE,floori(float(face)/DIAGNOSTIC_MASK_SIDE),Color.WHITE)
+    diagnostic_mask_texture.update(diagnostic_mask)
+    diagnostic_text = ""
+    _apply_grid()
+    _refresh_diagnostic_buttons()
+    _show_status("残差>%.2fpx / %d面を自動選択" % [threshold,selected_diagnostic_faces.size()])
 
 func _inspect_uv(triangle_index: int) -> void:
     if img == null or triangles.is_empty() or triangle_index < 0 or triangle_index >= triangles.size():
@@ -1366,7 +1440,8 @@ func _inspect_uv(triangle_index: int) -> void:
         diagnostic_mask_texture.update(diagnostic_mask)
     diagnostic_text = ""
     _refresh_diagnostic_buttons()
-    _show_status("選択 %d面 / タップで追加・解除" % selected_diagnostic_faces.size())
+    var residual_label: String = "%.2fpx" % float(diagnostic_residuals[face]) if diagnostic_residuals.has(face) else "未測定"
+    _show_status("面ID%d 残差 %s / 選択 %d面" % [face,residual_label,selected_diagnostic_faces.size()])
 
 func _clear_diagnostics() -> void:
     selected_diagnostic_faces.clear()
