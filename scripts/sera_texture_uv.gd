@@ -1170,6 +1170,17 @@ static func _relax_uv_boundary_vertices(tris: Array[Dictionary],charts: Array[Di
                 var incident: Array = nodes[ni].links
                 if not incident.has(li):
                     incident.append(li)
+    # A subdivided edge within an island may have a T-junction.
+    # Keep its endpoints fixed rather than tear the interior seam.
+    var locked: Dictionary = {}
+    for link in _seam_segments(tris,true):
+        if int(link.a) != int(link.b):
+            continue
+        if absf(float(link.a1)-float(link.a0)) >= 0.9999 and absf(float(link.b1)-float(link.b0)) >= 0.9999:
+            continue
+        for pair in [Vector2i(int(link.ta),int(link.ea)),Vector2i(int(link.tb),int(link.eb))]:
+            locked[corner_nodes[pair.x][pair.y]] = true
+            locked[corner_nodes[pair.x][(pair.y+1)%3]] = true
     var baseline: Vector3 = _hinge_layout_metrics(tris)
     var accepted: int = 0
     var tested: int = 0
@@ -1183,7 +1194,7 @@ static func _relax_uv_boundary_vertices(tris: Array[Dictionary],charts: Array[Di
             for li in nodes[ni].links:
                 worst = maxf(worst,_local_uv_link_error(tris,links[int(li)]))
             priority.append(worst)
-            if worst > 0.25:
+            if worst > 0.25 and not locked.has(ni):
                 ranking.append(ni)
         ranking.sort_custom(func(a: int,b: int) -> bool:
             return priority[a] > priority[b] if absf(priority[a]-priority[b]) > 0.000001 else a < b)
