@@ -201,7 +201,7 @@ func _ready() -> void:
     _build_power_board()
     await _startup_budget.checkpoint("power board")
     await _create_salvage([], _startup_budget)
-    _build_power_distribution()
+    await _build_power_distribution_startup()
     _startup_step("GRID / POWER ROUTING ONLINE", 61)
     await _startup_budget.checkpoint("power distribution")
     _create_grid_selection()
@@ -224,6 +224,7 @@ func _ready() -> void:
     _nexus_shutter_clip = NexusEntryTransition.load_shutter_clip()
     await _startup_budget.checkpoint("shutter audio")
     _create_hud()
+    await _startup_budget.checkpoint("HUD")
     _startup_step("OS / INTERFACE ONLINE", 99)
     SeraSave.mark_location("BASE")
     _restore_boot_rendering()
@@ -532,6 +533,15 @@ func _build_power_distribution() -> void:
         logistics.call("set_ramp_surface", power_distribution.get_node_or_null("CableCrossingRamps"))
 
 
+func _build_power_distribution_startup() -> void:
+    if is_instance_valid(power_distribution):
+        power_distribution.free()
+    power_distribution = await BasePowerDistribution.build_budgeted(
+        self, NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, cam, logistics, _startup_budget)
+    if is_instance_valid(logistics):
+        logistics.call("set_ramp_surface", power_distribution.get_node_or_null("CableCrossingRamps"))
+
+
 func _build_logistics(cached_script: Variant = null) -> void:
     if is_instance_valid(logistics):
         logistics.free()
@@ -653,9 +663,15 @@ func _create_salvage(replacement: Array[Dictionary] = [], budget: Variant = null
             elif nearest < 7.0:
                 scale_factor = 1.20
         if is_instance_valid(logistics):
-            var safe: Vector2 = BaseLayoutPreview.reserve_salvage(
-                Vector2(center.x, center.z), 1.15 * scale_factor,
-                NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, logistics, occupied)
+            var safe: Vector2
+            if budget != null:
+                safe = await BaseLayoutPreview.reserve_salvage_budgeted(
+                    Vector2(center.x, center.z), 1.15 * scale_factor,
+                    NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, logistics, occupied, budget)
+            else:
+                safe = BaseLayoutPreview.reserve_salvage(
+                    Vector2(center.x, center.z), 1.15 * scale_factor,
+                    NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, logistics, occupied)
             if not safe.is_finite():
                 pile.free()
                 continue
