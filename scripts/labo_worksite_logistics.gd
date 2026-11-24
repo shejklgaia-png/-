@@ -133,10 +133,10 @@ func _material(parent: Node3D,label: String) -> Node3D:
 func _support_floor(p: Vector3) -> float:
     # Raised LABO/STORAGE platform top is y=0; surrounding deck is y=-0.32.
     if key=="LABO":
-        return 0.0 if Rect2(-15.2,-10.9,29.0,24.0).has_point(Vector2(p.x,p.z)) else -0.32
+        return 0.0 if Rect2(-15.2,-10.9,29.0,24.0).has_point(Vector2(p.x,p.z)) else -0.35
     if key=="STORAGE":
-        return 0.0 if Rect2(-15.4,-10.0,30.0,25.0).has_point(Vector2(p.x,p.z)) else -0.32
-    return 0.0
+        return 0.0 if Rect2(-15.4,-10.0,30.0,25.0).has_point(Vector2(p.x,p.z)) else -0.35
+    return -0.03
 
 func _gantry(label: String,a: Vector3,z: Vector3,height: float) -> Dictionary:
     var n := _node(root,label)
@@ -160,7 +160,7 @@ func _gantry(label: String,a: Vector3,z: Vector3,height: float) -> Dictionary:
     var ribs: int = maxi(2,ceili(length/1.15))
     for i in range(ribs+1):
         var p: Vector3 = start.lerp(end,float(i)/float(ribs))
-        _rod(b,p-side*0.57,p+side*0.57,0.17,"armor_light")
+        _rod(b,p-side*0.57+Vector3.UP*0.42,p+side*0.57+Vector3.UP*0.42,0.17,"armor_light")
         if i<ribs:
             var q: Vector3 = start.lerp(end,float(i+1)/float(ribs))
             for sign_value in [-1.0,1.0]:
@@ -171,7 +171,7 @@ func _gantry(label: String,a: Vector3,z: Vector3,height: float) -> Dictionary:
         for sign_value in [-1.0,1.0]:
             var foot: Vector3 = center+side*float(sign_value)*portal_span
             foot.y = _support_floor(foot)
-            var top := Vector3(foot.x,rail_y+0.15,foot.z)
+            var top := Vector3(foot.x,rail_y+0.42,foot.z)
             var post_height: float = top.y-foot.y
             _poly(b,"bevel",foot+Vector3.UP*0.18,Vector3(0.84,0.36,0.84),"armor")
             _box(b,foot+Vector3.UP*(post_height*0.5),Vector3(0.46,post_height,0.46),"slate")
@@ -181,7 +181,7 @@ func _gantry(label: String,a: Vector3,z: Vector3,height: float) -> Dictionary:
                 for sz in [-0.29,0.29]:
                     _poly(b,"drum",foot+Vector3(sx,0.38,sz),Vector3(0.13,0.10,0.13),"edge")
             _box(b,foot+Vector3.UP*1.15,Vector3(0.50,0.18,0.50),"gold")
-            var joint := Vector3(center.x,rail_y+0.15,center.z)
+            var joint := Vector3(center.x,rail_y+0.42,center.z)
             _rod(b,top,joint,0.48,"armor")
             _rod(b,top-Vector3.UP*1.05,top.lerp(joint,0.63),0.22,"trim")
             reserves.append(AABB(foot-Vector3(0.46,0,0.46),Vector3(0.92,2.4,0.92)))
