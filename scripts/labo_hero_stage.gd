@@ -41,22 +41,23 @@ func _ready() -> void:
     environment.background_mode = Environment.BG_COLOR
     environment.background_color = Color("#101e2b")
     environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-    environment.ambient_light_color = Color("#b9cbd3")
-    environment.ambient_light_energy = 0.72
+    environment.ambient_light_color = Color("#d4e0e6")
+    environment.ambient_light_energy = 0.96
     world.environment = environment
     add_child(world)
     var sun := DirectionalLight3D.new()
     sun.name = "SofterIndustrialKeyLight"
-    sun.rotation_degrees = Vector3(-43.0, 28.0, -8.0)
-    sun.light_energy = 1.23
+    sun.rotation_degrees = Vector3(-38.0, -24.0, 0.0)
+    sun.light_energy = 1.48
     sun.shadow_enabled = false
     add_child(sun)
     # Every facility now has a separately generated open industrial worksite.
     rebuilt_scenes = RebuiltScenes.new()
     rebuilt_scenes.build(self)
     _build_crate()
-    # Preserve authored BASE materials and use the common character shading.
-    SharedMaterialShading.apply_to_subtree(self)
+    # Industrial meshes use metre-mapped native-lit shaders. Only CRATE
+    # goes through the character material pipeline.
+    SharedMaterialShading.apply_to_subtree(crate)
     var ink := SeraViewEdges.new()
     ink.name = "ViewEdges"
     add_child(ink)
@@ -81,22 +82,22 @@ func set_section(section: String) -> void:
     crate.scale = Vector3.ONE
     match current_section:
         "LABO":
-            hero_camera.position = Vector3(7.8,6.2,20.5)
-            camera_look = Vector3(0.0,4.0,-0.9)
-            hero_camera.fov = 38.0
+            hero_camera.position = Vector3(10.0,6.4,25.8)
+            camera_look = Vector3(-0.6,5.1,-0.9)
+            hero_camera.fov = 39.0
         "SMELTER":
             # Left-front perspective shows the side charge inlet and hot throat.
-            hero_camera.position = Vector3(-7.5,6.2,21.5)
-            camera_look = Vector3(0,4.8,-0.6)
+            hero_camera.position = Vector3(-9.4,7.2,26.7)
+            camera_look = Vector3(-0.5,6.0,-0.6)
             hero_camera.fov = 39.0
         "RECYCLER":
             # Higher front view reveals both cutter shafts and the feed path.
-            hero_camera.position = Vector3(6.8,8.5,19.5)
-            camera_look = Vector3(0,3.1,-0.8)
+            hero_camera.position = Vector3(8.8,10.0,24.5)
+            camera_look = Vector3(0,4.0,-0.8)
             hero_camera.fov = 38.0
         "STORAGE":
-            hero_camera.position = Vector3(-5.2,5.8,22.0)
-            camera_look = Vector3(0,4.6,-0.4)
+            hero_camera.position = Vector3(-7.5,6.4,27.2)
+            camera_look = Vector3(0,5.8,-1.4)
             hero_camera.fov = 39.0
     hero_camera.look_at(camera_look, Vector3.UP)
     var key: String = camera_section_id()
@@ -121,7 +122,7 @@ func set_section(section: String) -> void:
 func camera_section_id() -> String:
     # New geometry has different bounds. Legacy camera/model coordinates from
     # the independent rooms must not overwrite the new initial composition.
-    return current_section + "_INDUSTRIAL_V3"
+    return current_section + "_INDUSTRIAL_V4"
 
 func apply_camera_preview(eye: Vector3, look: Vector3, fov: float) -> void:
     camera_look = look
