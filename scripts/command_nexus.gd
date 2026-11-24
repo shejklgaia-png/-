@@ -429,7 +429,7 @@ func _ready() -> void:
     floor_cables.build(canonical_placement_specs)
     # Replace the solid back wall, interfering gate-side column and the
     # horizontal bridge with an actual cut-out shell and shaped trusses.
-    NexusBulkheadRefit.build(self)
+    NexusBulkheadRefit.build(self, GATE_ORIGIN, _gate_facing_yaw(), GATE_SCALE)
     # Shared low-poly castings sit inside existing Blockbench silhouettes.
     # Build before the shared material/depth pass, without changing hit zones.
     NexusGeneratedArchitecture.build(
@@ -2494,6 +2494,15 @@ func _nexus_tone_background_node(node: Node, is_deck: bool) -> void:
             elif label in ["CeilingBayMachinedEdges", "CeilingTrussInlays"]:
                 darkness = 0.67
                 dark_tint = Color("#17212a")
+            elif label.begins_with("WallLaunchSocket"):
+                darkness = 0.48 if label.ends_with("Castings") else 0.57
+                dark_tint = Color("#15232d")
+            elif label.begins_with("WallServiceBay"):
+                darkness = 0.57
+                dark_tint = Color("#15232d")
+            elif label == "LaunchApronGuidance":
+                darkness = 0.30
+                dark_tint = Color("#101924")
             elif label.begins_with("WallBridgeService"):
                 darkness = 0.53
                 dark_tint = Color("#15232d")
