@@ -430,7 +430,7 @@ func _active_scene_profile() -> int:
 
 func set_scene_profile(profile: int) -> void:
     # Only numeric widths/color vary: same shader, RGB IDs and pose pipeline.
-    var requested: int = clampi(profile, 0, 3)
+    var requested: int = clampi(profile, 0, 4)
     if _requested_scene_profile == requested:
         return
     _requested_scene_profile = requested
@@ -1092,7 +1092,7 @@ static func _outline_role(node: Node) -> int:
             "actor": return 1
             "facility": return 2
             "clutter": return 3
-            "grid": return 4
+            "grid", "nexus_background": return 4
             "crate": return 5
             "part": return 6
         # The displayed/active SERA inherits a NEXUS/BASE facility root.

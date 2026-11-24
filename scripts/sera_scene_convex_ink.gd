@@ -20,6 +20,7 @@ static func _role(source: Node) -> int:
         var value: String = str(cursor.get_meta("sera_outline_role", ""))
         match value:
             "facility", "grid": return 2
+            "nexus_background": return 4
             "clutter": return 3
             "actor", "crate", "part": return 0
         if str(cursor.get_meta("sera_graphics_outline_category", "")) in [
@@ -30,6 +31,9 @@ static func _role(source: Node) -> int:
 
 
 static func _style(role: int, scene_profile: int) -> int:
+    if scene_profile == 4:
+        if role == 4: return 5 # NEXUS background concave only
+        if role == 2: return 6 # NEXUS interact convex + concave
     if role != 2 and role != 3:
         return 0
     if scene_profile == 2:
@@ -52,6 +56,8 @@ func _material(style: int) -> ShaderMaterial:
         width_px = Standards.NEXUS_CONVEX_PX
     elif style == 3:
         width_px = Standards.BASE_CLUTTER_CONVEX_PX
+    elif style == 5:
+        width_px = Standards.NEXUS_BACKGROUND_CONCAVE_PX
     mat.set_shader_parameter("corner_width_px", width_px)
     mat.set_shader_parameter("output_px_per_render_pixel", _scale)
     mat.set_shader_parameter("outlines_enabled", true)
@@ -76,13 +82,15 @@ func set_render_context(profile: int, texture: Texture2D,
             mat.set_shader_parameter("emissive_id_texture", _id_texture)
 
 
-func _cached_geometry(mesh: Mesh, include_concave: bool) -> ArrayMesh:
+func _cached_geometry(mesh: Mesh, style: int) -> ArrayMesh:
     if mesh == null:
         return null
-    # Shared geometry may appear in both facility and clutter batches.
-    var key: String = "%d:%d" % [mesh.get_instance_id(), int(include_concave)]
+    var include_concave: bool = style in [1, 2, 5, 6]
+    var include_convex: bool = style != 5
+    var concave_degrees: float = Standards.NEXUS_CONCAVE_DEGREES if style in [5, 6] else Crease.CONCAVE_CREASE_DEGREES
+    var key: String = "%d:%d:%d:%s" % [mesh.get_instance_id(), int(include_concave), int(include_convex), concave_degrees]
     if not _geometry_cache.has(key):
-        _geometry_cache[key] = Crease.build_corner_edges(mesh, include_concave)
+        _geometry_cache[key] = Crease.build_corner_edges(mesh, include_concave, include_convex, concave_degrees)
     return _geometry_cache[key] as ArrayMesh
 
 
@@ -156,8 +164,7 @@ func sync_sources(desired: Dictionary, profile: int, texture: Texture2D,
         for style_value in instance_groups.keys():
             var style: int = int(style_value)
             var selected: PackedInt32Array = instance_groups[style]
-            var ribbon: ArrayMesh = _cached_geometry(
-                source_mesh, style == 1 or style == 2)
+            var ribbon: ArrayMesh = _cached_geometry(source_mesh, style)
             if ribbon == null:
                 continue
             var key: String = "%d:%d" % [source.get_instance_id(), style]
