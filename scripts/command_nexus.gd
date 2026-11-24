@@ -1330,6 +1330,7 @@ func _render_batches() -> void:
         elif featured:
             draw.name = "NexusFeaturedArmor_%04d" % batch_key
         draw.multimesh = multi
+        draw.set_meta("nexus_finish_palette", index)
         canonical_render_batches[batch_key] = multi
         # Only meshes with an original 2px architectural line receive ID
         # role=facility. Unstroked/emissive details remain depth occluders.
@@ -1450,7 +1451,7 @@ func _nexus_apply_wear_after_entry() -> void:
     var deck := get_node_or_null("NexusDeckReferenceV3")
     if deck == null:
         return
-    for variant in range(8):
+    for variant in range(10):
         var texture: Texture2D = _nexus_make_pixel_steel(variant) if variant < 6 else _nexus_make_room_steel(variant - 6)
         if texture == null:
             return
@@ -1502,42 +1503,88 @@ func _nexus_finish_tint(tint: Color, gain: float) -> Color:
 # stepped highlights describe a manufactured surface rather than grain.
 func _nexus_make_room_steel(variant: int) -> Texture2D:
     var image := Image.create(64, 64, false, Image.FORMAT_RGBA8)
-    var face := Color("#edf1f3")
-    var mid := Color("#c3ccd1")
-    var shade := Color("#a2acb4")
-    var groove := Color("#7c8993")
-    var glint := Color("#ffffff")
-    image.fill(face)
+    # 0 paint, 1 machined steel, 2 molded polymer, 3 rubber. Quiet fields
+    # and small deliberately placed marks replace the broad camouflage bands.
+    var base := Color("#f1f2f2")
+    if variant == 2:
+        base = Color("#f4f4f4")
+    elif variant == 3:
+        base = Color("#e3e3e3")
+    image.fill(base)
     if variant == 0:
-        image.fill_rect(Rect2i(0, 0, 64, 9), mid)
-        image.fill_rect(Rect2i(0, 9, 41, 3), mid)
-        image.fill_rect(Rect2i(0, 12, 26, 2), mid)
-        image.fill_rect(Rect2i(0, 55, 64, 9), mid)
-        image.fill_rect(Rect2i(22, 52, 42, 3), mid)
-        image.fill_rect(Rect2i(0, 61, 64, 2), shade)
-        image.fill_rect(Rect2i(4, 3, 32, 2), glint)
-        image.fill_rect(Rect2i(39, 3, 12, 1), glint)
-        image.fill_rect(Rect2i(11, 49, 13, 1), shade)
-        image.fill_rect(Rect2i(14, 50, 10, 1), glint)
-        image.fill_rect(Rect2i(44, 21, 7, 2), shade)
-        image.fill_rect(Rect2i(46, 23, 5, 1), glint)
+        # Short paired chips, never a full-height or full-width stripe.
+        for p in [Vector2i(6, 8), Vector2i(47, 17), Vector2i(21, 52)]:
+            image.fill_rect(Rect2i(p.x, p.y, 5, 1), Color("#b9c1c4"))
+            image.fill_rect(Rect2i(p.x + 1, p.y + 1, 3, 1), Color.WHITE)
+        image.fill_rect(Rect2i(53, 57, 3, 1), Color("#ced3d5"))
+    elif variant == 1:
+        # Fine, directional machining marks of differing lengths.
+        for i in range(16):
+            var x: int = (i * 17 + 5) % 46
+            var y: int = (i * 7 + 3) % 63
+            var span: int = 5 + (i * 3) % 11
+            image.fill_rect(Rect2i(x, y, span, 1), Color("#d3d9dc"))
+            if i % 3 == 0:
+                image.fill_rect(Rect2i(x + 1, y + 1, span - 2, 1), Color.WHITE)
+    elif variant == 2:
+        # Molded polymer stays almost uniform; no steel-like bright scratches.
+        for i in range(18):
+            var x: int = (i * 19 + 4) % 62
+            var y: int = (i * 13 + 8) % 62
+            image.fill_rect(Rect2i(x, y, 2, 1), Color("#dedede"))
     else:
-        image.fill_rect(Rect2i(0, 0, 10, 64), mid)
-        image.fill_rect(Rect2i(10, 9, 3, 38), mid)
-        image.fill_rect(Rect2i(13, 18, 2, 20), mid)
-        image.fill_rect(Rect2i(53, 0, 11, 64), mid)
-        image.fill_rect(Rect2i(50, 27, 3, 37), mid)
-        image.fill_rect(Rect2i(61, 0, 2, 64), shade)
-        image.fill_rect(Rect2i(3, 5, 2, 27), glint)
-        image.fill_rect(Rect2i(3, 36, 1, 15), glint)
-        image.fill_rect(Rect2i(37, 10, 9, 1), shade)
-        image.fill_rect(Rect2i(40, 11, 6, 1), glint)
-        image.fill_rect(Rect2i(18, 44, 7, 2), shade)
-        image.fill_rect(Rect2i(20, 46, 5, 1), glint)
-    image.fill_rect(Rect2i(27, 31, 4, 1), groove)
-    image.fill_rect(Rect2i(29, 32, 6, 1), glint)
+        # Low-key, small molded grip grain, not metallic reflection.
+        for y in range(3, 63, 8):
+            for x in range(2 + (y % 3), 62, 8):
+                image.fill_rect(Rect2i(x, y, 2, 2), Color("#c9c9c9"))
+                image.set_pixel(x + 1, y + 1, Color("#d5d5d5"))
     image.generate_mipmaps()
     return ImageTexture.create_from_image(image)
+
+
+# Use meaningful part names when available, with palette and geometry as
+# conservative fallbacks for older batched Blockbench solids.
+func _nexus_surface_family(geometry: GeometryInstance3D, tint: Color) -> int:
+    var label: String = str(geometry.name).to_lower()
+    if label.contains("rubber") or label.contains("gasket") or label.contains("seal") or label.contains("grip") or label.contains("belt") or label.contains("tire"):
+        return 3
+    if label.contains("button") or label.contains("keycap") or label.contains("keypad") or label.contains("handle") or label.contains("insulator") or label.contains("polymer"):
+        return 2
+    for keyword in ["bolt", "screw", "hinge", "bearing", "rail", "shaft", "piston", "rod", "gear", "vent", "grille", "louver", "rim", "lip", "track", "actuator", "rotor", "machin"]:
+        if label.contains(keyword):
+            return 1
+    if label.begins_with("nexusfeaturedarmor"):
+        return 0
+    if geometry.has_meta("nexus_finish_palette"):
+        var palette: int = int(geometry.get_meta("nexus_finish_palette"))
+        if palette == 0:
+            return 3
+        if palette == 1 or palette == 8:
+            return 1
+        return 0
+    if tint.get_luminance() < 0.065:
+        return 3
+    return 0
+
+
+func _nexus_surface_relief(finish: StandardMaterial3D, family: int) -> void:
+    match family:
+        1:
+            finish.metallic = 0.32
+            finish.roughness = 0.60
+            finish.metallic_specular = 0.28
+        2:
+            finish.metallic = 0.0
+            finish.roughness = 0.83
+            finish.metallic_specular = 0.18
+        3:
+            finish.metallic = 0.0
+            finish.roughness = 0.96
+            finish.metallic_specular = 0.04
+        _:
+            finish.metallic = 0.12
+            finish.roughness = 0.76
+            finish.metallic_specular = 0.20
 
 
 func _nexus_expand_room_surface_finish() -> void:
@@ -1586,22 +1633,21 @@ func _nexus_finish_room_mesh(geometry: GeometryInstance3D) -> void:
         var has_uv: bool = mesh is PrimitiveMesh
         if mesh is ArrayMesh and mesh.get_surface_count() > 0:
             has_uv = (int((mesh as ArrayMesh).surface_get_format(0)) & Mesh.ARRAY_FORMAT_TEX_UV) != 0
-        var key: String = "native:%s:%s" % [native.get_instance_id(), has_uv]
+        var family: int = _nexus_surface_family(geometry, native.albedo_color)
+        var key: String = "native:%s:%s:%s" % [native.get_instance_id(), has_uv, family]
         var finish := _nexus_surface_materials.get(key) as StandardMaterial3D
         if finish == null:
             finish = native.duplicate() as StandardMaterial3D
             if native.albedo_texture == null:
-                var variant: int = 6 if native.albedo_color.get_luminance() < 0.24 else 7
-                finish.albedo_texture = _nexus_pixel_steel[variant]
+                finish.albedo_texture = _nexus_pixel_steel[6 + family]
                 finish.uv1_triplanar = not has_uv
                 finish.uv1_world_triplanar = false
                 finish.uv1_scale = Vector3.ONE
                 finish.uv1_triplanar_sharpness = 16.0
                 finish.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
                 finish.texture_repeat = true
-                finish.albedo_color = _nexus_finish_tint(native.albedo_color, 1.12)
-                finish.metallic = minf(native.metallic, 0.18)
-                finish.roughness = maxf(native.roughness, 0.76)
+                finish.albedo_color = _nexus_finish_tint(native.albedo_color, 1.04)
+                _nexus_surface_relief(finish, family)
             _nexus_surface_materials[key] = finish
         geometry.material_override = finish
         return
@@ -1613,7 +1659,10 @@ func _nexus_finish_room_mesh(geometry: GeometryInstance3D) -> void:
     # while retaining source atlas, face normals, lighting and all uniforms.
     if not _nexus_lighting_shaders.values().has(current.shader):
         return
-    var material_key: String = "shader:%s" % current.get_instance_id()
+    var tint: Color = current.get_shader_parameter("source_tint")
+    var family: int = _nexus_surface_family(geometry, tint)
+    var unit_armor: bool = geometry.has_meta("nexus_finish_palette") and family == 0
+    var material_key: String = "shader:%s:%s:%s" % [current.get_instance_id(), family, unit_armor]
     var styled := _nexus_surface_materials.get(material_key) as ShaderMaterial
     if styled == null:
         var shader_key: int = current.shader.get_instance_id()
@@ -1623,11 +1672,11 @@ func _nexus_finish_room_mesh(geometry: GeometryInstance3D) -> void:
             if not code.contains("vec3 shaded = original * multiplier;") or code.contains("void vertex()"):
                 return
             code = code.replace("uniform sampler2D source_texture",
-                "uniform sampler2D nexus_surface_texture : source_color, filter_nearest_mipmap, repeat_enable;\nvarying vec3 nexus_local_pos;\nvarying vec3 nexus_local_normal;\nuniform sampler2D source_texture")
+                "uniform sampler2D nexus_surface_texture : source_color, filter_nearest_mipmap, repeat_enable;\nuniform int nexus_finish_family = 0;\nuniform bool nexus_unit_armor = false;\nvarying vec3 nexus_local_pos;\nvarying vec3 nexus_local_normal;\nvarying vec3 nexus_metric_pos;\nuniform sampler2D source_texture")
             code = code.replace("void fragment() {",
-                "void vertex() { nexus_local_pos = VERTEX; nexus_local_normal = NORMAL; }\nvoid fragment() {")
+                "void vertex() { nexus_local_pos = VERTEX; nexus_local_normal = NORMAL; nexus_metric_pos = VERTEX * vec3(length(MODEL_MATRIX[0].xyz), length(MODEL_MATRIX[1].xyz), length(MODEL_MATRIX[2].xyz)); }\nvoid fragment() {")
             code = code.replace("vec3 shaded = original * multiplier;",
-                "vec3 nexus_axis = abs(nexus_local_normal);\n    vec2 nexus_uv = nexus_axis.x >= nexus_axis.y && nexus_axis.x >= nexus_axis.z ? nexus_local_pos.zy : (nexus_axis.y >= nexus_axis.z ? nexus_local_pos.xz : nexus_local_pos.xy);\n    float nexus_finish = texture(nexus_surface_texture, nexus_uv + vec2(0.5)).r;\n    vec3 shaded = original * multiplier;\n    if (kind != 2) { shaded *= mix(1.0, nexus_finish * 1.12, 0.82); }")
+                "vec3 nexus_axis = abs(nexus_local_normal);\n    bool nx = nexus_axis.x >= nexus_axis.y && nexus_axis.x >= nexus_axis.z;\n    bool ny = !nx && nexus_axis.y >= nexus_axis.z;\n    vec2 nexus_uv = nx ? nexus_metric_pos.zy : (ny ? nexus_metric_pos.xz : nexus_metric_pos.xy);\n    vec2 edge_uv = nx ? nexus_local_pos.zy : (ny ? nexus_local_pos.xz : nexus_local_pos.xy);\n    float nexus_finish = texture(nexus_surface_texture, nexus_uv * 1.35 + vec2(0.5)).r;\n    vec3 shaded = original * multiplier;\n    if (kind != 2) {\n        float detail = mix(1.0, nexus_finish * 1.10, nexus_finish_family == 1 ? 0.65 : 0.36);\n        float edge = max(abs(edge_uv.x), abs(edge_uv.y));\n        if (nexus_unit_armor && edge > 0.455 && edge < 0.498) { detail *= nexus_finish > 0.72 ? 1.14 : 0.92; }\n        float relief = clamp((multiplier - 0.78) * 0.12 + 1.03, 0.95, 1.08);\n        shaded *= detail * relief;\n    }")
             shader = Shader.new()
             shader.code = code
             _nexus_surface_shaders[shader_key] = shader
@@ -1639,7 +1688,9 @@ func _nexus_finish_room_mesh(geometry: GeometryInstance3D) -> void:
                 var value = current.get_shader_parameter(parameter)
                 if value != null:
                     styled.set_shader_parameter(parameter, value)
-        styled.set_shader_parameter("nexus_surface_texture", _nexus_pixel_steel[6])
+        styled.set_shader_parameter("nexus_surface_texture", _nexus_pixel_steel[6 + family])
+        styled.set_shader_parameter("nexus_finish_family", family)
+        styled.set_shader_parameter("nexus_unit_armor", unit_armor)
         _nexus_surface_materials[material_key] = styled
     geometry.material_override = styled
 
@@ -1656,31 +1707,26 @@ func _nexus_make_pixel_steel(variant: int) -> Texture2D:
     var dark := Color("#657681")
     var rim := Color("#ffffff")
     image.fill(steel)
-    # Two asymmetrical factory finish planes, with stepped endpoints.
+    # Subtle inset edge shading and interrupted wear instead of large blocks.
+    image.fill_rect(Rect2i(2, 2, 60, 2), soft)
+    image.fill_rect(Rect2i(2, 60, 60, 2), soft)
+    image.fill_rect(Rect2i(2, 4, 2, 56), soft)
+    image.fill_rect(Rect2i(60, 4, 2, 56), soft)
     if base_variant == 0:
-        image.fill_rect(Rect2i(2, 3, 60, 7), soft)
-        image.fill_rect(Rect2i(2, 10, 37, 2), soft)
-        image.fill_rect(Rect2i(39, 10, 15, 1), soft)
-        image.fill_rect(Rect2i(8, 51, 54, 11), soft)
-        image.fill_rect(Rect2i(21, 49, 41, 2), soft)
-        image.fill_rect(Rect2i(36, 47, 26, 2), soft)
+        image.fill_rect(Rect2i(5, 4, 17, 1), rim)
+        image.fill_rect(Rect2i(39, 58, 14, 1), shade)
+        image.fill_rect(Rect2i(43, 57, 10, 1), rim)
+        image.fill_rect(Rect2i(4, 45, 1, 7), rim)
     else:
-        image.fill_rect(Rect2i(2, 2, 13, 60), soft)
-        image.fill_rect(Rect2i(15, 12, 3, 40), soft)
-        image.fill_rect(Rect2i(18, 23, 2, 18), soft)
-        image.fill_rect(Rect2i(49, 2, 13, 60), soft)
-        image.fill_rect(Rect2i(46, 38, 3, 24), soft)
-    # A narrow dark lip and adjacent highlight increase perceived relief.
-    image.fill_rect(Rect2i(3, 13, 24, 1), shade)
-    image.fill_rect(Rect2i(3, 14, 24, 1), rim)
-    image.fill_rect(Rect2i(38, 54, 21, 1), shade)
-    # Painted steel edge wear: broken segments with one crisp exposed lip.
-    image.fill_rect(Rect2i(4, 5, 18, 1), rim)
-    image.fill_rect(Rect2i(4, 6, 8, 1), shade)
-    image.fill_rect(Rect2i(44, 57, 14, 2), shade)
-    image.fill_rect(Rect2i(49, 56, 9, 1), rim)
-    image.fill_rect(Rect2i(5, 43, 1, 9), shade)
-    image.fill_rect(Rect2i(6, 47, 1, 5), rim)
+        image.fill_rect(Rect2i(4, 9, 1, 19), rim)
+        image.fill_rect(Rect2i(58, 37, 1, 14), shade)
+        image.fill_rect(Rect2i(57, 40, 1, 9), rim)
+        image.fill_rect(Rect2i(19, 59, 11, 1), shade)
+    # Fine directional tooling strokes, low contrast and irregular intervals.
+    for i in range(9):
+        var x: int = 8 + (i * 13 + base_variant * 7) % 39
+        var y: int = 7 + (i * 17) % 47
+        image.fill_rect(Rect2i(x, y, 4 + i % 5, 1), Color("#dce3e7"))
     # Just three compact scuff clusters, distinct sizes and no isolated grain.
     var marks: Array[Vector2i] = [Vector2i(15, 20), Vector2i(37, 37), Vector2i(25, 53)]
     if base_variant == 1:
@@ -1697,8 +1743,8 @@ func _nexus_make_pixel_steel(variant: int) -> Texture2D:
     # Only selected plates receive one small, deliberately asymmetrical stain.
     # Brown oxide hugs an edge; charcoal oil leaves a short dragged smudge.
     if variant in [2, 3]:
-        var x: int = 7 if base_variant == 0 else 43
-        var y: int = 39 if base_variant == 0 else 8
+        var x: int = 5 if base_variant == 0 else 45
+        var y: int = 47 if base_variant == 0 else 6
         # Warm values compensate for the blue-grey underlying material.
         var rust_edge := Color("#f0ae62")
         var rust_body := Color("#db8535")
@@ -1710,11 +1756,15 @@ func _nexus_make_pixel_steel(variant: int) -> Texture2D:
         image.fill_rect(Rect2i(x + 5, y + 3, 4, 2), rust_body)
         image.fill_rect(Rect2i(x + 3, y + 2, 3, 1), rust_core)
         image.fill_rect(Rect2i(x + 13, y + 5, 2, 1), rust_body)
-        image.fill_rect(Rect2i(x + 3, y + 7, 9, 2), rust_edge)
-        image.fill_rect(Rect2i(x + 5, y + 6, 5, 2), rust_body)
+        image.fill_rect(Rect2i(x + 3, y + 7, 4, 1), rust_edge)
+        image.fill_rect(Rect2i(x + 8, y + 6, 4, 1), rust_edge)
+        image.set_pixel(x + 1, y + 5, rust_body)
+        image.set_pixel(x + 11, y + 2, rust_body)
+        image.set_pixel(x + 5, y + 8, rust_edge)
+        image.set_pixel(x + 14, y + 7, rust_edge)
     elif variant in [4, 5]:
-        var x: int = 35 if base_variant == 0 else 12
-        var y: int = 15 if base_variant == 0 else 43
+        var x: int = 42 if base_variant == 0 else 7
+        var y: int = 9 if base_variant == 0 else 47
         var oil_edge := Color("#8f9392")
         var oil_body := Color("#515653")
         var oil_core := Color("#272b2c")
@@ -1726,8 +1776,11 @@ func _nexus_make_pixel_steel(variant: int) -> Texture2D:
         image.fill_rect(Rect2i(x + 4, y + 2, 4, 2), oil_core)
         image.fill_rect(Rect2i(x + 10, y + 5, 4, 1), oil_body)
         image.fill_rect(Rect2i(x + 15, y + 6, 2, 1), oil_edge)
-        image.fill_rect(Rect2i(x + 3, y + 7, 7, 2), oil_edge)
-        image.fill_rect(Rect2i(x + 4, y + 6, 5, 2), oil_body)
+        image.fill_rect(Rect2i(x + 3, y + 7, 4, 1), oil_edge)
+        image.fill_rect(Rect2i(x + 8, y + 6, 3, 1), oil_body)
+        image.set_pixel(x + 1, y + 6, oil_edge)
+        image.set_pixel(x + 13, y + 3, oil_body)
+        image.set_pixel(x + 6, y + 8, oil_edge)
     # Keep distant grazing angles stable without bilinear filtering up close.
     image.generate_mipmaps()
     return ImageTexture.create_from_image(image)
