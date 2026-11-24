@@ -115,7 +115,34 @@ func _emit_section(deck: SurfaceTool, trim: SurfaceTool, points: PackedVector3Ar
 
 
 func build(paths: Array[Dictionary], logistics: Node3D) -> void:
-    await _build_narrow(paths, logistics, null)
+    var roads: Array[Dictionary] = _road_bounds(logistics.call("road_segments"))
+    var deck := SurfaceTool.new()
+    deck.begin(Mesh.PRIMITIVE_TRIANGLES)
+    var trim := SurfaceTool.new()
+    trim.begin(Mesh.PRIMITIVE_TRIANGLES)
+    var cable_id: int = 0
+    for path in paths:
+        var points: PackedVector3Array = _sample(path["points"])
+        var radius: float = float(path["radius"])
+        # Different cables may cross. A tiny per-cable offset avoids
+        # coplanar faces without ever merging their footprints.
+        var bias: float = float(cable_id) * 0.001
+        cable_id += 1
+        var active: Array[bool] = []
+        for i in range(points.size() - 1):
+
+            active.append(_needs_cover(_xz(points[i]), _xz(points[i + 1]), radius, roads))
+        for i in range(active.size()):
+            if not active[i] and not (i > 0 and active[i - 1]) and not (i + 1 < active.size() and active[i + 1]):
+                continue
+
+            _emit_section(deck, trim, points, i, radius, bias)
+    if _sections.is_empty():
+        return
+    _finish(deck, "CableProtectorSteelDeck", Color("#41494f"))
+
+    _finish(trim, "CableProtectorSafetyEdges", Color("#b99b47"))
+    print("SERA_BASE_LOGISTICS: narrow cable protector sections=", _sections.size())
 
 
 func build_budgeted(paths: Array[Dictionary], logistics: Node3D, budget: Variant) -> void:
