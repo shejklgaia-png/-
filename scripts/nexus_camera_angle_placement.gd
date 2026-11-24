@@ -14,8 +14,6 @@ const ORBIT_RATE := 0.0045
 var host
 # True only after the camera editor controls have been constructed.
 var initialized := false
-# Diagnostic stage if a device cannot construct the ANGLE editing HUD.
-var initialization_stage := "NEW"
 var active := false
 var target_id := ""
 var look_at_point := Vector3.ZERO
@@ -35,7 +33,6 @@ var _visible_signature := ""
 func configure(scene: Node3D) -> void:
     if initialized:
         return
-    initialization_stage = "HUD"
     host = scene
     name = "NexusCameraAnglePlacement"
     mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -45,14 +42,12 @@ func configure(scene: Node3D) -> void:
     if target_hud != null:
         theme = target_hud.theme
     _make_ui()
-    initialization_stage = "BUTTONS %d" % _buttons.size()
     if not resized.is_connected(_sync_ui):
         resized.connect(_sync_ui)
     set_process(true)
     _sync_ui()
     initialized = (_buttons.size() == 11
         and is_instance_valid(_status) and is_instance_valid(_help))
-    initialization_stage = "READY" if initialized else "INCOMPLETE"
 
 
 func _make_ui() -> void:
