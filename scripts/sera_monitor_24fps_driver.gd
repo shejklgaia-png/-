@@ -11,6 +11,8 @@ var _screen_size: Vector2 = Vector2.ONE
 var _screen_mat: StandardMaterial3D
 var _clock: float = 0.0
 var _last_tick: int = -1
+var _last_atlas_index: int = -1
+var _nexus_only: bool = false
 var _trace: MeshInstance3D
 var _progress: MeshInstance3D
 var _lock_h: MeshInstance3D
@@ -21,6 +23,9 @@ var _amber: StandardMaterial3D
 func setup(id: String, mode: int, atlas_rate: float, screen_size: Vector2,
         screen_mat: StandardMaterial3D) -> void:
     _id = id
+    _nexus_only = id.begins_with("N")
+    if _nexus_only:
+        process_priority = 9100 # after NEXUS camera, before RGB-ID sync
     _mode = mode
     _atlas_rate = maxf(atlas_rate, 0.1)
     _screen_size = screen_size
@@ -37,6 +42,7 @@ func setup(id: String, mode: int, atlas_rate: float, screen_size: Vector2,
         screen_size.y * 0.011), _amber, 0.018)
     _lock_v = _quad("LiveTargetVertical", Vector2(screen_size.x * 0.011,
         screen_size.y * 0.13), _amber, 0.020)
+    _screen_mat.uv1_scale = Vector3(0.25, 0.5, 1.0)
     _show_tick(0)
 
 func _glowing_material(tint: Color) -> StandardMaterial3D:
@@ -70,8 +76,29 @@ func _quad(name: String, size: Vector2, mat: StandardMaterial3D,
 func _process(delta: float) -> void:
     _clock += delta
     var tick: int = int(floor(_clock * FPS))
-    if tick != _last_tick:
-        _show_tick(tick)
+    if tick == _last_tick:
+        return
+    if _nexus_only and not _nexus_screen_may_be_visible():
+        return
+    _show_tick(tick)
+
+
+func _nexus_screen_may_be_visible() -> bool:
+    if not is_visible_in_tree():
+        return false
+    var camera := get_viewport().get_camera_3d()
+    if not is_instance_valid(camera):
+        return true
+    # Conservative bounding sphere around the screen and all moving marks.
+    # Plane orientation is established using a known interior point.
+    var radius: float = _screen_size.length() * 0.75 * maxf(1.0, global_basis.get_scale().abs().length()) + 0.10
+    var inside: Vector3 = camera.project_position(get_viewport().get_visible_rect().size * 0.5,
+        (camera.near + camera.far) * 0.5)
+    for plane in camera.get_frustum():
+        var sign_inside: float = signf(plane.distance_to(inside))
+        if sign_inside != 0.0 and plane.distance_to(global_position) * sign_inside < -radius:
+            return false
+    return true
 
 func _show_tick(tick: int) -> void:
     _last_tick = tick
@@ -79,10 +106,11 @@ func _show_tick(tick: int) -> void:
     var atlas_index: int = posmod(int(floor(time * _atlas_rate)), 8)
     # Godot's native StandardMaterial3D UV transform; compatible with
     # GL Compatibility on Android. No custom shader compile is required.
-    _screen_mat.uv1_scale = Vector3(0.25, 0.5, 1.0)
-    _screen_mat.uv1_offset = Vector3(
-        float(atlas_index % 4) * 0.25,
-        float(atlas_index / 4) * 0.5, 0.0)
+    if atlas_index != _last_atlas_index:
+        _last_atlas_index = atlas_index
+        _screen_mat.uv1_offset = Vector3(
+            float(atlas_index % 4) * 0.25,
+            float(atlas_index / 4) * 0.5, 0.0)
 
     var phase: float = float(_mode) * 0.37
     var progress: float = fposmod(time * (0.21 + float(_mode % 3) * 0.045)
@@ -101,10 +129,11 @@ func _show_tick(tick: int) -> void:
         -_screen_size.y * 0.365, 0.014)
     _lock_h.visible = _mode == 2 or _mode == 3 or _mode == 9 or _mode == 10
     _lock_v.visible = _lock_h.visible
-    _lock_h.position = Vector3(_screen_size.x * x,
-        _screen_size.y * y, 0.018)
-    _lock_v.position = Vector3(_screen_size.x * x,
-        _screen_size.y * y, 0.020)
+    if _lock_h.visible:
+        _lock_h.position = Vector3(_screen_size.x * x,
+            _screen_size.y * y, 0.018)
+        _lock_v.position = Vector3(_screen_size.x * x,
+            _screen_size.y * y, 0.020)
     if _mode == 0 or _mode == 5 or _mode == 9:
         # System/analysis/power: oscillating gauge, not a simple loading loop.
         fill = 0.43 + 0.40 * sin(time * 1.17 + phase)

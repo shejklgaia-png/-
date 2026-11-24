@@ -369,6 +369,7 @@ func _ready() -> void:
     # but before the shared ID compositor (priority 10000).
     process_priority = 9000
     set_meta("sera_graphics_outline_category", "base")
+    set_meta("sera_nexus_room_budget", true)
     # Any untagged opaque room equipment receives NEXUS inner 3/0/2 +
     # convex1, while the child SERA rig's character category takes priority.
     set_meta("sera_outline_role", "facility")
@@ -1006,6 +1007,7 @@ func _nexus_practical_lights() -> void:
     add_child(fixtures)
     var cyan := Color("#79dfff")
     var ice := Color("#c5efff")
+    var baked_pools: Array[Dictionary] = []
     # Derive every major architectural light from the actual visible authored
     # emitter. Never use a midpoint between two lamps or a guessed world point.
     for part in Modules.MODULES["hangar_shell"]:
@@ -1015,8 +1017,15 @@ func _nexus_practical_lights() -> void:
         var center := _nexus_fixture_center(part)
         center.x = _expanded_hangar_x(center.x)
         if label.begins_with("Recessed ceiling strip "):
-            _nexus_fixture_spot(fixtures, "CeilingStrip", center + Vector3(0, -0.10, 0),
-                Vector3.DOWN, ice, 1.15, 11.0, 66.0)
+            # Keep the lights nearest the display/terminals for actual
+            # moving-body lighting. Remote strips illuminate the deck via
+            # one baked texture, not a set of overlapping wide spotlights.
+            if absf(center.z) <= 8.0:
+                _nexus_fixture_spot(fixtures, "CeilingStrip", center + Vector3(0, -0.10, 0),
+                    Vector3.DOWN, ice, 1.15, 11.0, 66.0)
+            else:
+                baked_pools.append({"at": Vector2(center.x, center.z),
+                    "radius": 6.8, "color": ice, "strength": 0.095})
         elif label.begins_with("Column cyan datum lamp "):
             var inward := Vector3(-signf(center.x), 0, 0)
             _nexus_fixture_spot(fixtures, "ColumnLamp", center + inward * 0.12,
@@ -1052,8 +1061,8 @@ func _nexus_practical_lights() -> void:
     # from an arbitrary point in the walkway. Tiny LEDs remain self-emissive.
     for side in [-1.0, 1.0]:
         for z in [-5.6, 2.4]:
-            _nexus_fixture_spot(fixtures, "DeckGuide", Vector3(side * 2.85, 0.20, z),
-                Vector3.UP, cyan, 0.32, 1.7, 65.0)
+            baked_pools.append({"at": Vector2(side * 2.85, z),
+                "radius": 1.15, "color": cyan, "strength": 0.13})
     # Actual gate warning and cyan entrance emitters, in gate-local space.
     var gate_basis := Basis(Vector3.UP, _gate_facing_yaw())
     for part in Modules.MODULES["deployment_gate"]:
@@ -1068,6 +1077,105 @@ func _nexus_practical_lights() -> void:
             aim, Color("#ffe2a0") if warning else cyan, 0.38 if warning else 0.60,
             2.8, 64.0)
     _nexus_attach_monitor_spill(self)
+    # Bake once, after HUD entry; do not stall the NEXUS camera startup.
+    _nexus_build_baked_deck_light.call_deferred(baked_pools)
+
+
+# One world-aligned low-resolution illumination texture on the REAL upper
+# deck faces. It is not a floating full-floor plane, so gaps, grilles and
+# labels remain depth tested. No additional lights or viewport.
+func _nexus_build_baked_deck_light(pools: Array[Dictionary]) -> void:
+    var deck := get_node_or_null("NexusDeckReferenceV3") as Node3D
+    if not is_instance_valid(deck) or pools.is_empty():
+        return
+    var low := Vector2(-9.85, -27.35)
+    var span := Vector2(19.70, 51.80)
+    var resolution := Vector2i(96, 256)
+    var image := Image.create(resolution.x, resolution.y, false, Image.FORMAT_RGBA8)
+    image.fill(Color(0, 0, 0, 1))
+    for pool in pools:
+        var center: Vector2 = pool["at"]
+        var radius: float = pool["radius"]
+        var tint: Color = pool["color"]
+        var strength: float = pool["strength"]
+        var pixels := Vector2(resolution)
+        var begin := Vector2i(((center - Vector2.ONE * radius - low) / span * pixels).floor())
+        var finish := Vector2i(((center + Vector2.ONE * radius - low) / span * pixels).ceil())
+        for y in range(maxi(0, begin.y), mini(resolution.y, finish.y)):
+            for x in range(maxi(0, begin.x), mini(resolution.x, finish.x)):
+                var point: Vector2 = low + (Vector2(x, y) + Vector2(0.5, 0.5)) / pixels * span
+                var fade: float = maxf(0.0, 1.0 - point.distance_squared_to(center) / (radius * radius))
+                if fade <= 0.0:
+                    continue
+                var old: Color = image.get_pixel(x, y)
+                var amount: float = fade * fade * strength
+                image.set_pixel(x, y, Color(minf(1.0, old.r + tint.r * amount),
+                    minf(1.0, old.g + tint.g * amount), minf(1.0, old.b + tint.b * amount), 1.0))
+        # Spread startup work over frames, never block camera input.
+        await get_tree().process_frame
+        if not is_instance_valid(deck) or not is_inside_tree():
+            return
+    var vertices := PackedVector3Array()
+    var uv := PackedVector2Array()
+    var face_cache: Dictionary = {}
+    for child in deck.get_children():
+        if not child is MultiMeshInstance3D:
+            continue
+        var batch := child as MultiMeshInstance3D
+        var label: String = str(batch.name)
+        if not label.begins_with("Deck_armor_") and not label.begins_with("Deck_wedge_"):
+            continue
+        var multi: MultiMesh = batch.multimesh
+        if multi == null or multi.mesh == null:
+            continue
+        var key: int = multi.mesh.get_instance_id()
+        if not face_cache.has(key):
+            face_cache[key] = multi.mesh.get_faces()
+        var faces: PackedVector3Array = face_cache[key]
+        for index in range(multi.instance_count):
+            var pose: Transform3D = batch.transform * multi.get_instance_transform(index)
+            for i in range(0, faces.size() - 2, 3):
+                var a: Vector3 = pose * faces[i]
+                var b: Vector3 = pose * faces[i + 1]
+                var c: Vector3 = pose * faces[i + 2]
+                # Only real top plates; no overlay on underside or sidewalls.
+                if minf(a.y, minf(b.y, c.y)) < 0.145:
+                    continue
+                var normal: Vector3 = (b - a).cross(c - a)
+                if normal.length_squared() < 0.000000001 or absf(normal.normalized().y) < 0.70:
+                    continue
+                for point in [a, b, c]:
+                    vertices.append(point + Vector3(0, 0.0015, 0))
+                    uv.append((Vector2(point.x, point.z) - low) / span)
+        await get_tree().process_frame
+        if not is_instance_valid(deck) or not is_inside_tree():
+            return
+    if vertices.is_empty():
+        return
+    var arrays: Array = []
+    arrays.resize(Mesh.ARRAY_MAX)
+    arrays[Mesh.ARRAY_VERTEX] = vertices
+    arrays[Mesh.ARRAY_TEX_UV] = uv
+    var mesh := ArrayMesh.new()
+    mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+    var material := StandardMaterial3D.new()
+    material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    material.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+    material.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+    material.cull_mode = BaseMaterial3D.CULL_DISABLED
+    material.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
+    material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
+    material.texture_repeat = false
+    material.albedo_texture = ImageTexture.create_from_image(image)
+    material.render_priority = -40 # before the shared black ink (-30)
+    var overlay := MeshInstance3D.new()
+    overlay.name = "BakedDeckIllumination"
+    overlay.mesh = mesh
+    overlay.material_override = material
+    overlay.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    overlay.set_meta("FX_NO_OUTLINE", true)
+    overlay.set_meta("sera_skip_common_id_outline", true)
+    deck.add_child(overlay)
 
 
 func _nexus_attach_monitor_spill(node: Node) -> void:

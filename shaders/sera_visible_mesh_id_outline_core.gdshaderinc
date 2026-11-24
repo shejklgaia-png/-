@@ -264,6 +264,9 @@ float sera_visible_id_ink_alpha(vec2 uv) {
                         all(lessThan(at_pixel, id_size))) {
                     neighbor = texelFetch(mesh_id_texture, at_pixel, 0).rgb;
                 }
+                // Identical ID texels cannot contribute any contact or seam.
+                // Skip role decoding and ownership/width math on flat areas.
+                if (all(equal(center, neighbor))) { continue; }
                 int other_role = sera_role_of(neighbor);
                 if (other_role == 0 &&
                         sera_in_disk(dx, dy, inner_px)) {
