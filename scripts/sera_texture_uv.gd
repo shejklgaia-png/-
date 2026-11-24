@@ -74,6 +74,8 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
     _refine_residual_grids(tris,charts,density)
     _balance_rectified_groups(tris,charts,density)
     _refine_residual_grids(tris,charts,density,true)
+    _refine_residual_grids(tris,charts,density,true,true)
+    _match_mirrored_grid_shapes(tris,charts,density)
     var order: Array[int] = []
     for i in range(charts.size()):
         var c: Dictionary = charts[i]
@@ -909,7 +911,7 @@ static func _synchronize_chart_grids(tris: Array[Dictionary],charts: Array[Dicti
 ## Refine the existing UVs against all incident edges, not just the
 ## edges used to construct a rectangle or triangle. Only small charts
 ## with known non-overlapping triangle topology are changed.
-static func _refine_residual_grids(tris: Array[Dictionary],charts: Array[Dictionary],density: int,balanced: bool = false) -> void:
+static func _refine_residual_grids(tris: Array[Dictionary],charts: Array[Dictionary],density: int,balanced: bool = false,fine: bool = false) -> void:
     var members: Array = []
     var adjacency: Array = []
     for i in range(charts.size()):
@@ -922,7 +924,7 @@ static func _refine_residual_grids(tris: Array[Dictionary],charts: Array[Diction
         (adjacency[int(link.b)] as Array).append(link)
     # The same small chart may be revisited after its neighbor changes.
     # Bound mobile work; skip charts with more than two triangles.
-    for pass_index in range(4):
+    for pass_index in range(3 if fine else 4):
         var priority: Array[Dictionary] = []
         for ci in range(charts.size()):
             if members[ci].size() < 1 or members[ci].size() > 2 or adjacency[ci].is_empty():
@@ -930,14 +932,14 @@ static func _refine_residual_grids(tris: Array[Dictionary],charts: Array[Diction
             var worst: float = 0.0
             for link in adjacency[ci]:
                 worst = maxf(worst,_local_edge_residual(tris,link,-1,{},PackedVector2Array()))
-            if worst > (2.0 if balanced else 0.25):
+            if worst > (1.0 if fine else (2.0 if balanced else 0.25)):
                 priority.append({"chart":ci,"worst":worst})
         priority.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
             return int(a.chart) < int(b.chart) if float(a.worst) == float(b.worst) else float(a.worst) > float(b.worst))
         var changed: bool = false
         for k in range(mini(128,priority.size())):
             var ci: int = int(priority[k].chart)
-            if _refine_small_chart(tris,charts[ci],ci,members[ci],adjacency[ci],density,balanced):
+            if _refine_small_chart(tris,charts[ci],ci,members[ci],adjacency[ci],density,balanced,fine):
                 changed = true
         if not changed:
             break
@@ -968,7 +970,7 @@ static func _local_edge_residual(tris: Array[Dictionary],link: Dictionary,ci: in
     delta -= delta.round()
     return maxf(delta.length(),(delta+da-db.rotated(rotation)).length())
 
-static func _refine_small_chart(tris: Array[Dictionary],chart: Dictionary,ci: int,members: Array,links: Array,density: int,balanced: bool = false) -> bool:
+static func _refine_small_chart(tris: Array[Dictionary],chart: Dictionary,ci: int,members: Array,links: Array,density: int,balanced: bool = false,fine: bool = false) -> bool:
     var indices: Dictionary = {}
     var vertices: Dictionary = {}
     var points := PackedVector2Array()
@@ -1100,19 +1102,35 @@ static func _refine_small_chart(tris: Array[Dictionary],chart: Dictionary,ci: in
                 var q: PackedVector2Array = points.duplicate()
                 q[i] += offset
                 candidates.append(q)
+        if fine:
+            for i in range(points.size()):
+                for offset in [Vector2(-0.5,0),Vector2(0.5,0),Vector2(0,-0.5),Vector2(0,0.5),Vector2(-0.5,-0.5),Vector2(0.5,0.5),Vector2(-0.5,0.5),Vector2(0.5,-0.5)]:
+                    var q: PackedVector2Array = points.duplicate()
+                    q[i] += offset
+                    candidates.append(q)
     var best: PackedVector2Array = points
     var best_score: Vector3 = baseline
+    var base_density_cost: float = _grid_density_cost(members,indices,original_points,points,density) if fine else 0.0
+    var best_cost: float = baseline.z+base_density_cost*0.5
     for q in candidates:
         if not _refinement_valid(members,indices,original_points,points,q,density):
             continue
         var score: Vector3 = _refinement_score(tris,ci,links,indices,q)
         # Never trade a worse maximum or more bad edges for a local win.
-        if not _accept_balanced_score(baseline,score,balanced):
+        var accepted: bool = _accept_balanced_score(baseline,score,balanced)
+        if fine:
+            accepted = score.x <= baseline.x+0.0001 and (score.y <= baseline.y or (score.y <= baseline.y+1.0 and score.x <= baseline.x-0.20))
+        if not accepted or score.z > baseline.z+0.0001:
             continue
-        if score.z < best_score.z-0.0001:
+        var density_cost: float = _grid_density_cost(members,indices,original_points,q,density) if fine else 0.0
+        if fine and density_cost > base_density_cost+0.10:
+            continue
+        var cost: float = score.z+density_cost*0.5
+        if cost < best_cost-0.0001:
             best = q
             best_score = score
-    if best_score.z >= baseline.z-0.0001:
+            best_cost = cost
+    if best_cost >= baseline.z+base_density_cost*0.5-0.0001:
         return false
     var lo: Vector2 = best[0]
     var hi: Vector2 = best[0]
@@ -1285,6 +1303,169 @@ static func _balance_rectified_groups(tris: Array[Dictionary],charts: Array[Dict
         _join(parent,root_a,root_b)
         var root: int = _root(parent,root_a)
         groups[root] = group_a+group_b
+
+## Penalize metric stretch in both directions. Count each triangle edge
+## once per incident triangle, as in the original face density report.
+static func _grid_density_cost(members: Array,indices: Dictionary,world: PackedVector3Array,points: PackedVector2Array,density: int) -> float:
+    var cost: float = 0.0
+    for id in members:
+        var ids: PackedInt32Array = indices[id]
+        for k in range(3):
+            var i: int = ids[k]
+            var j: int = ids[(k+1)%3]
+            var length: float = world[i].distance_to(world[j])*density
+            var ratio: float = points[i].distance_to(points[j])/maxf(0.000001,length)
+            var error: float = log(maxf(0.000001,ratio))
+            cost += error*error
+    return cost
+
+static func _mirror_grid_point(p: Vector3,axis_x: float) -> Vector3:
+    return Vector3(2.0*axis_x-p.x,p.y,p.z)
+
+static func _grid_chart_signature(tris: Array[Dictionary],members: Array,axis_x: float,mirror: bool) -> String:
+    var keys: PackedStringArray = []
+    for id in members:
+        var triangle: PackedStringArray = []
+        for p in tris[id].p:
+            triangle.append(_vertex_key(_mirror_grid_point(p,axis_x) if mirror else p))
+        triangle.sort()
+        keys.append(";".join(triangle))
+    keys.sort()
+    return "|".join(keys)
+
+## Only exact geometric mirror counterparts (including triangulation)
+## qualify. Copy a candidate UV shape with the correct winding, and keep
+## it only if it does not worsen the combined incident seam metrics or
+## density. Do not force asymmetric parts into artificial symmetry.
+static func _match_mirrored_grid_shapes(tris: Array[Dictionary],charts: Array[Dictionary],density: int) -> void:
+    var members: Array = []
+    var adjacency: Array = []
+    var lo_x: float = INF
+    var hi_x: float = -INF
+    for ci in range(charts.size()):
+        members.append([])
+        adjacency.append([])
+    for i in range(tris.size()):
+        (members[int(tris[i].chart)] as Array).append(i)
+        for p in tris[i].p:
+            lo_x = minf(lo_x,p.x)
+            hi_x = maxf(hi_x,p.x)
+    var axis_x: float = (lo_x+hi_x)*0.5
+    var links: Array[Dictionary] = _seam_segments(tris)
+    for i in range(links.size()):
+        (adjacency[int(links[i].a)] as Array).append(i)
+        (adjacency[int(links[i].b)] as Array).append(i)
+    var lookup: Dictionary = {}
+    for ci in range(charts.size()):
+        if members[ci].size() < 1 or members[ci].size() > 2:
+            continue
+        var signature: String = _grid_chart_signature(tris,members[ci],axis_x,false)
+        if lookup.has(signature):
+            lookup[signature] = -1
+        else:
+            lookup[signature] = ci
+    var budget: int = 128
+    for ca in range(charts.size()):
+        if budget <= 0:
+            break
+        if members[ca].size() < 1 or members[ca].size() > 2:
+            continue
+        var signature: String = _grid_chart_signature(tris,members[ca],axis_x,true)
+        var cb: int = int(lookup.get(signature,-1))
+        if cb <= ca or members[cb].size() != members[ca].size():
+            continue
+        if int(lookup.get(_grid_chart_signature(tris,members[ca],axis_x,false),-1)) != ca:
+            continue
+        if bool(charts[ca].get("rectified",false)) != bool(charts[cb].get("rectified",false)):
+            continue
+        var local_ids: Dictionary = {}
+        for li in adjacency[ca]+adjacency[cb]:
+            local_ids[li] = true
+        var local: Array = []
+        for li in local_ids:
+            local.append(links[li])
+        if local.is_empty():
+            continue
+        var baseline: Vector3 = _refinement_score(tris,-1,local,{},PackedVector2Array())
+        if baseline.x <= 0.25:
+            continue
+        budget -= 1
+        var best: Dictionary = {}
+        var best_chart: int = -1
+        var best_cost: float = INF
+        for source_chart in [ca,cb]:
+            var dest: int = cb if source_chart == ca else ca
+            var source_uv: Dictionary = {}
+            var consistent: bool = true
+            for ti in members[source_chart]:
+                var t: Dictionary = tris[ti]
+                for k in range(3):
+                    var key: String = _vertex_key(_mirror_grid_point(t.p[k],axis_x))
+                    if source_uv.has(key) and (source_uv[key] as Vector2).distance_squared_to(t.xy[k]) > 0.000001:
+                        consistent = false
+                    source_uv[key] = t.xy[k]
+            if not consistent:
+                continue
+            var original: Dictionary = {}
+            var base_density: float = 0.0
+            for ti in members[dest]:
+                var t: Dictionary = tris[ti]
+                original[ti] = (t.xy as PackedVector2Array).duplicate()
+                var index_map: Dictionary = {}
+                index_map[ti] = PackedInt32Array([0,1,2])
+                base_density += _grid_density_cost([ti],index_map,t.p,t.xy,density)
+            for reflected in [false,true]:
+                for quarter in range(4):
+                    var candidate: Dictionary = {}
+                    var cost_density: float = 0.0
+                    var valid: bool = true
+                    for ti in members[dest]:
+                        var t: Dictionary = tris[ti]
+                        var old: PackedVector2Array = original[ti]
+                        var q := PackedVector2Array()
+                        for k in range(3):
+                            var key: String = _vertex_key(t.p[k])
+                            if not source_uv.has(key):
+                                valid = false
+                                break
+                            var uv: Vector2 = source_uv[key]
+                            if reflected:
+                                uv.x = -uv.x
+                            # Integer quarter rotations avoid floating phase drift.
+                            for step in range(quarter):
+                                uv = Vector2(-uv.y,uv.x)
+                            q.append(uv)
+                        if q.size() != 3:
+                            valid = false
+                            break
+                        var index_map: Dictionary = {}
+                        index_map[ti] = PackedInt32Array([0,1,2])
+                        if not _refinement_valid([ti],index_map,t.p,old,q,density):
+                            valid = false
+                            break
+                        cost_density += _grid_density_cost([ti],index_map,t.p,q,density)
+                        candidate[ti] = q
+                        t.xy = q
+                    if valid and cost_density <= base_density+0.0001:
+                        var score: Vector3 = _refinement_score(tris,-1,local,{},PackedVector2Array())
+                        var cost: float = score.z+cost_density*0.5
+                        if score.x <= baseline.x+0.0001 and score.y <= baseline.y and score.z <= baseline.z+0.0001 and cost < best_cost:
+                            best_cost = cost
+                            best = candidate
+                            best_chart = dest
+                    for ti in original:
+                        tris[ti].xy = original[ti]
+        if best_chart < 0:
+            continue
+        var lo := Vector2(INF,INF)
+        var hi := Vector2(-INF,-INF)
+        for ti in best:
+            tris[ti].xy = best[ti]
+            for uv in best[ti]:
+                lo = lo.min(uv)
+                hi = hi.max(uv)
+        charts[best_chart].min = lo.floor()
+        charts[best_chart].max = hi
 
 static func _refinement_score(tris: Array[Dictionary],ci: int,links: Array,indices: Dictionary,points: PackedVector2Array) -> Vector3:
     var worst: float = 0.0
