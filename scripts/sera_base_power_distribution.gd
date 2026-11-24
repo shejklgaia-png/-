@@ -1,7 +1,7 @@
 extends RefCounted
 ## BASE physical power network. Seven local substations connect to the
 ## GENERATOR control terminal, then to each consumer's exterior socket.
-## Placement is seeded and stable, independent of time/frame rate.
+## Active builders use the fixed authored layout, independent of time/frame rate.
 ## Solid equipment and cables use the same role-3 visible-ID ink as clutter:
 ## inner 1px, outer 1px, contacts 1px, convex corners 1px.
 ## No added lights or GPU simulation.
@@ -9,6 +9,7 @@ const BaseClutter = preload("res://scripts/sera_base_clutter.gd")
 const PowerBoard = preload("res://scripts/sera_base_power_board.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
 const CrossingRamps = preload("res://scripts/sera_base_cable_crossing_ramps.gd")
+const FixedLayout = preload("res://scripts/sera_base_authored_layout.gd")
 
 const WIRE_SIDES: int = 6
 const WIRE_STEP: float = 0.75
@@ -997,6 +998,22 @@ static func _wire_data() -> Dictionary:
         "normals": PackedVector3Array(), "indices": PackedInt32Array()}
 
 
+# Only interpolate authored vertices and the real socket exits. No search,
+# random placement, adaptive routing, or automatic crossing decisions.
+static func _fixed_cable(port_a: Vector3, gate_a: Vector3, gate_b: Vector3,
+        port_b: Vector3, controls: Array, locks: Array[Vector2]) -> PackedVector3Array:
+    var result: PackedVector3Array = _socket_drop(port_a, gate_a)
+    var vertices: Array = [_xz(gate_a)]
+    vertices.append_array(controls)
+    vertices.append(_xz(gate_b))
+    for point in FixedLayout.curve(vertices, 0.60, 0.19, locks):
+        _push_path_point(result, Vector3(point.x,FLOOR_WIRE_Y,point.y))
+    var tail: PackedVector3Array = _socket_drop(port_b, gate_b)
+    for j in range(tail.size()-1,-1,-1):
+        _push_path_point(result,tail[j])
+    return result
+
+
 static func build(parent: Node3D, nexus_origin: Vector3,
         specs: Array, camera: Camera3D = null, logistics: Node3D = null) -> Node3D:
     var network := Node3D.new()
@@ -1011,13 +1028,8 @@ static func build(parent: Node3D, nexus_origin: Vector3,
     var all_sites: Array[Dictionary] = [{
         "id": "NEXUS", "at": nexus_origin}]
     all_sites.append_array(specs)
-    var props: Array[Dictionary] = _prop_obstacles(all_sites)
-    for child in parent.get_children():
-        if child is Node3D and str(child.name).begins_with("ScrapPile_"):
-            var pile: Node3D = child
-            props.append({"at": _xz(pile.position), "radius": 1.15 * float(pile.get_meta("visual_scale", 1.26))})
-    if is_instance_valid(logistics):
-        props.append_array(logistics.call("cable_dock_obstacles"))
+    # Fixed sockets; loose props are placed later around these paths.
+    var props: Array[Dictionary] = []
     var cable_paths: Array[Dictionary] = []
     var board_path := PackedVector3Array()
     for i in range(PowerBoard.CABLE_SEGMENTS + 1):
@@ -1028,8 +1040,7 @@ static func build(parent: Node3D, nexus_origin: Vector3,
     # In the screenshot, the old GRID plug was behind the generator housing.
     # Move the visible seven-port manifold to the foreground gap, then
     # route one short exposed lead FROM that original live cable endpoint.
-    var hub_pose: Dictionary = _locate_device(
-        "GENERATOR", all_sites, props, placed, camera, logistics)
+    var hub_pose: Dictionary = FixedLayout.device_pose("GENERATOR")
     if hub_pose.is_empty():
         network.set_meta("cable_status", "MANIFOLD MISSING")
         push_warning("BASE power: manifold placement exhausted")
@@ -1058,8 +1069,9 @@ static func build(parent: Node3D, nexus_origin: Vector3,
         if key == "GENERATOR":
             continue
         var origin: Vector3 = site["at"]
-        var pose: Dictionary = _locate_device(
-            key, all_sites, props, placed, camera, logistics)
+        var pose: Dictionary = FixedLayout.device_pose(key)
+        pose["local"] = Vector3(_local_point(_xz(pose["at"]),site).x,0.0,
+            _local_point(_xz(pose["at"]),site).y)
         if pose.is_empty():
             continue
         var world_at: Vector3 = pose["at"]
@@ -1070,18 +1082,6 @@ static func build(parent: Node3D, nexus_origin: Vector3,
             items, key, origin, pose["local"], props)
         endpoints.append({"key": key, "device": device,
             "socket": receiver})
-    # All assets now exist in world space and the route grid reserves the
-    # rotated facilities, existing clutter AND new small power stations.
-    var route_grid: AStarGrid2D = _obstacle_grid(
-        all_sites, props, placed)
-    if is_instance_valid(logistics):
-        # Route cables outside the vehicle corridor wherever feasible;
-        # short transverse crossings remain possible.
-        for x in range(ROUTE_BOUNDS.position.x, ROUTE_BOUNDS.end.x):
-            for z in range(ROUTE_BOUNDS.position.y, ROUTE_BOUNDS.end.y):
-                var c := Vector2i(x, z)
-                if not route_grid.is_point_solid(c) and bool(logistics.call("road_at", _xz(_point_of(c)))):
-                    route_grid.set_point_weight_scale(c, 4.5)
     var old_plug: Vector3 = PowerBoard.cable_point(0.0)
     var board_gate: Vector3 = old_plug + Vector3(1.10, 0.0, 0.05)
     board_gate.y = FLOOR_WIRE_Y
@@ -1089,9 +1089,8 @@ static func build(parent: Node3D, nexus_origin: Vector3,
         0.0, 0.36, -0.49)
     var hub_in_gate: Vector3 = hub + hub_turn * Vector3(
         0.0, FLOOR_WIRE_Y, -1.48)
-    var junction: PackedVector3Array = _routed_cable(
-        route_grid, old_plug, board_gate, hub_in_gate,
-        hub_in, "GENERATOR TO MANIFOLD")
+    var junction: PackedVector3Array = _fixed_cable(
+        old_plug,board_gate,hub_in_gate,hub_in,[Vector2(11.65,-2.85)],[])
     cable_paths.append({"points": junction, "radius": 0.070})
     _append_tube(wires, junction, 0.070, 0.0)
     _append_tube(traces, junction, 0.019, 0.051)
@@ -1105,12 +1104,12 @@ static func build(parent: Node3D, nexus_origin: Vector3,
             offset, 0.32, 0.50)
         var feed_gate: Vector3 = hub + hub_turn * Vector3(
             offset, FLOOR_WIRE_Y, 1.48)
-        var feed: PackedVector3Array = _routed_cable(
-            route_grid, feed_at, feed_gate, device["input_gate"],
-            device["input"], key + " FEED")
-        var delivery: PackedVector3Array = _routed_cable(
-            route_grid, device["output"], device["output_gate"],
-            receiver["gate"], receiver["port"], key + " DELIVERY")
+        var feed: PackedVector3Array = _fixed_cable(
+            feed_at,feed_gate,device["input_gate"],device["input"],
+            FixedLayout.FEEDS[key],FixedLayout.crossing_centers(key))
+        var delivery: PackedVector3Array = _fixed_cable(
+            device["output"],device["output_gate"],receiver["gate"],receiver["port"],
+            FixedLayout.DELIVERIES[key],[])
         for cable in [feed, delivery]:
             cable_paths.append({"points": cable, "radius": 0.070})
             _append_tube(wires, cable, 0.070, 0.0)
@@ -1122,8 +1121,7 @@ static func build(parent: Node3D, nexus_origin: Vector3,
     _finish_cables(network, wires, traces)
     _record_cable_status(network, cable_paths, endpoints.size())
     _build_crossing_ramps(network, cable_paths, logistics)
-    # Recomputed only at scene construction / user-requested layout reset:
-    # no pathfinding or coordinate randomization in the render loop.
+    # Fixed layout: only the authored mesh samples are built at startup.
     return network
 
 
@@ -1141,13 +1139,8 @@ static func build_budgeted(parent: Node3D, nexus_origin: Vector3,
     var all_sites: Array[Dictionary] = [{
         "id": "NEXUS", "at": nexus_origin}]
     all_sites.append_array(specs)
-    var props: Array[Dictionary] = _prop_obstacles(all_sites)
-    for child in parent.get_children():
-        if child is Node3D and str(child.name).begins_with("ScrapPile_"):
-            var pile: Node3D = child
-            props.append({"at": _xz(pile.position), "radius": 1.15 * float(pile.get_meta("visual_scale", 1.26))})
-    if is_instance_valid(logistics):
-        props.append_array(logistics.call("cable_dock_obstacles"))
+    # Fixed sockets; loose props are placed later around these paths.
+    var props: Array[Dictionary] = []
     var cable_paths: Array[Dictionary] = []
     var board_path := PackedVector3Array()
     for i in range(PowerBoard.CABLE_SEGMENTS + 1):
@@ -1158,8 +1151,7 @@ static func build_budgeted(parent: Node3D, nexus_origin: Vector3,
     # In the screenshot, the old GRID plug was behind the generator housing.
     # Move the visible seven-port manifold to the foreground gap, then
     # route one short exposed lead FROM that original live cable endpoint.
-    var hub_pose: Dictionary = await _locate_device_budgeted(
-        "GENERATOR", all_sites, props, placed, camera, logistics, budget)
+    var hub_pose: Dictionary = FixedLayout.device_pose("GENERATOR")
     if hub_pose.is_empty():
         network.set_meta("cable_status", "MANIFOLD MISSING")
         push_warning("BASE power: manifold placement exhausted")
@@ -1188,8 +1180,9 @@ static func build_budgeted(parent: Node3D, nexus_origin: Vector3,
         if key == "GENERATOR":
             continue
         var origin: Vector3 = site["at"]
-        var pose: Dictionary = await _locate_device_budgeted(
-            key, all_sites, props, placed, camera, logistics, budget)
+        var pose: Dictionary = FixedLayout.device_pose(key)
+        pose["local"] = Vector3(_local_point(_xz(pose["at"]),site).x,0.0,
+            _local_point(_xz(pose["at"]),site).y)
         if pose.is_empty():
             continue
         var world_at: Vector3 = pose["at"]
@@ -1200,19 +1193,6 @@ static func build_budgeted(parent: Node3D, nexus_origin: Vector3,
             items, key, origin, pose["local"], props)
         endpoints.append({"key": key, "device": device,
             "socket": receiver})
-    # All assets now exist in world space and the route grid reserves the
-    # rotated facilities, existing clutter AND new small power stations.
-    var route_grid: AStarGrid2D = _obstacle_grid(
-        all_sites, props, placed)
-    if is_instance_valid(logistics):
-        # Route cables outside the vehicle corridor wherever feasible;
-        # short transverse crossings remain possible.
-        for x in range(ROUTE_BOUNDS.position.x, ROUTE_BOUNDS.end.x):
-            await budget.checkpoint("power road weights")
-            for z in range(ROUTE_BOUNDS.position.y, ROUTE_BOUNDS.end.y):
-                var c := Vector2i(x, z)
-                if not route_grid.is_point_solid(c) and bool(logistics.call("road_at", _xz(_point_of(c)))):
-                    route_grid.set_point_weight_scale(c, 4.5)
     var old_plug: Vector3 = PowerBoard.cable_point(0.0)
     var board_gate: Vector3 = old_plug + Vector3(1.10, 0.0, 0.05)
     board_gate.y = FLOOR_WIRE_Y
@@ -1220,9 +1200,8 @@ static func build_budgeted(parent: Node3D, nexus_origin: Vector3,
         0.0, 0.36, -0.49)
     var hub_in_gate: Vector3 = hub + hub_turn * Vector3(
         0.0, FLOOR_WIRE_Y, -1.48)
-    var junction: PackedVector3Array = await _routed_cable_budgeted(
-        route_grid, old_plug, board_gate, hub_in_gate,
-        hub_in, "GENERATOR TO MANIFOLD", budget)
+    var junction: PackedVector3Array = _fixed_cable(
+        old_plug,board_gate,hub_in_gate,hub_in,[Vector2(11.65,-2.85)],[])
     cable_paths.append({"points": junction, "radius": 0.070})
     _append_tube(wires, junction, 0.070, 0.0)
     _append_tube(traces, junction, 0.019, 0.051)
@@ -1237,12 +1216,12 @@ static func build_budgeted(parent: Node3D, nexus_origin: Vector3,
             offset, 0.32, 0.50)
         var feed_gate: Vector3 = hub + hub_turn * Vector3(
             offset, FLOOR_WIRE_Y, 1.48)
-        var feed: PackedVector3Array = await _routed_cable_budgeted(
-            route_grid, feed_at, feed_gate, device["input_gate"],
-            device["input"], key + " FEED", budget)
-        var delivery: PackedVector3Array = await _routed_cable_budgeted(
-            route_grid, device["output"], device["output_gate"],
-            receiver["gate"], receiver["port"], key + " DELIVERY", budget)
+        var feed: PackedVector3Array = _fixed_cable(
+            feed_at,feed_gate,device["input_gate"],device["input"],
+            FixedLayout.FEEDS[key],FixedLayout.crossing_centers(key))
+        var delivery: PackedVector3Array = _fixed_cable(
+            device["output"],device["output_gate"],receiver["gate"],receiver["port"],
+            FixedLayout.DELIVERIES[key],[])
         for cable in [feed, delivery]:
             await budget.checkpoint("power tube mesh data")
             cable_paths.append({"points": cable, "radius": 0.070})
@@ -1257,8 +1236,7 @@ static func build_budgeted(parent: Node3D, nexus_origin: Vector3,
     _record_cable_status(network, cable_paths, endpoints.size())
     await budget.checkpoint("power cable meshes")
     await _build_crossing_ramps_budgeted(network, cable_paths, logistics, budget)
-    # Recomputed only at scene construction / user-requested layout reset:
-    # no pathfinding or coordinate randomization in the render loop.
+    # Fixed layout: only the authored mesh samples are built at startup.
     return network
 
 
