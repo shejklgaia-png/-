@@ -190,8 +190,8 @@ func _choose_node(value: String) -> void:
         var item: Control = modules[code]
         item.set("selected", code == value)
         item.queue_redraw()
-    tray_title.text = Draft.description(value) + " / 配置プレビュー"
     _choose_operation("PLACE")
+    tray_title.text = Draft.description(value) + " / 配置プレビュー"
     node_chosen.emit(value)
 
 
