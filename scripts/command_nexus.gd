@@ -1533,9 +1533,10 @@ func _nexus_make_pixel_steel(variant: int) -> Texture2D:
     if variant in [2, 3]:
         var x: int = 7 if base_variant == 0 else 43
         var y: int = 39 if base_variant == 0 else 8
-        var rust_edge := Color("#cba476")
-        var rust_body := Color("#ad7444")
-        var rust_core := Color("#78482b")
+        # Warm values compensate for the blue-grey underlying material.
+        var rust_edge := Color("#f0ae62")
+        var rust_body := Color("#db8535")
+        var rust_core := Color("#a44f18")
         image.fill_rect(Rect2i(x, y, 9, 2), rust_edge)
         image.fill_rect(Rect2i(x + 2, y + 2, 10, 3), rust_edge)
         image.fill_rect(Rect2i(x + 4, y + 5, 6, 2), rust_edge)
@@ -1543,6 +1544,8 @@ func _nexus_make_pixel_steel(variant: int) -> Texture2D:
         image.fill_rect(Rect2i(x + 5, y + 3, 4, 2), rust_body)
         image.fill_rect(Rect2i(x + 3, y + 2, 3, 1), rust_core)
         image.fill_rect(Rect2i(x + 13, y + 5, 2, 1), rust_body)
+        image.fill_rect(Rect2i(x + 3, y + 7, 9, 2), rust_edge)
+        image.fill_rect(Rect2i(x + 5, y + 6, 5, 2), rust_body)
     elif variant in [4, 5]:
         var x: int = 35 if base_variant == 0 else 12
         var y: int = 15 if base_variant == 0 else 43
@@ -1557,6 +1560,8 @@ func _nexus_make_pixel_steel(variant: int) -> Texture2D:
         image.fill_rect(Rect2i(x + 4, y + 2, 4, 2), oil_core)
         image.fill_rect(Rect2i(x + 10, y + 5, 4, 1), oil_body)
         image.fill_rect(Rect2i(x + 15, y + 6, 2, 1), oil_edge)
+        image.fill_rect(Rect2i(x + 3, y + 7, 7, 2), oil_edge)
+        image.fill_rect(Rect2i(x + 4, y + 6, 5, 2), oil_body)
     # Keep distant grazing angles stable without bilinear filtering up close.
     image.generate_mipmaps()
     return ImageTexture.create_from_image(image)
