@@ -3,7 +3,7 @@ extends RefCounted
 const MAX_TRIANGLES = 12000
 const PADDING = 2
 
-static func build(source: MeshInstance3D, density: int) -> Dictionary:
+static func build(source: MeshInstance3D, density: int, preserve_shape: bool = true) -> Dictionary:
     var tris: Array[Dictionary] = []
     var charts: Array[Dictionary] = []
     var scale_basis: Basis = source.global_transform.basis if source.is_inside_tree() else source.transform.basis
@@ -66,15 +66,20 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
             tris.append({"p":p,"n":normals,"face_normal":n,"surface":s,"authored_face":face_id,"base":base,"tex":tex,"prior":prior,"colors":colors,"repeat":mat == null or mat.texture_repeat,"cull":cull})
     if tris.is_empty():
         return {"error":"描画可能な三角形がありません"}
-    charts = _edge_aligned_charts(tris,density)
+    charts = _edge_aligned_charts(tris,density,preserve_shape)
     charts = _split_overlapping_charts(tris,charts)
-    _match_rectified_edge_counts(tris,charts)
-    _align_triangular_grids(tris,charts)
-    _synchronize_chart_grids(tris,charts)
-    _refine_residual_grids(tris,charts,density)
-    _balance_rectified_groups(tris,charts,density)
-    _refine_residual_grids(tris,charts,density,true)
-    _finish_grid_refinement(tris,charts,density)
+    if preserve_shape:
+        # Keep an orthonormal projection for every chart. Phase alignment
+        # translates the entire grid; never move individual UV vertices.
+        _synchronize_chart_grids(tris,charts,true)
+    else:
+        _match_rectified_edge_counts(tris,charts)
+        _align_triangular_grids(tris,charts)
+        _synchronize_chart_grids(tris,charts)
+        _refine_residual_grids(tris,charts,density)
+        _balance_rectified_groups(tris,charts,density)
+        _refine_residual_grids(tris,charts,density,true)
+        _finish_grid_refinement(tris,charts,density)
     var order: Array[int] = []
     for i in range(charts.size()):
         var c: Dictionary = charts[i]
@@ -181,7 +186,7 @@ static func _shared_uv(a: Dictionary,b: Dictionary,edge_a: int,edge_b: int) -> b
         return ua[edge_a].distance_squared_to(ub[edge_b]) < 0.00000001 and ua[next_a].distance_squared_to(ub[next_b]) < 0.00000001
     return ua[edge_a].distance_squared_to(ub[next_b]) < 0.00000001 and ua[next_a].distance_squared_to(ub[edge_b]) < 0.00000001
 
-static func _can_join(a: Dictionary,b: Dictionary,edge_a: int,edge_b: int) -> bool:
+static func _can_join(a: Dictionary,b: Dictionary,edge_a: int,edge_b: int,preserve_shape: bool = false) -> bool:
     var na: Vector3 = a.face_normal
     var nb: Vector3 = b.face_normal
     var dot: float = na.dot(nb)
@@ -189,8 +194,13 @@ static func _can_join(a: Dictionary,b: Dictionary,edge_a: int,edge_b: int) -> bo
     var fb: int = int(b.get("authored_face",-1))
     # Authored faces define the grid domain, not accidental coplanarity.
     # Keep every original quad intact even when its neighbor is coplanar.
-    if fa >= 0 and fb >= 0:
-        return int(a.surface) == int(b.surface) and fa == fb and dot > 0.5
+    var both_authored: bool = fa >= 0 and fb >= 0
+    if both_authored and (not preserve_shape or (int(a.surface) == int(b.surface) and fa == fb)):
+        if not preserve_shape:
+            return int(a.surface) == int(b.surface) and fa == fb and dot > 0.5
+        # A genuinely warped quad is kept as a common projection only
+        # when its bend is modest. Large folds are separate domains.
+        return dot > 0.9781476
     if dot > 0.999999:
         var pa: PackedVector3Array = a.p
         var pb: PackedVector3Array = b.p
@@ -204,6 +214,8 @@ static func _can_join(a: Dictionary,b: Dictionary,edge_a: int,edge_b: int) -> bo
             var side_b: float = edge.cross(pb[(edge_b+2)%3]-pa[edge_a]).dot(na)
             if side_a*side_b < 0.0:
                 return true
+    if both_authored:
+        return false
     if int(a.surface) != int(b.surface):
         return false
     # SeraRig gives both triangles of an authored quad the same flat
@@ -215,7 +227,7 @@ static func _can_join(a: Dictionary,b: Dictionary,edge_a: int,edge_b: int) -> bo
     var bn: PackedVector3Array = b.n
     return an[0].dot(bn[0]) > 0.9999 and _shared_uv(a,b,edge_a,edge_b)
 
-static func _edge_aligned_charts(tris: Array[Dictionary],density: int) -> Array[Dictionary]:
+static func _edge_aligned_charts(tris: Array[Dictionary],density: int,preserve_shape: bool = false) -> Array[Dictionary]:
     var parent := PackedInt32Array()
     parent.resize(tris.size())
     var edges: Dictionary = {}
@@ -230,7 +242,7 @@ static func _edge_aligned_charts(tris: Array[Dictionary],density: int) -> Array[
             var incidents: Array = edges[key]
             for item in incidents:
                 var other: int = int(item.x)
-                if _can_join(t,tris[other],e,int(item.y)):
+                if _can_join(t,tris[other],e,int(item.y),preserve_shape):
                     _join(parent,i,other)
             incidents.append(Vector2i(i,e))
     var groups: Dictionary = {}
@@ -370,12 +382,13 @@ static func _edge_aligned_charts(tris: Array[Dictionary],density: int) -> Array[
                 chart.max = maximum.max(q)
             t.xy = xy
             t.chart = ci
-        if aligned_edge:
+        if aligned_edge or preserve_shape:
             # Keep the chosen baseline on an integer texel boundary. The
             # bounding box may extend below it on a trapezoid or irregular face.
             var minimum: Vector2 = chart.min
             chart.min = minimum.floor()
-        _rectify_quad(tris,members,perimeter,chart,anchor,u,v,density)
+        if not preserve_shape:
+            _rectify_quad(tris,members,perimeter,chart,anchor,u,v,density)
         charts.append(chart)
     return charts
 
@@ -843,7 +856,7 @@ static func _align_triangular_grids(tris: Array[Dictionary],charts: Array[Dictio
 ## face-aligned axes rather than rotating a rectangle away from its edges.
 ## For incompatible rotations/edge lengths, brush seam correspondence
 ## handles the residual instead of forcing heavily distorted charts.
-static func _synchronize_chart_grids(tris: Array[Dictionary],charts: Array[Dictionary]) -> void:
+static func _synchronize_chart_grids(tris: Array[Dictionary],charts: Array[Dictionary],lock_baseline: bool = false) -> void:
     var links: Array[Dictionary] = _seam_segments(tris)
     var adjacency: Array = []
     var phase := PackedVector2Array()
@@ -893,6 +906,8 @@ static func _synchronize_chart_grids(tris: Array[Dictionary],charts: Array[Dicti
                 weight += float(link.weight)
             next[i] = current+total/maxf(weight,0.001)*0.5
             next[i] -= next[i].round()
+            if lock_baseline:
+                next[i] = Vector2(next[i].x,0.0)
         phase = next
     for i in range(charts.size()):
         var chart: Dictionary = charts[i]
