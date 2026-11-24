@@ -413,8 +413,7 @@ func _ready() -> void:
     add_child(nexus_room_motion)
     nexus_room_motion.configure(SYSTEM_CONSOLE_ORIGIN,
         TRAINING_CONSOLE_ORIGIN, GATE_ORIGIN, _gate_facing_yaw(), GATE_SCALE)
-    # NEXUS equipment has 3/0/2+convex1; its displayed SERA remains
-    # universal character 4/0/2, all in the exact shared visible RGB-ID pass.
+    # Use BASE equipment and universal actor widths in one RGB-ID pass.
     _nexus_tone_background_surfaces()
     _nexus_grade_equipment_castings()
     SharedMaterialShading.apply_to_subtree(self)
@@ -432,11 +431,10 @@ func _ready() -> void:
         _nexus_apply_practical_shading(sera_display_rig, true, true)
     _camera()
     # One RGB12 ID viewport for the entire NEXUS (architecture + SERA).
-    # The numeric preset selects NEXUS equipment only, not actor widths.
+    # BASE numeric preset shares black ink and facility 4/0/3 widths;
+    # the displayed SERA retains the universal character widths.
     var id_outline := SeraViewEdges.new()
     id_outline.name = "ViewEdges"
-    # Architecture gets NEXUS 3/0/2 + convex1; the displayed SERA
-    # retains its universal character 4/0/2 (no old 2px override).
     id_outline.set_outline_profile(0)
     add_child(id_outline)
     if CUSTOMIZE_SPECIAL_PRESENTATION_ENABLED:
@@ -4963,6 +4961,11 @@ func _capture_selection_render_sources() -> void:
                     if Vector2(delta.x, delta.z).length() <= 1.58 and absf(delta.y) <= 3.10:
                         selection_render_sources[key].append({"multi": multi, "index": index, "node": draw})
                         break
+                # Authored cheek fittings use the same gate-local origin;
+                # these are fixed, separate from the movable launch terminal.
+                var gate_local: Vector3 = Basis(Vector3.UP, -_gate_facing_yaw()) * (base.origin - GATE_ORIGIN)
+                if absf(gate_local.x) <= 3.6 and gate_local.y >= 0.0 and gate_local.y <= 8.0 and absf(gate_local.z) <= 2.5:
+                    selection_render_sources["GATE_ARCH"].append({"multi": multi, "index": index, "node": draw})
     _collect_selection_meshes(get_node_or_null("TrainingServiceAssembly"), "TRAINING", true)
     for key in ["SYSTEM", "TRAINING", "DATA ARCHIVE"]:
         var monitors: Array = {"SYSTEM": ["MON_N01", "MON_N02"], "TRAINING": ["MON_N03", "MON_N04"], "DATA ARCHIVE": ["MON_N05", "MON_N06"]}[key]
