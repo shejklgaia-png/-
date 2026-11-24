@@ -15,6 +15,7 @@ const PowerBoard = preload("res://scripts/sera_base_power_board.gd")
 const BasePowerDistribution = preload(
     "res://scripts/sera_base_power_distribution.gd")
 const GridUi = preload("res://scripts/sera_base_grid_ui.gd")
+const GridDraft = preload("res://scripts/sera_grid_layout_draft.gd")
 const BaseFrameBudget = preload("res://scripts/sera_base_frame_budget.gd")
 const DisplayProfile = preload("res://scripts/sera_display_profile.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
@@ -132,6 +133,7 @@ var power_back_button: Button
 var power_view_active: bool = false
 var power_camera_tween: Tween
 var grid_ui: Control
+var grid_draft = GridDraft.new()
 var grid_placement_active: bool = false
 var power_transition_busy: bool = false
 var grid_iso_rotation: Vector3 = Vector3.ZERO
@@ -579,8 +581,9 @@ func _build_field_facilities() -> void:
     facility_system.connect("power_board_requested", Callable(self, "_enter_power_board"))
 
 func _build_power_board() -> void:
-    # 8×8 stage is a connected physical extension of the existing BASE.
+    # Initial 10×10 stage preserves the connected physical footprint.
     power_zone = PowerBoard.build(self)
+    grid_draft.setup(power_zone)
 
 
 # Use the same saved facility positions as the models, before they are built.
@@ -649,7 +652,7 @@ func _create_grid_selection() -> void:
     grid_selection_mesh = MeshInstance3D.new()
     grid_selection_mesh.name = "SelectedGridCellPreview"
     var marker := BoxMesh.new()
-    marker.size = Vector3(1.18, 0.016, 1.18)
+    marker.size = Vector3(PowerBoard.TILE_WIDTH, 0.016, PowerBoard.TILE_WIDTH)
     grid_selection_mesh.mesh = marker
     var material := StandardMaterial3D.new()
     material.albedo_color = Color(0.51, 0.83, 0.91, 0.26)
@@ -1631,14 +1634,22 @@ func _power_back_pressed() -> void:
 
 
 func _grid_node_chosen(_code: String) -> void:
-    # Palette selection only. Node placement and resource simulation are
-    # deliberately unimplemented in this UI-shell milestone.
-    pass
+    grid_draft.clear_selection()
 
 
-func _grid_operation_changed(_operation: String) -> void:
-    # Cosmetic active operation icon: PLACE / MOVE / ROTATE.
-    pass
+func _grid_operation_changed(operation: String) -> void:
+    grid_draft.clear_selection()
+    if grid_ui == null:
+        return
+    match operation:
+        "MOVE":
+            grid_ui.call("set_draft_status", "設備を選択 → 移動先をタップ")
+        "ROTATE":
+            grid_ui.call("set_draft_status", "設備をタップして90°回転")
+        "REMOVE":
+            grid_ui.call("set_draft_status", "撤去する設備をタップ")
+        "PLACE":
+            grid_ui.call("set_draft_status", "設備を選択 → 空きセルに配置")
 
 
 func _grid_select_cell(cell: Vector2i) -> void:
@@ -1646,8 +1657,8 @@ func _grid_select_cell(cell: Vector2i) -> void:
     if grid_selection_mesh == null:
         return
     grid_selection_mesh.position = PowerBoard.BOARD_CENTER + Vector3(
-        (float(cell.x) - 3.5) * PowerBoard.CELL_PITCH, 0.463,
-        (float(cell.y) - 3.5) * PowerBoard.CELL_PITCH)
+        (float(cell.x) - (PowerBoard.GRID_SIDE - 1) * 0.5) * PowerBoard.CELL_PITCH, 0.463,
+        (float(cell.y) - (PowerBoard.GRID_SIDE - 1) * 0.5) * PowerBoard.CELL_PITCH)
     grid_selection_mesh.visible = true
 
 
@@ -1663,18 +1674,18 @@ func _grid_cell_from_pixel(pixel: Vector2) -> Vector2i:
         return Vector2i(-1, -1)
     var world_point: Vector3 = origin + normal * distance
     var grid_x: float = (world_point.x - PowerBoard.BOARD_CENTER.x) / (
-        PowerBoard.CELL_PITCH) + 4.0
+        PowerBoard.CELL_PITCH) + PowerBoard.GRID_SIDE * 0.5
     var grid_y: float = (world_point.z - PowerBoard.BOARD_CENTER.z) / (
-        PowerBoard.CELL_PITCH) + 4.0
+        PowerBoard.CELL_PITCH) + PowerBoard.GRID_SIDE * 0.5
     var x: int = floori(grid_x)
     var y: int = floori(grid_y)
     if x < 0 or y < 0 or x >= PowerBoard.GRID_SIDE or y >= PowerBoard.GRID_SIDE:
         return Vector2i(-1, -1)
     # Ignore the narrow gaps between actual square tile surfaces.
-    var center_x: float = (float(x) - 3.5) * PowerBoard.CELL_PITCH
-    var center_z: float = (float(y) - 3.5) * PowerBoard.CELL_PITCH
-    if absf(world_point.x - PowerBoard.BOARD_CENTER.x - center_x) > 0.59 or (
-            absf(world_point.z - PowerBoard.BOARD_CENTER.z - center_z) > 0.59):
+    var center_x: float = (float(x) - (PowerBoard.GRID_SIDE - 1) * 0.5) * PowerBoard.CELL_PITCH
+    var center_z: float = (float(y) - (PowerBoard.GRID_SIDE - 1) * 0.5) * PowerBoard.CELL_PITCH
+    if absf(world_point.x - PowerBoard.BOARD_CENTER.x - center_x) > PowerBoard.TILE_WIDTH * 0.5 or (
+            absf(world_point.z - PowerBoard.BOARD_CENTER.z - center_z) > PowerBoard.TILE_WIDTH * 0.5):
         return Vector2i(-1, -1)
     return Vector2i(x, y)
 
@@ -1694,11 +1705,19 @@ func _grid_touch(pixel: Vector2) -> void:
     _grid_select_cell(cell)
     if not grid_placement_active:
         _enter_grid_placement()
+        return
+    var message: String = grid_draft.edit(cell, str(grid_ui.get("selected_code")), str(grid_ui.get("selected_operation")))
+    grid_ui.call("set_draft_status", message)
 
 
 func _power_input(event: InputEvent) -> void:
     if event is InputEventScreenTouch:
         if event.pressed:
+            if grid_touch_id != -1:
+                grid_touch_id = -1
+                return
+            if grid_ui != null and bool(grid_ui.call("is_interface_hit", event.position)):
+                return
             grid_touch_id = event.index
             grid_touch_start = event.position
         elif event.index == grid_touch_id:
@@ -1706,7 +1725,7 @@ func _power_input(event: InputEvent) -> void:
             if grid_touch_start.distance_to(event.position) <= 22.0:
                 _grid_touch(event.position)
     elif event is InputEventMouseButton and (
-            event.button_index == MOUSE_BUTTON_LEFT and event.pressed):
+            event.button_index == MOUSE_BUTTON_LEFT and event.pressed and event.device != -1):
         _grid_touch(event.position)
 
 
@@ -1782,6 +1801,7 @@ func _leave_grid_placement() -> void:
     grid_placement_active = false
     power_transition_busy = true
     grid_selection_mesh.visible = false
+    grid_draft.clear_selection()
     grid_ui.call("set_edit", false, true)
     hint.visible = true
     _travel_grid_camera(BASE_CAMERA_POSITION + (
@@ -1812,7 +1832,7 @@ func _enter_power_board() -> void:
     grid_ui.call("set_grid", true, true)
     layout_tools.visible = false
     power_back_button.visible = true
-    hint.text = "POWER GRID / 8×8  |  接続設計エリア"
+    hint.text = "POWER GRID / 10×10  |  設計プレビュー"
     # BASE -> GRID: one brisk, uninterrupted movement to the cable's end.
     # The winding cable stays visible in the world but is not a camera
     # waypoint; there is no deceleration or second acceleration midway.
@@ -1829,6 +1849,7 @@ func _leave_power_board() -> void:
     power_transition_busy = true
     grid_placement_active = false
     grid_selection_mesh.visible = false
+    grid_draft.clear_selection()
     grid_ui.call("set_edit", false, false)
     grid_ui.call("set_grid", false, true)
     power_back_button.visible = false
