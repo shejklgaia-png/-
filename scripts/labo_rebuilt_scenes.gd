@@ -12,12 +12,12 @@ var context_root: Node3D
 var context_models: Dictionary = {}
 var context_poses: Dictionary = {}
 const IndustrialSurface = preload("res://shaders/sera_labo_industrial_surface.gdshader")
-const Combustion = preload("res://shaders/sera_labo_combustion.gdshader")
+const FurnaceFlame = preload("res://scripts/sera_furnace_baked_flame.gd")
 const EQUIPMENT_SCALE := 1.30
 const WORK_DECK_RISE := 0.32
 var surface_cache: Dictionary = {}
 var fallback_texture: ImageTexture
-var fire_layers: Array[ShaderMaterial] = []
+var fire_layers: Array[Sprite3D] = []
 var fire_light: OmniLight3D
 const KEYS = ["LABO", "SMELTER", "RECYCLER", "STORAGE"]
 var host: Node3D
@@ -667,24 +667,19 @@ func _smelter(key: String) -> void:
     inspection[key] = {"root":furnace,"stand":Vector3(2.4,0,5.3),"focus":Vector3(0,3.0,4.1)}
     var hot := _child(furnace,"RecessedFire",Vector3(0,3.0,3.80))
     (targets[key] as Array).append(hot)
+    # Three small fixed-depth alpha sheets, not billboarded to the camera.
+    # The baked advection carries real coherent shapes instead of scrolling noise.
+    var spans := [Vector2(4.38,3.80),Vector2(4.22,3.58),Vector2(3.95,3.45)]
+    var phases := [0,31,67]
+    var opacity := [1.0,0.72,0.48]
     for i in range(3):
-        var flame := MeshInstance3D.new()
-        flame.name = "CombustionLayer"+str(i)
-        var quad := QuadMesh.new()
-        quad.size = Vector2(4.46-float(i)*0.23,3.92-float(i)*0.20)
-        flame.mesh = quad
-        flame.position = Vector3(0.045*float(i-1),-0.10*float(i),0.19*float(i))
-        var mat := ShaderMaterial.new()
-        mat.shader = Combustion
-        mat.set_shader_parameter("layer_phase",float(i)*0.371)
-        mat.set_shader_parameter("layer_opacity",[0.93,0.57,0.36][i])
-        flame.material_override = mat
-        flame.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-        flame.set_meta("FX_NO_OUTLINE",true)
-        flame.set_meta("sera_no_view_edges",true)
-        flame.set_meta("sera_preserve_authored_material",true)
-        hot.add_child(flame)
-        fire_layers.append(mat)
+        var sheet: Sprite3D = FurnaceFlame.make_sheet("CombustionLayer"+str(i),
+            spans[i],Vector3(float(i-1)*0.08,-0.04-0.5*(3.80-spans[i].y),0.065+float(i)*0.20),
+            opacity[i],phases[i])
+        if sheet == null:
+            continue
+        hot.add_child(sheet)
+        fire_layers.append(sheet)
     fire_light = OmniLight3D.new()
     fire_light.name = "LocalizedFurnaceRadiance"
     fire_light.position = Vector3(0,2.0,4.50)
@@ -996,7 +991,7 @@ func animate(delta: float, time: float, key: String) -> void:
         panel.call("_process",delta)
     if key == "SMELTER":
         for layer in fire_layers:
-            layer.set_shader_parameter("phase_time",time)
+            FurnaceFlame.sample(layer,time)
         if is_instance_valid(fire_light):
             fire_light.light_energy = 1.38+0.16*sin(time*3.13)+0.10*sin(time*7.71)
     if cycle_running:
