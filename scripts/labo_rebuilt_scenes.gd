@@ -932,7 +932,7 @@ func _animate_print_idle(delta: float) -> void:
         var roll: float = 0.0
         var sign_value: float = float(arm["idle_sign"])
         match int(arm["idle_kind"]):
-            0: roll = sign_value*TAU*smoothstep(0.0,1.0,u)*weight
+            0: roll = sign_value*TAU*e
             1: tip.y += 0.40*e
             2: axis = (Vector3.DOWN+tangent*(0.24*sin(TAU*u)*e)).normalized()
             3:
