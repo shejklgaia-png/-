@@ -235,6 +235,12 @@ static func _build_industrial_services(root: Node3D) -> void:
         _service_sweep(duct, [Vector3(side*8.52,9.32,-18.7),
             Vector3(side*8.52,9.32,12.35)], Vector3.RIGHT,
             _service_section(1.0,0.32,0.23))
+    # The retained practical lamp sockets originally met the removed
+    # undercoffer. A slim roof-mounted rail now provides that attachment.
+    for side in [-1.0,1.0]:
+        _service_sweep(duct, [Vector3(side*5.58,9.59,-27.0),
+            Vector3(side*5.58,9.59,12.35)], Vector3.RIGHT,
+            _service_section(0.56,0.13,0.08))
     # Separate near-field access bay with visible layered channel and endcaps.
     _service_sweep(steel, [Vector3(-1.32,9.04,-2.65),
         Vector3(-1.32,9.04,4.80), Vector3(-1.32,9.04,12.25)],
