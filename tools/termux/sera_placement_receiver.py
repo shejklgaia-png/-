@@ -10,7 +10,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 INBOX = Path.home() / ".sera_apk_placement.json"
 MAX_BYTES = 512 * 1024
-KEY = re.compile(r"^(?:base/facility/[A-Z_]+|nexus/(?:model|camera)/[A-Z_]+|labo/camera/[A-Z_]+|labo/model/[A-Z_]+/[A-Za-z0-9_/-]+)$")
+KEY = re.compile(r"^(?:base/facility/[A-Z_]+|nexus/(?:model|camera)/(?:SYSTEM|TRAINING|DATA ARCHIVE|DEPLOYMENT)|labo/camera/[A-Z_]+|labo/model/[A-Z_]+/[A-Za-z0-9_/-]+)$")
 
 def validate(data):
     if not isinstance(data, dict) or data.get("schema") != 1 or not isinstance(data.get("records"), dict):
@@ -21,6 +21,22 @@ def validate(data):
         stamp = record.get("updated_at")
         if type(stamp) not in (int, float) or not math.isfinite(stamp) or stamp <= 0:
             raise ValueError("timestamp")
+        for name in ("position", "rotation_degrees", "eye", "look"):
+            if name in record:
+                vector = record[name]
+                if not isinstance(vector, list) or len(vector) != 3 or any(type(x) not in (int, float) or not math.isfinite(x) for x in vector):
+                    raise ValueError("vector")
+        for name in ("yaw_rad", "fov", "roll_deg"):
+            if name in record and (type(record[name]) not in (int, float) or not math.isfinite(record[name])):
+                raise ValueError("angle")
+        if key.startswith(("nexus/camera/", "labo/camera/")):
+            required = {"eye", "look", "fov"}
+        elif key.startswith("labo/model/"):
+            required = {"position", "rotation_degrees"}
+        else:
+            required = {"position", "yaw_rad"}
+        if not required.issubset(record):
+            raise ValueError("missing pose")
     return data["records"]
 
 def merge(*records):
