@@ -7,6 +7,12 @@ extends RefCounted
 ## No runtime animation, light, physics, viewport or selection ID is added.
 
 static func suppresses_authored_part(label: String) -> bool:
+    # Replace the old transverse box-beam system, not its practical lights.
+    if label.begins_with("Deep overhead girder ") or label.begins_with("Girder inset lower spine ") or label.begins_with("Background girder "):
+        return true
+    if label in ["Roof undercoffer armor expanse", "Central brand face main armor",
+            "Central face long raised inset"]:
+        return true
     if label in [
             "Rear wall monolithic black shell",
             "Rear wall upper stepped machinery shelf",
@@ -150,6 +156,40 @@ static func build(room: Node3D) -> void:
 
 
     _build_industrial_services(root)
+    _build_command_spine(root)
+
+
+# The old narrow front plate is replaced by a sculpted central structural
+# shield. All new geometry remains behind the room logo at z=-11.32.
+static func _build_command_spine(root: Node3D) -> void:
+    var armor := SurfaceTool.new()
+    var channel := SurfaceTool.new()
+    for tool in [armor, channel]:
+        tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+        tool.set_smooth_group(-1)
+    # Column root is the retained structural core, centered z=-12.42.
+    _service_sweep(armor, [Vector3(0.0,1.85,-12.05),
+        Vector3(0.0,3.05,-12.05), Vector3(0.0,5.85,-12.05),
+        Vector3(0.0,6.82,-12.05)], Vector3.RIGHT,
+        _service_section(0.82,0.49,0.19))
+    # Broad angled shoulders, linked into the original head and feet.
+    for side in [-1.0,1.0]:
+        _service_sweep(channel, [Vector3(side*0.70,1.20,-12.03),
+            Vector3(side*1.14,2.35,-12.03),
+            Vector3(side*1.14,3.22,-12.03),
+            Vector3(side*0.76,3.84,-12.03)], Vector3.BACK,
+            _service_section(0.37,0.16,0.10))
+        _service_sweep(channel, [Vector3(side*0.68,5.78,-12.10),
+            Vector3(side*1.08,6.46,-12.10),
+            Vector3(side*0.74,7.12,-12.10)], Vector3.BACK,
+            _service_section(0.32,0.18,0.10))
+    # A horizontal machined joint separates the lower service cover from
+    # the upper logo-bearing structural panel.
+    _service_sweep(channel, [Vector3(-0.68,3.35,-11.62),
+        Vector3(0.68,3.35,-11.62)], Vector3.BACK,
+        _service_section(0.10,0.12,0.06))
+    _service_submit(root, "WallCommandSpineArmor", armor, Color("#647d91"), _service_texture(0))
+    _service_submit(root, "WallCommandSpineChannel", channel, Color("#889296"), _service_texture(1))
 
 
 # Background-only, fixed architectural paths. Each material group is one
@@ -164,40 +204,45 @@ static func _build_industrial_services(root: Node3D) -> void:
         tool.begin(Mesh.PRIMITIVE_TRIANGLES)
         tool.set_smooth_group(-1)
 
-    # Front and rear runs stop short of the canopy and launch clearance.
-    # Tops intersect the original transverse girders (underside y=8.74).
-    # Ends terminate inside those girders instead of floating in the room.
-    _service_sweep(duct, [Vector3(-3.15, 8.55, -2.65),
-        Vector3(-3.15, 8.55, 4.80), Vector3(-3.15, 8.55, 12.25)],
-        Vector3.RIGHT, _service_section(0.58, 0.34, 0.16))
-    _service_sweep(duct, [Vector3(-3.65, 8.55, -24.95),
-        Vector3(-3.65, 8.55, -17.55)],
-        Vector3.RIGHT, _service_section(0.75, 0.36, 0.17))
-    _service_sweep(steel, [Vector3(3.12, 8.60, -2.65),
-        Vector3(3.12, 8.60, 4.80), Vector3(3.12, 8.60, 12.25)],
-        Vector3.RIGHT, _service_round(0.26, 8))
-    _service_sweep(steel, [Vector3(3.75, 8.63, 4.80),
-        Vector3(3.75, 8.63, 12.25)], Vector3.RIGHT, _service_round(0.19, 8))
-    for z in [-2.65, 4.80, 12.25]:
-        _service_sweep(duct, [Vector3(-3.15, 8.55, z-0.16),
-            Vector3(-3.15, 8.55, z+0.16)], Vector3.RIGHT,
-            _service_section(0.67, 0.42, 0.14))
-        _service_sweep(steel, [Vector3(3.12, 8.60, z-0.14),
-            Vector3(3.12, 8.60, z+0.14)], Vector3.RIGHT, _service_round(0.34, 8))
-
-    # Broad load-bearing fascia profiles on the two visible girder faces.
-    # The stepped lower silhouette is real geometry, with its rear half
-    # embedded in the host beam. No loose triangular pendants.
-    _service_sweep(duct, [Vector3(-8.75,8.98,5.12),
-        Vector3(-6.00,8.98,5.12), Vector3(-5.38,8.67,5.12),
-        Vector3(-3.15,8.67,5.12), Vector3(-2.60,8.98,5.12),
-        Vector3(-0.70,8.98,5.12)], Vector3.BACK,
-        _service_section(0.24,0.37,0.11))
-    _service_sweep(duct, [Vector3(0.90,8.98,-2.29),
-        Vector3(3.12,8.98,-2.29), Vector3(3.70,8.65,-2.29),
-        Vector3(6.18,8.65,-2.29), Vector3(6.85,8.98,-2.29),
-        Vector3(8.65,8.98,-2.29)], Vector3.BACK,
-        _service_section(0.25,0.39,0.12))
+    # New vault: broad faceted haunches instead of repeated box girders.
+    # At the rear launch bay the right half remains completely open.
+    var ribs := SurfaceTool.new()
+    ribs.begin(Mesh.PRIMITIVE_TRIANGLES)
+    ribs.set_smooth_group(-1)
+    for station in [-17.55, -10.10, -2.65, 4.80, 12.25]:
+        var z: float = float(station)
+        var broad: bool = z == -2.65 or z == 4.80
+        _service_sweep(ribs, [Vector3(-9.10,7.65,z),
+            Vector3(-7.45,7.65,z), Vector3(-5.70,8.88,z),
+            Vector3(-3.80,9.19,z), Vector3(3.80,9.19,z),
+            Vector3(5.70,8.88,z), Vector3(7.45,7.65,z),
+            Vector3(9.10,7.65,z)], Vector3.BACK,
+            _service_section(0.43 if broad else 0.25,0.32,0.12))
+        # Integrated outer buttress collars, not detached decoration.
+        for side in [-1.0,1.0]:
+            _service_sweep(steel, [Vector3(side*8.95,7.65,z),
+                Vector3(side*7.55,7.65,z)], Vector3.BACK,
+                _service_section(0.49 if broad else 0.32,0.40,0.10))
+    # Longitudinal center coffer mounts to the retained roof and divides
+    # the vault into unequal functional sections. No roof-hanging pipes
+    # close to the maintenance canopy silhouette.
+    _service_sweep(duct, [Vector3(0.0,9.42,-27.0),
+        Vector3(0.0,9.42,12.35)], Vector3.RIGHT,
+        _service_section(2.20,0.25,0.22))
+    # Narrow dark service rails sit at the roof shoulder; existing lamps
+    # retain their true source positions and project below this cladding.
+    for side in [-1.0,1.0]:
+        _service_sweep(duct, [Vector3(side*8.52,9.32,-18.7),
+            Vector3(side*8.52,9.32,12.35)], Vector3.RIGHT,
+            _service_section(1.0,0.32,0.23))
+    # Separate near-field access bay with visible layered channel and endcaps.
+    _service_sweep(steel, [Vector3(-1.32,9.04,-2.65),
+        Vector3(-1.32,9.04,4.80), Vector3(-1.32,9.04,12.25)],
+        Vector3.RIGHT, _service_section(0.24,0.14,0.08))
+    _service_sweep(steel, [Vector3(1.32,9.04,-2.65),
+        Vector3(1.32,9.04,4.80), Vector3(1.32,9.04,12.25)],
+        Vector3.RIGHT, _service_section(0.24,0.14,0.08))
+    _service_submit(root, "CeilingVaultRibs", ribs, Color("#74828d"), _service_texture(0))
 
     # Rear-left wall heat exchanger: fins seat in the existing inset face.
     # Keep the cyan indicator above it and the central mark unobstructed.
@@ -233,6 +278,16 @@ static func _build_industrial_services(root: Node3D) -> void:
     _service_sweep(wall_duct, [Vector3(8.91, 4.76, -14.70),
         Vector3(8.91, 4.76, -8.40)], Vector3.RIGHT,
         _service_section(0.25, 0.38, 0.09))
+    # Left forward wall manifold projects out of the existing enclosing
+    # wall (inner face x=-8.94). Keep its lower edge above the floor.
+    _service_sweep(wall_duct, [Vector3(-8.86,2.10,-6.5),
+        Vector3(-8.86,4.72,-6.5), Vector3(-8.86,5.35,-7.3),
+        Vector3(-8.86,5.35,-11.5)], Vector3.RIGHT,
+        _service_section(0.43,0.52,0.14))
+    _service_sweep(wall_steel, [Vector3(-8.80,2.15,-7.65),
+        Vector3(-8.80,4.50,-7.65), Vector3(-8.80,5.06,-8.22),
+        Vector3(-8.80,5.06,-12.2)], Vector3.RIGHT,
+        _service_round(0.18,8))
     var coated: ImageTexture = _service_texture(0)
     var pipe_finish: ImageTexture = _service_texture(1)
     _service_submit(root, "CeilingDuctMesh", duct, Color("#52616b"), coated)
