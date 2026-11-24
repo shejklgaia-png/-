@@ -394,7 +394,8 @@ func duration() -> float:
 
 func begin(prefer_inbound: bool = false) -> void:
     input_finished = false
-    reset()
+    # Reset cargo bookkeeping only, not visible mechanisms.
+    reset(false)
     if key!="STORAGE":
         return
     var empty: Array[int] = []
@@ -433,15 +434,16 @@ func _attach_box(box: Node3D,parent: Node3D,p: Vector3) -> void:
     box.position = p
     box.rotation = Vector3.ZERO
 
-func reset() -> void:
+func reset(reset_mechanisms: bool = true) -> void:
     truck_in.visible = false
     truck_out.visible = false
     raw.visible = false
     raw.scale = Vector3.ONE
-    _arm_pose(in_arm,Vector3(in_dock.x,float(in_arm["height"])-0.74,in_dock.z))
-    _arm_pose(out_arm,Vector3(outlet.x,float(out_arm["height"])-0.74,outlet.z))
+    if reset_mechanisms:
+        _arm_pose(in_arm,_park_point(in_arm,in_dock),2.70 if key=="SMELTER" else (1.15 if key=="STORAGE" else 0.75))
+        _arm_pose(out_arm,_park_point(out_arm,out_dock if key=="SMELTER" else outlet),1.15 if key=="STORAGE" else 0.75)
     if key=="SMELTER":
-        _reset_refinery()
+        _reset_refinery(reset_mechanisms)
     if key=="STORAGE":
         # If a view is closed during a transfer, restore an undelivered
         # outgoing box to its reserved slot, or cancel an uncommitted arrival.
@@ -459,8 +461,16 @@ func reset() -> void:
         storage_removed = false
         storage_delivered = false
         storage_committed = false
-        _stacker(Vector3(shelf_mast.position.x,shelf_carriage.position.y,aisle_z),0.0)
+        if reset_mechanisms:
+            _stacker(Vector3(shelf_mast.position.x,shelf_carriage.position.y,aisle_z),0.0)
 
+
+func _park_point(arm: Dictionary,at: Vector3) -> Vector3:
+    return Vector3(at.x,float(arm["height"])-0.74,at.z)
+
+func _return_raised(arm: Dictionary,from_point: Vector3,to_point: Vector3,u: float,span: float = 0.75) -> void:
+    # Only after releasing the load and fully retracting.
+    _arm_pose(arm,_park_point(arm,from_point).lerp(_park_point(arm,to_point),smoothstep(0.0,1.0,u)),span)
 
 func sample_in(t: float,payload: Node3D = null) -> void:
     truck_in.visible = t<0.29
@@ -490,6 +500,9 @@ func sample_in(t: float,payload: Node3D = null) -> void:
     if t>=0.29:
         input_finished = true
 
+func sample_in_return(t: float) -> void:
+    _return_raised(in_arm,inlet,in_dock,clampf((t-0.29)/0.17,0.0,1.0))
+
 func sample_out(t: float,payload: Node3D,payload_height: float = 1.35,payload_width: float = 1.0) -> void:
     truck_out.visible = t>=0.72 and t<1.0
     _truck_pose(truck_out,out_far,out_dock,smoothstep(0.72,0.81,t))
@@ -503,13 +516,17 @@ func sample_out(t: float,payload: Node3D,payload_height: float = 1.35,payload_wi
             p = _room_position(truck_out)+Vector3.UP*(DECK_Y+(0.0 if key=="STORAGE" else 0.14))
         _place(payload,p)
         payload.visible = t<1.0
-        _arm_pose(out_arm,p+Vector3.UP*payload_height,payload_width)
+        if t<0.92:
+            _arm_pose(out_arm,p+Vector3.UP*payload_height,payload_width)
     else:
         var h: float = lerpf(float(out_arm["height"])-0.5,outlet.y+payload_height,smoothstep(0.72,0.81,t))
-        _arm_pose(out_arm,Vector3(outlet.x,h,outlet.z),payload_width)
-    if t>=0.92:
+        _arm_pose(out_arm,Vector3(outlet.x,h,outlet.z),lerpf(0.75,payload_width,smoothstep(0.72,0.81,t)))
+    if t>=0.92 and t<0.94:
         var drop := _out_drop()
-        _arm_pose(out_arm,Vector3(drop.x,lerpf(drop.y+payload_height,float(out_arm["height"])-0.5,smoothstep(0.92,0.94,t)),drop.z),payload_width)
+        _arm_pose(out_arm,Vector3(drop.x,lerpf(drop.y+payload_height,float(out_arm["height"])-0.74,smoothstep(0.92,0.94,t)),drop.z),payload_width)
+    elif t>=0.94:
+        var u: float = smoothstep(0.94,1.0,t)
+        _return_raised(out_arm,out_dock,outlet,(t-0.94)/0.06,lerpf(payload_width,0.75,u))
 
 func _build_storage() -> void:
     # Six independent bays, four levels. Front aisle is clear for the stacker.
@@ -671,7 +688,10 @@ func _sample_storage_arrival(t: float) -> void:
     else:
         if t<0.47:
             _place(active_box,inlet)
-        _arm_pose(in_arm,Vector3(inlet.x,lerpf(inlet.y+STORAGE_BOX_HEIGHT,float(in_arm["height"])-0.74,smoothstep(0.43,0.47,t)),inlet.z),1.15)
+        if t<0.47:
+            _arm_pose(in_arm,Vector3(inlet.x,lerpf(inlet.y+STORAGE_BOX_HEIGHT,float(in_arm["height"])-0.74,smoothstep(0.43,0.47,t)),inlet.z),1.15)
+        else:
+            _return_raised(in_arm,inlet,in_dock,(t-0.47)/0.23,1.15)
     var approach := Vector3(inlet.x,inlet.y,aisle_z)
     if t<0.47:
         _stacker(stacker_start.lerp(approach,smoothstep(0.30,0.47,t)),0.0)
@@ -744,7 +764,10 @@ func _sample_storage_departure(t: float) -> void:
         if active_box.get_parent()!=truck_out:
             _attach_box(active_box,truck_out,Vector3.UP*DECK_Y)
             active_box.rotation.y = PI
-        _arm_pose(out_arm,Vector3(drop.x,lerpf(drop.y+STORAGE_BOX_HEIGHT,float(out_arm["height"])-0.74,smoothstep(0.61,0.64,t)),drop.z),1.15)
+        if t<0.64:
+            _arm_pose(out_arm,Vector3(drop.x,lerpf(drop.y+STORAGE_BOX_HEIGHT,float(out_arm["height"])-0.74,smoothstep(0.61,0.64,t)),drop.z),1.15)
+        else:
+            _return_raised(out_arm,out_dock,outlet,(t-0.64)/0.26,1.15)
         if t>=1.0 and not storage_delivered:
             storage_delivered = true
             active_box.visible = false
@@ -862,16 +885,17 @@ func _build_refinery() -> void:
         ingot.visible = false
         refinery_ingots.append(ingot)
 
-func _reset_refinery() -> void:
+func _reset_refinery(reset_mechanisms: bool = true) -> void:
     if not is_instance_valid(refinery_hatch):
         return
     _attach_box(in_box,truck_in,Vector3.UP*DECK_Y)
     in_box.rotation.y = PI
     in_box.visible = true
-    refinery_gate.rotation.x = 0.0
-    refinery_cradle.rotation.x = 0.0
-    refinery_hatch.position.y = 2.23
-    refinery_drawer.position = refinery_inside
+    if reset_mechanisms:
+        refinery_gate.rotation.x = 0.0
+        refinery_cradle.rotation.x = 0.0
+        refinery_hatch.position.y = 2.23
+        refinery_drawer.position = refinery_inside
     for i in range(refinery_chunks.size()):
         var chunk: Node3D = refinery_chunks[i]
         var col: int = i%6
@@ -887,8 +911,9 @@ func _reset_refinery() -> void:
             ingot.reparent(root,false)
         ingot.visible = false
         ingot.rotation = Vector3.ZERO
-    _refinery_arm(refinery_extract,Vector3(refinery_pick.x,5.95,refinery_pick.z),refinery_pick.x)
-    _refinery_arm(out_arm,Vector3(out_dock.x,float(out_arm["height"])-0.75,out_dock.z),outlet.x)
+    if reset_mechanisms:
+        _refinery_arm(refinery_extract,Vector3(refinery_pick.x,5.95,refinery_pick.z),refinery_pick.x)
+        _refinery_arm(out_arm,_park_point(out_arm,out_dock),outlet.x)
 
 func _pyramid_position(index: int) -> Vector3:
     # Two parallel 3/2/1 pyramids, arranged bottom-up (6 + 4 + 2).
@@ -923,7 +948,7 @@ func sample_refinery(t: float) -> void:
     else:
         _storage_truck(truck_in,in_dock,in_far,(sec-27.0)/9.0,true)
     if sec<8.0:
-        _arm_pose(in_arm,Vector3(pick.x,in_h-0.75,pick.z))
+        _arm_pose(in_arm,Vector3(pick.x,in_h-0.75,pick.z),2.70)
     elif sec<10.0:
         _arm_pose(in_arm,Vector3(pick.x,lerpf(in_h-0.75,pick.y+1.55,smoothstep(8.0,10.0,sec)),pick.z),2.70)
     elif sec<14.0:
@@ -1049,6 +1074,8 @@ func sample_refinery(t: float) -> void:
         if sec>=76.0 and sec<78.0:
             parked.y = lerpf(parked.y,6.29,smoothstep(76.0,78.0,sec))
         if sec>=94.8:
-            var last: Vector3 = root.to_local(out_box.to_global(_packed_position(INGOT_COUNT-1)))
+            # Fixed stopped dock; never follow the departing truck with the arm.
+            var slot: Vector3 = _packed_position(INGOT_COUNT-1)
+            var last: Vector3 = out_dock+Vector3.UP*DECK_Y+Vector3(-slot.x,slot.y,-slot.z)
             parked = Vector3(last.x,6.29,last.z).lerp(parked,smoothstep(94.8,95.0,sec))
         _refinery_arm(out_arm,parked,outlet.x)
