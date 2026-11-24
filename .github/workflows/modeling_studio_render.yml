@@ -60,6 +60,8 @@ jobs:
           test "$ok" -eq 1
           tar -xf "$archive"
           echo "$RUNNER_TEMP/blender-4.5.3-linux-x64" >> "$GITHUB_PATH"
+      - name: Check camera fit and static interference
+        run: blender --background --factory-startup --python-exit-code 1 --python tools/modeling_studio/check_geometry_review.py
       - name: Generate model and review images
         shell: bash
         run: |
