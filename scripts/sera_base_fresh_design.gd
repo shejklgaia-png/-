@@ -234,17 +234,17 @@ static func _labo(g: Variant) -> void:
     g.poly("LabArmColumnFoot", "octagonal_slew",
         Vector3(-0.43, 0.72, -0.10), Vector3(0.55, 0.28, 0.55), "dark")
     g.poly("LabArmColumn", "octagonal_slew",
-        Vector3(-0.43, 2.02, -0.10), Vector3(0.31, 2.77, 0.31), "slate")
+        Vector3(-0.43, 2.10, -0.10), Vector3(0.31, 2.95, 0.31), "slate")
     g.poly("LabArmShoulder", "drum",
-        Vector3(-0.43, 3.45, -0.10), Vector3(0.46, 0.30, 0.46), "edge")
+        Vector3(-0.43, 3.60, -0.10), Vector3(0.46, 0.30, 0.46), "edge")
     g.poly("LabArmLinkA", "octagonal_slew",
-        Vector3(-0.9, 3.45, 0.30), Vector3(0.28, 1.25, 0.28), "gold")
+        Vector3(-0.9, 3.60, 0.30), Vector3(0.28, 1.30, 0.28), "gold")
     g.poly("LabArmLinkB", "octagonal_slew",
-        Vector3(-0.9, 3.45, 0.60), Vector3(0.25, 1.25, 0.25), "armor_light")
+        Vector3(-0.9, 3.60, 0.60), Vector3(0.25, 1.30, 0.25), "armor_light")
     g.poly("LabArmElbow", "drum",
-        Vector3(-1.25, 3.45, 0.40), Vector3(0.39, 0.34, 0.39), "edge")
+        Vector3(-1.25, 3.60, 0.40), Vector3(0.39, 0.34, 0.39), "edge")
     g.poly("LabArmWristHub", "drum",
-        Vector3(-0.55, 3.45, 0.64), Vector3(0.31, 0.27, 0.31), "slate")
+        Vector3(-0.55, 3.60, 0.64), Vector3(0.31, 0.27, 0.31), "slate")
     g.poly("LabArmWristShaft", "octagonal_slew",
         Vector3(-0.55, 2.60, 0.64), Vector3(0.15, 1.70, 0.15), "edge")
     g.box("LabArmWristOffset", Vector3(-0.55, 2.24, 0.47),
