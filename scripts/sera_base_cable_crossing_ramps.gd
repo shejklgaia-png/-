@@ -1,9 +1,8 @@
 extends Node3D
-## Narrow modular protectors follow the cable, never the bounding rectangle
-## of several intersecting roads. Coverage and height use the same profile.
+## Seven fixed industrial crossing ramps. Their geometry and height are
+## determined by the authored crossing schedule, not road/cable proximity.
 const FLOOR: float = -0.005
-const SAMPLE_STEP: float = 0.22
-const TRACK_SWEEP: float = 0.58
+const FixedLayout = preload("res://scripts/sera_base_authored_layout.gd")
 const HASH_SIZE: float = 1.5
 var _sections: Array[Dictionary] = []
 var _index: Dictionary = {}
@@ -16,66 +15,6 @@ func _xz(v: Vector3) -> Vector2:
 func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> void:
     for p in [a, b, c, a, c, d]:
         st.add_vertex(p)
-
-
-func _sample(points: PackedVector3Array) -> PackedVector3Array:
-    var result := PackedVector3Array()
-    if points.is_empty():
-        return result
-    result.append(points[0])
-    for i in range(1, points.size()):
-        var a: Vector3 = points[i - 1]
-        var b: Vector3 = points[i]
-        var length: float = _xz(a).distance_to(_xz(b))
-        if length < 0.003:
-            continue
-        var count: int = maxi(1, ceili(length / SAMPLE_STEP))
-        for j in range(1, count + 1):
-            result.append(a.lerp(b, float(j) / float(count)))
-    return result
-
-
-func _road_bounds(roads: Array) -> Array[Dictionary]:
-    var result: Array[Dictionary] = []
-    for road in roads:
-        var a: Vector2 = road["a"]
-        var b: Vector2 = road["b"]
-        if a.distance_squared_to(b) < 0.00001:
-            continue
-        result.append({"a": a, "b": b, "bounds": Rect2(a.min(b), (b - a).abs()).grow(TRACK_SWEEP + 0.20)})
-    return result
-
-
-func _needs_cover(a: Vector2, b: Vector2, radius: float, roads: Array[Dictionary]) -> bool:
-    var bounds := Rect2(a.min(b), (b - a).abs()).grow(0.01)
-    for road in roads:
-        var road_box: Rect2 = road["bounds"]
-        if not road_box.intersects(bounds):
-            continue
-        var nearest: PackedVector2Array = Geometry2D.get_closest_points_between_segments(a, b, road["a"], road["b"])
-        if nearest.size() == 2 and nearest[0].distance_to(nearest[1]) <= TRACK_SWEEP + radius:
-            return true
-    return false
-
-
-func _profile(points: PackedVector3Array, i: int, radius: float, bias: float) -> PackedVector3Array:
-    var p: Vector3 = points[i]
-    var before: Vector2 = _xz(points[maxi(0, i - 1)])
-    var after: Vector2 = _xz(points[mini(points.size() - 1, i + 1)])
-    var direction: Vector2 = (after - before).normalized()
-    if direction.length_squared() < 0.001:
-        direction = Vector2.RIGHT
-    var normal := Vector2(-direction.y, direction.x)
-    # Cross-cable width is strictly local: normally 0.79m, thick GRID
-    # cable 0.94m. No width increase due to road length or other cables.
-    var half_top: float = radius + 0.075
-    var half_width: float = half_top + 0.25
-    var top: float = maxf(0.16, p.y + radius + 0.035) + bias
-    var row := PackedVector3Array()
-    for offset in [-half_width, -half_top, half_top, half_width]:
-        var at: Vector2 = _xz(p) + normal * float(offset)
-        row.append(Vector3(at.x, top if absf(float(offset)) <= half_top + 0.001 else FLOOR + bias, at.y))
-    return row
 
 
 func _key(p: Vector2) -> Vector2i:
@@ -100,87 +39,67 @@ func _record(pa: PackedVector3Array, pb: PackedVector3Array) -> void:
             (_index[k] as Array).append(id)
 
 
-func _emit_section(deck: SurfaceTool, trim: SurfaceTool, points: PackedVector3Array, i: int, radius: float, bias: float) -> void:
-    var pa: PackedVector3Array = _profile(points, i, radius, bias)
-    var pb: PackedVector3Array = _profile(points, i + 1, radius, bias)
+# Each protector is a single manufactured part, with its straight hollow
+# cable channel and two opposing slopes perpendicular to the cable.
+func _fixed_profile(center: Vector2, wire: Vector2, edge: float,
+        radius: float, cable_y: float) -> PackedVector3Array:
+    var normal := Vector2(-wire.y,wire.x)
+    var at: Vector2 = center + wire * edge
+    var top: float = cable_y + radius + 0.035
+    var half_top: float = radius + 0.065
+    var slope: float = 0.38 if radius > 0.10 else 0.27
+    var row := PackedVector3Array()
+    for offset in [-half_top-slope,-half_top,half_top,half_top+slope]:
+        var p: Vector2 = at + normal * float(offset)
+        var y: float = top if absf(float(offset)) <= half_top + 0.001 else FLOOR
+        row.append(Vector3(p.x,y,p.y))
+    return row
+
+
+func _emit_fixed(deck: SurfaceTool, trim: SurfaceTool, crossing: Dictionary) -> void:
+    var center: Vector2 = crossing["at"]
+    var wire: Vector2 = crossing["wire"]
+    var radius: float = float(crossing["radius"])
+    var y: float = float(crossing["y"])
+    # Length along cable: 1.48m (vehicle width 0.94m), always fixed.
+    var pa: PackedVector3Array = _fixed_profile(center,wire,-0.74,radius,y)
+    var pb: PackedVector3Array = _fixed_profile(center,wire,0.74,radius,y)
     for j in range(3):
-        _quad(deck, pa[j], pb[j], pb[j + 1], pa[j + 1])
-    # Thin safety markings on the flat cover, not large yellow slopes.
+        _quad(deck,pa[j],pb[j],pb[j+1],pa[j+1])
+    # Short yellow edge caps on each end; dark steel in the main tread.
     var up := Vector3.UP * 0.008
-    for fraction in [0.0, 0.84]:
-        var k: float = fraction
-        _quad(trim, pa[1].lerp(pa[2], k) + up, pb[1].lerp(pb[2], k) + up,
-            pb[1].lerp(pb[2], k + 0.16) + up, pa[1].lerp(pa[2], k + 0.16) + up)
-    _record(pa, pb)
+    for j in range(3):
+        _quad(trim,pa[j]+up,pa[j].lerp(pb[j],0.055)+up,
+            pa[j+1].lerp(pb[j+1],0.055)+up,pa[j+1]+up)
+        _quad(trim,pb[j].lerp(pa[j],0.055)+up,pb[j]+up,
+            pb[j+1]+up,pb[j+1].lerp(pa[j+1],0.055)+up)
+    _record(pa,pb)
 
 
-func build(paths: Array[Dictionary], logistics: Node3D) -> void:
-    var roads: Array[Dictionary] = _road_bounds(logistics.call("road_segments"))
+func build(_paths: Array[Dictionary], _logistics: Node3D) -> void:
     var deck := SurfaceTool.new()
     deck.begin(Mesh.PRIMITIVE_TRIANGLES)
     var trim := SurfaceTool.new()
     trim.begin(Mesh.PRIMITIVE_TRIANGLES)
-    var cable_id: int = 0
-    for path in paths:
-        var points: PackedVector3Array = _sample(path["points"])
-        var radius: float = float(path["radius"])
-        # Different cables may cross. A tiny per-cable offset avoids
-        # coplanar faces without ever merging their footprints.
-        var bias: float = float(cable_id) * 0.001
-        cable_id += 1
-        var active: Array[bool] = []
-        for i in range(points.size() - 1):
-
-            active.append(_needs_cover(_xz(points[i]), _xz(points[i + 1]), radius, roads))
-        for i in range(active.size()):
-            if not active[i] and not (i > 0 and active[i - 1]) and not (i + 1 < active.size() and active[i + 1]):
-                continue
-
-            _emit_section(deck, trim, points, i, radius, bias)
-    if _sections.is_empty():
-        return
-    _finish(deck, "CableProtectorSteelDeck", Color("#41494f"))
-
-    _finish(trim, "CableProtectorSafetyEdges", Color("#b99b47"))
-    print("SERA_BASE_LOGISTICS: narrow cable protector sections=", _sections.size())
+    for crossing in FixedLayout.CROSSINGS:
+        _emit_fixed(deck,trim,crossing)
+    _finish(deck,"CableProtectorSteelDeck",Color("#41494f"))
+    _finish(trim,"CableProtectorSafetyEdges",Color("#b99b47"))
 
 
-func build_budgeted(paths: Array[Dictionary], logistics: Node3D, budget: Variant) -> void:
-    await _build_narrow(paths, logistics, budget)
-
-
-func _build_narrow(paths: Array[Dictionary], logistics: Node3D, budget: Variant) -> void:
-    var roads: Array[Dictionary] = _road_bounds(logistics.call("road_segments"))
+func build_budgeted(_paths: Array[Dictionary], _logistics: Node3D, budget: Variant) -> void:
     var deck := SurfaceTool.new()
     deck.begin(Mesh.PRIMITIVE_TRIANGLES)
     var trim := SurfaceTool.new()
     trim.begin(Mesh.PRIMITIVE_TRIANGLES)
-    var cable_id: int = 0
-    for path in paths:
-        var points: PackedVector3Array = _sample(path["points"])
-        var radius: float = float(path["radius"])
-        # Different cables may cross. A tiny per-cable offset avoids
-        # coplanar faces without ever merging their footprints.
-        var bias: float = float(cable_id) * 0.001
-        cable_id += 1
-        var active: Array[bool] = []
-        for i in range(points.size() - 1):
-            if budget != null:
-                await budget.checkpoint("narrow cable protector scan")
-            active.append(_needs_cover(_xz(points[i]), _xz(points[i + 1]), radius, roads))
-        for i in range(active.size()):
-            if not active[i] and not (i > 0 and active[i - 1]) and not (i + 1 < active.size() and active[i + 1]):
-                continue
-            if budget != null:
-                await budget.checkpoint("narrow cable protector mesh")
-            _emit_section(deck, trim, points, i, radius, bias)
-    if _sections.is_empty():
-        return
-    _finish(deck, "CableProtectorSteelDeck", Color("#41494f"))
+    for crossing in FixedLayout.CROSSINGS:
+        if budget != null:
+            await budget.checkpoint("authored cable protector")
+        _emit_fixed(deck,trim,crossing)
+    _finish(deck,"CableProtectorSteelDeck",Color("#41494f"))
     if budget != null:
-        await budget.checkpoint("narrow cable protector deck")
-    _finish(trim, "CableProtectorSafetyEdges", Color("#b99b47"))
-    print("SERA_BASE_LOGISTICS: narrow cable protector sections=", _sections.size())
+        await budget.checkpoint("authored protector deck")
+    _finish(trim,"CableProtectorSafetyEdges",Color("#b99b47"))
 
 
 func placement_bounds() -> Array[Rect2]:
