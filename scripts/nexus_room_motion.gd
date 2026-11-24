@@ -627,12 +627,15 @@ func set_customize_scan_parked(value: bool) -> void:
 
 
 func _update_scanner(step: float) -> void:
-    if _scan_parked_for_customize or _scan_park_elapsed < 0.65 and _scan_park_from != Vector3.ZERO:
+    if _scan_parked_for_customize or (_scan_park_elapsed < 0.65 and _scan_park_from != Vector3.ZERO):
         _scan_park_elapsed = minf(_scan_park_elapsed+step,0.65)
-        var k: float = _scan_ease(_scan_park_elapsed/0.65)
-        var radial_k: float = _scan_ease(_scan_park_elapsed/0.48)
-        _apply_scan_pose(lerpf(_scan_park_from.x,SCAN_DOCK_Y,k),
-            lerpf(_scan_park_from.y,1.0,radial_k),
+        # Never shrink around the body. Lift to the measured clear height,
+        # then contract and seat into the fixed socket.
+        var clear_y: float = maxf(_scan_head_y,_scan_park_from.x)
+        var lift: float = _scan_ease(_scan_park_elapsed/0.40)
+        var seat: float = _scan_ease((_scan_park_elapsed-0.40)/0.25)
+        var y: float = lerpf(lerpf(_scan_park_from.x,clear_y,lift),SCAN_DOCK_Y,seat)
+        _apply_scan_pose(y,lerpf(_scan_park_from.y,1.0,seat),
             _scan_park_from.z*(1.0-_scan_ease(_scan_park_elapsed/0.20)))
         return
     var t: float = fposmod(_scan_clock,SCAN_CYCLE)
