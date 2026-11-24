@@ -34,6 +34,7 @@ const PreviewRim = preload("res://scripts/sera_tech_preview_frame.gd")
 const CraftAffixes = preload("res://scripts/sera_craft_affixes.gd")
 const PartViewer = preload("res://scripts/sera_part_preview_widget.gd")
 const RotateMark = preload("res://scripts/sera_rotatable_mark.gd")
+const ArchiveModelViewer = preload("res://scripts/sera_archive_model_viewer.gd")
 const CONTROL_SETTINGS_FILE: String = "user://sera_settings.cfg"
 const FrameRateSettings = preload("res://scripts/sera_frame_rate_settings.gd")
 const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
@@ -217,6 +218,8 @@ const ARCHIVE_TABS = ["SUMMARY", "COMBAT", "PROGRESS", "PROFILE"]
 var archive_record_tabs: Array[Dictionary] = []
 var archive_record_body: Label
 var archive_record_tab: int = 0
+var archive_model_button: Panel
+var archive_model_viewer: Control
 var archive_refresh_elapsed: float = 0.0
 const SYSTEM_ACTIONS = ["SAVE", "LOAD", "NEW", "DELETE"]
 var system_slot_rows: Array[Dictionary] = []
@@ -5564,12 +5567,30 @@ func _create_archive_records() -> void:
     archive_record_body.visible = false
     archive_record_body.clip_contents = true
     focus_panel.add_child(archive_record_body)
+    archive_model_button = Panel.new()
+    archive_model_button.name = "ArchiveModelEntry"
+    archive_model_button.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    archive_model_button.add_theme_stylebox_override("panel", LaboSkin.terminal_segment_style("selected"))
+    archive_model_button.visible = false
+    focus_panel.add_child(archive_model_button)
+    var model_label := Label.new()
+    model_label.text = "MODEL ARCHIVE  /  3D"
+    model_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    model_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+    model_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _skin_label(model_label, LaboSkin.tracked_display_font(), 17, Color("#d7e6ed"))
+    archive_model_button.add_child(model_label)
+    model_label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     _refresh_archive_records()
 
 func _set_archive_records_visible(show: bool) -> void:
     for entry in archive_record_tabs:
         (entry["panel"] as Panel).visible = show
     archive_record_body.visible = show
+    if archive_model_button != null:
+        archive_model_button.visible = show
+    if not show:
+        _close_archive_model_viewer()
 
 func _layout_archive_records() -> void:
     if archive_record_body == null:
@@ -5589,7 +5610,32 @@ func _layout_archive_records() -> void:
         label.size = panel.size
     archive_record_body.position = Vector2(margin + 4.0, tab_top + 65.0)
     archive_record_body.size = Vector2(width - margin * 2.0 - 8.0,
-        maxf(20.0, focus_panel.size.y - archive_record_body.position.y - 10.0))
+        maxf(20.0, focus_panel.size.y - archive_record_body.position.y - 68.0))
+    if archive_model_button != null:
+        archive_model_button.position = Vector2(margin, focus_panel.size.y - 56.0)
+        archive_model_button.size = Vector2(width - 2.0 * margin, 44.0)
+    _layout_archive_model_viewer()
+
+func _open_archive_model_viewer() -> void:
+    if not is_instance_valid(archive_model_viewer):
+        archive_model_viewer = ArchiveModelViewer.new()
+        archive_model_viewer.name = "ArchiveModelViewer"
+        archive_model_viewer.z_index = 92
+        hud.add_child(archive_model_viewer)
+        archive_model_viewer.connect("close_requested", _close_archive_model_viewer)
+    _layout_archive_model_viewer()
+    archive_model_viewer.call("open_archive")
+
+func _layout_archive_model_viewer() -> void:
+    if not is_instance_valid(archive_model_viewer):
+        return
+    var margin: float = maxf(16.0, hud.size.x * 0.045)
+    archive_model_viewer.position = Vector2(margin, maxf(margin, hud.size.y * 0.05))
+    archive_model_viewer.size = Vector2(hud.size.x - 2.0 * margin, hud.size.y * 0.88)
+
+func _close_archive_model_viewer() -> void:
+    if is_instance_valid(archive_model_viewer) and archive_model_viewer.visible:
+        archive_model_viewer.call("close_archive")
 
 func _archive_duration(raw_seconds: float) -> String:
     var seconds: int = maxi(0, int(raw_seconds))
@@ -5660,6 +5706,9 @@ func _refresh_archive_records() -> void:
                 + "Save changes through SYSTEM.")
 
 func _tap_archive_record(point: Vector2) -> void:
+    if is_instance_valid(archive_model_button) and archive_model_button.visible and archive_model_button.get_global_rect().has_point(point):
+        _open_archive_model_viewer()
+        return
     var local: Vector2 = point - focus_panel.position
     for i in range(archive_record_tabs.size()):
         var panel: Panel = archive_record_tabs[i]["panel"]
@@ -7272,6 +7321,9 @@ func _on_android_back() -> void:
 func _navigate_back() -> void:
     if system_save_pending:
         return
+    if is_instance_valid(archive_model_viewer) and archive_model_viewer.visible:
+        _close_archive_model_viewer()
+        return
     if is_instance_valid(camera_angle_editor) and camera_angle_editor.has_method("open_mode") and bool(camera_angle_editor.get("active")):
         camera_angle_editor.call("close_mode")
         return
@@ -7303,6 +7355,10 @@ func _input(event: InputEvent) -> void:
         return
     if get_tree().root.get_node_or_null("NexusEntryTransition") != null or get_tree().root.get_node_or_null("NexusExitTransition") != null:
         return
+    if is_instance_valid(archive_model_viewer) and archive_model_viewer.visible:
+        if bool(archive_model_viewer.call("route_input", event)):
+            get_viewport().set_input_as_handled()
+            return
     # Once an editor is active, it exclusively owns the viewport's pointer.
     # Inactive editors must not consume launcher taps before the host sees them.
     if is_instance_valid(camera_angle_editor) and camera_angle_editor.has_method("open_mode") and bool(camera_angle_editor.get("active")):
