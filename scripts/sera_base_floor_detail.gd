@@ -44,6 +44,10 @@ static func decorate(floor: Node3D, panels: Array[Dictionary], budget: Variant =
             await budget.checkpoint("floor detail panel")
         var center: Vector2 = panel["center"]
         var size: Vector2 = panel["size"]
+        # Exact site cuts can leave narrow steel strips. Do not put bolts or
+        # decorative seams outside those strips or across adjacent panels.
+        if minf(size.x,size.y)<0.65:
+            continue
         var cx: float = center.x
         var cz: float = center.y
         if absf(cx) > DETAIL_RADIUS * PANEL_STEP + 5.0 or (

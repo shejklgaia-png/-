@@ -362,7 +362,7 @@ func _gate_facing_yaw() -> float:
     var toward_stage: Vector3 = Vector3(0.0, 0.0, -4.75) - Vector3(4.0, 0.02, -10.48)
     return atan2(toward_stage.x, toward_stage.z)
 
-func _create_grid_plates(floor: Node3D) -> Array[Dictionary]:
+func _create_grid_plates(floor: Node3D, budget: Variant = null) -> Array[Dictionary]:
     # An actual nonoverlapping patchwork: long, wide, square and small plates.
     # Six color-batched MultiMeshes still draw the full 255m deck efficiently.
     var tints := [
@@ -370,8 +370,16 @@ func _create_grid_plates(floor: Node3D) -> Array[Dictionary]:
         Color("#27292c"), Color("#21262a"), Color("#302c29")
     ]
     var sites: Array[Dictionary] = BaseDeckLayout.facility_sites(
-        NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS)
-    var panels: Array[Dictionary] = BaseDeckLayout.generate(
+        _infrastructure_nexus_origin(), _infrastructure_facility_specs())
+    # Preserve the full physical footprint even after an authored yaw change.
+    for site in sites:
+        var key: String = str(site["id"])
+        var yaw: float = BaseArchitecture.facility_yaw_radians(key)+float(facility_poses.get(key,{}).get("yaw",0.0))
+        var body: Vector2 = site["physical"]
+        var rotated := Vector2(absf(cos(yaw))*body.x+absf(sin(yaw))*body.y,absf(sin(yaw))*body.x+absf(cos(yaw))*body.y)
+        var minimum: Vector2 = site["minimum"]
+        site["minimum"] = Vector2(maxf(minimum.x,rotated.x+0.8),maxf(minimum.y,rotated.y+0.8))
+    var panels: Array[Dictionary] = BaseDeckLayout.generate_aligned(
         PLATE_GRID_RADIUS_CELLS, PLATE_GRID_STEP, sites)
     # Physically chamfered eight-sided polygonal unit slab, sharing one
     # CPU-side mesh across all existing six floor MultiMesh draw batches.
@@ -384,7 +392,8 @@ func _create_grid_plates(floor: Node3D) -> Array[Dictionary]:
     for index in range(tints.size()+1):
         grouped.append([])
     for panel in panels:
-        await _startup_budget.checkpoint("deck groups")
+        if budget != null:
+            await budget.checkpoint("deck groups")
         var center: Vector2 = panel["center"]
         var size: Vector2 = panel["size"]
         var palette_index: int = site_palette if not str(panel["site"]).is_empty() else int(panel["tint"])
@@ -412,7 +421,8 @@ func _create_grid_plates(floor: Node3D) -> Array[Dictionary]:
             Vector3(grid_extent * 2.0, 0.80, grid_extent * 2.0))
         multi.instance_count = poses.size()
         for index in range(poses.size()):
-            await _startup_budget.checkpoint("floor instances")
+            if budget != null:
+                await budget.checkpoint("floor instances")
             multi.set_instance_transform(index, poses[index])
         var draw := MultiMeshInstance3D.new()
         draw.name = "GridPlateBatch_%02d" % palette_index
@@ -449,13 +459,13 @@ func _build_hangar() -> void:
     # The dark one-piece ground remains visible only in the 0.06 m seams.
     _box(floor, "ContinuousGround", Vector3(0.0, -0.21, 0.0),
         Vector3(256.0, 0.30, 256.0), Color("#12171b"))
-    var panels: Array[Dictionary] = await _create_grid_plates(floor)
+    var panels: Array[Dictionary] = await _create_grid_plates(floor,_startup_budget)
     _boot_panels = panels
     await BaseFloorDetail.decorate(floor, panels, _startup_budget)
     # Two small instanced batches: facility contact shade and floor bounce.
     # They are separate FX and never enter the visible-mesh-ID outline pass.
     BaseFloorLighting.add_floor_accents(
-        floor, NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS)
+        floor, _infrastructure_nexus_origin(), _infrastructure_facility_specs(), facility_poses)
     # Keep legacy decorative models away from interactive equipment footprints.
     # Decorative Blockbench props occupy the frame edges, never machinery
     # foundations or raw touch pick volumes in the orthographic composition.
@@ -1175,6 +1185,20 @@ func _refresh_facility_placement() -> void:
         facility_placement_key, p.x, p.z, root_node.rotation_degrees.y]
 
 
+func _refresh_canonical_floor() -> void:
+    var floor := get_node_or_null("PatchworkSteelFloor") as Node3D
+    if not is_instance_valid(floor):
+        return
+    # No per-frame rebuild and no startup budget dependency at runtime.
+    # Keep the dark continuous backing and replace only generated surfaces.
+    for child in floor.get_children():
+        if child.name!="ContinuousGround":
+            child.free()
+    var panels: Array[Dictionary] = await _create_grid_plates(floor)
+    await BaseFloorDetail.decorate(floor,panels)
+    BaseFloorLighting.add_floor_accents(floor,_infrastructure_nexus_origin(),_infrastructure_facility_specs(),facility_poses)
+    SharedMaterialShading.apply_to_subtree(floor)
+
 func _close_facility_placement() -> void:
     if not facility_placement_active:
         return
@@ -1182,8 +1206,10 @@ func _close_facility_placement() -> void:
     facility_placement_panel.hide()
     layout_tools.show()
     PlacementStore.flush()
-    # Canonical site props are children of their facility; never repack the
-    # approved positions or rebuild bound facility animation nodes here.
+    # Rebuild only the floor after an edit, never the approved facility,
+    # props, power infrastructure or bound logistics animation nodes.
+    if facility_placement_dirty:
+        _refresh_canonical_floor()
     facility_placement_dirty = false
     facility_placement_key = ""
     _refresh_facility_names()

@@ -145,3 +145,75 @@ static func generate(radius: int, step: float,
                 float(iz) * 0.5, float(chosen.x) * 0.5,
                 float(chosen.y) * 0.5, seed)
     return output
+
+# Exact-coordinate rectangular partition. A site is centred on its actual
+# saved placement, not snapped to the surrounding 1.5 m lattice.
+# Intersecting reservations are split, never rendered on top of one another.
+static func _subtract_rect(source: Rect2, cutter: Rect2) -> Array[Rect2]:
+    var result: Array[Rect2] = []
+    var overlap: Rect2 = source.intersection(cutter)
+    if not overlap.has_area():
+        result.append(source)
+        return result
+    for piece in [
+        Rect2(source.position,Vector2(overlap.position.x-source.position.x,source.size.y)),
+        Rect2(Vector2(overlap.end.x,source.position.y),Vector2(source.end.x-overlap.end.x,source.size.y)),
+        Rect2(Vector2(overlap.position.x,source.position.y),Vector2(overlap.size.x,overlap.position.y-source.position.y)),
+        Rect2(Vector2(overlap.position.x,overlap.end.y),Vector2(overlap.size.x,source.end.y-overlap.end.y))
+    ]:
+        if piece.size.x>0.0001 and piece.size.y>0.0001:
+            result.append(piece)
+    return result
+
+static func _aligned_panel(rect: Rect2,template: Dictionary,radius: int,step: float) -> Dictionary:
+    var panel: Dictionary = template.duplicate()
+    panel["center"] = rect.get_center()
+    panel["size"] = rect.size-Vector2.ONE*GAP
+    panel["cells"] = Rect2(rect.position/step+Vector2.ONE*(float(radius)+0.5),rect.size/step)
+    return panel
+
+static func generate_aligned(radius: int,step: float,sites: Array[Dictionary]) -> Array[Dictionary]:
+    if sites.is_empty():
+        return generate(radius,step)
+    var extent: float = (float(radius)+0.5)*step
+    var bounds := Rect2(-Vector2.ONE*extent,Vector2.ONE*extent*2.0)
+    var reserved: Array[Rect2] = []
+    var output: Array[Dictionary] = []
+    # Each pad is one full rectangle unless it intersects another reserved
+    # pad. In that case the shared area remains silver and only the unique
+    # remainder is emitted. The whole floor is never discarded.
+    for site in sites:
+        var at: Vector2 = site["at"]
+        var span: Vector2 = site["minimum"]
+        var rect: Rect2 = Rect2(at-span*0.5,span).intersection(bounds)
+        if not rect.has_area():
+            continue
+        var pieces: Array[Rect2] = [rect]
+        for prior in reserved:
+            var next: Array[Rect2] = []
+            for piece in pieces:
+                next.append_array(_subtract_rect(piece,prior))
+            pieces = next
+        reserved.append(rect)
+        for piece in pieces:
+            if minf(piece.size.x,piece.size.y)<=GAP:
+                continue
+            output.append(_aligned_panel(piece,{"tint":5,"style":sites.size(),"site":str(site["id"])},radius,step))
+    # Start from the deterministic original patchwork, then cut out only
+    # the exact reservations. Unaffected panels retain their original design.
+    for panel in generate(radius,step):
+        var span: Vector2 = (panel["size"] as Vector2)+Vector2.ONE*GAP
+        var rect := Rect2((panel["center"] as Vector2)-span*0.5,span)
+        var pieces: Array[Rect2] = [rect]
+        for prior in reserved:
+            var next: Array[Rect2] = []
+            for piece in pieces:
+                next.append_array(_subtract_rect(piece,prior))
+            pieces = next
+            if pieces.is_empty():
+                break
+        for piece in pieces:
+            if minf(piece.size.x,piece.size.y)<=GAP:
+                continue
+            output.append(_aligned_panel(piece,panel,radius,step))
+    return output
