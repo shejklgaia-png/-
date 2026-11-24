@@ -25,35 +25,56 @@ static func build(room: Node3D, gate_at: Vector3,
     # The portal already has its own armored load-bearing pillars.
     # Do not embed separate wall buttresses or gussets in those cheeks.
 
-    # Wedge-ramp raises the forward approach smoothly to the new 0.8 m
-    # threshold. Its near edge meets the gate rather than floating above it.
+    # Matched profiles from gate threshold to the deck. The
+    # threshold guide top is 2.7 authored units; the room deck top is .159.
+    # The flat apron shares the exact ramp end plane, covering unrelated
+    # transverse tile joints without extending into the kiosk footprint.
+    var entry_z: float = 1.28
+    var ramp_end: float = 7.02
+    var apron_end: float = 10.35
+    var entry_y: float = 0.27 * _gate_scale
+    var deck_y: float = 0.173 - gate_at.y
     _prism(root, "DeploymentInclinedApproach",
         PackedVector2Array([
-            Vector2(1.28, 0.04), Vector2(7.02, -0.73),
-            Vector2(7.02, -0.91), Vector2(1.28, -0.14)]),
+            Vector2(entry_z, entry_y), Vector2(ramp_end, deck_y),
+            Vector2(ramp_end, deck_y-0.10), Vector2(entry_z, entry_y-0.10)]),
         1.72, 0.0, 0.0, ramp_steel)
+    _prism(root, "DeploymentLevelApron", PackedVector2Array([
+        Vector2(ramp_end,deck_y),Vector2(apron_end,deck_y),
+        Vector2(apron_end,deck_y-0.10),Vector2(ramp_end,deck_y-0.10)]),
+        1.72,0.0,0.0,ramp_steel)
+    # Continuous edge carriers follow the exact same height function.
+    # The luminous part is inset, with a nonemissive apron continuation.
     for side_value in [-1, 1]:
         var side: float = float(side_value)
+        _prism(root, "ApproachSteelCarrier%d" % side_value,
+            PackedVector2Array([
+                Vector2(entry_z,entry_y+0.035), Vector2(ramp_end,deck_y+0.035),
+                Vector2(ramp_end,deck_y-0.045),Vector2(entry_z,entry_y-0.045)]),
+            0.085, side*1.635, 0.0, trim)
+        _prism(root,"ApproachLevelCarrier%d" % side_value,PackedVector2Array([
+            Vector2(ramp_end,deck_y+0.035),Vector2(apron_end,deck_y+0.035),
+            Vector2(apron_end,deck_y-0.045),Vector2(ramp_end,deck_y-0.045)]),
+            0.085,side*1.635,0.0,trim)
         _prism(root, "ApproachLightRail%d" % side_value,
             PackedVector2Array([
-                Vector2(1.25, 0.14), Vector2(6.95, -0.62),
-                Vector2(6.95, -0.68), Vector2(1.25, 0.08)]),
-            0.049, side * 1.67, 0.0, cyan)
-
-    # Additional precision-machined parts share three MultiMesh draw batches.
+                Vector2(entry_z,entry_y+0.046), Vector2(ramp_end,deck_y+0.046),
+                Vector2(ramp_end,deck_y+0.029), Vector2(entry_z,entry_y+0.029)]),
+            0.031, side*1.635, 0.0, cyan)
+        _prism(root, "ApproachApronRail%d" % side_value,
+            PackedVector2Array([
+                Vector2(ramp_end,deck_y+0.046), Vector2(apron_end-0.12,deck_y+0.046),
+                Vector2(apron_end-0.12,deck_y+0.029), Vector2(ramp_end,deck_y+0.029)]),
+            0.031, side*1.635, 0.0, iron)
     var boxes: Dictionary = {}
-    # Delete free-standing duplicate trim and the five floating header
-    # tabs. Keep the original portal lights, and stamp the access ramp
-    # with properly seated traction bars rather than buried crossbars.
-    for side_value in [-1, 1]:
-        var side: float = float(side_value)
-        _box(boxes, "amber", Vector3(side * 1.67, -0.62, 6.72),
-            Vector3(0.09, 0.045, 0.13))
-    for z in [2.15, 3.46, 4.77, 6.05]:
-        var center_y: float = 0.04 - (float(z) - 1.28) * (
-            0.77 / 5.74) + 0.008
-        _box(boxes, "iron", Vector3(0.0, center_y, float(z)),
-            Vector3(3.12, 0.028, 0.065))
+    for z_value in [2.15,3.46,4.77,6.05,7.95,9.16,10.20]:
+        var z: float = float(z_value)
+        var y: float = lerpf(entry_y,deck_y,clampf((z-entry_z)/(ramp_end-entry_z),0.0,1.0))
+        _box(boxes,"iron",Vector3(0.0,y+0.008,z),Vector3(3.06,0.017,0.055))
+    for side in [-1.0,1.0]:
+        for z in [7.40,8.22,9.04,9.86]:
+            _box(boxes,"trim",Vector3(side*1.40,deck_y+0.008,z),
+                Vector3(0.21,0.017,0.075))
     # The authored plaque is 2.295m wide after scaling. Text sits on
     # its actual front face, never on the wall or moving shutter.
     var plaque := Label3D.new()
@@ -368,7 +389,7 @@ static func _prism(root: Node3D, label: String,
         node.mesh.set_meta("nexus_selection_convex", true)
     node.position = Vector3(offset_x, 0.0, offset_z)
     node.material_override = mat
-    if label == "DeploymentInclinedApproach":
+    if label in ["DeploymentInclinedApproach","DeploymentLevelApron"]:
         node.set_meta("sera_preserve_authored_material", true)
     node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     node.set_meta("sera_outline_occluder_only", true)
@@ -408,7 +429,7 @@ static func _tri(tool: SurfaceTool, a: Vector3,
 # path. Only the background ramp gets a metric X/Z surface texture.
 static func _prism_tri(tool: SurfaceTool, a: Vector3,b: Vector3,c: Vector3,
         label: String) -> void:
-    if label != "DeploymentInclinedApproach":
+    if not label in ["DeploymentInclinedApproach","DeploymentLevelApron"]:
         _tri(tool,a,b,c)
         return
     for point in [a,b,c]:
