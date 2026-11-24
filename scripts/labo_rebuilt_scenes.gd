@@ -954,17 +954,17 @@ func _smelter(key: String) -> void:
     (targets[key] as Array).append(hoist)
     b = _batch(hoist)
     for side in [-1.0,1.0]:
-        _shape(b,"bevel",Vector3(side*1.48,3.25,1.28),Vector3(0.30,6.5,0.34),"slate")
-        _pipe(b,Vector3(side*1.48,0.3,1.28),Vector3(side*1.48,6.45,1.28),0.12,"edge")
-    _shape(b,"deck",Vector3(0,6.5,1.28),Vector3(3.4,0.4,0.72),"armor")
-    _shape(b,"drum",Vector3(0,6.75,1.28),Vector3(0.95,0.44,0.95),"edge")
+        _shape(b,"bevel",Vector3(side*1.48,3.65,1.28),Vector3(0.30,7.3,0.34),"slate")
+        _pipe(b,Vector3(side*1.48,0.3,1.28),Vector3(side*1.48,7.25,1.28),0.12,"edge")
+    _shape(b,"deck",Vector3(0,7.3,1.28),Vector3(3.4,0.4,0.72),"armor")
+    _shape(b,"drum",Vector3(0,7.55,1.28),Vector3(0.95,0.44,0.95),"edge")
     _finish(b)
     var charge_carrier := _child(hoist,"ChargeTransferTray")
     b = _batch(charge_carrier)
     _shape(b,"tray",Vector3(0,-0.14,0),Vector3(2.3,0.28,1.7),"gold")
     _finish(b)
     _moving(key,"charge_carrier",charge_carrier)
-    var cast := _conveyor(key,"CastingCoolingLine",Vector3(5.9,0,2.0),2.5,6.2)
+    var cast := _conveyor(key,"CastingCoolingLine",Vector3(9.6,0,3.65),2.5,6.2)
     var ingot_mount := _child(cast,"IngotPlacement",Vector3(0,1.15,0))
     (targets[key] as Array).append(ingot_mount)
     var ingot := _child(ingot_mount,"CooledIngot",Vector3(0,0,-2.1))
@@ -973,11 +973,13 @@ func _smelter(key: String) -> void:
     _box(b,Vector3(0,0.64,0),Vector3(1.55,0.07,0.9),"amber_light")
     _finish(b)
     _moving(key,"output",ingot)
-    var cooling := _model(key,"CastingSpoutAndCoolingService",Vector3(3.7,0,1.2))
+    var cooling := _model(key,"CastingSpoutAndCoolingService",Vector3(6.15,0,1.2))
     b = _batch(cooling)
     _shape(b,"tray",Vector3(0,1.35,0.35),Vector3(2.7,0.45,2.8),"rust")
     _pipe(b,Vector3(-1.3,1.65,-0.45),Vector3(-0.15,1.40,0.35),0.36,"rust")
     _shape(b,"deck",Vector3(0.25,1.60,0.65),Vector3(1.2,0.07,1.30),"amber")
+    # Elevated discharge chute reaches the now separate cooling conveyor.
+    b.box_tilt("CastingTransferChute",Vector3(2.30,1.36,0.35),Vector3(2.45,0.18,1.25),"slate",Vector3(0,0,-0.14))
     _shape(b,"bevel",Vector3(1.55,1.2,-1.25),Vector3(1.3,2.4,1.4),"slate")
     _shape(b,"louver",Vector3(1.55,1.3,-0.50),Vector3(0.96,1.65,0.15),"edge")
     _pipe(b,Vector3(1.55,2.45,-1.25),Vector3(0.3,2.45,-1.25),0.23,"gold")
@@ -1307,7 +1309,14 @@ func _sample(key: String, t: float) -> void:
                 var elevated: Vector3 = carrier_parent.to_local(feed_parent.to_global(mouth))
                 carrier.position = rest if t<0.17 else carrier_point
                 if t>=0.35:
-                    carrier.position = elevated.lerp(rest,smoothstep(0.36,0.60,t))
+                    var over: Vector3 = carrier_parent.to_local(feed_parent.to_global(mouth+Vector3(0,0.85,0)))
+                    var front: Vector3 = carrier_parent.to_local(feed_parent.to_global(Vector3(floor_end.x,mouth.y+0.85,floor_end.z)))
+                    if t<0.43:
+                        carrier.position = elevated.lerp(over,smoothstep(0.36,0.43,t))
+                    elif t<0.49:
+                        carrier.position = over.lerp(front,smoothstep(0.43,0.49,t))
+                    else:
+                        carrier.position = front.lerp(rest,smoothstep(0.49,0.60,t))
             if key=="RECYCLER":
                 var crusher: Node3D = m["crusher"]
                 var feed_parent := feed.get_parent() as Node3D
