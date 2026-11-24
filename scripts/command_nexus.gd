@@ -4,7 +4,8 @@ extends Node3D
 const Modules = preload("res://assets/base_command_modules.gd")
 const WorldMonitors = preload("res://scripts/sera_world_monitor_textures.gd")
 const NexusFloorPanels = preload("res://scripts/sera_nexus_floor_panels.gd")
-const NEXUS_WORN_STEEL = preload("res://textures/nexus_worn_steel.svg")
+const NEXUS_WORN_STEEL_PATH: String = "res://textures/nexus_worn_steel.svg"
+var _nexus_worn_steel: Texture2D
 const NexusGeneratedArchitecture = preload("res://scripts/nexus_generated_architecture.gd")
 const NexusComplexMachining = preload("res://scripts/nexus_complex_machining.gd")
 const NexusSculptedFittings = preload("res://scripts/nexus_sculpted_fittings.gd")
@@ -443,8 +444,9 @@ func _ready() -> void:
     # already exist in command_nexus_world.tscn; configure them on demand
     # after the working EXIT/PLACE/ANGLE HUD has been created.
     _prepare_canonical_placement_specs()
-    _capture_selection_render_sources()
     _hud()
+    # Optional outline data must never be required to construct the HUD.
+    call_deferred("_capture_selection_render_sources")
     # Like the working LABO editors: initialize a placement tool only when
     # its launcher is pressed, after the interactive HUD exists. In particular
     # do not configure both tools during NEXUS scene startup; an error in one
@@ -459,6 +461,7 @@ func _ready() -> void:
     # exists, protecting the normal HUD and ANGLE from needless heavy setup.
     call_deferred("_restore_nexus_placement_previews", route)
     call_deferred("_start_nexus_bgm_if_direct")
+    call_deferred("_nexus_apply_wear_after_entry")
 
 
 # Dedicated NEXUS BGM; the intro plays once before a 64-second loop.
@@ -1397,28 +1400,55 @@ func _nexus_tone_background_node(node: Node) -> void:
             toned.metallic = minf(source.metallic, 0.15)
             toned.metallic_specular = 0.0
             toned.clearcoat_enabled = false
-            # Keep the dark backdrop grade; only metal faces gain a worn finish.
-            var surface_name: String = str(geometry.name)
-            if surface_name.begins_with("Deck_armor_") or surface_name.begins_with("Deck_wedge_"):
-                _nexus_worn_metal(toned, 0.48, 0.64, 0.42, 0.42)
-            elif surface_name in ["Deck_cover", "Deck_arc_shell", "Deck_vent_cassette",
-                    "Deck_lid_steel", "Deck_guard_edge", "Deck_drain_frame"]:
-                _nexus_worn_metal(toned, 0.34, 0.71, 0.32, 0.65)
-            elif not surface_name.begins_with("Deck_") and source.albedo_color.get_luminance() > 0.035:
-                _nexus_worn_metal(toned, 0.22, 0.79, 0.22, 0.32)
             geometry.material_override = toned
             geometry.set_meta("sera_preserve_authored_material", true)
     for child in node.get_children():
         _nexus_tone_background_node(child)
 
 
-## A single imported, mipmapped texture works on generated meshes with no UVs.
-## World triplanar coordinates avoid stretching on scaled MultiMesh instances.
+# Optional decoration: a newly synced SVG may not have been imported yet.
+# Do not preload it from the scene script. The native deck and HUD appear
+# first; an absent or unreadable texture leaves the original scene usable.
+func _nexus_apply_wear_after_entry() -> void:
+    await get_tree().process_frame
+    await get_tree().process_frame
+    if not is_inside_tree():
+        return
+    if ResourceLoader.exists(NEXUS_WORN_STEEL_PATH, "Texture2D"):
+        _nexus_worn_steel = ResourceLoader.load(NEXUS_WORN_STEEL_PATH, "Texture2D") as Texture2D
+    if _nexus_worn_steel == null and FileAccess.file_exists(NEXUS_WORN_STEEL_PATH):
+        var image := Image.new()
+        if image.load_svg_from_string(FileAccess.get_file_as_string(NEXUS_WORN_STEEL_PATH), 0.5) == OK:
+            image.generate_mipmaps()
+            _nexus_worn_steel = ImageTexture.create_from_image(image)
+    if _nexus_worn_steel == null:
+        push_warning("NEXUS: optional wear texture unavailable; native deck retained")
+        return
+    # Restrict the initial recovery to broad floor plates, avoiding the cost
+    # of triplanar sampling on all machinery and walls simultaneously.
+    var deck := get_node_or_null("NexusDeckReferenceV3")
+    if deck == null:
+        return
+    for child in deck.get_children():
+        if not (child is MultiMeshInstance3D):
+            continue
+        var geometry := child as MultiMeshInstance3D
+        var surface_name: String = str(geometry.name)
+        if not surface_name.begins_with("Deck_armor_") and not surface_name.begins_with("Deck_wedge_"):
+            continue
+        var source := geometry.material_override as StandardMaterial3D
+        if source == null or source.albedo_texture != null:
+            continue
+        var worn := source.duplicate() as StandardMaterial3D
+        _nexus_worn_metal(worn, 0.30, 0.72, 0.30, 0.42)
+        geometry.material_override = worn
+
+
 func _nexus_worn_metal(mat: StandardMaterial3D, metal: float,
         rough: float, specular: float, scale: float) -> void:
-    if mat.albedo_texture != null:
+    if mat.albedo_texture != null or _nexus_worn_steel == null:
         return
-    mat.albedo_texture = NEXUS_WORN_STEEL
+    mat.albedo_texture = _nexus_worn_steel
     mat.uv1_triplanar = true
     mat.uv1_world_triplanar = true
     mat.uv1_scale = Vector3.ONE * scale
@@ -1453,8 +1483,6 @@ func _nexus_grade_casting_node(node: Node) -> void:
             graded.roughness = maxf(source.roughness, 0.70)
             graded.metallic = minf(source.metallic, 0.18)
             graded.metallic_specular = 0.12
-            if tint.get_luminance() > 0.07:
-                _nexus_worn_metal(graded, 0.18, 0.77, 0.16, 0.72)
             geometry.material_override = graded
             geometry.set_meta("sera_preserve_authored_material", true)
     for child in node.get_children():
@@ -4881,7 +4909,10 @@ func _update_projected_silhouettes() -> void:
     var visible_strokes: Dictionary = {}
     var training_shapes: Array[PackedVector2Array] = []
     if contours.has("TRAINING") or contours.has("DEPLOYMENT"):
-        training_shapes = _project_training_render_contour()
+        if training_contour_sources.is_empty():
+            training_shapes = _project_model_contour("TRAINING")
+        else:
+            training_shapes = _project_training_render_contour()
     if contours.has("TRAINING"):
         var training_strokes: Array[PackedVector2Array] = []
         for shape in training_shapes:
