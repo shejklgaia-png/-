@@ -2,10 +2,10 @@ shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_opaque;
 uniform sampler2D source_texture : source_color, filter_nearest_mipmap, repeat_disable;
 void fragment() {
-    // Red stores a constant culling flag per triangle, not paint color.
-    // 0 = cull front, 0.5 = cull back, 1 = two-sided / legacy.
-    if ((COLOR.r < 0.25 && FRONT_FACING) ||
-        (COLOR.r >= 0.25 && COLOR.r < 0.75 && !FRONT_FACING)) {
+    // Binary per-triangle flags: red = cull front, green = cull back,
+    // white = two-sided or a legacy atlas without flags.
+    if (COLOR.b < 0.5 && ((COLOR.r > 0.5 && FRONT_FACING) ||
+        (COLOR.r < 0.5 && !FRONT_FACING))) {
         discard;
     }
     // Preserve the original authored polygon normal (not triangle derivative).
