@@ -10,6 +10,34 @@ const KEYS = [
 ]
 const SCRAP_COUNT: int = 16
 
+# Facility poses are offsets from the authored model orientation. The slab
+# templates and local clearance shapes stay intact; only world checks move.
+static func _posed_sites(sites: Array[Dictionary], poses: Dictionary) -> Array[Dictionary]:
+    var result: Array[Dictionary] = sites.duplicate(true)
+    for site in result:
+        var pose: Dictionary = poses.get(str(site["id"]), {})
+        if pose.is_empty():
+            continue
+        var p: Vector3 = pose["position"]
+        site["at"] = Vector2(p.x, p.z)
+        site["yaw"] = float(pose["yaw"])
+    return result
+
+static func _world_rect(local: Rect2, site: Dictionary) -> Rect2:
+    var turn: float = -float(site.get("yaw", 0.0))
+    var origin: Vector2 = site["at"]
+    var first := origin + local.position.rotated(turn)
+    var result := Rect2(first, Vector2.ZERO)
+    for corner in [Vector2(local.end.x, local.position.y), local.end,
+            Vector2(local.position.x, local.end.y)]:
+        result = result.expand(origin + (corner as Vector2).rotated(turn))
+    return result
+
+static func _site_rect(site: Dictionary, size_key: String) -> Rect2:
+    var size: Vector2 = site[size_key]
+    return _world_rect(Rect2(-size * 0.5, size), site)
+
+
 
 static func site_slab(key: String, nexus_origin: Vector3,
         specs: Array) -> Rect2:
@@ -134,8 +162,7 @@ static func _generate_scrap(sites: Array[Dictionary],
             var obstructs: bool = false
             for site in sites:
                 var at: Vector2 = site["at"]
-                var half_size: Vector2 = site["minimum"] * 0.5
-                var pad: Rect2 = Rect2(at - half_size, half_size * 2.0)
+                var pad: Rect2 = _site_rect(site, "minimum")
                 if occupied.intersects(pad.grow(0.85)):
                     obstructs = true
                     break
@@ -169,7 +196,7 @@ static func _generate_scrap(sites: Array[Dictionary],
 
 
 static func generate(nexus_origin: Vector3, specs: Array,
-        rng: RandomNumberGenerator) -> Dictionary:
+        rng: RandomNumberGenerator, poses: Dictionary = {}) -> Dictionary:
     var sites: Array[Dictionary] = Deck.facility_sites(nexus_origin, specs)
     var panels: Array[Dictionary] = Deck.generate(42, 3.0, sites)
     var slabs: Dictionary = {}
@@ -192,7 +219,7 @@ static func generate(nexus_origin: Vector3, specs: Array,
         if result.is_empty():
             return {}
         layouts[key] = result
-    var scrap: Array[Dictionary] = _generate_scrap(sites, rng)
+    var scrap: Array[Dictionary] = _generate_scrap(_posed_sites(sites, poses), rng)
     if scrap.size() != SCRAP_COUNT:
         return {}
     return {"sites": layouts, "scrap": scrap, "seed": rng.seed}
@@ -201,7 +228,7 @@ static func generate(nexus_origin: Vector3, specs: Array,
 # The fixed logistics network is the first occupant of the yard. Preserve
 # each authored prop where possible, otherwise search its own service pad.
 static func reserve_props(nexus_origin: Vector3, specs: Array,
-        logistics: Node3D, proposals: Dictionary = {}) -> Dictionary:
+        logistics: Node3D, proposals: Dictionary = {}, poses: Dictionary = {}) -> Dictionary:
     var sites: Array[Dictionary] = Deck.facility_sites(nexus_origin, specs)
     var slabs: Dictionary = {}
     for panel in Deck.generate(42, 3.0, sites):
@@ -217,9 +244,9 @@ static func reserve_props(nexus_origin: Vector3, specs: Array,
                 break
     var layouts: Dictionary = {}
     var occupied: Array[Rect2] = []
+    sites = _posed_sites(sites, poses)
     for site in sites:
         var key: String = str(site["id"])
-        var origin: Vector2 = site["at"]
         var items: Array = proposals.get(key, [])
         if items.is_empty():
             items = Clutter.default_props_for(key)
@@ -241,8 +268,8 @@ static func reserve_props(nexus_origin: Vector3, specs: Array,
                         continue
                     if ring > 0 and local.intersects(Clutter._clear_zone(key).grow(0.10)):
                         continue
-                    var world := Rect2(local.position + origin, local.size)
-                    if not bool(logistics.call("placement_clear", world)):
+                    var world := _world_rect(local, site)
+                    if is_instance_valid(logistics) and not bool(logistics.call("placement_clear", world)):
                         continue
                     var blocked: bool = false
                     for other in occupied:
@@ -254,9 +281,7 @@ static func reserve_props(nexus_origin: Vector3, specs: Array,
                     for other_site in sites:
                         if str(other_site["id"]) == key:
                             continue
-                        var center: Vector2 = other_site["at"]
-                        var half_size: Vector2 = other_site["physical"] * 0.5
-                        if world.intersects(Rect2(center - half_size, half_size * 2.0).grow(0.3)):
+                        if world.intersects(_site_rect(other_site, "physical").grow(0.3)):
                             blocked = true
                             break
                     if blocked:
@@ -275,7 +300,7 @@ static func reserve_props(nexus_origin: Vector3, specs: Array,
 
 static func reserve_props_budgeted(nexus_origin: Vector3, specs: Array,
         logistics: Node3D, proposals: Dictionary = {}, budget: Variant = null,
-        cached_panels: Array[Dictionary] = []) -> Dictionary:
+        cached_panels: Array[Dictionary] = [], poses: Dictionary = {}) -> Dictionary:
     var sites: Array[Dictionary] = Deck.facility_sites(nexus_origin, specs)
     var slabs: Dictionary = {}
     var panels: Array[Dictionary] = cached_panels if not cached_panels.is_empty() else Deck.generate(42, 3.0, sites)
@@ -292,9 +317,9 @@ static func reserve_props_budgeted(nexus_origin: Vector3, specs: Array,
                 break
     var layouts: Dictionary = {}
     var occupied: Array[Rect2] = []
+    sites = _posed_sites(sites, poses)
     for site in sites:
         var key: String = str(site["id"])
-        var origin: Vector2 = site["at"]
         var items: Array = proposals.get(key, [])
         if items.is_empty():
             items = Clutter.default_props_for(key)
@@ -320,8 +345,8 @@ static func reserve_props_budgeted(nexus_origin: Vector3, specs: Array,
                         continue
                     if ring > 0 and local.intersects(Clutter._clear_zone(key).grow(0.10)):
                         continue
-                    var world := Rect2(local.position + origin, local.size)
-                    if not bool(logistics.call("placement_clear", world)):
+                    var world := _world_rect(local, site)
+                    if is_instance_valid(logistics) and not bool(logistics.call("placement_clear", world)):
                         continue
                     var blocked: bool = false
                     for other in occupied:
@@ -333,9 +358,7 @@ static func reserve_props_budgeted(nexus_origin: Vector3, specs: Array,
                     for other_site in sites:
                         if str(other_site["id"]) == key:
                             continue
-                        var center: Vector2 = other_site["at"]
-                        var half_size: Vector2 = other_site["physical"] * 0.5
-                        if world.intersects(Rect2(center - half_size, half_size * 2.0).grow(0.3)):
+                        if world.intersects(_site_rect(other_site, "physical").grow(0.3)):
                             blocked = true
                             break
                     if blocked:
@@ -353,29 +376,26 @@ static func reserve_props_budgeted(nexus_origin: Vector3, specs: Array,
 
 
 static func reserve_salvage(preferred: Vector2, radius: float, nexus_origin: Vector3,
-        specs: Array, logistics: Node3D, occupied: Array[Vector2]) -> Vector2:
-    var sites: Array[Dictionary] = Deck.facility_sites(nexus_origin, specs)
+        specs: Array, logistics: Node3D, occupied: Array[Vector2], poses: Dictionary = {}) -> Vector2:
+    var sites: Array[Dictionary] = _posed_sites(Deck.facility_sites(nexus_origin, specs), poses)
     var prop_rects: Array[Rect2] = []
     for site in sites:
-        var center: Vector2 = site["at"]
         for prop in Clutter.props_for(str(site["id"])):
             var local: Rect2 = prop_envelope(prop)
-            prop_rects.append(Rect2(local.position + center, local.size))
+            prop_rects.append(_world_rect(local, site))
     for ring in range(0, 38):
         var samples: int = 1 if ring == 0 else 24
         for j in range(samples):
             var phi: float = TAU * float(j) / float(samples)
             var point: Vector2 = preferred + Vector2(cos(phi), sin(phi)) * float(ring) * 0.65
             var rect := Rect2(point - Vector2.ONE * radius, Vector2.ONE * radius * 2.0)
-            if not bool(logistics.call("placement_clear", rect)):
+            if is_instance_valid(logistics) and not bool(logistics.call("placement_clear", rect)):
                 continue
             if rect.intersects(Rect2(-4.4, -7.7, 8.8, 13.7)):
                 continue
             var blocked: bool = false
             for site in sites:
-                var center: Vector2 = site["at"]
-                var half_size: Vector2 = site["minimum"] * 0.5
-                if rect.intersects(Rect2(center - half_size, half_size * 2.0).grow(0.22)):
+                if rect.intersects(_site_rect(site, "minimum").grow(0.22)):
                     blocked = true
                     break
             if blocked:
@@ -388,11 +408,13 @@ static func reserve_salvage(preferred: Vector2, radius: float, nexus_origin: Vec
                 continue
             # The collector's long incoming belt extends beyond its pad.
             var collector: Vector2 = Vector2.ZERO
+            var collector_yaw: float = 0.0
             for site in sites:
                 if str(site["id"]) == "SCRAP_COLLECTOR":
                     collector = site["at"]
+                    collector_yaw = float(site.get("yaw", 0.0))
                     break
-            var belt_turn := Basis(Vector3.UP, deg_to_rad(56.0))
+            var belt_turn := Basis(Vector3.UP, deg_to_rad(56.0) + collector_yaw)
             var belt_local: Vector3 = belt_turn.inverse() * Vector3(point.x - collector.x, 0, point.y - collector.y)
             if Rect2(-9.05, 0.33, 7.60, 3.30).grow(radius).has_point(Vector2(belt_local.x, belt_local.z)):
                 continue
@@ -406,14 +428,13 @@ static func reserve_salvage(preferred: Vector2, radius: float, nexus_origin: Vec
 
 
 static func reserve_salvage_budgeted(preferred: Vector2, radius: float, nexus_origin: Vector3,
-        specs: Array, logistics: Node3D, occupied: Array[Vector2], budget: Variant) -> Vector2:
-    var sites: Array[Dictionary] = Deck.facility_sites(nexus_origin, specs)
+        specs: Array, logistics: Node3D, occupied: Array[Vector2], budget: Variant, poses: Dictionary = {}) -> Vector2:
+    var sites: Array[Dictionary] = _posed_sites(Deck.facility_sites(nexus_origin, specs), poses)
     var prop_rects: Array[Rect2] = []
     for site in sites:
-        var center: Vector2 = site["at"]
         for prop in Clutter.props_for(str(site["id"])):
             var local: Rect2 = prop_envelope(prop)
-            prop_rects.append(Rect2(local.position + center, local.size))
+            prop_rects.append(_world_rect(local, site))
     for ring in range(0, 38):
         var samples: int = 1 if ring == 0 else 24
         for j in range(samples):
@@ -421,15 +442,13 @@ static func reserve_salvage_budgeted(preferred: Vector2, radius: float, nexus_or
             var phi: float = TAU * float(j) / float(samples)
             var point: Vector2 = preferred + Vector2(cos(phi), sin(phi)) * float(ring) * 0.65
             var rect := Rect2(point - Vector2.ONE * radius, Vector2.ONE * radius * 2.0)
-            if not bool(logistics.call("placement_clear", rect)):
+            if is_instance_valid(logistics) and not bool(logistics.call("placement_clear", rect)):
                 continue
             if rect.intersects(Rect2(-4.4, -7.7, 8.8, 13.7)):
                 continue
             var blocked: bool = false
             for site in sites:
-                var center: Vector2 = site["at"]
-                var half_size: Vector2 = site["minimum"] * 0.5
-                if rect.intersects(Rect2(center - half_size, half_size * 2.0).grow(0.22)):
+                if rect.intersects(_site_rect(site, "minimum").grow(0.22)):
                     blocked = true
                     break
             if blocked:
@@ -442,11 +461,13 @@ static func reserve_salvage_budgeted(preferred: Vector2, radius: float, nexus_or
                 continue
             # The collector's long incoming belt extends beyond its pad.
             var collector: Vector2 = Vector2.ZERO
+            var collector_yaw: float = 0.0
             for site in sites:
                 if str(site["id"]) == "SCRAP_COLLECTOR":
                     collector = site["at"]
+                    collector_yaw = float(site.get("yaw", 0.0))
                     break
-            var belt_turn := Basis(Vector3.UP, deg_to_rad(56.0))
+            var belt_turn := Basis(Vector3.UP, deg_to_rad(56.0) + collector_yaw)
             var belt_local: Vector3 = belt_turn.inverse() * Vector3(point.x - collector.x, 0, point.y - collector.y)
             if Rect2(-9.05, 0.33, 7.60, 3.30).grow(radius).has_point(Vector2(belt_local.x, belt_local.z)):
                 continue
