@@ -598,6 +598,20 @@ func _smelter(key: String) -> void:
     var raw := _cargo(feed_mount,"FeedCharge",Vector3(0,0,1.7),Vector3(1.3,0.6,1.0))
     _moving(key,"feed",raw)
     _moving(key,"hopper",feed)
+    var hoist := _child(feed,"ChargeHoist")
+    (targets[key] as Array).append(hoist)
+    b = _batch(hoist)
+    for side in [-1.0,1.0]:
+        _shape(b,"bevel",Vector3(side*1.48,3.25,1.28),Vector3(0.30,6.5,0.34),"slate")
+        _pipe(b,Vector3(side*1.48,0.3,1.28),Vector3(side*1.48,6.45,1.28),0.12,"edge")
+    _shape(b,"deck",Vector3(0,6.5,1.28),Vector3(3.4,0.4,0.72),"armor")
+    _shape(b,"drum",Vector3(0,6.75,1.28),Vector3(0.95,0.44,0.95),"edge")
+    _finish(b)
+    var charge_carrier := _child(hoist,"ChargeTransferTray")
+    b = _batch(charge_carrier)
+    _shape(b,"tray",Vector3(0,-0.14,0),Vector3(2.3,0.28,1.7),"gold")
+    _finish(b)
+    _moving(key,"charge_carrier",charge_carrier)
     var cast := _conveyor(key,"CastingCoolingLine",Vector3(5.9,0,2.0),2.5,6.2)
     var ingot_mount := _child(cast,"IngotPlacement",Vector3(0,1.15,0))
     (targets[key] as Array).append(ingot_mount)
@@ -678,6 +692,20 @@ func _recycler(key: String) -> void:
     _finish(b)
     _moving(key,"feed",raw)
     _moving(key,"crusher",base)
+    var ramp := _child(base,"ElevatedFeedRamp")
+    (targets[key] as Array).append(ramp)
+    b = _batch(ramp)
+    # Rollers from the ground conveyor to the rear gravity chute.
+    var start := Vector3(0,1.04,-8.4)
+    var end := Vector3(0,5.92,-3.1)
+    var rise: Vector3 = end-start
+    for side in [-1.0,1.0]:
+        _pipe(b,start+Vector3(side*2.15,0,0),end+Vector3(side*2.15,0,0),0.25,"caution")
+        _pipe(b,Vector3(side*2.15,0,-5.8),Vector3(side*2.15,3.45,-5.8),0.30,"slate")
+    for j in range(15):
+        var at: Vector3 = start+rise*(float(j)/14.0)
+        _pipe(b,at+Vector3(-2.0,0,0),at+Vector3(2.0,0,0),0.22,"edge")
+    _finish(b)
     var output := _conveyor(key,"SortedMaterialLine",Vector3(0,0,4.6),3.8,5.0)
     var bin_mount := _child(output,"SortedBatchPlacement",Vector3(0,1.1,0))
     (targets[key] as Array).append(bin_mount)
@@ -891,7 +919,8 @@ func _sample(key: String, t: float) -> void:
             if key=="SMELTER":
                 var hopper: Node3D = m["hopper"]
                 var feed_parent := feed.get_parent() as Node3D
-                var mouth: Vector3 = feed_parent.to_local(hopper.to_global(Vector3(0,5.4,0)))
+                var mouth: Vector3 = feed_parent.to_local(hopper.to_global(Vector3(0,5.4,0.55)))
+                var carrier: Node3D = m["charge_carrier"]
                 var floor_end := Vector3(0,0,-1.75)
                 var hoist: float = smoothstep(0.17,0.35,t)
                 if t<0.17:
@@ -899,13 +928,21 @@ func _sample(key: String, t: float) -> void:
                 else:
                     feed.position = floor_end.lerp(mouth,hoist)
                 feed.visible = t<0.35
+                var carrier_parent := carrier.get_parent() as Node3D
+                var carrier_point: Vector3 = carrier_parent.to_local(feed.global_position)
+                var rest: Vector3 = carrier_parent.to_local(feed_parent.to_global(floor_end))
+                var elevated: Vector3 = carrier_parent.to_local(feed_parent.to_global(mouth))
+                carrier.position = rest if t<0.17 else carrier_point
+                if t>=0.35:
+                    carrier.position = elevated.lerp(rest,smoothstep(0.36,0.60,t))
             if key=="RECYCLER":
                 var crusher: Node3D = m["crusher"]
                 var feed_parent := feed.get_parent() as Node3D
                 var entrance: Vector3 = feed_parent.to_local(crusher.to_global(Vector3(0,6.2,-3.1)))
                 var cutter: Vector3 = feed_parent.to_local(crusher.to_global(Vector3(0,3.9,-0.9)))
+                var ramp_start: Vector3 = feed_parent.to_local(crusher.to_global(Vector3(0,1.14,-8.4)))
                 if t<0.21:
-                    feed.position = Vector3(0,0,-1.8).lerp(entrance,smoothstep(0.0,0.21,t))
+                    feed.position = ramp_start.lerp(entrance,smoothstep(0.0,0.21,t))
                 else:
                     feed.position = entrance.lerp(cutter,smoothstep(0.21,0.35,t))
                 feed.visible = t<0.35
