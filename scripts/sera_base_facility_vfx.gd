@@ -161,35 +161,82 @@ static var _soft_halo_material: ShaderMaterial
 const MAX_SOFT_HALO_PATCHES: int = 160
 var _soft_halos: Array[Dictionary] = []
 
-# Readable flame silhouettes through the refractory opening. One depth-tested
-# quad, no extra particle emitters or screen-space pass; GL Compatibility safe.
+# Turbulent combustion and rising embers on one depth-tested surface.
+# No screen texture, extra particle system, or additional flame draw call.
 const FURNACE_FLAME_SHADER: String = """
 shader_type spatial;
-render_mode unshaded, blend_add, cull_disabled, depth_draw_never, fog_disabled;
+render_mode unshaded, blend_mix, cull_disabled, depth_draw_never, fog_disabled;
+
+float fire_hash(vec2 p) {
+    p = fract(p * vec2(0.1031, 0.11369));
+    p += dot(p, p.yx + vec2(19.19));
+    return fract(p.x * p.y);
+}
+
+float fire_noise(vec2 p) {
+    vec2 cell = floor(p);
+    vec2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return mix(mix(fire_hash(cell), fire_hash(cell + vec2(1.0, 0.0)), f.x),
+        mix(fire_hash(cell + vec2(0.0, 1.0)),
+            fire_hash(cell + vec2(1.0, 1.0)), f.x), f.y);
+}
+
 void fragment() {
-    float x = UV.x;
-    float y = 1.0 - UV.y;
-    float flame = 0.0;
+    vec2 p = vec2(UV.x, 1.0 - UV.y);
+    float t = TIME;
+    float y = p.y;
+    // Advect two scales of turbulence upward, anchored to the molten bed.
+    float flow = fire_noise(vec2(p.x * 5.0, y * 3.6 - t * 2.7));
+    float detail = fire_noise(vec2(p.x * 11.0 + flow * 1.4, y * 8.0 - t * 4.4));
+    float bend = (flow - 0.5) * 0.16 * smoothstep(0.02, 0.65, y);
+    float x = p.x + bend;
+    float envelope = 0.0;
     float core = 0.0;
-    for (int i = 0; i < 4; i++) {
+    // Broad overlapping tongues with different lengths and moving centers.
+    for (int i = 0; i < 3; i++) {
         float k = float(i);
-        float phase = TIME * (5.0 + k * 0.7) + k * 2.4;
-        float height = 0.59 + 0.20 * sin(phase) + 0.10 * sin(phase * 1.71);
-        float center = 0.16 + k * 0.225 + y * 0.075 * sin(phase + y * 5.0);
-        float width = 0.15 * max(0.0, 1.0 - y / max(height, 0.1));
-        float d = abs(x - center);
-        float tip = 1.0 - smoothstep(height - 0.10, height, y);
-        flame = max(flame, (1.0 - smoothstep(width * 0.45, width + 0.025, d)) * tip);
-        core = max(core, (1.0 - smoothstep(width * 0.12, width * 0.55 + 0.012, d)) *
-            (1.0 - smoothstep(height * 0.35, height * 0.78, y)));
+        float phase = t * (2.7 + k * 0.41) + k * 2.31;
+        float h = 0.72 + 0.12 * sin(phase) + 0.08 * sin(phase * 1.79)
+            + (flow - 0.5) * 0.17;
+        float u = clamp(y / max(h, 0.1), 0.0, 1.0);
+        float center = 0.24 + k * 0.26 + 0.10 * u * sin(phase + y * 6.0);
+        float width = (0.23 - 0.035 * k) * pow(max(0.0, 1.0 - u), 0.72);
+        float d = abs(x - center) + (detail - 0.5) * 0.045 * u;
+        float tip = 1.0 - smoothstep(h - 0.14, h, y);
+        float body = (1.0 - smoothstep(width * 0.62, width + 0.035, d)) * tip;
+        envelope = max(envelope, body);
+        core = max(core, (1.0 - smoothstep(width * 0.14, width * 0.70 + 0.009, d))
+            * (1.0 - smoothstep(h * 0.23, h * 0.81, y)));
     }
-    float edge = smoothstep(0.0, 0.06, x) * (1.0 - smoothstep(0.94, 1.0, x));
-    float base = (1.0 - smoothstep(0.03, 0.19, y)) * edge;
-    float heat = max(flame * edge, base * 0.74);
-    vec3 tint = mix(vec3(1.0, 0.16, 0.025), vec3(1.0, 0.83, 0.32),
-        clamp(core + base * 0.7, 0.0, 1.0));
+    float side = smoothstep(0.025, 0.13, p.x) * (1.0 - smoothstep(0.87, 0.975, p.x));
+    float bed = (1.0 - smoothstep(0.045, 0.18, y)) * side;
+    float edge_fade = side * (1.0 - smoothstep(0.92, 1.0, y));
+    float opacity = max(envelope * (0.72 + 0.28 * detail), bed * 0.85) * edge_fade;
+    float heat = clamp(core * (0.74 + 0.36 * detail) + bed * 0.75
+        + envelope * (0.11 + 0.19 * flow), 0.0, 1.0);
+    vec3 tint = mix(vec3(0.87, 0.055, 0.009), vec3(1.0, 0.29, 0.025),
+        smoothstep(0.03, 0.40, heat));
+    tint = mix(tint, vec3(1.0, 0.82, 0.28), smoothstep(0.38, 0.82, heat));
+    tint = mix(tint, vec3(1.0, 0.98, 0.84), smoothstep(0.79, 1.0, heat));
+    float hot_root = bed * smoothstep(0.69, 0.98, heat)
+        * (1.0 - smoothstep(0.035, 0.095, y));
+    tint = mix(tint, vec3(0.76, 0.88, 1.0), hot_root * 0.72);
+
+    // Sparse rising sparks inside the existing flame quad, no particle nodes.
+    float lane = floor(p.x * 7.0);
+    float seed = fire_hash(vec2(lane, 13.0));
+    float clock = t * (0.75 + seed * 0.65) + seed * 5.0;
+    float age = fract(clock);
+    float spark_y = 0.18 + age * 0.78;
+    float spark_x = (lane + 0.5) / 7.0 + 0.042 * sin(age * 6.0 + seed * 21.0);
+    vec2 spark_delta = (p - vec2(spark_x, spark_y)) * vec2(1.0, 0.63);
+    float spark = (1.0 - smoothstep(0.009, 0.021, length(spark_delta)))
+        * smoothstep(0.05, 0.17, age) * (1.0 - smoothstep(0.55, 0.96, age))
+        * step(0.45, fire_hash(vec2(lane, floor(clock)))) * side;
+    tint = mix(tint, vec3(1.0, 0.66, 0.24), spark);
     ALBEDO = tint;
-    ALPHA = clamp(heat * 0.97, 0.0, 1.0);
+    ALPHA = clamp(max(opacity, spark * 0.8), 0.0, 1.0);
 }
 """
 static var _furnace_flame_shader: Shader
@@ -201,14 +248,14 @@ void fragment() {
     vec2 p = UV;
     float longfade = 1.0 - smoothstep(0.27, 1.0, p.y);
     float crossfade = pow(max(0.0, 1.0 - abs(p.x - 0.5) * 2.0), 1.25);
-    float tongues = 0.72 + 0.18 * sin(TIME * 7.1 + p.x * 8.0)
-        + 0.10 * sin(TIME * 11.3 - p.y * 12.0 + p.x * 14.0);
+    float tongues = 0.76 + 0.12 * sin(TIME * 2.7 + p.x * 8.0)
+        + 0.08 * sin(TIME * 4.83 - p.y * 12.0 + p.x * 14.0);
     float shaped = crossfade * longfade * clamp(tongues, 0.25, 1.0);
     vec3 orange = mix(vec3(1.0, 0.19, 0.035),
         vec3(1.0, 0.61, 0.22), clamp(shaped * 1.4, 0.0, 1.0));
     ALBEDO = orange;
     EMISSION = orange * 3.2 * shaped;
-    ALPHA = shaped * 0.72;
+    ALPHA = shaped * 0.58;
 }
 """
 var _model: Node3D
@@ -242,7 +289,7 @@ func setup(model: Node3D, key: String) -> void:
         _add_entrance(key)
         _add_smoke()
         _add_fire_floor()
-        _make_surface("SmelterVisibleCombustionFlame", Vector3(0, 1.47, 1.185),
+        _make_surface("SmelterVisibleCombustionFlame", Vector3(0, 1.475, 1.185),
             Vector2(1.25, 0.95), Vector3.ZERO, FURNACE_FLAME_SHADER)
         # Aimed maintenance spotlight is separate from the molten glow.
         _add_practical_lighting(key)
@@ -251,7 +298,7 @@ func setup(model: Node3D, key: String) -> void:
         sample_fire(0.0)
         # Furnace entrance remains sharp; add only a faint broad glow.
         _queue_soft_halo(Vector3(0.0, 1.45, 1.38),
-            Vector2(1.85, 1.32), Color("#ff9d65"), 0.17)
+            Vector2(1.65, 1.18), Color("#ff9d65"), 0.075)
         set_process(true)
     else:
         # Remove side/entrance shafts entirely at every other BASE site.
@@ -1141,8 +1188,8 @@ func _add_fire_floor() -> void:
 
 func sample_fire(seconds: float) -> void:
     if _furnace_lamp != null:
-        var pulse: float = 0.76 + 0.15 * sin(seconds * 7.1) + (
-            0.09 * sin(seconds * 11.3))
+        var pulse: float = 0.83 + 0.09 * sin(seconds * 2.7) + (
+            0.05 * sin(seconds * 4.83)) + 0.03 * sin(seconds * 8.17)
         _furnace_lamp.light_energy = 2.05 * pulse
 
 func _process(delta: float) -> void:

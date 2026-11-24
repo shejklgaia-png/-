@@ -326,8 +326,8 @@ static func _smelter(g: Variant) -> void:
         Vector3(0, 2.96, -0.23), Vector3(1.74, 0.25, 1.74), "slate")
     g.poly("FreshSmelterPressureCap", "hood",
         Vector3(0, 3.17, -0.26), Vector3(1.36, 0.28, 1.30), "armor_light")
-    # Animated flame plane z=1.185 is in front of the refractory backing
-    # and behind sparse metal guards. No opaque orange block or static tongues.
+    # Recessed combustion plane z=1.185, front safety cage z=1.34.
+    # Keep the central viewing aperture open and use real depth-tested solids.
     g.box("FreshSmelterRefractoryBacking",
         Vector3(0, 1.45, 0.91), Vector3(1.46, 1.12, 0.18), "dark")
     for side in [-1.0, 1.0]:
@@ -337,9 +337,27 @@ static func _smelter(g: Variant) -> void:
         g.poly("FreshSmelterThermalGuardFoot", "gusset",
             Vector3(side * 0.83, 0.82, 0.94),
             Vector3(0.46, 0.56, 0.68), "slate")
+        g.box("FreshSmelterPortalPost",
+            Vector3(side * 0.70, 1.48, 1.30),
+            Vector3(0.14, 1.10, 0.24), "trim")
+        g.rod("FreshSmelterRefractoryTie",
+            Vector3(side * 0.70, 0.98, 1.33),
+            Vector3(side * 0.79, 0.88, 0.99), 0.085, "edge")
         g.box("FreshSmelterGrate",
-            Vector3(side * 0.37, 1.45, 1.245),
-            Vector3(0.065, 0.88, 0.09), "trim")
+            Vector3(side * 0.42, 1.45, 1.36),
+            Vector3(0.055, 0.89, 0.075), "trim")
+        for y in [1.02, 1.91]:
+            g.box("FreshSmelterGrateMount",
+                Vector3(side * 0.42, y, 1.36),
+                Vector3(0.12, 0.09, 0.12), "edge")
+    # A projecting sill and narrow header make the guards part of a real
+    # furnace assembly instead of floating bars. No central crossbar.
+    g.box("FreshSmelterPortalHeader",
+        Vector3(0, 1.98, 1.30), Vector3(1.49, 0.12, 0.24), "trim")
+    g.box("FreshSmelterPortalSill",
+        Vector3(0, 0.96, 1.34), Vector3(1.49, 0.12, 0.32), "trim")
+    g.box("FreshSmelterHotInnerLip",
+        Vector3(0, 1.025, 1.23), Vector3(1.22, 0.045, 0.10), "rust")
     g.poly("FreshSmelterCombustionHood", "hood",
         Vector3(0, 2.11, 0.99), Vector3(1.73, 0.28, 0.63), "armor_light")
     g.poly("FreshSmelterSlagChannel", "tray",
