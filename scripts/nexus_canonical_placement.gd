@@ -17,6 +17,11 @@ var initialized := false
 var active := false
 var selected := ""
 var entries: Dictionary = {}
+# Do not bind thousands of generated MultiMesh instances while opening the
+# placement editor. Each selected facility is bound only when it first moves.
+var _source_refs: Dictionary = {}
+var _render_batches: Dictionary = {}
+var _bound_entries: Dictionary = {}
 var original_outline_visible := true
 var pointer_id := -999
 var pointer_mouse := false
@@ -43,6 +48,9 @@ func configure(scene: Node3D, placements: Dictionary,
         _create_visible_controls()
     set_process(true)
     entries.clear()
+    _source_refs = source_refs
+    _render_batches = batches
+    _bound_entries.clear()
     for key_value in placements.keys():
         var key: String = str(key_value)
         var spec: Dictionary = placements[key]
@@ -61,34 +69,45 @@ func configure(scene: Node3D, placements: Dictionary,
             entry["focus"] = host.focus_views[key].duplicate(true)
         entries[key] = entry
 
-    # Exact module instance indices prevent room architecture from moving with
-    # a nearby terminal. The procedural accessory groups below are filtered.
-    for key_value in source_refs.keys():
-        var key: String = str(key_value)
-        if not entries.has(key):
-            continue
-        var items: Array = source_refs[key]
-        for item in items:
-            var batch_key: int = int(item["batch_key"])
-            var multi: MultiMesh = batches.get(batch_key) as MultiMesh
-            if multi == null:
-                continue
-            _bind_instance(key, multi, int(item["index"]), item["transform"])
+    # At this point all four authoritative positions and projected outlines
+    # exist. Heavy mesh discovery does not belong on the critical start path.
+    initialized = entries.size() == placements.size() and not entries.is_empty()
+    if initialized:
+        _sync_ui()
+    else:
+        push_warning("NEXUS canonical placement: missing placement definitions")
 
-    for root_name in ["NexusProceduralArchitecture",
-            "NexusComplexMachining", "NexusSculptedFittings"]:
-        var root := host.get_node_or_null(root_name)
-        if root == null:
+
+func _ensure_visual_bindings(key: String) -> void:
+    if _bound_entries.has(key) or not entries.has(key):
+        return
+    # The source ref arrays contain exact MultiMesh indices, so no adjacent
+    # structure is moved along with the selected terminal.
+    _bound_entries[key] = true
+    var items: Array = _source_refs.get(key, [])
+    for item_value in items:
+        var item: Dictionary = item_value
+        var batch_key: int = int(item.get("batch_key", -1))
+        var multi: MultiMesh = _render_batches.get(batch_key) as MultiMesh
+        var index: int = int(item.get("index", -1))
+        if multi == null or index < 0 or index >= multi.instance_count:
             continue
-        for node in root.get_children():
-            if not (node is MultiMeshInstance3D):
+        _bind_instance(key, multi, index, item["transform"])
+
+    if key in ["SYSTEM", "TRAINING"]:
+        for root_name in ["NexusProceduralArchitecture",
+                "NexusComplexMachining", "NexusSculptedFittings"]:
+            var root := host.get_node_or_null(root_name)
+            if root == null:
                 continue
-            var multi: MultiMesh = node.multimesh
-            if multi == null:
-                continue
-            for index in range(multi.instance_count):
-                var base: Transform3D = multi.get_instance_transform(index)
-                for key in ["SYSTEM", "TRAINING"]:
+            for node in root.get_children():
+                if not (node is MultiMeshInstance3D):
+                    continue
+                var multi: MultiMesh = node.multimesh
+                if multi == null:
+                    continue
+                for index in range(multi.instance_count):
+                    var base: Transform3D = multi.get_instance_transform(index)
                     var center: Vector3 = entries[key]["position"]
                     if Vector2(base.origin.x - center.x,
                             base.origin.z - center.z).length() > 1.58:
@@ -96,34 +115,29 @@ func configure(scene: Node3D, placements: Dictionary,
                     if absf(base.origin.y - center.y) > 3.10:
                         continue
                     _bind_instance(key, multi, index, base)
-                    break
 
-    # The 24 fps animated monitor nodes must move as intact subtrees: driver,
-    # atlas, shader and per-screen cadence continue working unchanged.
-    for key in ["SYSTEM", "TRAINING", "DATA ARCHIVE"]:
-        var monitors: Array = []
-        match key:
-            "SYSTEM":
-                monitors = ["MON_N01", "MON_N02"]
-            "TRAINING":
-                monitors = ["MON_N03", "MON_N04"]
-            "DATA ARCHIVE":
-                monitors = ["MON_N05", "MON_N06"]
-        for monitor_name in monitors:
-            _bind_node(key, host.get_node_or_null(str(monitor_name)))
-    _bind_node("TRAINING", host.get_node_or_null("TrainingServiceAssembly"))
-    _bind_node("SYSTEM", host.get_node_or_null(
-        "NexusRoomWorkingHardware/SystemCabinetMotion"))
-    _bind_node("TRAINING", host.get_node_or_null(
-        "NexusRoomWorkingHardware/TrainingSensorMotion"))
-    # Only the launch KIOSK is movable. The huge gate itself, wall supports,
-    # ramp and animated shutters deliberately remain fixed.
-    _bind_node("DEPLOYMENT", host.get_node_or_null(
-        "DeploymentWallDock/DeploymentConsolePlacementAnchor"))
-    _sync_ui()
-    initialized = entries.size() == placements.size() and not entries.is_empty()
-    if not initialized:
-        push_warning("NEXUS canonical placement: incomplete editor setup")
+    var monitors: Array = []
+    match key:
+        "SYSTEM":
+            monitors = ["MON_N01", "MON_N02"]
+        "TRAINING":
+            monitors = ["MON_N03", "MON_N04"]
+        "DATA ARCHIVE":
+            monitors = ["MON_N05", "MON_N06"]
+    for monitor_name in monitors:
+        _bind_node(key, host.get_node_or_null(str(monitor_name)))
+    match key:
+        "SYSTEM":
+            _bind_node(key, host.get_node_or_null(
+                "NexusRoomWorkingHardware/SystemCabinetMotion"))
+        "TRAINING":
+            _bind_node(key, host.get_node_or_null("TrainingServiceAssembly"))
+            _bind_node(key, host.get_node_or_null(
+                "NexusRoomWorkingHardware/TrainingSensorMotion"))
+        "DEPLOYMENT":
+            # Do not move the gate, hull, support pylons or ramp.
+            _bind_node(key, host.get_node_or_null(
+                "DeploymentWallDock/DeploymentConsolePlacementAnchor"))
 
 
 func _bind_instance(key: String, multi: MultiMesh,
@@ -342,6 +356,8 @@ func _current_delta(entry: Dictionary) -> Transform3D:
 
 
 func _set_pose(key: String, at: Vector3, yaw: float) -> void:
+    # Bind only when the user first edits a real facility, never in _ready.
+    _ensure_visual_bindings(key)
     var entry: Dictionary = entries[key]
     entry["position"] = at
     entry["yaw"] = wrapf(yaw, -PI, PI)
