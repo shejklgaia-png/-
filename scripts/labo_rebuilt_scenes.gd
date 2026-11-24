@@ -22,7 +22,6 @@ const WORK_DECK_RISE := 0.32
 var surface_cache: Dictionary = {}
 var fallback_texture: ImageTexture
 var stack_ink_material: ShaderMaterial
-var stack_seam_material: StandardMaterial3D
 var fire_layers: Array[Sprite3D] = []
 var fire_light: OmniLight3D
 const KEYS = ["LABO", "SMELTER", "RECYCLER", "STORAGE"]
@@ -147,11 +146,6 @@ func _stack_ink(stack: Node3D) -> void:
     if stack_ink_material == null:
         stack_ink_material = ShaderMaterial.new()
         stack_ink_material.shader = StackInk
-    if stack_seam_material == null:
-        stack_seam_material = StandardMaterial3D.new()
-        stack_seam_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-        stack_seam_material.albedo_color = Color.BLACK
-    var lines := PackedVector3Array()
     for child in stack.get_children():
         var draw := child as MultiMeshInstance3D
         if draw == null or not String(draw.name).begins_with("Architectural_vent_stack_"):
@@ -166,33 +160,8 @@ func _stack_ink(stack: Node3D) -> void:
         ink.set_meta("sera_preserve_authored_material",true)
         stack.add_child(ink)
         ink.transform = draw.transform
-        for i in range(draw.multimesh.instance_count):
-            var pose: Transform3D = draw.transform * draw.multimesh.get_instance_transform(i)
-            # Match the sixteen-facet sleeve and integral collars.
-            for ring in [Vector2(-0.45,0.543),Vector2(-0.36,0.543),
-                    Vector2(0.37,0.543),Vector2(0.48,0.543),
-                    Vector2(0.501,0.473),Vector2(0.501,0.31)]:
-                for segment in range(16):
-                    var a: float = TAU*float(segment)/16.0
-                    var z: float = TAU*float(segment+1)/16.0
-                    lines.append(pose * Vector3(cos(a)*ring.y,ring.x,sin(a)*ring.y))
-                    lines.append(pose * Vector3(cos(z)*ring.y,ring.x,sin(z)*ring.y))
-    if lines.is_empty():
-        return
-    var arrays := []
-    arrays.resize(Mesh.ARRAY_MAX)
-    arrays[Mesh.ARRAY_VERTEX] = lines
-    var mesh := ArrayMesh.new()
-    mesh.add_surface_from_arrays(Mesh.PRIMITIVE_LINES,arrays)
-    var seams := MeshInstance3D.new()
-    seams.name = "ExhaustFlangeSeams"
-    seams.mesh = mesh
-    seams.material_override = stack_seam_material
-    seams.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-    seams.set_meta("FX_NO_OUTLINE",true)
-    seams.set_meta("sera_no_view_edges",true)
-    seams.set_meta("sera_preserve_authored_material",true)
-    stack.add_child(seams)
+        # Retain the black outer/inner silhouette of the hollow sleeve only.
+        # Integral collar hard-corner rings are disabled (0px).
 
 func _expand_equipment(key: String) -> void:
     # Dedicated industrial models only; never enlarge the BASE icon mesh.

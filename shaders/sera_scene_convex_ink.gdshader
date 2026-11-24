@@ -54,7 +54,7 @@ void vertex() {
 }
 
 void fragment() {
-    if (!outlines_enabled || edge_visible < 0.5) {
+    if (!outlines_enabled || corner_width_px <= 0.0 || edge_visible < 0.5) {
         discard;
     }
     float alpha = ink_color.a;

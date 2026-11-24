@@ -1,6 +1,6 @@
 extends Node
-## Shared front-facing hard-corner pass: buildings have convex + concave
-## 1px; small clutter has convex-only 1px; actors have none.
+## Shared front-facing hard-corner pass. BASE facilities and selected
+## close-up worksites have no corner ribbons; other styles are unchanged.
 ## RGB12 visible IDs retain ownership of silhouettes and mesh contacts.
 ## Cache separately per mesh and signed-corner mode.
 const Crease = preload("res://scripts/sera_base_facility_crease_geometry.gd")
@@ -30,7 +30,22 @@ static func _role(source: Node) -> int:
     return 0
 
 
-static func _style(role: int, scene_profile: int) -> int:
+static func _corner_scope(source: Node) -> int:
+    var cursor: Node = source
+    while cursor != null:
+        if cursor.has_meta("sera_worksite_corner_section"):
+            return 2 if str(cursor.get_meta("sera_worksite_corner_section")) in ["LABO", "SMELTER", "STORAGE"] else 0
+        if str(cursor.get_meta("sera_graphics_outline_category", "")) == "base":
+            return 1
+        cursor = cursor.get_parent()
+    return 0
+
+
+static func _style(role: int, scene_profile: int, scope: int) -> int:
+    if scope == 2 and Standards.WORKSITE_CORNER_PX <= 0.0:
+        return 0
+    if scope == 1 and scene_profile == 0 and role == 2 and Standards.BASE_FACILITY_CORNER_PX <= 0.0:
+        return 0
     if scene_profile == 4:
         if role == 4: return 5 # NEXUS background concave only
         if role == 2: return 6 # NEXUS interact convex + concave
@@ -54,7 +69,7 @@ func _material(style: int) -> ShaderMaterial:
     if style == 5:
         ink_color = Color("#27343e")
     mat.set_shader_parameter("ink_color", ink_color)
-    var width_px: float = Standards.BASE_FACILITY_CORNER_PX
+    var width_px: float = Standards.OTHER_FACILITY_CORNER_PX
     if style == 1:
         width_px = Standards.NEXUS_CORNER_PX
     elif style == 4:
@@ -128,6 +143,9 @@ func sync_sources(desired: Dictionary, profile: int, texture: Texture2D,
         if not is_instance_valid(source) or (
                 not source.is_visible_in_tree()):
             continue
+        var scope: int = _corner_scope(source)
+        if scope == 2 and Standards.WORKSITE_CORNER_PX <= 0.0:
+            continue
         # Moving shutter leaves retain their dedicated selection contour.
         # Only their physical corner ribbons opt into the NEXUS pass.
         if bool(entry.get("occluder", false)) and not (
@@ -147,7 +165,7 @@ func sync_sources(desired: Dictionary, profile: int, texture: Texture2D,
         var default_role: int = _role(source)
         var mixed_roles: bool = original_multi != null and bool(
             source.get_meta("sera_outline_instanced_roles", false))
-        if not mixed_roles and _style(default_role, profile) == 0:
+        if not mixed_roles and _style(default_role, profile, scope) == 0:
             continue
         var instance_groups: Dictionary = {}
         if original_multi != null:
@@ -157,7 +175,7 @@ func sync_sources(desired: Dictionary, profile: int, texture: Texture2D,
                 var role: int = _role(source)
                 if custom:
                     role = roundi(original_multi.get_instance_custom_data(index).r * 8.0)
-                var style: int = _style(role, profile)
+                var style: int = _style(role, profile, scope)
                 if style == 0:
                     continue
                 if not instance_groups.has(style):
@@ -166,7 +184,7 @@ func sync_sources(desired: Dictionary, profile: int, texture: Texture2D,
                 selected.append(index)
                 instance_groups[style] = selected
         else:
-            var style: int = _style(_role(source), profile)
+            var style: int = _style(_role(source), profile, scope)
             if style == 0:
                 continue
             instance_groups[style] = PackedInt32Array()
