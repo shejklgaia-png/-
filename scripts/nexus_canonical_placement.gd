@@ -9,6 +9,7 @@ const SCENE_ID := "res://scenes/command_nexus.tscn"
 const TARGET_ORDER := ["TRAINING", "SYSTEM", "DATA ARCHIVE", "DEPLOYMENT"]
 const TURN_STEP := 5.0
 const HEIGHT_STEP := 0.10
+const TRANSLATE_STEP := 0.10  # 10cm per tap, same precision as height edits.
 const SAFE_MARGIN := 10.0
 
 var host
@@ -270,6 +271,18 @@ func _press(where: Vector2, finger: int, mouse: bool) -> void:
                     var rise: float = HEIGHT_STEP if operation == "up" else -HEIGHT_STEP
                     var at: Vector3 = pose["position"]
                     at.y = clampf(at.y + rise, -1.0, 8.0)
+                    _set_pose(selected, at, float(pose["yaw"]))
+                elif operation in ["move_f", "move_b", "move_l", "move_r"]:
+                    # Match the overview camera's world axes: forward is -Z,
+                    # right is +X. Do not change the selected model's Y/yaw.
+                    var at: Vector3 = pose["position"]
+                    match operation:
+                        "move_f": at.z -= TRANSLATE_STEP
+                        "move_b": at.z += TRANSLATE_STEP
+                        "move_l": at.x -= TRANSLATE_STEP
+                        "move_r": at.x += TRANSLATE_STEP
+                    at.x = clampf(at.x, -10.0, 10.0)
+                    at.z = clampf(at.z, -30.0, 11.0)
                     _set_pose(selected, at, float(pose["yaw"]))
                 return
 
@@ -537,8 +550,9 @@ func _gizmo_boxes() -> Dictionary:
         return {}
     var at: Vector3 = entries[selected]["position"]
     var center: Vector2 = camera.unproject_position(at)
-    center.x = clampf(center.x, 110.0, size.x - 135.0)
-    center.y = clampf(center.y + 86.0, 145.0, size.y - 134.0)
+    center.x = clampf(center.x, 145.0, size.x - 160.0)
+    # Reserve a second gizmo tier for planar translation, above bottom HUD.
+    center.y = clampf(center.y + 86.0, 145.0, size.y - 275.0)
     return {
         "rot_l": Rect2(center + Vector2(-99.0, 0.0),
             Vector2(49.0, 47.0)),
@@ -547,7 +561,15 @@ func _gizmo_boxes() -> Dictionary:
         "up": Rect2(center + Vector2(32.0, -24.0),
             Vector2(47.0, 43.0)),
         "down": Rect2(center + Vector2(32.0, 24.0),
-            Vector2(47.0, 43.0))
+            Vector2(47.0, 43.0)),
+        "move_f": Rect2(center + Vector2(-25.0, 76.0),
+            Vector2(50.0, 43.0)),
+        "move_b": Rect2(center + Vector2(-25.0, 165.0),
+            Vector2(50.0, 43.0)),
+        "move_l": Rect2(center + Vector2(-82.0, 121.0),
+            Vector2(50.0, 43.0)),
+        "move_r": Rect2(center + Vector2(32.0, 121.0),
+            Vector2(50.0, 43.0))
     }
 
 
@@ -560,7 +582,8 @@ func _create_visible_controls() -> void:
     if host_hud != null:
         theme = host_hud.theme
     for key in ["toggle", "close", "copy", "copy_all",
-            "rot_l", "rot_r", "up", "down"]:
+            "rot_l", "rot_r", "up", "down",
+            "move_f", "move_b", "move_l", "move_r"]:
         var panel := Panel.new()
         panel.name = "Placement_" + key
         panel.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -630,6 +653,14 @@ func _caption(key: String) -> String:
             return "▲高さ"
         "down":
             return "▼高さ"
+        "move_f":
+            return "前▲"
+        "move_b":
+            return "後▼"
+        "move_l":
+            return "左◀"
+        "move_r":
+            return "右▶"
     return key
 
 
