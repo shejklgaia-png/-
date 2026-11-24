@@ -22,6 +22,7 @@ quit_on_go_back=false
 [autoload]
 
 SeraSave="*res://scripts/sera_save.gd"
+SeraPlacementSync="*res://scripts/sera_placement_sync.gd"
 
 [display]
 
