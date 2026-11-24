@@ -118,6 +118,7 @@ var layout_rerolls: int = 0
 var power_zone: Node3D
 var power_distribution: Node3D
 var logistics: Node3D
+var logistics_creation_status: String = "NOT STARTED"
 var power_back_button: Button
 var power_view_active: bool = false
 var power_camera_tween: Tween
@@ -159,8 +160,9 @@ func _ready() -> void:
     await get_tree().process_frame
     await get_tree().process_frame
     _build_logistics()
-    BaseClutter.set_preview_layouts(BaseLayoutPreview.reserve_props(
-        NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, logistics))
+    if is_instance_valid(logistics):
+        BaseClutter.set_preview_layouts(BaseLayoutPreview.reserve_props(
+            NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, logistics))
     _build_nexus_building()
     _startup_step("NEXUS / COMMAND LINK ONLINE", 33)
     await get_tree().process_frame
@@ -482,7 +484,18 @@ func _build_power_distribution() -> void:
 func _build_logistics() -> void:
     if is_instance_valid(logistics):
         logistics.free()
+    logistics_creation_status = "SCRIPT CHECK"
+    if not BaseLogistics.can_instantiate():
+        logistics_creation_status = "SCRIPT INVALID"
+        push_error("SERA_BASE_LOGISTICS: script cannot instantiate")
+        return
+    logistics_creation_status = "NEW"
     logistics = BaseLogistics.new()
+    if not is_instance_valid(logistics):
+        logistics_creation_status = "NEW FAILED"
+        push_error("SERA_BASE_LOGISTICS: script new returned no node")
+        return
+    logistics_creation_status = "NODE CREATED"
     logistics.name = "BaseLogistics"
     logistics.set_meta("sera_outline_role", "clutter")
     add_child(logistics)
@@ -493,6 +506,7 @@ func _build_logistics() -> void:
     logistics.call("ensure_parked_fleet", BaseFacilities.FACILITY_SPECS)
     logistics.call("build_carriers")
     logistics.call("build_docks_and_motion")
+    logistics_creation_status = "NODE ATTACHED"
 
 
 func _create_grid_selection() -> void:
@@ -960,7 +974,7 @@ func _create_layout_tools() -> void:
     layout_tools.add_child(layout_status)
     var logistics_status := Label.new()
     logistics_status.name = "LogisticsStatus"
-    logistics_status.text = str(logistics.call("diagnostic_text")) if is_instance_valid(logistics) else "物流 NODE MISSING"
+    logistics_status.text = str(logistics.call("diagnostic_text")) if is_instance_valid(logistics) else "物流 " + logistics_creation_status
     logistics_status.add_theme_font_override("font", LaboSkin.ui_font())
     logistics_status.add_theme_font_size_override("font_size", 13)
     logistics_status.add_theme_color_override("font_color", Color("#b9dbe8"))
@@ -1126,8 +1140,11 @@ func _apply_layout_preview(selected: Dictionary) -> void:
     # Session preview only; no changes to the game's permanent saves.
     var layouts: Dictionary = selected["sites"]
     var scrap: Array[Dictionary] = selected["scrap"]
-    BaseClutter.set_preview_layouts(BaseLayoutPreview.reserve_props(
-        NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, logistics, layouts))
+    if is_instance_valid(logistics):
+        BaseClutter.set_preview_layouts(BaseLayoutPreview.reserve_props(
+            NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, logistics, layouts))
+    else:
+        BaseClutter.set_preview_layouts(layouts)
     var old_nexus: Node = nexus_building.get_node_or_null("NexusArchitecture")
     if old_nexus != null:
         old_nexus.free()
