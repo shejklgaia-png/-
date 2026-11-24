@@ -24,13 +24,16 @@ var in_arm: Dictionary
 var out_arm: Dictionary
 var reserves: Array[AABB] = []
 var storage_slots: Array[Node3D] = []
+var storage_boxes: Array[Node3D] = []
+var active_box: Node3D
+var inbound_operation := false
+var box_serial: int = 0
+var storage_cycle_seconds: float = 46.0
+const STORAGE_BOX_HEIGHT := 1.76
+const STORAGE_TRIP := 64.0
 var occupied: Array[bool] = []
 var store_index: int = -1
 var take_index: int = -1
-var pack: Node3D
-var pack_lid: Node3D
-var pack_raw: Node3D
-var shelf_box: Node3D
 var shelf_mast: Node3D
 var shelf_carriage: Node3D
 var shelf_fork: Node3D
@@ -40,7 +43,6 @@ var storage_committed := false
 var storage_removed := false
 var storage_delivered := false
 var input_finished := false
-var retrieve_only := false
 var stacker_start := Vector3.ZERO
 var storage_pack_point := Vector3(-9.0,1.10,7.7)
 var storage_out_point := Vector3(8.8,1.10,7.7)
@@ -287,21 +289,22 @@ func build(parent: Node3D,section: String,source: Vector3,destination: Vector3) 
             in_dock = Vector3(inlet.x,ground,-23.0)
             out_dock = Vector3(outlet.x,ground,14.0)
         "STORAGE":
-            inlet = storage_pack_point+Vector3.UP*0.14
+            inlet = storage_pack_point
             outlet = storage_out_point
             in_dock = Vector3(inlet.x,ground,18.0)
             out_dock = Vector3(outlet.x,ground,18.0)
             _build_storage()
-    in_far = in_dock+Vector3(0,0,-7.0 if key=="RECYCLER" else 7.0)
-    out_far = out_dock+Vector3(0,0,7.0)
+    in_far = in_dock+Vector3(0,0,-7.0 if key=="RECYCLER" else (STORAGE_TRIP if key=="STORAGE" else 7.0))
+    out_far = out_dock+Vector3(0,0,STORAGE_TRIP if key=="STORAGE" else 7.0)
     _lane(in_dock,in_far)
     _lane(out_dock,out_far)
     truck_in = _carrier("InboundCarrier")
     truck_out = _carrier("OutboundCarrier")
-    in_box = _container(truck_in,"TransportContainer",false)
-    out_box = _container(truck_out,"TransportContainer",false)
-    in_box.position.y = DECK_Y
-    out_box.position.y = DECK_Y
+    if key!="STORAGE":
+        in_box = _container(truck_in,"TransportContainer",false)
+        out_box = _container(truck_out,"TransportContainer",false)
+        in_box.position.y = DECK_Y
+        out_box.position.y = DECK_Y
     raw = _material(root,"InboundRawMaterial")
     var h_in: float = maxf(8.5,inlet.y+4.0)
     var h_out: float = maxf(8.5,outlet.y+4.0)
@@ -328,7 +331,7 @@ func _out_drop() -> Vector3:
     return out_dock+Vector3.UP*(DECK_Y+(0.0 if key=="STORAGE" else 0.14))
 
 func duration() -> float:
-    return 48.0 if key=="STORAGE" else 26.0
+    return storage_cycle_seconds if key=="STORAGE" else 26.0
 
 func begin() -> void:
     input_finished = false
@@ -337,37 +340,64 @@ func begin() -> void:
         return
     var empty: Array[int] = []
     var full: Array[int] = []
-    for i in range(occupied.size()):
-        if occupied[i]:
+    for i in range(storage_slots.size()):
+        var present: bool = is_instance_valid(storage_boxes[i])
+        occupied[i] = present
+        if present:
             full.append(i)
         else:
             empty.append(i)
-    store_index = empty[rng.randi_range(0,empty.size()-1)] if not empty.is_empty() else -1
-    take_index = full[rng.randi_range(0,full.size()-1)] if not full.is_empty() else store_index
-    retrieve_only = empty.is_empty() and not full.is_empty()
-    if retrieve_only:
-        store_index = take_index
-    storage_committed = retrieve_only
+    # The probability is proportional to free/occupied capacity. The boundary
+    # conditions are absolute, and only the selected operation reserves a bay.
+    var fill: float = float(full.size())/float(maxi(1,storage_slots.size()))
+    inbound_operation = full.is_empty() or (not empty.is_empty() and rng.randf()<1.0-fill)
+    store_index = empty[rng.randi_range(0,empty.size()-1)] if inbound_operation and not empty.is_empty() else -1
+    take_index = full[rng.randi_range(0,full.size()-1)] if not inbound_operation and not full.is_empty() else -1
+    storage_committed = false
     storage_removed = false
     storage_delivered = false
+    storage_cycle_seconds = 50.0 if inbound_operation else 48.0
     stacker_start = Vector3(shelf_mast.position.x,shelf_carriage.position.y,aisle_z)
+    if store_index>=0:
+        active_box = _new_storage_box(truck_in)
+        active_box.position = Vector3.UP*DECK_Y
+
+func _new_storage_box(parent: Node3D) -> Node3D:
+    box_serial += 1
+    return _container(parent,"SealedCargo_%04d"%box_serial,true)
+
+func _attach_box(box: Node3D,parent: Node3D,p: Vector3) -> void:
+    if box.get_parent()!=parent:
+        box.reparent(parent,false)
+    box.position = p
+    box.rotation = Vector3.ZERO
 
 func reset() -> void:
     truck_in.visible = false
     truck_out.visible = false
     raw.visible = false
     raw.scale = Vector3.ONE
-    _arm_pose(in_arm,Vector3(in_dock.x,float(in_arm["height"])-0.55,in_dock.z))
-    _arm_pose(out_arm,Vector3(outlet.x,float(out_arm["height"])-0.55,outlet.z))
+    _arm_pose(in_arm,Vector3(in_dock.x,float(in_arm["height"])-0.74,in_dock.z))
+    _arm_pose(out_arm,Vector3(outlet.x,float(out_arm["height"])-0.74,outlet.z))
     if key=="STORAGE":
-        if storage_removed and not storage_delivered and take_index>=0:
-            occupied[take_index] = true
+        # If a view is closed during a transfer, restore an undelivered
+        # outgoing box to its reserved slot, or cancel an uncommitted arrival.
+        if is_instance_valid(active_box):
+            if storage_removed and not storage_delivered and take_index>=0:
+                _attach_box(active_box,storage_slots[take_index],Vector3.ZERO)
+                storage_boxes[take_index] = active_box
+                occupied[take_index] = true
+            elif not storage_committed:
+                active_box.visible = false
+                active_box.queue_free()
+        active_box = null
+        store_index = -1
+        take_index = -1
         storage_removed = false
-        pack.visible = false
-        shelf_box.visible = false
-        pack_raw.visible = false
-        for i in range(storage_slots.size()):
-            storage_slots[i].visible = occupied[i]
+        storage_delivered = false
+        storage_committed = false
+        _stacker(Vector3(shelf_mast.position.x,shelf_carriage.position.y,aisle_z),0.0)
+
 
 func sample_in(t: float,payload: Node3D = null) -> void:
     truck_in.visible = t<0.29
@@ -438,12 +468,12 @@ func _build_storage() -> void:
     _finish(b)
     for level in range(4):
         for col in range(6):
-            var slot := _container(rack,"Stock_%d_%d"%[level,col],true)
-            slot.position = Vector3(-7.75+float(col)*3.10,0.77+float(level)*2.85,-5.4)
+            var slot := _node(rack,"Stock_%d_%d"%[level,col],Vector3(-7.75+float(col)*3.10,0.77+float(level)*2.85,-5.4))
             storage_slots.append(slot)
             var present: bool = posmod(level*3+col,4)!=0
             occupied.append(present)
-            slot.visible = present
+            var box: Node3D = _new_storage_box(slot) if present else null
+            storage_boxes.append(box)
     reserves.append(AABB(Vector3(-9.6,0,-7.5),Vector3(19.2,2.4,4.0)))
     # Rail-guided stacker: travel in X, lift in Y, only the fork extends in Z.
     var rail := _node(root,"WarehouseStackerRail")
@@ -456,23 +486,31 @@ func _build_storage() -> void:
     _finish(b)
     shelf_mast = _node(root,"StackerTravelMast")
     b = _batch(shelf_mast)
-    for x in [-1.50,1.50]:
+    for x in [-1.65,1.65]:
         _box(b,Vector3(x,6.1,0),Vector3(0.24,12.2,0.32),"slate")
-    _box(b,Vector3(0,0.34,0),Vector3(3.25,0.45,1.35),"gold")
+        _box(b,Vector3(x,6.15,0.21),Vector3(0.12,11.9,0.09),"edge")
+        _box(b,Vector3(x,12.47,0),Vector3(0.42,0.55,0.48),"armor")
+    _box(b,Vector3(0,0.34,0),Vector3(3.65,0.45,1.35),"gold")
+    _box(b,Vector3(0,12.35,0),Vector3(3.65,0.30,0.45),"slate")
+    _box(b,Vector3(0,12.62,0),Vector3(0.55,0.38,0.58),"edge")
+    for x in [-1.34,1.34]:
+        _poly(b,"drum",Vector3(x,0.16,0.62),Vector3(0.30,0.32,0.30),"edge")
+        _poly(b,"drum",Vector3(x,0.16,-0.62),Vector3(0.30,0.32,0.30),"edge")
     _finish(b)
     shelf_carriage = _node(shelf_mast,"VerticalCarriage")
     b = _batch(shelf_carriage)
     _box(b,Vector3(0,-0.16,0),Vector3(3.0,0.28,1.6),"armor")
+    for x in [-1.50,1.50]:
+        _poly(b,"bevel",Vector3(x,0.20,0),Vector3(0.40,0.62,0.58),"slate")
+        _box(b,Vector3(x,0.28,0.31),Vector3(0.18,0.13,0.08),"lab_cyan")
     _finish(b)
     shelf_fork = _node(shelf_carriage,"TelescopingFork")
     b = _batch(shelf_fork)
     for x in [-0.85,0.85]:
         _box(b,Vector3(x,-0.06,0),Vector3(0.24,0.12,3.60),"edge")
     _finish(b)
-    shelf_box = _container(root,"StackerPayload",true)
-    shelf_box.visible = false
     reserves.append(AABB(Vector3(-10.8,0,aisle_z-2.2),Vector3(21.6,2.4,4.4)))
-    var packing := _node(root,"PackingStation",storage_pack_point-Vector3.UP*1.10)
+    var packing := _node(root,"InboundBoxTransferStation",storage_pack_point-Vector3.UP*1.10)
     var dispatch := _node(root,"DispatchStation",storage_out_point-Vector3.UP*1.10)
     for station in [packing,dispatch]:
         b = _batch(station)
@@ -481,19 +519,13 @@ func _build_storage() -> void:
             _box(b,Vector3(float(side)*1.18,1.02,0),Vector3(0.30,0.16,3.70),"armor_light")
         _finish(b)
         reserves.append(AABB(station.position-Vector3(1.6,0,2.0),Vector3(3.2,2.4,4.0)))
-    pack = _container(root,"PackingContainer",false)
-    pack.position = storage_pack_point
-    pack_lid = pack.get_node("Lid") as Node3D
-    pack_raw = _material(root,"PackedMaterial")
-    pack.visible = false
-    pack_raw.visible = false
     _stacker(Vector3(storage_pack_point.x,storage_pack_point.y,aisle_z),0.0)
 
 func _stacker(p: Vector3,reach: float) -> void:
     shelf_mast.position = Vector3(p.x,0,aisle_z)
     shelf_carriage.position = Vector3(0,p.y,0)
     shelf_fork.position.z = reach*0.5
-    shelf_fork.scale.z = maxf(0.42,(absf(reach)+1.70)/3.60)
+    shelf_fork.scale.z = maxf(0.94,(absf(reach)+3.40)/3.60)
 
 func _shelf_transfer(a: Vector3,b: Vector3,t: float) -> Vector3:
     # Retract to the clear aisle, then travel horizontally, raise and insert.
@@ -507,65 +539,119 @@ func _shelf_transfer(a: Vector3,b: Vector3,t: float) -> Vector3:
         return Vector3(bb.x,aa.y,aisle_z).lerp(bb,smoothstep(0.50,0.75,t))
     return bb.lerp(b,smoothstep(0.75,1.0,t))
 
+func _storage_arm(arm: Dictionary,p: Vector3) -> void:
+    _arm_pose(arm,p+Vector3.UP*STORAGE_BOX_HEIGHT,1.15)
+
+func _storage_truck(n: Node3D,a: Vector3,b: Vector3,u: float,reverse: bool = false) -> void:
+    # Slight acceleration at either end, near-constant cruise on the long road.
+    _truck_pose(n,a,b,clampf(u,0.0,1.0),reverse)
+
 func sample_storage(t: float) -> void:
-    if store_index<0 or take_index<0:
+    if inbound_operation:
+        _sample_storage_arrival(t)
+    else:
+        _sample_storage_departure(t)
+
+func _sample_storage_arrival(t: float) -> void:
+    if store_index<0 or not is_instance_valid(active_box):
         return
-    if retrieve_only:
-        # A full rack first frees a random occupied bay instead of stalling.
-        t = lerpf(0.51,1.0,t)
-    elif not input_finished:
-        sample_in(t*1.45)
-    pack.visible = not retrieve_only and t>=0.07 and t<0.26
-    pack_lid.visible = t>=0.195
-    pack_lid.position.y = lerpf(2.35,1.55,smoothstep(0.195,0.235,t))
-    pack_raw.visible = not retrieve_only and t>=0.16 and t<0.235
-    pack_raw.position = storage_pack_point+Vector3.UP*0.14
-    raw.visible = not retrieve_only and t<0.16
-    if t>=0.16:
-        raw.visible = false
     var target: Vector3 = _room_position(storage_slots[store_index])
-    var source: Vector3 = _room_position(storage_slots[take_index])
-    shelf_box.visible = false
-    if t<0.22:
-        var approach := Vector3(storage_pack_point.x,storage_pack_point.y,aisle_z)
-        _stacker(stacker_start.lerp(approach,smoothstep(0.0,0.20,t)),0.0)
-    elif t<0.26:
-        _stacker(Vector3(storage_pack_point.x,storage_pack_point.y,aisle_z),(storage_pack_point.z-aisle_z)*smoothstep(0.22,0.26,t))
-    if t>=0.26 and t<0.51:
-        var p: Vector3 = _shelf_transfer(storage_pack_point,target,smoothstep(0.26,0.51,t))
-        shelf_box.position = p
-        shelf_box.visible = true
+    var pick: Vector3 = in_dock+Vector3.UP*DECK_Y
+    truck_in.visible = t<0.83
+    if t<0.25:
+        _storage_truck(truck_in,in_far,in_dock,t/0.25)
+    elif t<0.47:
+        _storage_truck(truck_in,in_far,in_dock,1.0)
+    else:
+        _storage_truck(truck_in,in_dock,in_far,(t-0.47)/0.36,true)
+    var park := Vector3(in_dock.x,float(in_arm["height"])-0.74,in_dock.z)
+    if t<0.30:
+        _arm_pose(in_arm,park.lerp(pick+Vector3.UP*STORAGE_BOX_HEIGHT,smoothstep(0.25,0.30,t)),1.15)
+    elif t<0.43:
+        if active_box.get_parent()!=root:
+            active_box.reparent(root,true)
+            active_box.rotation = Vector3.ZERO
+        var p: Vector3 = _transfer(pick,inlet,float(in_arm["height"])-STORAGE_BOX_HEIGHT-0.9,smoothstep(0.30,0.43,t))
+        _place(active_box,p)
+        _storage_arm(in_arm,p)
+    else:
+        if t<0.47:
+            _place(active_box,inlet)
+        _arm_pose(in_arm,Vector3(inlet.x,lerpf(inlet.y+STORAGE_BOX_HEIGHT,float(in_arm["height"])-0.74,smoothstep(0.43,0.47,t)),inlet.z),1.15)
+    var approach := Vector3(inlet.x,inlet.y,aisle_z)
+    if t<0.47:
+        _stacker(stacker_start.lerp(approach,smoothstep(0.30,0.47,t)),0.0)
+    elif t<0.53:
+        _stacker(approach,(inlet.z-aisle_z)*smoothstep(0.47,0.53,t))
+    elif t<0.91:
+        var p: Vector3 = _shelf_transfer(inlet,target,smoothstep(0.53,0.91,t))
+        _place(active_box,p)
         _stacker(p,p.z-aisle_z)
-    elif t>=0.51 and not storage_committed:
+    elif not storage_committed:
+        # Refuse to overwrite a shelf, even if its state changed unexpectedly.
+        if is_instance_valid(storage_boxes[store_index]):
+            active_box.visible = false
+            active_box.queue_free()
+            active_box = null
+            return
+        _attach_box(active_box,storage_slots[store_index],Vector3.ZERO)
+        storage_boxes[store_index] = active_box
         occupied[store_index] = true
-        storage_slots[store_index].visible = true
         storage_committed = true
-    if t>=0.51 and t<0.58:
-        var retract: float = 1.0-smoothstep(0.51,0.54,t)
-        var move := Vector3(target.x,target.y,aisle_z)
-        if t>=0.54:
-            move = move.lerp(Vector3(source.x,source.y,aisle_z),smoothstep(0.54,0.58,t))
-        if retrieve_only:
-            move = stacker_start.lerp(Vector3(source.x,source.y,aisle_z),smoothstep(0.51,0.58,t))
-            retract = 0.0
-        _stacker(move,(target.z-aisle_z)*retract)
-    if t>=0.58 and t<0.63:
-        _stacker(source,(source.z-aisle_z)*smoothstep(0.58,0.63,t))
-    if t>=0.63 and t<0.82:
+    if t>=0.91:
+        _stacker(Vector3(target.x,target.y,aisle_z),(target.z-aisle_z)*(1.0-smoothstep(0.91,1.0,t)))
+
+func _sample_storage_departure(t: float) -> void:
+    if take_index<0:
+        return
+    var source: Vector3 = _room_position(storage_slots[take_index])
+    var approach := Vector3(source.x,source.y,aisle_z)
+    var drop: Vector3 = out_dock+Vector3.UP*DECK_Y
+    if t<0.12:
+        _stacker(stacker_start.lerp(approach,smoothstep(0.0,0.12,t)),0.0)
+    elif t<0.17:
+        _stacker(approach,(source.z-aisle_z)*smoothstep(0.12,0.17,t))
+    elif t<0.44:
         if not storage_removed:
+            active_box = storage_boxes[take_index]
+            if not is_instance_valid(active_box):
+                return
+            active_box.reparent(root,true)
+            storage_boxes[take_index] = null
             occupied[take_index] = false
-            storage_slots[take_index].visible = false
             storage_removed = true
-        var p: Vector3 = _shelf_transfer(source,storage_out_point,smoothstep(0.63,0.82,t))
-        shelf_box.position = p
-        shelf_box.visible = true
+        if not is_instance_valid(active_box):
+            return
+        var p: Vector3 = _shelf_transfer(source,outlet,smoothstep(0.17,0.44,t))
+        _place(active_box,p)
         _stacker(p,p.z-aisle_z)
-    if t>=0.82:
-        shelf_box.position = storage_out_point
-        shelf_box.visible = t<1.0
-        _stacker(Vector3(storage_out_point.x,storage_out_point.y,aisle_z),(storage_out_point.z-aisle_z)*(1.0-smoothstep(0.82,0.86,t)))
-        # Outbound carrier picks up the packed box itself; its shell is hidden.
-        out_box.visible = false
-        sample_out(0.72+0.28*smoothstep(0.82,1.0,t),shelf_box,1.82,0.92)
-        if t>=1.0:
+    else:
+        if not is_instance_valid(active_box):
+            return
+        _stacker(Vector3(outlet.x,outlet.y,aisle_z),(outlet.z-aisle_z)*(1.0-smoothstep(0.44,0.49,t)))
+        if t<0.49:
+            _place(active_box,outlet)
+    truck_out.visible = t>=0.16 and t<1.0
+    if t<0.42:
+        _storage_truck(truck_out,out_far,out_dock,(t-0.16)/0.26)
+    elif t<0.64:
+        _storage_truck(truck_out,out_far,out_dock,1.0)
+    else:
+        _storage_truck(truck_out,out_dock,out_far,(t-0.64)/0.36,true)
+    if t<0.49 or not is_instance_valid(active_box):
+        return
+    if t<0.53:
+        _arm_pose(out_arm,Vector3(outlet.x,lerpf(float(out_arm["height"])-0.74,outlet.y+STORAGE_BOX_HEIGHT,smoothstep(0.49,0.53,t)),outlet.z),1.15)
+    elif t<0.61:
+        var p: Vector3 = _transfer(outlet,drop,float(out_arm["height"])-STORAGE_BOX_HEIGHT-0.9,smoothstep(0.53,0.61,t))
+        _place(active_box,p)
+        _storage_arm(out_arm,p)
+    else:
+        if active_box.get_parent()!=truck_out:
+            _attach_box(active_box,truck_out,Vector3.UP*DECK_Y)
+        _arm_pose(out_arm,Vector3(drop.x,lerpf(drop.y+STORAGE_BOX_HEIGHT,float(out_arm["height"])-0.74,smoothstep(0.61,0.64,t)),drop.z),1.15)
+        if t>=1.0 and not storage_delivered:
             storage_delivered = true
+            active_box.visible = false
+            active_box.queue_free()
+            active_box = null
