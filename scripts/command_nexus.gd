@@ -1219,13 +1219,13 @@ void fragment() {
     # The visible-ID compositor now applies the main scenery-only veil,
     # including projecting beams, columns and seams. Keep these surface
     # planes as a subtle supplementary depth grade, not the primary mask.
-    var wall := _nexus_atmosphere_material(shader, 1, Color("#8296a5"), 0.25)
+    var wall := _nexus_atmosphere_material(shader, 1, Color("#526676"), 0.25)
     # Exactly match the revised rectangular wall opening. No veil over
     # the independent portal or its tunnel.
     _nexus_atmosphere_plane(root, "RearWallLeftFilter", Vector3(-3.675,4.375,-27.38), Vector2(12.75,8.85), wall)
     _nexus_atmosphere_plane(root, "RearWallRightFilter", Vector3(9.95,4.375,-27.38), Vector2(0.20,8.85), wall)
     _nexus_atmosphere_plane(root, "RearWallHeaderFilter", Vector3(6.375,9.51,-27.38), Vector2(7.35,1.42), wall)
-    var ceiling := _nexus_atmosphere_material(shader, 2, Color("#8498a8"), 0.25)
+    var ceiling := _nexus_atmosphere_material(shader, 2, Color("#344451"), 0.25)
     _nexus_atmosphere_plane(root, "CeilingDepthGradient", Vector3(0,9.39,-7.8), Vector2(19.7,39.4), ceiling, -PI*0.5)
     _ambience_floor_filter = _nexus_atmosphere_material(shader, 4, Color("#7c92a1"), 0.15)
     # Match the actual deck triangles, rather than a floating rectangle
@@ -1704,6 +1704,13 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
         # both use the same authored palette index. Keep canonical refs intact.
         if name == "hangar_shell":
             batch_key += 200
+            # Static architecture value groups; keep emissive batches unchanged.
+            # Offset is a multiple of 2000, preserving palette and ink decoding.
+            if index not in [5, 6, 7]:
+                if lo.y >= 8.0:
+                    batch_key += 2000000
+                elif hi.y <= 0.5:
+                    batch_key += 2002000
         elif not selected_shape.is_empty() and part_hit and not no_stroke and index in [2, 3, 4]:
             # Give each interactive machine its own restrained paint family.
             match selected_shape:
@@ -2171,7 +2178,14 @@ func _render_batches() -> void:
             draw.set_meta("sera_outline_occluder_only", true)
         var material: StandardMaterial3D = _mat(index)
         if background and index not in [5, 6, 7]:
-            material.albedo_color = material.albedo_color.lerp(Color("#101924"), 0.55)
+            # Floor foundation < wall < overhead in darkness. Keep the
+            # original material/lighting pipeline, with no new light or pass.
+            var darkness: float = 0.60
+            if batch_key >= 2002000:
+                darkness = 0.30
+            elif batch_key >= 2000000:
+                darkness = 0.82
+            material.albedo_color = material.albedo_color.lerp(Color("#101924"), darkness)
             material.metallic = 0.05
             material.roughness = 0.88
             material.metallic_specular = 0.0
@@ -2436,16 +2450,21 @@ func _nexus_tone_background_surfaces() -> void:
     for root_name in ["NexusDeckReferenceV3", "NexusBulkheadRebuild"]:
         var root: Node = find_child(root_name, true, false)
         if root != null:
-            _nexus_tone_background_node(root)
+            _nexus_tone_background_node(root, root_name == "NexusDeckReferenceV3")
 
 
-func _nexus_tone_background_node(node: Node) -> void:
+func _nexus_tone_background_node(node: Node, is_deck: bool) -> void:
     if node is GeometryInstance3D:
         var geometry := node as GeometryInstance3D
         var source := geometry.material_override as StandardMaterial3D
         if source != null and not source.emission_enabled and source.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED:
             var toned := source.duplicate() as StandardMaterial3D
-            toned.albedo_color = source.albedo_color.lerp(Color("#101924"), 0.30)
+            # Preserve the existing deck treatment; darken actual wall
+            # castings and the overhead girder without touching gate equipment.
+            var darkness: float = 0.30 if is_deck else 0.60
+            if not is_deck and str(node.name) == "RearGirderLeftHaunch":
+                darkness = 0.82
+            toned.albedo_color = source.albedo_color.lerp(Color("#101924"), darkness)
             toned.roughness = maxf(source.roughness, 0.78)
             toned.metallic = minf(source.metallic, 0.15)
             toned.metallic_specular = 0.0
@@ -2453,7 +2472,7 @@ func _nexus_tone_background_node(node: Node) -> void:
             geometry.material_override = toned
             geometry.set_meta("sera_preserve_authored_material", true)
     for child in node.get_children():
-        _nexus_tone_background_node(child)
+        _nexus_tone_background_node(child, is_deck)
 
 
 # Optional, native pixel art. No imported resource or script dependency.
