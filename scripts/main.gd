@@ -892,7 +892,9 @@ func _begin_training_ko() -> void:
         touch_ui.call("set_movement_boost", false)
     if enemy_shooter != null:
         enemy_shooter.set("can_fire", false)
-    if enemy_attack_pool != null:
+    if is_instance_valid(enemy_shooter) and enemy_shooter.has_method("clear_live_attacks"):
+        enemy_shooter.call("clear_live_attacks")
+    elif enemy_attack_pool != null:
         for active_attack in enemy_attack_pool.get_children():
             active_attack.queue_free()
 

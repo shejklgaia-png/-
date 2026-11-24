@@ -3185,6 +3185,8 @@ func _restore_card_page(key: String) -> Control:
     cached.show()
     if cached is ScrollContainer:
         cached.scroll_vertical = 0
+    if cached.has_method("reset_touch_state"):
+        cached.call("reset_touch_state")
     return cached
 
 func _register_card_page(key: String, grid: VBoxContainer) -> Control:

@@ -9,3 +9,8 @@
 - 今回は段階1。静的/動的ID分離、新規FXプール、全モデル統合、追加アトラス、アニメーション事前計算、全面イベント化、ゲーム中の汎用処理予算、LOD、全UI常駐、背景描画停止は未完了。既存ヒット火花プールを重複実装しない。
 - 参考: https://docs.godotengine.org/en/stable/tutorials/performance/cpu_optimization.html ; https://docs.godotengine.org/en/stable/tutorials/performance/optimizing_3d_performance.html ; https://docs.godotengine.org/en/stable/tutorials/3d/resolution_scaling.html ; https://developer.android.com/games/sdk/frame-pacing/ ; https://forum.godotengine.org/t/threaded-multimesh-generation-stutters/119934
 - 実機/CI未実施。変更はコードレビューのみ。
+
+## 第2実装
+- 通常敵弾6個を戦闘ロード時に生成、再利用。全枠使用時は追加生成して攻撃を欠落させない。発射時に色・方向・速度・寿命・距離・二重ヒット防止を初期化。終了時は遅延でArea監視を停止し、再利用可能にする。KOとデバッグ切替は弾を返却し、従来の範囲攻撃は解放。土埃・シールド・ヒット火花の既存プール維持。ボス専用攻撃の新規プールは未実施。
+- 常駐スクロール復帰時に古いドラッグ状態を初期化。
+- 実機/CI未実施。

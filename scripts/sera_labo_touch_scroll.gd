@@ -19,6 +19,12 @@ func set_touch_scroll_enabled(enabled: bool) -> void:
         _finger_index = -1
 
 
+func reset_touch_state() -> void:
+    touch_scroll_enabled = true
+    _finger_index = -1
+    _drag_consumed = false
+
+
 func touch_drag_consumed() -> bool:
     # Stays true through touch release so Button.pressed can discard the swipe.
     # A new touch press or mouse press resets it for the next genuine tap.
