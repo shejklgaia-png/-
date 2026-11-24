@@ -1,8 +1,8 @@
 extends Node3D
 ## Outdoor logistics is a visual production loop, never a resource/save mutation.
 ## One shared batch per geometry/material, fixed 30 Hz poses and startup-only
-## route search. Whole-circuit reservations guarantee that a moving vehicle
-## never has to acquire a second intersection while holding the first.
+## route search. Traffic reserves the current leg only; a safe completion
+## order prevents circular waiting between occupied docks and moving trucks.
 const Architecture = preload("res://scripts/sera_base_architecture.gd")
 const Clutter = preload("res://scripts/sera_base_clutter.gd")
 const FreshDesign = preload("res://scripts/sera_base_fresh_design.gd")
@@ -12,7 +12,9 @@ const CELL: float = 0.75
 const REGION := Rect2i(-46, -46, 93, 93)
 const CLEARANCE: float = 0.84
 const STEP: float = 1.0 / 30.0
-const SPEED: float = 1.65
+const SPEED: float = 2.35
+const VEHICLES_PER_ROUTE: int = 1
+const FLEET_SIZE: int = 6
 const BOX_TIME: float = 3.8
 const DECK_Y: float = 0.39
 const RACK_Y: float = 0.61
@@ -56,9 +58,11 @@ class Truck:
     var speed: float = 0.0
     var legs: Array = []
     var cells: Dictionary = {}
+    var leg_cells: Array[Dictionary] = []
+    var segment_cells: Array = []
     var leg: int = 0
     var waypoint: int = 1
-    var prefix_end: int = 0
+    var released_at: Vector2i = Vector2i(999, 999)
     var mode: String = "home"
     var wait: float = 0.0
     var clock: float = 0.0
@@ -75,7 +79,6 @@ var _docks: Dictionary = {}
 var _trucks: Array[Truck] = []
 var _homes: Array[Vector2i] = []
 var _held: Dictionary = {}
-var _pending: Truck
 var _visuals: Array[Visual] = []
 var _draws: Dictionary = {}
 var _batch: Variant
@@ -304,12 +307,15 @@ func _parking_options(origin: Vector2, destination: Vector2) -> Array[Dictionary
 
 
 func _keep_parking_clear(t: Truck) -> void:
+    # Preserve the original 1.51m parked-truck separation along the new
+    # shortcut segments, not just at their endpoints.
     for leg in t.legs:
-        for c in leg:
-            for x in range(-2, 3):
-                for z in range(-2, 3):
-                    if Vector2(x, z).length() * CELL < 1.51:
-                        _route_parking_exclusion[c + Vector2i(x, z)] = true
+        for i in range(1, leg.size()):
+            for c in _trace(leg[i - 1], leg[i], false):
+                for x in range(-2, 3):
+                    for z in range(-2, 3):
+                        if Vector2(x, z).length() * CELL < 1.51:
+                            _route_parking_exclusion[c + Vector2i(x, z)] = true
 
 
 func _expand_cell(target: Dictionary, c: Vector2i) -> void:
@@ -318,6 +324,62 @@ func _expand_cell(target: Dictionary, c: Vector2i) -> void:
     for x in range(-1, 2):
         for z in range(-1, 2):
             target[c + Vector2i(x, z)] = true
+
+# Greedy line-of-sight shortcutting on the already inflated obstacle grid.
+# Sample the full segment, including diagonal corner crossings, before
+# accepting it. Reservations are generated from these same swept segments.
+func _trace(a: Vector2i, b: Vector2i, require_clear: bool = true) -> Array[Vector2i]:
+    var result: Array[Vector2i] = []
+    var start_point: Vector2 = _point(a)
+    var end_point: Vector2 = _point(b)
+    var steps: int = maxi(1, ceili(start_point.distance_to(end_point) / (CELL * 0.20)))
+    var previous: Vector2i = a
+    for i in range(steps + 1):
+        var c: Vector2i = _cell(start_point.lerp(end_point, float(i) / float(steps)))
+        if require_clear and not _free(c):
+            return []
+        if c != previous and c.x != previous.x and c.y != previous.y:
+            var side_a := Vector2i(c.x, previous.y)
+            var side_b := Vector2i(previous.x, c.y)
+            if require_clear and (not _free(side_a) or not _free(side_b)):
+                return []
+            result.append(side_a)
+            result.append(side_b)
+        if result.is_empty() or c != previous:
+            result.append(c)
+        previous = c
+    return result
+
+
+func _straighten(path: Array[Vector2i]) -> Array[Vector2i]:
+    if path.size() < 3:
+        return path
+    var output: Array[Vector2i] = [path[0]]
+    var i: int = 0
+    while i < path.size() - 1:
+        var next: int = i + 1
+        for j in range(path.size() - 1, i + 1, -1):
+            if not _trace(path[i], path[j]).is_empty():
+                next = j
+                break
+        output.append(path[next])
+        i = next
+    return output
+
+
+func _record_leg(t: Truck, leg: Array[Vector2i]) -> void:
+    var all: Dictionary = {}
+    var segments: Array[Dictionary] = []
+    for i in range(1, leg.size()):
+        var swept: Dictionary = {}
+        for c in _trace(leg[i - 1], leg[i], false):
+            _expand_cell(swept, c)
+        segments.append(swept)
+        all.merge(swept, true)
+    t.leg_cells.append(all)
+    t.segment_cells.append(segments)
+    t.cells.merge(all, true)
+
 
 func _plan(t: Truck) -> bool:
     var temporarily_blocked: Array[Vector2i] = []
@@ -339,22 +401,27 @@ func _plan(t: Truck) -> bool:
     for c in b:
         if c != source.cell and c != destination.cell:
             previous_weights[c] = _grid.get_point_weight_scale(c)
-            _grid.set_point_weight_scale(c, float(previous_weights[c]) + 1.8)
+            _grid.set_point_weight_scale(c, float(previous_weights[c]) + 0.35)
     var c_path: Array[Vector2i] = _grid.get_id_path(destination.cell, t.home)
     for c in previous_weights:
         _grid.set_point_weight_scale(c, float(previous_weights[c]))
+    var valid: bool = a.size() >= 2 and b.size() >= 2 and c_path.size() >= 2
+    if valid:
+        # Keep the parking obstacles active during shortcutting as well.
+        t.legs = [_straighten(a), _straighten(b), _straighten(c_path)]
+        for leg_value in t.legs:
+            var leg: Array[Vector2i] = leg_value
+            _record_leg(t, leg)
     for c in temporarily_blocked:
         _grid.set_point_solid(c, false)
-    if a.size() < 2 or b.size() < 2 or c_path.size() < 2:
+    if not valid:
         return false
-    t.legs = [a, b, c_path]
+    # A modest preference for distinct streets, without lengthy detours.
     for leg in t.legs:
-        for c in leg:
-            _expand_cell(t.cells, c)
-            if _free(c):
-                # Later routes prefer separate streets, with shared crossings
-                # allowed only where space does not permit another lane.
-                _grid.set_point_weight_scale(c, minf(3.8, _grid.get_point_weight_scale(c) + 0.20))
+        for i in range(1, leg.size()):
+            for c in _trace(leg[i - 1], leg[i], false):
+                if _free(c):
+                    _grid.set_point_weight_scale(c, minf(1.6, _grid.get_point_weight_scale(c) + 0.07))
     return true
 
 func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, crate_path: Array, camera: Camera3D = null) -> void:
@@ -391,7 +458,7 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
             var dd: Dock = _docks[destination]
             source_at = _point(sd.cell)
             destination_at = _point(dd.cell)
-        for i in range(2):
+        for i in range(VEHICLES_PER_ROUTE):
             var t := Truck.new()
             t.id = _trucks.size()
             t.source = source
@@ -438,7 +505,7 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
 func ensure_parked_fleet(specs: Array) -> void:
     # A real parked truck is still part of the fleet. Allocate a safe place
     # for any missing route member without pretending its route succeeded.
-    if _trucks.size() >= 12:
+    if _trucks.size() >= FLEET_SIZE:
         return
     if _grid.is_dirty():
         return
@@ -452,7 +519,7 @@ func ensure_parked_fleet(specs: Array) -> void:
         for t in _trucks:
             if t.source == source and t.destination == destination:
                 count += 1
-        for i in range(count, 2):
+        for i in range(count, VEHICLES_PER_ROUTE):
             var origin: Vector2 = origins[source]
             var best: float = INF
             var found: bool = false
@@ -564,8 +631,12 @@ func diagnostic_text() -> String:
             var p: Vector3 = t.body.node.global_position + Vector3.UP * 0.4
             if t.body.node.is_visible_in_tree() and not _camera.is_position_behind(p) and view.has_point(_camera.unproject_position(p)):
                 projected += 1
-    return "物流 %s\n車体 %d/12  経路 %d\n画面内 %d  貨物 %d\nドック %d" % [
-        _phase, _vehicle_count, _planned_count, projected, _cargo_count, _docks.size()]
+    var working: int = 0
+    for t in _trucks:
+        if t.mode in ["drive", "align", "load", "unload"]:
+            working += 1
+    return "物流 %s\n車体 %d/%d  経路 %d\n画面内 %d  貨物 %d\n稼働 %d  ドック %d" % [
+        _phase, _vehicle_count, FLEET_SIZE, _planned_count, projected, _cargo_count, working, _docks.size()]
 
 
 func _capture_reservations() -> void:
@@ -623,29 +694,33 @@ func _ground_height(p: Vector2) -> float:
 
 
 func _seed_active_deliveries() -> void:
+    # Start with real non-conflicting deliveries, not a row of parked trucks.
     for t in _trucks:
-        if t.mode != "home" or _conflict(t.cells, t.id):
+        if t.mode != "home":
             continue
         var path: Array = t.legs[1]
-        var chosen: int = -1
         var best: float = INF
-        for i in range(1, path.size() - 1):
-            var p: Vector2 = _point(path[i])
-            var score: float = _screen_penalty(p) + absf(float(i) / float(path.size() - 1) - 0.5) * 6.0
-            if score < best:
+        var chosen: int = -1
+        var seed_pos: Vector2 = t.pos
+        for i in range(1, path.size()):
+            var mid: Vector2 = (_point(path[i - 1]) + _point(path[i])) * 0.5
+            var score: float = _screen_penalty(mid) + absf(float(i) / float(path.size()) - 0.5) * 6.0
+            var claim: Dictionary = _leg_remainder(t, 1, i)
+            if score < best and not _conflict(claim, t.id) and _safe_completion(t, 1, claim):
                 best = score
                 chosen = i
+                seed_pos = mid
         if chosen < 0 or best >= 25.0:
             continue
         t.leg = 1
-        t.waypoint = chosen + 1
-        t.pos = _point(path[chosen])
-        var direction: Vector2 = _point(path[chosen + 1]) - t.pos
+        t.waypoint = chosen
+        t.pos = seed_pos
+        var direction: Vector2 = _point(path[chosen]) - t.pos
         t.yaw = atan2(direction.x, direction.y)
         t.loaded = true
         t.mode = "drive"
         t.wait = 0.0
-        _held[t.id] = t.cells
+        _held[t.id] = _leg_remainder(t, 1, chosen)
 
 
 func _template() -> Variant:
@@ -953,7 +1028,7 @@ func _rack_slot(d: Dock, i: int) -> Vector3:
 func _truck_pose(t: Truck) -> void:
     var p: Transform3D = _pose(_v3(t.pos, _ground_height(t.pos)), t.yaw)
     _apply_visual_pose(t.body, p)
-    var waiting: bool = t.mode in ["home", "unavailable"] or (t.mode == "approach" and t.waypoint > t.prefix_end)
+    var waiting: bool = t.mode in ["home", "unavailable", "leg_wait"]
     _apply_visual_pose(t.lamp_go, p, not waiting)
     _apply_visual_pose(t.lamp_wait, p, waiting)
     for i in range(t.treads.size()):
@@ -975,65 +1050,101 @@ func _conflict(cells: Dictionary, own: int) -> bool:
             return true
     return false
 
-func _start(t: Truck) -> void:
-    _held[t.id] = t.cells
-    if t.mode == "home":
-        t.leg = 0
-        t.waypoint = 1
-    t.mode = "drive"
-    t.wait = 0.0
+func _leg_remainder(t: Truck, leg: int, waypoint: int) -> Dictionary:
+    var result: Dictionary = {}
+    var segments: Array = t.segment_cells[leg]
+    for i in range(maxi(0, waypoint - 1), segments.size()):
+        result.merge(segments[i], true)
+    if result.is_empty():
+        _expand_cell(result, t.legs[leg][-1])
+    return result
 
-func _approach(t: Truck) -> void:
-    # One FIFO waiting vehicle may advance only as far as the last clear
-    # grid point before the first reserved crossing. Active circuits already
-    # hold all their cells; they never need to negotiate with this queue.
-    var prefix: Dictionary = {}
-    var path: Array = t.legs[0]
-    var end: int = 0
-    for i in range(path.size()):
-        var ring: Dictionary = {}
-        _expand_cell(ring, path[i])
-        if _conflict(ring, t.id):
-            break
-        prefix.merge(ring, true)
-        end = i
-    if end > 0:
-        _held[t.id] = prefix
-        t.mode = "approach"
-        t.prefix_end = end
-        t.waypoint = 1
-        t.leg = 0
-    _pending = t
+
+func _safe_completion(candidate: Truck, leg: int, claim: Dictionary) -> bool:
+    # Banker's-style admission: there must remain an order in which each
+    # active truck can finish and free its claim. Only current leg claims
+    # physically block other vehicles; future legs are not locked.
+    var claims: Dictionary = _held.duplicate()
+    claims[candidate.id] = claim
+    var remaining: Dictionary = {}
+    for t in _trucks:
+        if not claims.has(t.id):
+            continue
+        var need: Dictionary = (claims[t.id] as Dictionary).duplicate()
+        var first: int = leg + 1 if t == candidate else (t.leg if t.mode == "leg_wait" else t.leg + 1)
+        for j in range(first, t.leg_cells.size()):
+            need.merge(t.leg_cells[j], true)
+        remaining[t.id] = need
+    while not claims.is_empty():
+        var released: bool = false
+        for id in claims.keys():
+            var clear: bool = true
+            for other in claims:
+                if id != other and _overlap(remaining[id], claims[other]):
+                    clear = false
+                    break
+            if clear:
+                claims.erase(id)
+                released = true
+                break
+        if not released:
+            return false
+    return true
+
 
 func _dispatch_waiting() -> void:
-    if _pending != null and not _conflict(_pending.cells, _pending.id):
-        _start(_pending)
-        _pending = null
     var candidates: Array[Truck] = []
     for t in _trucks:
-        if t.mode == "home" and t.wait >= 0.0 and t != _pending:
+        if t.mode in ["home", "leg_wait"] and t.wait >= 0.0:
             candidates.append(t)
     candidates.sort_custom(func(a: Truck, b: Truck) -> bool: return a.wait > b.wait)
     for t in candidates:
-        if _pending != null and _overlap(t.cells, _pending.cells):
+        var next_leg: int = 0 if t.mode == "home" else t.leg
+        var claim: Dictionary = t.leg_cells[next_leg]
+        if _conflict(claim, t.id) or not _safe_completion(t, next_leg, claim):
             continue
-        if _conflict(t.cells, t.id):
-            if _pending == null:
-                _approach(t)
-        else:
-            _start(t)
+        _held[t.id] = claim
+        t.leg = next_leg
+        t.waypoint = 1
+        t.released_at = Vector2i(999, 999)
+        t.mode = "drive"
+        t.wait = 0.0
+
+
+func _advance_waypoint(t: Truck) -> void:
+    t.waypoint += 1
+    t.released_at = Vector2i(999, 999)
+    _held[t.id] = _leg_remainder(t, t.leg, t.waypoint)
+
+
+func _release_passed(t: Truck) -> void:
+    var current: Vector2i = _cell(t.pos)
+    if current == t.released_at:
+        return
+    t.released_at = current
+    var path: Array = t.legs[t.leg]
+    var segments: Array = t.segment_cells[t.leg]
+    var axis: Vector2 = (_point(path[t.waypoint]) - _point(path[t.waypoint - 1])).normalized()
+    var claim: Dictionary = {}
+    var current_segment: Dictionary = segments[t.waypoint - 1]
+    for c in current_segment:
+        # Leave a full chassis-length safety buffer behind the actual pose.
+        if (_point(c) - t.pos).dot(axis) >= -1.5:
+            claim[c] = true
+    for i in range(t.waypoint, segments.size()):
+        claim.merge(segments[i], true)
+    _held[t.id] = claim
+
 
 func _drive(t: Truck, dt: float) -> void:
     var path: Array = t.legs[t.leg]
-    var last: int = t.prefix_end if t.mode == "approach" else path.size() - 1
+    var last: int = path.size() - 1
     if t.waypoint > last:
         t.speed = 0.0
-        if t.mode == "approach":
-            return
         if t.leg == 2:
             _held.erase(t.id)
             t.mode = "home"
-            t.wait = -1.1 - float(t.id % 2) * 0.5
+            t.wait = -0.15
             t.loaded = false
             return
         t.mode = "align"
@@ -1042,25 +1153,31 @@ func _drive(t: Truck, dt: float) -> void:
     var delta: Vector2 = goal - t.pos
     if delta.length() < 0.001:
         t.pos = goal
-        t.waypoint += 1
+        _advance_waypoint(t)
         return
     var target_yaw: float = atan2(delta.x, delta.y)
     var error: float = absf(angle_difference(t.yaw, target_yaw))
-    t.yaw = rotate_toward(t.yaw, target_yaw, 4.4 * dt)
+    t.yaw = rotate_toward(t.yaw, target_yaw, 4.8 * dt)
     if error > 0.20:
-        t.speed = 0.0
+        t.speed = move_toward(t.speed, 0.0, 7.0 * dt)
         return
     var remaining: float = delta.length()
+    var end_speed: float = 0.0
     if t.waypoint < last:
-        remaining += CELL
-    var desired: float = minf(SPEED, sqrt(2.0 * 2.5 * remaining))
-    t.speed = move_toward(t.speed, desired, 2.7 * dt)
+        var next_direction: Vector2 = (_point(path[t.waypoint + 1]) - goal).normalized()
+        var corner: float = absf(delta.normalized().angle_to(next_direction))
+        end_speed = SPEED if corner < 0.12 else SPEED * clampf(1.0 - corner / 1.4, 0.0, 0.7)
+    var desired: float = minf(SPEED, sqrt(end_speed * end_speed + 2.0 * 3.5 * remaining))
+    t.speed = move_toward(t.speed, desired, 3.5 * dt)
     var distance: float = minf(delta.length(), t.speed * dt)
     t.pos = t.pos.move_toward(goal, distance)
     t.tread_distance += distance
     if t.pos.distance_to(goal) < 0.001:
         t.pos = goal
-        t.waypoint += 1
+        _advance_waypoint(t)
+    else:
+        _release_passed(t)
+
 
 func _dock_for(t: Truck) -> Dock:
     return _docks[t.source] if t.leg == 0 else _docks[t.destination]
@@ -1142,7 +1259,8 @@ func _handle(t: Truck, d: Dock, dt: float) -> void:
         _arm(d, idle, 0.37)
         t.leg += 1
         t.waypoint = 1
-        t.mode = "drive"
+        t.mode = "leg_wait"
+        t.wait = 0.0
         t.clock = 0.0
 
 func advance(delta: float) -> void:
@@ -1157,9 +1275,9 @@ func advance(delta: float) -> void:
             _dispatch_waiting()
         for t in _trucks:
             match t.mode:
-                "home":
+                "home", "leg_wait":
                     t.wait += STEP
-                "drive", "approach":
+                "drive":
                     _drive(t, STEP)
                 "align":
                     var d: Dock = _dock_for(t)

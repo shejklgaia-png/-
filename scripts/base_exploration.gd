@@ -119,6 +119,8 @@ var power_zone: Node3D
 var power_distribution: Node3D
 var logistics: Node3D
 var logistics_creation_status: String = "NOT STARTED"
+var logistics_status: Label
+var logistics_diagnostic_elapsed: float = 0.0
 var power_back_button: Button
 var power_view_active: bool = false
 var power_camera_tween: Tween
@@ -986,7 +988,7 @@ func _create_layout_tools() -> void:
     layout_status.add_theme_color_override("font_color", Color("#a7c4d3"))
     layout_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
     layout_tools.add_child(layout_status)
-    var logistics_status := Label.new()
+    logistics_status = Label.new()
     logistics_status.name = "LogisticsStatus"
     logistics_status.text = str(logistics.call("diagnostic_text")) if is_instance_valid(logistics) else "物流 " + logistics_creation_status
     logistics_status.add_theme_font_override("font", LaboSkin.ui_font())
@@ -1635,6 +1637,11 @@ func _process(delta: float) -> void:
     _update_crate(delta)
     if is_instance_valid(logistics) and not power_view_active:
         logistics.call("advance", delta)
+        logistics_diagnostic_elapsed += delta
+        if logistics_diagnostic_elapsed >= 1.0:
+            logistics_diagnostic_elapsed = 0.0
+            if is_instance_valid(logistics_status):
+                logistics_status.text = str(logistics.call("diagnostic_text"))
     # The outdoor BASE is a fixed isometric menu while SERA is disabled.
     # Preserve dormant player-follow logic only for a future controls re-enable.
     if cam != null and HUB_SERA_CONTROLS_ENABLED:
