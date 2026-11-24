@@ -127,104 +127,112 @@ static func _nexus(g: Variant) -> void:
 
 
 static func _labo(g: Variant) -> void:
-    # Open tented fabricator: shelving, printer, a canvas shelter and a desk.
+    # Open fabrication cell, authored for the BASE camera (27 degrees, yaw 44).
+    # Every mesh is a structural member, production tool, stock holder or UI.
+    # Keep the existing pad, monitor mount, lamp anchor and motion identifiers.
     _pad(g, 4.16, 4.25)
-    g.poly("FreshLabWorkbenchPlatform", "bevel",
+    g.poly("FreshLabWorkbenchPlatform", "deck",
         Vector3(0, 0.49, 0.02), Vector3(3.86, 0.19, 3.83), "slate")
-    g.poly("FreshLabRearWall", "bevel",
-        Vector3(0, 1.84, -1.67), Vector3(3.65, 2.69, 0.33), "armor")
-    for side in [-1.0, 1.0]:
-        g.poly("FreshLabSideWall",
-            "bevel", Vector3(side * 1.80, 1.58, -0.92),
-            Vector3(0.29, 2.18, 1.65), "slate")
-        for z in [-1.65, 1.58]:
-            g.rod("FreshLabStructuralPost",
-                Vector3(side * 1.84, 0.45, z),
-                Vector3(side * 1.84, 3.48, z), 0.11, "edge")
-        # Canvas only shades the REAR workbench; front opening is unblocked.
-        g.poly_tilt("FreshLabTensionedAwning", "canvas",
-            Vector3(side * 0.90, 3.37, -1.01),
-            Vector3(1.97, 0.12, 1.75), "cloth",
-            Vector3(-0.18, 0, side * -0.09))
-        g.rod("FreshLabAwningTie",
-            Vector3(side * 1.85, 3.24, 0.07),
-            Vector3(side * 1.85, 2.71, 1.68), 0.055, "gold")
-    g.box("FreshLabAwningFrontRail",
-        Vector3(0, 3.17, -0.19),
-        Vector3(3.84, 0.13, 0.13), "armor_light")
-    # Three-dimensional fabrication gantry is deliberately in the open front.
-    for side in [-1.0, 1.0]:
-        g.rod("FreshLabPrinterRail",
-            Vector3(side * 0.95, 0.71, 0.98),
-            Vector3(side * 0.95, 2.67, 0.98), 0.12, "armor_light")
-        g.box("FreshLabPrinterLegLight",
-            Vector3(side * 0.95, 2.15, 1.10),
-            Vector3(0.075, 0.72, 0.07), "lab_cyan")
-    g.rod("FreshLabOpenPrinterBridge",
-        Vector3(-1.00, 2.64, 0.97),
-        Vector3(1.00, 2.64, 0.97), 0.20, "edge")
-    g.poly("FreshLabPrinterServo", "bevel",
-        Vector3(0.10, 2.40, 1.05),
-        Vector3(0.50, 0.36, 0.50), "slate")
-    g.poly("FreshLabPrinterHotHead", "bevel",
-        Vector3(0.10, 1.93, 1.05),
-        Vector3(0.30, 0.61, 0.30), "gold")
-    g.box("FreshLabPrinterTip",
-        Vector3(0.10, 1.55, 1.08),
-        Vector3(0.11, 0.20, 0.11), "amber_light")
+    # Low rear splash guard and a single narrow high extraction column: no
+    # full-height rear wall or wide roof to hide the tools from the camera.
+    g.poly("LabRearServiceShield", "deck",
+        Vector3(0.25, 1.07, -1.78), Vector3(3.12, 1.00, 0.24), "armor")
+    g.poly("LabExtractionTower", "vent_stack",
+        Vector3(1.29, 2.00, -1.49), Vector3(0.67, 2.88, 0.67), "slate")
+    g.poly("LabExtractionCollar", "drum",
+        Vector3(1.29, 2.72, -1.49), Vector3(0.89, 0.34, 0.89), "edge")
+    g.poly("LabFilterIntake", "louver",
+        Vector3(0.84, 1.43, -1.26), Vector3(0.83, 0.64, 0.28), "trim")
+    # Short extraction hood only over the rear service channel.
+    g.poly("LabFumeHood", "hood",
+        Vector3(0.48, 3.18, -1.08), Vector3(1.50, 0.44, 0.83), "armor_light")
+    g.poly("LabHoodBrace", "gusset",
+        Vector3(1.10, 2.85, -1.28), Vector3(0.63, 0.54, 0.28), "edge")
+    # Material rack, on the camera-facing left of the rear zone. Two widely
+    # spaced open trays and large identifiable spools; no decorative slats.
+    for x in [-1.79, -0.80]:
+        g.poly("LabRackUpright", "octagonal_slew",
+            Vector3(x, 1.51, -0.87), Vector3(0.22, 1.86, 0.24), "trim")
+        g.poly("LabRackFoot", "gusset",
+            Vector3(x, 0.77, -0.64), Vector3(0.29, 0.39, 0.58), "edge")
+    for y in [1.03, 2.02]:
+        g.poly("LabStockRetentionTray", "tray",
+            Vector3(-1.30, y, -0.84), Vector3(1.38, 0.24, 0.78), "armor_light")
+    # The lower tray holds one reinforced transport cassette, not a row of jars.
+    g.poly("LabRawStockCassette", "cargo_case",
+        Vector3(-1.31, 1.21, -0.84), Vector3(0.99, 0.48, 0.55), "crate")
+    g.box("LabCassetteLatch", Vector3(-1.30, 1.20, -0.52),
+        Vector3(0.34, 0.15, 0.10), "gold")
+    # Upper tray: two different feedstock forms, vertical hollow coil and
+    # squat resin cartridge. Open coil bore is actual polygon geometry.
+    g.poly_tilt("LabMetalFeedSpool", "vent_stack",
+        Vector3(-1.62, 2.27, -0.83), Vector3(0.63, 0.38, 0.63),
+        "edge", Vector3(PI * 0.5, 0, 0))
+    g.poly("LabResinCartridge", "drum",
+        Vector3(-0.98, 2.25, -0.83), Vector3(0.43, 0.61, 0.43), "blue")
+    g.poly("LabCartridgeCap", "gear",
+        Vector3(-0.98, 2.63, -0.83), Vector3(0.47, 0.15, 0.47), "armor_light")
+    # Offset coolant reservoir and conduit are real support equipment.
+    g.poly("LabCoolantReservoir", "drum",
+        Vector3(0.19, 1.31, -0.95), Vector3(0.60, 1.38, 0.60), "blue")
+    g.poly("LabCoolantValve", "gear",
+        Vector3(0.19, 2.02, -0.95), Vector3(0.43, 0.18, 0.43), "gold")
+    g.rod("LabCoolantSupply", Vector3(0.19, 0.72, -0.67),
+        Vector3(0.19, 0.72, 0.35), 0.13, "gold")
+    # Main fabrication gantry: shaped cast feet, substantial guide columns,
+    # and two diagonal braces on the rear side of the carriage opening.
+    g.poly("LabPrinterPedestal", "octagonal_slew",
+        Vector3(0.10, 0.68, 1.13), Vector3(1.65, 0.43, 1.23), "dark")
     g.poly("FreshLabFabricationBed", "tray",
-        Vector3(0.10, 0.88, 1.13),
-        Vector3(2.11, 0.26, 1.41), "armor_light")
-    g.poly("FreshLabPrintedShell", "bevel",
-        Vector3(0.10, 1.10, 1.13),
-        Vector3(0.65, 0.33, 0.48), "blue")
-    for i in range(4):
-        g.box("FreshLabBedTrack",
-            Vector3(-0.71 + i * 0.50, 1.03, 1.75),
-            Vector3(0.11, 0.09, 0.07), "gold")
-    # Rear tool wall and shelves are identifiable through the open workshop.
-    for y in [1.02, 1.65, 2.28]:
-        g.box("FreshLabToolShelf",
-            Vector3(-0.93, y, -1.36),
-            Vector3(1.27, 0.12, 0.46), "armor_light")
-    for col in range(5):
-        g.box("FreshLabToolJar",
-            Vector3(-1.44 + col * 0.27, 1.80, -1.37),
-            Vector3(0.17, 0.27, 0.19), "crate")
-    g.poly("FreshLabRearServiceLouver", "louver",
-        Vector3(0.40, 2.30, -1.45), Vector3(0.74, 0.43, 0.15), "trim")
-    g.poly("FreshLabServiceConsole", "bevel",
-        Vector3(1.46, 1.07, 1.28),
-        Vector3(0.59, 1.18, 0.59), "slate")
-    g.box("FreshLabServiceScreen",
-        Vector3(1.46, 1.37, 1.63),
+        Vector3(0.10, 0.94, 1.13), Vector3(2.11, 0.24, 1.41), "armor_light")
+    for side in [-1.0, 1.0]:
+        var x: float = side * 1.04
+        g.poly("LabPrinterCastFoot", "gusset",
+            Vector3(x, 0.89, 0.77), Vector3(0.47, 0.60, 0.53), "slate")
+        g.poly("FreshLabPrinterRail", "octagonal_slew",
+            Vector3(x, 1.88, 0.98), Vector3(0.34, 1.63, 0.35), "armor_light")
+        g.poly("LabPrinterGuideBearing", "drum",
+            Vector3(x, 2.45, 0.98), Vector3(0.43, 0.32, 0.43), "edge")
+        g.rod("LabPrinterDiagonalBrace", Vector3(x, 1.00, 0.28),
+            Vector3(x, 2.37, 0.98), 0.19, "trim")
+        g.box("FreshLabPrinterLegLight", Vector3(x, 1.88, 1.17),
+            Vector3(0.13, 0.78, 0.08), "lab_cyan")
+    g.poly_tilt("FreshLabOpenPrinterBridge", "octagonal_slew",
+        Vector3(0, 2.64, 0.97), Vector3(0.33, 2.30, 0.37),
+        "edge", Vector3(0, 0, PI * 0.5))
+    # Carriage, motor and nozzle retain their existing animation feature IDs.
+    g.poly_tilt("FreshLabPrinterServo", "drum",
+        Vector3(0.10, 2.40, 1.05), Vector3(0.57, 0.50, 0.57),
+        "slate", Vector3(0, 0, PI * 0.5))
+    g.poly("FreshLabPrinterHotHead", "octagonal_slew",
+        Vector3(0.10, 1.93, 1.05), Vector3(0.39, 0.61, 0.39), "gold")
+    g.poly("FreshLabPrinterTip", "drum",
+        Vector3(0.10, 1.55, 1.08), Vector3(0.20, 0.20, 0.20), "amber_light")
+    # A recognizable hollow Shell component under manufacture, not a cube.
+    g.poly("FreshLabPrintedShell", "vent_stack",
+        Vector3(0.10, 1.08, 1.13), Vector3(0.74, 0.40, 0.67), "blue")
+    # Preserve B03 world-monitor alignment; recess glass into a hooded
+    # operator stand instead of building a second set of fake telemetry bars.
+    g.poly("FreshLabServiceConsole", "gusset",
+        Vector3(1.48, 0.96, 1.27), Vector3(0.56, 0.83, 0.71), "slate")
+    g.poly("LabConsoleFoot", "octagonal_slew",
+        Vector3(1.46, 0.63, 1.28), Vector3(0.60, 0.20, 0.60), "dark")
+    g.poly("LabConsoleHood", "hood",
+        Vector3(1.46, 1.61, 1.42), Vector3(0.70, 0.31, 0.54), "armor_light")
+    g.box("LabConsoleScreenHousing", Vector3(1.46, 1.37, 1.53),
+        Vector3(0.56, 0.50, 0.21), "dark")
+    g.box("FreshLabServiceScreen", Vector3(1.46, 1.37, 1.63),
         Vector3(0.44, 0.40, 0.06), "glass")
-    for i in range(3):
-        g.box("FreshLabTelemetry",
-            Vector3(1.46, 1.21 + i * 0.11, 1.70),
-            Vector3(0.34, 0.035, 0.025), "lab_cyan")
-    # Rear utility fixtures glow through the front gap and visibly
-    # separate the fabrication opening from its canopy at gameplay scale.
-    g.box("FreshLabWarmWorkLight",
-        Vector3(0, 2.86, -1.35),
-        Vector3(1.56, 0.16, 0.11), "amber_light")
-    g.box("FreshLabInteriorLightRail",
-        Vector3(0, 2.26, -1.49),
-        Vector3(2.29, 0.12, 0.11), "amber_light")
-    for side in [-1.0, 1.0]:
-        g.box("FreshLabFrontMachinePylon",
-            Vector3(side * 1.13, 1.58, 1.38),
-            Vector3(0.18, 1.65, 0.17), "armor_light")
-        g.box("FreshLabFrontMachineGlow",
-            Vector3(side * 1.13, 1.55, 1.51),
-            Vector3(0.07, 1.11, 0.06), "lab_cyan")
-    for side in [-1.0, 1.0]:
-        g.poly("FreshLabPartsBin", "bevel",
-            Vector3(side * 1.53, 0.70, 0.20),
-            Vector3(0.51, 0.46, 0.62), "crate")
-    g.poly_tilt("FreshLabHangingBanner", "canvas",
-        Vector3(-1.98, 1.97, -0.33),
-        Vector3(0.08, 1.75, 0.84), "blue", Vector3(0.05, 0, -0.03))
+    # Warm task luminaire and its brace use the existing VFX aiming point.
+    g.rod("LabTaskLampSupport", Vector3(0.55, 3.20, -0.95),
+        Vector3(0, 3.12, -0.05), 0.16, "edge")
+    g.box("FreshLabWarmWorkLight", Vector3(0, 3.12, -0.05),
+        Vector3(0.56, 0.19, 0.29), "amber_light")
+    # One low finished-parts tray is positioned clear of the nozzle envelope.
+    g.poly("LabOutputPartsTray", "tray",
+        Vector3(-1.52, 0.72, 0.24), Vector3(0.66, 0.26, 0.65), "crate")
+    g.poly("LabOutputCoupling", "gear",
+        Vector3(-1.52, 0.74, 0.24), Vector3(0.46, 0.18, 0.46), "edge")
 
 
 static func _collector(g: Variant) -> void:
