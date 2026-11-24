@@ -709,7 +709,7 @@ func diagnostic_text() -> String:
             waiting += 1
         elif t.mode == "drive":
             driving += 1
-        elif t.mode in ["align","load","unload"]:
+        elif t.mode in ["align","load","unload","process_stock"]:
             handling += 1
     return "物流 %s\n車体 %d/%d  経路 %d\n画面内 %d  貨物 %d\n走行 %d  荷役 %d  譲合 %d\nドック %d" % [
         _phase, _vehicle_count, FLEET_SIZE, _planned_count, projected, _cargo_count, driving, handling, waiting, _docks.size()]
