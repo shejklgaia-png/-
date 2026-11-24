@@ -5,3 +5,5 @@
 - NEXUSの位置はglobal座標・yaw_rad。NEXUSのカメラは元の設備基準の座標（元の設備位置からの変換を適用するため、設備移動と独立して維持される）。DEPLOYMENTのカメラはglobal固定。LABO/REFINERY/STORAGEはstage_local、FOVは垂直角。NEXUSのFOVは端末補正前の基準値。
 - 公式値は製品ビルドでも適用。未確定値はエディター実行時のみ、公式の更新時刻より新しい場合に適用。元のコピー操作は同期不能時の予備手段。
 - 端末の既存スクリプトをChatGPTから直接変更できないため、上記インストールを一度実行する。SERA_startのrsyncに --delete がある場合は `--exclude=/.sera-placement/` を追加し、プレビューを削除しない。旧同期ワーカーのまま編集を開始しない。
+
+- BASE屋外施設は `base/facility/<ID>`（NEXUS, LABO, SCRAP_COLLECTOR, SMELTER, RECYCLER, GENERATOR, STORAGE, BUILD_TERMINAL）、`space: base_local`、`position: [x,0,z]`、`yaw_rad`（既存モデルの向きからの追加Y回転）。確定時はこのキーと座標系を検証して共通 RECORDS に統合する。編集はXZ各0.25mとYaw各5度のみ。小物・スクラップの再配置制限は保存済み施設位置と回転に追従する。物流・電源配線・踏み台・経路は既存の固定座標を保持する。床板自体は再生成しない。
