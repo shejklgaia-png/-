@@ -414,6 +414,10 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
             _homes.append(t.home)
             _trucks.append(t)
     print("SERA_BASE_LOGISTICS: docks=", _docks.size(), " vehicles=", _trucks.size(), " routable=", moving_count, " parked=", _trucks.size() - moving_count)
+    # The BASE represents an already operating yard. Seed nonconflicting
+    # loaded trips on the visible delivery legs instead of starting every
+    # truck empty behind its source facility.
+    _seed_active_deliveries()
     _batch = Architecture.Batch.new(self)
     for dock in _docks.values():
         _make_dock(dock)
@@ -445,6 +449,32 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
                     break
     print("SERA_BASE_LOGISTICS: render_buckets=", _draws.size(), "/", _batch.entries.size())
     _flush_poses()
+
+func _seed_active_deliveries() -> void:
+    for t in _trucks:
+        if t.mode != "home" or _conflict(t.cells, t.id):
+            continue
+        var path: Array = t.legs[1]
+        var chosen: int = -1
+        var best: float = INF
+        for i in range(1, path.size() - 1):
+            var p: Vector2 = _point(path[i])
+            var score: float = _screen_penalty(p) + absf(float(i) / float(path.size() - 1) - 0.5) * 6.0
+            if score < best:
+                best = score
+                chosen = i
+        if chosen < 0 or best >= 25.0:
+            continue
+        t.leg = 1
+        t.waypoint = chosen + 1
+        t.pos = _point(path[chosen])
+        var direction: Vector2 = _point(path[chosen + 1]) - t.pos
+        t.yaw = atan2(direction.x, direction.y)
+        t.loaded = true
+        t.mode = "drive"
+        t.wait = 0.0
+        _held[t.id] = t.cells
+
 
 func _template() -> Variant:
     return Architecture.Batch.new(self)
