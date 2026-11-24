@@ -102,6 +102,12 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
         return {"error":"1024pxに収まりません。密度を下げてください"}
     var img := Image.create(side,side,false,Image.FORMAT_RGBA8)
     img.fill(Color.TRANSPARENT)
+    # A texel can be sampled by a real surface even if its centre is
+    # outside the triangle. Keep the nearest source point per texel;
+    # interior coverage always wins over fringe coverage.
+    var distances := PackedFloat32Array()
+    distances.resize(side*side)
+    distances.fill(INF)
     var vertices := PackedVector3Array()
     var normals_out := PackedVector3Array()
     var uvs := PackedVector2Array()
@@ -115,7 +121,7 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
             normals_out.append(t.n[k])
             uvs.append(uv[k])
         t.uv = uv
-        _bake_triangle(img,t)
+        _bake_triangle(img,t,distances)
     var arrays: Array = []
     arrays.resize(Mesh.ARRAY_MAX)
     arrays[Mesh.ARRAY_VERTEX] = vertices
@@ -125,34 +131,67 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
     return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size()}
 
-static func _bake_triangle(img: Image,t: Dictionary) -> void:
-    var side := float(img.get_width())
+## Return barycentric weights at the nearest point on a triangle edge.
+## The conservative half-diagonal fringe covers all nearest-filter texels
+## touched by the surface, including subpixel and diagonal triangles.
+static func _nearest_weights(p: Vector2,a: Vector2,b: Vector2,c: Vector2) -> Vector3:
+    var ab: Vector2 = b-a
+    var bc: Vector2 = c-b
+    var ca: Vector2 = a-c
+    var t0: float = clampf((p-a).dot(ab)/maxf(ab.length_squared(),0.000000001),0.0,1.0)
+    var t1: float = clampf((p-b).dot(bc)/maxf(bc.length_squared(),0.000000001),0.0,1.0)
+    var t2: float = clampf((p-c).dot(ca)/maxf(ca.length_squared(),0.000000001),0.0,1.0)
+    var d0: float = p.distance_squared_to(a+ab*t0)
+    var d1: float = p.distance_squared_to(b+bc*t1)
+    var d2: float = p.distance_squared_to(c+ca*t2)
+    if d0 <= d1 and d0 <= d2:
+        return Vector3(1.0-t0,t0,0.0)
+    if d1 <= d2:
+        return Vector3(0.0,1.0-t1,t1)
+    return Vector3(t2,0.0,1.0-t2)
+
+static func _bake_triangle(img: Image,t: Dictionary, distances: PackedFloat32Array = PackedFloat32Array()) -> void:
+    var side: float = float(img.get_width())
     var a: Vector2 = t.uv[0]*side
     var b: Vector2 = t.uv[1]*side
     var c: Vector2 = t.uv[2]*side
-    var d := (b-a).cross(c-a)
+    var d: float = (b-a).cross(c-a)
     if absf(d) < 0.0000001:
         return
-    var lo := Vector2i(floori(minf(a.x,minf(b.x,c.x))),floori(minf(a.y,minf(b.y,c.y))))
-    var hi := Vector2i(ceili(maxf(a.x,maxf(b.x,c.x))),ceili(maxf(a.y,maxf(b.y,c.y))))
+    var lo := Vector2i(floori(minf(a.x,minf(b.x,c.x))-1.0),floori(minf(a.y,minf(b.y,c.y))-1.0))
+    var hi := Vector2i(ceili(maxf(a.x,maxf(b.x,c.x))+1.0),ceili(maxf(a.y,maxf(b.y,c.y))+1.0))
     var tex: Image = t.tex
     var colors: PackedColorArray = t.get("colors",PackedColorArray([Color.WHITE,Color.WHITE,Color.WHITE]))
+    var use_distance: bool = distances.size() == img.get_width()*img.get_height()
     for y in range(maxi(0,lo.y),mini(img.get_height(),hi.y+1)):
         for x in range(maxi(0,lo.x),mini(img.get_width(),hi.x+1)):
             var p := Vector2(x+0.5,y+0.5)
-            var v := (p-a).cross(c-a)/d
-            var w := (b-a).cross(p-a)/d
-            if v < -0.0001 or w < -0.0001 or v+w > 1.0001:
-                continue
+            var v: float = (p-a).cross(c-a)/d
+            var w: float = (b-a).cross(p-a)/d
+            var weights := Vector3(1.0-v-w,v,w)
+            var dist: float = 0.0
+            if weights.x < -0.000001 or weights.y < -0.000001 or weights.z < -0.000001:
+                weights = _nearest_weights(p,a,b,c)
+                dist = p.distance_squared_to(a*weights.x+b*weights.y+c*weights.z)
+                if dist > 0.50001:
+                    continue
+            var pixel_index: int = y*img.get_width()+x
+            if use_distance:
+                if dist >= distances[pixel_index]:
+                    continue
+                distances[pixel_index] = dist
             var color: Color = t.base
             if tex != null and not tex.is_empty():
-                var old: Vector2 = t.prior[0]*(1-v-w)+t.prior[1]*v+t.prior[2]*w
+                # Move boundary samples very slightly inward in the original
+                # palette UVs to avoid crossing into an adjacent face colour.
+                var sample_weights: Vector3 = weights.lerp(Vector3.ONE/3.0,0.0001)
+                var old: Vector2 = t.prior[0]*sample_weights.x+t.prior[1]*sample_weights.y+t.prior[2]*sample_weights.z
                 if bool(t.get("repeat",true)):
                     old = Vector2(fposmod(old.x,1.0),fposmod(old.y,1.0))
-                var tx := clampi(floori(old.x*tex.get_width()),0,tex.get_width()-1)
-                var ty := clampi(floori(old.y*tex.get_height()),0,tex.get_height()-1)
+                var tx: int = clampi(floori(old.x*tex.get_width()),0,tex.get_width()-1)
+                var ty: int = clampi(floori(old.y*tex.get_height()),0,tex.get_height()-1)
                 color *= tex.get_pixel(tx,ty)
-            color *= colors[0]*(1.0-v-w)+colors[1]*v+colors[2]*w
+            color *= colors[0]*weights.x+colors[1]*weights.y+colors[2]*weights.z
             img.set_pixel(x,y,Color(color.r,color.g,color.b,1.0))
 
 static func hit(tris: Array,origin: Vector3,direction: Vector3) -> Dictionary:
