@@ -7,6 +7,17 @@ const FRAMES := 96
 const FPS := 24.0
 const FRAME_WIDTH := 80
 const FRAME_HEIGHT := 88
+# Integrated visible brightness of each baked frame, cyclically filtered.
+const FRAME_RADIANCE := [
+    1.0043, 0.9967, 0.9936, 0.9942, 0.9964, 0.9985, 1.0006, 1.0017, 1.0008, 0.9980, 0.9955, 0.9943,
+    0.9954, 0.9981, 1.0024, 1.0064, 1.0089, 1.0089, 1.0070, 1.0037, 0.9994, 0.9942, 0.9878, 0.9803,
+    0.9739, 0.9708, 0.9728, 0.9780, 0.9855, 0.9942, 1.0038, 1.0119, 1.0184, 1.0230, 1.0276, 1.0317,
+    1.0351, 1.0377, 1.0400, 1.0440, 1.0495, 1.0559, 1.0601, 1.0615, 1.0612, 1.0627, 1.0650, 1.0656,
+    1.0612, 1.0540, 1.0472, 1.0443, 1.0455, 1.0502, 1.0555, 1.0605, 1.0644, 1.0674, 1.0674, 1.0627,
+    1.0535, 1.0421, 1.0304, 1.0196, 1.0118, 1.0085, 1.0117, 1.0205, 1.0341, 1.0494, 1.0638, 1.0732,
+    1.0763, 1.0733, 1.0678, 1.0620, 1.0586, 1.0564, 1.0539, 1.0450, 1.0233, 0.9815, 0.9189, 0.8431,
+    0.7703, 0.7165, 0.6914, 0.6965, 0.7262, 0.7736, 0.8303, 0.8904, 0.9447, 0.9858, 1.0073, 1.0110
+]
 static var _atlas: ImageTexture
 const PNG: String = """
 iVBORw0KGgoAAAANSUhEUgAAA8AAAALACAMAAABrf+sdAAADAFBMVEVbEgRbEgRbEgRbEgRbEgRbEgRbEgRbEgRbEgRbEgRbEgRbEgRbEgRbEgRbEgRbEgSd
@@ -2344,3 +2355,8 @@ static func sample(sheet: Sprite3D, seconds: float) -> void:
     var next: int = posmod(int(floor(seconds*FPS))+int(sheet.get_meta("flame_phase_offset",0)),FRAMES)
     if sheet.frame != next:
         sheet.frame = next
+
+static func radiance(seconds: float, offset: int = 0) -> float:
+    var phase: float = fposmod(seconds*FPS+float(offset),float(FRAMES))
+    var index: int = int(floor(phase))
+    return lerpf(float(FRAME_RADIANCE[index]),float(FRAME_RADIANCE[(index+1)%FRAMES]),fract(phase))
