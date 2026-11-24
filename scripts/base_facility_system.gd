@@ -139,6 +139,7 @@ var angle_overlay: Control
 var angle_status: Label
 var angle_buttons: Dictionary = {}
 var angle_active: bool = false
+var angle_crate_was_visible: bool = true
 var angle_look: Vector3 = Vector3.ZERO
 var angle_distance: float = 6.0
 var angle_yaw: float = 0.0
@@ -1456,6 +1457,16 @@ func _make_hero_angle_overlay() -> void:
             row.add_child(button)
             angle_buttons[str(pair[i])] = button
             button.pressed.connect(_hero_angle_action.bind(str(pair[i])))
+    var crate_button := Button.new()
+    crate_button.name = "Angle_CrateVisibility"
+    crate_button.text = "クレート非表示"
+    crate_button.custom_minimum_size.y = 58.0
+    crate_button.add_theme_font_override("font", LaboSkin.ui_font())
+    crate_button.add_theme_font_size_override("font_size", 20)
+    _style_terminal_segment(crate_button)
+    column.add_child(crate_button)
+    angle_buttons["crate_visibility"] = crate_button
+    crate_button.pressed.connect(_hero_angle_action.bind("crate_visibility"))
     angle_overlay.hide()
 
 
@@ -1474,6 +1485,9 @@ func _open_hero_angle() -> void:
     angle_pitch = asin(clampf(offset.y / angle_distance, -0.999, 0.999))
     angle_fov = camera.fov
     angle_pointer = -999
+    var route: Node3D = hero_stage.get("crate_route") as Node3D
+    angle_crate_was_visible = route.visible if route != null else true
+    _sync_angle_crate_button()
     angle_active = true
     _set_labo_scroll_input_enabled(false)
     modal.move_child(angle_overlay, -1)
@@ -1486,6 +1500,10 @@ func _close_hero_angle() -> void:
         return
     PlacementStore.flush()
     angle_active = false
+    if is_instance_valid(hero_stage):
+        var route: Node3D = hero_stage.get("crate_route") as Node3D
+        if route != null:
+            route.visible = angle_crate_was_visible
     angle_pointer = -999
     if is_instance_valid(angle_overlay):
         angle_overlay.hide()
@@ -1510,10 +1528,23 @@ func _apply_hero_angle() -> void:
     _refresh_hero_angle()
 
 
+func _sync_angle_crate_button() -> void:
+    var route: Node3D = hero_stage.get("crate_route") as Node3D
+    var button: Button = angle_buttons["crate_visibility"]
+    button.disabled = route == null
+    button.text = "クレート非表示" if route == null or route.visible else "クレート表示"
+
+
 func _hero_angle_action(id: String) -> void:
     if not angle_active:
         return
     match id:
+        "crate_visibility":
+            var route: Node3D = hero_stage.get("crate_route") as Node3D
+            if route != null:
+                route.visible = not route.visible
+                _sync_angle_crate_button()
+            return
         "exit":
             _close_hero_angle()
             return
