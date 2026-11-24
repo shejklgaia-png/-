@@ -71,6 +71,7 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
     _match_rectified_edge_counts(tris,charts)
     _align_triangular_grids(tris,charts)
     _synchronize_chart_grids(tris,charts)
+    _refine_residual_grids(tris,charts,density)
     var order: Array[int] = []
     for i in range(charts.size()):
         var c: Dictionary = charts[i]
@@ -902,6 +903,254 @@ static func _synchronize_chart_grids(tris: Array[Dictionary],charts: Array[Dicti
         for k in range(3):
             coords[k] += shift
         t.xy = coords
+
+## Refine the existing UVs against all incident edges, not just the
+## edges used to construct a rectangle or triangle. Only small charts
+## with known non-overlapping triangle topology are changed.
+static func _refine_residual_grids(tris: Array[Dictionary],charts: Array[Dictionary],density: int) -> void:
+    var members: Array = []
+    var adjacency: Array = []
+    for i in range(charts.size()):
+        members.append([])
+        adjacency.append([])
+    for i in range(tris.size()):
+        (members[int(tris[i].chart)] as Array).append(i)
+    for link in _seam_segments(tris):
+        (adjacency[int(link.a)] as Array).append(link)
+        (adjacency[int(link.b)] as Array).append(link)
+    # The same small chart may be revisited after its neighbor changes.
+    # Bound mobile work; skip charts with more than two triangles.
+    for pass_index in range(4):
+        var priority: Array[Dictionary] = []
+        for ci in range(charts.size()):
+            if members[ci].size() < 1 or members[ci].size() > 2 or adjacency[ci].is_empty():
+                continue
+            var worst: float = 0.0
+            for link in adjacency[ci]:
+                worst = maxf(worst,_local_edge_residual(tris,link,-1,{},PackedVector2Array()))
+            if worst > 0.25:
+                priority.append({"chart":ci,"worst":worst})
+        priority.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
+            return int(a.chart) < int(b.chart) if float(a.worst) == float(b.worst) else float(a.worst) > float(b.worst))
+        var changed: bool = false
+        for k in range(mini(128,priority.size())):
+            var ci: int = int(priority[k].chart)
+            if _refine_small_chart(tris,charts[ci],ci,members[ci],adjacency[ci],density):
+                changed = true
+        if not changed:
+            break
+
+static func _local_edge_residual(tris: Array[Dictionary],link: Dictionary,ci: int,indices: Dictionary,coords: PackedVector2Array) -> float:
+    var segments: Array[PackedVector2Array] = []
+    for side in [0,1]:
+        var id: int = int(link.ta) if side == 0 else int(link.tb)
+        var edge: int = int(link.ea) if side == 0 else int(link.eb)
+        var start: float = float(link.a0) if side == 0 else float(link.b0)
+        var finish: float = float(link.a1) if side == 0 else float(link.b1)
+        var t: Dictionary = tris[id]
+        if int(t.chart) == ci and indices.has(id):
+            var ids: PackedInt32Array = indices[id]
+            var a: Vector2 = coords[ids[edge]]
+            var b: Vector2 = coords[ids[(edge+1)%3]]
+            segments.append(PackedVector2Array([a.lerp(b,start),a.lerp(b,finish)]))
+        else:
+            segments.append(_segment_uv(t,edge,start,finish,"xy"))
+    var a: PackedVector2Array = segments[0]
+    var b: PackedVector2Array = segments[1]
+    var da: Vector2 = a[1]-a[0]
+    var db: Vector2 = b[1]-b[0]
+    if minf(da.length_squared(),db.length_squared()) < 0.00000001:
+        return 1000.0
+    var rotation: float = roundf(db.angle_to(da)/(PI*0.5))*(PI*0.5)
+    var delta: Vector2 = a[0]-b[0].rotated(rotation)
+    delta -= delta.round()
+    return maxf(delta.length(),(delta+da-db.rotated(rotation)).length())
+
+static func _refine_small_chart(tris: Array[Dictionary],chart: Dictionary,ci: int,members: Array,links: Array,density: int) -> bool:
+    var indices: Dictionary = {}
+    var vertices: Dictionary = {}
+    var points := PackedVector2Array()
+    var original_points := PackedVector3Array()
+    for raw in members:
+        var id: int = int(raw)
+        var t: Dictionary = tris[id]
+        var ids := PackedInt32Array()
+        for k in range(3):
+            var p: Vector3 = t.p[k]
+            var key: String = _vertex_key(p)
+            if not vertices.has(key):
+                vertices[key] = points.size()
+                points.append(t.xy[k])
+                original_points.append(p)
+            var index: int = int(vertices[key])
+            if points[index].distance_squared_to(t.xy[k]) > 0.000001:
+                return false
+            ids.append(index)
+        indices[id] = ids
+    if points.size() != members.size()+2:
+        return false
+    if members.size() == 2:
+        var first: PackedInt32Array = indices[int(members[0])]
+        var second: PackedInt32Array = indices[int(members[1])]
+        var shared: int = 0
+        for id in first:
+            if second.has(id):
+                shared += 1
+        if shared != 2:
+            return false
+    var baseline: Vector3 = _refinement_score(tris,ci,links,indices,points)
+    if baseline.x <= 0.25:
+        return false
+    var candidates: Array[PackedVector2Array] = []
+    var rectified: bool = bool(chart.get("rectified",false))
+    var snapped: PackedVector2Array = points.duplicate()
+    for i in range(snapped.size()):
+        snapped[i] = snapped[i].round()
+    candidates.append(snapped)
+    if rectified:
+        # Retain rectangular boundaries, but allow different integer
+        # widths and heights when the earlier group constraints conflict.
+        var lo: Vector2 = chart.min
+        var hi: Vector2 = chart.max
+        for axis in range(2):
+            for shift in [-2,-1,1,2]:
+                if hi[axis]-lo[axis]+float(shift) < 1.0:
+                    continue
+                var q: PackedVector2Array = points.duplicate()
+                for i in range(q.size()):
+                    if absf(q[i][axis]-hi[axis]) < 0.001:
+                        var v: Vector2 = q[i]
+                        v[axis] += float(shift)
+                        q[i] = v
+                candidates.append(q)
+    else:
+        # Try matching each boundary to its neighbor (including phase).
+        # A concave quad can remain concave while its long edge is aligned.
+        for link in links:
+            var own_a: bool = int(link.a) == ci
+            var own_id: int = int(link.ta) if own_a else int(link.tb)
+            var edge: int = int(link.ea) if own_a else int(link.eb)
+            if not indices.has(own_id):
+                continue
+            var own_start: float = float(link.a0) if own_a else float(link.b0)
+            var own_end: float = float(link.a1) if own_a else float(link.b1)
+            if absf(own_end-own_start) < 0.9999:
+                continue
+            var ids: PackedInt32Array = indices[own_id]
+            var v0: Vector2 = points[ids[edge]]
+            var v1: Vector2 = points[ids[(edge+1)%3]]
+            var own: Vector2 = (v1-v0)*(own_end-own_start)
+            var other: PackedVector2Array
+            if own_a:
+                other = _segment_uv(tris[link.tb],link.eb,link.b0,link.b1,"xy")
+            else:
+                other = _segment_uv(tris[link.ta],link.ea,link.a0,link.a1,"xy")
+            var target: Vector2 = other[1]-other[0]
+            if minf(own.length(),target.length()) < 0.00001:
+                continue
+            var quarter: float = roundf(target.angle_to(own)/(PI*0.5))*(PI*0.5)
+            target = target.rotated(quarter)
+            var origin: Vector2 = other[0].rotated(quarter)
+            origin -= origin.floor()
+            var angle: float = own.angle_to(target)
+            var ratio: float = clampf(target.length()/own.length(),0.45,2.0)
+            var start: Vector2 = v0.lerp(v1,own_start)
+            for quantize in [false,true]:
+                var q := PackedVector2Array()
+                for point in points:
+                    var v: Vector2 = (point-start).rotated(angle)*ratio+origin
+                    q.append(v.round() if quantize else v)
+                candidates.append(q)
+                # Reconstruct a single triangle's third corner using the
+                # actual 3D edge distances, instead of its distorted UV.
+                if points.size() == 3:
+                    var k: int = ids[(edge+2)%3]
+                    var i0: int = ids[edge]
+                    var i1: int = ids[(edge+1)%3]
+                    var d0: float = original_points[k].distance_to(original_points[i0])*density
+                    var d1: float = original_points[k].distance_to(original_points[i1])*density
+                    var base: Vector2 = q[i1]-q[i0]
+                    var length: float = base.length()
+                    if length > 0.00001:
+                        var along: float = (d0*d0-d1*d1+length*length)/(2.0*length)
+                        var altitude: float = sqrt(maxf(0.0,d0*d0-along*along))
+                        if altitude > 0.00001:
+                            var orientation: float = signf(base.cross(q[k]-q[i0]))
+                            var tri: PackedVector2Array = q.duplicate()
+                            var v: Vector2 = q[i0]+base.normalized()*along+base.normalized().orthogonal()*altitude*orientation
+                            tri[k] = v.round() if quantize else v
+                            candidates.append(tri)
+        # Small lattice moves can improve conflicting edges without
+        # rotating the entire island away from its neighboring faces.
+        for i in range(points.size()):
+            for offset in [Vector2(-2,0),Vector2(-1,0),Vector2(1,0),Vector2(2,0),Vector2(0,-2),Vector2(0,-1),Vector2(0,1),Vector2(0,2),Vector2(-1,-1),Vector2(-1,1),Vector2(1,-1),Vector2(1,1)]:
+                var q: PackedVector2Array = points.duplicate()
+                q[i] += offset
+                candidates.append(q)
+    var best: PackedVector2Array = points
+    var best_score: Vector3 = baseline
+    for q in candidates:
+        if not _refinement_valid(members,indices,original_points,points,q,density):
+            continue
+        var score: Vector3 = _refinement_score(tris,ci,links,indices,q)
+        # Never trade a worse maximum or more bad edges for a local win.
+        if score.x > baseline.x+0.0001 or score.y > baseline.y:
+            continue
+        if score.z < best_score.z-0.0001:
+            best = q
+            best_score = score
+    if best_score.z >= baseline.z-0.0001:
+        return false
+    var lo: Vector2 = best[0]
+    var hi: Vector2 = best[0]
+    for point in best:
+        lo = lo.min(point)
+        hi = hi.max(point)
+    for id in members:
+        var ids: PackedInt32Array = indices[id]
+        tris[id].xy = PackedVector2Array([best[ids[0]],best[ids[1]],best[ids[2]]])
+    chart.min = lo.floor()
+    chart.max = hi
+    return true
+
+static func _refinement_score(tris: Array[Dictionary],ci: int,links: Array,indices: Dictionary,points: PackedVector2Array) -> Vector3:
+    var worst: float = 0.0
+    var bad: float = 0.0
+    var sum: float = 0.0
+    for link in links:
+        var residual: float = _local_edge_residual(tris,link,ci,indices,points)
+        worst = maxf(worst,residual)
+        if residual > 0.25:
+            bad += 1.0
+        sum += residual*residual
+    return Vector3(worst,bad,sum+worst*worst+bad*0.25)
+
+static func _refinement_valid(members: Array,indices: Dictionary,world: PackedVector3Array,old: PackedVector2Array,q: PackedVector2Array,density: int) -> bool:
+    for id in members:
+        var ids: PackedInt32Array = indices[id]
+        var a: int = ids[0]
+        var b: int = ids[1]
+        var c: int = ids[2]
+        var before: float = (old[b]-old[a]).cross(old[c]-old[a])
+        var after: float = (q[b]-q[a]).cross(q[c]-q[a])
+        var metric_area: float = (world[b]-world[a]).cross(world[c]-world[a]).length()*density*density
+        if before*after <= 0.00000001 or metric_area < 0.000001:
+            return false
+        var area_ratio: float = absf(after)/metric_area
+        var before_ratio: float = absf(before)/metric_area
+        if area_ratio < minf(0.25,before_ratio) or area_ratio > maxf(3.0,before_ratio):
+            return false
+        for k in range(3):
+            var i: int = ids[k]
+            var j: int = ids[(k+1)%3]
+            var metric: float = world[i].distance_to(world[j])*density
+            if metric < 0.000001:
+                return false
+            var ratio: float = q[i].distance_to(q[j])/metric
+            var prior: float = old[i].distance_to(old[j])/metric
+            if ratio < minf(0.35,prior) or ratio > maxf(2.0,prior):
+                return false
+    return true
 
 ## Precompute boundary texel correspondences after packing, also on
 ## restored projects. Only direct neighbors are returned, never a flood
