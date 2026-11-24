@@ -12,7 +12,7 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
     if source.mesh == null or source.skin != null:
         return {"error": "静的メッシュを選択してください"}
     for s in range(source.mesh.get_surface_count()):
-        if source.mesh.surface_get_primitive_type(s) != Mesh.PRIMITIVE_TRIANGLES:
+        if source.mesh is ArrayMesh and (source.mesh as ArrayMesh).surface_get_primitive_type(s) != Mesh.PRIMITIVE_TRIANGLES:
             continue
         var arr: Array = source.mesh.surface_get_arrays(s)
         var vs: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
@@ -58,7 +58,7 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
                 xy.append(q)
                 chart.min = Vector2(minf(chart.min.x,q.x),minf(chart.min.y,q.y))
                 chart.max = Vector2(maxf(chart.max.x,q.x),maxf(chart.max.y,q.y))
-                var nn := n
+                var nn := -n
                 if ns.size() == vs.size():
                     nn = (ns[ix[k]] / metric.max(Vector3(0.00001,0.00001,0.00001))).normalized()
                 normals.append(nn)
