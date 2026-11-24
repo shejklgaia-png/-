@@ -7,11 +7,65 @@ const PartIcons = preload("res://scripts/sera_item_icons.gd")
 const SAVE_DIR := "user://texture_studio"
 var candidates: Array[MeshInstance3D] = []
 var external_root: Node3D
-var picker: OptionButton
+# PopupMenu is a separate Window and does not reliably receive native
+# Android touch when the game disables mouse emulation. Keep choices
+# in the same canvas as the editor instead.
+class StudioChoice:
+    extends Button
+    signal item_selected(index: int)
+    var labels: Array[String] = []
+    var ids: Array[int] = []
+    var selected: int = -1
+    var caption: String = ""
+
+    func add_item(label: String, id: int = -1) -> void:
+        labels.append(label)
+        ids.append(labels.size()-1 if id == -1 else id)
+        if selected < 0:
+            select(0)
+
+    func clear() -> void:
+        labels.clear()
+        ids.clear()
+        select(-1)
+
+    func select(index: int) -> void:
+        selected = index if index >= 0 and index < labels.size() else -1
+        text = (labels[selected] if selected >= 0 else "未選択")+"  ▾"
+
+    func get_selected_id() -> int:
+        return get_item_id(selected)
+
+    func get_item_id(index: int) -> int:
+        return ids[index] if index >= 0 and index < ids.size() else -1
+
+    func choose(index: int) -> void:
+        if index < 0 or index >= labels.size():
+            return
+        select(index)
+        item_selected.emit(index)
+
+var picker: StudioChoice
+var choice_buttons: Array[StudioChoice] = []
+var choice_overlay: Control
+var choice_panel: PanelContainer
+var choice_scroll: ScrollContainer
+var choice_rows: Array[Button] = []
+var choice_cancel: Button
+var active_choice: StudioChoice
+var pending_choice: StudioChoice
+var choice_touch: int = -1
+var choice_origin: Vector2 = Vector2.ZERO
+var choice_scroll_start: int = 0
+var choice_dragged: bool = false
+var choice_started_in_list: bool = false
+var choice_pressed_row: int = -1
+var choice_pressed_cancel: bool = false
+var choice_pressed_outside: bool = false
 var selected_model_label: Label
 var mesh_picker_row: HBoxContainer
-var density_picker: OptionButton
-var tool_picker: OptionButton
+var density_picker: StudioChoice
+var tool_picker: StudioChoice
 var color_picker: ColorPickerButton
 var status: Label
 var host: SubViewportContainer
@@ -48,8 +102,8 @@ var shape_chart := -1
 var shape_base: Image
 var layers: Array[Image] = []
 var layer_visible: Array[bool] = []
-var layer_picker: OptionButton
-var diameter_picker: OptionButton
+var layer_picker: StudioChoice
+var diameter_picker: StudioChoice
 var symmetric: CheckButton
 var layer_toggle: Button
 var layer_index := 0
@@ -132,16 +186,15 @@ func _build_ui() -> void:
     _button(row,"個別メッシュ",_toggle_mesh_picker)
     _button(row,"読込",_open_file)
     mesh_picker_row = _row(box)
-    picker = OptionButton.new()
+    picker = _new_choice("個別メッシュ")
     picker.custom_minimum_size.y = 54
     picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    picker.fit_to_longest_item = false
     picker.clip_text = true
     picker.item_selected.connect(_select_model)
     mesh_picker_row.add_child(picker)
     mesh_picker_row.hide()
     row = _row(box)
-    density_picker = OptionButton.new()
+    density_picker = _new_choice("ピクセル密度")
     for d in [8,16,32,64]:
         density_picker.add_item("%d px/m"%d,d)
     density_picker.select(2)
@@ -185,7 +238,7 @@ func _build_ui() -> void:
     camera.near = 0.001
     view.add_child(camera)
     row = _row(box)
-    tool_picker = OptionButton.new()
+    tool_picker = _new_choice("描画ツール")
     tool_picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     for name_text in paint_tools:
         tool_picker.add_item(name_text)
@@ -198,7 +251,7 @@ func _build_ui() -> void:
     var mode: Button = _button(row,"回転 / 描画",_toggle_rotation_mode)
     mode.toggle_mode = true
     row = _row(box)
-    layer_picker = OptionButton.new()
+    layer_picker = _new_choice("レイヤー")
     layer_picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     layer_picker.item_selected.connect(_select_layer)
     row.add_child(layer_picker)
@@ -206,7 +259,7 @@ func _build_ui() -> void:
     layer_toggle = _button(row,"表示",_toggle_layer)
     _button(row,"削除",_delete_layer)
     row = _row(box)
-    diameter_picker = OptionButton.new()
+    diameter_picker = _new_choice("ブラシサイズ")
     for d in [1,3,5]:
         diameter_picker.add_item("%d px" % d,d)
     diameter_picker.item_selected.connect(_set_brush_size)
@@ -332,7 +385,173 @@ func _close_part_catalog() -> void:
     catalog_touch = -1
     view.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
 
+func _new_choice(caption: String) -> StudioChoice:
+    var button := StudioChoice.new()
+    button.caption = caption
+    button.clip_text = true
+    button.custom_minimum_size.y = 54
+    button.add_theme_font_size_override("font_size",20)
+    button.pressed.connect(_open_choice.bind(button))
+    choice_buttons.append(button)
+    return button
+
+func _open_choice(button: StudioChoice) -> void:
+    if not is_instance_valid(button) or button.labels.is_empty() or part_loading:
+        return
+    if is_instance_valid(choice_overlay):
+        _close_choice()
+    _end_stroke()
+    points.clear()
+    active_choice = button
+    choice_overlay = Control.new()
+    choice_overlay.name = "TouchChoiceOverlay"
+    add_child(choice_overlay)
+    choice_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    choice_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+    var shade := ColorRect.new()
+    shade.color = Color(0.02,0.05,0.08,0.78)
+    choice_overlay.add_child(shade)
+    shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    shade.mouse_filter = Control.MOUSE_FILTER_STOP
+    choice_panel = PanelContainer.new()
+    choice_overlay.add_child(choice_panel)
+    var visible_height: float = clampf(float(button.labels.size())*58.0+150.0,250.0,maxf(250.0,size.y*0.78))
+    choice_panel.set_anchor(SIDE_LEFT,0.06)
+    choice_panel.set_anchor(SIDE_RIGHT,0.94)
+    choice_panel.set_anchor(SIDE_TOP,0.5)
+    choice_panel.set_anchor(SIDE_BOTTOM,0.5)
+    choice_panel.offset_top = -visible_height*0.5
+    choice_panel.offset_bottom = visible_height*0.5
+    var pad := MarginContainer.new()
+    for side in ["left","right","top","bottom"]:
+        pad.add_theme_constant_override("margin_"+side,12)
+    choice_panel.add_child(pad)
+    var box := VBoxContainer.new()
+    box.add_theme_constant_override("separation",8)
+    pad.add_child(box)
+    var title := Label.new()
+    title.text = button.caption
+    title.add_theme_font_size_override("font_size",24)
+    box.add_child(title)
+    choice_scroll = ScrollContainer.new()
+    choice_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+    choice_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+    box.add_child(choice_scroll)
+    var list := VBoxContainer.new()
+    list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    choice_scroll.add_child(list)
+    choice_rows.clear()
+    for index in range(button.labels.size()):
+        var row := _button(list,("●  " if index == button.selected else "○  ")+button.labels[index],_commit_choice.bind(index))
+        row.clip_text = true
+        row.alignment = HORIZONTAL_ALIGNMENT_LEFT
+        choice_rows.append(row)
+    choice_cancel = _button(box,"閉じる",_close_choice)
+    if button.selected >= 0:
+        choice_scroll.call_deferred("ensure_control_visible",choice_rows[button.selected])
+
+func _close_choice() -> void:
+    if is_instance_valid(choice_overlay):
+        choice_overlay.hide()
+        choice_overlay.queue_free()
+    choice_overlay = null
+    choice_panel = null
+    choice_scroll = null
+    choice_cancel = null
+    choice_rows.clear()
+    active_choice = null
+    pending_choice = null
+    choice_touch = -1
+    choice_pressed_row = -1
+    choice_pressed_cancel = false
+    choice_pressed_outside = false
+
+func _commit_choice(index: int) -> void:
+    var button: StudioChoice = active_choice
+    # Close first even when selecting the currently selected item. Any
+    # callback may rebuild a UV atlas or repopulate the choice list.
+    _close_choice()
+    if is_instance_valid(button):
+        button.choose(index)
+
+func _choice_row_at(at: Vector2) -> int:
+    if not is_instance_valid(choice_scroll) or not choice_scroll.get_global_rect().has_point(at):
+        return -1
+    for index in range(choice_rows.size()):
+        if choice_rows[index].get_global_rect().has_point(at):
+            return index
+    return -1
+
+func _route_choice_input(event: InputEvent) -> bool:
+    if is_instance_valid(choice_overlay):
+        if event is InputEventScreenTouch:
+            var tap: InputEventScreenTouch = event as InputEventScreenTouch
+            if tap.pressed and choice_touch < 0:
+                choice_touch = tap.index
+                choice_origin = tap.position
+                choice_scroll_start = choice_scroll.scroll_vertical
+                choice_dragged = false
+                choice_started_in_list = choice_scroll.get_global_rect().has_point(tap.position)
+                choice_pressed_row = _choice_row_at(tap.position)
+                choice_pressed_cancel = choice_cancel.get_global_rect().has_point(tap.position)
+                choice_pressed_outside = not choice_panel.get_global_rect().has_point(tap.position)
+            elif not tap.pressed and tap.index == choice_touch:
+                choice_touch = -1
+                if not choice_dragged:
+                    var index: int = _choice_row_at(tap.position)
+                    if index >= 0 and index == choice_pressed_row:
+                        _commit_choice(index)
+                    elif (choice_pressed_cancel and choice_cancel.get_global_rect().has_point(tap.position)) or (choice_pressed_outside and not choice_panel.get_global_rect().has_point(tap.position)):
+                        _close_choice()
+            return true
+        if event is InputEventScreenDrag:
+            var drag: InputEventScreenDrag = event as InputEventScreenDrag
+            if drag.index == choice_touch:
+                var delta: Vector2 = drag.position-choice_origin
+                if delta.length() > 10.0:
+                    choice_dragged = true
+                if choice_dragged and choice_started_in_list:
+                    choice_scroll.scroll_vertical = maxi(0,choice_scroll_start-roundi(delta.y))
+            return true
+        if event is InputEventMouseButton:
+            var mouse: InputEventMouseButton = event as InputEventMouseButton
+            if mouse.button_index == MOUSE_BUTTON_LEFT and mouse.pressed and not choice_panel.get_global_rect().has_point(mouse.position):
+                _close_choice()
+                return true
+        return false
+    if is_instance_valid(part_panel) and part_panel.is_visible_in_tree():
+        return false
+    if is_instance_valid(file_dialog) and file_dialog.visible:
+        return false
+    if event is InputEventScreenTouch:
+        var tap: InputEventScreenTouch = event as InputEventScreenTouch
+        if tap.pressed and choice_touch < 0:
+            for button in choice_buttons:
+                if button.is_visible_in_tree() and not button.disabled and button.get_global_rect().has_point(tap.position):
+                    choice_touch = tap.index
+                    choice_origin = tap.position
+                    choice_dragged = false
+                    pending_choice = button
+                    return true
+        elif not tap.pressed and tap.index == choice_touch:
+            var button: StudioChoice = pending_choice
+            choice_touch = -1
+            pending_choice = null
+            if is_instance_valid(button) and not choice_dragged and button.get_global_rect().has_point(tap.position):
+                _open_choice(button)
+            return true
+    elif event is InputEventScreenDrag:
+        var drag: InputEventScreenDrag = event as InputEventScreenDrag
+        if drag.index == choice_touch and is_instance_valid(pending_choice):
+            if drag.position.distance_to(choice_origin) > 10.0:
+                choice_dragged = true
+            return true
+    return false
+
 func _input(event: InputEvent) -> void:
+    if _route_choice_input(event):
+        get_viewport().set_input_as_handled()
+        return
     if not is_instance_valid(part_panel) or not part_panel.is_visible_in_tree():
         return
     # The game disables mouse emulation from touch. Route explicit Android
@@ -495,6 +714,8 @@ func _zoom(ratio: float) -> void:
     _camera_pose()
 
 func _view_input(event: InputEvent) -> void:
+    if is_instance_valid(choice_overlay):
+        return
     if event is InputEventScreenTouch:
         if event.pressed:
             points[event.index] = event.position
@@ -959,6 +1180,9 @@ func _load_project(path: String) -> void:
     _show_status("編集プロジェクト復元済み: "+prefix.get_file())
 
 func request_close() -> void:
+    if is_instance_valid(choice_overlay):
+        _close_choice()
+        return
     if is_instance_valid(part_panel) and part_panel.visible:
         _close_part_catalog()
         return
