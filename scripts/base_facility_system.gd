@@ -129,6 +129,18 @@ var diag_last_header_tap_ms: int = 0
 var hero_host: SubViewportContainer
 var hero_viewport: SubViewport
 var hero_stage: Node3D
+var angle_entry: Button
+var angle_overlay: Control
+var angle_status: Label
+var angle_buttons: Dictionary = {}
+var angle_active: bool = false
+var angle_look: Vector3 = Vector3.ZERO
+var angle_distance: float = 6.0
+var angle_yaw: float = 0.0
+var angle_pitch: float = 0.0
+var angle_fov: float = 60.0
+var angle_pointer: int = -999
+var angle_last: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
     name = "BaseFacilities"
@@ -775,7 +787,22 @@ func attach_hud(hud: Control) -> void:
     exit_tag.add_theme_color_override("font_color", Color("#82b9c4"))
     close_button.add_child(exit_tag)
     close_button.pressed.connect(navigate_back)
-    body.add_child(close_button)
+    var footer := HBoxContainer.new()
+    footer.name = "FacilityFooter"
+    footer.add_theme_constant_override("separation", 8)
+    body.add_child(footer)
+    close_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    footer.add_child(close_button)
+    angle_entry = Button.new()
+    angle_entry.name = "FacilityCameraAnglePlacement"
+    angle_entry.text = "アングル正規配置"
+    angle_entry.custom_minimum_size = Vector2(236, LABO_BACK_HEIGHT)
+    angle_entry.add_theme_font_override("font", LaboSkin.ui_font())
+    angle_entry.add_theme_font_size_override("font_size", 20)
+    _style_terminal_segment(angle_entry)
+    angle_entry.visible = false
+    angle_entry.pressed.connect(_open_hero_angle)
+    footer.add_child(angle_entry)
     # Own full-screen confirmation layer; does not depend on Android popup
     # window support. It is deliberately outside the scrolling content.
     confirmation_overlay = Control.new()
@@ -1297,7 +1324,10 @@ func _ensure_labo_hero() -> void:
 func _set_labo_hero(enabled: bool, section: String = "") -> void:
     if hero_host == null:
         return
+    _close_hero_angle()
     hero_host.visible = enabled
+    if angle_entry != null:
+        angle_entry.visible = enabled
     if enabled:
         _ensure_labo_hero()
         # The content area remains native Android Button rows. The hero owns
@@ -1316,6 +1346,200 @@ func _set_labo_hero(enabled: bool, section: String = "") -> void:
         if hero_stage != null:
             hero_stage.set_process(false)
             hero_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+
+
+# The existing hero SubViewport is the actual camera preview. No additional
+# 3D stage or render pass is created by this session-only editor.
+func _hero_angle_available() -> bool:
+    return is_menu_open() and is_instance_valid(hero_stage) and is_instance_valid(hero_host) and hero_host.is_visible_in_tree() and active_key in ["LABO", "SMELTER", "RECYCLER", "STORAGE"] and not (confirmation_overlay != null and confirmation_overlay.visible) and not (warehouse_detail_popup != null and warehouse_detail_popup.is_open()) and not (font_diag_overlay != null and font_diag_overlay.visible)
+
+
+func _make_hero_angle_overlay() -> void:
+    if is_instance_valid(angle_overlay):
+        return
+    angle_overlay = Control.new()
+    angle_overlay.name = "FacilityAngleEditor"
+    angle_overlay.mouse_filter = Control.MOUSE_FILTER_STOP
+    modal.add_child(angle_overlay)
+    angle_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    var panel := PanelContainer.new()
+    panel.theme = LaboSkin.common_theme()
+    panel.add_theme_stylebox_override("panel", LaboSkin.panel_style())
+    angle_overlay.add_child(panel)
+    panel.anchor_left = 0.025
+    panel.anchor_right = 0.975
+    panel.anchor_top = 0.39
+    panel.anchor_bottom = 0.975
+    var margin := MarginContainer.new()
+    for side in ["left", "right", "top", "bottom"]:
+        margin.add_theme_constant_override("margin_" + side, 14)
+    panel.add_child(margin)
+    var column := VBoxContainer.new()
+    column.add_theme_constant_override("separation", 10)
+    margin.add_child(column)
+    angle_status = Label.new()
+    angle_status.add_theme_font_override("font", LaboSkin.ui_font())
+    angle_status.add_theme_font_size_override("font_size", 19)
+    angle_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    column.add_child(angle_status)
+    var help := Label.new()
+    help.text = "上の3D画面をドラッグ：旋回・俯角\n下のボタン：距離・注視点・画角"
+    help.add_theme_font_override("font", LaboSkin.ui_font())
+    help.add_theme_font_size_override("font_size", 18)
+    help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+    column.add_child(help)
+    var rows := [["near", "近づく ＋", "far", "離れる －"],
+        ["left", "注視 ◀", "right", "注視 ▶"],
+        ["up", "注視 ▲", "down", "注視 ▼"],
+        ["fov_minus", "画角 －", "fov_plus", "画角 ＋"],
+        ["exit", "編集終了", "copy", "アングルコピー"]]
+    for pair in rows:
+        var row := HBoxContainer.new()
+        row.add_theme_constant_override("separation", 8)
+        column.add_child(row)
+        for i in [0, 2]:
+            var button := Button.new()
+            button.text = str(pair[i + 1])
+            button.name = "Angle_" + str(pair[i])
+            button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+            button.custom_minimum_size.y = 58.0
+            button.add_theme_font_override("font", LaboSkin.ui_font())
+            button.add_theme_font_size_override("font_size", 20)
+            _style_terminal_segment(button)
+            row.add_child(button)
+            angle_buttons[str(pair[i])] = button
+            button.pressed.connect(_hero_angle_action.bind(str(pair[i])))
+    angle_overlay.hide()
+
+
+func _open_hero_angle() -> void:
+    if angle_active or not _hero_angle_available():
+        return
+    var camera: Camera3D = hero_stage.get("hero_camera") as Camera3D
+    if camera == null:
+        angle_entry.text = "ANGLE NOT READY"
+        return
+    _make_hero_angle_overlay()
+    angle_look = hero_stage.get("camera_look")
+    var offset: Vector3 = camera.position - angle_look
+    angle_distance = maxf(0.5, offset.length())
+    angle_yaw = atan2(offset.x, offset.z)
+    angle_pitch = asin(clampf(offset.y / angle_distance, -0.999, 0.999))
+    angle_fov = camera.fov
+    angle_pointer = -999
+    angle_active = true
+    _set_labo_scroll_input_enabled(false)
+    modal.move_child(angle_overlay, -1)
+    angle_overlay.show()
+    _refresh_hero_angle()
+
+
+func _close_hero_angle() -> void:
+    if not angle_active:
+        return
+    angle_active = false
+    angle_pointer = -999
+    if is_instance_valid(angle_overlay):
+        angle_overlay.hide()
+    _set_labo_scroll_input_enabled(true)
+
+
+func _refresh_hero_angle() -> void:
+    angle_status.text = "%s / 距離 %.2fm / 注視Y %.2f / 画角 %.1f°" % [hero_stage.call("camera_section_id"), angle_distance, angle_look.y, angle_fov]
+
+
+func _apply_hero_angle() -> void:
+    var planar: float = cos(angle_pitch)
+    var eye: Vector3 = angle_look + Vector3(sin(angle_yaw) * planar, sin(angle_pitch), cos(angle_yaw) * planar) * angle_distance
+    hero_stage.call("apply_camera_preview", eye, angle_look, angle_fov)
+    _refresh_hero_angle()
+
+
+func _hero_angle_action(id: String) -> void:
+    if not angle_active:
+        return
+    match id:
+        "exit":
+            _close_hero_angle()
+            return
+        "copy":
+            var camera: Camera3D = hero_stage.get("hero_camera") as Camera3D
+            var eye: Vector3 = camera.position
+            var viewport_size: Vector2i = hero_viewport.size
+            var payload := "LABO_CAMERA_CANONICAL_PLACEMENT\nscene=res://scenes/labo_hero_stage.tscn\nmodel_id=%s\nspace=stage_local\nstatus=preview_not_committed\n" % hero_stage.call("camera_section_id")
+            payload += "eye=(%.4f, %.4f, %.4f)\nlook=(%.4f, %.4f, %.4f)\n" % [eye.x, eye.y, eye.z, angle_look.x, angle_look.y, angle_look.z]
+            payload += "vertical_fov_deg=%.3f\nviewport=(%d, %d)\n" % [camera.fov, viewport_size.x, viewport_size.y]
+            DisplayServer.clipboard_set(payload)
+            angle_status.text = "コピー完了 / ChatGPTに貼り付けて正式配置を確定"
+            return
+        "near":
+            angle_distance = maxf(0.5, angle_distance - 0.25)
+        "far":
+            angle_distance = minf(30.0, angle_distance + 0.25)
+        "up":
+            angle_look.y = minf(12.0, angle_look.y + 0.12)
+        "down":
+            angle_look.y = maxf(-2.0, angle_look.y - 0.12)
+        "left", "right":
+            var side: float = -1.0 if id == "left" else 1.0
+            angle_look += Vector3(cos(angle_yaw), 0.0, -sin(angle_yaw)) * (0.15 * side)
+        "fov_minus":
+            angle_fov = maxf(25.0, angle_fov - 2.0)
+        "fov_plus":
+            angle_fov = minf(100.0, angle_fov + 2.0)
+    _apply_hero_angle()
+
+
+func _hero_angle_press(point: Vector2, pointer: int) -> void:
+    if angle_pointer != -999:
+        return
+    for id in angle_buttons:
+        var button: Button = angle_buttons[id]
+        if button.is_visible_in_tree() and button.get_global_rect().has_point(point):
+            _hero_angle_action(str(id))
+            return
+    if hero_host.get_global_rect().has_point(point):
+        angle_pointer = pointer
+        angle_last = point
+
+
+func _hero_angle_drag(point: Vector2) -> void:
+    var motion: Vector2 = point - angle_last
+    angle_last = point
+    angle_yaw = wrapf(angle_yaw - motion.x * 0.0045, -PI, PI)
+    angle_pitch = clampf(angle_pitch + motion.y * 0.0045, deg_to_rad(-75.0), deg_to_rad(79.0))
+    _apply_hero_angle()
+
+
+func _route_hero_angle_input(event: InputEvent) -> bool:
+    if not angle_active:
+        # Native Button.pressed is retained for keyboard/accessibility. The
+        # raw coordinate route also supports Android without mouse emulation.
+        if not _hero_angle_available() or not is_instance_valid(angle_entry) or not angle_entry.is_visible_in_tree():
+            return false
+        if (event is InputEventScreenTouch and event.pressed) or (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT):
+            if angle_entry.get_global_rect().has_point(event.position):
+                _open_hero_angle()
+                return angle_active
+        return false
+    if event.is_action_pressed("ui_cancel") or (event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_BACK, KEY_ESCAPE]):
+        _close_hero_angle()
+    elif event is InputEventScreenTouch:
+        if event.pressed:
+            _hero_angle_press(event.position, event.index)
+        elif event.index == angle_pointer:
+            angle_pointer = -999
+    elif event is InputEventScreenDrag and event.index == angle_pointer:
+        _hero_angle_drag(event.position)
+    elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+        if event.pressed:
+            _hero_angle_press(event.position, -100)
+        elif angle_pointer == -100:
+            angle_pointer = -999
+    elif event is InputEventMouseMotion and angle_pointer == -100:
+        _hero_angle_drag(event.position)
+    # The editor owns input exclusively while active.
+    return true
 
 
 func _diag_begin(section: String, expected: int) -> void:
@@ -2746,6 +2970,9 @@ func _show_detail(detail: String) -> void:
 func navigate_back() -> void:
     if not is_menu_open():
         return
+    if angle_active:
+        _close_hero_angle()
+        return
     if confirmation_overlay != null and confirmation_overlay.visible:
         _dismiss_confirmation()
         return
@@ -2781,6 +3008,9 @@ func close_menu() -> void:
 
 func _input(event: InputEvent) -> void:
     if not is_menu_open():
+        return
+    if _route_hero_angle_input(event):
+        get_viewport().set_input_as_handled()
         return
     if (font_diag_overlay != null and font_diag_overlay.visible and (
             event.is_action_pressed("ui_cancel") or (
