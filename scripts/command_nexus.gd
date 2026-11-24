@@ -417,9 +417,30 @@ func _ready() -> void:
     id_outline.set_outline_profile(2)
     add_child(id_outline)
     _create_customization_glow()
+    # EXIT and PLACE/ANGLE launchers are constructed inside the large _hud()
+    # routine. If its later menu setup aborts, _ready() never reaches code
+    # below it. Create BOTH editor nodes first so the working launchers can
+    # initialize them independently on tap in that partially built scene.
+    _prepare_canonical_placement_specs()
+    _ensure_placement_editor_nodes()
     _hud()
-    # The editable equipment includes the two front consoles, the archive
-    # monitor module, and ONLY the auxiliary DEPLOYMENT kiosk.
+    # Configuration is intentionally optional for the scene startup path.
+    # Each launcher can retry without depending on other menus or editors.
+    call_deferred("_initialize_canonical_placement_editor")
+    call_deferred("_initialize_camera_angle_editor")
+    # The rejected 2D bounding-box contour is not created in NEXUS.
+    # The new depth hull shares the real 3D scene and its current camera.
+    SeraSave.mark_location("NEXUS")
+    var route: String = SeraSave.requested_nexus_target
+    SeraSave.requested_nexus_target = ""
+    if focus_views.has(route):
+        call_deferred("_select_target", route)
+
+
+func _prepare_canonical_placement_specs() -> void:
+    if not canonical_placement_specs.is_empty():
+        return
+    # Editable only: front consoles, archive monitor and auxiliary gate kiosk.
     var gate_yaw: float = _gate_facing_yaw()
     var gate_console_at: Vector3 = GATE_ORIGIN + Basis(
         Vector3.UP, gate_yaw) * Vector3(2.82, 0.0, 5.30)
@@ -433,40 +454,55 @@ func _ready() -> void:
         "DEPLOYMENT": {"module": "DeploymentConsolePlacementAnchor",
             "position": gate_console_at, "yaw": gate_yaw}
     }
-    # Independent top-layer editor HUD. The former placement-only _draw()
-    # child of NexusOverlay was not reliably rendered in portrait builds.
-    # Real controls now sit above both the RGB-ID outline and focus menus.
-    placement_ui_layer = CanvasLayer.new()
-    placement_ui_layer.name = "NexusPlacementOverlay"
-    placement_ui_layer.layer = 8
-    add_child(placement_ui_layer)
-    # A camera-angle configuration error must not skip creation of the
-    # canonical placement editor (the former PLACE / NOT READY cause).
-    # Its expensive MultiMesh bindings initialize independently on idle.
-    placement_editor = NexusCanonicalPlacement.new()
-    placement_ui_layer.add_child(placement_editor)
-    call_deferred("_initialize_canonical_placement_editor")
-    camera_angle_editor = NexusCameraAnglePlacement.new()
-    placement_ui_layer.add_child(camera_angle_editor)
-    camera_angle_editor.configure(self)
-    # The rejected 2D bounding-box contour is not created in NEXUS.
-    # The new depth hull shares the real 3D scene and its current camera.
-    SeraSave.mark_location("NEXUS")
-    var route: String = SeraSave.requested_nexus_target
-    SeraSave.requested_nexus_target = ""
-    if focus_views.has(route):
-        call_deferred("_select_target", route)
+
+
+func _ensure_placement_editor_nodes() -> void:
+    if not is_instance_valid(placement_ui_layer):
+        placement_ui_layer = get_node_or_null(
+            "NexusPlacementOverlay") as CanvasLayer
+    if not is_instance_valid(placement_ui_layer):
+        placement_ui_layer = CanvasLayer.new()
+        placement_ui_layer.name = "NexusPlacementOverlay"
+        placement_ui_layer.layer = 8
+        add_child(placement_ui_layer)
+    if not is_instance_valid(placement_editor):
+        placement_editor = placement_ui_layer.get_node_or_null(
+            "NexusCanonicalPlacement")
+    if not is_instance_valid(placement_editor):
+        placement_editor = NexusCanonicalPlacement.new()
+        placement_editor.name = "NexusCanonicalPlacement"
+        placement_editor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        placement_ui_layer.add_child(placement_editor)
+    if not is_instance_valid(camera_angle_editor):
+        camera_angle_editor = placement_ui_layer.get_node_or_null(
+            "NexusCameraAnglePlacement")
+    if not is_instance_valid(camera_angle_editor):
+        camera_angle_editor = NexusCameraAnglePlacement.new()
+        camera_angle_editor.name = "NexusCameraAnglePlacement"
+        camera_angle_editor.mouse_filter = Control.MOUSE_FILTER_IGNORE
+        placement_ui_layer.add_child(camera_angle_editor)
+
+
+func _initialize_camera_angle_editor() -> bool:
+    _ensure_placement_editor_nodes()
+    if not is_instance_valid(camera_angle_editor):
+        return false
+    if not camera_angle_editor.is_inside_tree():
+        return false
+    if not bool(camera_angle_editor.get("initialized")):
+        camera_angle_editor.configure(self)
+    return bool(camera_angle_editor.get("initialized"))
+
 
 func _initialize_canonical_placement_editor() -> bool:
+    _ensure_placement_editor_nodes()
     if not is_instance_valid(placement_editor):
-        if not is_instance_valid(placement_ui_layer):
-            return false
-        placement_editor = NexusCanonicalPlacement.new()
-        placement_ui_layer.add_child(placement_editor)
+        return false
     if not placement_editor.is_inside_tree():
         return false
     if bool(placement_editor.get("initialized")):
         return true
+    _prepare_canonical_placement_specs()
     if canonical_placement_specs.is_empty():
         return false
     placement_editor.configure(self, canonical_placement_specs,
@@ -505,10 +541,14 @@ func _open_canonical_placement() -> void:
 
 
 func _open_camera_angle_placement() -> void:
-    if camera_angle_editor == null or not camera_angle_editor.is_inside_tree():
-        _placement_launch_failure(angle_entry_button, "ANGLE / NOT READY")
+    if not _initialize_camera_angle_editor():
+        _placement_launch_failure(angle_entry_button, "ANGLE / INIT ERROR")
         return
     if camera_angle_editor.open_mode():
+        var caption: Label = angle_entry_button.get_node_or_null(
+            "Caption") as Label
+        if caption != null:
+            caption.text = "アングル正規配置 / ANGLE"
         _sync_placement_launchers()
         get_viewport().set_input_as_handled()
     else:

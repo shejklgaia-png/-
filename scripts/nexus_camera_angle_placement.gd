@@ -12,6 +12,8 @@ const TARGETS := ["SYSTEM", "TRAINING", "DATA ARCHIVE", "DEPLOYMENT"]
 const ORBIT_RATE := 0.0045
 
 var host
+# True only after the camera editor controls have been constructed.
+var initialized := false
 var active := false
 var target_id := ""
 var look_at_point := Vector3.ZERO
@@ -29,6 +31,8 @@ var _visible_signature := ""
 
 
 func configure(scene: Node3D) -> void:
+    if initialized:
+        return
     host = scene
     name = "NexusCameraAnglePlacement"
     mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -38,15 +42,20 @@ func configure(scene: Node3D) -> void:
     if target_hud != null:
         theme = target_hud.theme
     _make_ui()
-    resized.connect(_sync_ui)
+    if not resized.is_connected(_sync_ui):
+        resized.connect(_sync_ui)
     set_process(true)
     _sync_ui()
+    initialized = (_buttons.size() == 11
+        and is_instance_valid(_status) and is_instance_valid(_help))
 
 
 func _make_ui() -> void:
     for id in ["open", "exit", "copy", "zoom_in", "zoom_out",
             "look_left", "look_right", "look_up", "look_down",
             "fov_minus", "fov_plus"]:
+        if _buttons.has(id):
+            continue
         var panel := Panel.new()
         panel.name = "Angle_" + id
         panel.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -71,18 +80,22 @@ func _make_ui() -> void:
         _buttons[id] = panel
         panel.visible = false
 
-    _status = Label.new()
+    if not is_instance_valid(_status):
+        _status = Label.new()
     _status.name = "CameraPlacementStatus"
     _status.mouse_filter = Control.MOUSE_FILTER_IGNORE
     _status.add_theme_font_size_override("font_size", 15)
     _status.add_theme_color_override("font_color", Color("#b9eafd"))
-    add_child(_status)
-    _help = Label.new()
+    if _status.get_parent() == null:
+        add_child(_status)
+    if not is_instance_valid(_help):
+        _help = Label.new()
     _help.name = "CameraPlacementHelp"
     _help.mouse_filter = Control.MOUSE_FILTER_IGNORE
     _help.add_theme_font_size_override("font_size", 14)
     _help.add_theme_color_override("font_color", Color("#a9cedd"))
-    add_child(_help)
+    if _help.get_parent() == null:
+        add_child(_help)
 
 
 func _on_editor_panel_input(event: InputEvent, id: String) -> void:
@@ -239,7 +252,7 @@ func _press_point(event: InputEvent) -> Variant:
 func open_mode() -> bool:
     if active:
         return true
-    if not _can_open():
+    if not initialized or not _can_open():
         return false
     _open_mode()
     return active
