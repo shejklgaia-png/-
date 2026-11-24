@@ -16,6 +16,7 @@ const BaseFrameBudget = preload("res://scripts/sera_base_frame_budget.gd")
 const DisplayProfile = preload("res://scripts/sera_display_profile.gd")
 const BaseArchitecture = preload("res://scripts/sera_base_architecture.gd")
 const BaseFacilityInk = preload("res://scripts/sera_base_facility_outlines.gd")
+const FacilitySelectionOutline = preload("res://scripts/nexus_selection_outline.gd")
 const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
 const BaseClutter = preload("res://scripts/sera_base_clutter.gd")
 const BaseLayoutPreview = preload("res://scripts/sera_base_layout_preview.gd")
@@ -81,6 +82,7 @@ var stick_outer: Panel
 var stick_knob: Panel
 var nexus_building: Node3D
 var nexus_tag: Label
+var facility_selection_outline: Control
 var facility_name_button: Button
 var facility_names_enabled: bool = true
 const FACILITY_NAME_CONFIG: String = "user://base_facility_names.cfg"
@@ -714,6 +716,11 @@ func _create_hud() -> void:
     layer.add_child(hud)
     hud.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     # PRESET_FULL_RECT follows viewport size; manual size conflicts with anchors.
+    facility_selection_outline = FacilitySelectionOutline.new()
+    facility_selection_outline.name = "FacilitySelectionSilhouettes"
+    facility_selection_outline.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    hud.add_child(facility_selection_outline)
+    facility_selection_outline.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     hud_title = _label(hud, "BASE / 拠点", 25)
     hint = _label(hud, "建物をタップして施設を開く", 19)
     nexus_tag = _label(hud, "NEXUS", 20)
@@ -753,6 +760,7 @@ func _layout_hud() -> void:
     stick_outer.size = Vector2(164, 164)
     stick_knob.size = Vector2(72, 72)
     _update_stick_visual()
+    _refresh_facility_selection_outline()
     _refresh_facility_names()
 
 # Project actual solid model geometry rather than the smaller tap-picking volume.
@@ -763,7 +771,8 @@ func _name_project_box(bounds: AABB, pose: Transform3D, points: Array[Vector2]) 
         if not cam.is_position_behind(vertex):
             points.append(cam.unproject_position(vertex))
 
-func _name_model_bounds(root_node: Node3D, key: String) -> Rect2:
+func _facility_projected_points(root_node: Node3D, key: String,
+        include_motion_envelope: bool) -> Array[Vector2]:
     var points: Array[Vector2] = []
     # The architecture batches contain both structural geometry and peripheral
     # decorative props; retain the building and its emissive solid details.
@@ -785,7 +794,7 @@ func _name_model_bounds(root_node: Node3D, key: String) -> Rect2:
                         draw.global_transform * multi.get_instance_transform(i), points)
                 # LABO's authored culling envelope contains the moving SCARA arm
                 # and transferred payload even at their extreme positions.
-                if key == "LABO" and multi.custom_aabb.size.length_squared() > 0.0:
+                if include_motion_envelope and key == "LABO" and multi.custom_aabb.size.length_squared() > 0.0:
                     _name_project_box(multi.custom_aabb, draw.global_transform, points)
             elif child is MeshInstance3D:
                 var solid := child as MeshInstance3D
@@ -794,6 +803,10 @@ func _name_model_bounds(root_node: Node3D, key: String) -> Rect2:
     var foundation := root_node.get_node_or_null("Foundation") as MeshInstance3D
     if foundation != null and foundation.mesh != null:
         _name_project_box(foundation.mesh.get_aabb(), foundation.global_transform, points)
+    return points
+
+func _name_model_bounds(root_node: Node3D, key: String) -> Rect2:
+    var points: Array[Vector2] = _facility_projected_points(root_node, key, true)
     if points.is_empty():
         return Rect2()
     var result := Rect2(points[0], Vector2.ZERO)
@@ -801,6 +814,39 @@ func _name_model_bounds(root_node: Node3D, key: String) -> Rect2:
         result = result.expand(point)
     # Leave room for contours and the collector's sweeping articulated crane.
     return result.grow(28.0 if key == "SCRAP_COLLECTOR" else 8.0)
+
+# Cached, camera-projected icon contours. No extra 3D pass or per-frame mesh scan.
+func _refresh_facility_selection_outline() -> void:
+    if not is_instance_valid(facility_selection_outline) or cam == null or facility_system == null:
+        return
+    var roots: Dictionary = (facility_system.get("facility_nodes") as Dictionary).duplicate()
+    roots["NEXUS"] = nexus_building
+    var contours: Dictionary = {}
+    for key in roots:
+        var root_node: Node3D = roots[key] as Node3D
+        if not is_instance_valid(root_node):
+            continue
+        var points: Array[Vector2] = _facility_projected_points(root_node, str(key), false)
+        if points.size() < 3:
+            continue
+        var contour: PackedVector2Array = Geometry2D.convex_hull(PackedVector2Array(points))
+        if contour.size() > 1 and contour[0].is_equal_approx(contour[contour.size() - 1]):
+            contour.remove_at(contour.size() - 1)
+        if contour.size() >= 3:
+            contours[key] = [contour]
+    facility_selection_outline.set("polygons", contours)
+    facility_selection_outline.queue_redraw()
+
+func _update_facility_selection_visibility() -> void:
+    if not is_instance_valid(facility_selection_outline) or facility_system == null:
+        return
+    var show_outline: bool = not scene_changing and not power_view_active and (
+        not power_transition_busy) and not bool(facility_system.call("is_menu_open"))
+    if facility_selection_outline.visible == show_outline:
+        return
+    if show_outline:
+        _refresh_facility_selection_outline()
+    facility_selection_outline.visible = show_outline
 
 func _name_rect_free(candidate: Rect2, safe: Rect2, occupied: Array[Rect2]) -> bool:
     if not safe.encloses(candidate):
@@ -1124,6 +1170,7 @@ func _apply_layout_preview(selected: Dictionary) -> void:
     SharedMaterialShading.apply_to_subtree(self)
     layout_seed = int(selected["seed"])
     layout_rerolls += 1
+    _refresh_facility_selection_outline()
     _refresh_facility_names()
 
 
@@ -1547,6 +1594,7 @@ func _move_player(direction: Vector2, delta: float) -> void:
             player.position = slide_z
 
 func _process(delta: float) -> void:
+    _update_facility_selection_visibility()
     if scene_changing or player == null:
         return
     elapsed += delta
@@ -1575,6 +1623,7 @@ func _process(delta: float) -> void:
             minf(1.0, delta * 2.5))
         cam.look_at(BASE_CAMERA_TARGET + follow_shift, Vector3.UP)
     if not power_view_active and HUB_SERA_CONTROLS_ENABLED:
+        _refresh_facility_selection_outline()
         _refresh_facility_names()
     if layout_tools != null:
         layout_tools.visible = not power_view_active and not bool(
