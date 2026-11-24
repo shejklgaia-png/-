@@ -189,6 +189,7 @@ func _build_ui() -> void:
     row.add_child(symmetric)
     _button(row,"Undo",_undo)
     _button(row,"Redo",_redo)
+    row = _row(box)
     _button(row,"UV表示",_toggle_atlas)
     _button(row,"保存",_save)
     atlas_preview = TextureRect.new()
@@ -219,6 +220,7 @@ func _select_model(index: int) -> void:
 
 func _rebuild() -> void:
     if not is_instance_valid(source):
+        _show_status("復元プロジェクトのUVは固定です。元モデルを選択してください")
         return
     var result: Dictionary = UV.build(source,density_picker.get_selected_id())
     if result.has("error"):
@@ -370,16 +372,16 @@ func _end_stroke() -> void:
     last_chart = -1
     shape_base = null
 
-func _paint_path(from: Vector2, to: Vector2) -> void:
+func _paint_path(start: Vector2, finish: Vector2) -> void:
     if not stroke or img == null or tex == null:
         return
     if tool_picker.selected in [2,3,7,8,11,12]:
-        _paint(to)
+        _paint(finish)
         return
     # Recast along the screen drag, including UV seams, with bounded work.
-    var steps := clampi(ceili(from.distance_to(to)/10.0),1,8)
+    var steps := clampi(ceili(start.distance_to(finish)/10.0),1,8)
     for i in range(1,steps+1):
-        _paint(from.lerp(to,float(i)/steps),false)
+        _paint(start.lerp(finish,float(i)/steps),false)
     _composite()
     tex.update(img)
 
