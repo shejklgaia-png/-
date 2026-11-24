@@ -265,10 +265,10 @@ func _build_navigation() -> void:
     _collect_obstacles(nav_room)
     # The storage transfer lane remains reserved even when cargo is elevated.
     if current_section == "STORAGE":
-        var mast := nav_room.get_node_or_null("LeftLoadingLiftMast") as Node3D
+        var mast := nav_room.get_node_or_null("LeftLoadingLiftMastV2") as Node3D
         if mast != null:
             var relative: Transform3D = nav_room.global_transform.affine_inverse()*mast.global_transform
-            _add_obstacle(relative*AABB(Vector3(-1.65,0,0),Vector3(5.1,2.4,4.1)),false)
+            _add_obstacle(relative*AABB(Vector3(-1.65,0,-2.0),Vector3(3.3,2.4,4.7)),false)
     nav_dirty = false
 
 func _nearest_free(p: Vector2, limit: float = 8.0) -> Vector2i:
