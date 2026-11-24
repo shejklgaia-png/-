@@ -2477,6 +2477,22 @@ func _nexus_tone_background_node(node: Node, is_deck: bool) -> void:
             if not is_deck and (label == "RearGirderLeftHaunch" or label.begins_with("Ceiling")):
                 darkness = 0.94
                 dark_tint = Color("#040910")
+            # Keep the original ceiling/wall value hierarchy, but let the
+            # new structural ribs and spine read as distinct metal surfaces.
+            if label == "CeilingVaultRibs":
+                darkness = 0.68
+                dark_tint = Color("#101924")
+            elif label == "CeilingDuctMesh":
+                darkness = 0.80
+                dark_tint = Color("#0a131c")
+            elif label == "CeilingPipeMesh":
+                darkness = 0.72
+                dark_tint = Color("#101924")
+            elif label.begins_with("WallCommandSpine"):
+                darkness = 0.48 if label.ends_with("Armor") else 0.58
+                dark_tint = Color("#15232d")
+            elif label in ["WallDuctMesh", "WallPipeMesh", "RearHeatExchangerMesh"]:
+                darkness = 0.59
             toned.albedo_color = source.albedo_color.lerp(dark_tint, darkness)
             toned.roughness = maxf(source.roughness, 0.78)
             toned.metallic = minf(source.metallic, 0.15)
@@ -2512,6 +2528,7 @@ func _nexus_apply_wear_after_entry() -> void:
     _nexus_pixel_steel.append(_nexus_make_long_panel_seam())
     _nexus_pixel_steel.append(_nexus_make_archive_cartridge_finish())
     var service_tread: Texture2D = NexusFloorPanels.make_service_tread_texture()
+    var command_walkway: Texture2D = NexusFloorPanels.make_command_walkway_texture()
     var batch_index: int = 0
     var clean_variants: Dictionary = {}
     for child in deck.get_children():
@@ -2536,7 +2553,8 @@ func _nexus_apply_wear_after_entry() -> void:
         # A tread finish is reserved for the outboard service steel. Keep
         # rust/oil variants, center walkway and markings on existing finishes.
         var tread_plate: bool = surface_name == "Deck_armor_deck_side"
-        worn.albedo_texture = service_tread if tread_plate else _nexus_pixel_steel[texture_index]
+        var command_plate: bool = surface_name.begins_with("Deck_armor_deck_command")
+        worn.albedo_texture = command_walkway if command_plate else (service_tread if tread_plate else _nexus_pixel_steel[texture_index])
         # Explicit plate-local UVs: one lookup, no blended world triplanar.
         worn.uv1_triplanar = false
         worn.uv1_world_triplanar = false
