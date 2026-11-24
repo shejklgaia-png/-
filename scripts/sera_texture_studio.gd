@@ -35,7 +35,10 @@ var radius := 1.0
 var center := Vector3.ZERO
 var source: MeshInstance3D
 var file_dialog: FileDialog
-var tools: Array[String] = ["ペン","消しゴム","スポイト","面塗り","明るく","暗く","ノイズ"]
+var paint_tools: Array[String] = ["ペン","消しゴム","スポイト","面塗り","明るく","暗く","ノイズ","直線","矩形"]
+var shape_start := Vector2i(-1,-1)
+var shape_chart := -1
+var shape_base: Image
 
 func configure(roots: Array) -> void:
     for root in roots:
@@ -97,7 +100,7 @@ func _build_ui() -> void:
     picker.clip_text = true
     picker.item_selected.connect(_select_model)
     row.add_child(picker)
-    _button(row,"GLB読込",_open_file)
+    _button(row,"モデル読込",_open_file)
     row = _row(box)
     density_picker = OptionButton.new()
     for d in [8,16,32,64]:
@@ -129,6 +132,11 @@ func _build_ui() -> void:
     env.ambient_light_energy = 1.0
     world.environment = env
     view.add_child(world)
+    env.ambient_light_energy = 0.6
+    var light := DirectionalLight3D.new()
+    light.rotation_degrees = Vector3(-42,-35,0)
+    light.light_energy = 0.9
+    view.add_child(light)
     pivot = Node3D.new()
     view.add_child(pivot)
     preview = MeshInstance3D.new()
@@ -140,7 +148,7 @@ func _build_ui() -> void:
     row = _row(box)
     tool_picker = OptionButton.new()
     tool_picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-    for name_text in tools:
+    for name_text in paint_tools:
         tool_picker.add_item(name_text)
     row.add_child(tool_picker)
     color_picker = ColorPickerButton.new()
@@ -202,7 +210,7 @@ func _rebuild() -> void:
     var material := StandardMaterial3D.new()
     material.albedo_texture = tex
     material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
-    material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    material.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
     material.cull_mode = BaseMaterial3D.CULL_DISABLED
     preview.material_override = material
     atlas_preview.texture = tex
@@ -301,6 +309,11 @@ func _begin_stroke() -> void:
     stroke = true
     last_hit = Vector2i(-1,-1)
     last_chart = -1
+    shape_start = Vector2i(-1,-1)
+    shape_chart = -1
+    shape_base = null
+    if tool_picker.selected >= 7:
+        shape_base = img.duplicate() as Image
     if tool_picker.selected != 2:
         undo_stack.append(img.duplicate() as Image)
         if undo_stack.size() > 12:
@@ -311,6 +324,7 @@ func _end_stroke() -> void:
     stroke = false
     last_hit = Vector2i(-1,-1)
     last_chart = -1
+    shape_base = null
 
 func _paint(at: Vector2) -> void:
     if img == null or not stroke or host.size.x <= 0 or host.size.y <= 0:
@@ -326,7 +340,23 @@ func _paint(at: Vector2) -> void:
     if tool_picker.selected == 2:
         color_picker.color = img.get_pixelv(p)
     elif tool_picker.selected == 3:
-        _fill_chart(chart)
+        if last_chart != chart:
+            _fill_chart(chart)
+    elif tool_picker.selected >= 7:
+        if shape_start.x < 0:
+            shape_start = p
+            shape_chart = chart
+        if shape_chart == chart and shape_base != null:
+            img = shape_base.duplicate() as Image
+            if tool_picker.selected == 7:
+                _line_pixels(shape_start,p)
+            else:
+                var corner_a := Vector2i(shape_start.x,p.y)
+                var corner_b := Vector2i(p.x,shape_start.y)
+                _line_pixels(shape_start,corner_a)
+                _line_pixels(corner_a,p)
+                _line_pixels(p,corner_b)
+                _line_pixels(corner_b,shape_start)
     else:
         if last_chart == chart and last_hit.x >= 0:
             var steps := maxi(absi(p.x-last_hit.x),absi(p.y-last_hit.y))
@@ -338,6 +368,11 @@ func _paint(at: Vector2) -> void:
     last_hit = p
     last_chart = chart
     tex.update(img)
+
+func _line_pixels(a: Vector2i,b: Vector2i) -> void:
+    var steps := maxi(absi(b.x-a.x),absi(b.y-a.y))
+    for i in range(steps+1):
+        _dab(Vector2i(Vector2(a).lerp(Vector2(b),float(i)/maxf(1.0,steps)).round()))
 
 func _dab(p: Vector2i) -> void:
     if not Rect2i(Vector2i.ZERO,img.get_size()).has_point(p):
@@ -388,17 +423,33 @@ func _open_file() -> void:
         file_dialog.access = FileDialog.ACCESS_FILESYSTEM
         file_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
         file_dialog.add_filter("*.glb","GLBモデル")
+        file_dialog.add_filter("*.res","テクスタ保存メッシュ")
         file_dialog.file_selected.connect(_load_glb)
         add_child(file_dialog)
     file_dialog.popup_centered_ratio(0.9)
 
 func _load_glb(path: String) -> void:
-    var doc := GLTFDocument.new()
-    var state := GLTFState.new()
-    if doc.append_from_file(path,state) != OK:
-        _show_status("GLBを読み込めません")
-        return
-    var root := doc.generate_scene(state) as Node3D
+    var root: Node3D
+    if path.get_extension().to_lower() == "res":
+        # Only restore resources exported by this tool, not arbitrary scripts.
+        if not path.begins_with(ProjectSettings.globalize_path(SAVE_DIR)+"/") and not path.begins_with(SAVE_DIR+"/"):
+            _show_status("テクスタ保存フォルダのメッシュのみ復元できます")
+            return
+        var saved := ResourceLoader.load(path,"ArrayMesh") as ArrayMesh
+        if saved == null:
+            _show_status("保存メッシュを読み込めません")
+            return
+        var instance := MeshInstance3D.new()
+        instance.mesh = saved
+        instance.name = path.get_file().get_basename()
+        root = instance
+    else:
+        var doc := GLTFDocument.new()
+        var state := GLTFState.new()
+        if doc.append_from_file(path,state) != OK:
+            _show_status("GLBを読み込めません")
+            return
+        root = doc.generate_scene(state) as Node3D
     if root == null:
         _show_status("モデルがありません")
         return
@@ -424,6 +475,8 @@ func _save() -> void:
         return
     if DirAccess.make_dir_recursive_absolute(SAVE_DIR) != OK and not DirAccess.dir_exists_absolute(SAVE_DIR):
         _show_status("保存フォルダを作成できません")
+        return
+    if not is_instance_valid(source):
         return
     var stem := str(source.name).validate_filename()+"_"+str(Time.get_unix_time_from_system()).replace(".","_")
     var png := SAVE_DIR+"/"+stem+".png"
