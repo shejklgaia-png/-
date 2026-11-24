@@ -195,7 +195,8 @@ func _labo(key: String) -> void:
     _pipe(b,Vector3(1.0,5.0,0),Vector3(3.2,5.0,0),0.65,"gold")
     b.flush()
     _conveyor(key,"FinishedPartConveyor",Vector3(6.6,0,1.5),2.6,6.0)
-    var product_root := _model(key,"FabricatedWorkpieces",Vector3(0,1.26,-1.8))
+    var product_root := _child(frame,"FabricatedWorkpieces",Vector3(0,1.26,0))
+    (targets[key] as Array).append(product_root)
     for i in range(4):
         var piece := _child(product_root,"Product"+str(i))
         b = _batch(piece)
@@ -239,6 +240,7 @@ func _smelter(key: String) -> void:
     b.flush()
     inspection[key] = {"root":furnace,"stand":Vector3(2.4,0,5.3),"focus":Vector3(0,3.0,4.1)}
     var hot := _child(furnace,"RecessedFire",Vector3(0,3.0,3.80))
+    (targets[key] as Array).append(hot)
     var flame := MeshInstance3D.new()
     var quad := QuadMesh.new()
     quad.size = Vector2(4.55,3.95)
@@ -351,7 +353,8 @@ func _storage(key: String) -> void:
         b.flush()
         for level in range(4):
             for col in range(2):
-                var cargo := _model(key,"Stock_"+str(side+1)+"_"+str(level)+"_"+str(col),rack.position+Vector3(-1.18+col*2.36,0.60+level*2.25,0.15))
+                var cargo := _child(rack,"Stock_"+str(level)+"_"+str(col),Vector3(-1.18+col*2.36,0.60+level*2.25,0.15))
+                (targets[key] as Array).append(cargo)
                 _cargo(cargo,"Container",Vector3.ZERO,Vector3(2.0,1.45,2.8))
     var rail := _model(key,"HighBayLiftMast",Vector3(0,0,-2.8))
     var b = _batch(rail)
