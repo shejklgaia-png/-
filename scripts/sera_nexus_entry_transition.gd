@@ -55,10 +55,12 @@ func run(base: Node3D, camera: Camera3D, model: Node3D, hud: Control,
     var scale_factor := float(model.get_meta("visual_model_scale", 1.0))
     var turn := Basis(Vector3.UP, yaw)
     var portal := model.to_global(turn * (Vector3(0, 1.65, 2.54) * scale_factor))
-    var eye := portal + turn * Vector3(0, 0.18, 7.0)
-    var end_pose := Transform3D(Basis.IDENTITY, eye).looking_at(portal, Vector3.UP)
+    # Orthographic dolly/pan: retain the overhead camera orientation and
+    # depth. The entrance moves along one straight screen-space line.
+    var view_back := _start_pose.basis.z.normalized()
+    var eye := portal + view_back * (_start_pose.origin - portal).dot(view_back)
     var zoom := create_tween().set_parallel(true)
-    zoom.tween_method(_zoom_camera.bind(end_pose), 0.0, 1.0, ZOOM_SECONDS).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
+    zoom.tween_method(_zoom_camera.bind(eye), 0.0, 1.0, ZOOM_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
     zoom.tween_property(_cover, "modulate:a", 1.0, 0.40).set_delay(ZOOM_SECONDS - 0.40).set_trans(Tween.TRANS_SINE)
     if is_instance_valid(_shutter_sfx):
         zoom.tween_property(_shutter_sfx, "volume_db", -60.0, SHUTTER_SFX_FADE_SECONDS).set_delay(ZOOM_SECONDS - SHUTTER_SFX_FADE_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
@@ -145,22 +147,38 @@ func _set_shutter(progress: float) -> void:
         return
     var records: Dictionary = _model.get_meta("motion_entries", {})
     var scale_factor := float(_model.get_meta("visual_model_scale", 1.0))
-    var header_y := 3.04 * scale_factor
-    var remaining := lerpf(1.0, 0.015, progress)
-    # Roll the slats into the header, rather than pushing them through the roof.
+    var geometry: Dictionary = _model.get_meta("nexus_shutter_geometry", {})
+    if geometry.is_empty():
+        return
+    var yaw := float(_model.get_meta("body_yaw", 0.0))
+    var travel := float(geometry["travel"]) * clampf(progress, 0.0, 1.0)
+    var pitch := float(geometry["pitch"])
+    var first_y := float(geometry["first_y"])
+    var store_y := float(geometry["store_y"])
+    var rear := Basis(Vector3.UP, yaw) * Vector3.FORWARD
     for feature in SHUTTER_FEATURES:
         for record in records.get(feature, []):
             var mesh: MultiMesh = record["mesh"]
             var rest: Transform3D = record["bind"]
             var pose := rest
-            pose.origin.y = header_y + (rest.origin.y - header_y) * remaining
-            pose.basis = rest.basis.scaled_local(Vector3(1.0, remaining, 1.0))
+            var local_y := rest.origin.y / scale_factor
+            var row := roundi((local_y - first_y) / pitch)
+            var rise := maxf(0.0, store_y - local_y)
+            pose.origin.y += minf(travel, rise) * scale_factor
+            # Above the visible opening, slide each section into its own
+            # depth slot. No scaling, rotation, or travel above the cassette.
+            var tucked := smoothstep(0.0, 0.45, maxf(0.0, travel - rise))
+            pose.origin += rear * (float(row) * float(geometry["stack_depth"]) * tucked * scale_factor)
             mesh.set_instance_transform(int(record["index"]), pose)
 
-func _zoom_camera(progress: float, end_pose: Transform3D) -> void:
-    _camera.global_transform = _start_pose.interpolate_with(end_pose, progress)
-    # Exponential zoom feels continuous across the large orthographic range.
-    _camera.size = _start_size * pow(1.9 / _start_size, progress)
+func _zoom_camera(progress: float, end_position: Vector3) -> void:
+    var size := _start_size * pow(1.9 / _start_size, progress)
+    # Compensate for orthographic magnification so the entrance stays on
+    # the straight line from its initial screen position to screen center.
+    var pan := 1.0 - (1.0 - progress) * size / _start_size
+    _camera.global_transform = Transform3D(_start_pose.basis,
+        _start_pose.origin.lerp(end_position, pan))
+    _camera.size = size
 
 func _recover(message: String) -> void:
     _stop_shutter_sfx()
