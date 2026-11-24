@@ -3,6 +3,7 @@ render_mode unshaded, cull_disabled, depth_draw_opaque;
 uniform sampler2D source_texture : source_color, filter_nearest_mipmap, repeat_disable;
 uniform int grid_mode = 0;
 uniform sampler2D diagnostic_selection : filter_nearest, repeat_disable, hint_default_black;
+uniform sampler2D diagnostic_residual : filter_nearest, repeat_disable, hint_default_black;
 uniform vec2 atlas_dimensions = vec2(256.0);
 varying flat vec2 face_diagnostic;
 void vertex() {
@@ -32,12 +33,28 @@ void fragment() {
         vec2 lines = 1.0 - smoothstep(footprint * 0.35, footprint * 0.95, distance_to_line);
         float line = max(lines.x, lines.y) * (1.0 - smoothstep(0.55, 1.3, max(footprint.x, footprint.y)));
         if (grid_mode == 2) {
-            vec3 diagnostic = face_diagnostic.x > 0.75 ? vec3(0.17, 0.65, 0.45) : (face_diagnostic.x > 0.25 ? vec3(0.92, 0.50, 0.15) : vec3(0.4, 0.5, 0.65));
-            base = mix(base, diagnostic, 0.48);
             float face_id = floor(face_diagnostic.y + 0.5) - 1.0;
             vec2 mask_uv = (vec2(mod(face_id, 128.0), floor(face_id / 128.0)) + 0.5) / 128.0;
+            float severity = 0.0;
+            if (face_id >= 0.0 && face_id < 16384.0) {
+                severity = texture(diagnostic_residual, mask_uv).r;
+            }
+            // Unknown faces are gray, not silently classified as passing.
+            vec3 diagnostic = vec3(0.42, 0.47, 0.53);
+            if (severity > 0.875) {
+                diagnostic = vec3(1.0, 0.16, 0.14);
+            } else if (severity > 0.625) {
+                diagnostic = vec3(1.0, 0.49, 0.10);
+            } else if (severity > 0.375) {
+                diagnostic = vec3(0.98, 0.90, 0.12);
+            } else if (severity > 0.125) {
+                diagnostic = vec3(0.15, 0.82, 0.35);
+            }
+            base = mix(base, diagnostic, 0.80);
             if (face_id >= 0.0 && face_id < 16384.0 && texture(diagnostic_selection, mask_uv).r > 0.5) {
-                base = mix(vec3(0.46, 0.78, 1.0), vec3(0.88, 0.97, 1.0), 0.5 + 0.5 * sin(TIME * 3.0));
+                // Preserve the severity color at the trough of the pulse.
+                float pulse = 0.5 + 0.5 * sin(TIME * 3.0);
+                base = mix(base, vec3(0.78, 0.94, 1.0), pulse * 0.95);
             }
         }
         base = mix(base, vec3(0.04, 0.13, 0.18), line * 0.8);
