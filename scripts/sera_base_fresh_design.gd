@@ -702,8 +702,12 @@ static func _storage(g: Variant) -> void:
         Vector3(0.55, 0.36, 0.52), "crate")
     g.box("StorageMovingLock", Vector3(-1.20, 1.22, 1.46),
         Vector3(0.25, 0.09, 0.05), "gold")
-    g.box("StorageTransferFork", Vector3(-1.20, 1.12, 1.18),
+    g.box("StorageTransferFork", Vector3(-1.20, 1.06, 1.18),
         Vector3(0.45, 0.06, 0.54), "edge")
+    g.poly("StorageStoredCase", "cargo_case", Vector3(-0.55, 1.84, -0.38),
+        Vector3(0.55, 0.36, 0.52), "crate")
+    g.box("StorageStoredLock", Vector3(-0.55, 1.79, -0.10),
+        Vector3(0.25, 0.09, 0.05), "gold")
     # Empty pallet lanes in front of the cases indicate the loading route.
     for x in [-0.38, 0.70]:
         g.box("FreshStorageLoadingLane",
@@ -801,13 +805,13 @@ static func _terminal(g: Variant) -> void:
         Vector3(0.74, 1.53, 0.78), Vector3(0.27, 0.26, 0.27),
         "slate", Vector3(0, 0, PI * 0.5))
     g.rod("FreshBuildArmForelink",
-        Vector3(0.74, 1.53, 0.78), Vector3(0.29, 1.31, 0.69), 0.13, "armor_light")
+        Vector3(0.74, 1.53, 0.78), Vector3(0.06, 1.53, 0.57), 0.13, "armor_light")
     g.poly("FreshBuildArmToolChuck", "octagonal_slew",
-        Vector3(0.29, 1.28, 0.69), Vector3(0.24, 0.19, 0.24), "dark")
+        Vector3(0.06, 1.49, 0.57), Vector3(0.24, 0.19, 0.24), "dark")
     for side in [-1.0, 1.0]:
         g.rod("FreshBuildArmClampJaw",
-            Vector3(0.29 + side * 0.09, 1.23, 0.69),
-            Vector3(0.29 + side * 0.13, 1.13, 0.69), 0.045, "gold")
+            Vector3(0.06 + side * 0.09, 1.44, 0.57),
+            Vector3(0.06 + side * 0.13, 1.34, 0.57), 0.045, "gold")
     # Compact operator input pod on the other side, rather than a full
     # counter blocking the manufacturing bed.
     g.poly_tilt("FreshBuildControlPod", "deck",
