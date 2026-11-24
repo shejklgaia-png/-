@@ -27,6 +27,8 @@ const NEXUS_CONCAVE_PX: float = NEXUS_CORNER_PX
 
 # Profile 4: black ink split between interactive hardware and scenery.
 const NEXUS_INTERACT_SEAM_PX: float = 2.0
+const NEXUS_INTERACT_CORNER_PX: float = 1.0
+const NEXUS_INTERACT_CORNER_DEGREES: float = 0.0
 const NEXUS_BACKGROUND_OUTSIDE_PX: float = 2.0
 const NEXUS_BACKGROUND_SEAM_PX: float = 3.0
 const NEXUS_BACKGROUND_CONVEX_PX: float = 0.0

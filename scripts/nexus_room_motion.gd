@@ -304,6 +304,9 @@ func _build_deployment_shutters(at: Vector3, yaw: float,
         leaf.scale.y = 5.68 / 5.45
         leaf.set_meta("sera_preserve_authored_material", true)
         leaf.set_meta("nexus_panel_leaf", true)
+        leaf.set_meta("nexus_corner_only", true)
+        leaf.set_meta("sera_outline_role", "facility")
+        leaf.set_meta("sera_outline_occluder_only", true)
         _gate_leaves.append(leaf)
     # Gate origin, scales and offsets are already world-space metres (the
     # original Blockbench geometry was expanded by scale_factor in _module).

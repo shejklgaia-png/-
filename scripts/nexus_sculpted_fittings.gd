@@ -28,9 +28,9 @@ static func build(room: Node3D, system_at: Vector3,
         _place(batches, "actuator", "pale", gate_at, gate_yaw,
             (Vector3(side * 2.18, 2.58, 0.93) * gate_scale),
             (Vector3(0.46, 3.71, 0.46) * gate_scale), side < 0.0)
-        _place(batches, "fairing", "steel", gate_at, gate_yaw,
-            (Vector3(side * 2.25, 4.78, 0.89) * gate_scale),
-            (Vector3(0.56, 0.66, 0.40) * gate_scale), side < 0.0)
+        # Remove the open-backed external fairing. It projected beyond
+        # the portal shoulders and read as a black hole in the room wall.
+        # The existing reinforced upper cheek remains the closed housing.
 
     # Archive tower's side-mounted thermal spines are swept, hollow
     # castings; they do not cover the data displays or SERA wordmark.
