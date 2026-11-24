@@ -2282,8 +2282,8 @@ func _nexus_panel_quad(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3,
         d: Vector3, outward: Vector3, decorated: bool) -> void:
     var ua := Vector2(0.0, 1.0) if decorated else NEXUS_PLAIN_PANEL_UV
     var ub := Vector2(1.0, 1.0) if decorated else NEXUS_PLAIN_PANEL_UV
-    var uc := Vector2(1.0, 0.0) if decorated else NEXUS_PLAIN_PANEL_UV
-    var ud := Vector2(0.0, 0.0) if decorated else NEXUS_PLAIN_PANEL_UV
+    var uc := Vector2(1.0, 12.0/64.0) if decorated else NEXUS_PLAIN_PANEL_UV
+    var ud := Vector2(0.0, 12.0/64.0) if decorated else NEXUS_PLAIN_PANEL_UV
     _nexus_armor_triangle(surface,a,b,c,outward,ua,ub,uc)
     _nexus_armor_triangle(surface,a,c,d,outward,ua,uc,ud)
 
@@ -2306,7 +2306,7 @@ func _nexus_panel_cap(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3,
         var at := NEXUS_PLAIN_PANEL_UV
         if decorated:
             if absf(outward.y) > 0.5:
-                at = Vector2(p.x / span + 0.5, 0.5 - p.z / span)
+                at = Vector2(p.x / span + 0.5, lerpf(12.0/64.0,1.0,0.5 - p.z / span))
             else:
                 at = Vector2(p.x / span + 0.5, 0.5 - p.y / span)
         uv.append(at.clamp(Vector2.ZERO,Vector2.ONE))
