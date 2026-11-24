@@ -101,7 +101,12 @@ var tex: ImageTexture
 var triangles: Array = []
 var seam_texels: Dictionary = {}
 var grid_mode: int = 0
-var selected_diagnostic_face: int = -1
+var selected_diagnostic_faces: Dictionary = {}
+var diagnostic_mask: Image
+var diagnostic_mask_texture: ImageTexture
+const DIAGNOSTIC_MASK_SIDE: int = 128
+var diagnostic_copy_button: Button
+var diagnostic_clear_button: Button
 var grid_button: Button
 var diagnostic_text: String = ""
 var orthographic_view: bool = false
@@ -317,7 +322,9 @@ func _build_ui() -> void:
     angle_picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     angle_picker.item_selected.connect(_set_diagnostic_angle)
     row.add_child(angle_picker)
-    _button(row,"診断コピー",_copy_diagnostics)
+    diagnostic_copy_button = _button(row,"診断コピー",_copy_diagnostics)
+    diagnostic_clear_button = _button(row,"全解除",_clear_diagnostics)
+    diagnostic_clear_button.hide()
     atlas_preview = TextureRect.new()
     atlas_preview.custom_minimum_size.y = 160
     atlas_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -930,10 +937,14 @@ func _install_preview(mesh: ArrayMesh) -> void:
     _composite()
     seam_texels = UV.seam_pixels(triangles,img.get_size())
     tex = ImageTexture.create_from_image(img)
-    selected_diagnostic_face = -1
+    selected_diagnostic_faces.clear()
+    diagnostic_mask = Image.create(DIAGNOSTIC_MASK_SIDE,DIAGNOSTIC_MASK_SIDE,false,Image.FORMAT_R8)
+    diagnostic_mask.fill(Color.BLACK)
+    diagnostic_mask_texture = ImageTexture.create_from_image(diagnostic_mask)
     preview.mesh = UV.with_diagnostic_ids(mesh,triangles)
     preview.material_override = _atlas_material(tex)
     _apply_grid()
+    _refresh_diagnostic_buttons()
     diagnostic_text = ""
     preview.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     atlas_preview.texture = tex
@@ -1104,7 +1115,7 @@ func _paint(at: Vector2, flush: bool = true) -> void:
     var hit: Dictionary = UV.hit(triangles,origin,direction)
     if hit.is_empty():
         if grid_mode == 2:
-            _inspect_uv(-1)
+            return
         last_hit = Vector2i(-1,-1)
         previous_mirror = Vector2i(-1,-1)
         return
@@ -1314,41 +1325,66 @@ func _apply_grid() -> void:
     var material: ShaderMaterial = preview.material_override as ShaderMaterial
     if material != null:
         material.set_shader_parameter("grid_mode",grid_mode)
-        material.set_shader_parameter("selected_face",float(selected_diagnostic_face+1) if selected_diagnostic_face >= 0 else -1.0)
+        if diagnostic_mask_texture != null:
+            material.set_shader_parameter("diagnostic_selection",diagnostic_mask_texture)
         material.set_shader_parameter("atlas_dimensions",Vector2(img.get_size()))
 
 func _cycle_grid() -> void:
     _end_stroke()
     points.clear()
     grid_mode = (grid_mode+1)%3
-    selected_diagnostic_face = -1
     grid_button.text = ["格子 OFF","格子 ON","面診断"][grid_mode]
     _apply_grid()
+    _refresh_diagnostic_buttons()
     if grid_mode == 2:
-        _inspect_uv(-1)
-        _show_status("緑=矩形化 / 橙=投影 / 面をタップして診断")
+        _show_status("選択 %d面 / タップで追加・解除" % selected_diagnostic_faces.size())
     elif grid_mode == 1:
         _show_status("実UVの1px格子を表示（拡大すると見えます）")
     else:
         _show_status("格子表示 OFF")
 
+func _refresh_diagnostic_buttons() -> void:
+    if is_instance_valid(diagnostic_copy_button):
+        diagnostic_copy_button.text = "診断コピー (%d)" % selected_diagnostic_faces.size() if grid_mode == 2 else "診断コピー"
+    if is_instance_valid(diagnostic_clear_button):
+        diagnostic_clear_button.visible = grid_mode == 2
+        diagnostic_clear_button.disabled = selected_diagnostic_faces.is_empty()
+
 func _inspect_uv(triangle_index: int) -> void:
-    if img == null or triangles.is_empty():
+    if img == null or triangles.is_empty() or triangle_index < 0 or triangle_index >= triangles.size():
         return
-    selected_diagnostic_face = int(triangles[triangle_index].get("diagnostic_face",triangle_index)) if triangle_index >= 0 and triangle_index < triangles.size() else -1
-    _apply_grid()
-    var result: Dictionary = UV.diagnostic_report(triangles,img.get_size(),atlas_density,triangle_index)
-    diagnostic_text = selected_model_label.text+"\n"+str(result.report)
-    _show_status(str(result.summary))
+    var face: int = int(triangles[triangle_index].get("diagnostic_face",triangle_index))
+    if face < 0 or face >= DIAGNOSTIC_MASK_SIDE*DIAGNOSTIC_MASK_SIDE:
+        return
+    var active: bool = not selected_diagnostic_faces.has(face)
+    if active:
+        selected_diagnostic_faces[face] = true
+    else:
+        selected_diagnostic_faces.erase(face)
+    if diagnostic_mask != null and diagnostic_mask_texture != null:
+        diagnostic_mask.set_pixel(face % DIAGNOSTIC_MASK_SIDE, floori(float(face)/DIAGNOSTIC_MASK_SIDE),Color.WHITE if active else Color.BLACK)
+        diagnostic_mask_texture.update(diagnostic_mask)
+    diagnostic_text = ""
+    _refresh_diagnostic_buttons()
+    _show_status("選択 %d面 / タップで追加・解除" % selected_diagnostic_faces.size())
+
+func _clear_diagnostics() -> void:
+    selected_diagnostic_faces.clear()
+    if diagnostic_mask != null and diagnostic_mask_texture != null:
+        diagnostic_mask.fill(Color.BLACK)
+        diagnostic_mask_texture.update(diagnostic_mask)
+    diagnostic_text = ""
+    _refresh_diagnostic_buttons()
+    _show_status("選択 0面")
 
 func _copy_diagnostics() -> void:
     if img == null:
         _show_status("モデルを選択してください")
         return
-    if diagnostic_text.is_empty():
-        _inspect_uv(-1)
+    var result: Dictionary = UV.diagnostic_report_faces(triangles,img.get_size(),atlas_density,selected_diagnostic_faces)
+    diagnostic_text = selected_model_label.text+"\n"+str(result.report)
     DisplayServer.clipboard_set(diagnostic_text)
-    _show_status("診断データをコピーしました")
+    _show_status("選択 %d面の診断をコピーしました" % selected_diagnostic_faces.size() if not selected_diagnostic_faces.is_empty() else "モデル全体の診断をコピーしました")
 
 func _set_diagnostic_angle(index: int) -> void:
     orthographic_view = index != 0
