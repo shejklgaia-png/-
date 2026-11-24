@@ -129,7 +129,8 @@ static func _build_overlay(mesh: Mesh) -> ArrayMesh:
 # The RGB12 ID compositor owns silhouettes and inter-mesh boundaries.
 # Extract only manifold hard corners from the SAME mesh. Include concave
 # edges for buildings; keep small props convex-only. No open edges.
-static func build_corner_edges(mesh: Mesh, include_concave: bool) -> ArrayMesh:
+static func build_corner_edges(mesh: Mesh, include_concave: bool,
+        include_convex: bool = true, concave_degrees: float = CONCAVE_CREASE_DEGREES) -> ArrayMesh:
     if mesh == null:
         return null
     var volume: float = 0.0
@@ -154,7 +155,7 @@ static func build_corner_edges(mesh: Mesh, include_concave: bool) -> ArrayMesh:
     st.set_custom_format(0, SurfaceTool.CUSTOM_RGBA_FLOAT)
     var emitted: int = 0
     var convex_cosine: float = cos(deg_to_rad(CONVEX_CREASE_DEGREES))
-    var concave_cosine: float = cos(deg_to_rad(CONCAVE_CREASE_DEGREES))
+    var concave_cosine: float = cos(deg_to_rad(concave_degrees))
     for edge_value in _extract_edges(mesh):
         if emitted >= MAX_EDGES_PER_MESH:
             break
@@ -175,7 +176,8 @@ static func build_corner_edges(mesh: Mesh, include_concave: bool) -> ArrayMesh:
         var nb: Vector3 = edge["face_b"]
         var signed_corner: float = tangent.dot(na.cross(nb)) * outward_sign
         if absf(signed_corner) <= 0.00001 or (
-                signed_corner < 0.0 and not include_concave):
+                signed_corner < 0.0 and not include_concave) or (
+                signed_corner > 0.0 and not include_convex):
             continue
         var cosine: float = clampf(na.dot(nb), -1.0, 1.0)
         var threshold: float = convex_cosine if signed_corner > 0.0 else concave_cosine

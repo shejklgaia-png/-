@@ -59,6 +59,7 @@ const TRAINING_CONSOLE_ORIGIN: Vector3 = Vector3(1.75, 0.0, 2.00)
 const SERA_STAGE_ORIGIN: Vector3 = Vector3(0.0, 0.0, -4.75)
 
 var batch_data: Dictionary = {}
+var _nexus_batch_roles: Dictionary = {}
 var hud: Control
 var cam: Camera3D
 var outline: Control
@@ -453,7 +454,7 @@ func _ready() -> void:
     # the displayed SERA retains the universal character widths.
     var id_outline := SeraViewEdges.new()
     id_outline.name = "ViewEdges"
-    id_outline.set_outline_profile(0)
+    id_outline.set_outline_profile(4)
     add_child(id_outline)
     if CUSTOMIZE_SPECIAL_PRESENTATION_ENABLED:
         _create_customization_glow()
@@ -1281,6 +1282,9 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
                     batch_key += 1000
         var instances: Array = batch_data.get(batch_key, [])
         instances.append(transform)
+        var roles: Array = _nexus_batch_roles.get(batch_key, [])
+        roles.append(2 if not selected_shape.is_empty() else 4)
+        _nexus_batch_roles[batch_key] = roles
         if selected_shape in ["SYSTEM", "TRAINING", "DATA ARCHIVE"]:
             var refs: Array = canonical_core_refs.get(selected_shape, [])
             refs.append({"batch_key": batch_key, "index": instances.size() - 1,
@@ -1432,9 +1436,14 @@ func _render_batches() -> void:
         var multi := MultiMesh.new()
         multi.transform_format = MultiMesh.TRANSFORM_3D
         multi.mesh = machined if featured else cube
+        var roles: Array = _nexus_batch_roles.get(batch_key, [])
+        var mixed: bool = roles.has(2) and roles.has(4)
+        multi.use_custom_data = mixed
         multi.instance_count = transforms.size()
         for i in range(transforms.size()):
             multi.set_instance_transform(i, transforms[i])
+            if mixed:
+                multi.set_instance_custom_data(i, Color(float(roles[i]) / 8.0, 0, 0, 0))
         var draw := MultiMeshInstance3D.new()
         draw.name = ("NexusDetailBatch_%02d" % index
             if no_stroke else "BlockbenchBatch_%02d" % index)
@@ -1444,6 +1453,9 @@ func _render_batches() -> void:
             draw.name = "NexusFeaturedArmor_%04d" % batch_key
         draw.multimesh = multi
         draw.set_meta("nexus_finish_palette", index)
+        draw.set_meta("nexus_ink_class", "facility" if roles.has(2) else "nexus_background")
+        if mixed:
+            draw.set_meta("sera_outline_instanced_roles", true)
         canonical_render_batches[batch_key] = multi
         # Only meshes with an original 2px architectural line receive ID
         # role=facility. Unstroked/emissive details remain depth occluders.
@@ -5484,10 +5496,60 @@ func _enable_nexus_base_ink(node: Node) -> void:
             physical = physical and not bool(node.get_meta("FX_NO_OUTLINE", false))
         if physical and not bool(node.get_meta("sera_outline_emissive_protect", false)) and not node.has_meta("monitor_id"):
             geometry.set_meta("sera_nexus_physical_ink", true)
-            geometry.set_meta("sera_outline_role", "facility")
+            _nexus_assign_ink_class(geometry)
             geometry.remove_meta("sera_outline_occluder_only")
     for child in node.get_children():
         _enable_nexus_base_ink(child)
+
+# Classify once at construction, not during zoom/placement. Preserve source
+# MultiMesh identity and instance indices used by the canonical editor.
+func _nexus_assign_ink_class(geometry: GeometryInstance3D) -> void:
+    if geometry.has_meta("nexus_ink_class"):
+        geometry.set_meta("sera_outline_role", geometry.get_meta("nexus_ink_class"))
+        return
+    var cursor: Node = geometry
+    var interactive: bool = false
+    var generated: String = ""
+    while cursor != null and cursor != self:
+        var label: String = str(cursor.name)
+        if label in ["TrainingServiceAssembly", "DeploymentConsolePlacementAnchor",
+                "SystemCabinetMotion", "TrainingSensorMotion"]:
+            interactive = true
+            break
+        if label in ["NexusProceduralArchitecture", "NexusComplexMachining", "NexusSculptedFittings"]:
+            generated = label
+            break
+        cursor = cursor.get_parent()
+    if not generated.is_empty() and geometry is MultiMeshInstance3D:
+        var node := geometry as MultiMeshInstance3D
+        var multi: MultiMesh = node.multimesh
+        var roles: Array[int] = []
+        var poses: Array[Transform3D] = []
+        for index in range(multi.instance_count):
+            var pose: Transform3D = multi.get_instance_transform(index)
+            poses.append(pose)
+            # Generated groups mix the terminal/gate fittings with the
+            # fixed canopy and central tower. Their authored centers are
+            # captured before any saved placement is applied.
+            var at: Vector3 = pose.origin
+            var background: bool = (generated == "NexusProceduralArchitecture" and str(node.name).contains("canopy_ring")) or (
+                generated == "NexusComplexMachining" and (at.y > 6.8 and absf(at.z + 4.75) < 2.0 or absf(at.z + 12.37) < 0.01)) or (
+                generated == "NexusSculptedFittings" and absf(at.z + 12.45) < 0.01)
+            roles.append(4 if background else 2)
+        interactive = roles.has(2)
+        if interactive and roles.has(4):
+            # Changing the format requires an empty MultiMesh. Refill the
+            # SAME resource and preserve every transform and instance index.
+            var count: int = multi.instance_count
+            multi.instance_count = 0
+            multi.use_custom_data = true
+            multi.instance_count = count
+            for index in range(count):
+                multi.set_instance_transform(index, poses[index])
+                multi.set_instance_custom_data(index, Color(float(roles[index]) / 8.0, 0, 0, 0))
+            node.set_meta("sera_outline_instanced_roles", true)
+    geometry.set_meta("sera_outline_role", "facility" if interactive else "nexus_background")
+
 
 # Capture stable instance membership before canonical placement restoration.
 # Live transforms are read for all selections; the input polygons stay intact.

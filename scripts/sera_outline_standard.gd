@@ -25,6 +25,14 @@ const NEXUS_CORNER_PX: float = 1.0
 const NEXUS_CONVEX_PX: float = NEXUS_CORNER_PX
 const NEXUS_CONCAVE_PX: float = NEXUS_CORNER_PX
 
+# Profile 4: black ink split between interactive hardware and scenery.
+const NEXUS_INTERACT_SEAM_PX: float = 2.0
+const NEXUS_BACKGROUND_OUTSIDE_PX: float = 2.0
+const NEXUS_BACKGROUND_SEAM_PX: float = 3.0
+const NEXUS_BACKGROUND_CONVEX_PX: float = 0.0
+const NEXUS_BACKGROUND_CONCAVE_PX: float = 1.0
+const NEXUS_CONCAVE_DEGREES: float = 60.0
+
 static func apply_id_widths(material: ShaderMaterial) -> void:
     if material == null:
         return
@@ -56,7 +64,10 @@ static func apply_id_widths(material: ShaderMaterial) -> void:
         "clutter_outside_px": BASE_CLUTTER_OUTSIDE_PX,
         "clutter_seam_px": BASE_CLUTTER_SEAM_PX,
         "nexus_facility_outside_px": NEXUS_OUTSIDE_PX,
-        "nexus_facility_seam_px": NEXUS_SEAM_PX
+        "nexus_facility_seam_px": NEXUS_SEAM_PX,
+        "nexus_interact_seam_px": NEXUS_INTERACT_SEAM_PX,
+        "nexus_background_outside_px": NEXUS_BACKGROUND_OUTSIDE_PX,
+        "nexus_background_seam_px": NEXUS_BACKGROUND_SEAM_PX
     }
     for key in widths.keys():
         material.set_shader_parameter(str(key), widths[key])
