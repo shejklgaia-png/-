@@ -496,10 +496,10 @@ func _placement_editor_failure(kind: String, editor) -> String:
             stage = "NO SCRIPT"
         elif not editor.has_method("configure") or not editor.has_method("open_mode"):
             stage = "BAD SCRIPT"
-        elif kind == "PLACE":
-            stage = str(editor.get("initialization_stage"))
         else:
-            stage = "UI"
+            # Both editors expose the last completed setup phase. This
+            # distinguishes a failed script, HUD construction and model load.
+            stage = str(editor.get("initialization_stage"))
         push_warning("NEXUS %s editor failure: %s, node=%s, script=%s" % [
             kind, stage, str(editor.get_path()), str(editor.get_script())])
     else:
