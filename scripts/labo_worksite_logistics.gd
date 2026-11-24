@@ -802,13 +802,18 @@ func _build_refinery() -> void:
     # right-side outlet. No solid block occupies the moving drawer corridor.
     var discharge := _node(root,"RefractoryDischargeCell")
     b = _batch(discharge)
-    _rod(b,Vector3(5.65,2.1,-1.4),Vector3(9.6,2.1,-1.4),1.15,"rust")
+    _rod(b,Vector3(5.65,2.1,-1.4),Vector3(8.33,2.1,-1.4),1.15,"rust")
+    _poly(b,"bevel",Vector3(8.24,2.1,-1.4),Vector3(0.20,1.38,1.38),"edge")
     for x in [8.54,10.66]:
         _poly(b,"bevel",Vector3(x,1.78,-1.05),Vector3(0.42,3.56,2.32),"armor")
         _box(b,Vector3(x,2.15,0.17),Vector3(0.25,1.85,0.12),"edge")
         _box(b,Vector3(x,0.33,0.17),Vector3(0.32,0.16,0.10),"gold")
     _box(b,Vector3(9.6,0.55,-1.05),Vector3(2.52,1.10,2.42),"slate")
     _box(b,Vector3(9.6,3.43,-1.05),Vector3(2.52,0.40,2.42),"armor_light")
+    for x in [8.47,10.73]:
+        _box(b,Vector3(x,3.74,-1.05),Vector3(0.22,0.24,2.25),"edge")
+    for i in range(5):
+        _box(b,Vector3(9.6,3.67,-1.90+float(i)*0.42),Vector3(1.85,0.12,0.10),"trim")
     _box(b,Vector3(9.6,2.14,-2.14),Vector3(1.78,1.87,0.16),"void")
     for x in [8.76,10.44]:
         _box(b,Vector3(x,1.10,0.85),Vector3(0.20,0.15,2.30),"edge")
@@ -834,6 +839,9 @@ func _build_refinery() -> void:
     b = _batch(bed)
     _poly(b,"bevel",Vector3(0,-0.63,0),Vector3(3.15,1.22,3.85),"slate")
     _box(b,Vector3(0,-0.10,0),Vector3(2.90,0.20,3.55),"armor_light")
+    for side in [-1.0,1.0]:
+        for z in [-1.40,0.0,1.40]:
+            _box(b,Vector3(side*1.57,-0.37,z),Vector3(0.08,0.22,0.16),"lab_cyan")
     for x in [-1.50,1.50]:
         _box(b,Vector3(x,-0.36,0),Vector3(0.12,0.18,3.65),"gold")
         _poly(b,"louver",Vector3(x,-0.67,0),Vector3(0.12,0.40,2.30),"edge")
@@ -857,7 +865,7 @@ func _reset_refinery() -> void:
     if not is_instance_valid(refinery_hatch):
         return
     _attach_box(in_box,truck_in,Vector3.UP*DECK_Y)
-    in_box.rotation.y = 0.0
+    in_box.rotation.y = PI
     in_box.visible = true
     refinery_gate.rotation.x = 0.0
     refinery_cradle.rotation.x = 0.0
@@ -940,6 +948,7 @@ func sample_refinery(t: float) -> void:
     else:
         if in_box.get_parent()!=truck_in:
             _attach_box(in_box,truck_in,Vector3.UP*DECK_Y)
+            in_box.rotation.y = PI
         _arm_pose(in_arm,Vector3(pick.x,lerpf(pick.y+1.55,in_h-0.75,smoothstep(26.0,27.0,sec)),pick.z),2.0)
     var poured: float = smoothstep(17.0,20.0,sec)
     for i in range(refinery_chunks.size()):
