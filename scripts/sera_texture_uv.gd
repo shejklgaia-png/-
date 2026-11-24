@@ -150,7 +150,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     arrays[Mesh.ARRAY_TEX_UV2] = diagnostic_uv
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v4" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
+    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v5" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
 
 ## Group connected coplanar triangles, and the two halves of slightly
 ## warped authored quads. Never use an internal triangulation diagonal
@@ -1257,6 +1257,121 @@ static func _relax_uv_boundary_vertices(tris: Array[Dictionary],charts: Array[Di
         for i in range(tris.size()):
             tris[i].xy = original[i]
         return note+" / 容量超過・V3維持"
+    for ci in range(charts.size()):
+        charts[ci].min = next_charts[ci].min
+        charts[ci].max = next_charts[ci].max
+    return note+" / 採用 / "+_relax_paired_uv_endpoints(tris,charts,original,members,nodes,corner_nodes,links,locked)
+
+
+# Try simultaneous moves of corresponding endpoints on both sides of
+# a seam. Keep the V4 layout as the fallback, and measure cumulative
+# distortion against the pre-V4 coordinates, not the last candidate.
+static func _relax_paired_uv_endpoints(tris: Array[Dictionary],charts: Array[Dictionary],original: Array[PackedVector2Array],members: Array,nodes: Array[Dictionary],corner_nodes: Array[PackedInt32Array],links: Array[Dictionary],locked: Dictionary) -> String:
+    var saved: Array[PackedVector2Array] = []
+    for t in tris:
+        var xy: PackedVector2Array = t.xy
+        saved.append(xy.duplicate())
+    for node in nodes:
+        var ref: Vector2i = node.refs[0]
+        node.shift = saved[ref.x][ref.y]-original[ref.x][ref.y]
+    var baseline: Vector3 = _hinge_layout_metrics(tris)
+    var accepted: int = 0
+    var tested: int = 0
+    for sweep in range(4):
+        var ranking: Array[int] = []
+        var priority := PackedFloat32Array()
+        for li in range(links.size()):
+            var e: float = _local_uv_link_error(tris,links[li])
+            priority.append(e)
+            if e > 0.25:
+                ranking.append(li)
+        ranking.sort_custom(func(a: int,b: int) -> bool:
+            return priority[a] > priority[b] if absf(priority[a]-priority[b]) > 0.000001 else a < b)
+        for ri in range(mini(48,ranking.size())):
+            var link: Dictionary = links[ranking[ri]]
+            if absf(float(link.a0)) > 0.0001 or absf(float(link.a1)-1.0) > 0.0001:
+                continue
+            if absf(float(link.b0)-1.0) > 0.0001 or absf(float(link.b1)) > 0.0001:
+                continue
+            var ta: int = int(link.ta)
+            var tb: int = int(link.tb)
+            var ea: int = int(link.ea)
+            var eb: int = int(link.eb)
+            var ids := PackedInt32Array([corner_nodes[ta][ea],corner_nodes[tb][(eb+1)%3],corner_nodes[ta][(ea+1)%3],corner_nodes[tb][eb]])
+            var a: PackedVector2Array = _segment_uv(tris[ta],ea,float(link.a0),float(link.a1),"xy")
+            var b: PackedVector2Array = _segment_uv(tris[tb],eb,float(link.b0),float(link.b1),"xy")
+            var da: Vector2 = a[1]-a[0]
+            var db: Vector2 = b[1]-b[0]
+            var quarter: float = roundf(db.angle_to(da)/(PI*0.5))*(PI*0.5)
+            var e0: Vector2 = a[0]-b[0].rotated(quarter)
+            e0 -= e0.round()
+            var e1: Vector2 = e0+da-db.rotated(quarter)
+            var deltas := PackedVector2Array([-e0*0.5,e0.rotated(-quarter)*0.5,-e1*0.5,e1.rotated(-quarter)*0.5])
+            var old := PackedVector2Array()
+            var incident: Array = []
+            var changes_a: Dictionary = {}
+            var changes_b: Dictionary = {}
+            for k in range(4):
+                var node: Dictionary = nodes[ids[k]]
+                old.append(node.shift)
+                for li in node.links:
+                    if not incident.has(li):
+                        incident.append(li)
+                for ref in node.refs:
+                    if k%2 == 0:
+                        changes_a[int(ref.x)] = true
+                    else:
+                        changes_b[int(ref.x)] = true
+            var before: Vector3 = _local_uv_metrics(tris,links,incident)
+            var chosen: PackedVector2Array = old.duplicate()
+            var best: float = before.z+before.x*before.x*0.5
+            for mask in [1,2,3]:
+                if ((int(mask)&1)!=0 and (locked.has(ids[0]) or locked.has(ids[1]))) or ((int(mask)&2)!=0 and (locked.has(ids[2]) or locked.has(ids[3]))):
+                    continue
+                for factor in [0.5,1.0]:
+                    var candidate: PackedVector2Array = old.duplicate()
+                    var moved: bool = false
+                    for k in range(4):
+                        if (int(mask)&(1<<(0 if k < 2 else 1))) != 0:
+                            candidate[k] = (old[k]+(deltas[k]*float(factor)).limit_length(0.2)).limit_length(0.5)
+                        moved = moved or candidate[k].distance_squared_to(old[k]) > 0.0000001
+                        _set_local_uv_shift(tris,original,nodes[ids[k]].refs,candidate[k])
+                    if not moved:
+                        continue
+                    tested += 1
+                    var after: Vector3 = _local_uv_metrics(tris,links,incident)
+                    var cost: float = after.z+after.x*after.x*0.5
+                    if after.x > baseline.x+0.00001 or after.y > before.y or after.z >= before.z-0.000001 or cost >= best-0.000001:
+                        continue
+                    if not _valid_local_uv_shift(tris,original,changes_a,members[int(link.a)]) or not _valid_local_uv_shift(tris,original,changes_b,members[int(link.b)]):
+                        continue
+                    chosen = candidate
+                    best = cost
+            var improved: bool = false
+            for k in range(4):
+                _set_local_uv_shift(tris,original,nodes[ids[k]].refs,chosen[k])
+                nodes[ids[k]].shift = chosen[k]
+                improved = improved or chosen[k].distance_squared_to(old[k]) > 0.0000001
+            if improved:
+                accepted += 1
+    var score: Vector3 = _hinge_layout_metrics(tris)
+    var next_charts: Array[Dictionary] = []
+    for ci in range(charts.size()):
+        var chart: Dictionary = charts[ci].duplicate()
+        var lo := Vector2(INF,INF)
+        var hi := Vector2(-INF,-INF)
+        for ti in members[ci]:
+            for point in tris[int(ti)].xy:
+                lo = lo.min(point)
+                hi = hi.max(point)
+        chart.min = lo.floor()
+        chart.max = hi
+        next_charts.append(chart)
+    var note: String = "両端補正 %d採用/%d試行・問題辺 %d→%d・最大 %.3f→%.3fpx・二乗和 %.3f→%.3f" % [accepted,tested,int(baseline.y),int(score.y),baseline.x,score.x,baseline.z,score.z]
+    if score.x > baseline.x+0.00001 or score.y > baseline.y or score.z >= baseline.z-0.00001 or _hinge_pack_side(next_charts) > _hinge_pack_side(charts):
+        for i in range(tris.size()):
+            tris[i].xy = saved[i]
+        return note+" / 不採用・V4維持"
     for ci in range(charts.size()):
         charts[ci].min = next_charts[ci].min
         charts[ci].max = next_charts[ci].max
