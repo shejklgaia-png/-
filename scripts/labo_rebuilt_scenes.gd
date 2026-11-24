@@ -63,6 +63,8 @@ func build(stage: Node3D) -> void:
             room.position.y = WORK_DECK_RISE
             _raised_worksite(key)
             _open_box_frame(key)
+            if key=="LABO":
+                _lab_rear_wall(key)
         # Capture relative mechanical alignment after scaling, not the whole room pose.
         _capture_mechanism(key)
         _build_logistics(key)
@@ -750,6 +752,141 @@ func _fabricated_part(b,i: int) -> void:
             _shape(b,"drum",Vector3(0,1.33,0),Vector3(0.42,0.14,0.42),"edge")
             _part_bolts(b,0.655,0.45,4)
 
+# Authored fixed-length links, analytical two-bone IK, independent wrist.
+const PRINT_UPPER := 2.65
+const PRINT_FORE := 2.55
+const PRINT_TOOL := 0.62
+const PRINT_SHOULDER := Vector3(0,2.20,0)
+
+func _lab_rear_wall(key: String) -> void:
+    # Only the far side is opaque. It sits against the rear portal, not
+    # across the floor or any of the three open access faces.
+    var wall := _model(key,"LabRearIndustrialServiceWall",Vector3(-0.7,0,-10.1))
+    var b = _batch(wall)
+    _box(b,Vector3(0,7.7,0),Vector3(26.3,15.4,0.52),"dark")
+    _box(b,Vector3(0,0.52,0.34),Vector3(26.3,1.04,0.28),"trim")
+    _box(b,Vector3(0,15.02,0.34),Vector3(26.3,0.52,0.32),"slate")
+    # Recessed central spine, two stepped machinery bays and tall outer bays.
+    for side in [-1.0,1.0]:
+        var sx: float = float(side)
+        _shape(b,"bevel",Vector3(sx*10.2,7.7,0.37),Vector3(5.1,13.6,0.48),"slate")
+        _shape(b,"bevel",Vector3(sx*5.65,7.7,0.43),Vector3(3.65,13.6,0.62),"armor")
+        _box(b,Vector3(sx*3.48,7.75,0.63),Vector3(0.42,14.0,0.78),"trim")
+        _box(b,Vector3(sx*12.7,7.75,0.58),Vector3(0.36,14.0,0.52),"edge")
+        for y in [2.0,5.7,9.4,13.1]:
+            _panel_detail(b,sx*10.2,y,0.65,4.15,2.75)
+        for y in [3.0,7.1,11.2]:
+            _shape(b,"louver",Vector3(sx*5.65,y,0.80),Vector3(2.72,2.45,0.22),"trim")
+            _box(b,Vector3(sx*5.65,y+1.42,0.93),Vector3(1.82,0.10,0.07),"edge")
+        # Routed coolant and power conduits are fixed to the wall surface.
+        for j in range(2):
+            var x: float = sx*(7.72+float(j)*0.43)
+            _pipe(b,Vector3(x,1.15,0.68),Vector3(x,13.85,0.68),0.19,"edge" if j==0 else "blue")
+            for y in [2.0,5.5,9.0,12.5]:
+                _box(b,Vector3(x,y,0.67),Vector3(0.34,0.12,0.24),"trim")
+        _box(b,Vector3(sx*3.48,11.95,1.04),Vector3(0.12,3.9,0.08),"lab_cyan")
+        _shape(b,"bevel",Vector3(sx*2.25,3.25,0.57),Vector3(1.75,4.0,0.38),"armor")
+        _panel_detail(b,sx*2.25,3.25,0.81,1.35,2.9)
+    _shape(b,"bevel",Vector3(0,8.5,0.34),Vector3(6.25,11.8,0.35),"slate")
+    _shape(b,"bevel",Vector3(0,11.95,0.66),Vector3(4.6,2.5,0.36),"armor")
+    _box(b,Vector3(0,11.95,0.88),Vector3(3.8,1.88,0.08),"dark")
+    # Compact central status motif made of three machine-status glyphs.
+    for i in range(3):
+        _box(b,Vector3(-1.24+float(i)*1.24,12.0,0.95),Vector3(0.76,0.38,0.07),"lab_cyan")
+        _box(b,Vector3(-1.24+float(i)*1.24,11.54,0.95),Vector3(0.76,0.10,0.07),"edge")
+    for y in [4.9,6.5,8.1]:
+        _shape(b,"louver",Vector3(0,y,0.63),Vector3(3.9,0.95,0.22),"trim")
+    _finish(b)
+    _moving(key,"rear_wall",wall)
+
+func _print_joint(parent: Node3D,label: String,radius: float,width: float) -> Node3D:
+    var n := _child(parent,label)
+    var b = _batch(n)
+    b.poly_tilt("JointBarrel","drum",Vector3.ZERO,Vector3(radius*2,width,radius*2),"slate",Vector3(0,0,PI*0.5))
+    for side in [-1.0,1.0]:
+        b.poly_tilt("JointCap","octagonal_slew",Vector3(float(side)*(width*0.5+0.045),0,0),Vector3(radius*1.55,0.12,radius*1.55),"armor_light",Vector3(0,0,PI*0.5))
+        b.poly_tilt("JointAxle","drum",Vector3(float(side)*(width*0.5+0.12),0,0),Vector3(radius*0.68,0.10,radius*0.68),"gold",Vector3(0,0,PI*0.5))
+    _finish(b)
+    return n
+
+func _print_link(parent: Node3D,label: String,length: float,width: float) -> Node3D:
+    var n := _child(parent,label)
+    var b = _batch(n)
+    # Local +Y is the link axis. End faces overlap the joint housings.
+    _shape(b,"bevel",Vector3(0,length*0.5,0),Vector3(width,length-0.28,width*0.74),"armor")
+    for side in [-1.0,1.0]:
+        _box(b,Vector3(float(side)*width*0.49,length*0.5,0),Vector3(0.09,length-0.44,width*0.60),"slate")
+        _pipe(b,Vector3(float(side)*width*0.39,0.26,-width*0.42),Vector3(float(side)*width*0.39,length-0.26,-width*0.42),0.10,"edge")
+    _box(b,Vector3(0,length*0.5,width*0.39),Vector3(width*0.36,length*0.42,0.055),"lab_cyan")
+    _finish(b)
+    return n
+
+func _make_print_arm(mount: Node3D,radial: Vector3) -> Dictionary:
+    var b = _batch(mount)
+    _shape(b,"bevel",Vector3(0,1.01,0),Vector3(1.48,0.28,1.48),"slate")
+    _shape(b,"drum",Vector3(0,1.29,0),Vector3(1.22,0.28,1.22),"edge")
+    _shape(b,"octagonal_slew",Vector3(0,1.58,0),Vector3(1.08,0.44,1.08),"armor")
+    for x in [-0.56,0.56]:
+        for z in [-0.56,0.56]:
+            _shape(b,"drum",Vector3(x,1.18,z),Vector3(0.15,0.08,0.15),"gold")
+    _finish(b)
+    var swivel := _child(mount,"BaseYaw")
+    b = _batch(swivel)
+    _shape(b,"bevel",Vector3(0,1.91,0),Vector3(0.80,0.66,0.80),"slate")
+    _finish(b)
+    var shoulder := _print_joint(mount,"ShoulderPitch",0.48,0.80)
+    var upper := _print_link(mount,"UpperLink",PRINT_UPPER,0.66)
+    var elbow := _print_joint(mount,"ElbowPitch",0.40,0.68)
+    var fore := _print_link(mount,"Forearm",PRINT_FORE,0.52)
+    var wrist := _print_joint(mount,"WristPitch",0.26,0.45)
+    var tool := _child(mount,"PrintNozzle")
+    b = _batch(tool)
+    _shape(b,"bevel",Vector3(0,0.17,0),Vector3(0.53,0.34,0.53),"slate")
+    _shape(b,"octagonal_slew",Vector3(0,0.38,0),Vector3(0.46,0.20,0.46),"gold")
+    _shape(b,"drum",Vector3(0,0.54,0),Vector3(0.20,0.16,0.20),"edge")
+    _shape(b,"drum",Vector3(0,0.61,0),Vector3(0.12,0.02,0.12),"lab_cyan")
+    _finish(b)
+    return {"radial":radial,"swivel":swivel,"shoulder":shoulder,"upper":upper,"elbow":elbow,"fore":fore,"wrist":wrist,"tool":tool}
+
+func _print_link_pose(n: Node3D,a: Vector3,z: Vector3,hinge: Vector3) -> void:
+    var y: Vector3 = (z-a).normalized()
+    var x: Vector3 = hinge.normalized()
+    var depth: Vector3 = x.cross(y).normalized()
+    x = y.cross(depth).normalized()
+    n.transform = Transform3D(Basis(x,y,depth),a)
+
+func _sample_print_arm(arm: Dictionary,index: int,t: float,height: float,grow: float) -> void:
+    var radial: Vector3 = arm["radial"]
+    var tangent: Vector3 = Vector3.UP.cross(radial)
+    var blend: float = smoothstep(0.015+float(index)*0.018,0.10,t)*(1.0-smoothstep(0.46,0.56-float(index)*0.014,t))
+    var wave: float = sin(t*TAU*8.0+float(index)*2.094)
+    var scan_radius: float = 0.89+0.12*cos(t*TAU*6.0+float(index)*2.094)
+    # Local mount coordinates; radial sectors never cross the bed center.
+    var work: Vector3 = radial*(scan_radius-4.35)+tangent*(0.24*wave)
+    work.y = 2.12+height*grow+0.20
+    var park: Vector3 = -radial*1.20+Vector3.UP*4.45
+    var tip: Vector3 = park.lerp(work,blend)
+    var tool_axis: Vector3 = (Vector3.DOWN-radial*0.16*blend).normalized()
+    var wrist_pos: Vector3 = tip-tool_axis*PRINT_TOOL
+    var delta: Vector3 = wrist_pos-PRINT_SHOULDER
+    var d: float = clampf(delta.length(),0.18,PRINT_UPPER+PRINT_FORE-0.025)
+    var along: Vector3 = delta.normalized()
+    wrist_pos = PRINT_SHOULDER+along*d
+    tip = wrist_pos+tool_axis*PRINT_TOOL
+    var perpendicular: Vector3 = (Vector3.UP-along*along.dot(Vector3.UP)).normalized()
+    var projected: float = (PRINT_UPPER*PRINT_UPPER-PRINT_FORE*PRINT_FORE+d*d)/(2.0*d)
+    var rise: float = sqrt(maxf(0.0,PRINT_UPPER*PRINT_UPPER-projected*projected))
+    var elbow_pos: Vector3 = PRINT_SHOULDER+along*projected+perpendicular*rise
+    var hinge: Vector3 = along.cross(perpendicular).normalized()
+    var swivel: Node3D = arm["swivel"]
+    swivel.rotation.y = atan2(-along.x,-along.z)
+    _print_link_pose(arm["shoulder"],PRINT_SHOULDER,elbow_pos,hinge)
+    _print_link_pose(arm["upper"],PRINT_SHOULDER,elbow_pos,hinge)
+    _print_link_pose(arm["elbow"],elbow_pos,wrist_pos,hinge)
+    _print_link_pose(arm["fore"],elbow_pos,wrist_pos,hinge)
+    _print_link_pose(arm["wrist"],wrist_pos,tip,hinge)
+    _print_link_pose(arm["tool"],wrist_pos,tip,hinge)
+
 func _labo(key: String) -> void:
     # Independent full-size design: BASE's open two-column fabrication bridge,
     # left feedstock racks, rear extraction, central bed and guided output shuttle.
@@ -766,63 +903,20 @@ func _labo(key: String) -> void:
             _shape(b,"drum",Vector3(side*6.05,0.91,z),Vector3(0.22,0.09,0.22),"trim")
     _shape(b,"octagonal_slew",Vector3(1.10,1.10,2.0),Vector3(5.9,0.65,4.4),"dark")
     _shape(b,"deck",Vector3(1.10,1.56,2.0),Vector3(6.6,0.46,4.9),"armor_light")
-    for side in [-1.0,1.0]:
-        var x: float = 1.1+side*3.35
-        _shape(b,"gusset",Vector3(x,1.46,1.65),Vector3(1.30,1.45,2.4),"slate")
-        _shape(b,"octagonal_slew",Vector3(x,4.70,1.65),Vector3(1.05,6.35,1.1),"armor_light")
-        _shape(b,"drum",Vector3(x,7.82,1.65),Vector3(1.38,0.48,1.38),"edge")
-        _pipe(b,Vector3(x,1.6,-1.4),Vector3(x,6.65,1.5),0.46,"trim")
-        _box(b,Vector3(x,4.5,2.24),Vector3(0.25,3.5,0.10),"lab_cyan")
-        _panel_detail(b,x,2.4,2.31,0.62,0.82)
-        # Linear guide tracks, fasteners and service access at the back face.
-        for dx in [-0.34,0.34]:
-            _box(b,Vector3(x+dx,4.6,2.24),Vector3(0.10,5.4,0.13),"edge")
-            for y in [2.5,3.7,4.9,6.1,7.1]:
-                _shape(b,"drum",Vector3(x+dx,y,2.30),Vector3(0.10,0.08,0.10),"trim")
-        _shape(b,"louver",Vector3(x,5.12,1.04),Vector3(0.64,1.35,0.13),"trim")
-        for y in [2.9,5.7,7.2]:
-            _shape(b,"deck",Vector3(x,y,1.65),Vector3(1.25,0.17,1.30),"edge")
-    b.poly_tilt("OpenPrinterBridge","octagonal_slew",Vector3(1.10,8.0,1.65),
-        Vector3(0.95,7.7,1.10),"slate",Vector3(0,0,PI*0.5))
-    _box(b,Vector3(1.10,7.57,1.67),Vector3(6.5,0.22,0.64),"edge")
-    _box(b,Vector3(1.10,7.68,2.19),Vector3(6.4,0.11,0.06),"lab_cyan")
-    for j in range(8):
-        var x: float = -2.1+float(j)*0.92
-        _box(b,Vector3(x,8.0,2.18),Vector3(0.13,0.48,0.08),"edge")
-    for x in [-2.25,4.45]:
-        _shape(b,"bevel",Vector3(x,8.15,1.65),Vector3(0.85,0.75,1.13),"armor")
-    # A short rear guard only. No surrounding building or ceiling.
-    _shape(b,"deck",Vector3(0,2.4,-4.95),Vector3(10.8,3.0,0.42),"armor")
-    for x in [-3.8,-0.7,2.4]:
-        _panel_detail(b,x,2.4,-4.69,2.3,1.9)
     _finish(b)
-    inspection[key] = {"root":frame,"stand":Vector3(-2.0,0,8.15),"focus":Vector3(1.1,2.0,2.0)}
-    var carriage_mount := _child(frame,"PrinterCarriagePlacement",Vector3(1.10,7.40,1.65))
-    (targets[key] as Array).append(carriage_mount)
-    var carriage := _child(carriage_mount,"Carriage")
-    b = _batch(carriage)
-    b.poly_tilt("DriveMotor","drum",Vector3(0,0.12,0),Vector3(1.50,1.10,1.50),"slate",Vector3(0,0,PI*0.5))
-    _shape(b,"bevel",Vector3(0,-0.55,0.16),Vector3(1.50,1.1,1.4),"armor")
-    _shape(b,"louver",Vector3(0,-0.55,0.91),Vector3(0.96,0.62,0.16),"trim")
-    for x in [-0.56,0.56]:
-        _shape(b,"drum",Vector3(x,0.20,0.58),Vector3(0.22,0.24,0.22),"edge")
-        _box(b,Vector3(x,-0.25,0.84),Vector3(0.10,0.42,0.12),"gold")
-    _box(b,Vector3(0,-0.16,0.88),Vector3(0.44,0.10,0.07),"lab_cyan")
-    _finish(b)
-    var head_mount := _child(carriage,"PrintHeadPlacement",Vector3(0,-1.0,0.35))
-    (targets[key] as Array).append(head_mount)
-    var head := _child(head_mount,"HotEnd")
-    b = _batch(head)
-    _pipe(b,Vector3(0,0,0),Vector3(0,-2.65,0),0.45,"edge")
-    _shape(b,"octagonal_slew",Vector3(0,-2.68,0),Vector3(1.00,0.88,1.00),"gold")
-    _shape(b,"drum",Vector3(0,-3.22,0),Vector3(0.44,0.24,0.44),"amber_light")
-    for y in [-0.75,-1.22,-1.69,-2.16]:
-        _shape(b,"drum",Vector3(0,y,0),Vector3(0.59,0.11,0.59),"slate")
-    for x in [-0.34,0.34]:
-        _pipe(b,Vector3(x,-2.25,0),Vector3(x,-2.78,0),0.12,"trim")
-    _finish(b)
-    _moving(key,"bridge",carriage)
-    _moving(key,"head",head)
+    inspection[key] = {"root":frame,"stand":Vector3(-2.0,0,8.15),"focus":Vector3(1.1,2.5,2.0)}
+    var arm_mounts: Array[Node3D] = []
+    var arm_data: Array[Dictionary] = []
+    # Three sectors: left, right and rear. The entire front stays open for
+    # the existing shuttle, receiving rollers and CRATE.
+    for i in range(3):
+        var radial: Vector3 = [Vector3.LEFT,Vector3.RIGHT,Vector3(0,0,-1)][i]
+        var mount := _child(frame,"ArticulatedPrinterMount%d"%(i+1),Vector3(1.10,0,2.0)+radial*4.35)
+        (targets[key] as Array).append(mount)
+        arm_mounts.append(mount)
+        arm_data.append(_make_print_arm(mount,radial))
+        _moving(key,"arm_mount%d"%i,mount)
+    motion_parts[key]["print_arms"] = arm_data
     var rack := _model(key,"FeedstockRacks",Vector3(-9.1,0,-3.0))
     rack.scale.x = 0.90
     b = _batch(rack)
@@ -908,8 +1002,6 @@ func _labo(key: String) -> void:
     _moving(key,"shuttle",shuttle)
     _moving(key,"rail",rail)
     _moving(key,"print_frame",frame)
-    _moving(key,"carriage_mount",carriage_mount)
-    _moving(key,"head_mount",head_mount)
     _moving(key,"tray",tray)
     var product_root := _child(shuttle,"FabricatedWorkpieces",Vector3(0,2.12,0))
     # Product is physically parented to its carrier, never interpolated independently.
@@ -1298,21 +1390,15 @@ func _sample_machine(key: String, t: float) -> void:
     var m: Dictionary = motion_parts[key]
     match key:
         "LABO":
-            var carriage: Node3D = m["bridge"]
-            var head: Node3D = m["head"]
             var shuttle: Node3D = m["shuttle"]
             var product: Node3D = m["products"]
             var variant: int = int(m["variant"])
             var product_height: float = float(PART_HEIGHTS[maxi(0,variant)])
             var grow: float = smoothstep(0.10,0.46,t)
-            # Nozzle bottom is 3.06m at zero extension; the shuttle top is 2.12m.
-            # Keep a 0.13m gap above the growing part. Retract completely before transfer.
-            var print_y: float = 2.12+product_height*grow+0.13-3.06
-            head.position.y = lerpf(1.18,print_y,smoothstep(0.02,0.10,t))
-            if t>=0.46:
-                head.position.y = lerpf(print_y,1.18,smoothstep(0.46,0.56,t))
-            var scan: float = smoothstep(0.10,0.14,t)*(1.0-smoothstep(0.42,0.46,t))
-            carriage.position.x = sin(t*TAU*8.0)*0.36*scan
+            # All three heads work from independent radial sectors and retract
+            # before the shuttle starts its forward travel at t=0.60.
+            for i in range(3):
+                _sample_print_arm(m["print_arms"][i],i,t,product_height,grow)
             shuttle.position.z = 3.7*smoothstep(0.60,0.76,t)
             # Roll the completed product onto the fixed outfeed before the shuttle returns.
             if t>=0.91:
@@ -1403,7 +1489,7 @@ func _mechanism_nodes(key: String) -> Array[Node3D]:
     var result: Array[Node3D] = []
     var names: Array = []
     match key:
-        "LABO": names = ["print_frame","rail","tray","carriage_mount","head_mount","supply"]
+        "LABO": names = ["print_frame","rail","tray","arm_mount0","arm_mount1","arm_mount2","supply","rear_wall"]
         "SMELTER": names = ["hopper","furnace"]
         "RECYCLER": names = ["crusher","feed_conveyor","scrap_mount","shaft_root0","shaft_root1","ramp","sorted_line","sorted_mount"]
         "STORAGE": names = ["storage_anchor"]
