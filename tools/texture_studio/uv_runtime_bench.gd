@@ -1,5 +1,6 @@
 extends SceneTree
 const UV = preload("res://scripts/sera_texture_uv.gd")
+const Studio = preload("res://scripts/sera_texture_studio.gd")
 const Source = preload("res://scripts/sera_texture_part_source.gd")
 const Catalog = preload("res://scripts/sera_prototype_catalog.gd")
 
@@ -137,6 +138,8 @@ func _run() -> void:
         painted.set_pixelv(bridge.b,color)
         if painted.get_pixelv(bridge.a)==painted.get_pixelv(bridge.b):
             bridge_ok += 1
+    var stroke_metrics: Dictionary = _measure_face_strokes(tris,atlas,density) if variant=="face" else {}
+    print("FACE_STROKES ",JSON.stringify(stroke_metrics))
     var baked := Image.create(side.x,side.y,false,Image.FORMAT_RGBA8)
     baked.blit_rect(painted,Rect2i(Vector2i.ZERO,side),Vector2i.ZERO)
     var restored_image := Image.new()
@@ -182,7 +185,7 @@ func _run() -> void:
                         post_mismatch+=1
     var distortion: Vector3 = UV._topology_distortion(tris,density)
     var diagnostic: Dictionary = UV.diagnostic_report(tris,side,density)
-    var report: Dictionary = {"id":id,"density":density,"version":result.unwrap_version,"triangles":tris.size(),"charts":result.charts,"atlas":side.x,"physical_edges":counted,"island_edges":island_edges,"island_bad":island_bad,"island_severe":island_severe,"island_max":island_max,"island_sum_sq":island_sum,"bad":bad,"severe":severe,"max":max_res,"sum_sq":sum_sq,"invalid":invalid,"winding_signature":winding_signature.sha256_text(),"overlap_pairs":overlap_pairs,"overlap_unchecked":overlap_unchecked,"min_ratio":min_ratio,"max_ratio":max_ratio,"shape_max":distortion.x,"shape_mean":distortion.y,"area_max":distortion.z,"elapsed_ms":elapsed,"diagnostic":diagnostic.report,"solver":result.affine_report,"bridge_count":bridge_count,"bridge_ok":bridge_ok,"png_roundtrip":png_ok,"mesh_restore":restore_ok,"post_bake_ok":post_ok,"post_bake_side":post_side,"post_bake_moved":post_moved,"post_bake_fallback":post_fallback,"post_bake_samples":post_samples,"post_bake_mismatch":post_mismatch,"post_bake_error":str(post.get("error",""))}
+    var report: Dictionary = {"id":id,"density":density,"version":result.unwrap_version,"triangles":tris.size(),"charts":result.charts,"atlas":side.x,"physical_edges":counted,"island_edges":island_edges,"island_bad":island_bad,"island_severe":island_severe,"island_max":island_max,"island_sum_sq":island_sum,"bad":bad,"severe":severe,"max":max_res,"sum_sq":sum_sq,"invalid":invalid,"winding_signature":winding_signature.sha256_text(),"overlap_pairs":overlap_pairs,"overlap_unchecked":overlap_unchecked,"min_ratio":min_ratio,"max_ratio":max_ratio,"shape_max":distortion.x,"shape_mean":distortion.y,"area_max":distortion.z,"elapsed_ms":elapsed,"diagnostic":diagnostic.report,"solver":result.affine_report,"bridge_count":bridge_count,"bridge_ok":bridge_ok,"png_roundtrip":png_ok,"mesh_restore":restore_ok,"post_bake_ok":post_ok,"post_bake_side":post_side,"post_bake_moved":post_moved,"post_bake_fallback":post_fallback,"post_bake_samples":post_samples,"post_bake_mismatch":post_mismatch,"post_bake_error":str(post.get("error","")),"face_stroke_metrics":stroke_metrics}
     var file := FileAccess.open(dest,FileAccess.WRITE)
     if file == null:
         push_error("Cannot write UV report")
@@ -199,3 +202,73 @@ func _run() -> void:
     host.free()
     await process_frame
     quit(0 if invalid == 0 and counted > 0 else 3)
+
+
+# Run the same brush/eraser and bridge functions as the interactive studio,
+# without screen raycasts or a physical Android device. Test several crossing
+# positions on every seam, not just the midpoint.
+func _stroke_sample(t: Dictionary,edge: int,f: float,density: int,idx: int) -> Dictionary:
+    var p: PackedVector3Array = t.p
+    var uv: PackedVector2Array = t.uv
+    var w: Vector3 = p[edge].lerp(p[(edge+1)%3],f)
+    var center: Vector3 = (p[0]+p[1]+p[2])/3.0
+    var alpha: float = minf(0.5,0.9/float(density)/maxf(w.distance_to(center),0.000001))
+    return {"triangle":idx,"chart":int(t.chart),"position":w.lerp(center,alpha),"uv":uv[edge].lerp(uv[(edge+1)%3],f).lerp((uv[0]+uv[1]+uv[2])/3.0,alpha)}
+
+func _measure_face_strokes(tris: Array,atlas: Image,density: int) -> Dictionary:
+    var studio = Studio.new()
+    studio.triangles = tris
+    studio.img = atlas
+    studio.original = atlas
+    studio.atlas_density = density
+    studio.atlas_face_paint = true
+    studio.face_bridges = UV.face_bridge_index(tris)
+    studio.seam_texels = UV.seam_pixels(tris,atlas.get_size())
+    studio.tool_picker = Studio.StudioChoice.new()
+    studio.paint_color = Color8(231,57,103,255)
+    var ink := Image.create(atlas.get_width(),atlas.get_height(),false,Image.FORMAT_RGBA8)
+    studio.layers.append(ink)
+    var output: Dictionary = {}
+    var size: Vector2i = atlas.get_size()
+    for width in [1,5]:
+        studio.brush_size = width
+        var attempted: int = 0
+        var bridged: int = 0
+        var covered: int = 0
+        var erased: int = 0
+        var eligible: int = 0
+        var endpoints: int = 0
+        var endpoint_covered: int = 0
+        var begin: int = Time.get_ticks_usec()
+        for link in UV._seam_segments(tris):
+            var ia: int = int(link.ta)
+            var ib: int = int(link.tb)
+            for f in [0.2,0.5,0.8]:
+                var a: Dictionary = _stroke_sample(tris[ia],int(link.ea),lerpf(float(link.a0),float(link.a1),f),density,ia)
+                var b: Dictionary = _stroke_sample(tris[ib],int(link.eb),lerpf(float(link.b0),float(link.b1),f),density,ib)
+                attempted += 1
+                var bridge: Dictionary = UV.face_bridge(tris,studio.face_bridges,a,b,size,density)
+                if bridge.is_empty():
+                    continue
+                ink.fill(Color.TRANSPARENT)
+                studio.tool_picker.selected = 0
+                if not studio._paint_face_bridge(a,b):
+                    continue
+                bridged += 1
+                if ink.get_pixelv(bridge.a).a>0.5 and ink.get_pixelv(bridge.b).a>0.5:
+                    covered += 1
+                for hit in [a,b]:
+                    var q: Vector2i = Vector2i((Vector2(hit.uv)*Vector2(size)).floor()).clamp(Vector2i.ZERO,size-Vector2i.ONE)
+                    endpoints += 1
+                    if atlas.get_pixelv(q).a>0.5:
+                        eligible += 1
+                        if ink.get_pixelv(q).a>0.5:
+                            endpoint_covered += 1
+                studio.tool_picker.selected = 1
+                studio._paint_face_bridge(a,b)
+                if ink.get_used_rect().size == Vector2i.ZERO:
+                    erased += 1
+        output[str(width)] = {"attempted":attempted,"bridged":bridged,"both_boundary_pixels_painted":covered,"endpoints":endpoints,"eligible_endpoints":eligible,"eligible_endpoints_painted":endpoint_covered,"fully_erased":erased,"elapsed_us":Time.get_ticks_usec()-begin}
+    studio.tool_picker.free()
+    studio.free()
+    return output
