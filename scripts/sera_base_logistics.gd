@@ -431,16 +431,82 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
 
 # Separate public entrypoints: if the routing call terminates early, the
 # BASE can still draw the successfully allocated vehicles and report why.
+func ensure_parked_fleet(specs: Array) -> void:
+    # A real parked truck is still part of the fleet. Allocate a safe place
+    # for any missing route member without pretending its route succeeded.
+    if _trucks.size() >= 12:
+        return
+    if _grid.is_dirty():
+        return
+    var origins: Dictionary = {}
+    for spec in specs:
+        origins[str(spec["id"])] = _xz(spec["at"])
+    for route in ROUTES:
+        var source: String = route[0]
+        var destination: String = route[1]
+        var count: int = 0
+        for t in _trucks:
+            if t.source == source and t.destination == destination:
+                count += 1
+        for i in range(count, 2):
+            var origin: Vector2 = origins[source]
+            var best: float = INF
+            var found: bool = false
+            var parking := Vector2i.ZERO
+            for x in range(REGION.position.x + 1, REGION.end.x - 1):
+                for z in range(REGION.position.y + 1, REGION.end.y - 1):
+                    var c := Vector2i(x, z)
+                    if not _free(c) or _route_parking_exclusion.has(c):
+                        continue
+                    var p: Vector2 = _point(c)
+                    var clear: bool = true
+                    for home in _homes:
+                        if p.distance_squared_to(_point(home)) < 5.5225:
+                            clear = false
+                            break
+                    if not clear:
+                        continue
+                    for value in _docks.values():
+                        var d: Dock = value
+                        if p.distance_squared_to(_point(d.cell)) < 7.29:
+                            clear = false
+                            break
+                    if not clear:
+                        continue
+                    var score: float = p.distance_to(origin) + _screen_penalty(p)
+                    if score < best:
+                        best = score
+                        parking = c
+                        found = true
+            if not found:
+                continue
+            var t := Truck.new()
+            t.id = _trucks.size()
+            t.source = source
+            t.destination = destination
+            t.raw = source == "SCRAP_COLLECTOR"
+            t.home = parking
+            t.pos = _point(parking)
+            t.yaw = Architecture.facility_yaw_radians(source)
+            t.mode = "unavailable"
+            _homes.append(parking)
+            _trucks.append(t)
+    _capture_reservations()
+
+
 func build_carriers() -> void:
-    _phase = "CARRIERS" if _phase == "PLANNED" else _phase + "/CARRIERS"
+    var previous_phase: String = _phase
+    _phase = "CARRIER_DRAW"
     _batch = Architecture.Batch.new(self)
     # Chassis for every allocated vehicle before cargo or articulated docks.
     for t in _trucks:
         _make_chassis(t)
         _truck_pose(t)
+    _phase = "CARGO_DRAW"
     for t in _trucks:
         _make_truck_details(t)
         _truck_pose(t)
+    _phase = "CARRIERS" if previous_phase == "PLANNED" else previous_phase + "/CARRIERS"
     print("SERA_BASE_LOGISTICS: direct chassis=", _vehicle_count, " cargo=", _cargo_count)
 
 
@@ -476,7 +542,7 @@ func build_docks_and_motion() -> void:
                     break
     print("SERA_BASE_LOGISTICS: render_buckets=", _draws.size(), "/", _batch.entries.size())
     _flush_poses()
-    _ready_for_motion = previous_phase == "CARRIERS"
+    _ready_for_motion = previous_phase == "CARRIERS" and _vehicle_count == _trucks.size() and _cargo_count == _vehicle_count * 2
     _phase = "READY" if _ready_for_motion else previous_phase + "/STOP"
 
 
@@ -588,9 +654,9 @@ func _set(v: Visual, pose: Transform3D, shown: bool = true) -> void:
         v.pose = pose
         v.shown = shown
         v.dirty = true
-    if is_instance_valid(v.node):
-        v.node.transform = pose
-        v.node.visible = shown
+        if is_instance_valid(v.node):
+            v.node.transform = pose
+            v.node.visible = shown
 
 func _pose(p: Vector3, yaw: float = 0.0) -> Transform3D:
     return Transform3D(Basis(Vector3.UP, yaw), p)
@@ -656,7 +722,9 @@ func _bake_mesh(g: Variant) -> ArrayMesh:
             for surface_index in range(primitive.get_surface_count()):
                 var arrays: Array = primitive.surface_get_arrays(surface_index)
                 var source_vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
-                var source_normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+                var source_normals := PackedVector3Array()
+                if arrays[Mesh.ARRAY_NORMAL] != null:
+                    source_normals = arrays[Mesh.ARRAY_NORMAL]
                 var source_indices: PackedInt32Array = []
                 if arrays[Mesh.ARRAY_INDEX] != null:
                     source_indices = arrays[Mesh.ARRAY_INDEX]
@@ -686,6 +754,7 @@ func _bake_mesh(g: Variant) -> ArrayMesh:
         var material := StandardMaterial3D.new()
         material.albedo_color = Color.WHITE
         material.vertex_color_use_as_albedo = true
+        material.vertex_color_is_srgb = true
         material.metallic = 0.18
         material.roughness = 0.82
         if glowing:
