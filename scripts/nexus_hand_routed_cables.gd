@@ -159,6 +159,7 @@ func _write_mesh(mesh: ArrayMesh, centers: PackedVector3Array,
             _vertex(surface, centers[end], outward, Color("#52606a"))
             _vertex(surface, rings[end][j], outward, Color("#52606a"))
             _vertex(surface, rings[end][(j + 1) % SIDES], outward, Color("#52606a"))
+    _floor_socket(surface, centers[-1], radius)
     surface.commit(mesh)
 
 
@@ -166,3 +167,32 @@ func _vertex(surface: SurfaceTool, point: Vector3, normal: Vector3, tint: Color)
     surface.set_normal(normal)
     surface.set_color(tint)
     surface.add_vertex(point)
+
+# The fixed end seats in a low-profile steel deck inlet, not a loose tip.
+# This flange is included in the same surface and stays at the authored end.
+func _floor_socket(surface: SurfaceTool, endpoint: Vector3, radius: float) -> void:
+    var base := Vector3(endpoint.x, FLOOR_Y, endpoint.z)
+    var lower: float = FLOOR_Y - 0.008
+    var top: float = endpoint.y + radius * 0.35
+    var width: float = radius * 1.85
+    var steel := Color("#53616a")
+    for i in range(SIDES):
+        var a: float = TAU * float(i) / float(SIDES)
+        var b: float = TAU * float(i + 1) / float(SIDES)
+        var na := Vector3(cos(a), 0.0, sin(a))
+        var nb := Vector3(cos(b), 0.0, sin(b))
+        var p: Vector3 = base + na * width
+        var q: Vector3 = base + nb * width
+        var lo_a := Vector3(p.x, lower, p.z)
+        var lo_b := Vector3(q.x, lower, q.z)
+        var hi_a := Vector3(p.x, top, p.z)
+        var hi_b := Vector3(q.x, top, q.z)
+        _vertex(surface, lo_a, na, steel)
+        _vertex(surface, lo_b, nb, steel)
+        _vertex(surface, hi_a, na, steel)
+        _vertex(surface, hi_a, na, steel)
+        _vertex(surface, lo_b, nb, steel)
+        _vertex(surface, hi_b, nb, steel)
+        _vertex(surface, Vector3(base.x, top, base.z), Vector3.UP, steel)
+        _vertex(surface, hi_a, Vector3.UP, steel)
+        _vertex(surface, hi_b, Vector3.UP, steel)
