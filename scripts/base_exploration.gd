@@ -7,6 +7,7 @@ const VersionIndicator = preload("res://scripts/version_indicator.gd")
 const LoadingConsole = preload("res://scripts/sera_loading_console.gd")
 const StartupBudget = preload("res://scripts/sera_startup_budget.gd")
 const BaseFacilities = preload("res://scripts/base_facility_system.gd")
+const PlacementStore = preload("res://scripts/sera_placement_store.gd")
 const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
 const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
 const PowerBoard = preload("res://scripts/sera_base_power_board.gd")
@@ -114,6 +115,13 @@ var outline_probe_mode: int = 0
 var nexus_material_probe_button: Button
 var nexus_material_probe_mode: int = 0
 var layout_status: Label
+var facility_placement_active: bool = false
+var facility_placement_dirty: bool = false
+var facility_placement_key: String = ""
+var facility_placement_panel: PanelContainer
+var facility_placement_status: Label
+var facility_placement_actions: Array[Button] = []
+var facility_poses: Dictionary = {}
 var layout_seed: int = 0
 var layout_rerolls: int = 0
 var power_zone: Node3D
@@ -150,6 +158,7 @@ func _ready() -> void:
     _frame_budget = BaseFrameBudget.new()
     _frame_budget.start(get_viewport())
     BaseClutter.clear_preview()
+    _load_facility_poses()
     # Show the terminal before the expensive outdoor scene is constructed.
     get_window().go_back_requested.connect(_on_android_back)
     _setup_world()
@@ -195,14 +204,15 @@ func _ready() -> void:
     await _startup_budget.checkpoint("power distribution")
     await _build_logistics(boot_resources.get(BASE_LOGISTICS_PATH))
     await BasePowerDistribution.install_protectors_budgeted(power_distribution, logistics, _startup_budget)
-    if is_instance_valid(logistics):
+    if is_instance_valid(logistics) or not facility_poses.is_empty():
         BaseClutter.set_preview_layouts(await BaseLayoutPreview.reserve_props_budgeted(
-            NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, logistics, {}, _startup_budget, _boot_panels))
+            NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, logistics, {}, _startup_budget, _boot_panels, facility_poses))
     _boot_panels.clear()
     await _build_nexus_building()
     _startup_step("NEXUS / COMMAND LINK ONLINE", 33)
     await _startup_budget.checkpoint("nexus")
     await _build_field_facilities()
+    _restore_facility_poses()
     _startup_step("SHELL / FACILITY ARRAY ONLINE", 49)
     await _startup_budget.checkpoint("facilities")
     await _create_salvage([], _startup_budget)
@@ -653,16 +663,16 @@ func _create_salvage(replacement: Array[Dictionary] = [], budget: Variant = null
                 scale_factor = 1.12
             elif nearest < 7.0:
                 scale_factor = 1.20
-        if is_instance_valid(logistics):
+        if is_instance_valid(logistics) or not facility_poses.is_empty():
             var safe: Vector2
             if budget != null:
                 safe = await BaseLayoutPreview.reserve_salvage_budgeted(
                     Vector2(center.x, center.z), 1.15 * scale_factor,
-                    NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, logistics, occupied, budget)
+                    NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, logistics, occupied, budget, facility_poses)
             else:
                 safe = BaseLayoutPreview.reserve_salvage(
                     Vector2(center.x, center.z), 1.15 * scale_factor,
-                    NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, logistics, occupied)
+                    NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, logistics, occupied, facility_poses)
             if not safe.is_finite():
                 pile.free()
                 continue
@@ -838,6 +848,7 @@ func _create_hud() -> void:
     VersionIndicator.attach(hud)
     facility_system.call("attach_hud", hud)
     _create_layout_tools()
+    _create_facility_placement_panel()
     _create_power_controls()
     hud.resized.connect(_layout_hud)
     _layout_hud()
@@ -1031,6 +1042,7 @@ func _create_layout_tools() -> void:
     facility_name_button = _layout_tool_button(
         "設備名称：ON" if facility_names_enabled else "設備名称：OFF",
         "FacilityNameToggle", _toggle_facility_names)
+    _layout_tool_button("正規配置", "BaseFacilityPlacement", _open_facility_placement)
     layout_shuffle_button = _layout_tool_button(
         "小物を再配置", "LayoutShuffleButton", _shuffle_layout)
     layout_copy_button = _layout_tool_button(
@@ -1058,6 +1070,205 @@ func _create_layout_tools() -> void:
     logistics_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
     logistics_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
     layout_tools.add_child(logistics_status)
+
+
+func _facility_placement_id(key: String) -> String:
+    return "base/facility/" + key
+
+
+func _load_facility_poses() -> void:
+    facility_poses.clear()
+    for key in BaseLayoutPreview.KEYS:
+        var record: Dictionary = PlacementStore.read(_facility_placement_id(str(key)))
+        if str(record.get("space", "")) != "base_local":
+            continue
+        var raw: Variant = record.get("position")
+        if not (raw is Array) or raw.size() != 3:
+            continue
+        var p: Vector3 = PlacementStore.vec(raw)
+        var yaw: float = float(record.get("yaw_rad", 0.0))
+        if p.is_finite() and is_finite(yaw):
+            p.y = 0.0
+            facility_poses[key] = {"position": p, "yaw": yaw}
+
+
+func _facility_placement_root(key: String) -> Node3D:
+    if key == "NEXUS":
+        return nexus_building
+    if not is_instance_valid(facility_system):
+        return null
+    var nodes: Dictionary = facility_system.get("facility_nodes")
+    return nodes.get(key) as Node3D
+
+
+func _restore_facility_poses() -> void:
+    for key in facility_poses:
+        var root_node: Node3D = _facility_placement_root(str(key))
+        if root_node == null:
+            continue
+        var pose: Dictionary = facility_poses[key]
+        root_node.position = pose["position"]
+        root_node.rotation.y = float(pose["yaw"])
+
+
+func _create_facility_placement_panel() -> void:
+    facility_placement_panel = PanelContainer.new()
+    facility_placement_panel.name = "BaseFacilityPlacementPanel"
+    facility_placement_panel.theme = LaboSkin.common_theme()
+    facility_placement_panel.add_theme_stylebox_override("panel", LaboSkin.panel_style())
+    hud.add_child(facility_placement_panel)
+    facility_placement_panel.anchor_left = 0.025
+    facility_placement_panel.anchor_right = 0.975
+    facility_placement_panel.anchor_top = 1.0
+    facility_placement_panel.anchor_bottom = 1.0
+    facility_placement_panel.offset_top = -245.0
+    facility_placement_panel.offset_bottom = -8.0
+    var column := VBoxContainer.new()
+    column.add_theme_constant_override("separation", 4)
+    facility_placement_panel.add_child(column)
+    facility_placement_status = Label.new()
+    facility_placement_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+    facility_placement_status.add_theme_font_override("font", LaboSkin.ui_font())
+    facility_placement_status.add_theme_font_size_override("font_size", 18)
+    column.add_child(facility_placement_status)
+    for row_data in [
+        ["prev", "前の施設", "next", "次の施設"],
+        ["zminus", "↑ Z−", "zplus", "↓ Z＋", "xminus", "← X−", "xplus", "→ X＋"],
+        ["left", "↶ 回転", "right", "↷ 回転"],
+        ["copy", "配置コピー", "exit", "編集終了"]]:
+        var row := HBoxContainer.new()
+        column.add_child(row)
+        for i in range(0, row_data.size(), 2):
+            var action: String = row_data[i]
+            var button := Button.new()
+            button.text = str(row_data[i + 1])
+            button.focus_mode = Control.FOCUS_NONE
+            button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+            button.custom_minimum_size.y = 44.0
+            button.add_theme_font_override("font", LaboSkin.ui_font())
+            button.add_theme_font_size_override("font_size", 17)
+            row.add_child(button)
+            button.pressed.connect(_facility_placement_action.bind(action))
+            if action in ["zminus", "zplus", "xminus", "xplus", "left", "right"]:
+                facility_placement_actions.append(button)
+    facility_placement_panel.hide()
+
+
+func _open_facility_placement() -> void:
+    if facility_placement_active or scene_changing or power_view_active or power_transition_busy:
+        return
+    if facility_system == null or bool(facility_system.call("is_menu_open")):
+        return
+    facility_placement_active = true
+    facility_placement_dirty = false
+    facility_placement_key = ""
+    nexus_touch_id = -1
+    facility_touch_id = -1
+    facility_touch_key = ""
+    touch_id = -1
+    mouse_steering = false
+    joystick = Vector2.ZERO
+    layout_tools.hide()
+    facility_placement_panel.show()
+    _refresh_facility_placement()
+
+
+func _refresh_facility_placement() -> void:
+    var root_node: Node3D = _facility_placement_root(facility_placement_key)
+    for button in facility_placement_actions:
+        button.disabled = root_node == null
+    if root_node == null:
+        facility_placement_status.text = "施設をタップして選択 / XZ・回転のみ"
+        return
+    var p: Vector3 = root_node.position
+    facility_placement_status.text = "%s  X %.2f / Z %.2f / 回転 %.1f°" % [
+        facility_placement_key, p.x, p.z, root_node.rotation_degrees.y]
+
+
+func _close_facility_placement() -> void:
+    if not facility_placement_active:
+        return
+    facility_placement_active = false
+    facility_placement_panel.hide()
+    layout_tools.show()
+    PlacementStore.flush()
+    if facility_placement_dirty:
+        # Reuse the existing small-object rebuild path, not the logistics,
+        # power, ramp or vehicle builders. Their placement_clear is read-only.
+        _apply_layout_preview({"sites": {}, "scrap": [] as Array[Dictionary], "seed": layout_seed})
+    facility_placement_dirty = false
+    facility_placement_key = ""
+    _refresh_facility_names()
+
+
+func _facility_placement_action(action: String) -> void:
+    if not facility_placement_active:
+        return
+    if action == "exit":
+        _close_facility_placement()
+        return
+    if action == "copy":
+        var records: Dictionary = {}
+        for key in facility_poses:
+            records[_facility_placement_id(str(key))] = PlacementStore.read(_facility_placement_id(str(key)))
+        DisplayServer.clipboard_set("BASE_FACILITY_CANONICAL_PLACEMENT\\n" + JSON.stringify(records, "  "))
+        facility_placement_status.text = "配置コピー完了"
+        return
+    if action in ["prev", "next"]:
+        var keys: Array = BaseLayoutPreview.KEYS
+        var index: int = keys.find(facility_placement_key)
+        if index < 0:
+            index = 0 if action == "next" else keys.size() - 1
+        else:
+            index = posmod(index + (1 if action == "next" else -1), keys.size())
+        facility_placement_key = str(keys[index])
+        _refresh_facility_placement()
+        return
+    var root_node: Node3D = _facility_placement_root(facility_placement_key)
+    if root_node == null:
+        return
+    match action:
+        "xminus":
+            root_node.position.x -= 0.25
+        "xplus":
+            root_node.position.x += 0.25
+        "zminus":
+            root_node.position.z -= 0.25
+        "zplus":
+            root_node.position.z += 0.25
+        "left":
+            root_node.rotation.y = wrapf(root_node.rotation.y - deg_to_rad(5.0), -PI, PI)
+        "right":
+            root_node.rotation.y = wrapf(root_node.rotation.y + deg_to_rad(5.0), -PI, PI)
+        _:
+            return
+    facility_poses[facility_placement_key] = {"position": root_node.position, "yaw": root_node.rotation.y}
+    PlacementStore.stage(_facility_placement_id(facility_placement_key), {
+        "space": "base_local", "position": PlacementStore.array3(root_node.position),
+        "yaw_rad": root_node.rotation.y})
+    PlacementStore.flush()
+    facility_placement_dirty = true
+    _refresh_facility_placement()
+    _refresh_facility_names()
+
+
+func _facility_placement_input(event: InputEvent) -> void:
+    if event.is_action_pressed("ui_cancel"):
+        _close_facility_placement()
+        get_viewport().set_input_as_handled()
+        return
+    var point: Vector2
+    if event is InputEventScreenTouch and event.pressed:
+        point = event.position
+    elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+        point = event.position
+    else:
+        return
+    if facility_placement_panel.get_global_rect().has_point(point):
+        return # Native GUI button input.
+    facility_placement_key = "NEXUS" if _nexus_hit(point) else str(facility_system.call("key_at", cam, point))
+    _refresh_facility_placement()
+    get_viewport().set_input_as_handled()
 
 
 func _base_diagnostic_text() -> String:
@@ -1209,7 +1420,7 @@ func _shuffle_layout() -> void:
     var rng := RandomNumberGenerator.new()
     rng.randomize()
     var next: Dictionary = BaseLayoutPreview.generate(
-        NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, rng)
+        NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, rng, facility_poses)
     if next.is_empty():
         layout_status.text = "再配置できませんでした"
     else:
@@ -1223,9 +1434,9 @@ func _apply_layout_preview(selected: Dictionary) -> void:
     # Session preview only; no changes to the game's permanent saves.
     var layouts: Dictionary = selected["sites"]
     var scrap: Array[Dictionary] = selected["scrap"]
-    if is_instance_valid(logistics):
+    if is_instance_valid(logistics) or not facility_poses.is_empty():
         BaseClutter.set_preview_layouts(BaseLayoutPreview.reserve_props(
-            NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, logistics, layouts))
+            NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, logistics, layouts, facility_poses))
     else:
         BaseClutter.set_preview_layouts(layouts)
     var old_nexus: Node = nexus_building.get_node_or_null("NexusArchitecture")
@@ -1299,6 +1510,7 @@ func _restore_boot_rendering() -> void:
         _boot_render_suspended = false
 
 func _exit_tree() -> void:
+    PlacementStore.flush()
     _restore_boot_rendering()
     if _frame_budget != null:
         _frame_budget.stop()
@@ -1573,6 +1785,9 @@ func _power_camera_return_finished() -> void:
 func _on_android_back() -> void:
     if scene_changing or get_tree().root.get_node_or_null("NexusExitTransition") != null:
         return
+    if facility_placement_active:
+        _close_facility_placement()
+        return
     if power_view_active:
         _power_back_pressed()
         return
@@ -1581,6 +1796,9 @@ func _on_android_back() -> void:
 
 func _input(event: InputEvent) -> void:
     if not _boot_complete or scene_changing or hud == null or get_tree().root.get_node_or_null("NexusExitTransition") != null:
+        return
+    if facility_placement_active:
+        _facility_placement_input(event)
         return
     if power_view_active:
         _power_input(event)
@@ -1725,7 +1943,7 @@ func _process(delta: float) -> void:
     if not power_view_active and HUB_SERA_CONTROLS_ENABLED:
         _refresh_facility_names()
     if layout_tools != null:
-        layout_tools.visible = not power_view_active and not bool(
+        layout_tools.visible = not facility_placement_active and not power_view_active and not bool(
             facility_system.call("is_menu_open"))
 
 func _enter_nexus() -> void:
