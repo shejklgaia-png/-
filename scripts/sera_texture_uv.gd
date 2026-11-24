@@ -174,7 +174,17 @@ static func _can_join(a: Dictionary,b: Dictionary,edge_a: int,edge_b: int) -> bo
         var pa: PackedVector3Array = a.p
         var pb: PackedVector3Array = b.p
         if absf(na.dot(pb[0]-pa[0])) < 0.00001:
-            return true
+            # Adjacent coplanar faces may belong to different original
+            # MeshInstances/materials (e.g. the two Iris forehead halves).
+            # Only join opposite sides of the common edge; coincident
+            # stacked faces must not acquire overlapping UVs.
+            var edge: Vector3 = (pa[(edge_a+1)%3]-pa[edge_a]).normalized()
+            var side_a: float = edge.cross(pa[(edge_a+2)%3]-pa[edge_a]).dot(na)
+            var side_b: float = edge.cross(pb[(edge_b+2)%3]-pa[edge_a]).dot(na)
+            if side_a*side_b < 0.0:
+                return true
+    if int(a.surface) != int(b.surface):
+        return false
     # SeraRig gives both triangles of an authored quad the same flat
     # normal. A UV-continuous shared edge identifies the original polygon.
     # Limit the permitted bend so real creases remain separate islands.
@@ -193,7 +203,7 @@ static func _edge_aligned_charts(tris: Array[Dictionary],density: int) -> Array[
         var t: Dictionary = tris[i]
         var p: PackedVector3Array = t.p
         for e in range(3):
-            var key: String = str(t.surface)+":"+_edge_key(p[e],p[(e+1)%3])
+            var key: String = _edge_key(p[e],p[(e+1)%3])
             if not edges.has(key):
                 edges[key] = []
             var incidents: Array = edges[key]
@@ -250,12 +260,54 @@ static func _edge_aligned_charts(tris: Array[Dictionary],density: int) -> Array[
             var edge: Vector3 = b-a
             edge -= normal*edge.dot(normal)
             longest = maxf(longest,edge.length())
+        # Where one straight lower edge is split by a mesh boundary,
+        # score the full collinear run rather than separate short segments.
+        var perimeter: Array[Dictionary] = []
+        for item in outline.values():
+            if int(item.count) == 1:
+                perimeter.append(item)
+        var merged: bool = true
+        while merged:
+            merged = false
+            for i in range(perimeter.size()):
+                if merged:
+                    break
+                for j in range(i+1,perimeter.size()):
+                    var first: Dictionary = perimeter[i]
+                    var second: Dictionary = perimeter[j]
+                    var common := Vector3.ZERO
+                    var outer_a := Vector3.ZERO
+                    var outer_b := Vector3.ZERO
+                    var connected: bool = false
+                    for endpoint_a in ["a","b"]:
+                        for endpoint_b in ["a","b"]:
+                            var point_a: Vector3 = first[endpoint_a]
+                            var point_b: Vector3 = second[endpoint_b]
+                            if _vertex_key(point_a) == _vertex_key(point_b):
+                                common = point_a
+                                outer_a = first["b" if endpoint_a == "a" else "a"]
+                                outer_b = second["b" if endpoint_b == "a" else "a"]
+                                connected = true
+                    if not connected:
+                        continue
+                    var da: Vector3 = (outer_a-common).normalized()
+                    var db: Vector3 = (outer_b-common).normalized()
+                    if da.dot(db) > -0.99999:
+                        continue
+                    perimeter[i] = {"a":outer_a,"b":outer_b,"count":1}
+                    perimeter.remove_at(j)
+                    merged = true
+                    break
+        for item in perimeter:
+            var a: Vector3 = item.a
+            var b: Vector3 = item.b
+            var edge: Vector3 = b-a
+            edge -= normal*edge.dot(normal)
+            longest = maxf(longest,edge.length())
         var best: float = -INF
         var anchor: Vector3 = Vector3.ZERO
         var aligned_edge: bool = false
-        for item in outline.values():
-            if int(item.count) != 1:
-                continue
+        for item in perimeter:
             var a: Vector3 = item.a
             var b: Vector3 = item.b
             var edge: Vector3 = b-a
