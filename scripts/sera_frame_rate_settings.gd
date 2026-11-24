@@ -5,6 +5,7 @@ const SETTINGS_PATH: String = "user://sera_settings.cfg"
 const FPS_LEVELS = [60, 40, 30, 20]
 const DEFAULTS: Dictionary = {
     "base_nexus": 30,
+    "nexus": 60,
     "grid": 60,
     "combat": 60,
 }
