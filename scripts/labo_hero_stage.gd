@@ -13,6 +13,8 @@ const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
 ## Only the CRATE model is shared with the outdoor base; no generic room reuse.
 ## Retain tiny SubViewport and instanced static cargo for Android performance.
 var crate: Node3D
+var crate_route: Node3D
+var crate_route_poses: Dictionary = {}
 var crate_head: Node3D
 var crate_arm: Node3D
 var crate_left_arm: Node3D
@@ -67,7 +69,10 @@ func _live_display(parent: Node3D, label: String, front_z: float, size: Vector2,
 func _build_crate() -> void:
     # Exact same factory and mesh as the roaming robot in the base.
     crate = CrateModel.create_model()
-    add_child(crate)
+    crate_route = Node3D.new()
+    crate_route.name = "CrateRoute"
+    add_child(crate_route)
+    crate_route.add_child(crate)
     crate_head = crate.get_node("HeadPivot") as Node3D
     crate_arm = crate.get_node("RightArmPivot") as Node3D
     crate_left_arm = crate.get_node("LeftArmPivot") as Node3D
@@ -162,6 +167,7 @@ func set_section(section: String) -> void:
             hero_camera.look_at(camera_look, Vector3.UP)
 
     var key: String = camera_section_id()
+    crate_route.transform = crate_route_poses.get(key, Transform3D.IDENTITY)
     if camera_previews.has(key):
         var pose: Dictionary = camera_previews[key]
         apply_camera_preview(pose["eye"], pose["look"], float(pose["fov"]))
@@ -182,6 +188,30 @@ func apply_camera_preview(eye: Vector3, look: Vector3, fov: float) -> void:
     hero_camera.look_at(camera_look, Vector3.UP)
     hero_camera.fov = fov
     camera_previews[camera_section_id()] = {"eye": eye, "look": look, "fov": fov}
+
+
+func placement_models() -> Array[Node3D]:
+    var room: Node3D = printer_group
+    var names: Array[String] = ["AtlasOpenFramePrinter", "TechnicalConsole"]
+    match camera_section_id():
+        "REFINERY":
+            room = converter_group
+            names = ["RefineryTower_00", "RefineryTower_01", "RefineryTower_02", "MaterialReceivingArray", "RefineryOperator_0", "RefineryOperator_1", "RecycleStatus"]
+        "STORAGE":
+            room = warehouse_group
+            names = ["CargoRackPort", "CargoRackStarboard", "CargoRackPortRear", "CargoRackStarboardRear", "RearFreightBulkhead", "ElevatingCargoPallet", "InventoryMasterMonitor", "WarehouseScanningConsole", "TravelingInventoryScanner", "WallSideOverstockPallets", "BulkOutbound_-1", "BulkOutbound_1"]
+    var targets: Array[Node3D] = []
+    for target_name in names:
+        var target := room.get_node_or_null(NodePath(target_name)) as Node3D
+        if target != null:
+            targets.append(target)
+    targets.append(crate_route)
+    return targets
+
+
+func remember_model_placement(target: Node3D) -> void:
+    if target == crate_route:
+        crate_route_poses[camera_section_id()] = target.transform
 
 
 func _move_to(goal: Vector3, delta: float) -> bool:
@@ -271,7 +301,7 @@ func _animate_refinery(delta: float) -> void:
 
 func _animate_inventory(delta: float) -> void:
     # Warehouse robot remains at aisle center rather than driving into a rack.
-    warehouse_scanner.position.x = 1.53 + 0.12*sin(clock*1.5)
+    warehouse_scanner.position.x = 0.12*sin(clock*1.5)
     warehouse_scanner.rotation.y = 0.08*sin(clock*0.8)
     match work_state:
         "storage_scan":
