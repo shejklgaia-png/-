@@ -173,7 +173,7 @@ static func _canvas(st: SurfaceTool, pinned: bool = false) -> void:
             # only the inner fabric billow, not its attachment rails.
             var y: float = _canopy_y(x, z)
             if pinned:
-                y = 0.34 * (1.0 - 4.0 * x * x) * (1.0 - 4.0 * z * z) * sin(PI * (x + 0.82))
+                y = 0.46 * (1.0 - 4.0 * x * x) * (1.0 - 4.0 * z * z)
             row.append(Vector3(x, y, z))
         grid.append(row)
     for iz in range(4):
@@ -423,6 +423,21 @@ static func _nexus_portal(st: SurfaceTool) -> void:
             Vector3(b.x, b.y, 0.5), Vector3(a.x, a.y, 0.5),
             Vector3(-direction.y, direction.x, 0.0))
 
+# Short pleated front skirt. Its top edge is straight at Y=+0.5;
+# the lower edge has a visible fabric scallop and folded depth.
+static func _nexus_awning_skirt(st: SurfaceTool) -> void:
+    for i in range(8):
+        var x0: float = -0.5 + float(i) / 8.0
+        var x1: float = -0.5 + float(i + 1) / 8.0
+        var a := Vector3(x0, 0.5, 0)
+        var b := Vector3(x1, 0.5, 0)
+        var c := Vector3(x1, -0.46 + 0.04 * cos(x1 * TAU * 3.0),
+            0.35 * sin(x1 * TAU * 2.0))
+        var d := Vector3(x0, -0.46 + 0.04 * cos(x0 * TAU * 3.0),
+            0.35 * sin(x0 * TAU * 2.0))
+        _quad(st, a, b, c, d, Vector3.BACK)
+        _quad(st, a, d, c, b, Vector3.FORWARD)
+
 # The dish is a real shallow paraboloid with a closed thin backing.
 static func _nexus_dish(st: SurfaceTool) -> void:
     const SEGMENTS: int = 16
@@ -468,6 +483,8 @@ static func make(kind: String) -> ArrayMesh:
             _canvas(st)
         "nexus_canvas":
             _canvas(st, true)
+        "nexus_awning_skirt":
+            _nexus_awning_skirt(st)
         "nexus_dish":
             _nexus_dish(st)
         "drum":
