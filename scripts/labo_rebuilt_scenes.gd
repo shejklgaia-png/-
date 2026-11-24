@@ -1319,7 +1319,9 @@ func animate(delta: float, time: float, key: String) -> void:
             logistics[key].reset()
             return
         var duration: float = logistics[key].duration()
-        elapsed = minf(duration,elapsed+delta)
+        # Do not skip a reserved stock handoff after a long app/frame pause.
+        var advance: float = minf(delta,0.25) if key=="STORAGE" else delta
+        elapsed = minf(duration,elapsed+advance)
         _sample(key,elapsed/duration)
         cycle_running = elapsed < duration
     else:
