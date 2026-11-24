@@ -249,9 +249,16 @@ class Batch:
             # LABO's articulated arm and single payload move between material
             # batches' original rest-pose bounds. Keep the full local work
             # envelope visible, including the shared outline pass.
-            if motion_names.has("LabArmLinkA") or motion_names.has("NexusDishReflector"):
+            if motion_names.has("LabArmLinkA"):
                 multi.custom_aabb = AABB(Vector3(-5.0, 0.0, -5.0),
                     Vector3(10.0, 6.2, 10.0)).merge(multi.get_aabb())
+            elif motion_names.has("NexusDishReflector"):
+                # Only animated buckets need conservative swept bounds.
+                for records in motion_indices.values():
+                    for slot in records:
+                        if str(slot["bucket"]) == key:
+                            multi.custom_aabb = multi.get_aabb().grow(1.6)
+                            break
             var surface := StandardMaterial3D.new()
             # Texture audit: the industrial steel/armor/oxide SVGs have
             # near-white substrates, not black pixels. The BASE NEXUS front
@@ -558,8 +565,8 @@ static func _nexus_command_bunker(g: Batch) -> void:
             for blade in range(4):
                 var angle: float = TAU * float(blade) / 4.0
                 var radial := Vector3(cos(angle), 0, sin(angle))
-                g.box_tilt("NexusFanBlade", center + radial * 0.18 + Vector3(0, 0.056, 0),
-                    Vector3(0.25, 0.045, 0.11), "edge", Vector3(0.22, -angle, 0.0))
+                g.box_tilt("NexusFanBlade", center + radial * 0.145 + Vector3(0, 0.056, 0),
+                    Vector3(0.19, 0.045, 0.09), "edge", Vector3(0.22, -angle, 0.0))
         g.rod("NexusRoofCoolantPipe", Vector3(side * 2.73, 4.55, -1.84),
             Vector3(side * 2.73, 4.55, 1.68), 0.16, "gold")
         g.rod("NexusRoofPipeElbow", Vector3(side * 2.73, 4.55, 1.68),
