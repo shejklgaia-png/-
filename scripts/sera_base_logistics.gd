@@ -13,8 +13,8 @@ const REGION := Rect2i(-46, -46, 93, 93)
 const CLEARANCE: float = 0.84
 const STEP: float = 1.0 / 30.0
 const SPEED: float = 2.35
-const VEHICLES_PER_ROUTE: int = 1
-const FLEET_SIZE: int = 3
+const VEHICLES_PER_ROUTE: int = 2
+const FLEET_SIZE: int = 6
 const BOX_TIME: float = 3.8
 const DECK_Y: float = 0.39
 const RACK_Y: float = 0.61
@@ -1169,7 +1169,7 @@ func _leg_remainder(t: Truck, leg: int, waypoint: int) -> Dictionary:
 
 # A short production admission search, not a full-loop lock. Assume each
 # already-reserved leg finishes, then find an order of the next dock visits.
-# With three trucks and four legs the bounded state space is small.
+# With six trucks and four legs, memoize visited stage combinations.
 func _safe_completion(candidate: Truck, leg: int, _claim: Dictionary) -> bool:
     var positions: Dictionary = {}
     var stages: Dictionary = {}
