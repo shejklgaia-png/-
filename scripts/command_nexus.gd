@@ -482,11 +482,32 @@ func _ensure_placement_editor_nodes(kind: String) -> void:
             existing_place = null
             placement_editor = null
         if not is_instance_valid(existing_place):
-            existing_place = NexusCanonicalPlacement.new()
-            if is_instance_valid(existing_place):
+            # A preloaded GDScript may exist but fail to instantiate on some
+            # Android builds. Check can_instantiate() explicitly; a null
+            # editor must not trigger repeated NO NODE without a recovery.
+            var primary: Script = NexusCanonicalPlacement as Script
+            if primary != null and primary.can_instantiate():
+                existing_place = primary.new() as Control
+            if not is_instance_valid(existing_place):
+                push_warning("NEXUS PLACE: primary editor cannot instantiate; using recovery editor")
+                # Dynamic load isolates a recovery-script syntax/load problem
+                # from the normal NEXUS/ANGLE scene. No new CanvasLayer.
+                var recovery: Script = load(
+                    "res://scripts/nexus_model_placement_recovery.gd") as Script
+                if recovery != null and recovery.can_instantiate():
+                    existing_place = recovery.new() as Control
+            if is_instance_valid(existing_place) and (
+                    existing_place.get_script() != null and
+                    existing_place.has_method("configure") and
+                    existing_place.has_method("open_mode")):
                 existing_place.name = "NexusCanonicalPlacement"
                 existing_place.mouse_filter = Control.MOUSE_FILTER_IGNORE
                 placement_ui_layer.add_child(existing_place)
+            else:
+                if is_instance_valid(existing_place):
+                    existing_place.queue_free()
+                existing_place = null
+                push_error("NEXUS PLACE: neither the main nor recovery editor can instantiate")
         placement_editor = existing_place
     elif kind == "ANGLE":
         var existing_angle: Control = placement_ui_layer.get_node_or_null(
@@ -531,8 +552,12 @@ func _placement_editor_failure(kind: String, editor) -> String:
         push_warning("NEXUS %s editor failure: %s, node=%s, script=%s" % [
             kind, stage, node_path, str(editor.get_script())])
     else:
-        push_warning("NEXUS %s editor missing, overlay=%s" % [
-            kind, str(placement_ui_layer)])
+        if kind == "PLACE":
+            var primary: Script = NexusCanonicalPlacement as Script
+            stage = "SCRIPT LOAD" if primary == null else (
+                "SCRIPT COMPILE" if not primary.can_instantiate() else "CREATE ERROR")
+        push_warning("NEXUS %s editor missing: %s, overlay=%s" % [
+            kind, stage, str(placement_ui_layer)])
     return stage
 
 
