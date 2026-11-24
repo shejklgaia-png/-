@@ -155,6 +155,9 @@ func _ready() -> void:
     _startup_step("WORLD / FLOOR MATRIX ONLINE", 18)
     await get_tree().process_frame
     await get_tree().process_frame
+    _build_logistics()
+    BaseClutter.set_preview_layouts(BaseLayoutPreview.reserve_props(
+        NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, logistics))
     _build_nexus_building()
     _startup_step("NEXUS / COMMAND LINK ONLINE", 33)
     await get_tree().process_frame
@@ -162,14 +165,13 @@ func _ready() -> void:
     _build_field_facilities()
     _startup_step("SHELL / FACILITY ARRAY ONLINE", 49)
     _build_power_board()
+    _create_salvage()
     _build_power_distribution()
     _startup_step("GRID / POWER ROUTING ONLINE", 61)
     _create_grid_selection()
     _startup_step("GRID / ADDRESS MAP VERIFIED", 67)
     await get_tree().process_frame
     await get_tree().process_frame
-    _create_salvage()
-    _build_logistics()
     _startup_step("ARCHIVE / SALVAGE INDEXED", 79)
     await get_tree().process_frame
     await get_tree().process_frame
@@ -461,7 +463,9 @@ func _build_power_distribution() -> void:
     if is_instance_valid(power_distribution):
         power_distribution.free()
     power_distribution = BasePowerDistribution.build(
-        self, NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, cam)
+        self, NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, cam, logistics)
+    if is_instance_valid(logistics):
+        logistics.call("set_ramp_surface", power_distribution.get_node_or_null("CableCrossingRamps"))
 
 
 func _build_logistics() -> void:
@@ -524,6 +528,7 @@ func _create_salvage(replacement: Array[Dictionary] = []) -> void:
     salvage.set_meta("sera_outline_role", "clutter")
     add_child(salvage)
     var g := BaseArchitecture.Batch.new(salvage)
+    var occupied: Array[Vector2] = []
     for i in range(lots.size()):
         var pile := Node3D.new()
         pile.name = "ScrapPile_%02d" % i
@@ -550,6 +555,15 @@ func _create_salvage(replacement: Array[Dictionary] = []) -> void:
                 scale_factor = 1.12
             elif nearest < 7.0:
                 scale_factor = 1.20
+        if is_instance_valid(logistics):
+            var safe: Vector2 = BaseLayoutPreview.reserve_salvage(
+                Vector2(center.x, center.z), 1.15 * scale_factor,
+                NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, logistics, occupied)
+            if not safe.is_finite():
+                pile.free()
+                continue
+            center = Vector3(safe.x, 0.0, safe.y)
+        occupied.append(Vector2(center.x, center.z))
         pile.position = center
         pile.rotation.y = deg_to_rad(heading)
         pile.set_meta("scrap_profile", posmod(i, JunkGeometry.SCRAP_PROFILES))
@@ -1087,7 +1101,8 @@ func _apply_layout_preview(selected: Dictionary) -> void:
     # Session preview only; no changes to the game's permanent saves.
     var layouts: Dictionary = selected["sites"]
     var scrap: Array[Dictionary] = selected["scrap"]
-    BaseClutter.set_preview_layouts(layouts)
+    BaseClutter.set_preview_layouts(BaseLayoutPreview.reserve_props(
+        NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, logistics, layouts))
     var old_nexus: Node = nexus_building.get_node_or_null("NexusArchitecture")
     if old_nexus != null:
         old_nexus.free()
@@ -1107,7 +1122,6 @@ func _apply_layout_preview(selected: Dictionary) -> void:
         BaseArchitecture.build_facility(station, key)
     # User-driven prop reshuffles can change what space is free around each
     # station; recalculate only these fixed-seed substations and their cables.
-    _build_power_distribution()
     var previous: Node = get_node_or_null("SalvageMeshes")
     if previous != null:
         previous.free()
@@ -1116,7 +1130,7 @@ func _apply_layout_preview(selected: Dictionary) -> void:
         if pile != null:
             pile.free()
     _create_salvage(scrap)
-    _build_logistics()
+    _build_power_distribution()
     # Rerolled facility geometry is newly instantiated after initial shading.
     SharedMaterialShading.apply_to_subtree(self)
     layout_seed = int(selected["seed"])

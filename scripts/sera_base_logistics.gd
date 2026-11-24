@@ -83,6 +83,9 @@ var _camera: Camera3D
 var _network_anchor := Vector2i(0, 40)
 var _route_parking_exclusion: Dictionary = {}
 var _screen_costs: Dictionary = {}
+var _reserved: Dictionary = {}
+var _road_cells: Dictionary = {}
+var _ramp_surface: Node3D
 
 func _xz(v: Vector3) -> Vector2:
     return Vector2(v.x, v.z)
@@ -139,17 +142,9 @@ func _obstacles(root: Node3D, sites: Array, power: Node3D, crate_path: Array) ->
         if key == "SCRAP_COLLECTOR":
             # Incoming conveyor is 1.55x authored scale; its guards count.
             _block_rect(at, yaw, Vector2(-5.25, 1.98), Vector2(3.8, 1.65))
-        for prop in Clutter.props_for(key):
-            # Clutter.decorate rotates around the individual prop's own pivot,
-            # not the building origin: its anchor is in world-aligned XZ.
-            var size: Vector2 = Clutter.bounds_for(str(prop["kind"])) * float(prop["scale"])
-            _block_rect(at + (prop["at"] as Vector2), deg_to_rad(float(prop.get("yaw_deg", 0.0))), Vector2.ZERO, size * 0.5)
-    for node in root.get_children():
-        if node is Node3D and str(node.name).begins_with("ScrapPile_"):
-            _block_circle(_xz((node as Node3D).position), 1.15 * float(node.get_meta("visual_scale", 1.26)) + CLEARANCE)
-    if is_instance_valid(power):
-        for p in power.get_meta("logistics_obstacles", []):
-            _block_circle(p, 0.82 + CLEARANCE)
+    # Decorative props, salvage and power cabinets are generated AFTER
+    # this network; never allow them to dictate or disconnect a road.
+    _block_rect(Vector2(35.5, -20.0), 0.0, Vector2.ZERO, Vector2(5.8, 5.8))
     # CRATE's established patrol remains untouched. Keep its whole corridor free.
     for i in range(crate_path.size()):
         var a: Vector2 = crate_path[i]
@@ -418,6 +413,7 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
     # loaded trips on the visible delivery legs instead of starting every
     # truck empty behind its source facility.
     _seed_active_deliveries()
+    _capture_reservations()
     _batch = Architecture.Batch.new(self)
     for dock in _docks.values():
         _make_dock(dock)
@@ -449,6 +445,60 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
                     break
     print("SERA_BASE_LOGISTICS: render_buckets=", _draws.size(), "/", _batch.entries.size())
     _flush_poses()
+
+func _capture_reservations() -> void:
+    for t in _trucks:
+        _reserved.merge(t.cells, true)
+        _road_cells.merge(t.cells, true)
+        _expand_cell(_reserved, t.home)
+    for dock_value in _docks.values():
+        var d: Dock = dock_value
+        for center in [_point(d.cell), d.stage, d.pivot,
+                d.stage + _xz(Basis(Vector3.UP, d.yaw) * Vector3(d.hatch_side * 0.74, 0, 0))]:
+            _expand_cell(_reserved, _cell(center))
+
+
+func _rect_hits(cells: Dictionary, bounds: Rect2) -> bool:
+    var area: Rect2 = bounds.grow(CELL * 0.5)
+    var lo := Vector2i(ceili(area.position.x / CELL), ceili(area.position.y / CELL))
+    var hi := Vector2i(floori(area.end.x / CELL), floori(area.end.y / CELL))
+    for x in range(lo.x, hi.x + 1):
+        for z in range(lo.y, hi.y + 1):
+            if cells.has(Vector2i(x, z)):
+                return true
+    return false
+
+
+func placement_clear(bounds: Rect2) -> bool:
+    return not _rect_hits(_reserved, bounds.grow(0.12))
+
+
+func road_at(p: Vector2) -> bool:
+    return _rect_hits(_road_cells, Rect2(p - Vector2.ONE * 0.22, Vector2.ONE * 0.44))
+
+
+func power_device_clear(p: Vector2) -> bool:
+    return placement_clear(Rect2(p - Vector2.ONE * 0.88, Vector2.ONE * 1.76))
+
+
+func cable_dock_obstacles() -> Array[Dictionary]:
+    var result: Array[Dictionary] = []
+    for dock_value in _docks.values():
+        var d: Dock = dock_value
+        for p in [_point(d.cell), d.stage, d.pivot]:
+            result.append({"at": p, "radius": 0.9})
+    return result
+
+
+func set_ramp_surface(surface: Node3D) -> void:
+    _ramp_surface = surface
+
+
+func _ground_height(p: Vector2) -> float:
+    if is_instance_valid(_ramp_surface):
+        return float(_ramp_surface.call("height_at", p))
+    return 0.0
+
 
 func _seed_active_deliveries() -> void:
     for t in _trucks:
@@ -662,13 +712,13 @@ func _buffer_pose(d: Dock, i: int, y: float, opening: float) -> void:
 
 
 func _deck_slot(t: Truck, i: int) -> Vector3:
-    return _v3(t.pos, DECK_Y) + Basis(Vector3.UP, t.yaw) * Vector3(0, 0, -0.32 + 0.64 * i)
+    return _v3(t.pos, DECK_Y + _ground_height(t.pos)) + Basis(Vector3.UP, t.yaw) * Vector3(0, 0, -0.32 + 0.64 * i)
 
 func _rack_slot(d: Dock, i: int) -> Vector3:
     return _v3(d.stage, RACK_Y) + Basis(Vector3.UP, d.yaw) * Vector3(0, 0, -0.34 + 0.68 * i)
 
 func _truck_pose(t: Truck) -> void:
-    var p: Transform3D = _pose(_v3(t.pos), t.yaw)
+    var p: Transform3D = _pose(_v3(t.pos, _ground_height(t.pos)), t.yaw)
     _set(t.body, p)
     var waiting: bool = t.mode in ["home", "unavailable"] or (t.mode == "approach" and t.waypoint > t.prefix_end)
     _set(t.lamp_go, p, not waiting)

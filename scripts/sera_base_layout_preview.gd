@@ -198,6 +198,134 @@ static func generate(nexus_origin: Vector3, specs: Array,
     return {"sites": layouts, "scrap": scrap, "seed": rng.seed}
 
 
+# The fixed logistics network is the first occupant of the yard. Preserve
+# each authored prop where possible, otherwise search its own service pad.
+static func reserve_props(nexus_origin: Vector3, specs: Array,
+        logistics: Node3D, proposals: Dictionary = {}) -> Dictionary:
+    var sites: Array[Dictionary] = Deck.facility_sites(nexus_origin, specs)
+    var slabs: Dictionary = {}
+    for panel in Deck.generate(42, 3.0, sites):
+        var key: String = str(panel["site"])
+        if key.is_empty():
+            continue
+        for site in sites:
+            if str(site["id"]) == key:
+                var center: Vector2 = panel["center"]
+                var size: Vector2 = panel["size"]
+                var origin: Vector2 = site["at"]
+                slabs[key] = Rect2(center - origin - size * 0.5, size).grow(-0.10)
+                break
+    var layouts: Dictionary = {}
+    var occupied: Array[Rect2] = []
+    for site in sites:
+        var key: String = str(site["id"])
+        var origin: Vector2 = site["at"]
+        var items: Array = proposals.get(key, [])
+        if items.is_empty():
+            items = Clutter.default_props_for(key)
+        var accepted: Array[Dictionary] = []
+        var usable: Rect2 = slabs.get(key, Rect2(-4, -4, 8, 8))
+        for value in items:
+            var part: Dictionary = (value as Dictionary).duplicate(true)
+            var original: Vector2 = part["at"]
+            var found: bool = false
+            for ring in range(0, 10):
+                var samples: int = 1 if ring == 0 else 20
+                for j in range(samples):
+                    var phi: float = TAU * float(j) / float(samples)
+                    part["at"] = original + Vector2(cos(phi), sin(phi)) * float(ring) * 0.42
+                    var local: Rect2 = prop_envelope(part)
+                    if ring > 0 and not usable.encloses(local):
+                        continue
+                    if Clutter._collector_belt_blocked(key, local):
+                        continue
+                    if ring > 0 and local.intersects(Clutter._clear_zone(key).grow(0.10)):
+                        continue
+                    var world := Rect2(local.position + origin, local.size)
+                    if not bool(logistics.call("placement_clear", world)):
+                        continue
+                    var blocked: bool = false
+                    for other in occupied:
+                        if world.grow(0.035).intersects(other):
+                            blocked = true
+                            break
+                    if blocked:
+                        continue
+                    for other_site in sites:
+                        if str(other_site["id"]) == key:
+                            continue
+                        var center: Vector2 = other_site["at"]
+                        var half_size: Vector2 = other_site["physical"] * 0.5
+                        if world.intersects(Rect2(center - half_size, half_size * 2.0).grow(0.3)):
+                            blocked = true
+                            break
+                    if blocked:
+                        continue
+                    occupied.append(world)
+                    accepted.append(part)
+                    found = true
+                    break
+                if found:
+                    break
+            # If no safe slot exists, omit this decorative object rather
+            # than shrink it or put it in the logistics lane.
+        layouts[key] = accepted
+    return layouts
+
+
+static func reserve_salvage(preferred: Vector2, radius: float, nexus_origin: Vector3,
+        specs: Array, logistics: Node3D, occupied: Array[Vector2]) -> Vector2:
+    var sites: Array[Dictionary] = Deck.facility_sites(nexus_origin, specs)
+    var prop_rects: Array[Rect2] = []
+    for site in sites:
+        var center: Vector2 = site["at"]
+        for prop in Clutter.props_for(str(site["id"])):
+            var local: Rect2 = prop_envelope(prop)
+            prop_rects.append(Rect2(local.position + center, local.size))
+    for ring in range(0, 38):
+        var samples: int = 1 if ring == 0 else 24
+        for j in range(samples):
+            var phi: float = TAU * float(j) / float(samples)
+            var point: Vector2 = preferred + Vector2(cos(phi), sin(phi)) * float(ring) * 0.65
+            var rect := Rect2(point - Vector2.ONE * radius, Vector2.ONE * radius * 2.0)
+            if not bool(logistics.call("placement_clear", rect)):
+                continue
+            if rect.intersects(Rect2(-4.4, -7.7, 8.8, 13.7)):
+                continue
+            var blocked: bool = false
+            for site in sites:
+                var center: Vector2 = site["at"]
+                var half_size: Vector2 = site["minimum"] * 0.5
+                if rect.intersects(Rect2(center - half_size, half_size * 2.0).grow(0.22)):
+                    blocked = true
+                    break
+            if blocked:
+                continue
+            for prop_rect in prop_rects:
+                if rect.intersects(prop_rect):
+                    blocked = true
+                    break
+            if blocked:
+                continue
+            # The collector's long incoming belt extends beyond its pad.
+            var collector: Vector2 = Vector2.ZERO
+            for site in sites:
+                if str(site["id"]) == "SCRAP_COLLECTOR":
+                    collector = site["at"]
+                    break
+            var belt_turn := Basis(Vector3.UP, deg_to_rad(56.0))
+            var belt_local: Vector3 = belt_turn.inverse() * Vector3(point.x - collector.x, 0, point.y - collector.y)
+            if Rect2(-9.05, 0.33, 7.60, 3.30).grow(radius).has_point(Vector2(belt_local.x, belt_local.z)):
+                continue
+            for earlier in occupied:
+                if point.distance_to(earlier) < radius + 1.55:
+                    blocked = true
+                    break
+            if not blocked:
+                return point
+    return Vector2.INF
+
+
 static func export_text(layouts: Dictionary, scrap: Array[Dictionary],
         rerolls: int, seed: int) -> String:
     var site_rows: Array[Dictionary] = []
