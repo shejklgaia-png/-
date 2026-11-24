@@ -715,9 +715,10 @@ func _build_storage() -> void:
     # Both warehouse displays remain live with their original modes.
     _screen(room, "InventoryMasterMonitor",
         Vector3(1.50, 2.61, -7.56), Vector2(2.34, 1.40), 4)
-    _b(room, Vector3(1.52, 0.65, -0.75),
+    var scan_mount := _node(room, "WarehouseScanningConsole", Vector3(1.52, 0.0, -0.75))
+    _b(scan_mount, Vector3(0.0, 0.65, 0.0),
         Vector3(0.56, 1.30, 0.61), HULL)
-    var scan := _node(room, "WarehouseScanningConsole", Vector3(1.52, 1.43, -0.85))
+    var scan := _node(scan_mount, "DisplayTilt", Vector3(0.0, 1.43, -0.10))
     scan.rotation.x = -0.24
     _screen(scan, "LocalBarcodeScanner",
         Vector3.ZERO, Vector2(0.94, 0.56), 5)
