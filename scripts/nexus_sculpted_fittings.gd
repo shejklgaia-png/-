@@ -16,22 +16,11 @@ const HIGHLIGHT: Color = Color("#d4e2e9")
 static func build(room: Node3D, system_at: Vector3,
         training_at: Vector3, gate_at: Vector3, gate_yaw: float, gate_scale: float = 1.0) -> void:
     var batches: Dictionary = {}
-    # Twin front-service impellers replace the flat-box look of the lower
-    # terminal panels. Both stay BELOW the display and the keyboard.
-    _place(batches, "impeller", "steel", system_at, deg_to_rad(18.0),
-        Vector3(-0.33, 0.66, 0.703), Vector3(0.53, 0.53, 0.48))
+    # SYSTEM already has an animated cooling rotor and housing. Keep only
+    # the TRAINING lower impeller; remove the overlapping open side fairings
+    # that read as broken loose cables across the front of both consoles.
     _place(batches, "impeller", "steel", training_at, deg_to_rad(-14.0),
         Vector3(0.25, 0.63, 0.710), Vector3(0.43, 0.43, 0.43))
-
-    # Die-cast side cheeks: their contoured channels have real cut-through
-    # openings. Keep the existing monitor bezel and diagnostic sensor clear.
-    for side in [-1.0, 1.0]:
-        _place(batches, "fairing", "steel", system_at, deg_to_rad(18.0),
-            Vector3(side * 0.76, 0.95, 0.32),
-            Vector3(0.31, 0.89, 0.32), side < 0.0)
-        _place(batches, "fairing", "steel", training_at, deg_to_rad(-14.0),
-            Vector3(side * 0.56, 1.00, 0.32),
-            Vector3(0.26, 0.94, 0.29), side < 0.0)
 
     # The deployment portal gains two genuinely curved hydraulic pistons,
     # positioned OUTSIDE its luminous opening, not across the aperture.
