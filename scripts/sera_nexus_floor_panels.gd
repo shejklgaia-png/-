@@ -914,10 +914,53 @@ static func _submit(room: Node3D, batches: Dictionary) -> void:
     # Paint is flush with the deck, depth-tested, and never an input target.
     # The default portrait camera sees the narrow center aisle between the
     # consoles. Keep the lettering above EXIT/PLACE and off both terminals.
-    _floor_stencil(root, "NEXUS", Vector3(0.0, 0.178, 4.69), 0.0039, Color("#c9d1d4"))
-    _floor_stencil(root, "A1 / HUB", Vector3(0.0, 0.178, 2.80), 0.0031, Color("#c4ccd0"))
-    _floor_stencil(root, "SERVICE", Vector3(0.0, 0.178, 0.10), 0.0030, Color("#d4b779"))
-    _floor_stencil(root, "KEEP CLEAR", Vector3(0.0, 0.178, -1.34), 0.0028, Color("#d4b779"))
+    _place_plate_stencil(root, batches, "NEXUS", Vector2(-0.65, 4.44), 0.0036, Color("#c9d1d4"))
+    _place_plate_stencil(root, batches, "A1 / HUB", Vector2(-0.65, 2.40), 0.0030, Color("#c4ccd0"))
+    _place_plate_stencil(root, batches, "SERVICE", Vector2(-0.65, 0.12), 0.0029, Color("#d4b779"))
+    _place_plate_stencil(root, batches, "KEEP CLEAR", Vector2(0.55, -1.26), 0.0027, Color("#d4b779"))
+
+
+# Fit the entire glyph run inside the flat interior of one physical plate.
+# No floating letters over the middle seam, grilles, or bevelled shoulders.
+static func _place_plate_stencil(root: Node3D, batches: Dictionary, wording: String,
+        target: Vector2, requested_scale: float, tint: Color) -> void:
+    var font: Font = ThemeDB.fallback_font
+    var glyph_width: float = font.get_string_size(wording, HORIZONTAL_ALIGNMENT_LEFT, -1, 96).x
+    var glyph_height: float = font.get_height(96)
+    var best_score: float = INF
+    var best_at := Vector2.ZERO
+    var best_scale: float = 0.0
+    for key_value in batches.keys():
+        var key: String = str(key_value)
+        if not key.begins_with("armor_"):
+            continue
+        for pose_value in batches[key]:
+            var pose: Transform3D = pose_value
+            var center := Vector2(pose.origin.x, pose.origin.z)
+            if absf(center.x) > 1.0 or absf(center.y - target.y) > 1.15:
+                continue
+            var extent := Vector2(pose.basis.x.length(), pose.basis.z.length()) * 0.5
+            # Flat top extends to 0.46/0.479 of each normalized axis.
+            # Reserve extra margin for existing engraved lines and bolts.
+            var safe := extent * 0.90 - Vector2(0.16, 0.16)
+            if safe.x <= 0.0 or safe.y <= 0.0:
+                continue
+            var scale: float = minf(requested_scale,
+                minf(safe.x * 2.0 / maxf(glyph_width, 1.0), safe.y * 2.0 / maxf(glyph_height, 1.0)))
+            if scale < requested_scale * 0.57:
+                continue
+            var move_room := safe - Vector2(glyph_width, glyph_height) * scale * 0.5
+            move_room = move_room.max(Vector2.ZERO)
+            var at := center + (target - center).clamp(-move_room, move_room)
+            if absf(at.x) > 1.0 or at.y > 4.80:
+                continue
+            var score: float = at.distance_to(target) + (1.0 - scale / requested_scale) * 0.45
+            if score < best_score:
+                best_score = score
+                best_at = at
+                best_scale = scale
+    if best_scale > 0.0:
+        _floor_stencil(root, wording, Vector3(best_at.x, 0.178, best_at.y), best_scale, tint)
 
 
 static func _floor_stencil(root: Node3D, wording: String, at: Vector3,
@@ -925,6 +968,7 @@ static func _floor_stencil(root: Node3D, wording: String, at: Vector3,
     var label := Label3D.new()
     label.name = "DeckStencil_" + wording.replace(" ", "_").replace("/", "_")
     label.text = wording
+    label.font = ThemeDB.fallback_font
     label.font_size = 96
     label.pixel_size = glyph_scale
     label.outline_size = 0
