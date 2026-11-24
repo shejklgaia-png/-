@@ -119,6 +119,8 @@ func set_base_context(sources: Dictionary) -> void:
 
 func set_section(section: String,dispatch: bool = true) -> void:
     current_section = section if section in ["LABO", "SMELTER", "RECYCLER", "STORAGE"] else "LABO"
+    # Corner-only policy; the shared silhouette/mesh-ID compositor is unchanged.
+    set_meta("sera_worksite_corner_section", current_section)
     rebuilt_scenes.select(current_section)
     clock = 0.0
     state_time = 0.0
