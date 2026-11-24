@@ -14,6 +14,7 @@ const BRIGHT_COLOR: Color = Color(1.0, 1.0, 1.0, 1.0)
 
 func _ready() -> void:
     mouse_filter = Control.MOUSE_FILTER_IGNORE
+    self_modulate = pulse_color(pulse_time)
 
 func _process(delta: float) -> void:
     # Only color/opacity oscillates each frame. The expensive polygon contour
@@ -21,7 +22,8 @@ func _process(delta: float) -> void:
     if not is_visible_in_tree():
         return
     pulse_time = fposmod(pulse_time + delta, TAU / 3.6)
-    queue_redraw()
+    # Keep CanvasItem draw commands cached; the pulse is a modulation only.
+    self_modulate = pulse_color(pulse_time)
 
 static func pulse_color(time_seconds: float) -> Color:
     var blink := 0.5 + 0.5 * sin(time_seconds * 3.6)
@@ -34,7 +36,7 @@ func _draw() -> void:
         if hide_customize_preview_outline and name == "CUSTOMIZE":
             continue
         var selected: bool = name == active_target
-        var stroke: Color = pulse_color(pulse_time)
+        var stroke: Color = Color.WHITE
         var thickness: float = FOCUSED_STROKE_PX if selected else OVERVIEW_STROKE_PX
         if clipped_strokes.has(name):
             # Already segmented along SERA's silhouette; never re-close these

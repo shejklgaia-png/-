@@ -91,12 +91,12 @@ func _process(delta: float) -> void:
     var previous_open: float = _door_open_amount
     _door_open_amount = move_toward(
         _door_open_amount, target, step / 1.25)
-    var ease: float = _door_open_amount * _door_open_amount * (
-        3.0 - 2.0 * _door_open_amount)
-    for i in range(_gate_leaves.size()):
-        var side: float = -1.0 if i == 0 else 1.0
-        _gate_leaves[i].position.x = side * (0.84 + 1.15 * ease)
     if previous_open != _door_open_amount:
+        var ease: float = _door_open_amount * _door_open_amount * (
+            3.0 - 2.0 * _door_open_amount)
+        for i in range(_gate_leaves.size()):
+            var side: float = -1.0 if i == 0 else 1.0
+            _gate_leaves[i].position.x = side * (0.84 + 1.15 * ease)
         deployment_pose_changed.emit()
 
 

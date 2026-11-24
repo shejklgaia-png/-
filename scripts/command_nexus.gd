@@ -306,6 +306,9 @@ var target_parts: Dictionary = {}
 var selection_render_sources: Dictionary = {}
 var gate_render_refs: Array[Dictionary] = []
 var selection_contour_faces: Dictionary = {}
+# Immutable local mesh topology; live transforms are still sampled each frame.
+var selection_contour_topology: Dictionary = {}
+var _selection_launcher_view := Vector2(-1.0, -1.0)
 var gate_door_leaves: Array[MeshInstance3D] = []
 var gate_arch_contour_cache: Array[PackedVector2Array] = []
 var gate_occluder_cache: Array = []
@@ -828,10 +831,12 @@ func _sync_placement_launchers() -> void:
         available_left + maxf(0.0, (available_width - width) * 0.5),
         view.y - margin - 66.0)
     var launcher_size := Vector2(width, 66.0)
-    placement_entry_button.position = launcher_pos
-    placement_entry_button.size = launcher_size
-    angle_entry_button.position = launcher_pos
-    angle_entry_button.size = launcher_size
+    if view != _selection_launcher_view:
+        _selection_launcher_view = view
+        placement_entry_button.position = launcher_pos
+        placement_entry_button.size = launcher_size
+        angle_entry_button.position = launcher_pos
+        angle_entry_button.size = launcher_size
 
     var editor_open: bool = (
         (is_instance_valid(placement_editor) and placement_editor.has_method("open_mode") and bool(placement_editor.get("active")))
@@ -5280,7 +5285,11 @@ func _rebuild_projected_silhouettes() -> void:
     var render_shapes: Dictionary = {}
     for target in ["SYSTEM", "TRAINING", "DATA ARCHIVE", "CUSTOMIZE"]:
         if contours.has(target) or contours.has("DEPLOYMENT"):
-            var shapes: Array[PackedVector2Array] = _project_render_contour(target)
+            var shapes: Array[PackedVector2Array]
+            if target == "CUSTOMIZE" and contours.has(target):
+                shapes = contours[target]
+            else:
+                shapes = _project_render_contour(target)
             render_shapes[target] = shapes
             if contours.has(target):
                 visible_strokes[target] = _clip_gate_strokes(shapes, [])
@@ -5289,9 +5298,9 @@ func _rebuild_projected_silhouettes() -> void:
         for nearer in ["CUSTOMIZE", "SYSTEM", "TRAINING", "DATA ARCHIVE"]:
             gate_occluders.append_array(render_shapes.get(nearer, []))
         gate_arch_contour_cache = _project_render_contour("GATE_ARCH")
-        gate_occluder_cache = gate_occluders
+        gate_occluder_cache = _prepare_gate_masks(gate_occluders)
         gate_terminal_strokes_cache = _clip_gate_strokes(
-            _project_render_contour("DEPLOYMENT"), gate_occluders)
+            _project_render_contour("DEPLOYMENT"), gate_occluder_cache)
         gate_contour_active = true
         visible_strokes["DEPLOYMENT"] = _live_gate_strokes()
     selection_visible_strokes = visible_strokes
@@ -5369,6 +5378,8 @@ func _enable_nexus_base_ink(node: Node) -> void:
 # Live transforms are read for all selections; the input polygons stay intact.
 func _capture_selection_render_sources() -> void:
     selection_render_sources.clear()
+    selection_contour_topology.clear()
+    selection_contour_faces.clear()
     gate_door_leaves.clear()
     for key in ["SYSTEM", "TRAINING", "DATA ARCHIVE", "GATE_ARCH", "DEPLOYMENT"]:
         selection_render_sources[key] = []
@@ -5444,12 +5455,97 @@ func _selection_mesh_faces(mesh: Mesh) -> PackedVector3Array:
         selection_contour_faces[key] = mesh.get_faces()
     return selection_contour_faces[key]
 
+# Consecutive triangles emitted by SurfaceTool/_quad can be projected as
+# one convex planar quad. Never bridge a concavity or non-planar edge.
+func _selection_quad_is_convex(a: Vector3, b: Vector3, c: Vector3, d: Vector3) -> bool:
+    var normal := (b - a).cross(c - a)
+    if normal.length_squared() < 0.000000000001:
+        return false
+    normal = normal.normalized()
+    if absf(normal.dot(d - a)) > 0.000001:
+        return false
+    var corners: Array[Vector3] = [a, b, c, d]
+    for i in range(4):
+        var e: Vector3 = corners[(i + 1) % 4] - corners[i]
+        var f: Vector3 = corners[(i + 2) % 4] - corners[(i + 1) % 4]
+        if e.cross(f).dot(normal) <= 0.000000001:
+            return false
+    return true
+
+func _selection_mesh_topology(mesh: Mesh, exact: bool) -> Dictionary:
+    var key: String = "%s:%s" % [mesh.get_instance_id(), exact]
+    if selection_contour_topology.has(key):
+        return selection_contour_topology[key]
+    var faces: PackedVector3Array = _selection_mesh_faces(mesh)
+    if faces.is_empty() and not exact:
+        faces = _mesh_outline_local_vertices(mesh)
+    var unique := PackedVector3Array()
+    var indices := PackedInt32Array()
+    var lookup: Dictionary = {}
+    for vertex in faces:
+        if not lookup.has(vertex):
+            lookup[vertex] = unique.size()
+            unique.append(vertex)
+        indices.append(int(lookup[vertex]))
+    var groups: Array[PackedInt32Array] = []
+    if exact:
+        var i: int = 0
+        while i + 2 < indices.size():
+            var ia: int = indices[i]
+            var ib: int = indices[i + 1]
+            var ic: int = indices[i + 2]
+            if i + 5 < indices.size() and indices[i + 3] == ia and indices[i + 4] == ic:
+                var id: int = indices[i + 5]
+                if _selection_quad_is_convex(unique[ia], unique[ib], unique[ic], unique[id]):
+                    groups.append(PackedInt32Array([ia, ib, ic, id]))
+                    i += 6
+                    continue
+            groups.append(PackedInt32Array([ia, ib, ic]))
+            i += 3
+    else:
+        var all := PackedInt32Array()
+        all.resize(unique.size())
+        for i in range(unique.size()):
+            all[i] = i
+        groups.append(all)
+    var topology: Dictionary = {"vertices": unique, "groups": groups}
+    selection_contour_topology[key] = topology
+    return topology
+
+# Project each distinct vertex once per instance, not once per triangle.
+# The camera/door pose stays live, including canonical placement changes.
+func _selection_project_groups(mesh: Mesh, pose: Transform3D, exact: bool) -> Array[PackedVector2Array]:
+    var topology: Dictionary = _selection_mesh_topology(mesh, exact)
+    var vertices: PackedVector3Array = topology["vertices"]
+    var groups: Array = topology["groups"]
+    var projected := PackedVector2Array()
+    projected.resize(vertices.size())
+    var behind := PackedByteArray()
+    behind.resize(vertices.size())
+    for i in range(vertices.size()):
+        var world: Vector3 = pose * vertices[i]
+        if cam.is_position_behind(world):
+            behind[i] = 1
+        else:
+            projected[i] = cam.unproject_position(world)
+    var result: Array[PackedVector2Array] = []
+    for group in groups:
+        var points := PackedVector2Array()
+        var clipped: bool = false
+        for index in group:
+            if behind[index] != 0:
+                clipped = true
+                break
+            points.append(projected[index])
+        if not clipped and points.size() >= 3:
+            result.append(points)
+    return result
+
 func _project_render_contour(target: String) -> Array[PackedVector2Array]:
-    # The character capture already uses actual visible rig mesh vertices.
     if target == "CUSTOMIZE":
         return _project_model_contour(target)
-    var solid_clusters: Array = []
-    var casting_faces: Array = []
+    var solid_clusters: Array[PackedVector2Array] = []
+    var casting_faces: Array[PackedVector2Array] = []
     for source in selection_render_sources.get(target, []):
         var node: Node3D = source["node"] as Node3D
         if not is_instance_valid(node) or not node.is_visible_in_tree():
@@ -5467,32 +5563,14 @@ func _project_render_contour(target: String) -> Array[PackedVector2Array]:
             mesh = (node as MeshInstance3D).mesh
         if mesh == null:
             continue
-        if bool(source.get("exact_faces", false)):
-            # The service casting is concave and contains separate features.
-            # Project actual triangles, rather than a hull around the whole
-            # tower which would bridge empty space between those features.
-            var faces: PackedVector3Array = _selection_mesh_faces(mesh)
-            for i in range(0, faces.size() - 2, 3):
-                casting_faces.append(PackedVector3Array([
-                    pose * faces[i], pose * faces[i + 1], pose * faces[i + 2]]))
+        var exact: bool = bool(source.get("exact_faces", false))
+        var projected: Array[PackedVector2Array] = _selection_project_groups(mesh, pose, exact)
+        if exact:
+            casting_faces.append_array(projected)
         else:
-            # These armor primitives are convex. Their true vertices preserve
-            # the beveled corners; the bounding-box proxy does not.
-            var points := PackedVector3Array()
-            # Use the actual primitive vertices too (not a cylinder/quad AABB).
-            var vertices: PackedVector3Array = _selection_mesh_faces(mesh)
-            if vertices.is_empty():
-                vertices = _mesh_outline_local_vertices(mesh)
-            var seen: Dictionary = {}
-            for vertex in vertices:
-                if not seen.has(vertex):
-                    seen[vertex] = true
-                    points.append(pose * vertex)
-            solid_clusters.append(points)
-    # A tiny overlap joins shared triangle edges before the final 2px margin.
-    # No projection work is added to the per-frame pulse animation.
-    var raw: Array[PackedVector2Array] = _project_selection_clusters(solid_clusters, 0.15)
-    for face in _project_selection_clusters(casting_faces, 0.15):
+            solid_clusters.append_array(projected)
+    var raw: Array[PackedVector2Array] = _selection_union_screen_clusters(solid_clusters, 0.15)
+    for face in _selection_union_screen_clusters(casting_faces, 0.15):
         _union_outer_contours(raw, face)
     var result: Array[PackedVector2Array] = []
     for shape in raw:
@@ -5501,15 +5579,18 @@ func _project_render_contour(target: String) -> Array[PackedVector2Array]:
                 _union_outer_contours(result, expanded)
     return result
 
-func _clip_gate_strokes(gate_shapes: Array, occluders: Array) -> Array[PackedVector2Array]:
-    var visible: Array[PackedVector2Array] = []
-    # Only run when the camera moved or the viewport changed; blinking merely
-    # changes stroke alpha/width and never recomputes the clipping geometry.
-    var masks: Array[PackedVector2Array] = []
+# Cache expanded occlusion polygons and their bounds for the stationary camera.
+# Door-only updates reuse them; they never re-offset the other four devices.
+func _prepare_gate_masks(occluders: Array) -> Array:
+    var masks: Array = []
     for shape in occluders:
-        var expanded: Array[PackedVector2Array] = Geometry2D.offset_polygon(
-            shape, 4.0, Geometry2D.JOIN_MITER)
-        masks.append_array(expanded)
+        for expanded in Geometry2D.offset_polygon(shape, 4.0, Geometry2D.JOIN_MITER):
+            if expanded.size() >= 3:
+                masks.append({"polygon": expanded, "bounds": _polygon_bounds(expanded)})
+    return masks
+
+func _clip_gate_strokes(gate_shapes: Array, masks: Array) -> Array[PackedVector2Array]:
+    var visible: Array[PackedVector2Array] = []
     for shape in gate_shapes:
         if shape.size() < 3:
             continue
@@ -5520,13 +5601,13 @@ func _clip_gate_strokes(gate_shapes: Array, occluders: Array) -> Array[PackedVec
             if remaining.is_empty():
                 break
             var next_segments: Array[PackedVector2Array] = []
-            var mask_bounds := _polygon_bounds(mask)
+            var mask_bounds: Rect2 = mask["bounds"]
             for segment in remaining:
                 if not _polygon_bounds(segment).intersects(mask_bounds):
                     next_segments.append(segment)
                 else:
                     next_segments.append_array(
-                        Geometry2D.clip_polyline_with_polygon(segment, mask))
+                        Geometry2D.clip_polyline_with_polygon(segment, mask["polygon"]))
             remaining = next_segments
         visible.append_array(remaining)
     return visible
@@ -5535,7 +5616,7 @@ func _project_model_contour(target_name: String) -> Array[PackedVector2Array]:
     return _project_selection_clusters(target_parts.get(target_name, []))
 
 func _project_selection_clusters(clusters: Array, margin: float = 2.0) -> Array[PackedVector2Array]:
-    var result: Array[PackedVector2Array] = []
+    var projected: Array[PackedVector2Array] = []
     for cluster in clusters:
         var screen_points := PackedVector2Array()
         var clipped := false
@@ -5544,10 +5625,13 @@ func _project_selection_clusters(clusters: Array, margin: float = 2.0) -> Array[
                 clipped = true
                 break
             screen_points.append(cam.unproject_position(world_point))
-        if clipped or screen_points.size() < 3:
-            continue
-        # The convex silhouette of each original mesh component encloses its
-        # projected faces, retaining the outline of body limbs and device arms.
+        if not clipped and screen_points.size() >= 3:
+            projected.append(screen_points)
+    return _selection_union_screen_clusters(projected, margin)
+
+func _selection_union_screen_clusters(clusters: Array[PackedVector2Array], margin: float) -> Array[PackedVector2Array]:
+    var result: Array[PackedVector2Array] = []
+    for screen_points in clusters:
         var hull: PackedVector2Array = Geometry2D.convex_hull(screen_points)
         if hull.size() < 3:
             continue
@@ -5563,9 +5647,13 @@ func _project_selection_clusters(clusters: Array, margin: float = 2.0) -> Array[
 func _union_outer_contours(contours: Array[PackedVector2Array],
         fresh: PackedVector2Array) -> void:
     var candidate := fresh
+    var candidate_bounds: Rect2 = _polygon_bounds(candidate)
+    var bounds: Array[Rect2] = []
+    for contour in contours:
+        bounds.append(_polygon_bounds(contour))
     var i := 0
     while i < contours.size():
-        if not _polygon_bounds(candidate).intersects(_polygon_bounds(contours[i])):
+        if not candidate_bounds.intersects(bounds[i]):
             i += 1
             continue
         var overlap: Array[PackedVector2Array] = Geometry2D.intersect_polygons(
@@ -5588,7 +5676,9 @@ func _union_outer_contours(contours: Array[PackedVector2Array],
                 best = component
                 best_area = area
         candidate = best
+        candidate_bounds = _polygon_bounds(candidate)
         contours.remove_at(i)
+        bounds.remove_at(i)
         i = 0
     contours.append(candidate)
 
