@@ -39,6 +39,8 @@ var rng := RandomNumberGenerator.new()
 var storage_committed := false
 var storage_removed := false
 var input_finished := false
+var retrieve_only := false
+var stacker_start := Vector3.ZERO
 var storage_pack_point := Vector3(-9.0,1.10,7.7)
 var storage_out_point := Vector3(8.8,1.10,7.7)
 var aisle_z: float = 0.8
@@ -146,13 +148,15 @@ func _gantry(label: String,a: Vector3,z: Vector3,height: float) -> Dictionary:
     var grip := _node(trolley,"Gripper")
     var crossbar := _node(grip,"AdjustableCrossbar")
     b = _batch(crossbar)
-    _box(b,Vector3(0,0.12,0),Vector3(0.95,0.20,0.48),"gold")
+    _box(b,Vector3(0,0.15,0),Vector3(0.95,0.20,0.48),"gold")
+    _box(b,Vector3(0,0.025,0),Vector3(0.65,0.05,0.38),"edge")
     _finish(b)
     var jaws: Array[Node3D] = []
     for side_value in [-1.0,1.0]:
         var jaw := _node(grip,"JawLeft" if float(side_value)<0 else "JawRight")
         b = _batch(jaw)
-        _box(b,Vector3(0,-0.12,0),Vector3(0.12,0.48,0.45),"edge")
+        # Magnetic face contacts the upper surface; guide jaws never sink into cargo.
+        _box(b,Vector3(0,0.25,0),Vector3(0.12,0.46,0.45),"edge")
         _finish(b)
         jaws.append(jaw)
     return {"trolley":trolley,"stem":stem,"grip":grip,"height":height,"jaws":jaws,"crossbar":crossbar}
@@ -166,6 +170,7 @@ func _arm_pose(arm: Dictionary,p: Vector3,span: float = 0.75) -> void:
     var d: float = maxf(0.20,h-p.y)
     stem.scale.y = d
     grip.position.y = -d
+    span = minf(span,2.20)
     (arm["crossbar"] as Node3D).scale.x = maxf(1.0,(span+0.16)/0.95)
     var jaws: Array = arm["jaws"]
     (jaws[0] as Node3D).position.x = -span*0.5
@@ -251,7 +256,7 @@ func _in_pick() -> Vector3:
     return in_dock+Vector3.UP*(DECK_Y+0.14)
 
 func _out_drop() -> Vector3:
-    return out_dock+Vector3.UP*(DECK_Y+0.14)
+    return out_dock+Vector3.UP*(DECK_Y+(0.0 if key=="STORAGE" else 0.14))
 
 func duration() -> float:
     return 48.0 if key=="STORAGE" else 26.0
@@ -270,8 +275,12 @@ func begin() -> void:
             empty.append(i)
     store_index = empty[rng.randi_range(0,empty.size()-1)] if not empty.is_empty() else -1
     take_index = full[rng.randi_range(0,full.size()-1)] if not full.is_empty() else store_index
-    storage_committed = false
+    retrieve_only = empty.is_empty() and not full.is_empty()
+    if retrieve_only:
+        store_index = take_index
+    storage_committed = retrieve_only
     storage_removed = false
+    stacker_start = Vector3(shelf_mast.position.x,shelf_carriage.position.y,aisle_z)
 
 func reset() -> void:
     truck_in.visible = false
@@ -293,7 +302,7 @@ func sample_in(t: float,payload: Node3D = null) -> void:
     if t>=0.23:
         _truck_pose(truck_in,in_dock,in_far,smoothstep(0.23,0.29,t),true)
     var load: Node3D = payload if payload!=null else raw
-    var grasp_height: float = 0.95 if key=="RECYCLER" else 0.80
+    var grasp_height: float = 0.95 if key=="RECYCLER" else (0.78 if key=="SMELTER" else 0.62)
     load.visible = t<IN_END
     if t<0.10:
         _place(load,_room_position(truck_in)+Vector3.UP*(DECK_Y+0.14))
@@ -325,7 +334,7 @@ func sample_out(t: float,payload: Node3D,payload_height: float = 1.35,payload_wi
     if t>=0.81:
         var p: Vector3 = _transfer(outlet,_out_drop(),float(out_arm["height"])-payload_height-0.75,smoothstep(0.82,0.92,t))
         if t>=0.94:
-            p = _room_position(truck_out)+Vector3.UP*(DECK_Y+0.14)
+            p = _room_position(truck_out)+Vector3.UP*(DECK_Y+(0.0 if key=="STORAGE" else 0.14))
         _place(payload,p)
         payload.visible = t<1.0
         _arm_pose(out_arm,p+Vector3.UP*payload_height,payload_width)
@@ -428,14 +437,17 @@ func _shelf_transfer(a: Vector3,b: Vector3,t: float) -> Vector3:
 func sample_storage(t: float) -> void:
     if store_index<0 or take_index<0:
         return
-    if not input_finished:
+    if retrieve_only:
+        # A full rack first frees a random occupied bay instead of stalling.
+        t = lerpf(0.51,1.0,t)
+    elif not input_finished:
         sample_in(t*1.45)
-    pack.visible = t>=0.07 and t<0.26
+    pack.visible = not retrieve_only and t>=0.07 and t<0.26
     pack_lid.visible = t>=0.195
     pack_lid.position.y = lerpf(2.35,1.55,smoothstep(0.195,0.235,t))
-    pack_raw.visible = t>=0.16 and t<0.235
+    pack_raw.visible = not retrieve_only and t>=0.16 and t<0.235
     pack_raw.position = storage_pack_point+Vector3.UP*0.14
-    raw.visible = t<0.16
+    raw.visible = not retrieve_only and t<0.16
     if t>=0.16:
         raw.visible = false
     var target: Vector3 = _room_position(storage_slots[store_index])
@@ -443,8 +455,7 @@ func sample_storage(t: float) -> void:
     shelf_box.visible = false
     if t<0.22:
         var approach := Vector3(storage_pack_point.x,storage_pack_point.y,aisle_z)
-        var current := Vector3(shelf_mast.position.x,shelf_carriage.position.y,aisle_z)
-        _stacker(current.lerp(approach,minf(1.0,0.04+0.4*smoothstep(0.0,0.20,t))),0.0)
+        _stacker(stacker_start.lerp(approach,smoothstep(0.0,0.20,t)),0.0)
     elif t<0.26:
         _stacker(Vector3(storage_pack_point.x,storage_pack_point.y,aisle_z),(storage_pack_point.z-aisle_z)*smoothstep(0.22,0.26,t))
     if t>=0.26 and t<0.51:
@@ -461,6 +472,9 @@ func sample_storage(t: float) -> void:
         var move := Vector3(target.x,target.y,aisle_z)
         if t>=0.54:
             move = move.lerp(Vector3(source.x,source.y,aisle_z),smoothstep(0.54,0.58,t))
+        if retrieve_only:
+            move = stacker_start.lerp(Vector3(source.x,source.y,aisle_z),smoothstep(0.51,0.58,t))
+            retract = 0.0
         _stacker(move,(target.z-aisle_z)*retract)
     if t>=0.58 and t<0.63:
         _stacker(source,(source.z-aisle_z)*smoothstep(0.58,0.63,t))
