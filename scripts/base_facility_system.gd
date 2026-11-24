@@ -132,6 +132,8 @@ var hero_host: SubViewportContainer
 var hero_viewport: SubViewport
 var hero_stage: Node3D
 const ModelPlacement = preload("res://scripts/labo_model_placement.gd")
+var texture_entry: Button
+var texture_editor: Control
 var model_entry: Button
 var model_editor: Control
 var angle_entry: Button
@@ -830,6 +832,17 @@ func attach_hud(hud: Control) -> void:
     model_entry.visible = false
     model_entry.pressed.connect(_open_hero_models)
     footer.add_child(model_entry)
+    texture_entry = Button.new()
+    texture_entry.name = "TextureStudioLauncher"
+    texture_entry.text = "TEXTURE STUDIO / テクスチャ編集"
+    texture_entry.custom_minimum_size.y = 54.0
+    texture_entry.add_theme_font_override("font", LaboSkin.ui_font())
+    texture_entry.add_theme_font_size_override("font_size", 20)
+    _style_terminal_segment(texture_entry)
+    texture_entry.visible = false
+    texture_entry.pressed.connect(_open_texture_studio)
+    body.add_child(texture_entry)
+    body.move_child(texture_entry, footer.get_index())
     # Own full-screen confirmation layer; does not depend on Android popup
     # window support. It is deliberately outside the scrolling content.
     confirmation_overlay = Control.new()
@@ -1354,6 +1367,8 @@ func _set_labo_hero(enabled: bool, section: String = "") -> void:
     _close_hero_models()
     _close_hero_angle()
     hero_host.visible = enabled
+    if is_instance_valid(texture_entry):
+        texture_entry.visible = enabled and section == "LABO"
     if model_entry != null:
         model_entry.visible = enabled
         model_entry.text = "正規配置"
@@ -1383,6 +1398,38 @@ func _set_labo_hero(enabled: bool, section: String = "") -> void:
 # 3D stage or render pass is created by this session-only editor.
 func _hero_angle_available() -> bool:
     return is_menu_open() and is_instance_valid(hero_stage) and is_instance_valid(hero_host) and hero_host.is_visible_in_tree() and active_key in ["LABO", "SMELTER", "RECYCLER", "STORAGE"] and not (confirmation_overlay != null and confirmation_overlay.visible) and not (warehouse_detail_popup != null and warehouse_detail_popup.is_open()) and not (font_diag_overlay != null and font_diag_overlay.visible)
+
+
+func _open_texture_studio() -> void:
+    if is_instance_valid(texture_editor) or active_key != "LABO" or angle_active or not _hero_angle_available():
+        return
+    if is_instance_valid(model_editor) and bool(model_editor.get("active")):
+        return
+    var script := load("res://scripts/sera_texture_studio.gd") as Script
+    if script == null or not script.can_instantiate():
+        texture_entry.text = "TEXTURE STUDIO / LOAD FAILED"
+        return
+    var editor := script.new() as Control
+    if editor == null:
+        return
+    texture_editor = editor
+    editor.theme = LaboSkin.common_theme()
+    modal.add_child(editor)
+    editor.call("configure", [hero_stage, get_parent()])
+    editor.connect("closed", _texture_studio_closed)
+    _set_labo_scroll_input_enabled(false)
+    modal_panel.hide()
+    hero_stage.set_process(false)
+    hero_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+
+
+func _texture_studio_closed() -> void:
+    texture_editor = null
+    modal_panel.show()
+    _set_labo_scroll_input_enabled(true)
+    if is_instance_valid(hero_stage) and is_menu_open():
+        hero_stage.set_process(true)
+        hero_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
 
 
 func _open_hero_models() -> void:
@@ -3069,6 +3116,9 @@ func _show_detail(detail: String) -> void:
 func navigate_back() -> void:
     if not is_menu_open():
         return
+    if is_instance_valid(texture_editor):
+        texture_editor.call("request_close")
+        return
     if is_instance_valid(model_editor) and bool(model_editor.get("active")):
         _close_hero_models()
         return
@@ -3111,6 +3161,20 @@ func close_menu() -> void:
 func _input(event: InputEvent) -> void:
     if not is_menu_open():
         return
+    if is_instance_valid(texture_editor):
+        if event.is_action_pressed("ui_cancel") or (
+                event is InputEventKey and event.pressed and not event.echo
+                and event.keycode in [KEY_BACK, KEY_ESCAPE]):
+            texture_editor.call("request_close")
+            get_viewport().set_input_as_handled()
+        return
+    if is_instance_valid(texture_entry) and texture_entry.is_visible_in_tree() and _hero_angle_available() and (
+            (event is InputEventScreenTouch and event.pressed) or
+            (event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT)):
+        if texture_entry.get_global_rect().has_point(event.position):
+            _open_texture_studio()
+            get_viewport().set_input_as_handled()
+            return
     if _route_hero_model_input(event) or _route_hero_angle_input(event):
         get_viewport().set_input_as_handled()
         return
