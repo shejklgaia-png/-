@@ -542,12 +542,15 @@ static func _facility_bake_path(key: String) -> String:
         "res://scripts/sera_base_labo_print_arms.gd", "res://scripts/sera_base_collector_crane.gd",
         "res://scripts/sera_base_collector_conveyor.gd"], [key, BaseClutter.props_for(key)], ".bin")
 
-static func build_nexus(parent: Node3D, budget: Variant = null) -> void:
+# Archive requests omit yard dressing before it is appended to mixed MultiMesh
+# buckets. Keep ordinary BASE bake/cache and visual paths unchanged.
+static func build_nexus(parent: Node3D, budget: Variant = null,
+        include_clutter: bool = true) -> void:
     var node := Node3D.new()
     node.name = "NexusArchitecture"
     parent.add_child(node)
     var g := Batch.new(node)
-    g.bake_render_model = true
+    g.bake_render_model = include_clutter
     g.yaw = facility_yaw_radians("NEXUS")
     g.motion_names = BaseFacilityMotion.MOTION_FEATURES["NEXUS"].duplicate() if ARCHIVED_NEXUS_MODEL else []
     if ARCHIVED_NEXUS_MODEL:
@@ -561,9 +564,10 @@ static func build_nexus(parent: Node3D, budget: Variant = null) -> void:
         node.set_meta("base_design", ACTIVE_BASE_MODEL)
         BaseFreshDesign.add_details(g, "NEXUS")
         # Retain existing site dressing only, not old building geometry.
-        g.detail_scale = 1.0
-        g.outline_enabled = false
-        BaseClutter.decorate(g, "NEXUS")
+        if include_clutter:
+            g.detail_scale = 1.0
+            g.outline_enabled = false
+            BaseClutter.decorate(g, "NEXUS")
         if budget != null:
             await g.flush(budget)
         else:
@@ -572,8 +576,9 @@ static func build_nexus(parent: Node3D, budget: Variant = null) -> void:
         fresh_motion.bind_to(node, "NEXUS")
         # Shutter-gap fixture and local light are now built by VFX, not
         # by a broad amber lamp washing the whole NEXUS side.
-        var fresh_vfx := BaseFacilityVfx.new()
-        fresh_vfx.setup(node, "NEXUS")
+        if include_clutter:
+            var fresh_vfx := BaseFacilityVfx.new()
+            fresh_vfx.setup(node, "NEXUS")
         return
     # Reinterpret the archived command bunker as one coherent architectural
     # assembly. Keep its flat roof, V insignia, blast gate and service mast.
@@ -583,13 +588,15 @@ static func build_nexus(parent: Node3D, budget: Variant = null) -> void:
         "first_y": NEXUS_SHUTTER_FIRST_Y, "pitch": NEXUS_SHUTTER_ROW_PITCH,
         "store_y": NEXUS_SHUTTER_STORE_Y, "travel": NEXUS_SHUTTER_TRAVEL,
         "stack_depth": NEXUS_SHUTTER_STACK_DEPTH})
-    var bake_path := _facility_bake_path("NEXUS")
-    if not g.restore_baked_layout(bake_path):
+    var bake_path := _facility_bake_path("NEXUS") if include_clutter else ""
+    if not include_clutter or not g.restore_baked_layout(bake_path):
         _nexus_command_bunker(g)
-        g.detail_scale = 1.0
-        g.outline_enabled = false
-        BaseClutter.decorate(g, "NEXUS")
-        g.save_baked_layout(bake_path)
+        if include_clutter:
+            g.detail_scale = 1.0
+            g.outline_enabled = false
+            BaseClutter.decorate(g, "NEXUS")
+        if include_clutter:
+            g.save_baked_layout(bake_path)
     if budget != null:
         await g.flush(budget)
     else:
@@ -598,8 +605,9 @@ static func build_nexus(parent: Node3D, budget: Variant = null) -> void:
     var archived_motion := BaseFacilityMotion.new()
     archived_motion.bind_to(node, "NEXUS")
     # A narrow shutter-gap fixture replaces the old exterior floodlight.
-    var archived_vfx := BaseFacilityVfx.new()
-    archived_vfx.setup(node, "NEXUS")
+    if include_clutter:
+        var archived_vfx := BaseFacilityVfx.new()
+        archived_vfx.setup(node, "NEXUS")
 
 
 # A physical, softly illuminated surface behind the rolling blast shutter.
@@ -1149,12 +1157,13 @@ static func _construction(g: Batch) -> void:
     g.box("BlueprintAntennaTip", Vector3(0.79, 2.48, -0.54),
         Vector3(0.15, 0.18, 0.15), "amber_light")
 
-static func build_facility(parent: Node3D, key: String, budget: Variant = null) -> void:
+static func build_facility(parent: Node3D, key: String, budget: Variant = null,
+        include_clutter: bool = true) -> void:
     var node := Node3D.new()
     node.name = "IndustrialModel"
     parent.add_child(node)
     var g := Batch.new(node)
-    g.bake_render_model = true
+    g.bake_render_model = include_clutter
     g.hard_edges = true
     g.motion_names = BaseFacilityMotion.animated_features_for(key)
     g.outline_enabled = true
@@ -1166,17 +1175,19 @@ static func build_facility(parent: Node3D, key: String, budget: Variant = null) 
     node.set_meta("body_yaw", g.yaw)
     if ACTIVE_BASE_MODEL == "FRESH_20261122":
         node.set_meta("base_design", ACTIVE_BASE_MODEL)
-    var bake_path := _facility_bake_path(key)
-    if not g.restore_baked_layout(bake_path):
+    var bake_path := _facility_bake_path(key) if include_clutter else ""
+    if not include_clutter or not g.restore_baked_layout(bake_path):
         if ACTIVE_BASE_MODEL == "FRESH_20261122":
             BaseFreshDesign.add_details(g, key)
         else:
             # Original geometry remains available and never draws in fresh mode.
             _build_original_facility_geometry(g, key)
-        g.detail_scale = 1.0
-        g.outline_enabled = false
-        BaseClutter.decorate(g, key)
-        g.save_baked_layout(bake_path)
+        if include_clutter:
+            g.detail_scale = 1.0
+            g.outline_enabled = false
+            BaseClutter.decorate(g, key)
+        if include_clutter:
+            g.save_baked_layout(bake_path)
     if budget != null:
         await g.flush(budget)
     else:
@@ -1184,8 +1195,9 @@ static func build_facility(parent: Node3D, key: String, budget: Variant = null) 
     var device_motion := BaseFacilityMotion.new()
     device_motion.bind_to(node, key)
     _add_facility_lights(node, key)
-    var device_vfx := BaseFacilityVfx.new()
-    device_vfx.setup(node, key)
+    if include_clutter:
+        var device_vfx := BaseFacilityVfx.new()
+        device_vfx.setup(node, key)
 
 
 static func _build_original_facility_geometry(g: Batch, key: String) -> void:
