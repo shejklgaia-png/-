@@ -31,6 +31,23 @@ var box_serial: int = 0
 var storage_cycle_seconds: float = 46.0
 const STORAGE_BOX_HEIGHT := 1.76
 const STORAGE_TRIP := 64.0
+const REFINERY_SECONDS := 104.0
+const INGOT_COUNT := 12
+const INGOT_HEIGHT := 0.64
+const INGOT_WIDTH := 1.10
+const INGOT_DEPTH := 0.96
+var refinery_gate: Node3D
+var refinery_cradle: Node3D
+var refinery_chunks: Array[Node3D] = []
+var refinery_falling: Array[Node3D] = []
+var refinery_ingots: Array[Node3D] = []
+var refinery_extract: Dictionary
+var refinery_hatch: Node3D
+var refinery_drawer: Node3D
+var refinery_pick := Vector3(9.6,1.25,1.8)
+var refinery_inside := Vector3(9.6,1.25,-0.8)
+var refinery_lip := Vector3.ZERO
+var refinery_tilt := 0.0
 var occupied: Array[bool] = []
 var store_index: int = -1
 var take_index: int = -1
@@ -98,13 +115,14 @@ func _carrier(label: String) -> Node3D:
     return n
 
 # The same shell is used on every carrier, at packing, and in every shelf bay.
-func _container(parent: Node3D,label: String,closed: bool) -> Node3D:
+func _container(parent: Node3D,label: String,closed: bool,pour_gate: bool = false) -> Node3D:
     var n := _node(parent,label)
     var b = _batch(n)
     _box(b,Vector3(0,0.07,0),Vector3(BOX_SIZE.x,0.14,BOX_SIZE.z),"slate")
     for side in [-1.0,1.0]:
         _box(b,Vector3(side*1.34,0.80,0),Vector3(0.10,1.46,3.50),"armor")
-        _box(b,Vector3(0,0.80,side*1.70),Vector3(2.58,1.46,0.10),"armor")
+        if not pour_gate or side>0.0:
+            _box(b,Vector3(0,0.80,side*1.70),Vector3(2.58,1.46,0.10),"armor")
         for z in [-1.55,1.55]:
             _box(b,Vector3(side*1.35,0.78,z),Vector3(0.14,1.55,0.14),"edge")
         _box(b,Vector3(side*1.35,1.49,0),Vector3(0.15,0.12,3.50),"gold")
@@ -121,6 +139,13 @@ func _container(parent: Node3D,label: String,closed: bool) -> Node3D:
     _finish(b)
     lid.position.y = 1.55
     lid.visible = closed
+    if pour_gate:
+        refinery_gate = _node(n,"HingedPourGate",Vector3(0,0.14,-1.70))
+        b = _batch(refinery_gate)
+        _box(b,Vector3(0,0.66,0),Vector3(2.58,1.32,0.10),"armor")
+        _box(b,Vector3(0,1.28,0),Vector3(2.60,0.12,0.15),"gold")
+        _rod(b,Vector3(-1.30,0,0),Vector3(1.30,0,0),0.15,"edge")
+        _finish(b)
     return n
 
 func _material(parent: Node3D,label: String) -> Node3D:
@@ -230,7 +255,7 @@ func _gantry(label: String,a: Vector3,z: Vector3,height: float) -> Dictionary:
         _box(b,Vector3(0,0.25,0),Vector3(0.12,0.46,0.45),"edge")
         _finish(b)
         jaws.append(jaw)
-    return {"trolley":trolley,"stem":stem,"grip":grip,"height":height,"jaws":jaws,"crossbar":crossbar}
+    return {"trolley":trolley,"stem":stem,"grip":grip,"height":height,"jaws":jaws,"crossbar":crossbar,"sleeve":sleeve}
 
 func _arm_pose(arm: Dictionary,p: Vector3,span: float = 0.75) -> void:
     var trolley: Node3D = arm["trolley"]
@@ -283,8 +308,8 @@ func build(parent: Node3D,section: String,source: Vector3,destination: Vector3) 
             in_dock = Vector3(inlet.x,ground,17.0)
             out_dock = Vector3(outlet.x,ground,17.0)
         "SMELTER":
-            in_dock = Vector3(inlet.x,ground,14.3)
-            out_dock = Vector3(outlet.x,ground,14.3)
+            in_dock = Vector3(inlet.x,-0.03,17.0)
+            out_dock = Vector3(outlet.x,-0.03,18.0)
         "RECYCLER":
             in_dock = Vector3(inlet.x,ground,-23.0)
             out_dock = Vector3(outlet.x,ground,14.0)
@@ -295,8 +320,8 @@ func build(parent: Node3D,section: String,source: Vector3,destination: Vector3) 
             in_dock = Vector3(inlet.x,ground,18.0)
             out_dock = Vector3(outlet.x,ground,18.0)
             _build_storage()
-    in_far = in_dock+Vector3(0,0,-7.0 if key=="RECYCLER" else (STORAGE_TRIP if key=="STORAGE" else 7.0))
-    out_far = out_dock+Vector3(0,0,STORAGE_TRIP if key=="STORAGE" else 7.0)
+    in_far = in_dock+Vector3(0,0,-7.0 if key=="RECYCLER" else (STORAGE_TRIP if key in ["STORAGE","SMELTER"] else 7.0))
+    out_far = out_dock+Vector3(0,0,STORAGE_TRIP if key in ["STORAGE","SMELTER"] else 7.0)
     _lane(in_dock,in_far)
     _lane(out_dock,out_far)
     if key=="STORAGE":
@@ -304,12 +329,12 @@ func build(parent: Node3D,section: String,source: Vector3,destination: Vector3) 
     truck_in = _carrier("InboundCarrier")
     truck_out = _carrier("OutboundCarrier")
     if key!="STORAGE":
-        in_box = _container(truck_in,"TransportContainer",false)
+        in_box = _container(truck_in,"TransportContainer",false,key=="SMELTER")
         out_box = _container(truck_out,"TransportContainer",false)
         in_box.position.y = DECK_Y
         out_box.position.y = DECK_Y
     raw = _material(root,"InboundRawMaterial")
-    var h_in: float = maxf(8.5,inlet.y+4.0)
+    var h_in: float = maxf(8.5,inlet.y+(5.2 if key=="SMELTER" else 4.0))
     var h_out: float = maxf(8.5,outlet.y+4.0)
     in_arm = _gantry("InboundTransferArm",in_dock,inlet,h_in)
     out_arm = _gantry("OutboundTransferArm",out_dock,outlet,h_out)
@@ -320,6 +345,9 @@ func build(parent: Node3D,section: String,source: Vector3,destination: Vector3) 
     truck_in.visible = false
     truck_out.visible = false
     raw.visible = false
+    if key=="SMELTER":
+        _build_refinery()
+        _reset_refinery()
 
 func _storage_road() -> void:
     # Paint only, just above the exterior BASE deck; no raised obstruction.
@@ -349,6 +377,8 @@ func _out_drop() -> Vector3:
     return out_dock+Vector3.UP*(DECK_Y+(0.0 if key=="STORAGE" else 0.14))
 
 func duration() -> float:
+    if key=="SMELTER":
+        return REFINERY_SECONDS
     return storage_cycle_seconds if key=="STORAGE" else 26.0
 
 func begin() -> void:
@@ -399,6 +429,8 @@ func reset() -> void:
     raw.scale = Vector3.ONE
     _arm_pose(in_arm,Vector3(in_dock.x,float(in_arm["height"])-0.74,in_dock.z))
     _arm_pose(out_arm,Vector3(outlet.x,float(out_arm["height"])-0.74,outlet.z))
+    if key=="SMELTER":
+        _reset_refinery()
     if key=="STORAGE":
         # If a view is closed during a transfer, restore an undelivered
         # outgoing box to its reserved slot, or cancel an uncommitted arrival.
@@ -707,3 +739,288 @@ func _sample_storage_departure(t: float) -> void:
             active_box.visible = false
             active_box.queue_free()
             active_box = null
+
+# Refinery: independent, time-addressed batch choreography. No stock nodes
+# are allocated during playback, and each of the twelve bars is reused.
+func _refinery_cross_slide(arm: Dictionary) -> void:
+    var trolley: Node3D = arm["trolley"]
+    var b = _batch(trolley)
+    _box(b,Vector3(0,-0.20,0),Vector3(2.15,0.16,0.55),"slate")
+    for x in [-0.95,0.95]:
+        _box(b,Vector3(x,-0.22,0),Vector3(0.10,0.24,0.62),"gold")
+    _finish(b)
+
+func _refinery_arm(arm: Dictionary,p: Vector3,center_x: float,span: float = 0.8) -> void:
+    _arm_pose(arm,Vector3(center_x,p.y,p.z),span)
+    var x: float = clampf(p.x-center_x,-0.64,0.64)
+    for name in ["stem","grip","sleeve"]:
+        (arm[name] as Node3D).position.x = x
+
+func _build_refinery() -> void:
+    refinery_lip = inlet-Vector3(0,0,1.75)
+    # Side-mounted hinge cradle: axis is aligned to the box's leading edge.
+    var cradle_support := _node(root,"PourCradleSupports",refinery_lip)
+    var b = _batch(cradle_support)
+    for side in [-1.0,1.0]:
+        var x: float = float(side)*2.12
+        _box(b,Vector3(x,-0.65,0),Vector3(0.32,1.40,0.60),"slate")
+        _rod(b,Vector3(x,-0.05,0),Vector3(float(side)*1.44,-0.05,0),0.28,"edge")
+        _rod(b,Vector3(x,-1.15,0),Vector3(float(side)*1.55,-0.10,0),0.22,"gold")
+    _finish(b)
+    refinery_cradle = _node(root,"HingedBoxCradle",refinery_lip)
+    b = _batch(refinery_cradle)
+    for x in [-1.45,1.45]:
+        _box(b,Vector3(x,-0.11,1.68),Vector3(0.18,0.22,3.42),"gold")
+        _poly(b,"drum",Vector3(x,0,0),Vector3(0.35,0.33,0.35),"edge")
+        _box(b,Vector3(x,0.18,3.30),Vector3(0.20,0.50,0.18),"slate")
+    _rod(b,Vector3(-1.50,-0.14,3.16),Vector3(1.50,-0.14,3.16),0.16,"edge")
+    _finish(b)
+    for i in range(36):
+        var chunk := _node(in_box,"ChargeFragment%02d"%i)
+        var cb = _batch(chunk)
+        _poly(cb,["bevel","gear","octagonal_slew"][i%3],Vector3.ZERO,Vector3(0.35,0.32,0.40),["slate","rust","edge"][i%3])
+        _finish(cb)
+        refinery_chunks.append(chunk)
+    for i in range(28):
+        var fragment := _node(root,"PourFragment%02d"%i)
+        b = _batch(fragment)
+        _poly(b,["bevel","gear","octagonal_slew"][i%3],Vector3.ZERO,Vector3(0.20,0.18,0.22),["slate","rust","edge"][i%3])
+        _finish(b)
+        fragment.visible = false
+        refinery_falling.append(fragment)
+    # Real open-front discharge chamber, mechanically linked to the furnace's
+    # right-side outlet. No solid block occupies the moving drawer corridor.
+    var discharge := _node(root,"RefractoryDischargeCell")
+    b = _batch(discharge)
+    _rod(b,Vector3(5.65,2.1,-1.4),Vector3(9.6,2.1,-1.4),1.15,"rust")
+    for x in [8.54,10.66]:
+        _poly(b,"bevel",Vector3(x,1.78,-1.05),Vector3(0.42,3.56,2.32),"armor")
+        _box(b,Vector3(x,2.15,0.17),Vector3(0.25,1.85,0.12),"edge")
+        _box(b,Vector3(x,0.33,0.17),Vector3(0.32,0.16,0.10),"gold")
+    _box(b,Vector3(9.6,0.55,-1.05),Vector3(2.52,1.10,2.42),"slate")
+    _box(b,Vector3(9.6,3.43,-1.05),Vector3(2.52,0.40,2.42),"armor_light")
+    _box(b,Vector3(9.6,2.14,-2.14),Vector3(1.78,1.87,0.16),"void")
+    for x in [8.76,10.44]:
+        _box(b,Vector3(x,1.10,0.85),Vector3(0.20,0.15,2.30),"edge")
+        _poly(b,"gusset",Vector3(x,0.52,1.30),Vector3(0.25,1.0,0.58),"slate")
+    for x in [8.43,10.77]:
+        _rod(b,Vector3(x,1.0,0.31),Vector3(x,4.55,0.31),0.18,"trim")
+    _finish(b)
+    refinery_hatch = _node(discharge,"SlidingDischargeHatch",Vector3(9.6,2.23,0.27))
+    b = _batch(refinery_hatch)
+    _poly(b,"bevel",Vector3.ZERO,Vector3(1.96,1.94,0.22),"rust")
+    for x in [-0.72,0.72]:
+        _box(b,Vector3(x,0,0.14),Vector3(0.16,1.68,0.10),"edge")
+    _box(b,Vector3(0,0.68,0.15),Vector3(0.80,0.14,0.08),"amber_light")
+    _finish(b)
+    refinery_drawer = _node(discharge,"CastingExtractionDrawer",refinery_inside)
+    b = _batch(refinery_drawer)
+    _box(b,Vector3(0,-0.12,0),Vector3(1.55,0.24,1.45),"armor_light")
+    for x in [-0.70,0.70]:
+        _box(b,Vector3(x,-0.12,-0.8),Vector3(0.12,0.13,1.55),"gold")
+    _finish(b)
+    # Cooling / stacking bed at the common point of two independent cranes.
+    var bed := _node(root,"IngotCoolingStackBed",outlet)
+    b = _batch(bed)
+    _poly(b,"bevel",Vector3(0,-0.63,0),Vector3(3.15,1.22,3.85),"slate")
+    _box(b,Vector3(0,-0.10,0),Vector3(2.90,0.20,3.55),"armor_light")
+    for x in [-1.50,1.50]:
+        _box(b,Vector3(x,-0.36,0),Vector3(0.12,0.18,3.65),"gold")
+        _poly(b,"louver",Vector3(x,-0.67,0),Vector3(0.12,0.40,2.30),"edge")
+    _finish(b)
+    reserves.append(AABB(Vector3(7.9,0,-2.4),Vector3(3.4,2.4,5.0)))
+    reserves.append(AABB(outlet-Vector3(1.65,1.25,2.0),Vector3(3.30,2.4,4.0)))
+    refinery_extract = _gantry("CastingExtractionArm",outlet,refinery_pick,6.8)
+    _refinery_cross_slide(refinery_extract)
+    _refinery_cross_slide(out_arm)
+    for i in range(INGOT_COUNT):
+        var ingot := _node(root,"RefinedIngot%02d"%i)
+        b = _batch(ingot)
+        _poly(b,"bevel",Vector3(0,INGOT_HEIGHT*0.5,0),Vector3(INGOT_WIDTH,INGOT_HEIGHT,INGOT_DEPTH),"armor_light")
+        _box(b,Vector3(0,INGOT_HEIGHT-0.018,0),Vector3(0.46,0.035,0.26),"slate")
+        _box(b,Vector3(0,INGOT_HEIGHT*0.48,0.486),Vector3(0.34,0.10,0.025),"edge")
+        _finish(b)
+        ingot.visible = false
+        refinery_ingots.append(ingot)
+
+func _reset_refinery() -> void:
+    if not is_instance_valid(refinery_hatch):
+        return
+    _attach_box(in_box,truck_in,Vector3.UP*DECK_Y)
+    in_box.rotation.y = 0.0
+    in_box.visible = true
+    refinery_gate.rotation.x = 0.0
+    refinery_cradle.rotation.x = 0.0
+    refinery_hatch.position.y = 2.23
+    refinery_drawer.position = refinery_inside
+    for i in range(refinery_chunks.size()):
+        var chunk: Node3D = refinery_chunks[i]
+        var col: int = i%6
+        var row: int = int(i/6)%3
+        var layer: int = int(i/18)
+        chunk.position = Vector3(-1.0+float(col)*0.40,0.32+float(layer)*0.37,-1.06+float(row)*1.04)
+        chunk.rotation = Vector3(0,float(i)*0.81,0.1*sin(float(i)))
+        chunk.visible = true
+    for fragment in refinery_falling:
+        fragment.visible = false
+    for ingot in refinery_ingots:
+        if ingot.get_parent()!=root:
+            ingot.reparent(root,false)
+        ingot.visible = false
+        ingot.rotation = Vector3.ZERO
+    _refinery_arm(refinery_extract,Vector3(refinery_pick.x,5.95,refinery_pick.z),refinery_pick.x)
+    _refinery_arm(out_arm,Vector3(out_dock.x,float(out_arm["height"])-0.75,out_dock.z),outlet.x)
+
+func _pyramid_position(index: int) -> Vector3:
+    # Two parallel 3/2/1 pyramids, arranged bottom-up (6 + 4 + 2).
+    var tier: int = 0 if index<6 else (1 if index<10 else 2)
+    var j: int = index if tier==0 else (index-6 if tier==1 else index-10)
+    var count: int = 3-tier
+    var column: int = j%2
+    var row: int = int(j/2)
+    return outlet+Vector3(-0.59+float(column)*1.18,float(tier)*INGOT_HEIGHT,(float(row)-float(count-1)*0.5)*1.02)
+
+func _packed_position(index: int) -> Vector3:
+    # Six bars per layer; two layers fill the usable 2.58 x 3.30 x 1.41 m cavity.
+    var slot: int = index%6
+    return Vector3(-0.59+float(slot%2)*1.18,0.14+float(int(index/6))*INGOT_HEIGHT,-1.06+float(int(slot/2))*1.06)
+
+func _refinery_box_pose(p: Vector3,angle: float) -> void:
+    if in_box.get_parent()!=root:
+        in_box.reparent(root,true)
+    in_box.rotation = Vector3(angle,0,0)
+    _place(in_box,p)
+
+func sample_refinery(t: float) -> void:
+    var sec: float = t*REFINERY_SECONDS
+    var pick: Vector3 = in_dock+Vector3.UP*DECK_Y
+    var in_h: float = float(in_arm["height"])
+    truck_in.visible = sec<36.0
+    truck_out.visible = sec>=64.0 and sec<REFINERY_SECONDS
+    if sec<8.0:
+        _storage_truck(truck_in,in_far,in_dock,sec/8.0)
+    elif sec<27.0:
+        _storage_truck(truck_in,in_far,in_dock,1.0)
+    else:
+        _storage_truck(truck_in,in_dock,in_far,(sec-27.0)/9.0,true)
+    if sec<8.0:
+        _arm_pose(in_arm,Vector3(pick.x,in_h-0.75,pick.z))
+    elif sec<10.0:
+        _arm_pose(in_arm,Vector3(pick.x,lerpf(in_h-0.75,pick.y+1.55,smoothstep(8.0,10.0,sec)),pick.z),2.0)
+    elif sec<14.0:
+        var p: Vector3 = _transfer(pick,inlet,in_h-2.5,smoothstep(10.0,14.0,sec))
+        _refinery_box_pose(p,0.0)
+        _arm_pose(in_arm,p+Vector3.UP*1.55,2.0)
+    elif sec<22.0:
+        # Cradle tilts about the fixed leading lip; gate opens only over the hopper.
+        var tilt: float = -1.00*smoothstep(15.0,17.0,sec)*(1.0-smoothstep(20.0,22.0,sec))
+        var gate: float = -1.25*smoothstep(16.0,17.0,sec)*(1.0-smoothstep(20.0,21.0,sec))
+        refinery_cradle.rotation.x = tilt
+        refinery_gate.rotation.x = gate
+        var basis := Basis(Vector3.RIGHT,tilt)
+        _refinery_box_pose(refinery_lip+basis*Vector3(0,0,1.75),tilt)
+        var retract: float = smoothstep(14.0,15.0,sec)*(1.0-smoothstep(21.0,22.0,sec))
+        _arm_pose(in_arm,Vector3(inlet.x,lerpf(inlet.y+1.55,in_h-0.75,retract),inlet.z),2.0)
+    elif sec<26.0:
+        refinery_cradle.rotation.x = 0.0
+        refinery_gate.rotation.x = 0.0
+        var p: Vector3 = _transfer(inlet,pick,in_h-2.5,smoothstep(22.0,26.0,sec))
+        _refinery_box_pose(p,0.0)
+        _arm_pose(in_arm,p+Vector3.UP*1.55,2.0)
+    else:
+        if in_box.get_parent()!=truck_in:
+            _attach_box(in_box,truck_in,Vector3.UP*DECK_Y)
+        _arm_pose(in_arm,Vector3(pick.x,lerpf(pick.y+1.55,in_h-0.75,smoothstep(26.0,27.0,sec)),pick.z),2.0)
+    var poured: float = smoothstep(17.0,20.0,sec)
+    for i in range(refinery_chunks.size()):
+        refinery_chunks[i].visible = float(i+1)/float(refinery_chunks.size())>poured
+    for i in range(refinery_falling.size()):
+        var f: Node3D = refinery_falling[i]
+        var age: float = sec-(16.8+float(i)*0.105)
+        f.visible = age>=0.0 and age<0.58
+        if f.visible:
+            var u: float = age/0.58
+            f.position = refinery_lip+Vector3(sin(float(i)*2.41)*0.95,-1.40*u*u,-0.10-0.55*u)
+            f.rotation = Vector3(age*5.0,float(i)*1.7,age*4.0)
+    # Output hatch opens after the heating dwell. Drawer extends for each bar.
+    refinery_hatch.position.y = 2.23+2.05*smoothstep(36.0,39.0,sec)*(1.0-smoothstep(76.0,78.0,sec))
+    var extraction: float = clampf(sec-40.0,0.0,36.0)
+    var extracted: int = mini(INGOT_COUNT,int(extraction/3.0))
+    var et: float = fmod(extraction,3.0)/3.0
+    if sec>=40.0 and sec<76.0:
+        var target: Vector3 = _pyramid_position(extracted)
+        var drawer_u: float = smoothstep(0.0,0.22,et)*(1.0-smoothstep(0.52,0.68,et))
+        refinery_drawer.position = refinery_inside.lerp(refinery_pick,drawer_u)
+        var p: Vector3 = refinery_drawer.position
+        if et>=0.36:
+            p = _transfer(refinery_pick,target,4.65,smoothstep(0.36,0.79,et))
+        var aim: Vector3
+        if et<0.22:
+            var prev: Vector3 = _pyramid_position(extracted-1) if extracted>0 else refinery_pick
+            aim = Vector3(prev.x,5.95,prev.z).lerp(Vector3(refinery_pick.x,5.95,refinery_pick.z),smoothstep(0.0,0.22,et))
+        elif et<0.36:
+            aim = Vector3(refinery_pick.x,lerpf(5.95,refinery_pick.y+INGOT_HEIGHT,smoothstep(0.22,0.36,et)),refinery_pick.z)
+        elif et<0.79:
+            aim = p+Vector3.UP*INGOT_HEIGHT
+        else:
+            aim = Vector3(target.x,lerpf(target.y+INGOT_HEIGHT,5.95,smoothstep(0.79,1.0,et)),target.z)
+        _refinery_arm(refinery_extract,aim,refinery_pick.x)
+        refinery_ingots[extracted].position = p
+    else:
+        refinery_drawer.position = refinery_inside
+        var prev: Vector3 = _pyramid_position(INGOT_COUNT-1)
+        var parked := Vector3(refinery_pick.x,5.95,refinery_pick.z)
+        var aim: Vector3 = Vector3(prev.x,5.95,prev.z).lerp(parked,smoothstep(76.0,78.0,sec)) if sec>=76.0 else parked
+        _refinery_arm(refinery_extract,aim,refinery_pick.x)
+    if sec<73.0:
+        _storage_truck(truck_out,out_far,out_dock,(sec-64.0)/9.0)
+    elif sec<95.0:
+        _storage_truck(truck_out,out_far,out_dock,1.0)
+    else:
+        _storage_truck(truck_out,out_dock,out_far,(sec-95.0)/9.0,true)
+    # Packing begins only when the entire 12-bar pyramid has been completed.
+    var packing: float = clampf(sec-78.0,0.0,16.8)
+    var packed: int = mini(INGOT_COUNT,int(packing/1.4))
+    var pt: float = fmod(packing,1.4)/1.4
+    for i in range(INGOT_COUNT):
+        var ingot: Node3D = refinery_ingots[i]
+        var order: int = INGOT_COUNT-1-i
+        if order<packed:
+            # Actual same bar is attached to the outbound container, not copied.
+            _attach_box(ingot,out_box,_packed_position(order))
+            ingot.visible = sec<REFINERY_SECONDS
+        elif i<extracted:
+            if ingot.get_parent()!=root:
+                ingot.reparent(root,false)
+            ingot.position = _pyramid_position(i)
+            ingot.visible = true
+        else:
+            ingot.visible = sec>=40.0 and sec<76.0 and i==extracted and et>0.01
+    if sec>=78.0 and packed<INGOT_COUNT:
+        var index: int = INGOT_COUNT-1-packed
+        var ingot: Node3D = refinery_ingots[index]
+        var start: Vector3 = _pyramid_position(index)
+        var dest: Vector3 = root.to_local(out_box.to_global(_packed_position(packed)))
+        var high: float = 5.65
+        var p: Vector3 = start
+        var aim: Vector3
+        if pt<0.23:
+            var prev: Vector3 = root.to_local(out_box.to_global(_packed_position(maxi(0,packed-1))))
+            var from: Vector3 = Vector3(prev.x,high+INGOT_HEIGHT,prev.z) if packed>0 else Vector3(out_dock.x,high+INGOT_HEIGHT,out_dock.z)
+            aim = from.lerp(Vector3(start.x,high+INGOT_HEIGHT,start.z),smoothstep(0.0,0.14,pt))
+            if pt>=0.14:
+                aim = Vector3(start.x,lerpf(high+INGOT_HEIGHT,start.y+INGOT_HEIGHT,smoothstep(0.14,0.23,pt)),start.z)
+        elif pt<0.88:
+            p = _transfer(start,dest,high,smoothstep(0.23,0.88,pt))
+            aim = p+Vector3.UP*INGOT_HEIGHT
+        else:
+            p = dest
+            aim = Vector3(dest.x,lerpf(dest.y+INGOT_HEIGHT,high+INGOT_HEIGHT,smoothstep(0.88,1.0,pt)),dest.z)
+        _refinery_arm(out_arm,aim,outlet.x)
+        _place(ingot,p)
+    else:
+        var parked := Vector3(out_dock.x,float(out_arm["height"])-0.75,out_dock.z)
+        if sec>=94.8:
+            var last: Vector3 = root.to_local(out_box.to_global(_packed_position(INGOT_COUNT-1)))
+            parked = Vector3(last.x,6.29,last.z).lerp(parked,smoothstep(94.8,95.0,sec))
+        _refinery_arm(out_arm,parked,outlet.x)
