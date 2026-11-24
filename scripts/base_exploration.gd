@@ -23,7 +23,7 @@ const JunkGeometry = preload("res://scripts/sera_base_junk_geometry.gd")
 const BaseFloorDetail = preload("res://scripts/sera_base_floor_detail.gd")
 const BaseFloorLighting = preload("res://scripts/sera_base_floor_lighting.gd")
 const BaseDeckLayout = preload("res://scripts/sera_base_deck_layout.gd")
-const BaseLogistics = preload("res://scripts/sera_base_logistics.gd")
+const BASE_LOGISTICS_PATH: String = "res://scripts/sera_base_logistics.gd"
 const BasePolygon = preload("res://scripts/sera_base_polygon_meshes.gd")
 const WEATHERED_STEEL_PATH: String = "res://assets/base/industrial_steel_grunge.svg"
 const WEATHERED_DECK_PATH: String = "res://assets/base/industrial_deck_wear.svg"
@@ -159,7 +159,9 @@ func _ready() -> void:
     _startup_step("WORLD / FLOOR MATRIX ONLINE", 18)
     await get_tree().process_frame
     await get_tree().process_frame
-    _build_logistics()
+    _startup_step("BASE / LOGISTICS ROUTING", 22)
+    await get_tree().process_frame
+    await _build_logistics()
     if is_instance_valid(logistics):
         BaseClutter.set_preview_layouts(BaseLayoutPreview.reserve_props(
             NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, logistics))
@@ -484,13 +486,22 @@ func _build_power_distribution() -> void:
 func _build_logistics() -> void:
     if is_instance_valid(logistics):
         logistics.free()
+    logistics_creation_status = "SCRIPT LOAD"
+    # Optional logistics must not be a compile-time dependency of the BASE.
+    # Call Script resource methods on the resource, not on its class symbol.
+    var logistics_script: Variant = ResourceLoader.load(BASE_LOGISTICS_PATH, "GDScript")
+    if not (logistics_script is GDScript):
+        logistics_creation_status = "SCRIPT LOAD FAILED"
+        push_error("SERA_BASE_LOGISTICS: script load failed")
+        return
     logistics_creation_status = "SCRIPT CHECK"
-    if not BaseLogistics.can_instantiate():
+    if not logistics_script.can_instantiate():
         logistics_creation_status = "SCRIPT INVALID"
         push_error("SERA_BASE_LOGISTICS: script cannot instantiate")
         return
     logistics_creation_status = "NEW"
-    logistics = BaseLogistics.new()
+    var instance: Variant = logistics_script.new()
+    logistics = instance as Node3D
     if not is_instance_valid(logistics):
         logistics_creation_status = "NEW FAILED"
         push_error("SERA_BASE_LOGISTICS: script new returned no node")
@@ -499,12 +510,15 @@ func _build_logistics() -> void:
     logistics.name = "BaseLogistics"
     logistics.set_meta("sera_outline_role", "clutter")
     add_child(logistics)
-    logistics.call("setup", self, NEXUS_BUILDING_ORIGIN,
+    await logistics.call("setup", self, NEXUS_BUILDING_ORIGIN,
         BaseFacilities.FACILITY_SPECS, power_distribution, CRATE_WAYPOINTS, cam)
+    _startup_step("BASE / LOGISTICS MODELS", 26)
+    await get_tree().process_frame
     # Independent calls keep the carrier rendering available if route or
     # dock construction aborts. The on-screen report identifies that stage.
     logistics.call("ensure_parked_fleet", BaseFacilities.FACILITY_SPECS)
-    logistics.call("build_carriers")
+    await logistics.call("build_carriers")
+    await get_tree().process_frame
     logistics.call("build_docks_and_motion")
     logistics_creation_status = "NODE ATTACHED"
 
