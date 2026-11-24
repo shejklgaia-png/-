@@ -71,10 +71,26 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     var initial_chart_count: int = charts.size()
     var affine_report: String = ""
     if preserve_shape:
+        var topology_tris: Array[Dictionary] = []
+        var topology_charts: Array[Dictionary] = []
+        if balanced_shape and tris.size() <= 600 and charts.size() <= 192:
+            for t in tris:
+                var copy: Dictionary = t.duplicate()
+                var xy: PackedVector2Array = t.xy
+                copy.xy = xy.duplicate()
+                topology_tris.append(copy)
+            for chart in charts:
+                topology_charts.append(chart.duplicate())
         charts = _choose_hinge_layout(tris,charts)
         if balanced_shape:
             affine_report = _relax_affine_islands(tris,charts)
             affine_report += " / "+_relax_uv_boundary_vertices(tris,charts)
+            if not topology_tris.is_empty():
+                var topology: Dictionary = _retry_seam_topology(tris,charts,topology_tris,topology_charts,density)
+                charts = topology.charts
+                affine_report += " / "+str(topology.report)
+            else:
+                affine_report += " / 切断再選択 規模上限"
     else:
         _match_rectified_edge_counts(tris,charts)
         _align_triangular_grids(tris,charts)
@@ -150,7 +166,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     arrays[Mesh.ARRAY_TEX_UV2] = diagnostic_uv
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v10" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
+    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v11" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
 
 ## Group connected coplanar triangles, and the two halves of slightly
 ## warped authored quads. Never use an internal triangulation diagonal
@@ -2060,6 +2076,103 @@ static func _affine_incident_metrics(links: Array[Dictionary],incident: Array,pa
         score.z += error*error
     return score
 
+# Identify a physical edge independently of the chart IDs.
+static func _topology_edge_id(link: Dictionary) -> String:
+    var a := Vector2i(int(link.ta),int(link.ea))
+    var b := Vector2i(int(link.tb),int(link.eb))
+    return str(a)+":"+str(b) if a.x < b.x or (a.x == b.x and a.y < b.y) else str(b)+":"+str(a)
+
+# Compare final layouts against 3D metric, not each layout's own reference.
+# x: worst absolute log edge ratio; y: mean squared log edge ratio;
+# z: worst absolute log area ratio. Rigid UV movements do not affect these.
+static func _topology_distortion(tris: Array[Dictionary],density: int) -> Vector3:
+    var result := Vector3.ZERO
+    var count: int = 0
+    for t in tris:
+        var p: PackedVector3Array = t.p
+        var q: PackedVector2Array = t.xy
+        for k in range(3):
+            var ref_length: float = p[k].distance_to(p[(k+1)%3])*float(density)
+            var uv_length: float = q[k].distance_to(q[(k+1)%3])
+            if ref_length <= 0.000001 or uv_length <= 0.000001:
+                return Vector3(INF,INF,INF)
+            var e: float = absf(log(uv_length/ref_length))
+            result.x = maxf(result.x,e)
+            result.y += e*e
+            count += 1
+        var ref_area: float = (p[1]-p[0]).cross(p[2]-p[0]).length()*float(density)*float(density)
+        var uv_area: float = absf((q[1]-q[0]).cross(q[2]-q[0]))
+        if ref_area <= 0.000001 or uv_area <= 0.000001:
+            return Vector3(INF,INF,INF)
+        result.z = maxf(result.z,absf(log(uv_area/ref_area)))
+    result.y /= float(maxi(1,count))
+    return result
+
+# Retry exactly one alternative cut graph, prioritizing the worst seams
+# of the final V10 result. Start from untouched metric charts, not from
+# the already distorted output. Never replace the baseline on a regression.
+static func _retry_seam_topology(tris: Array[Dictionary],charts: Array[Dictionary],trial: Array[Dictionary],trial_charts: Array[Dictionary],density: int) -> Dictionary:
+    var baseline_links: Array[Dictionary] = _seam_segments(tris)
+    var eligible: Dictionary = {}
+    for link in _seam_segments(trial):
+        var ta: int = int(link.ta)
+        var tb: int = int(link.tb)
+        if int(trial[ta].surface) != int(trial[tb].surface):
+            continue
+        if absf(float(link.a1)-float(link.a0)) < 0.9999 or absf(float(link.b1)-float(link.b0)) < 0.9999:
+            continue
+        var na: Vector3 = trial[ta].face_normal
+        var nb: Vector3 = trial[tb].face_normal
+        if na.dot(nb) < -0.1736482:
+            continue
+        var a: PackedVector2Array = _segment_uv(trial[ta],link.ea,link.a0,link.a1,"xy")
+        var b: PackedVector2Array = _segment_uv(trial[tb],link.eb,link.b0,link.b1,"xy")
+        if absf(a[0].distance_to(a[1])-b[0].distance_to(b[1])) > 0.001:
+            continue
+        eligible[_topology_edge_id(link)] = true
+    var ranking: Array[Dictionary] = []
+    for link in baseline_links:
+        var key: String = _topology_edge_id(link)
+        var error: float = _local_uv_link_error(tris,link)
+        if error > 0.5 and eligible.has(key):
+            ranking.append({"key":key,"error":error,"ta":int(link.ta),"tb":int(link.tb)})
+    ranking.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
+        return str(a.key) < str(b.key) if absf(float(a.error)-float(b.error)) < 0.000001 else float(a.error) > float(b.error))
+    var preferred: Dictionary = {}
+    for i in range(mini(8,ranking.size())):
+        preferred[ranking[i].key] = float(8-i)
+    if preferred.is_empty():
+        return {"charts":charts,"report":"切断再選択 接続可能な高残差辺なし・V10維持"}
+    trial_charts = _connect_hinge_charts(trial,trial_charts,true,preferred)
+    var joined: int = 0
+    for i in range(mini(8,ranking.size())):
+        if int(trial[int(ranking[i].ta)].chart) == int(trial[int(ranking[i].tb)].chart):
+            joined += 1
+    if joined == 0:
+        return {"charts":charts,"report":"切断再選択 0/%d接続・V10維持" % preferred.size()}
+    _synchronize_chart_grids(trial,trial_charts,true)
+    _align_rigid_chart_grids(trial,trial_charts)
+    var capacity: int = _hinge_pack_side(charts)
+    if _hinge_pack_side(trial_charts) > capacity:
+        return {"charts":charts,"report":"切断再選択 %d/%d接続・初期容量超過・V10維持" % [joined,preferred.size()]}
+    var trial_report: String = _relax_affine_islands(trial,trial_charts)
+    trial_report += " / "+_relax_uv_boundary_vertices(trial,trial_charts)
+    var before: Vector3 = _hinge_layout_metrics(tris)
+    var after: Vector3 = _hinge_layout_metrics(trial)
+    var shape_before: Vector3 = _topology_distortion(tris,density)
+    var shape_after: Vector3 = _topology_distortion(trial,density)
+    var trial_capacity: int = _hinge_pack_side(trial_charts)
+    var quality: bool = after.x <= before.x+0.000001 and after.y <= before.y and after.z < before.z-0.000001
+    var shape_ok: bool = shape_after.is_finite() and shape_after.x <= shape_before.x+0.02 and shape_after.y <= shape_before.y*1.05+0.000001 and shape_after.z <= shape_before.z+0.02
+    var accept: bool = quality and shape_ok and trial_capacity <= capacity
+    var report: String = "切断再選択 %d/%d接続・島 %d→%d・問題辺 %d→%d・最大 %.3f→%.3fpx・二乗和 %.3f→%.3f・辺歪み二乗平均 %.5f→%.5f・形状%s・容量 %d→%d / %s" % [joined,preferred.size(),charts.size(),trial_charts.size(),int(before.y),int(after.y),before.x,after.x,before.z,after.z,shape_before.y,shape_after.y,"適合" if shape_ok else "拒否",capacity,trial_capacity,"採用" if accept else "不採用・V10維持"]
+    if not accept:
+        return {"charts":charts,"report":report}
+    for i in range(tris.size()):
+        tris[i].xy = trial[i].xy
+        tris[i].chart = trial[i].chart
+    return {"charts":trial_charts,"report":report+" / 再展開補正内訳: "+trial_report}
+
 static func _choose_hinge_layout(tris: Array[Dictionary],charts: Array[Dictionary]) -> Array[Dictionary]:
     var trial_tris: Array[Dictionary] = []
     var trial_charts: Array[Dictionary] = []
@@ -2141,7 +2254,7 @@ static func _hinge_pack_side(charts: Array[Dictionary]) -> int:
         side *= 2
     return side
 
-static func _connect_hinge_charts(tris: Array[Dictionary],charts: Array[Dictionary],alternate: bool = false) -> Array[Dictionary]:
+static func _connect_hinge_charts(tris: Array[Dictionary],charts: Array[Dictionary],alternate: bool = false,preferred: Dictionary = {}) -> Array[Dictionary]:
     var members: Array = []
     var incident: Array = []
     for ci in range(charts.size()):
@@ -2172,6 +2285,7 @@ static func _connect_hinge_charts(tris: Array[Dictionary],charts: Array[Dictiona
         if length < 0.00001 or absf(pa[0].distance_to(pa[1])-pb[0].distance_to(pb[1])) > 0.001:
             continue
         var weight: float = 3.0*alignment+0.3*minf(length,8.0) if alternate else length*(0.5+alignment)
+        weight += float(preferred.get(_topology_edge_id(link),0.0))*1000.0
         candidates.append({"id":li,"weight":weight})
     candidates.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
         return int(a.id) < int(b.id) if float(a.weight) == float(b.weight) else float(a.weight) > float(b.weight))
