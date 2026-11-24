@@ -567,18 +567,93 @@ static func _nexus_command_bunker(g: Batch) -> void:
         Vector3(2.09, 5.81, -1.78), 0.06, "edge")
     g.rod("NexusMastAntenna", Vector3(2.75, 5.48, -1.78),
         Vector3(2.75, 5.81, -1.78), 0.06, "edge")
-    # Retain the salvaged canvas service awning, with its own frame and
-    # one readable equipment case instead of many tiny overlapping crates.
-    g.poly_tilt("NexusServiceAwning", "canvas", Vector3(-2.67, 2.73, 3.05),
-        Vector3(1.38, 0.23, 1.17), "cloth", Vector3(0.12, 0, 0))
+    # Roof service infrastructure: smaller connected equipment, placed in
+    # the central and rear gaps between the existing large HVAC housings.
+    _nexus_roof_services(g)
+    # Enlarge the canvas-covered service bay on the left of the airlock.
+    # All frame members follow the same pitch; leave the door approach open.
+    g.poly_tilt("NexusServiceAwning", "canvas", Vector3(-2.76, 2.88, 3.24),
+        Vector3(2.00, 0.33, 1.68), "cloth", Vector3(0.12, 0, 0))
     for side in [-1.0, 1.0]:
-        var x: float = -2.67 + side * 0.56
-        g.rod("NexusAwningFrame", Vector3(x, 0.44, 3.53),
-            Vector3(x, 2.65, 3.53), 0.10, "trim")
-        g.rod("NexusAwningRafter", Vector3(x, 2.65, 3.53),
-            Vector3(x, 2.78, 2.53), 0.09, "edge")
+        var x: float = -2.76 + side * 0.88
+        g.poly("NexusAwningFoot", "nexus_shallow_bevel",
+            Vector3(x, 0.45, 3.95), Vector3(0.27, 0.16, 0.27), "slate")
+        g.rod("NexusAwningFrame", Vector3(x, 0.50, 3.95),
+            Vector3(x, 2.79, 3.95), 0.13, "trim")
+        g.rod("NexusAwningRafter", Vector3(x, 2.79, 3.95),
+            Vector3(x, 2.97, 2.52), 0.11, "edge")
+        g.rod("NexusAwningKneeBrace", Vector3(x, 2.30, 3.95),
+            Vector3(x, 2.84, 3.51), 0.085, "trim")
+    g.rod("NexusAwningFrontRail", Vector3(-3.64, 2.79, 3.95),
+        Vector3(-1.88, 2.79, 3.95), 0.12, "edge")
+    g.rod("NexusAwningRearRail", Vector3(-3.64, 2.97, 2.52),
+        Vector3(-1.88, 2.97, 2.52), 0.12, "trim")
+    g.rod("NexusAwningCenterRafter", Vector3(-2.76, 2.79, 3.95),
+        Vector3(-2.76, 2.97, 2.52), 0.085, "trim")
     g.poly("NexusServiceEquipmentCase", "cargo_case", Vector3(-2.68, 0.77, 3.12),
         Vector3(0.78, 0.65, 0.55), "crate")
+
+
+static func _nexus_roof_services(g: Batch) -> void:
+    # Rectangular air ducts connect the side HVAC cabinets to a central
+    # distribution plenum. Collars and flanges indicate assembly joints.
+    g.poly("NexusAirDistributionPlenum", "nexus_shallow_bevel",
+        Vector3(0, 4.87, 0.32), Vector3(0.62, 0.46, 1.48), "slate")
+    for side in [-1.0, 1.0]:
+        var z: float = 0.72 if side < 0.0 else -0.24
+        g.box("NexusRoofSupplyDuct", Vector3(side * 0.83, 4.83, z),
+            Vector3(1.12, 0.28, 0.39), "armor_light")
+        for x in [0.39, 1.27]:
+            g.box("NexusDuctJointFlange", Vector3(side * x, 4.83, z),
+                Vector3(0.09, 0.37, 0.49), "trim")
+        g.box("NexusDuctRoofSaddle", Vector3(side * 0.79, 4.68, z),
+            Vector3(0.20, 0.12, 0.47), "trim")
+    # Rear exhaust equipment: two hollow open-ended flues on a sealed base.
+    g.poly("NexusRearExhaustBase", "nexus_shallow_bevel",
+        Vector3(-0.70, 4.78, -1.57), Vector3(0.85, 0.26, 0.77), "slate")
+    for i in range(2):
+        var x: float = -0.93 + float(i) * 0.46
+        g.poly("NexusRoofExhaustFlue", "vent_stack",
+            Vector3(x, 5.18, -1.57), Vector3(0.35, 0.56, 0.35), "armor_light")
+        g.poly("NexusExhaustFlange", "drum",
+            Vector3(x, 4.94, -1.57), Vector3(0.43, 0.10, 0.43), "trim")
+    # Forward inspection hatch, with actual cover, rim and pull handles.
+    g.box("NexusRoofHatchFrame", Vector3(0.18, 4.69, 1.67),
+        Vector3(0.85, 0.12, 0.70), "trim")
+    g.poly("NexusRoofInspectionHatch", "nexus_shallow_bevel",
+        Vector3(0.18, 4.78, 1.67), Vector3(0.73, 0.12, 0.58), "armor_light")
+    for side in [-1.0, 1.0]:
+        var x: float = 0.18 + side * 0.24
+        g.rod("NexusHatchGrip", Vector3(x, 4.84, 1.54),
+            Vector3(x, 4.84, 1.78), 0.075, "dark")
+    # Secondary communications rack on the rear-left roof, clear of the
+    # original right mast and its separately animated amber beacon.
+    g.poly("NexusRoofSignalCabinet", "nexus_shallow_bevel",
+        Vector3(0.62, 4.87, -1.58), Vector3(0.70, 0.44, 0.68), "armor")
+    g.poly_tilt("NexusSignalCabinetVent", "louver",
+        Vector3(0.62, 4.87, -1.23), Vector3(0.45, 0.28, 0.12), "trim",
+        Vector3.ZERO)
+    g.rod("NexusSecondaryAntennaMast", Vector3(0.62, 5.09, -1.58),
+        Vector3(0.62, 5.87, -1.58), 0.12, "edge")
+    g.rod("NexusAntennaYagiBoom", Vector3(0.62, 5.68, -1.99),
+        Vector3(0.62, 5.68, -1.15), 0.085, "trim")
+    for i in range(3):
+        var z: float = -1.88 + float(i) * 0.29
+        var span: float = 0.45 - float(i) * 0.07
+        g.rod("NexusAntennaYagiElement", Vector3(0.62 - span, 5.68, z),
+            Vector3(0.62 + span, 5.68, z), 0.065, "edge")
+    g.poly("NexusWhipAntennaBase", "drum",
+        Vector3(-2.05, 4.58, -1.82), Vector3(0.33, 0.26, 0.33), "trim")
+    g.rod("NexusWhipAntenna", Vector3(-2.05, 4.71, -1.82),
+        Vector3(-2.19, 5.73, -1.82), 0.075, "edge")
+    # Conduit routes signal cabinet wiring into a roof penetration.
+    g.rod("NexusRoofSignalConduit", Vector3(0.91, 4.74, -1.58),
+        Vector3(1.12, 4.74, -1.58), 0.10, "gold")
+    g.rod("NexusRoofSignalConduit", Vector3(1.12, 4.74, -1.58),
+        Vector3(1.12, 4.74, -0.91), 0.10, "gold")
+    g.poly("NexusConduitJunction", "nexus_shallow_bevel",
+        Vector3(1.12, 4.73, -0.91), Vector3(0.24, 0.18, 0.28), "trim")
+
 
 static func _labo(g: Batch) -> void:
     # Smaller, busy semi-open workshop: tarpaulin canopy, worktables and consoles.
