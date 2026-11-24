@@ -10,6 +10,7 @@ const DisplayProfile = preload("res://scripts/sera_display_profile.gd")
 const SCENE_ID := "res://scenes/command_nexus.tscn"
 const TARGETS := ["SYSTEM", "TRAINING", "DATA ARCHIVE", "DEPLOYMENT"]
 const ORBIT_RATE := 0.0045
+const ROLL_STEP_DEG := 5.0  # Twist about the camera's optical axis.
 
 var host
 # True only after the camera editor controls have been constructed.
@@ -23,6 +24,7 @@ var look_at_point := Vector3.ZERO
 var distance := 6.0
 var azimuth := 0.0
 var elevation := 0.0
+var roll_deg := 0.0
 var reference_fov := 68.0
 var pointer_id := -999
 var pointer_mouse := false
@@ -53,7 +55,7 @@ func configure(scene: Node3D) -> void:
     set_process(true)
     initialization_stage = "LAYOUT"
     _sync_ui()
-    initialized = (_buttons.size() == 11
+    initialized = (_buttons.size() == 13
         and is_instance_valid(_status) and is_instance_valid(_help))
     initialization_stage = "READY" if initialized else "INCOMPLETE"
 
@@ -61,7 +63,7 @@ func configure(scene: Node3D) -> void:
 func _make_ui() -> void:
     for id in ["open", "exit", "copy", "zoom_in", "zoom_out",
             "look_left", "look_right", "look_up", "look_down",
-            "fov_minus", "fov_plus"]:
+            "fov_minus", "fov_plus", "roll_left", "roll_right"]:
         if _buttons.has(id):
             continue
         var panel := Panel.new()
@@ -126,7 +128,8 @@ func _button_title(id: String) -> String:
         "zoom_out": "離れる －", "look_left": "注視 ◀",
         "look_right": "注視 ▶", "look_up": "注視 ▲",
         "look_down": "注視 ▼", "fov_minus": "画角 －",
-        "fov_plus": "画角 ＋"
+        "fov_plus": "画角 ＋",
+        "roll_left": "回転 ↺", "roll_right": "回転 ↻"
     }
     return str(captions.get(id, id))
 
@@ -172,11 +175,11 @@ func _sync_ui() -> void:
     if active:
         _status.position = Vector2(14.0, 85.0)
         _status.size = Vector2(maxf(80.0, size.x - 28.0), 44.0)
-        _status.text = "%s / 注視Y %.2f / 距離 %.2fm / 画角 %.1f°" % [
-            target_id, look_at_point.y, distance, reference_fov]
-        _help.position = Vector2(14.0, size.y - 196.0)
+        _status.text = "%s / 距離 %.2fm / 画角 %.1f° / 回転 %.0f°" % [
+            target_id, distance, reference_fov, roll_deg]
+        _help.position = Vector2(14.0, size.y - 253.0)
         _help.size = Vector2(maxf(80.0, size.x - 28.0), 36.0)
-        _help.text = "画面ドラッグ: 旋回・俯角 / 下のボタン: 距離・注視点・画角"
+        _help.text = "ドラッグ: 旋回・俯角 / ボタン: 注視・距離・画角・カメラ回転"
 
 
 func _button_rect(id: String) -> Rect2:
@@ -196,7 +199,8 @@ func _button_rect(id: String) -> Rect2:
             return Rect2(Vector2(maxf(150.0, w - 173.0), 18.0),
                 Vector2(158.0, 48.0))
     var cols := ["zoom_in", "zoom_out", "look_left", "look_right",
-        "look_up", "look_down", "fov_minus", "fov_plus"]
+        "look_up", "look_down", "fov_minus", "fov_plus",
+        "roll_left", "roll_right"]
     var index: int = cols.find(id)
     if index < 0:
         return Rect2()
@@ -204,7 +208,8 @@ func _button_rect(id: String) -> Rect2:
     var row: int = floori(float(index) / 4.0)
     var span: float = maxf(76.0, (w - 44.0) / 4.0 - 8.0)
     var at_x: float = 14.0 + float(column) * (span + 9.0)
-    var at_y: float = h - 148.0 + float(row) * 57.0
+    # Three rows; reserve the lowest row for optical-axis camera rotation.
+    var at_y: float = h - 205.0 + float(row) * 57.0
     return Rect2(Vector2(at_x, at_y), Vector2(span, 51.0))
 
 
@@ -278,6 +283,7 @@ func _open_mode() -> void:
     distance = maxf(1.5, offset.length())
     azimuth = atan2(offset.x, offset.z)
     elevation = asin(clampf(offset.y / distance, -0.999, 0.999))
+    roll_deg = float(focus.get("roll_deg", 0.0))
     active = true
     pointer_id = -999
     pointer_mouse = false
@@ -294,7 +300,8 @@ func _press(at: Vector2, id: int, is_mouse: bool) -> void:
         _copy_pose()
         return
     var options := ["zoom_in", "zoom_out", "look_left", "look_right",
-        "look_up", "look_down", "fov_minus", "fov_plus"]
+        "look_up", "look_down", "fov_minus", "fov_plus",
+        "roll_left", "roll_right"]
     for option in options:
         if _button_rect(option).has_point(at):
             _adjust(option)
@@ -332,6 +339,10 @@ func _adjust(option: String) -> void:
             reference_fov = maxf(30.0, reference_fov - 2.0)
         "fov_plus":
             reference_fov = minf(100.0, reference_fov + 2.0)
+        "roll_left":
+            roll_deg = wrapf(roll_deg - ROLL_STEP_DEG, -180.0, 180.0)
+        "roll_right":
+            roll_deg = wrapf(roll_deg + ROLL_STEP_DEG, -180.0, 180.0)
     _apply_pose()
 
 
@@ -343,22 +354,29 @@ func _apply_pose() -> void:
     var camera: Camera3D = host.get("cam") as Camera3D
     if camera == null:
         return
-    camera.transform = Transform3D(
-        Basis.looking_at(look_at_point - eye, Vector3.UP), eye)
+    # Rotate the camera around its own forward axis without moving the eye
+    # or look-at target. The same roll is used when NEXUS revisits this view.
+    var camera_basis: Basis = Basis.looking_at(
+        look_at_point - eye, Vector3.UP)
+    camera_basis = camera_basis * Basis(
+        Vector3.FORWARD, deg_to_rad(roll_deg))
+    camera.transform = Transform3D(camera_basis, eye)
     camera.fov = DisplayProfile.vertical_fov(
         reference_fov, get_viewport_rect().size)
     var focus: Dictionary = host.focus_views[target_id]
     focus["eye"] = eye
     focus["look"] = look_at_point
     focus["fov"] = reference_fov
+    focus["roll_deg"] = roll_deg
     host.focus_views[target_id] = focus
     # Camera editing must never initialize the separate model-placement editor.
     # Doing so on the first drag can block Android input while MultiMesh
     # bindings / saved model poses are being restored.
-    if is_instance_valid(host.placement_editor) and bool(
-            host.placement_editor.get("initialized")):
-        host.placement_editor.record_camera_pose(
-            target_id, eye, look_at_point, reference_fov)
+    if is_instance_valid(host.placement_editor) and (
+            host.placement_editor.has_method("record_camera_pose")
+            and bool(host.placement_editor.get("initialized"))):
+        host.placement_editor.call("record_camera_pose",
+            target_id, eye, look_at_point, reference_fov, roll_deg)
     else:
         # Preserve original-model-relative camera saves even when the model
         # editor has not yet initialized. This uses only lightweight data.
@@ -389,7 +407,7 @@ func _apply_pose() -> void:
             "space": space_id,
             "eye": PlacementStore.array3(relative_eye),
             "look": PlacementStore.array3(relative_look),
-            "fov": reference_fov})
+            "fov": reference_fov, "roll_deg": roll_deg})
     if pointer_id == -999:
         PlacementStore.flush()
     host.call("_update_projected_silhouettes")
@@ -414,6 +432,7 @@ func _copy_pose() -> void:
     text_content += "look=(%.4f, %.4f, %.4f)\n" % [
         look.x, look.y, look.z]
     text_content += "reference_vertical_fov_deg=%.3f\n" % reference_fov
+    text_content += "camera_roll_deg=%.3f\n" % roll_deg
     var camera: Camera3D = host.get("cam") as Camera3D
     text_content += "device_vertical_fov_deg=%.3f\n" % camera.fov
     var viewport_size: Vector2 = get_viewport_rect().size
