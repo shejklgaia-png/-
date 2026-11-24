@@ -14,6 +14,9 @@ const ORBIT_RATE := 0.0045
 var host
 # True only after the camera editor controls have been constructed.
 var initialized := false
+# Same pre-operation diagnostic stages used by the working LABO diagnostics.
+# Only the actual failure phase is reported; no guessed "NOT READY" reason.
+var initialization_stage := "NEW"
 var active := false
 var target_id := ""
 var look_at_point := Vector3.ZERO
@@ -33,6 +36,7 @@ var _visible_signature := ""
 func configure(scene: Node3D) -> void:
     if initialized:
         return
+    initialization_stage = "HUD"
     host = scene
     name = "NexusCameraAnglePlacement"
     mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -41,13 +45,17 @@ func configure(scene: Node3D) -> void:
     var target_hud: Control = host.get("hud") as Control
     if target_hud != null:
         theme = target_hud.theme
+    initialization_stage = "BUTTONS"
     _make_ui()
+    initialization_stage = "SIGNALS"
     if not resized.is_connected(_sync_ui):
         resized.connect(_sync_ui)
     set_process(true)
+    initialization_stage = "LAYOUT"
     _sync_ui()
     initialized = (_buttons.size() == 11
         and is_instance_valid(_status) and is_instance_valid(_help))
+    initialization_stage = "READY" if initialized else "INCOMPLETE"
 
 
 func _make_ui() -> void:
