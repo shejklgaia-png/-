@@ -6,7 +6,6 @@ const PADDING = 2
 static func build(source: MeshInstance3D, density: int) -> Dictionary:
     var tris: Array[Dictionary] = []
     var charts: Array[Dictionary] = []
-    var lookup: Dictionary = {}
     var scale_basis: Basis = source.global_transform.basis if source.is_inside_tree() else source.transform.basis
     var metric := Vector3(scale_basis.x.length(), scale_basis.y.length(), scale_basis.z.length())
     if source.mesh == null or source.skin != null:
@@ -48,27 +47,10 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
             if cross.length_squared() < 0.000000000001:
                 continue
             var n := cross.normalized()
-            var dist := n.dot(p[0])
-            var key := "%d/%d/%d/%d/%d" % [s, roundi(n.x*10000), roundi(n.y*10000), roundi(n.z*10000), roundi(dist*10000)]
-            var ci: int
-            if lookup.has(key):
-                ci = int(lookup[key])
-            else:
-                ci = charts.size()
-                lookup[key] = ci
-                var axis := Vector3.UP if absf(n.y) < 0.95 else Vector3.RIGHT
-                var u := axis.cross(n).normalized()
-                charts.append({"u":u,"v":n.cross(u),"min":Vector2(INF,INF),"max":Vector2(-INF,-INF)})
-            var chart: Dictionary = charts[ci]
-            var xy := PackedVector2Array()
             var normals := PackedVector3Array()
             var prior := PackedVector2Array()
             var colors := PackedColorArray()
             for k in range(3):
-                var q := Vector2(p[k].dot(chart.u), p[k].dot(chart.v))*density
-                xy.append(q)
-                chart.min = Vector2(minf(chart.min.x,q.x),minf(chart.min.y,q.y))
-                chart.max = Vector2(maxf(chart.max.x,q.x),maxf(chart.max.y,q.y))
                 var nn := -n
                 if ns.size() == vs.size():
                     nn = (ns[ix[k]] / metric.max(Vector3(0.00001,0.00001,0.00001))).normalized()
@@ -78,9 +60,10 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
             var cull: int = BaseMaterial3D.CULL_DISABLED if mat == null else mat.cull_mode
             if encoded_culling and vertex_colors.size() == vs.size():
                 cull = _decode_cull(vertex_colors[ix[0]])
-            tris.append({"p":p,"n":normals,"xy":xy,"chart":ci,"base":base,"tex":tex,"prior":prior,"colors":colors,"repeat":mat == null or mat.texture_repeat,"cull":cull})
+            tris.append({"p":p,"n":normals,"face_normal":n,"surface":s,"base":base,"tex":tex,"prior":prior,"colors":colors,"repeat":mat == null or mat.texture_repeat,"cull":cull})
     if tris.is_empty():
         return {"error":"描画可能な三角形がありません"}
+    charts = _edge_aligned_charts(tris,density)
     var order: Array[int] = []
     for i in range(charts.size()):
         var c: Dictionary = charts[i]
@@ -145,6 +128,182 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
     return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size()}
+
+## Group connected coplanar triangles, and the two halves of slightly
+## warped authored quads. Never use an internal triangulation diagonal
+## as the pixel-grid reference. All axes stay fixed in model space.
+static func _vertex_key(p: Vector3) -> String:
+    return "%d,%d,%d" % [roundi(p.x*100000.0),roundi(p.y*100000.0),roundi(p.z*100000.0)]
+
+static func _edge_key(a: Vector3,b: Vector3) -> String:
+    var ka: String = _vertex_key(a)
+    var kb: String = _vertex_key(b)
+    return ka+"|"+kb if ka < kb else kb+"|"+ka
+
+static func _root(parent: PackedInt32Array,i: int) -> int:
+    while parent[i] != i:
+        i = parent[i]
+    return i
+
+static func _join(parent: PackedInt32Array,a: int,b: int) -> void:
+    var ra: int = _root(parent,a)
+    var rb: int = _root(parent,b)
+    if ra != rb:
+        parent[maxi(ra,rb)] = mini(ra,rb)
+
+static func _authored_flat(t: Dictionary) -> bool:
+    var ns: PackedVector3Array = t.n
+    return ns[0].dot(ns[1]) > 0.9999 and ns[0].dot(ns[2]) > 0.9999
+
+static func _shared_uv(a: Dictionary,b: Dictionary,edge_a: int,edge_b: int) -> bool:
+    var pa: PackedVector3Array = a.p
+    var pb: PackedVector3Array = b.p
+    var ua: PackedVector2Array = a.prior
+    var ub: PackedVector2Array = b.prior
+    var next_a: int = (edge_a+1)%3
+    var next_b: int = (edge_b+1)%3
+    if _vertex_key(pa[edge_a]) == _vertex_key(pb[edge_b]):
+        return ua[edge_a].distance_squared_to(ub[edge_b]) < 0.00000001 and ua[next_a].distance_squared_to(ub[next_b]) < 0.00000001
+    return ua[edge_a].distance_squared_to(ub[next_b]) < 0.00000001 and ua[next_a].distance_squared_to(ub[edge_b]) < 0.00000001
+
+static func _can_join(a: Dictionary,b: Dictionary,edge_a: int,edge_b: int) -> bool:
+    var na: Vector3 = a.face_normal
+    var nb: Vector3 = b.face_normal
+    var dot: float = na.dot(nb)
+    if dot > 0.999999:
+        var pa: PackedVector3Array = a.p
+        var pb: PackedVector3Array = b.p
+        if absf(na.dot(pb[0]-pa[0])) < 0.00001:
+            return true
+    # SeraRig gives both triangles of an authored quad the same flat
+    # normal. A UV-continuous shared edge identifies the original polygon.
+    # Limit the permitted bend so real creases remain separate islands.
+    if dot < 0.9781476 or not _authored_flat(a) or not _authored_flat(b):
+        return false
+    var an: PackedVector3Array = a.n
+    var bn: PackedVector3Array = b.n
+    return an[0].dot(bn[0]) > 0.9999 and _shared_uv(a,b,edge_a,edge_b)
+
+static func _edge_aligned_charts(tris: Array[Dictionary],density: int) -> Array[Dictionary]:
+    var parent := PackedInt32Array()
+    parent.resize(tris.size())
+    var edges: Dictionary = {}
+    for i in range(tris.size()):
+        parent[i] = i
+        var t: Dictionary = tris[i]
+        var p: PackedVector3Array = t.p
+        for e in range(3):
+            var key: String = str(t.surface)+":"+_edge_key(p[e],p[(e+1)%3])
+            if not edges.has(key):
+                edges[key] = []
+            var incidents: Array = edges[key]
+            for item in incidents:
+                var other: int = int(item.x)
+                if _can_join(t,tris[other],e,int(item.y)):
+                    _join(parent,i,other)
+            incidents.append(Vector2i(i,e))
+    var groups: Dictionary = {}
+    for i in range(tris.size()):
+        var root: int = _root(parent,i)
+        if not groups.has(root):
+            groups[root] = []
+        (groups[root] as Array).append(i)
+    var charts: Array[Dictionary] = []
+    for root in groups:
+        var members: Array = groups[root]
+        var normal := Vector3.ZERO
+        var outline: Dictionary = {}
+        for id in members:
+            var t: Dictionary = tris[id]
+            var p: PackedVector3Array = t.p
+            normal += (p[1]-p[0]).cross(p[2]-p[0])
+            for e in range(3):
+                var a: Vector3 = p[e]
+                var b: Vector3 = p[(e+1)%3]
+                var key: String = _edge_key(a,b)
+                if outline.has(key):
+                    var existing: Dictionary = outline[key]
+                    existing.count = int(existing.count)+1
+                else:
+                    outline[key] = {"a":a,"b":b,"count":1}
+        if normal.length_squared() < 0.000000000001:
+            normal = tris[members[0]].face_normal
+        normal = normal.normalized()
+        # Up is projected into the plane. For a nearly horizontal plane,
+        # model forward is the stable fallback (never the camera angle).
+        var up: Vector3 = Vector3.UP-normal*normal.dot(Vector3.UP)
+        if up.length_squared() < 0.04:
+            up = Vector3.FORWARD-normal*normal.dot(Vector3.FORWARD)
+        up = up.normalized()
+        var u: Vector3 = up.cross(normal).normalized()
+        var v: Vector3 = normal.cross(u).normalized()
+        var low: float = INF
+        var high: float = -INF
+        var longest: float = 0.0
+        for item in outline.values():
+            if int(item.count) != 1:
+                continue
+            var a: Vector3 = item.a
+            var b: Vector3 = item.b
+            low = minf(low,minf(a.dot(up),b.dot(up)))
+            high = maxf(high,maxf(a.dot(up),b.dot(up)))
+            var edge: Vector3 = b-a
+            edge -= normal*edge.dot(normal)
+            longest = maxf(longest,edge.length())
+        var best: float = -INF
+        var anchor: Vector3 = Vector3.ZERO
+        var aligned_edge: bool = false
+        for item in outline.values():
+            if int(item.count) != 1:
+                continue
+            var a: Vector3 = item.a
+            var b: Vector3 = item.b
+            var edge: Vector3 = b-a
+            edge -= normal*edge.dot(normal)
+            var length: float = edge.length()
+            if length < maxf(0.000001,longest*0.12):
+                continue
+            var direction: Vector3 = edge/length
+            var horizontal: float = absf(direction.dot(u))
+            # Prefer the lowest substantial non-vertical perimeter edge.
+            # Midpoint height wins over longest-edge-only or diagonal rules.
+            if horizontal < 0.25:
+                continue
+            var height: float = clampf(((a+b)*0.5).dot(up)-low,0.0,maxf(0.0,high-low))/maxf(0.000001,high-low)
+            var score: float = (1.0-height)*3.0+horizontal*0.75+length/maxf(longest,0.000001)*0.65
+            if score > best:
+                best = score
+                # Keep the grid handedness and up direction consistent.
+                var aligned: Vector3 = direction if direction.dot(u) >= 0.0 else -direction
+                v = normal.cross(aligned).normalized()
+                anchor = a if direction.dot(u) >= 0.0 else b
+                aligned_edge = true
+                # Save selected horizontal axis separately: scoring must
+                # always use the original model-space horizontal reference.
+        u = v.cross(normal).normalized()
+        var ci: int = charts.size()
+        var chart: Dictionary = {"u":u,"v":v,"min":Vector2(INF,INF),"max":Vector2(-INF,-INF)}
+        for id in members:
+            var t: Dictionary = tris[id]
+            var p: PackedVector3Array = t.p
+            var xy := PackedVector2Array()
+            for point in p:
+                var relative: Vector3 = point-anchor
+                var q := Vector2(relative.dot(u),relative.dot(v))*density
+                xy.append(q)
+                var minimum: Vector2 = chart.min
+                var maximum: Vector2 = chart.max
+                chart.min = minimum.min(q)
+                chart.max = maximum.max(q)
+            t.xy = xy
+            t.chart = ci
+        if aligned_edge:
+            # Keep the chosen baseline on an integer texel boundary. The
+            # bounding box may extend below it on a trapezoid or irregular face.
+            var minimum: Vector2 = chart.min
+            chart.min = minimum.floor()
+        charts.append(chart)
+    return charts
 
 ## Return barycentric weights at the nearest point on a triangle edge.
 ## The conservative half-diagonal fringe covers all nearest-filter texels
