@@ -432,6 +432,68 @@ func _ready() -> void:
     SeraSave.mark_location("NEXUS")
     var route: String = SeraSave.requested_nexus_target
     SeraSave.requested_nexus_target = ""
+    # Restore saved model and camera previews before any requested focus.
+    # Only instantiate the model editor on startup if a saved model pose
+    # exists, protecting the normal HUD and ANGLE from needless heavy setup.
+    call_deferred("_restore_nexus_placement_previews", route)
+
+
+func _notification(what: int) -> void:
+    # Android can be backgrounded while a drag is still in progress.
+    if what == NOTIFICATION_APPLICATION_PAUSED or (
+            what == NOTIFICATION_WM_CLOSE_REQUEST):
+        NexusPlacementStore.flush()
+
+
+func _exit_tree() -> void:
+    NexusPlacementStore.flush()
+
+
+func _restore_nexus_placement_previews(route: String) -> void:
+    if not is_inside_tree():
+        return
+    var has_saved_model: bool = false
+    for key_value in canonical_placement_specs.keys():
+        var key: String = str(key_value)
+        var model_record: Dictionary = NexusPlacementStore.read(
+            "nexus/model/" + key)
+        if model_record.has("position") and model_record.has("yaw_rad"):
+            has_saved_model = true
+        var camera_record: Dictionary = NexusPlacementStore.read(
+            "nexus/camera/" + key)
+        if not (camera_record.has("eye") and camera_record.has("look")
+                and camera_record.has("fov")):
+            continue
+        if not focus_views.has(key):
+            continue
+        var eye: Vector3 = NexusPlacementStore.vec(camera_record["eye"])
+        var look: Vector3 = NexusPlacementStore.vec(camera_record["look"])
+        # Camera saves are relative to the original model pose. Reapply any
+        # model movement to both positions, never to the saved optical roll.
+        if str(camera_record.get("space", "global")) == "original_model_frame":
+            if model_record.has("position") and model_record.has("yaw_rad"):
+                var original: Dictionary = canonical_placement_specs[key]
+                var base_pose := Transform3D(
+                    Basis(Vector3.UP, float(original["yaw"])),
+                    original["position"])
+                var saved_pose := Transform3D(
+                    Basis(Vector3.UP, float(model_record["yaw_rad"])),
+                    NexusPlacementStore.vec(model_record["position"]))
+                var delta: Transform3D = saved_pose * base_pose.affine_inverse()
+                eye = delta * eye
+                look = delta * look
+        var view: Dictionary = focus_views[key]
+        view["eye"] = eye
+        view["look"] = look
+        view["fov"] = float(camera_record["fov"])
+        view["roll_deg"] = float(camera_record.get("roll_deg", 0.0))
+        focus_views[key] = view
+    if has_saved_model:
+        # The established editor (or the proven recovery editor) restores
+        # exact MultiMesh indices and silhouettes. Its deferred restore is
+        # queued BEFORE the requested camera focus, preserving alignment.
+        if not _initialize_canonical_placement_editor():
+            push_warning("NEXUS: saved model pose could not be restored")
     if focus_views.has(route):
         call_deferred("_select_target", route)
 
