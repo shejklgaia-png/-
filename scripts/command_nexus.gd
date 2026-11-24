@@ -304,7 +304,12 @@ var target_parts: Dictionary = {}
 var selection_render_sources: Dictionary = {}
 var gate_render_refs: Array[Dictionary] = []
 var selection_contour_faces: Dictionary = {}
-var gate_closed_door_parts: Array = []
+var gate_door_leaves: Array[MeshInstance3D] = []
+var gate_arch_contour_cache: Array[PackedVector2Array] = []
+var gate_occluder_cache: Array = []
+var gate_terminal_strokes_cache: Array[PackedVector2Array] = []
+var selection_visible_strokes: Dictionary = {}
+var gate_contour_active: bool = false
 # Canonical placement keeps exact source part instances in the shared render
 # batches so touching a console never drags the wall or another nearby model.
 var canonical_core_refs: Dictionary = {}
@@ -413,6 +418,7 @@ func _ready() -> void:
     add_child(nexus_room_motion)
     nexus_room_motion.configure(SYSTEM_CONSOLE_ORIGIN,
         TRAINING_CONSOLE_ORIGIN, GATE_ORIGIN, _gate_facing_yaw(), GATE_SCALE)
+    nexus_room_motion.deployment_pose_changed.connect(_refresh_live_gate_contour)
     # Use BASE equipment and universal actor widths in one RGB-ID pass.
     _nexus_tone_background_surfaces()
     _nexus_grade_equipment_castings()
@@ -4977,6 +4983,7 @@ func _update_projected_silhouettes() -> void:
     elif target_parts.has(focused_target):
         contours[focused_target] = _project_model_contour(focused_target)
     outline.set("polygons", contours)
+    gate_contour_active = false
     if selection_render_sources.is_empty():
         # HUD and input remain usable while optional render sources initialize.
         var pending_strokes: Dictionary = {}
@@ -5002,17 +5009,60 @@ func _update_projected_silhouettes() -> void:
         var gate_occluders: Array = []
         for nearer in ["CUSTOMIZE", "SYSTEM", "TRAINING", "DATA ARCHIVE"]:
             gate_occluders.append_array(render_shapes.get(nearer, []))
-        var arch_masks: Array = gate_occluders.duplicate()
-        arch_masks.append_array(_project_selection_clusters(gate_closed_door_parts))
-        var gate_strokes: Array[PackedVector2Array] = _clip_gate_strokes(
-            _project_render_contour("GATE_ARCH"), arch_masks)
-        gate_strokes.append_array(_clip_gate_strokes(
-            _project_render_contour("DEPLOYMENT"), gate_occluders))
-        visible_strokes["DEPLOYMENT"] = gate_strokes
+        gate_arch_contour_cache = _project_render_contour("GATE_ARCH")
+        gate_occluder_cache = gate_occluders
+        gate_terminal_strokes_cache = _clip_gate_strokes(
+            _project_render_contour("DEPLOYMENT"), gate_occluders)
+        gate_contour_active = true
+        visible_strokes["DEPLOYMENT"] = _live_gate_strokes()
+    selection_visible_strokes = visible_strokes
     outline.set("clipped_strokes", visible_strokes)
 
+# Reuse static projected shapes while the camera is stationary. The hardware
+# emits only on actual shutter movement (20 Hz), including the final pose.
+func _refresh_live_gate_contour() -> void:
+    if not gate_contour_active or not is_instance_valid(outline) or not is_instance_valid(cam):
+        return
+    selection_visible_strokes["DEPLOYMENT"] = _live_gate_strokes()
+    outline.set("clipped_strokes", selection_visible_strokes)
+    outline.queue_redraw()
+
+func _live_gate_strokes() -> Array[PackedVector2Array]:
+    var joined: Array[PackedVector2Array] = []
+    joined.append_array(gate_arch_contour_cache)
+    var leaf_clusters: Array = []
+    for leaf in gate_door_leaves:
+        if not is_instance_valid(leaf) or not leaf.is_visible_in_tree() or leaf.mesh == null:
+            continue
+        var points := PackedVector3Array()
+        for vertex in _selection_mesh_faces(leaf.mesh):
+            points.append(leaf.global_transform * vertex)
+        if points.size() >= 3:
+            leaf_clusters.append(points)
+    # The modeled closed leaves have a 5 cm mechanical seam. Treat that
+    # narrow seam as joined only at the closed stop, never across an opening.
+    if leaf_clusters.size() == 2 and gate_door_leaves.size() == 2:
+        var left: MeshInstance3D = gate_door_leaves[0]
+        var right: MeshInstance3D = gate_door_leaves[1]
+        var left_bounds: AABB = left.mesh.get_aabb()
+        var right_bounds: AABB = right.mesh.get_aabb()
+        var gap: float = absf(right.position.x - left.position.x) - (
+            left_bounds.size.x + right_bounds.size.x) * 0.5
+        if gap <= 0.051:
+            var closed_pair: PackedVector3Array = leaf_clusters[0]
+            closed_pair.append_array(leaf_clusters[1])
+            leaf_clusters = [closed_pair]
+    # Merge the outer boundary, not individual leaf strokes: no center seam
+    # when closed, and no line bridging empty doorway space when open.
+    for shape in _project_selection_clusters(leaf_clusters):
+        _union_outer_contours(joined, shape)
+    var strokes: Array[PackedVector2Array] = _clip_gate_strokes(joined, gate_occluder_cache)
+    strokes.append_array(gate_terminal_strokes_cache)
+    return strokes
+
 # Only actual physical room geometry receives BASE ink. Emitters, screens,
-# lettering, VFX and the sliding door remain depth-only, never outlined.
+# lettering, VFX and the sliding door remain depth-only in BASE black ink.
+# The separate blue-white selection contour follows the live door leaves.
 func _enable_nexus_base_ink(node: Node) -> void:
     if node.name == "DeploymentSlidingArmor":
         return
@@ -5042,7 +5092,7 @@ func _enable_nexus_base_ink(node: Node) -> void:
 # Live transforms are read for all selections; the input polygons stay intact.
 func _capture_selection_render_sources() -> void:
     selection_render_sources.clear()
-    gate_closed_door_parts.clear()
+    gate_door_leaves.clear()
     for key in ["SYSTEM", "TRAINING", "DATA ARCHIVE", "GATE_ARCH", "DEPLOYMENT"]:
         selection_render_sources[key] = []
         var refs: Array = gate_render_refs if key == "GATE_ARCH" else canonical_core_refs.get(key, [])
@@ -5088,15 +5138,11 @@ func _capture_selection_render_sources() -> void:
     _collect_selection_meshes(get_node_or_null("NexusRoomWorkingHardware/TrainingSensorMotion/GimbalBase"), "TRAINING", false)
     var door := get_node_or_null("NexusRoomWorkingHardware/DeploymentSlidingArmor")
     if door != null:
-        var closed_vertices := PackedVector3Array()
         for child in door.get_children():
             if child is MeshInstance3D:
                 var leaf := child as MeshInstance3D
                 if leaf.mesh != null:
-                    for vertex in _selection_mesh_faces(leaf.mesh):
-                        closed_vertices.append(leaf.global_transform * vertex)
-        if closed_vertices.size() >= 3:
-            gate_closed_door_parts.append(closed_vertices)
+                    gate_door_leaves.append(leaf)
     _update_projected_silhouettes()
 
 func _collect_selection_meshes(node: Node, target: String, exact_faces: bool) -> void:
