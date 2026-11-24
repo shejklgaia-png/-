@@ -103,13 +103,13 @@ func _ready() -> void:
     hero_camera.near = 0.10
     hero_camera.far = 220.0
     hero_camera.keep_aspect = Camera3D.KEEP_HEIGHT
-    set_section(current_section)
+    set_section(current_section,false)
 
 func set_base_context(sources: Dictionary) -> void:
     if rebuilt_scenes != null:
         rebuilt_scenes.set_base_context(sources)
 
-func set_section(section: String) -> void:
+func set_section(section: String,dispatch: bool = true) -> void:
     current_section = section if section in ["LABO", "SMELTER", "RECYCLER", "STORAGE"] else "LABO"
     rebuilt_scenes.select(current_section)
     clock = 0.0
@@ -120,6 +120,7 @@ func set_section(section: String) -> void:
     carrier_seen = [false,false]
     idle_kind = -1
     idle_age = 0.0
+    idle_duration = idle_rng.randf_range(0.5,1.5)
     crate_right_wrist.rotation = Vector3.ZERO
     crate_left_wrist.rotation = Vector3.ZERO
     crate_head.rotation = Vector3.ZERO
@@ -175,7 +176,8 @@ func set_section(section: String) -> void:
                 PlacementStore.vec(saved["look"]),float(saved["fov"]))
     # Menu entry is the dispatch trigger, after saved placement is applied.
     # No dependency on the operator reaching the console first.
-    rebuilt_scenes.start_cycle(current_section,true)
+    if dispatch:
+        rebuilt_scenes.start_cycle(current_section,true)
 
 func camera_section_id() -> String:
     # New geometry has different bounds. Legacy camera/model coordinates from
@@ -544,7 +546,7 @@ func _watch_carrier(delta: float) -> bool:
         crate.rotation.y += signf(yaw)*minf(absf(yaw)-1.15,delta*3.5)
         local = crate.to_local(aim)
         yaw = atan2(-local.x,-local.z)
-    var pitch: float = atan2(local.y-1.20,maxf(0.05,Vector2(local.x,local.z).length()))
+    var pitch: float = atan2(local.y-1.30,maxf(0.05,Vector2(local.x,local.z).length()))
     var rate: float = 12.0
     crate_head.rotation.x = lerpf(crate_head.rotation.x,clampf(pitch,-0.34,0.34),minf(1.0,delta*rate))
     crate_head.rotation.y = lerp_angle(crate_head.rotation.y,clampf(yaw,-2.65,2.65),minf(1.0,delta*rate))
@@ -595,11 +597,11 @@ func _crate_idle(delta: float) -> void:
             h.x = 0.17*sin(TAU*2.0*u)*envelope
         3: # Examine the raised left hand and turn the wrist.
             l.x = 0.36*envelope
-            h = Vector3(0.12*envelope,0.24*envelope,0)
+            h = Vector3(-0.14*envelope,0.24*envelope,0)
             lw = TAU*envelope
         4: # Examine the right hand.
             r.x = 0.36*envelope
-            h = Vector3(0.12*envelope,-0.24*envelope,0)
+            h = Vector3(-0.14*envelope,-0.24*envelope,0)
             rw = -TAU*envelope
         5: # A tiny alternating arm stretch.
             l.x = 0.22*maxf(0.0,wave)
@@ -624,6 +626,13 @@ func _crate_idle(delta: float) -> void:
             else:
                 r.x = (0.23+0.08*sin(TAU*3.0*u))*envelope
                 rw = 0.45*wave
+    # If an approach failed with CRATE still close to the terminal, keep
+    # arms tucked instead of letting idle gestures sweep into the console.
+    if nav_docked:
+        l = Vector3.ZERO
+        r = Vector3.ZERO
+        lw = 0.0
+        rw = 0.0
     var rate: float = minf(1.0,delta*10.0)
     crate_head.rotation = crate_head.rotation.lerp(h,rate)
     crate_arm.rotation = crate_arm.rotation.lerp(r,rate)
@@ -637,7 +646,7 @@ func _crate_idle(delta: float) -> void:
 
 func _process(delta: float) -> void:
     clock += delta
-    state_time += delta
+    state_time += minf(delta,0.10) if work_state=="watch_carrier" else delta
     rebuilt_scenes.animate(delta,clock,current_section)
     if nav_dirty:
         _build_navigation()
