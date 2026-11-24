@@ -182,7 +182,7 @@ func _build_ui() -> void:
     color_picker.edit_alpha = false
     color_picker.custom_minimum_size = Vector2(88,54)
     row.add_child(color_picker)
-    var mode := _button(row,"回転 / 描画",func(): rotation_mode = not rotation_mode; _show_status("回転モード" if rotation_mode else "描画モード"))
+    var mode: Button = _button(row,"回転 / 描画",_toggle_rotation_mode)
     mode.toggle_mode = true
     row = _row(box)
     layer_picker = OptionButton.new()
@@ -196,7 +196,7 @@ func _build_ui() -> void:
     diameter_picker = OptionButton.new()
     for d in [1,3,5]:
         diameter_picker.add_item("%d px" % d,d)
-    diameter_picker.item_selected.connect(func(index: int): brush_size = diameter_picker.get_item_id(index))
+    diameter_picker.item_selected.connect(_set_brush_size)
     row.add_child(diameter_picker)
     symmetric = CheckButton.new()
     symmetric.text = "X対称"
@@ -340,7 +340,7 @@ func _input(event: InputEvent) -> void:
                         _choose_part(str(id))
                         break
     elif event is InputEventScreenDrag and event.index == catalog_touch:
-        var delta := event.position-catalog_start
+        var delta: Vector2 = (event as InputEventScreenDrag).position-catalog_start
         if delta.length() > 10.0:
             catalog_dragged = true
         if catalog_dragged:
@@ -377,6 +377,13 @@ func _choose_part(id: String) -> void:
     if img != null:
         _show_status(PartCatalog.display_name(id)+" / %dメッシュ / %d×%d px" % [result.pieces,img.get_width(),img.get_height()])
 
+func _toggle_rotation_mode() -> void:
+    rotation_mode = not rotation_mode
+    _show_status("回転モード" if rotation_mode else "描画モード")
+
+func _set_brush_size(index: int) -> void:
+    brush_size = diameter_picker.get_item_id(index)
+
 func _refresh_picker() -> void:
     picker.clear()
     for item in candidates:
@@ -399,6 +406,9 @@ func _rebuild() -> void:
         original = null
         layers.clear()
         layer_visible.clear()
+        undo_stack.clear()
+        redo_stack.clear()
+        _end_stroke()
         _refresh_layers()
         triangles.clear()
         atlas_preview.texture = null
@@ -736,7 +746,7 @@ func _delete_layer() -> void:
     tex.update(img)
 
 func _undo() -> void:
-    if undo_stack.is_empty():
+    if undo_stack.is_empty() or layers.is_empty() or img == null or tex == null:
         return
     redo_stack.append(layers[layer_index].duplicate() as Image)
     layers[layer_index] = undo_stack.pop_back()
@@ -744,7 +754,7 @@ func _undo() -> void:
     tex.update(img)
 
 func _redo() -> void:
-    if redo_stack.is_empty():
+    if redo_stack.is_empty() or layers.is_empty() or img == null or tex == null:
         return
     undo_stack.append(layers[layer_index].duplicate() as Image)
     layers[layer_index] = redo_stack.pop_back()
@@ -888,7 +898,7 @@ func _load_project(path: String) -> void:
         return
     var prefix := absolute.trim_suffix(".texture.json")
     var mesh := ResourceLoader.load(prefix+".res","ArrayMesh") as ArrayMesh
-    var restored := UV.restore_triangles(mesh,ids)
+    var restored: Array = UV.restore_triangles(mesh,ids as Array)
     var base := Image.load_from_file(prefix+".base.png")
     if restored.is_empty() or base == null or base.is_empty() or base.get_width() > 1024 or base.get_height() > 1024:
         _show_status("保存メッシュまたはベース画像が無効です")
