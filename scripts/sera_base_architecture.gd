@@ -554,6 +554,13 @@ static func _nexus_command_bunker(g: Batch) -> void:
         g.box("NexusStatusWindow",
             Vector3(side * 2.30, 2.52, 2.925),
             Vector3(0.28, 0.12, 0.035), "amber_light")
+    # Buffered maintenance stock, away from the public entrance.
+    g.box("NexusSupplySleeve", Vector3(3.12, 0.93, -1.53),
+        Vector3(0.38, 0.66, 0.96), "dark")
+    g.poly("NexusSupplyDrawer", "tray", Vector3(3.25, 0.77, -1.53),
+        Vector3(0.61, 0.19, 0.76), "armor_light")
+    g.poly("NexusSupplyCase", "cargo_case", Vector3(3.25, 1.02, -1.53),
+        Vector3(0.42, 0.30, 0.58), "crate")
     # A hollow upper cassette stores five rigid sections behind the lintel.
     # The cassette's lower edge (2.98) clears the visible portal. Its roof
     # (3.68) is above every stored section (max 3.596), below the bunker roof.
