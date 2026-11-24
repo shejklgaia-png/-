@@ -1018,6 +1018,11 @@ func _sync_camera(source_camera: Camera3D) -> bool:
 
 
 static func _is_visual_part(node: Node) -> bool:
+    # NEXUS explicitly marks opaque physical geometry only, including
+    # architectural beams and generated castings previously excluded by name.
+    # No inheritance: emitters, door leaves, UI and FX keep existing exclusions.
+    if bool(node.get_meta("sera_nexus_physical_ink", false)):
+        return true
     var cursor: Node = node
     while cursor != null:
         # NEXUS-only GPU SERA silhouette: omit tagged display meshes from
