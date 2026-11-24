@@ -186,7 +186,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     arrays[Mesh.ARRAY_TEX_UV2] = diagnostic_uv
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v18" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
+    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v19" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
 
 ## Group connected coplanar triangles, and the two halves of slightly
 ## warped authored quads. Never use an internal triangulation diagonal
@@ -2057,8 +2057,11 @@ static func _joint_grid_solve(tris: Array[Dictionary],charts: Array[Dictionary],
     var shape_rejected: int = 0
     var pack_rejected: int = 0
     var steps: int = 0
+    var moved: int = 0
+    var quality_rejected: int = 0
     var current: Vector3 = baseline
     var current_cost: float = _threshold_grid_cost(tris,links,threshold_mode) if threshold_mode > 0 else baseline.z
+    var initial_cost: float = current_cost
     for iteration in range(40):
         var gs := PackedVector2Array()
         var gx := PackedVector2Array()
@@ -2085,6 +2088,12 @@ static func _joint_grid_solve(tris: Array[Dictionary],charts: Array[Dictionary],
             var e0: Vector2 = a[0]-b[0].rotated(q)
             e0 -= e0.round()
             var e1: Vector2 = e0+da-db.rotated(q)
+            if threshold_mode==3:
+                var midpoint: Vector2 = (a[0]+a[1]-(b[0]+b[1]).rotated(q))*0.5
+                midpoint -= midpoint.round()
+                var half_edge: Vector2 = (da-db.rotated(q))*0.5
+                e0 = midpoint-half_edge
+                e1 = midpoint+half_edge
             var peak: float = maxf(e0.length(),e1.length())
             var w: float = 1.0+2.0*clampf((peak-0.20)/0.55,0.0,1.0)
             for k in range(2):
@@ -2092,7 +2101,10 @@ static func _joint_grid_solve(tris: Array[Dictionary],charts: Array[Dictionary],
                 var u: Vector2 = (pa[k]-pivots[ca])/radius[ca]
                 var v: Vector2 = (pb[k]-pivots[cb])/radius[cb]
                 var weight: float = w
-                if threshold_mode > 0:
+                if threshold_mode==3:
+                    var rms: float = sqrt((e0.length_squared()+e1.length_squared())*0.5)
+                    weight = _periodic_grid_weight(rms)
+                elif threshold_mode > 0:
                     # Half-gradient of the identical endpoint/peak objective
                     # used by line search. A tie splits the peak derivative.
                     weight = 0.15
@@ -2111,7 +2123,8 @@ static func _joint_grid_solve(tris: Array[Dictionary],charts: Array[Dictionary],
                 diag[ca] += Vector3(1.0,u.x*u.x,u.y*u.y)*weight
                 diag[cb] += Vector3(1.0,v.x*v.x,v.y*v.y)*weight
         var changed: bool = false
-        for rate in [0.45,0.225,0.1125,0.05625]:
+        var rates: Array = [0.45,0.225,0.1125,0.05625,0.028125,0.0140625,0.00703125,0.003515625,0.0017578125,0.00087890625] if threshold_mode==3 else [0.45,0.225,0.1125,0.05625]
+        for rate in rates:
             var ns := shifts.duplicate()
             var nx := colx.duplicate()
             var ny := coly.duplicate()
@@ -2145,6 +2158,7 @@ static func _joint_grid_solve(tris: Array[Dictionary],charts: Array[Dictionary],
             coly = ny
             current = trial
             changed = true
+            moved += 1
             if _joint_quality_ok(best,trial):
                 var bounds: Array[Dictionary] = _global_uv_chart_bounds(tris,charts,members)
                 if not _joint_shape_ok(shape_base,_topology_distortion(tris,density)):
@@ -2155,6 +2169,8 @@ static func _joint_grid_solve(tris: Array[Dictionary],charts: Array[Dictionary],
                     best = trial
                     best_copy = _joint_copy(tris,bounds)
                     accepted += 1
+            else:
+                quality_rejected += 1
             break
         if not changed:
             break
@@ -2166,7 +2182,10 @@ static func _joint_grid_solve(tris: Array[Dictionary],charts: Array[Dictionary],
     for ci in range(charts.size()):
         charts[ci].min = bc[ci].min
         charts[ci].max = bc[ci].max
-    return "%d採用/%d試行・形状拒否%d・容量拒否%d・問題辺 %d→%d・最大 %.3f→%.3fpx・二乗和 %.3f→%.3f" % [accepted,steps,shape_rejected,pack_rejected,int(baseline.y),int(best.y),baseline.x,best.x,baseline.z,best.z]
+    var result: String = "%d採用/%d試行・形状拒否%d・容量拒否%d・問題辺 %d→%d・最大 %.3f→%.3fpx・二乗和 %.3f→%.3f" % [accepted,steps,shape_rejected,pack_rejected,int(baseline.y),int(best.y),baseline.x,best.x,baseline.z,best.z]
+    if threshold_mode==3:
+        result += "・目的関数 %.4f→%.4f・移動%d・品質拒否%d" % [initial_cost,current_cost,moved,quality_rejected]
+    return result
 
 
 # Smooth threshold surrogate plus exact maximum-endpoint squared residual.
@@ -2177,6 +2196,14 @@ static func _threshold_peak_weight(r: float,mode: int) -> float:
     var low: float = 6.0 if mode==1 else 2.0
     var high: float = 3.0 if mode==1 else 16.0
     return 1.0+low*maxf(0.0,r-0.22)/r+high*maxf(0.0,r-0.50)/r
+
+# For a fixed quarter turn, the midpoint-wrapped squared norm is
+# continuous even where the integer phase changes. The half-edge term
+# measures direction/length mismatch independently of translation.
+static func _periodic_grid_weight(r: float) -> float:
+    if r<=0.000001:
+        return 1.0
+    return 1.0+4.0*maxf(0.0,r-0.20)/r+8.0*maxf(0.0,r-0.45)/r
 
 static func _threshold_grid_cost(tris: Array[Dictionary],links: Array[Dictionary],mode: int) -> float:
     var cost: float = 0.0
@@ -2191,6 +2218,13 @@ static func _threshold_grid_cost(tris: Array[Dictionary],links: Array[Dictionary
         var e0: Vector2 = a[0]-b[0].rotated(q)
         e0 -= e0.round()
         var e1: Vector2 = e0+da-db.rotated(q)
+        if mode==3:
+            var midpoint: Vector2 = (a[0]+a[1]-(b[0]+b[1]).rotated(q))*0.5
+            midpoint -= midpoint.round()
+            var half_edge: Vector2 = (da-db.rotated(q))*0.5
+            var rms: float = sqrt(midpoint.length_squared()+half_edge.length_squared())
+            cost += 2.0*(rms*rms+4.0*pow(maxf(0.0,rms-0.20),2.0)+8.0*pow(maxf(0.0,rms-0.45),2.0))
+            continue
         var peak: float = maxf(e0.length(),e1.length())
         cost += 0.15*(e0.length_squared()+e1.length_squared())+peak*peak+low*pow(maxf(0.0,peak-0.22),2.0)+high*pow(maxf(0.0,peak-0.50),2.0)
     return cost
@@ -2202,13 +2236,13 @@ static func _threshold_joint_search(tris: Array[Dictionary],charts: Array[Dictio
     var best: Vector3 = baseline
     var chosen: Dictionary = {}
     var report: String = "閾値連立"
-    for mode in [1,2]:
+    for mode in [1,2,3]:
         var scratch: Dictionary = _joint_copy(tris,charts)
         var st: Array[Dictionary] = scratch.tris
         var sc: Array[Dictionary] = scratch.charts
         var detail: String = _joint_grid_solve(st,sc,density,capacity,int(mode))
         var score: Vector3 = _hinge_layout_metrics(st)
-        report += " / %s [%s]" % ["問題辺重視" if mode==1 else "最大残差重視",detail]
+        report += " / %s [%s]" % ["問題辺重視" if mode==1 else ("最大残差重視" if mode==2 else "中点周期連立"),detail]
         if _joint_quality_ok(best,score) and _joint_shape_ok(shape,_topology_distortion(st,density)) and _hinge_pack_side(sc)<=capacity:
             best = score
             chosen = scratch
