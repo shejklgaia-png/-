@@ -239,9 +239,12 @@ def render_views(objects, out, resolution):
     scene.render.image_settings.file_format = 'PNG'
     scene.render.image_settings.color_mode = 'RGBA'
     scene.render.film_transparent = True
+    scene.view_settings.view_transform = 'AgX'
+    scene.view_settings.exposure = 0.0
     scene.world = bpy.data.worlds.new("Review World")
     scene.world.use_nodes = True
-    scene.world.node_tree.nodes["Background"].inputs["Strength"].default_value = .45
+    scene.world.node_tree.nodes["Background"].inputs["Color"].default_value = (.35, .35, .35, 1)
+    scene.world.node_tree.nodes["Background"].inputs["Strength"].default_value = .6
     camera_data = bpy.data.cameras.new("Review Camera")
     camera = bpy.data.objects.new("Review Camera",camera_data)
     scene.collection.objects.link(camera)
@@ -251,7 +254,7 @@ def render_views(objects, out, resolution):
     camera_data.clip_start = max(span*.0001, .00001)
     camera_data.clip_end = span*20
     lights = []
-    for direction, strength in [((2,-3,4),900),((-3,-1,2),550),((1,3,3),1100)]:
+    for direction, strength in [((2,-3,4),100),((-3,-1,2),65),((1,3,3),110),((0,0,-4),55)]:
         data = bpy.data.lights.new("Review Light",'AREA')
         data.energy = strength*span**2
         data.shape = 'DISK'
