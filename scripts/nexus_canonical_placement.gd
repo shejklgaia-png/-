@@ -386,9 +386,11 @@ func _restore_saved_placements() -> void:
             host.focus_views[key] = view
         var record: Dictionary = PlacementStore.read("nexus/model/" + key)
         if record.has("position") and record.has("yaw_rad"):
+            # A real model move must restore the 3D bindings once.
             _set_pose(key, PlacementStore.vec(record["position"]), float(record["yaw_rad"]), false)
-        elif not angle.is_empty():
-            _set_pose(key, entry["position"], float(entry["yaw"]), false)
+        # If ONLY a camera angle was saved, the focus was restored above.
+        # Do NOT call _set_pose with an identity transform here: that would
+        # eagerly scan/bind every procedural mesh and stall the NEXUS GUI.
     host.call("_update_projected_silhouettes")
 
 
