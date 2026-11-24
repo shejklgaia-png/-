@@ -107,6 +107,10 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
                 affine_report += " / "+str(joint.report)
             else:
                 affine_report += " / 連立再展開 規模上限"
+            if tris.size() <= 600 and charts.size() <= 192:
+                affine_report += " / "+_threshold_joint_search(tris,charts,density)
+            else:
+                affine_report += " / 閾値連立 規模上限"
     else:
         _match_rectified_edge_counts(tris,charts)
         _align_triangular_grids(tris,charts)
@@ -182,7 +186,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     arrays[Mesh.ARRAY_TEX_UV2] = diagnostic_uv
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v17" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
+    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v18" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
 
 ## Group connected coplanar triangles, and the two halves of slightly
 ## warped authored quads. Never use an internal triangulation diagonal
@@ -2023,7 +2027,7 @@ static func _joint_quality_ok(before: Vector3,after: Vector3) -> bool:
 # its operator-norm perturbation is <= sqrt(2)*0.045 < 0.064.
 # Intermediate steps live on a scratch copy; only an exact non-regressing
 # final candidate may leave the solver.
-static func _joint_grid_solve(tris: Array[Dictionary],charts: Array[Dictionary],density: int,capacity: int) -> String:
+static func _joint_grid_solve(tris: Array[Dictionary],charts: Array[Dictionary],density: int,capacity: int,threshold_mode: int = 0) -> String:
     var links: Array[Dictionary] = _seam_segments(tris)
     var baseline: Vector3 = _hinge_layout_metrics(tris)
     var shape_base: Vector3 = _topology_distortion(tris,density)
@@ -2054,6 +2058,7 @@ static func _joint_grid_solve(tris: Array[Dictionary],charts: Array[Dictionary],
     var pack_rejected: int = 0
     var steps: int = 0
     var current: Vector3 = baseline
+    var current_cost: float = _threshold_grid_cost(tris,links,threshold_mode) if threshold_mode > 0 else baseline.z
     for iteration in range(40):
         var gs := PackedVector2Array()
         var gx := PackedVector2Array()
@@ -2086,16 +2091,25 @@ static func _joint_grid_solve(tris: Array[Dictionary],charts: Array[Dictionary],
                 var err: Vector2 = e0 if k==0 else e1
                 var u: Vector2 = (pa[k]-pivots[ca])/radius[ca]
                 var v: Vector2 = (pb[k]-pivots[cb])/radius[cb]
-                var wa: Vector2 = err*w
-                var wb: Vector2 = -err.rotated(-q)*w
+                var weight: float = w
+                if threshold_mode > 0:
+                    # Half-gradient of the identical endpoint/peak objective
+                    # used by line search. A tie splits the peak derivative.
+                    weight = 0.15
+                    var len: float = err.length()
+                    var other: float = e1.length() if k==0 else e0.length()
+                    if len >= other-0.000001:
+                        weight += _threshold_peak_weight(len,threshold_mode)*(0.5 if absf(len-other)<0.000001 else 1.0)
+                var wa: Vector2 = err*weight
+                var wb: Vector2 = -err.rotated(-q)*weight
                 gs[ca] += wa
                 gx[ca] += wa*u.x
                 gy[ca] += wa*u.y
                 gs[cb] += wb
                 gx[cb] += wb*v.x
                 gy[cb] += wb*v.y
-                diag[ca] += Vector3(1.0,u.x*u.x,u.y*u.y)*w
-                diag[cb] += Vector3(1.0,v.x*v.x,v.y*v.y)*w
+                diag[ca] += Vector3(1.0,u.x*u.x,u.y*u.y)*weight
+                diag[cb] += Vector3(1.0,v.x*v.x,v.y*v.y)*weight
         var changed: bool = false
         for rate in [0.45,0.225,0.1125,0.05625]:
             var ns := shifts.duplicate()
@@ -2117,8 +2131,15 @@ static func _joint_grid_solve(tris: Array[Dictionary],charts: Array[Dictionary],
                 tris[ti].xy = xy
             steps += 1
             var trial: Vector3 = _hinge_layout_metrics(tris)
-            if trial.z>=current.z-0.000001:
+            var trial_cost: float = _threshold_grid_cost(tris,links,threshold_mode) if threshold_mode > 0 else trial.z
+            if threshold_mode > 0:
+                # Match the 0.5 affine regularizer in the gradient. Translation
+                # remains unpenalized, as in the original solver.
+                for ci in range(n):
+                    trial_cost += 0.5*(nx[ci].length_squared()+ny[ci].length_squared())
+            if trial_cost>=current_cost-0.000001:
                 continue
+            current_cost = trial_cost
             shifts = ns
             colx = nx
             coly = ny
@@ -2146,6 +2167,61 @@ static func _joint_grid_solve(tris: Array[Dictionary],charts: Array[Dictionary],
         charts[ci].min = bc[ci].min
         charts[ci].max = bc[ci].max
     return "%d採用/%d試行・形状拒否%d・容量拒否%d・問題辺 %d→%d・最大 %.3f→%.3fpx・二乗和 %.3f→%.3f" % [accepted,steps,shape_rejected,pack_rejected,int(baseline.y),int(best.y),baseline.x,best.x,baseline.z,best.z]
+
+
+# Smooth threshold surrogate plus exact maximum-endpoint squared residual.
+# Both cost and derivative use the same quarter-turn and phase convention.
+static func _threshold_peak_weight(r: float,mode: int) -> float:
+    if r <= 0.000001:
+        return 1.0
+    var low: float = 6.0 if mode==1 else 2.0
+    var high: float = 3.0 if mode==1 else 16.0
+    return 1.0+low*maxf(0.0,r-0.22)/r+high*maxf(0.0,r-0.50)/r
+
+static func _threshold_grid_cost(tris: Array[Dictionary],links: Array[Dictionary],mode: int) -> float:
+    var cost: float = 0.0
+    var low: float = 6.0 if mode==1 else 2.0
+    var high: float = 3.0 if mode==1 else 16.0
+    for link in links:
+        var a: PackedVector2Array = _segment_uv(tris[int(link.ta)],int(link.ea),float(link.a0),float(link.a1),"xy")
+        var b: PackedVector2Array = _segment_uv(tris[int(link.tb)],int(link.eb),float(link.b0),float(link.b1),"xy")
+        var da: Vector2 = a[1]-a[0]
+        var db: Vector2 = b[1]-b[0]
+        var q: float = roundf(db.angle_to(da)/(PI*0.5))*(PI*0.5)
+        var e0: Vector2 = a[0]-b[0].rotated(q)
+        e0 -= e0.round()
+        var e1: Vector2 = e0+da-db.rotated(q)
+        var peak: float = maxf(e0.length(),e1.length())
+        cost += 0.15*(e0.length_squared()+e1.length_squared())+peak*peak+low*pow(maxf(0.0,peak-0.22),2.0)+high*pow(maxf(0.0,peak-0.50),2.0)
+    return cost
+
+static func _threshold_joint_search(tris: Array[Dictionary],charts: Array[Dictionary],density: int) -> String:
+    var baseline: Vector3 = _hinge_layout_metrics(tris)
+    var shape: Vector3 = _topology_distortion(tris,density)
+    var capacity: int = _hinge_pack_side(charts)
+    var best: Vector3 = baseline
+    var chosen: Dictionary = {}
+    var report: String = "閾値連立"
+    for mode in [1,2]:
+        var scratch: Dictionary = _joint_copy(tris,charts)
+        var st: Array[Dictionary] = scratch.tris
+        var sc: Array[Dictionary] = scratch.charts
+        var detail: String = _joint_grid_solve(st,sc,density,capacity,int(mode))
+        var score: Vector3 = _hinge_layout_metrics(st)
+        report += " / %s [%s]" % ["問題辺重視" if mode==1 else "最大残差重視",detail]
+        if _joint_quality_ok(best,score) and _joint_shape_ok(shape,_topology_distortion(st,density)) and _hinge_pack_side(sc)<=capacity:
+            best = score
+            chosen = scratch
+    if chosen.is_empty():
+        return report+" / 不採用・V17維持"
+    var bt: Array[Dictionary] = chosen.tris
+    var bc: Array[Dictionary] = chosen.charts
+    for ti in range(tris.size()):
+        tris[ti].xy = bt[ti].xy
+    for ci in range(charts.size()):
+        charts[ci].min = bc[ci].min
+        charts[ci].max = bc[ci].max
+    return report+" / 採用・問題辺%d→%d・最大%.3f→%.3fpx・二乗和%.3f→%.3f" % [int(baseline.y),int(best.y),baseline.x,best.x,baseline.z,best.z]
 
 
 static func _joint_layout_search(tris: Array[Dictionary],charts: Array[Dictionary],seed_tris: Array[Dictionary],seed_charts: Array[Dictionary],density: int) -> Dictionary:
