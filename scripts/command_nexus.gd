@@ -5265,7 +5265,12 @@ func _rebuild_projected_silhouettes() -> void:
         for target_name in target_parts.keys():
             contours[target_name] = _project_model_contour(target_name)
     elif target_parts.has(focused_target):
-        contours[focused_target] = _project_model_contour(focused_target)
+        # Focused input uses menu rectangles, not the overview hit polygons.
+        # Only CUSTOMIZE uses the same polygons for its visible silhouette.
+        if focused_target == "CUSTOMIZE":
+            contours[focused_target] = _project_model_contour(focused_target)
+        else:
+            contours[focused_target] = []
     outline.set("polygons", contours)
     gate_contour_active = false
     if selection_render_sources.is_empty():
@@ -5539,7 +5544,7 @@ func _selection_project_groups(mesh: Mesh, pose: Transform3D, exact: bool) -> Ar
             points.append(projected[index])
         if not clipped and points.size() >= 3:
             result.append(points)
-        elif clipped and group.size() == 4:
+        elif exact and clipped and group.size() == 4:
             # Keep the original independently visible triangle at near plane.
             for tri in [[group[0], group[1], group[2]], [group[0], group[2], group[3]]]:
                 if behind[tri[0]] == 0 and behind[tri[1]] == 0 and behind[tri[2]] == 0:
