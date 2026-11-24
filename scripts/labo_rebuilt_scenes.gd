@@ -431,11 +431,12 @@ func _open_box_frame(key: String) -> void:
         for j in range(8):
             var z: float = rear+1.0+float(j)*(depth-5.6)/7.0
             _box(b,Vector3(cable_x,0.29,z),Vector3(0.48,0.08,0.14),"edge")
-        _pipe(b,Vector3(cable_x,0.26,rear+0.9),Vector3(cable_x,3.3,rear+0.9),0.16,"rubber")
-        _pipe(b,Vector3(cable_x,3.3,rear+0.9),Vector3(x,3.3,rear+0.9),0.16,"rubber")
-        _shape(b,"bevel",Vector3(x+inward*0.62,2.55,rear+0.9),
-            Vector3(0.72,1.0,0.65),"armor_light")
-        _box(b,Vector3(x+inward*0.62,2.72,rear+1.25),
+        _pipe(b,Vector3(cable_x,0.26,rear+0.8),Vector3(cable_x,0.26,rear),0.16,"rubber")
+        _pipe(b,Vector3(cable_x,0.26,rear),Vector3(cable_x,3.3,rear),0.16,"rubber")
+        _pipe(b,Vector3(cable_x,3.3,rear),Vector3(x+inward*0.44,3.3,rear),0.16,"rubber")
+        _shape(b,"bevel",Vector3(x+inward*0.68,2.55,rear),
+            Vector3(0.62,1.0,0.65),"armor_light")
+        _box(b,Vector3(x+inward*0.68,2.72,rear+0.35),
             Vector3(0.40,0.11,0.05),"lab_cyan")
         # Recessed side service drains and the near corner bumper.
         for z in [cz-3.1,cz+3.1]:
@@ -464,6 +465,11 @@ func _open_box_frame(key: String) -> void:
             Vector3(0.17,0.34,0.07),"lab_cyan" if is_lab else "amber_light")
     _box(b,Vector3(cx+0.82,height-0.49,front+0.65),Vector3(2.10,0.09,0.07),"edge")
     _finish(b)
+    # Two near-corner lamps illuminate only the loading edge; no new shadows.
+    for x in [left,right]:
+        var inward: float = 1.0 if x<cx else -1.0
+        _task_light(frame,Vector3(x+inward*1.45,6.65,front),
+            Color("#c4efff") if is_lab else Color("#ffdda1"),9.0,0.65)
 
 func set_base_context(sources: Dictionary) -> void:
     # Copy render nodes only. No duplicated scripts, lights, particles or UI.
