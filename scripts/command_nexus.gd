@@ -422,12 +422,11 @@ func _ready() -> void:
     # below it. Create BOTH editor nodes first so the working launchers can
     # initialize them independently on tap in that partially built scene.
     _prepare_canonical_placement_specs()
-    _ensure_placement_editor_nodes()
     _hud()
-    # Configuration is intentionally optional for the scene startup path.
-    # Each launcher can retry without depending on other menus or editors.
-    call_deferred("_initialize_canonical_placement_editor")
-    call_deferred("_initialize_camera_angle_editor")
+    # Like the working LABO editors: initialize a placement tool only when
+    # its launcher is pressed, after the interactive HUD exists. In particular
+    # do not configure both tools during NEXUS scene startup; an error in one
+    # editor must never prevent normal NEXUS navigation or the other editor.
     # The rejected 2D bounding-box contour is not created in NEXUS.
     # The new depth hull shares the real 3D scene and its current camera.
     SeraSave.mark_location("NEXUS")
@@ -483,14 +482,41 @@ func _ensure_placement_editor_nodes() -> void:
         placement_ui_layer.add_child(camera_angle_editor)
 
 
+# Follow the working LABO editor's lifecycle: acquire a node, validate its
+# script methods, configure once after the HUD exists, then open. Never infer
+# "NO NODE" from a failed initialization (the two failures are different).
+func _placement_editor_failure(kind: String, editor) -> String:
+    var stage: String = "NO NODE"
+    if not is_instance_valid(placement_ui_layer):
+        stage = "NO LAYER"
+    elif is_instance_valid(editor):
+        if not editor.is_inside_tree():
+            stage = "NO TREE"
+        elif editor.get_script() == null:
+            stage = "NO SCRIPT"
+        elif not editor.has_method("configure") or not editor.has_method("open_mode"):
+            stage = "BAD SCRIPT"
+        elif kind == "PLACE":
+            stage = str(editor.get("initialization_stage"))
+        else:
+            stage = "UI"
+        push_warning("NEXUS %s editor failure: %s, node=%s, script=%s" % [
+            kind, stage, str(editor.get_path()), str(editor.get_script())])
+    else:
+        push_warning("NEXUS %s editor missing, overlay=%s" % [
+            kind, str(placement_ui_layer)])
+    return stage
+
+
 func _initialize_camera_angle_editor() -> bool:
     _ensure_placement_editor_nodes()
     if not is_instance_valid(camera_angle_editor):
         return false
-    if not camera_angle_editor.is_inside_tree():
+    if not camera_angle_editor.is_inside_tree() or (
+            not camera_angle_editor.has_method("configure")):
         return false
     if not bool(camera_angle_editor.get("initialized")):
-        camera_angle_editor.configure(self)
+        camera_angle_editor.call("configure", self)
     return bool(camera_angle_editor.get("initialized"))
 
 
@@ -498,14 +524,16 @@ func _initialize_canonical_placement_editor() -> bool:
     _ensure_placement_editor_nodes()
     if not is_instance_valid(placement_editor):
         return false
-    if not placement_editor.is_inside_tree():
+    if not placement_editor.is_inside_tree() or (
+            not placement_editor.has_method("configure")):
         return false
     if bool(placement_editor.get("initialized")):
         return true
     _prepare_canonical_placement_specs()
     if canonical_placement_specs.is_empty():
+        push_warning("NEXUS PLACE: canonical placement specs missing")
         return false
-    placement_editor.configure(self, canonical_placement_specs,
+    placement_editor.call("configure", self, canonical_placement_specs,
         canonical_core_refs, canonical_render_batches)
     return bool(placement_editor.get("initialized"))
 
@@ -519,17 +547,11 @@ func _placement_launch_failure(panel: Panel, message: String) -> void:
 
 
 func _open_canonical_placement() -> void:
-    # Explicit recovery on press covers a deferred initialization that did
-    # not finish. Never treat an unconfigured Control as a usable editor.
     if not _initialize_canonical_placement_editor():
-        var phase := "NO NODE"
-        if is_instance_valid(placement_editor):
-            phase = str(placement_editor.get("initialization_stage"))
-            if not placement_editor.is_inside_tree():
-                phase = "NO TREE"
+        var phase: String = _placement_editor_failure("PLACE", placement_editor)
         _placement_launch_failure(placement_entry_button, "PLACE / " + phase)
         return
-    if placement_editor.open_mode():
+    if bool(placement_editor.call("open_mode")):
         var caption: Label = placement_entry_button.get_node_or_null(
             "Caption") as Label
         if caption != null:
@@ -542,9 +564,10 @@ func _open_canonical_placement() -> void:
 
 func _open_camera_angle_placement() -> void:
     if not _initialize_camera_angle_editor():
-        _placement_launch_failure(angle_entry_button, "ANGLE / INIT ERROR")
+        var phase: String = _placement_editor_failure("ANGLE", camera_angle_editor)
+        _placement_launch_failure(angle_entry_button, "ANGLE / " + phase)
         return
-    if camera_angle_editor.open_mode():
+    if bool(camera_angle_editor.call("open_mode")):
         var caption: Label = angle_entry_button.get_node_or_null(
             "Caption") as Label
         if caption != null:
@@ -604,8 +627,8 @@ func _sync_placement_launchers() -> void:
     angle_entry_button.size = launcher_size
 
     var editor_open: bool = (
-        (placement_editor != null and placement_editor.active)
-        or (camera_angle_editor != null and camera_angle_editor.active))
+        (is_instance_valid(placement_editor) and bool(placement_editor.get("active")))
+        or (is_instance_valid(camera_angle_editor) and bool(camera_angle_editor.get("active"))))
     placement_entry_button.visible = focused_target.is_empty() and not editor_open
     # Show the camera launcher for every supported focused menu, even when
     # its controller has not yet been created. No tween visibility dependency.
@@ -4411,11 +4434,11 @@ func _on_android_back() -> void:
     _navigate_back()
 
 func _navigate_back() -> void:
-    if camera_angle_editor != null and camera_angle_editor.active:
-        camera_angle_editor.close_mode()
+    if is_instance_valid(camera_angle_editor) and bool(camera_angle_editor.get("active")):
+        camera_angle_editor.call("close_mode")
         return
-    if placement_editor != null and placement_editor.active:
-        placement_editor.close_mode()
+    if is_instance_valid(placement_editor) and bool(placement_editor.get("active")):
+        placement_editor.call("close_mode")
         return
     if customize_part_preview_fullscreen_active:
         _set_single_part_preview_fullscreen(false)
@@ -4436,12 +4459,12 @@ func _navigate_back() -> void:
 func _input(event: InputEvent) -> void:
     # Once an editor is active, it exclusively owns the viewport's pointer.
     # Inactive editors must not consume launcher taps before the host sees them.
-    if camera_angle_editor != null and camera_angle_editor.active:
-        if camera_angle_editor.route_input(event):
+    if is_instance_valid(camera_angle_editor) and bool(camera_angle_editor.get("active")):
+        if bool(camera_angle_editor.call("route_input", event)):
             get_viewport().set_input_as_handled()
             return
-    if placement_editor != null and placement_editor.active:
-        if placement_editor.route_input(event):
+    if is_instance_valid(placement_editor) and bool(placement_editor.get("active")):
+        if bool(placement_editor.call("route_input", event)):
             get_viewport().set_input_as_handled()
             return
     # EXIT and both placement launchers use identical manual hit-testing on
@@ -4698,10 +4721,10 @@ func _tap_at(point: Vector2) -> void:
     return
 
 func _enter_base() -> void:
-    if camera_angle_editor != null and camera_angle_editor.active:
-        camera_angle_editor.close_mode()
-    if placement_editor != null and placement_editor.active:
-        placement_editor.close_mode()
+    if is_instance_valid(camera_angle_editor) and bool(camera_angle_editor.get("active")):
+        camera_angle_editor.call("close_mode")
+    if is_instance_valid(placement_editor) and bool(placement_editor.get("active")):
+        placement_editor.call("close_mode")
     # Explicit EXIT TO BASE must not be blocked by an interrupted tween.
     if focus_tween != null and focus_tween.is_running():
         focus_tween.kill()
@@ -4814,8 +4837,8 @@ func _focus_arrived(target_name: String) -> void:
 func _return_to_overview() -> void:
     if in_transition or focused_target.is_empty():
         return
-    if camera_angle_editor != null and camera_angle_editor.active:
-        camera_angle_editor.close_mode()
+    if is_instance_valid(camera_angle_editor) and bool(camera_angle_editor.get("active")):
+        camera_angle_editor.call("close_mode")
     if nexus_room_motion != null:
         nexus_room_motion.set_deployment_open(false)
     _set_single_part_preview_fullscreen(false)
