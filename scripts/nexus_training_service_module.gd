@@ -53,8 +53,20 @@ static func build(room: Node3D, training_at: Vector3, yaw: float) -> void:
     arrays[Mesh.ARRAY_COLOR] = colors
     var mesh := ArrayMesh.new()
     mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    # Selection-only grouping of actual render faces; no extra render nodes.
-    mesh.set_meta("nexus_selection_face_ranges", outline_ranges)
+    # Use the authored vertex stream directly, not Mesh.get_faces() ordering.
+    # These data-only clusters do not create extra render nodes or draw calls.
+    var outline_groups: Array[PackedVector3Array] = []
+    for face_range in outline_ranges:
+        var points := PackedVector3Array()
+        var seen: Dictionary = {}
+        for i in range(face_range.x, face_range.y):
+            var vertex: Vector3 = vertices[i]
+            if not seen.has(vertex):
+                seen[vertex] = true
+                points.append(vertex)
+        if points.size() >= 3:
+            outline_groups.append(points)
+    mesh.set_meta("nexus_selection_local_groups", outline_groups)
 
     var material := StandardMaterial3D.new()
     material.vertex_color_use_as_albedo = true
