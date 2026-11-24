@@ -187,7 +187,14 @@ func _ready() -> void:
     await _build_hangar()
     _startup_step("WORLD / FLOOR MATRIX ONLINE", 18)
     await _startup_budget.checkpoint("floor")
+    # Electricity is the fixed first occupant; logistics may cross its cords.
+    _build_power_board()
+    await _startup_budget.checkpoint("power board")
+    await _build_power_distribution_startup()
+    _startup_step("GRID / POWER ROUTING ONLINE", 21)
+    await _startup_budget.checkpoint("power distribution")
     await _build_logistics(boot_resources.get(BASE_LOGISTICS_PATH))
+    await BasePowerDistribution.install_protectors_budgeted(power_distribution, logistics, _startup_budget)
     if is_instance_valid(logistics):
         BaseClutter.set_preview_layouts(await BaseLayoutPreview.reserve_props_budgeted(
             NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, logistics, {}, _startup_budget, _boot_panels))
@@ -198,12 +205,9 @@ func _ready() -> void:
     await _build_field_facilities()
     _startup_step("SHELL / FACILITY ARRAY ONLINE", 49)
     await _startup_budget.checkpoint("facilities")
-    _build_power_board()
-    await _startup_budget.checkpoint("power board")
     await _create_salvage([], _startup_budget)
-    await _build_power_distribution_startup()
-    _startup_step("GRID / POWER ROUTING ONLINE", 61)
-    await _startup_budget.checkpoint("power distribution")
+    _startup_step("BASE / LOGISTICS AND CABLE PROTECTION ONLINE", 61)
+    await _startup_budget.checkpoint("salvage")
     _create_grid_selection()
     _startup_step("GRID / ADDRESS MAP VERIFIED", 67)
     _startup_step("ARCHIVE / SALVAGE INDEXED", 79)
@@ -522,24 +526,11 @@ func _build_power_board() -> void:
     power_zone = PowerBoard.build(self)
 
 
-func _build_power_distribution() -> void:
-    # Distribution is a separate physical small-prop network; it does not
-    # affect GRID puzzle resources or the seven facility touch colliders.
-    if is_instance_valid(power_distribution):
-        power_distribution.free()
-    power_distribution = BasePowerDistribution.build(
-        self, NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, cam, logistics)
-    if is_instance_valid(logistics):
-        logistics.call("set_ramp_surface", power_distribution.get_node_or_null("CableCrossingRamps"))
-
-
 func _build_power_distribution_startup() -> void:
     if is_instance_valid(power_distribution):
         power_distribution.free()
     power_distribution = await BasePowerDistribution.build_budgeted(
-        self, NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, cam, logistics, _startup_budget)
-    if is_instance_valid(logistics):
-        logistics.call("set_ramp_surface", power_distribution.get_node_or_null("CableCrossingRamps"))
+        self, NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, cam, null, _startup_budget)
 
 
 func _build_logistics(cached_script: Variant = null) -> void:
@@ -1254,8 +1245,8 @@ func _apply_layout_preview(selected: Dictionary) -> void:
         if old != null:
             old.free()
         BaseArchitecture.build_facility(station, key)
-    # User-driven prop reshuffles can change what space is free around each
-    # station; recalculate only these fixed-seed substations and their cables.
+    # Decorative reshuffles must never move the fixed electrical network or
+    # invalidate the already planned logistics paths and cable protectors.
     var previous: Node = get_node_or_null("SalvageMeshes")
     if previous != null:
         previous.free()
@@ -1264,7 +1255,6 @@ func _apply_layout_preview(selected: Dictionary) -> void:
         if pile != null:
             pile.free()
     _create_salvage(scrap)
-    _build_power_distribution()
     # Rerolled facility geometry is newly instantiated after initial shading.
     SharedMaterialShading.apply_to_subtree(self)
     layout_seed = int(selected["seed"])

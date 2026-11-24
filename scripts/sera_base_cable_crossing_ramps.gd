@@ -30,6 +30,14 @@ func _corners(pad: Dictionary) -> PackedVector2Array:
     return result
 
 
+func _top_corners(pad: Dictionary) -> PackedVector2Array:
+    var result := PackedVector2Array()
+    for x in [-float(pad["wide"]), float(pad["wide"])]:
+        for z in [-float(pad["flat"]), float(pad["flat"])]:
+            result.append(_xz(_world(pad, x, z, 0.0)))
+    return result
+
+
 func _bounds_on(points: PackedVector2Array, axis: Vector2) -> Vector2:
     var low: float = INF
     var high: float = -INF
@@ -59,28 +67,30 @@ func _combine(a: Dictionary, b: Dictionary) -> Dictionary:
     # first travel direction and enclose the two central cable covers.
     var axis: Vector2 = a["axis"]
     var side := Vector2(-axis.y, axis.x)
-    var points: PackedVector2Array = _corners(a)
-    points.append_array(_corners(b))
+    # Merge the raised tops, not the entire sloping footprint. This keeps
+    # both original cable channels under a flat cover after angled merges,
+    # without accumulating a new ramp-width at every coincident crossing.
+    var points: PackedVector2Array = _top_corners(a)
+    points.append_array(_top_corners(b))
     var along: Vector2 = _bounds_on(points, axis)
     var across: Vector2 = _bounds_on(points, side)
     return {"axis": axis, "center": axis * ((along.x + along.y) * 0.5) + side * ((across.x + across.y) * 0.5),
         "wide": (across.y - across.x) * 0.5,
-        "flat": maxf(0.22, (along.y - along.x) * 0.5 - HALF_RAMP),
+        "flat": maxf(0.24, (along.y - along.x) * 0.5),
         "height": maxf(float(a["height"]), float(b["height"]))}
 
 
-func _add_crossing(point: Vector2, direction: Vector2, wire_direction: Vector2, height: float) -> void:
-    var angle: float = absf(direction.cross(wire_direction))
-    # Shallow actual crossings still receive a compact cover; longitudinal
-    # overlap alone never produces a ribbon.
-    angle = maxf(angle, 0.24)
-    var pad: Dictionary = {"center": point, "axis": direction,
-        "wide": HALF_LANE,
-        "flat": clampf(0.24 + 0.35 * absf(direction.dot(wire_direction)) / angle, 0.24, 0.78),
+func _add_crossing(point: Vector2, wire_direction: Vector2, width: float, radius: float, height: float) -> void:
+    # The hollow channel follows the actual fixed cable. Slopes are on
+    # both sides of the cable, rather than running along the cable itself.
+    var normal := Vector2(-wire_direction.y, wire_direction.x)
+    var pad: Dictionary = {"center": point, "axis": normal,
+        "wide": maxf(HALF_LANE, width),
+        "flat": maxf(0.24, radius + 0.12),
         "height": maxf(0.20, height)}
     for existing in _pads:
         var center: Vector2 = existing["center"]
-        if center.distance_to(point) < 0.26:
+        if center.distance_to(point) < 0.04 and absf((existing["axis"] as Vector2).dot(normal)) > 0.99 and float(existing["wide"]) >= float(pad["wide"]) and float(existing["flat"]) >= float(pad["flat"]):
             existing["height"] = maxf(float(existing["height"]), height)
             return
     # Merge touching platforms before making any mesh. No stacked, crossing
@@ -96,32 +106,52 @@ func _add_crossing(point: Vector2, direction: Vector2, wire_direction: Vector2, 
     _pads.append(pad)
 
 
+# Project the road's swept footprint onto the cable segment. This catches
+# shallow/parallel encounters as well as exact centerline crossings.
+func _cover_encounter(a: Vector3, b: Vector3, radius: float, c: Vector2, d: Vector2) -> void:
+    var start: Vector2 = _xz(a)
+    var finish: Vector2 = _xz(b)
+    var wire: Vector2 = finish - start
+    var length: float = wire.length()
+    if length < 0.003 or c.distance_squared_to(d) < 0.00001:
+        return
+    var axis: Vector2 = wire / length
+    var margin: float = HALF_LANE + radius
+    if not Rect2(start.min(finish), wire.abs()).grow(margin).intersects(Rect2(c.min(d), (d - c).abs()).grow(0.02)):
+        return
+    var nearest: PackedVector2Array = Geometry2D.get_closest_points_between_segments(start, finish, c, d)
+    if nearest.size() != 2 or nearest[0].distance_to(nearest[1]) > margin:
+        return
+    var road_axis: Vector2 = (d - c).normalized()
+    var cross_angle: float = absf(axis.cross(road_axis))
+    var center_distance: float = (nearest[0] - start).dot(axis)
+    var low: float
+    var high: float
+    if cross_angle >= 0.30:
+        var span: float = margin / cross_angle
+        low = maxf(0.0, center_distance - span)
+        high = minf(length, center_distance + span)
+    else:
+        # Only the actually shared stretch is covered, not the entire line.
+        var u: float = (c - start).dot(axis)
+        var v: float = (d - start).dot(axis)
+        low = clampf(minf(u, v) - margin, 0.0, length)
+        high = clampf(maxf(u, v) + margin, 0.0, length)
+    if high < low:
+        return
+    var mid: float = (low + high) * 0.5
+    var top: float = maxf(lerpf(a.y, b.y, low / length), lerpf(a.y, b.y, high / length)) + radius + 0.055
+    _add_crossing(start + axis * mid, axis, (high - low) * 0.5 + radius + 0.15, radius, top)
+
+
 func build(paths: Array[Dictionary], logistics: Node3D) -> void:
     var roads: Array = logistics.call("road_segments")
     for path in paths:
         var points: PackedVector3Array = path["points"]
         var radius: float = float(path["radius"])
         for i in range(1, points.size()):
-            var a: Vector2 = _xz(points[i - 1])
-            var b: Vector2 = _xz(points[i])
-            if a.distance_squared_to(b) < 0.00001:
-                continue
-            var wire_dir: Vector2 = (b - a).normalized()
-            var wire_bounds := Rect2(a.min(b), (a - b).abs()).grow(0.02)
             for road in roads:
-                var c: Vector2 = road["a"]
-                var d: Vector2 = road["b"]
-                if c.distance_squared_to(d) < 0.00001:
-                    continue
-                if not wire_bounds.intersects(Rect2(c.min(d), (c - d).abs()).grow(0.02)):
-                    continue
-                var cross_point: Variant = Geometry2D.segment_intersects_segment(a, b, c, d)
-                if cross_point == null:
-                    continue
-                var p: Vector2 = cross_point
-                var fraction: float = clampf((p - a).dot(b - a) / a.distance_squared_to(b), 0.0, 1.0)
-                var top: float = lerpf(points[i - 1].y, points[i].y, fraction) + radius + 0.055
-                _add_crossing(p, (d - c).normalized(), wire_dir, top)
+                _cover_encounter(points[i - 1], points[i], radius, road["a"], road["b"])
     if _pads.is_empty():
         return
     var deck := SurfaceTool.new()
@@ -142,27 +172,9 @@ func build_budgeted(paths: Array[Dictionary], logistics: Node3D, budget: Variant
         var radius: float = float(path["radius"])
         for i in range(1, points.size()):
             await budget.checkpoint("cable crossing scan")
-            var a: Vector2 = _xz(points[i - 1])
-            var b: Vector2 = _xz(points[i])
-            if a.distance_squared_to(b) < 0.00001:
-                continue
-            var wire_dir: Vector2 = (b - a).normalized()
-            var wire_bounds := Rect2(a.min(b), (a - b).abs()).grow(0.02)
             for road in roads:
                 await budget.checkpoint("cable crossing segment")
-                var c: Vector2 = road["a"]
-                var d: Vector2 = road["b"]
-                if c.distance_squared_to(d) < 0.00001:
-                    continue
-                if not wire_bounds.intersects(Rect2(c.min(d), (c - d).abs()).grow(0.02)):
-                    continue
-                var cross_point: Variant = Geometry2D.segment_intersects_segment(a, b, c, d)
-                if cross_point == null:
-                    continue
-                var p: Vector2 = cross_point
-                var fraction: float = clampf((p - a).dot(b - a) / a.distance_squared_to(b), 0.0, 1.0)
-                var top: float = lerpf(points[i - 1].y, points[i].y, fraction) + radius + 0.055
-                _add_crossing(p, (d - c).normalized(), wire_dir, top)
+                _cover_encounter(points[i - 1], points[i], radius, road["a"], road["b"])
     if _pads.is_empty():
         return
     var deck := SurfaceTool.new()
@@ -176,6 +188,17 @@ func build_budgeted(paths: Array[Dictionary], logistics: Node3D, budget: Variant
     await budget.checkpoint("cable protector deck")
     _finish(trim, "CableProtectorSafetyEdges", Color("#b99b47"))
     print("SERA_BASE_LOGISTICS: compact cable protectors=", _pads.size())
+
+
+func placement_bounds() -> Array[Rect2]:
+    var result: Array[Rect2] = []
+    for pad in _pads:
+        var corners: PackedVector2Array = _corners(pad)
+        var rect := Rect2(corners[0], Vector2.ZERO)
+        for p in corners:
+            rect = rect.expand(p)
+        result.append(rect)
+    return result
 
 
 func _emit_pad(deck: SurfaceTool, trim: SurfaceTool, pad: Dictionary) -> void:

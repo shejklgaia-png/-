@@ -74,6 +74,7 @@ class Truck:
     var lamp_wait: Visual
     var treads: Array[Visual] = []
     var loaded: bool = false
+    var carrier_pose: Transform3D = Transform3D.IDENTITY
 
 var _grid := AStarGrid2D.new()
 var _docks: Dictionary = {}
@@ -92,6 +93,9 @@ var _screen_costs: Dictionary = {}
 var _reserved: Dictionary = {}
 var _road_cells: Dictionary = {}
 var _ramp_surface: Node3D
+var _cable_cells: Dictionary = {}
+var _power_cells: Dictionary = {}
+var _protector_bounds: Array[Rect2] = []
 var _solid_meshes: Dictionary = {}
 var _phase: String = "NEW"
 var _planned_count: int = 0
@@ -154,8 +158,15 @@ func _obstacles(root: Node3D, sites: Array, power: Node3D, crate_path: Array) ->
         if key == "SCRAP_COLLECTOR":
             # Incoming conveyor is 1.55x authored scale; its guards count.
             _block_rect(at, yaw, Vector2(-5.25, 1.98), Vector2(3.8, 1.65))
-    # Decorative props, salvage and power cabinets are generated AFTER
-    # this network; never allow them to dictate or disconnect a road.
+    # The power network is already fixed. Only solid cabinets block traffic;
+    # cables remain traversable and are reserved separately for stationary props.
+    if is_instance_valid(power):
+        for value in power.get_meta("logistics_obstacles", []):
+            var center: Vector2 = value
+            _block_circle(center, 0.83 + CLEARANCE)
+            _expand_cell(_power_cells, _cell(center))
+        _reserve_fixed_cables(power)
+    # Loose decorative props and salvage are generated after logistics.
     _block_rect(Vector2(35.5, -20.0), 0.0, Vector2.ZERO, Vector2(5.8, 5.8))
     # CRATE's established patrol remains untouched. Keep its whole corridor free.
     for i in range(crate_path.size()):
@@ -164,6 +175,21 @@ func _obstacles(root: Node3D, sites: Array, power: Node3D, crate_path: Array) ->
         var count: int = maxi(1, ceili(a.distance_to(b) / 0.35))
         for j in range(count + 1):
             _block_circle(a.lerp(b, float(j) / count), 1.0)
+
+func _reserve_fixed_cables(power: Node3D) -> void:
+    for record in power.get_meta("cable_paths", []):
+        var points: PackedVector3Array = record["points"]
+        for i in range(1, points.size()):
+            var a: Vector2 = _xz(points[i - 1])
+            var b: Vector2 = _xz(points[i])
+            var steps: int = maxi(1, ceili(a.distance_to(b) / (CELL * 0.35)))
+            for j in range(steps + 1):
+                _cable_cells[_cell(a.lerp(b, float(j) / float(steps)))] = true
+
+
+func _cable_clear_station(p: Vector2, radius: float) -> bool:
+    return not _rect_hits(_cable_cells, Rect2(p - Vector2.ONE * radius, Vector2.ONE * radius * 2.0))
+
 
 func _screen_penalty(p: Vector2) -> float:
     if not is_instance_valid(_camera):
@@ -213,6 +239,9 @@ func _find_dock(key: String, at: Vector2, budget: Variant = null) -> Dock:
             var length: float = offset.length()
             if length < 2.4 or length > 12.0:
                 continue
+            # Flat loading positions are selected away from fixed cords.
+            if not _cable_clear_station(_point(c), 1.0):
+                continue
             for direction in [Vector2i(0, 1), Vector2i(1, 0), Vector2i(0, -1), Vector2i(-1, 0)]:
                 var along: Vector2i = direction
                 var lateral := Vector2i(along.y, -along.x)
@@ -223,6 +252,8 @@ func _find_dock(key: String, at: Vector2, budget: Variant = null) -> Dock:
                     if not _free(stage_cell) or not _free(pivot_cell) or not _free(c + along) or not _free(c - along):
                         continue
                     if not _free(stage_cell + along) or not _free(stage_cell - along) or not _free(stage_cell + side):
+                        continue
+                    if not _cable_clear_station(_point(stage_cell), 0.75) or not _cable_clear_station(_point(pivot_cell), 0.30) or not _cable_clear_station(_point(stage_cell + side), 0.45):
                         continue
                     var separated: bool = true
                     for old_value in _docks.values():
@@ -286,7 +317,7 @@ func _parking_options(origin: Vector2, destination: Vector2, budget: Variant = n
                 continue
             var p: Vector2 = _point(c)
             var d: float = p.distance_to(origin)
-            if d < 2.0:
+            if d < 2.0 or not _cable_clear_station(p, 0.65):
                 continue
             var ok: bool = true
             for dock_value in _docks.values():
@@ -728,7 +759,13 @@ func _rect_hits(cells: Dictionary, bounds: Rect2) -> bool:
 
 
 func placement_clear(bounds: Rect2) -> bool:
-    return not _rect_hits(_reserved, bounds.grow(0.12))
+    var padded: Rect2 = bounds.grow(0.12)
+    if _rect_hits(_reserved, padded) or _rect_hits(_power_cells, padded) or _rect_hits(_cable_cells, padded):
+        return false
+    for rect in _protector_bounds:
+        if rect.intersects(padded):
+            return false
+    return true
 
 
 func road_segments() -> Array[Dictionary]:
@@ -759,6 +796,12 @@ func cable_dock_obstacles() -> Array[Dictionary]:
 
 func set_ramp_surface(surface: Node3D) -> void:
     _ramp_surface = surface
+    _protector_bounds.clear()
+    if is_instance_valid(surface):
+        _protector_bounds.assign(surface.call("placement_bounds"))
+        for t in _trucks:
+            _truck_pose(t)
+        _flush_poses()
 
 
 func _ground_height(p: Vector2) -> float:
@@ -1126,14 +1169,42 @@ func _buffer_pose(d: Dock, i: int, y: float, opening: float) -> void:
     _apply_visual_pose(d.shutters[i], _pose(cover_at, d.yaw))
 
 
+# Sample the actual two crawler tracks at their front and rear contacts.
+# The shared rigid pose carries chassis, sensor lights, treads and cargo.
+func _carrier_ground_pose(t: Truck) -> Transform3D:
+    var turn := Basis(Vector3.UP, t.yaw)
+    if not is_instance_valid(_ramp_surface):
+        return Transform3D(turn, _v3(t.pos))
+    var fl: float = _ground_height(t.pos + _xz(turn * Vector3(-0.35, 0, 0.54)))
+    var fr: float = _ground_height(t.pos + _xz(turn * Vector3(0.35, 0, 0.54)))
+    var rl: float = _ground_height(t.pos + _xz(turn * Vector3(-0.35, 0, -0.54)))
+    var rr: float = _ground_height(t.pos + _xz(turn * Vector3(0.35, 0, -0.54)))
+    var front: float = (fl + fr) * 0.5
+    var rear: float = (rl + rr) * 0.5
+    var left: float = (fl + rl) * 0.5
+    var right: float = (fr + rr) * 0.5
+    var pitch: float = atan2(front - rear, 1.08)
+    var roll: float = atan2(right - left, 0.70)
+    var tilted: Basis = turn * Basis.from_euler(Vector3(-pitch, 0, roll))
+    # Lift the rigid track plane enough to clear the highest sampled contact
+    # and the center of a crest; it must not cut through the steel deck.
+    var height: float = _ground_height(t.pos)
+    for sample in [Vector3(-0.35, fl, 0.54), Vector3(0.35, fr, 0.54),
+            Vector3(-0.35, rl, -0.54), Vector3(0.35, rr, -0.54)]:
+        var contact: Vector3 = sample
+        height = maxf(height, contact.y - (tilted * Vector3(contact.x, 0, contact.z)).y)
+    return Transform3D(tilted, _v3(t.pos, height))
+
+
 func _deck_slot(t: Truck, i: int) -> Vector3:
-    return _v3(t.pos, DECK_Y + _ground_height(t.pos)) + Basis(Vector3.UP, t.yaw) * Vector3(0, 0, -0.32 + 0.64 * i)
+    return t.carrier_pose * Vector3(0, DECK_Y, -0.32 + 0.64 * i)
 
 func _rack_slot(d: Dock, i: int) -> Vector3:
     return _v3(d.stage, RACK_Y) + Basis(Vector3.UP, d.yaw) * Vector3(0, 0, -0.34 + 0.68 * i)
 
 func _truck_pose(t: Truck) -> void:
-    var p: Transform3D = _pose(_v3(t.pos, _ground_height(t.pos)), t.yaw)
+    var p: Transform3D = _carrier_ground_pose(t)
+    t.carrier_pose = p
     _apply_visual_pose(t.body, p)
     var waiting: bool = t.mode in ["home", "unavailable", "leg_wait"]
     _apply_visual_pose(t.lamp_go, p, not waiting)
@@ -1143,7 +1214,7 @@ func _truck_pose(t: Truck) -> void:
         _apply_visual_pose(t.treads[i], p * _pose(Vector3(0, 0, z)))
     if t.mode not in ["load", "unload"]:
         for i in range(t.cargo.size()):
-            _apply_visual_pose(t.cargo[i], _pose(_deck_slot(t, i), t.yaw), t.loaded)
+            _apply_visual_pose(t.cargo[i], Transform3D(p.basis, _deck_slot(t, i)), t.loaded)
 
 func _overlap(a: Dictionary, b: Dictionary) -> bool:
     for cell in a:
@@ -1316,6 +1387,12 @@ func _drive(t: Truck, dt: float) -> void:
             break
     if remaining <= 3.0 or t.waypoint == last:
         limit = minf(limit, sqrt(7.0 * remaining))
+    # Slow naturally as the leading track approaches a raised protector.
+    if is_instance_valid(_ramp_surface):
+        var ahead: Vector2 = t.pos + delta.normalized() * 0.90
+        var rise: float = maxf(_ground_height(t.pos), _ground_height(ahead))
+        if rise > 0.025:
+            limit = minf(limit, lerpf(SPEED, 1.15, clampf(rise / 0.24, 0.0, 1.0)))
     t.speed = move_toward(t.speed, limit, 3.5 * dt)
     var budget: float = t.speed * dt
     while budget > 0.0001 and t.waypoint <= last:
