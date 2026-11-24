@@ -148,9 +148,17 @@ var angle_fov: float = 60.0
 var angle_pointer: int = -999
 var angle_last: Vector2 = Vector2.ZERO
 
+var defer_startup_build: bool = false
+
 func _ready() -> void:
     name = "BaseFacilities"
-    _build_facilities()
+    if not defer_startup_build:
+        _build_facilities()
+
+func build_startup(budget: Variant) -> void:
+    for spec in FACILITY_SPECS:
+        await budget.checkpoint("facility " + str(spec["id"]))
+        await _build_station(spec, budget)
 
 func _mat(tint: Color, emissive: bool = false) -> StandardMaterial3D:
     var material := StandardMaterial3D.new()
@@ -194,7 +202,7 @@ func _build_facilities() -> void:
     for spec in FACILITY_SPECS:
         _build_station(spec)
 
-func _build_station(spec: Dictionary) -> void:
+func _build_station(spec: Dictionary, budget: Variant = null) -> void:
     var key: String = str(spec["id"])
     var root_node := Node3D.new()
     root_node.name = key
@@ -209,7 +217,10 @@ func _build_station(spec: Dictionary) -> void:
             float((spec["size"] as Vector3).z)), Color("#46535c"))
     foundation.rotation.y = BaseArchitecture.facility_yaw_radians(key)
     # All seven stations now have separately authored industrial geometry.
-    BaseArchitecture.build_facility(root_node, key)
+    if budget != null:
+        await BaseArchitecture.build_facility(root_node, key, budget)
+    else:
+        BaseArchitecture.build_facility(root_node, key)
     # Keep the generator's existing rotor animation after the geometry swap.
     if key == "GENERATOR":
         generator_rotor = Node3D.new()

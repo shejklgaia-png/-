@@ -32,7 +32,7 @@ static func _line(groups: Dictionary, feature: String, a: Vector3,
         groups[key] = []
     (groups[key] as Array).append(Transform3D(basis, (a + b) * 0.5))
 
-static func decorate(floor: Node3D, panels: Array[Dictionary]) -> void:
+static func decorate(floor: Node3D, panels: Array[Dictionary], budget: Variant = null) -> void:
     var root := Node3D.new()
     root.name = "DeckDetailGeometry"
     floor.add_child(root)
@@ -40,6 +40,8 @@ static func decorate(floor: Node3D, panels: Array[Dictionary]) -> void:
     # One source of truth: follow each actual panel outline rather than
     # drawing ghost seams on the old uniform 3m lattice.
     for panel in panels:
+        if budget != null:
+            await budget.checkpoint("floor detail panel")
         var center: Vector2 = panel["center"]
         var size: Vector2 = panel["size"]
         var cx: float = center.x
@@ -204,6 +206,8 @@ static func decorate(floor: Node3D, panels: Array[Dictionary]) -> void:
             Vector3(90, 1.2, 90))
         multi.instance_count = poses.size()
         for i in range(poses.size()):
+            if budget != null:
+                await budget.checkpoint("floor detail instances")
             multi.set_instance_transform(i, poses[i])
         var material := StandardMaterial3D.new()
         material.albedo_color = Color(PALETTE[fields[1]])

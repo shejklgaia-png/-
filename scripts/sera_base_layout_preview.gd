@@ -273,6 +273,83 @@ static func reserve_props(nexus_origin: Vector3, specs: Array,
     return layouts
 
 
+static func reserve_props_budgeted(nexus_origin: Vector3, specs: Array,
+        logistics: Node3D, proposals: Dictionary = {}, budget: Variant = null,
+        cached_panels: Array[Dictionary] = []) -> Dictionary:
+    var sites: Array[Dictionary] = Deck.facility_sites(nexus_origin, specs)
+    var slabs: Dictionary = {}
+    var panels: Array[Dictionary] = cached_panels if not cached_panels.is_empty() else Deck.generate(42, 3.0, sites)
+    for panel in panels:
+        var key: String = str(panel["site"])
+        if key.is_empty():
+            continue
+        for site in sites:
+            if str(site["id"]) == key:
+                var center: Vector2 = panel["center"]
+                var size: Vector2 = panel["size"]
+                var origin: Vector2 = site["at"]
+                slabs[key] = Rect2(center - origin - size * 0.5, size).grow(-0.10)
+                break
+    var layouts: Dictionary = {}
+    var occupied: Array[Rect2] = []
+    for site in sites:
+        var key: String = str(site["id"])
+        var origin: Vector2 = site["at"]
+        var items: Array = proposals.get(key, [])
+        if items.is_empty():
+            items = Clutter.default_props_for(key)
+        var accepted: Array[Dictionary] = []
+        var usable: Rect2 = slabs.get(key, Rect2(-4, -4, 8, 8))
+        for value in items:
+            if budget != null:
+                await budget.checkpoint("prop reservation")
+            var part: Dictionary = (value as Dictionary).duplicate(true)
+            var original: Vector2 = part["at"]
+            var found: bool = false
+            for ring in range(0, 10):
+                var samples: int = 1 if ring == 0 else 20
+                for j in range(samples):
+                    var phi: float = TAU * float(j) / float(samples)
+                    part["at"] = original + Vector2(cos(phi), sin(phi)) * float(ring) * 0.42
+                    var local: Rect2 = prop_envelope(part)
+                    if ring > 0 and not usable.encloses(local):
+                        continue
+                    if Clutter._collector_belt_blocked(key, local):
+                        continue
+                    if ring > 0 and local.intersects(Clutter._clear_zone(key).grow(0.10)):
+                        continue
+                    var world := Rect2(local.position + origin, local.size)
+                    if not bool(logistics.call("placement_clear", world)):
+                        continue
+                    var blocked: bool = false
+                    for other in occupied:
+                        if world.grow(0.035).intersects(other):
+                            blocked = true
+                            break
+                    if blocked:
+                        continue
+                    for other_site in sites:
+                        if str(other_site["id"]) == key:
+                            continue
+                        var center: Vector2 = other_site["at"]
+                        var half_size: Vector2 = other_site["physical"] * 0.5
+                        if world.intersects(Rect2(center - half_size, half_size * 2.0).grow(0.3)):
+                            blocked = true
+                            break
+                    if blocked:
+                        continue
+                    occupied.append(world)
+                    accepted.append(part)
+                    found = true
+                    break
+                if found:
+                    break
+            # If no safe slot exists, omit this decorative object rather
+            # than shrink it or put it in the logistics lane.
+        layouts[key] = accepted
+    return layouts
+
+
 static func reserve_salvage(preferred: Vector2, radius: float, nexus_origin: Vector3,
         specs: Array, logistics: Node3D, occupied: Array[Vector2]) -> Vector2:
     var sites: Array[Dictionary] = Deck.facility_sites(nexus_origin, specs)
