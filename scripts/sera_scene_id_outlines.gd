@@ -588,7 +588,7 @@ func unregister_root(owner: Node) -> void:
         if is_instance_valid(root) and bool(root.get_meta("sera_nexus_room_budget", false)):
             _nexus_room_budget = true
             break
-        _scan_dirty = true
+    _scan_dirty = true
     _refresh_part_preview_canvas_mode()
     _refresh_combat_viewport_mode()
     _refresh_shared_ink_color()
