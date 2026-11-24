@@ -674,8 +674,8 @@ func _labo(key: String) -> void:
     # left feedstock racks, rear extraction, central bed and SCARA output arm.
     var frame := _model(key,"OpenFabricationCell",Vector3(0,0,-1.0))
     var b = _batch(frame)
-    _skid(b,15.4,12.2)
-    _shape(b,"deck",Vector3(0,0.72,0.65),Vector3(14.3,0.32,10.9),"armor")
+    _skid(b,13.6,12.2)
+    _shape(b,"deck",Vector3(0,0.72,0.65),Vector3(13.2,0.32,10.9),"armor")
     _shape(b,"octagonal_slew",Vector3(1.10,1.10,2.0),Vector3(5.9,0.65,4.4),"dark")
     _shape(b,"tray",Vector3(1.10,1.56,2.0),Vector3(6.6,0.46,4.9),"armor_light")
     for side in [-1.0,1.0]:
@@ -697,7 +697,7 @@ func _labo(key: String) -> void:
     for x in [-3.8,-0.7,2.4]:
         _panel_detail(b,x,2.4,-4.69,2.3,1.9)
     _finish(b)
-    inspection[key] = {"root":frame,"stand":Vector3(-0.8,0,7.0),"focus":Vector3(1.1,2.0,2.0)}
+    inspection[key] = {"root":frame,"stand":Vector3(-2.0,0,8.15),"focus":Vector3(1.1,2.0,2.0)}
     var carriage_mount := _child(frame,"PrinterCarriagePlacement",Vector3(1.10,7.40,1.65))
     (targets[key] as Array).append(carriage_mount)
     var carriage := _child(carriage_mount,"Carriage")
@@ -716,7 +716,7 @@ func _labo(key: String) -> void:
     _finish(b)
     _moving(key,"bridge",carriage)
     _moving(key,"head",head)
-    var rack := _model(key,"FeedstockRacks",Vector3(-6.4,0,-3.0))
+    var rack := _model(key,"FeedstockRacks",Vector3(-9.1,0,-3.0))
     b = _batch(rack)
     for x in [-1.7,1.7]:
         for z in [-0.9,0.9]:
@@ -730,7 +730,7 @@ func _labo(key: String) -> void:
     _shape(b,"gear",Vector3(0.98,5.62,0),Vector3(1.24,0.24,1.24),"gold")
     _shape(b,"roof",Vector3(0,7.25,-0.20),Vector3(4.5,0.22,2.8),"armor")
     _finish(b)
-    var supply := _model(key,"ReceivingHopperAndFeed",Vector3(-8.1,0,2.8))
+    var supply := _model(key,"ReceivingHopperAndFeed",Vector3(-9.0,0,2.8))
     b = _batch(supply)
     _shape(b,"hopper",Vector3(0,2.65,0),Vector3(2.8,2.0,2.7),"armor_light")
     for x in [-0.9,0.9]:
@@ -738,7 +738,7 @@ func _labo(key: String) -> void:
     _pipe(b,Vector3(0,1.78,0),Vector3(0.7,1.78,-5.8),0.57,"trim")
     _pipe(b,Vector3(0.7,1.78,-5.8),Vector3(1.7,2.1,-5.8),0.57,"edge")
     _finish(b)
-    var extraction := _model(key,"RearExtractionAndCoolant",Vector3(5.4,0,-4.5))
+    var extraction := _model(key,"RearExtractionAndCoolant",Vector3(8.25,0,-4.5))
     b = _batch(extraction)
     _shape(b,"vent_stack",Vector3(0,5.1,0),Vector3(2.0,10.2,2.0),"slate")
     _shape(b,"drum",Vector3(0,8.0,0),Vector3(2.6,0.64,2.6),"edge")
@@ -762,10 +762,10 @@ func _labo(key: String) -> void:
     (targets[key] as Array).append(arm_mount)
     b = _batch(arm_mount)
     _shape(b,"octagonal_slew",Vector3(0,0.95,0),Vector3(1.65,0.55,1.65),"dark")
-    _shape(b,"octagonal_slew",Vector3(0,4.35,0),Vector3(0.88,6.8,0.88),"slate")
-    _shape(b,"drum",Vector3(0,7.85,0),Vector3(1.45,0.55,1.45),"edge")
+    _shape(b,"octagonal_slew",Vector3(0,4.98,0),Vector3(0.88,8.05,0.88),"slate")
+    _shape(b,"drum",Vector3(0,9.10,0),Vector3(1.45,0.55,1.45),"edge")
     _finish(b)
-    var shoulder := _child(arm_mount,"Shoulder",Vector3(0,7.85,0))
+    var shoulder := _child(arm_mount,"Shoulder",Vector3(0,9.10,0))
     b = _batch(shoulder)
     _shape(b,"bevel",Vector3(0,0,1.95),Vector3(0.94,0.66,4.05),"gold")
     _pipe(b,Vector3(0.34,0.35,0.30),Vector3(0.34,0.35,3.6),0.13,"rubber")
@@ -817,7 +817,7 @@ func _labo(key: String) -> void:
     _floor_cable(b,[Vector3(0,0.1,0.6),Vector3(0,0.1,2.1),Vector3(-1.7,0.1,2.8),Vector3(-3.3,0.1,2.8)])
     _finish(b)
     _task_light(utility,Vector3(-1.9,5.52,-0.4),Color("#ffe0b2"),8.0,1.4)
-    _console(key,Vector3(3.2,0,6.6),0)
+    _console(key,Vector3(3.2,0,7.3),0)
 
 func _smelter(key: String) -> void:
     var furnace := _model(key,"RefractorySmeltingFurnace",Vector3(0,0,-2.0))
@@ -867,7 +867,7 @@ func _smelter(key: String) -> void:
         _box(b,Vector3(side*3.72,5.86,3.10),Vector3(0.52,0.10,0.07),"amber_light")
         _shape(b,"gusset",Vector3(side*3.65,0.93,2.60),Vector3(0.80,1.1,1.45),"trim")
     _finish(b)
-    inspection[key] = {"root":furnace,"stand":Vector3(2.4,0,5.3),"focus":Vector3(0,3.0,4.1)}
+    inspection[key] = {"root":furnace,"stand":Vector3(0.8,0,6.5),"focus":Vector3(0,3.0,4.1)}
     var hot := _child(furnace,"RecessedFire",Vector3(0,3.0,3.80))
     (targets[key] as Array).append(hot)
     # Three small fixed-depth alpha sheets, not billboarded to the camera.
@@ -1019,7 +1019,7 @@ func _recycler(key: String) -> void:
     for x in [-3.0,3.0]:
         _box(b,Vector3(x,4.4,2.2),Vector3(0.24,0.18,2.0),"caution")
     _finish(b)
-    inspection[key] = {"root":base,"stand":Vector3(-2.0,0,4.7),"focus":Vector3(0,3.4,0)}
+    inspection[key] = {"root":base,"stand":Vector3(-4.7,0,6.8),"focus":Vector3(0,3.4,0)}
     for i in range(2):
         var shaft_root := _model(key,"CutterShaft"+str(i),Vector3(0,3.6,-2.6+i*1.75))
         var shaft := _child(shaft_root,"Rotor")
@@ -1104,7 +1104,7 @@ func _storage(key: String) -> void:
                 Vector3(-6.25+float(col)*2.5,0.90+float(level)*2.5,0.2))
             (targets[key] as Array).append(cargo)
             var cb = _batch(cargo)
-            _shape(cb,"cargo_case",Vector3(0,0.83,0),Vector3(2.17,1.60,3.5),
+            _shape(cb,"cargo_case",Vector3(0,0.83,0),Vector3(1.92,1.60,3.5),
                 "crate" if posmod(level+col,3)!=0 else "slate")
             _box(cb,Vector3(0,0.84,1.79),Vector3(0.64,0.22,0.09),"gold")
             for side in [-1.0,1.0]:
@@ -1142,17 +1142,17 @@ func _storage(key: String) -> void:
     _moving(key,"extension",extension)
     var load_mount := _child(mast,"LiftCargoPlacement")
     (targets[key] as Array).append(load_mount)
-    var load := _cargo(load_mount,"LiftCargo",Vector3.ZERO,Vector3(2.17,1.6,3.5))
+    var load := _cargo(load_mount,"LiftCargo",Vector3.ZERO,Vector3(1.92,1.6,3.5))
     _moving(key,"lift",platform)
     _moving(key,"lift_cargo",load)
     _moving(key,"fork",fork)
-    var apron := _model(key,"ForwardLoadingApron",Vector3(1.0,0,3.5))
+    var apron := _model(key,"ForwardLoadingApron",Vector3(2.0,0,3.5))
     b = _batch(apron)
-    _skid(b,16.1,6.4)
-    _shape(b,"deck",Vector3(0,0.47,0),Vector3(15.4,0.20,5.7),"armor")
+    _skid(b,12.8,6.4)
+    _shape(b,"deck",Vector3(0,0.47,0),Vector3(12.2,0.20,5.7),"armor")
     for x in [-4.5,0.0,4.5]:
         _box(b,Vector3(x,0.59,0),Vector3(0.11,0.03,5.4),"caution")
-    _box(b,Vector3(0,0.61,2.8),Vector3(14.0,0.17,0.20),"rubber")
+    _box(b,Vector3(0,0.61,2.8),Vector3(11.6,0.17,0.20),"rubber")
     for x in [-6.0,6.0]:
         _pipe(b,Vector3(x,0.5,-2.5),Vector3(x,4.7,-2.5),0.22,"edge")
         _pipe(b,Vector3(x,4.7,-2.5),Vector3(x,4.7,0.5),0.20,"edge")
@@ -1160,13 +1160,13 @@ func _storage(key: String) -> void:
         _box(b,Vector3(x,4.48,0.5),Vector3(0.88,0.08,0.53),"amber_light")
     _finish(b)
     var dispatch := _conveyor(key,"LeftReceivingRollers",Vector3(-7.7,0,6.25),3.0,3.5)
-    inspection[key] = {"root":apron,"stand":Vector3(0.5,0,4.0),"focus":Vector3(-2.0,2.0,-1.0)}
+    inspection[key] = {"root":apron,"stand":Vector3(-1.0,0,5.4),"focus":Vector3(-2.0,2.0,-1.0)}
     _moving(key,"rack",rack)
     _moving(key,"mast",mast)
     _moving(key,"dispatch",dispatch)
     for x in [-6.0,6.0]:
         _task_light(apron,Vector3(x,4.15,0.5),Color("#ffe0b2"),6.0,1.0)
-    _console(key,Vector3(5.8,0,7.6),4)
+    _console(key,Vector3(5.8,0,8.5),4)
 
 func placement_models(key: String) -> Array[Node3D]:
     var result: Array[Node3D] = []
@@ -1187,7 +1187,7 @@ func work_point(key: String, inspect: bool) -> Vector3:
     if inspect:
         var data: Dictionary = inspection[key]
         return (data["root"] as Node3D).to_global(data["stand"])
-    return (terminals[key] as Node3D).to_global(Vector3(0,0,0.95))
+    return (terminals[key] as Node3D).to_global(Vector3(0,0,2.05))
 
 func focus_point(key: String, inspect: bool) -> Vector3:
     if inspect:
@@ -1232,7 +1232,7 @@ func _sample(key: String, t: float) -> void:
             var printing: float = smoothstep(0.01,0.10,t)*(1.0-smoothstep(0.48,0.58,t))
             var grow: float = smoothstep(0.10,0.48,t)
             carriage.position.x = sin(t*TAU*11.0)*0.55*printing
-            head.position.y = (-1.14+grow*1.14)*printing
+            head.position.y = lerpf(-1.14,0.30,grow)*printing + 0.45*(1.0-printing)
             var product: Node3D = m["products"]
             var arm: Node3D = m["arm_mount"]
             var shoulder: Node3D = m["shoulder"]
@@ -1244,7 +1244,14 @@ func _sample(key: String, t: float) -> void:
             var park := Vector3(-2.4,0,-3.4)
             var target: Vector3 = park.lerp(pickup,smoothstep(0.52,0.63,t))
             if t>=0.68:
-                target = pickup.lerp(drop,smoothstep(0.68,0.85,t))
+                var front_pick := Vector3(pickup.x,pickup.y,4.8)
+                var front_drop := Vector3(drop.x,drop.y,4.8)
+                if t<0.75:
+                    target = pickup.lerp(front_pick,smoothstep(0.71,0.75,t))
+                elif t<0.81:
+                    target = front_pick.lerp(front_drop,smoothstep(0.75,0.81,t))
+                else:
+                    target = front_drop.lerp(drop,smoothstep(0.81,0.86,t))
             if t>=0.92:
                 target = drop.lerp(park,smoothstep(0.92,1.0,t))
             var distance: float = clampf(Vector2(target.x,target.z).length(),0.15,7.77)
@@ -1253,18 +1260,17 @@ func _sample(key: String, t: float) -> void:
             elbow.rotation.y = 2.0*bend
             var lower: float = smoothstep(0.62,0.67,t)*(1.0-smoothstep(0.68,0.73,t))
             lower += smoothstep(0.84,0.89,t)*(1.0-smoothstep(0.90,0.95,t))
-            grip.position.y = -2.5-0.55*lower
+            var lift_clearance: float = smoothstep(0.68,0.71,t)*(1.0-smoothstep(0.86,0.90,t))
+            grip.position.y = -3.75-0.55*lower+1.45*lift_clearance
             for i in range(product.get_child_count()):
                 var p := product.get_child(i) as Node3D
                 p.visible = i==int(m["variant"]) and t>0.10
                 p.scale.y = maxf(0.03,grow)
                 p.position = Vector3.ZERO
                 if t>=0.68:
-                    var flight: float = smoothstep(0.68,0.85,t)
-                    var world_drop: Vector3 = tray.to_global(Vector3(0,1.59,0))
-                    var local_drop: Vector3 = product.to_local(world_drop)
-                    p.position = local_drop*flight
-                    p.position.y += 1.0*smoothstep(0.68,0.73,t)*(1.0-smoothstep(0.82,0.89,t))
+                    var travel: Vector3 = target if t<0.90 else drop
+                    travel.y = lerpf(pickup.y,drop.y,smoothstep(0.81,0.90,t)) + 1.45*lift_clearance
+                    p.position = product.to_local(arm.to_global(travel))
         "SMELTER","RECYCLER":
             var feed: Node3D = m["feed"]
             var output: Node3D = m["output"]
@@ -1278,11 +1284,17 @@ func _sample(key: String, t: float) -> void:
                 var mouth: Vector3 = feed_parent.to_local(hopper.to_global(Vector3(0,5.4,0.55)))
                 var carrier: Node3D = m["charge_carrier"]
                 var floor_end := Vector3(0,0,-1.75)
-                var hoist: float = smoothstep(0.17,0.35,t)
                 if t<0.17:
                     feed.position = Vector3(0,0,lerpf(1.7,-1.75,smoothstep(0.0,0.17,t)))
                 else:
-                    feed.position = floor_end.lerp(mouth,hoist)
+                    var above: Vector3 = Vector3(floor_end.x,mouth.y+0.85,floor_end.z)
+                    var over_mouth: Vector3 = mouth+Vector3(0,0.85,0)
+                    if t<0.28:
+                        feed.position = floor_end.lerp(above,smoothstep(0.17,0.28,t))
+                    elif t<0.32:
+                        feed.position = above.lerp(over_mouth,smoothstep(0.28,0.32,t))
+                    else:
+                        feed.position = over_mouth.lerp(mouth,smoothstep(0.32,0.35,t))
                 feed.visible = t<0.35
                 var carrier_parent := carrier.get_parent() as Node3D
                 var carrier_point: Vector3 = carrier_parent.to_local(feed.global_position)
@@ -1316,10 +1328,15 @@ func _sample(key: String, t: float) -> void:
             var incoming: Vector3 = mount.to_local(dispatch.to_global(Vector3(0,1.10,0.8)))
             var on_lift: Vector3 = mount.to_local(lift.to_global(Vector3(0,0.175,0.32)))
             var destination: Vector3 = mount.to_local(rack.to_global(Vector3(-6.25,5.90,0.2)))
-            var across: float = smoothstep(0.44,0.55,t)
-            var inward: float = smoothstep(0.55,0.71,t)
-            var on_shelf := Vector3(lerpf(on_lift.x,destination.x,across),
-                lerpf(on_lift.y,destination.y,inward),lerpf(on_lift.z,destination.z,inward))
+            # Move clear of the mast uprights before moving sideways into the rack bay.
+            var clear_z: float = on_lift.z+2.35
+            var forward := Vector3(on_lift.x,on_lift.y,clear_z)
+            var aligned := Vector3(destination.x,on_lift.y,clear_z)
+            var on_shelf: Vector3 = on_lift.lerp(forward,smoothstep(0.44,0.50,t))
+            if t>=0.50:
+                on_shelf = forward.lerp(aligned,smoothstep(0.50,0.58,t))
+            if t>=0.58:
+                on_shelf = aligned.lerp(destination,smoothstep(0.58,0.71,t))
             cargo.position = incoming.lerp(on_lift,smoothstep(0.0,0.20,t))
             if t>=0.44:
                 cargo.position = on_shelf
@@ -1335,3 +1352,9 @@ func _sample(key: String, t: float) -> void:
             extension.position = fork.position*0.5+Vector3(0,0.13,0)
             extension.rotation.y = atan2(fork.position.x,fork.position.z)
             extension.scale.z = maxf(0.04,span)
+
+func navigation_room(key: String) -> Node3D:
+    return rooms[key] as Node3D
+
+func terminal_node(key: String) -> Node3D:
+    return terminals[key] as Node3D
