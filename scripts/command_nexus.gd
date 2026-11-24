@@ -5708,6 +5708,8 @@ func _archive_view_open_failed(phase: String) -> void:
     archive_model_open_pending = false
     archive_model_active = false
     archive_view_ui_ready = false
+    archive_view_generation += 1
+    _archive_view_drop_view()
     if is_instance_valid(archive_model_viewer):
         archive_model_viewer.hide()
         archive_model_viewer.queue_free()
@@ -5732,8 +5734,14 @@ func _close_archive_model_viewer() -> void:
     archive_model_open_pending = false
     var was_active: bool = archive_model_active
     archive_model_active = false
-    if is_instance_valid(archive_model_viewer) and archive_view_ui_ready:
-        _archive_view_close_archive()
+    if is_instance_valid(archive_model_viewer):
+        if archive_view_ui_ready:
+            _archive_view_close_archive()
+        else:
+            archive_model_viewer.hide()
+            archive_model_viewer.queue_free()
+            archive_model_viewer = null
+            archive_view_buttons.clear()
     if is_instance_valid(archive_model_button):
         archive_model_button.text = "MODEL ARCHIVE  /  3D"
     if was_active and focused_target == "DATA ARCHIVE" and not in_transition:
@@ -5751,11 +5759,16 @@ func _archive_view_ready() -> void:
     archive_view_host.stretch = true
     archive_view_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
     archive_model_viewer.add_child(archive_view_host)
-    archive_view_frame = PreviewRim.new()
+    archive_view_frame = Control.new()
     archive_view_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
     archive_model_viewer.add_child(archive_view_frame)
-    archive_view_cue = RotateMark.new()
+    archive_view_frame.draw.connect(_archive_view_draw_rim)
+    archive_view_frame.resized.connect(archive_view_frame.queue_redraw)
+    archive_view_cue = Control.new()
+    archive_view_cue.mouse_filter = Control.MOUSE_FILTER_IGNORE
     archive_model_viewer.add_child(archive_view_cue)
+    archive_view_cue.draw.connect(_archive_view_draw_rotate)
+    archive_view_cue.resized.connect(archive_view_cue.queue_redraw)
     for i in range(3):
         _archive_view_button("cat%d" % i, ARCHIVE_VIEW_CATEGORIES[i])
     for i in range(ARCHIVE_VIEW_ROWS):
@@ -5798,6 +5811,34 @@ func _archive_view_button(id: String, value: String) -> void:
     archive_view_buttons[id] = panel
     if id == "reset":
         panel.draw.connect(_archive_view_draw_camera.bind(panel))
+
+# Same shared technical rim and unframed rotation mark geometry, drawn
+# by native Controls so neither decoration can stop the archive menu.
+func _archive_view_draw_rim() -> void:
+    var w: float = archive_view_frame.size.x
+    var h: float = archive_view_frame.size.y
+    if w <= 34.0 or h <= 34.0:
+        return
+    var edge := Color("#6f93a3")
+    var accent := Color("#9fd7e6")
+    var points := PackedVector2Array([
+        Vector2(14,2), Vector2(w-14,2), Vector2(w-2,14),
+        Vector2(w-2,h-14), Vector2(w-14,h-2), Vector2(14,h-2),
+        Vector2(2,h-14), Vector2(2,14), Vector2(14,2)])
+    archive_view_frame.draw_polyline(points, edge, 1.6, true)
+    archive_view_frame.draw_line(Vector2(20,2),Vector2(48,2),accent,2.6,true)
+    archive_view_frame.draw_line(Vector2(2,20),Vector2(2,41),accent,2.6,true)
+    archive_view_frame.draw_line(Vector2(w-48,h-2),Vector2(w-20,h-2),accent,2.6,true)
+    archive_view_frame.draw_line(Vector2(w-2,h-41),Vector2(w-2,h-20),accent,2.6,true)
+
+func _archive_view_draw_rotate() -> void:
+    var c: Vector2 = archive_view_cue.size * 0.5
+    var tint := Color("#93c1cc")
+    var r: float = minf(archive_view_cue.size.x, archive_view_cue.size.y) * 0.28
+    archive_view_cue.draw_arc(c,r,deg_to_rad(-65),deg_to_rad(225),20,tint,1.6,true)
+    var tip: Vector2 = c + Vector2(cos(deg_to_rad(-65)),sin(deg_to_rad(-65))) * r
+    archive_view_cue.draw_line(tip,tip+Vector2(-5.2,-0.4),tint,1.6,true)
+    archive_view_cue.draw_line(tip,tip+Vector2(-0.3,5.0),tint,1.6,true)
 
 func _archive_view_draw_camera(panel: Panel) -> void:
     var c := panel.size * 0.5
@@ -5897,7 +5938,9 @@ func _archive_view_drop_view() -> void:
     archive_view_press_controls.clear()
     if is_instance_valid(archive_view_viewport):
         archive_view_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
-        archive_view_host.remove_child(archive_view_viewport)
+        var render_parent: Node = archive_view_viewport.get_parent()
+        if render_parent != null:
+            render_parent.remove_child(archive_view_viewport)
         archive_view_viewport.queue_free()
     archive_view_viewport = null
     archive_view_equipment = null
@@ -5927,10 +5970,13 @@ func _archive_view_load_selected(request: int, kind: int, id: String) -> void:
             display_name = str(entry["name"])
             break
     archive_view_viewport = SubViewport.new()
+    archive_view_viewport.name = "ArchiveModelRenderTarget"
+    archive_view_viewport.size = Vector2i(384, 384)
     archive_view_viewport.own_world_3d = true
     archive_view_viewport.gui_disable_input = true
-    archive_view_viewport.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
+    archive_view_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
     archive_view_host.add_child(archive_view_viewport)
+    archive_view_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
     # The outer NEXUS owns gestures; no nested viewport input forwarding.
     archive_view_host.set_process_input(false)
     archive_view_host.set_process_unhandled_input(false)
