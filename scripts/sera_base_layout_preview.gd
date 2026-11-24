@@ -276,6 +276,12 @@ static func reserve_props(nexus_origin: Vector3, specs: Array,
 static func reserve_salvage(preferred: Vector2, radius: float, nexus_origin: Vector3,
         specs: Array, logistics: Node3D, occupied: Array[Vector2]) -> Vector2:
     var sites: Array[Dictionary] = Deck.facility_sites(nexus_origin, specs)
+    var prop_rects: Array[Rect2] = []
+    for site in sites:
+        var center: Vector2 = site["at"]
+        for prop in Clutter.props_for(str(site["id"])):
+            var local: Rect2 = prop_envelope(prop)
+            prop_rects.append(Rect2(local.position + center, local.size))
     for ring in range(0, 38):
         var samples: int = 1 if ring == 0 else 24
         for j in range(samples):
@@ -293,14 +299,23 @@ static func reserve_salvage(preferred: Vector2, radius: float, nexus_origin: Vec
                 if rect.intersects(Rect2(center - half_size, half_size * 2.0).grow(0.22)):
                     blocked = true
                     break
-                for prop in Clutter.props_for(str(site["id"])):
-                    var local: Rect2 = prop_envelope(prop)
-                    if rect.intersects(Rect2(local.position + center, local.size)):
-                        blocked = true
-                        break
-                if blocked:
+            if blocked:
+                continue
+            for prop_rect in prop_rects:
+                if rect.intersects(prop_rect):
+                    blocked = true
                     break
             if blocked:
+                continue
+            # The collector's long incoming belt extends beyond its pad.
+            var collector: Vector2 = Vector2.ZERO
+            for site in sites:
+                if str(site["id"]) == "SCRAP_COLLECTOR":
+                    collector = site["at"]
+                    break
+            var belt_turn := Basis(Vector3.UP, deg_to_rad(56.0))
+            var belt_local: Vector3 = belt_turn.inverse() * Vector3(point.x - collector.x, 0, point.y - collector.y)
+            if Rect2(-9.05, 0.33, 7.60, 3.30).grow(radius).has_point(Vector2(belt_local.x, belt_local.z)):
                 continue
             for earlier in occupied:
                 if point.distance_to(earlier) < radius + 1.55:
