@@ -4,6 +4,7 @@ extends Node3D
 const Modules = preload("res://assets/base_command_modules.gd")
 const WorldMonitors = preload("res://scripts/sera_world_monitor_textures.gd")
 const NexusFloorPanels = preload("res://scripts/sera_nexus_floor_panels.gd")
+const NexusHandRoutedCables = preload("res://scripts/nexus_hand_routed_cables.gd")
 var _nexus_pixel_steel: Array[Texture2D] = []
 var _nexus_surface_materials: Dictionary = {}
 var _nexus_surface_shaders: Dictionary = {}
@@ -413,6 +414,12 @@ func _ready() -> void:
     # Replace only the floor surface, retaining the authored foundation,
     # all structures, console hit areas and the original NEXUS ID pipeline.
     NexusFloorPanels.build(self)
+    # The four authored cable paths stay outside the selection clusters.
+    _prepare_canonical_placement_specs()
+    var floor_cables := NexusHandRoutedCables.new()
+    floor_cables.name = "NexusHandRoutedCables"
+    add_child(floor_cables)
+    floor_cables.build(canonical_placement_specs)
     # Replace the solid back wall, interfering gate-side column and the
     # horizontal bridge with an actual cut-out shell and shaped trusses.
     NexusBulkheadRefit.build(self)
