@@ -39,6 +39,13 @@ func build(parent: Node3D) -> void:
     taper.radial_segments = 8
     taper.rings = 0
     shapes["taper"] = taper
+    var flare := CylinderMesh.new()
+    flare.top_radius = 0.5
+    flare.bottom_radius = 0.36
+    flare.height = 1.0
+    flare.radial_segments = 8
+    flare.rings = 0
+    shapes["flare"] = flare
     var rng := RandomNumberGenerator.new()
     rng.seed = 761024
     # Far tier first: irregular silhouette of a vast machine civilization.
@@ -70,6 +77,7 @@ func build(parent: Node3D) -> void:
     _district(Vector3(0,0,RAIL_Z),0.0)
     _highline()
     _flush_static([])
+    visibility_signature = "[]"
     _build_train()
 
 func _no_ink(n: Node3D) -> void:
@@ -139,9 +147,9 @@ func _cooling_plant(p: Vector3,rng: RandomNumberGenerator) -> void:
         var h: float = rng.randf_range(19.0,26.0)
         _add("taper",q+Vector3(0,h*0.24+2,0),Vector3(10,h*0.48,10),body)
         _add("tube",q+Vector3(0,h*0.55+2,0),Vector3(7.2,h*0.20,7.2),dark)
-        _add("taper",q+Vector3(0,h*0.80+2,0),Vector3(7.2,h*0.30,7.2),body)
-        _add("tube",q+Vector3(0,h*0.96+2,0),Vector3(8.0,1.3,8.0),rim)
-        _add("tube",q+Vector3(0,h*0.96+2.7,0),Vector3(5.8,0.25,5.8),dark)
+        _add("flare",q+Vector3(0,h*0.81+2,0),Vector3(10.0,h*0.30,10.0),body)
+        _add("tube",q+Vector3(0,h*0.96+2,0),Vector3(10.3,1.3,10.3),rim)
+        _add("tube",q+Vector3(0,h*0.96+2.7,0),Vector3(8.5,0.25,8.5),dark)
         for j in range(4):
             var a: float = TAU*float(j)/4.0
             var radial := Vector3(cos(a),0,sin(a))
@@ -322,7 +330,7 @@ func _build_train() -> void:
     draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     _no_ink(draw)
     train.add_child(draw)
-    train.position = Vector3(-66,RAIL_Y+0.22,RAIL_Z)
+    train.position = Vector3(-86,RAIL_Y+0.22,RAIL_Z)
 
 func animate(delta: float) -> void:
     if not is_instance_valid(train):
