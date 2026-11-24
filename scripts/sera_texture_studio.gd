@@ -1015,7 +1015,7 @@ func _view_input(event: InputEvent) -> void:
         elif not multi_gesture:
             if rotation_mode:
                 _rotate(event.relative)
-            else:
+            elif grid_mode != 2:
                 if not stroke:
                     _begin_stroke()
                     _paint(before)
@@ -1044,7 +1044,12 @@ func _view_input(event: InputEvent) -> void:
         accept_event()
 
 func _begin_stroke() -> void:
-    if img == null or layers.is_empty() or not layer_visible[layer_index]:
+    if img == null:
+        return
+    if grid_mode == 2:
+        stroke = true
+        return
+    if layers.is_empty() or not layer_visible[layer_index]:
         return
     stroke = true
     last_hit = Vector2i(-1,-1)
@@ -1071,7 +1076,9 @@ func _end_stroke() -> void:
 func _paint_path(start: Vector2, finish: Vector2) -> void:
     if not stroke or img == null or tex == null:
         return
-    if grid_mode == 2 or tool_picker.selected in [2,3,7,8,11,12]:
+    if grid_mode == 2:
+        return
+    if tool_picker.selected in [2,3,7,8,11,12]:
         _paint(finish)
         return
     # Recast along the screen drag, including UV seams, with bounded work.
