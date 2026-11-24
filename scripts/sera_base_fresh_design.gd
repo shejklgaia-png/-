@@ -160,18 +160,18 @@ static func _labo(g: Variant) -> void:
             Vector3(-1.30, y, -0.84), Vector3(1.38, 0.24, 0.78), "armor_light")
     # The lower tray holds one reinforced transport cassette, not a row of jars.
     g.poly("LabRawStockCassette", "cargo_case",
-        Vector3(-1.31, 1.37, -0.84), Vector3(0.99, 0.48, 0.55), "crate")
-    g.box("LabCassetteLatch", Vector3(-1.30, 1.36, -0.52),
+        Vector3(-1.31, 1.21, -0.84), Vector3(0.99, 0.48, 0.55), "crate")
+    g.box("LabCassetteLatch", Vector3(-1.30, 1.20, -0.52),
         Vector3(0.34, 0.15, 0.10), "gold")
     # Upper tray: two different feedstock forms, vertical hollow coil and
     # squat resin cartridge. Open coil bore is actual polygon geometry.
     g.poly_tilt("LabMetalFeedSpool", "vent_stack",
-        Vector3(-1.62, 2.41, -0.83), Vector3(0.63, 0.38, 0.63),
+        Vector3(-1.62, 2.27, -0.83), Vector3(0.63, 0.38, 0.63),
         "edge", Vector3(PI * 0.5, 0, 0))
     g.poly("LabResinCartridge", "drum",
-        Vector3(-0.98, 2.39, -0.83), Vector3(0.43, 0.61, 0.43), "blue")
+        Vector3(-0.98, 2.25, -0.83), Vector3(0.43, 0.61, 0.43), "blue")
     g.poly("LabCartridgeCap", "gear",
-        Vector3(-0.98, 2.70, -0.83), Vector3(0.47, 0.15, 0.47), "armor_light")
+        Vector3(-0.98, 2.63, -0.83), Vector3(0.47, 0.15, 0.47), "armor_light")
     # Offset coolant reservoir and conduit are real support equipment.
     g.poly("LabCoolantReservoir", "drum",
         Vector3(0.19, 1.31, -0.95), Vector3(0.60, 1.38, 0.60), "blue")
@@ -210,7 +210,7 @@ static func _labo(g: Variant) -> void:
         Vector3(0.10, 1.55, 1.08), Vector3(0.20, 0.20, 0.20), "amber_light")
     # A recognizable hollow Shell component under manufacture, not a cube.
     g.poly("FreshLabPrintedShell", "vent_stack",
-        Vector3(0.10, 1.20, 1.13), Vector3(0.74, 0.40, 0.67), "blue")
+        Vector3(0.10, 1.08, 1.13), Vector3(0.74, 0.40, 0.67), "blue")
     # Preserve B03 world-monitor alignment; recess glass into a hooded
     # operator stand instead of building a second set of fake telemetry bars.
     g.poly("FreshLabServiceConsole", "gusset",
@@ -232,7 +232,7 @@ static func _labo(g: Variant) -> void:
     g.poly("LabOutputPartsTray", "tray",
         Vector3(-1.52, 0.72, 0.24), Vector3(0.66, 0.26, 0.65), "crate")
     g.poly("LabOutputCoupling", "gear",
-        Vector3(-1.52, 0.94, 0.24), Vector3(0.46, 0.18, 0.46), "edge")
+        Vector3(-1.52, 0.74, 0.24), Vector3(0.46, 0.18, 0.46), "edge")
 
 
 static func _collector(g: Variant) -> void:
