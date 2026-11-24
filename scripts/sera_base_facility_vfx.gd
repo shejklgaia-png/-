@@ -161,6 +161,39 @@ static var _soft_halo_material: ShaderMaterial
 const MAX_SOFT_HALO_PATCHES: int = 160
 var _soft_halos: Array[Dictionary] = []
 
+# Readable flame silhouettes through the refractory opening. One depth-tested
+# quad, no extra particle emitters or screen-space pass; GL Compatibility safe.
+const FURNACE_FLAME_SHADER: String = """
+shader_type spatial;
+render_mode unshaded, blend_add, cull_disabled, depth_draw_never, fog_disabled;
+void fragment() {
+    float x = UV.x;
+    float y = 1.0 - UV.y;
+    float flame = 0.0;
+    float core = 0.0;
+    for (int i = 0; i < 4; i++) {
+        float k = float(i);
+        float phase = TIME * (5.0 + k * 0.7) + k * 2.4;
+        float height = 0.59 + 0.20 * sin(phase) + 0.10 * sin(phase * 1.71);
+        float center = 0.16 + k * 0.225 + y * 0.075 * sin(phase + y * 5.0);
+        float width = 0.15 * max(0.0, 1.0 - y / max(height, 0.1));
+        float d = abs(x - center);
+        float tip = 1.0 - smoothstep(height - 0.10, height, y);
+        flame = max(flame, (1.0 - smoothstep(width * 0.45, width + 0.025, d)) * tip);
+        core = max(core, (1.0 - smoothstep(width * 0.12, width * 0.55 + 0.012, d)) *
+            (1.0 - smoothstep(height * 0.35, height * 0.78, y)));
+    }
+    float edge = smoothstep(0.0, 0.06, x) * (1.0 - smoothstep(0.94, 1.0, x));
+    float base = (1.0 - smoothstep(0.03, 0.19, y)) * edge;
+    float heat = max(flame * edge, base * 0.74);
+    vec3 tint = mix(vec3(1.0, 0.16, 0.025), vec3(1.0, 0.83, 0.32),
+        clamp(core + base * 0.7, 0.0, 1.0));
+    ALBEDO = tint;
+    ALPHA = clamp(heat * 0.97, 0.0, 1.0);
+}
+"""
+static var _furnace_flame_shader: Shader
+
 const FIRE_FLOOR_SHADER: String = """
 shader_type spatial;
 render_mode unshaded, blend_add, cull_disabled, depth_draw_never;
@@ -209,6 +242,8 @@ func setup(model: Node3D, key: String) -> void:
         _add_entrance(key)
         _add_smoke()
         _add_fire_floor()
+        _make_surface("SmelterVisibleCombustionFlame", Vector3(0, 1.47, 1.185),
+            Vector2(1.25, 0.95), Vector3.ZERO, FURNACE_FLAME_SHADER)
         # Aimed maintenance spotlight is separate from the molten glow.
         _add_practical_lighting(key)
         _furnace_lamp = model.get_node_or_null(
@@ -409,6 +444,11 @@ func _make_surface(label: String, at: Vector3, span: Vector2,
             _shaft_shader = Shader.new()
             _shaft_shader.code = SHAFT_SHADER
         shader = _shaft_shader
+    elif shader_source == FURNACE_FLAME_SHADER:
+        if _furnace_flame_shader == null:
+            _furnace_flame_shader = Shader.new()
+            _furnace_flame_shader.code = FURNACE_FLAME_SHADER
+        shader = _furnace_flame_shader
     elif shader_source == FIRE_FLOOR_SHADER:
         if _fire_floor_shader == null:
             _fire_floor_shader = Shader.new()
@@ -446,7 +486,7 @@ func _add_entrance(key: String) -> void:
     # Front vertical opening. A second broad ground shaft projects toward
     # the player, so the interior reads as strongly lit from the real camera.
     _make_surface("DoorLightLeak", origin, span, Vector3.ZERO,
-        SHAFT_SHADER, Color(tint.r, tint.g, tint.b, 0.95))
+        SHAFT_SHADER, Color(tint.r, tint.g, tint.b, 0.28 if key == "SMELTER" else 0.95))
     # Keep the light plane just above the 0.32m industrial foundation slab.
     _make_surface("DoorLightFloor",
         Vector3(origin.x, 0.29, origin.z + 1.55),

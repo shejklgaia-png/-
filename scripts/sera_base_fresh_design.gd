@@ -276,71 +276,81 @@ static func _collector(g: Variant) -> void:
 
 
 static func _smelter(g: Variant) -> void:
-    # The orange furnace opening is the focal point; exhaust pipes are behind.
+    # Plasma-assisted thermal refinery: fixed footprint and original smoke anchors.
     _pad(g, 2.48, 2.50)
-    g.poly("FreshSmelterFurnaceBase", "bevel",
-        Vector3(0, 0.57, -0.10), Vector3(2.16, 0.71, 2.10), "slate")
-    g.poly("FreshSmelterBlastJacket", "drum",
-        Vector3(0, 1.61, -0.19), Vector3(2.04, 2.02, 2.04), "armor")
-    g.poly("FreshSmelterUpperCollar", "bevel",
-        Vector3(0, 2.59, -0.19), Vector3(2.19, 0.27, 2.16), "rust")
-    for i in range(10):
-        var theta: float = float(i) * TAU / 10.0
-        g.box("FreshSmelterThermalBolts",
-            Vector3(cos(theta) * 0.97, 2.58,
-                sin(theta) * 0.97 - 0.19),
-            Vector3(0.17, 0.17, 0.17), "gold")
-    # Recessed, open glowing combustion port under a stepped dark hood.
-    g.poly("FreshSmelterHotThroat", "bevel",
-        Vector3(0, 1.43, 0.86), Vector3(1.47, 1.07, 0.37), "rust")
-    g.box("FreshSmelterCombustionCore",
-        Vector3(0, 1.44, 1.105),
-        Vector3(1.24, 0.77, 0.09), "amber")
-    g.box("FreshSmelterLowFire",
-        Vector3(0, 1.23, 1.18),
-        Vector3(0.92, 0.19, 0.09), "amber_light")
-    for i in range(4):
-        g.poly_tilt("FreshSmelterFlameTongue", "bevel",
-            Vector3(-0.42 + i * 0.27, 1.50, 1.18),
-            Vector3(0.13, 0.51 + (i % 2) * 0.17, 0.06),
-            "amber_light", Vector3(0, 0, (i - 2) * 0.15))
-        g.box("FreshSmelterGrate",
-            Vector3(-0.55 + i * 0.35, 1.34, 1.22),
-            Vector3(0.085, 0.78, 0.09), "dark")
-    g.poly("FreshSmelterCombustionHood", "hood",
-        Vector3(0, 2.17, 1.04),
-        Vector3(1.74, 0.32, 0.62), "armor_light")
-    # Angled side heat guard, offset so it cannot cover the bright furnace.
-    g.poly_tilt("FreshSmelterObliqueShield", "roof",
-        Vector3(1.08, 2.36, 0.44),
-        Vector3(0.48, 0.15, 0.88), "armor_light",
-        Vector3(-0.20, 0.0, 0.22))
+    g.poly("FreshSmelterFurnaceBase", "octagonal_slew",
+        Vector3(0, 0.59, -0.12), Vector3(2.18, 0.47, 2.10), "slate")
+    g.poly("FreshSmelterBlastJacket", "octagonal_slew",
+        Vector3(0, 1.59, -0.23), Vector3(1.80, 1.72, 1.76), "armor")
+    g.poly("FreshSmelterLowerPressureSeal", "gear",
+        Vector3(0, 0.87, -0.23), Vector3(2.05, 0.25, 1.98), "trim")
+    g.poly("FreshSmelterUpperCollar", "gear",
+        Vector3(0, 2.47, -0.23), Vector3(2.12, 0.30, 1.99), "edge")
+    g.poly("FreshSmelterMagneticConfinementCoil", "drum",
+        Vector3(0, 2.73, -0.23), Vector3(1.56, 0.29, 1.56), "blue_light")
+    g.poly("FreshSmelterCoilShield", "octagonal_slew",
+        Vector3(0, 2.96, -0.23), Vector3(1.74, 0.25, 1.74), "slate")
+    g.poly("FreshSmelterPressureCap", "hood",
+        Vector3(0, 3.17, -0.26), Vector3(1.36, 0.28, 1.30), "armor_light")
+    # Animated flame plane z=1.185 is in front of the refractory backing
+    # and behind sparse metal guards. No opaque orange block or static tongues.
+    g.box("FreshSmelterRefractoryBacking",
+        Vector3(0, 1.45, 0.91), Vector3(1.46, 1.12, 0.18), "dark")
     for side in [-1.0, 1.0]:
+        g.poly_tilt("FreshSmelterHotThroat", "octagonal_slew",
+            Vector3(side * 0.77, 1.46, 1.05), Vector3(0.30, 1.29, 0.37),
+            "edge", Vector3(0, 0, -side * 0.10))
+        g.poly("FreshSmelterThermalGuardFoot", "gusset",
+            Vector3(side * 0.83, 0.82, 0.94),
+            Vector3(0.46, 0.56, 0.68), "slate")
+        g.box("FreshSmelterGrate",
+            Vector3(side * 0.37, 1.45, 1.245),
+            Vector3(0.065, 0.88, 0.09), "trim")
+    g.poly("FreshSmelterCombustionHood", "hood",
+        Vector3(0, 2.11, 0.99), Vector3(1.73, 0.28, 0.63), "armor_light")
+    g.poly("FreshSmelterSlagChannel", "tray",
+        Vector3(0, 0.86, 1.18), Vector3(1.46, 0.24, 0.70), "rust")
+    g.box("FreshSmelterMoltenBed",
+        Vector3(0, 0.99, 1.20), Vector3(1.16, 0.07, 0.22), "amber")
+    for side in [-1.0, 1.0]:
+        # Exhaust branches physically lead to two open stacks, outlet y=4.345.
+        g.rod("FreshSmelterExhaustManifold",
+            Vector3(side * 0.52, 2.69, -0.24),
+            Vector3(side * 0.81, 2.90, -0.84), 0.27, "trim")
         g.poly("FreshSmelterTwinStacks", "vent_stack",
             Vector3(side * 0.81, 3.01, -0.84),
             Vector3(0.51, 2.67, 0.51), "slate")
-        # Raised collars are welded into the hollow stack mesh; no
-        # duplicate eight-piece rim or floating decorative rivet.
-        g.box("FreshSmelterSideCoolingPanel",
-            Vector3(side * 1.11, 1.32, -0.08),
-            Vector3(0.24, 0.96, 1.07), "trim")
-        g.poly("FreshSmelterCoolingIntake", "louver",
-            Vector3(side * 1.11, 1.36, 0.56),
-            Vector3(0.27, 0.78, 0.19), "edge")
-        for rib in range(4):
-            g.box("FreshSmelterHeatFin",
-                Vector3(side * 1.27, 1.04 + rib * 0.23, 0.11),
-                Vector3(0.16, 0.10, 0.73), "edge")
-    g.poly("FreshSmelterSideController", "bevel",
+        g.poly("FreshSmelterExhaustFilter", "gear",
+            Vector3(side * 0.81, 3.50, -0.84),
+            Vector3(0.72, 0.31, 0.72), "edge")
+        g.poly("FreshSmelterExhaustCoupling", "drum",
+            Vector3(side * 0.81, 2.81, -0.84),
+            Vector3(0.65, 0.22, 0.65), "rust")
+        g.poly("FreshSmelterCoolantReservoir", "drum",
+            Vector3(side * 1.07, 1.45, -0.10),
+            Vector3(0.49, 1.30, 0.49), "blue")
+        for y in [0.94, 1.88]:
+            g.poly("FreshSmelterCoolantClamp", "gear",
+                Vector3(side * 1.07, y, -0.10),
+                Vector3(0.58, 0.16, 0.58), "edge")
+        g.rod("FreshSmelterCoolantReturn",
+            Vector3(side * 1.07, 2.03, -0.10),
+            Vector3(side * 0.73, 2.54, 0.05), 0.15, "gold")
+        g.poly_tilt("FreshSmelterObliqueShield", "roof",
+            Vector3(side * 1.10, 1.66, 0.43),
+            Vector3(0.49, 0.18, 0.64), "armor_light",
+            Vector3(-0.10, 0.0, -side * 0.30))
+        g.box("FreshSmelterCoolantStatus",
+            Vector3(side * 1.10, 1.60, 0.54),
+            Vector3(0.18, 0.34, 0.075), "blue_light")
+    g.poly("FreshSmelterSideController", "gusset",
         Vector3(-1.06, 0.88, 0.69),
         Vector3(0.38, 0.62, 0.43), "slate")
     g.box("FreshSmelterControllerLamp",
         Vector3(-1.06, 1.03, 0.94),
         Vector3(0.21, 0.13, 0.06), "blue_light")
-    for i in range(3):
-        g.poly("FreshSmelterDischargedSlag", "bevel",
-            Vector3(0.46 + i * 0.20, 0.43, 1.13 + i * 0.12),
-            Vector3(0.19, 0.20, 0.22), "rust")
+    g.poly("FreshSmelterDischargedSlag", "cargo_case",
+        Vector3(0.77, 0.55, 1.35), Vector3(0.39, 0.28, 0.38), "rust")
 
 
 static func _recycler(g: Variant) -> void:
