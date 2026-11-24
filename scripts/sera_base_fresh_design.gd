@@ -174,6 +174,16 @@ static func _labo(g: Variant) -> void:
         Vector3(-0.98, 2.63, -0.83), Vector3(0.47, 0.15, 0.47), "armor_light")
     g.rod("LabFeedGuide", Vector3(-1.62, 2.27, -0.55),
         Vector3(-1.05, 2.57, 0.97), 0.08, "trim")
+    # Side receiving hopper, fed by the dock hoist. Internal feed channel
+    # terminates at the stock cassette rather than crossing the printer bed.
+    g.poly("LabMaterialHopper", "hopper", Vector3(-2.05,0.96,1.45),
+        Vector3(0.73,0.54,0.75), "armor")
+    g.rod("LabMaterialFeedChannel", Vector3(-2.05,0.79,1.45),
+        Vector3(-1.70,0.79,-0.72), 0.23, "trim")
+    g.rod("LabMaterialFeedRiser", Vector3(-1.70,0.79,-0.72),
+        Vector3(-1.31,1.11,-0.84), 0.23, "trim")
+    g.poly("LabInputPellet", "bevel", Vector3(-2.05,1.24,1.45),
+        Vector3(0.24,0.19,0.24), "edge")
     # Offset coolant reservoir and conduit are real support equipment.
     g.poly("LabCoolantReservoir", "drum",
         Vector3(0.19, 1.31, -0.95), Vector3(0.60, 1.38, 0.60), "blue")
@@ -213,6 +223,12 @@ static func _labo(g: Variant) -> void:
     # A recognizable hollow Shell component under manufacture, not a cube.
     g.poly("FreshLabPrintedShell", "vent_stack",
         Vector3(0.10, 1.08, 1.13), Vector3(0.74, 0.40, 0.67), "blue")
+    g.poly("LabPrintedGear", "gear", Vector3(0.10,1.06,1.13),
+        Vector3(0.74,0.40,0.67), "edge")
+    g.poly("LabPrintedArmor", "bevel", Vector3(0.10,1.06,1.13),
+        Vector3(0.74,0.40,0.67), "armor_light")
+    g.poly("LabPrintedJoint", "octagonal_slew", Vector3(0.10,1.06,1.13),
+        Vector3(0.74,0.40,0.67), "gold")
     # Preserve B03 world-monitor alignment; recess glass into a hooded
     # operator stand instead of building a second set of fake telemetry bars.
     g.poly("FreshLabServiceConsole", "gusset",
@@ -410,15 +426,19 @@ static func _smelter(g: Variant) -> void:
         Vector3(-1.06, 1.03, 0.94),
         Vector3(0.21, 0.13, 0.06), "blue_light")
     # Charge and casting mould on the refractory apron.
-    g.poly("SmelterChargeRail", "tray", Vector3(-0.35, 0.89, 1.63),
-        Vector3(0.61, 0.18, 0.65), "trim")
+    g.poly("SmelterChargeRail", "hopper", Vector3(-1.66, 1.19, 0.86),
+        Vector3(0.70, 0.58, 0.73), "trim")
+    g.rod("SmelterSideChargeThroat", Vector3(-1.66,1.09,0.86),
+        Vector3(-0.91,1.31,0.61), 0.31, "armor")
+    g.box("SmelterChargeGate", Vector3(-1.66,1.48,0.86),
+        Vector3(0.63,0.075,0.64), "slate")
     g.poly("SmelterCastingMould", "tray", Vector3(0.39, 0.88, 1.62),
         Vector3(0.62, 0.19, 0.65), "dark")
     g.rod("SmelterCastingSpout", Vector3(0.32, 1.03, 1.14),
         Vector3(0.39, 0.98, 1.47), 0.12, "rust")
     for i in range(3):
         g.poly_tilt("SmelterFeedScrap", "bevel",
-            Vector3(-0.35 + float(i-1)*0.14, 1.05, 1.68),
+            Vector3(-1.66 + float(i-1)*0.14, 1.51, 0.86),
             Vector3(0.16, 0.19, 0.25), "edge" if i == 1 else "rust",
             Vector3(0.12, float(i)*0.4, 0.12))
     g.box("SmelterMoltenPour", Vector3(0.39, 0.98, 1.62),
@@ -490,7 +510,7 @@ static func _recycler(g: Variant) -> void:
     # Intact salvage travels from rear gravity feed through the cutters.
     for i in range(2):
         g.poly_tilt("RecyclerIntactPart", "bevel",
-            Vector3(-0.32 + 0.64*float(i), 2.23, -0.85),
+            Vector3(-0.32 + 0.64*float(i), 2.60, 0.22),
             Vector3(0.40, 0.33, 0.46), "rust" if i == 0 else "armor",
             Vector3(0.15, 0.25*float(i), 0.1))
     g.poly("RecyclerRecoveredPart", "gear", Vector3(-0.43, 0.87, 0.77),
