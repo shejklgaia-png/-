@@ -5539,6 +5539,12 @@ func _selection_project_groups(mesh: Mesh, pose: Transform3D, exact: bool) -> Ar
             points.append(projected[index])
         if not clipped and points.size() >= 3:
             result.append(points)
+        elif clipped and group.size() == 4:
+            # Keep the original independently visible triangle at near plane.
+            for tri in [[group[0], group[1], group[2]], [group[0], group[2], group[3]]]:
+                if behind[tri[0]] == 0 and behind[tri[1]] == 0 and behind[tri[2]] == 0:
+                    result.append(PackedVector2Array([
+                        projected[tri[0]], projected[tri[1]], projected[tri[2]]]))
     return result
 
 func _project_render_contour(target: String) -> Array[PackedVector2Array]:
