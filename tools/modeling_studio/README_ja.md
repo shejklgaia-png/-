@@ -65,3 +65,9 @@ ChatGPT側での画像回収の実証、設定画の自動輪郭抽出・IoU比�
 数値は形式説明用であり実設定画の測定値ではない。design側の landmarks は名前ごとに node と local XYZを記述する。固定比較では同じ画角・位置・画像寸法の画像を使う。bbox比較は平行移動・等方拡縮を除いて比較するため絶対寸法の評価ではない。赤＝不足、青＝過剰、白＝一致。誤差は参照bbox対角長で正規化。特徴点の可視性は設定画側で判断して登録する。
 
 Actions手動起動時に reference_manifest を指定するか、成果物を展開して `python tools/modeling_studio/reference_review.py <render_dir> <manifest.json> <new_output_dir>` を実行する。Pillowが必要。projections.json に全方向の投影座標が含まれる。自動合否判定なし。実設定画を入手するまでは再現性未評価。
+
+## V4 背景分離・撮影条件調整
+
+- 既存のalpha/whiteに加え、mode: uniform_background と background_tolerance（既定20）を使用可能。画像四辺がほぼ均一の場合のみ境界連結した近似色領域を除去する。内部の同色ディテールは保持する。複雑な背景、接地影、輪郭に触れる同色部位には手動マスクを使用する。抽出結果のPNGを出力し、目視確認必須とする。
+- 設計JSONの review_cameras に8方向の既存名をキーとして、direction（対象からカメラへのXYZ方向）、target（注視点XYZ）、ortho_scale（正投影幅）、roll_degrees を個別指定できる。省略時は従来値。projections.jsonに撮影位置・回転・注視点を保存する。カメラはまだ自動推定しない。
+- 公式配布のHTTP 403対策として公式ミラーを予備経路とし、各経路でSHA256を照合する。Blender導入前に比較演算の独立チェックを行う。既存ゲームCIは変更しない。
