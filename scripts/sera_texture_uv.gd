@@ -69,6 +69,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     charts = _edge_aligned_charts(tris,density,preserve_shape)
     charts = _split_overlapping_charts(tris,charts)
     if preserve_shape:
+        charts = _connect_hinge_charts(tris,charts)
         # Keep an orthonormal projection for every chart. Phase alignment
         # translates the entire grid; never move individual UV vertices.
         _synchronize_chart_grids(tris,charts,true)
@@ -962,6 +963,162 @@ static func _refine_residual_grids(tris: Array[Dictionary],charts: Array[Diction
 ## Shape-priority alignment: a chart is a rigid 2D object. Rotation and
 ## translation cannot change its internal distances, angles, or winding.
 ## Solve periodic grid alignment against every incident boundary.
+## Unfold neighboring charts through their actual shared edge before
+## phase alignment. Every accepted join is a rigid transform, with
+## matching endpoints, no positive-area overlap, and no inconsistent
+## secondary seam inside the merged chart.
+static func _connect_hinge_charts(tris: Array[Dictionary],charts: Array[Dictionary]) -> Array[Dictionary]:
+    var members: Array = []
+    var incident: Array = []
+    for ci in range(charts.size()):
+        members.append([])
+        incident.append([])
+    for ti in range(tris.size()):
+        (members[int(tris[ti].chart)] as Array).append(ti)
+    var links: Array[Dictionary] = _seam_segments(tris)
+    var candidates: Array[Dictionary] = []
+    for li in range(links.size()):
+        var link: Dictionary = links[li]
+        (incident[int(link.a)] as Array).append(li)
+        (incident[int(link.b)] as Array).append(li)
+        var a: Dictionary = tris[int(link.ta)]
+        var b: Dictionary = tris[int(link.tb)]
+        if int(a.surface) != int(b.surface):
+            continue
+        if absf(float(link.a1)-float(link.a0)) < 0.9999 or absf(float(link.b1)-float(link.b0)) < 0.9999:
+            continue
+        var na: Vector3 = a.face_normal
+        var nb: Vector3 = b.face_normal
+        var alignment: float = na.dot(nb)
+        if alignment < 0.4226183:
+            continue
+        var pa: PackedVector2Array = _segment_uv(a,link.ea,link.a0,link.a1,"xy")
+        var pb: PackedVector2Array = _segment_uv(b,link.eb,link.b0,link.b1,"xy")
+        var length: float = minf(pa[0].distance_to(pa[1]),pb[0].distance_to(pb[1]))
+        if length < 0.00001 or absf(pa[0].distance_to(pa[1])-pb[0].distance_to(pb[1])) > 0.001:
+            continue
+        candidates.append({"id":li,"weight":length*(0.5+alignment)})
+    candidates.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
+        return int(a.id) < int(b.id) if float(a.weight) == float(b.weight) else float(a.weight) > float(b.weight))
+    var budget: int = 180000
+    for item in candidates:
+        if budget <= 0:
+            break
+        var link: Dictionary = links[int(item.id)]
+        var ta: int = int(link.ta)
+        var tb: int = int(link.tb)
+        var ca: int = int(tris[ta].chart)
+        var cb: int = int(tris[tb].chart)
+        if ca == cb or members[ca].size()+members[cb].size() > 96:
+            continue
+        # The larger domain retains its original grid orientation.
+        var keep: int = ca
+        var move: int = cb
+        if members[cb].size() > members[ca].size() or (members[cb].size() == members[ca].size() and cb < ca):
+            keep = cb
+            move = ca
+        var pa: PackedVector2Array = _segment_uv(tris[ta],link.ea,link.a0,link.a1,"xy")
+        var pb: PackedVector2Array = _segment_uv(tris[tb],link.eb,link.b0,link.b1,"xy")
+        var fixed_edge: PackedVector2Array = pa if keep == ca else pb
+        var moving_edge: PackedVector2Array = pb if keep == ca else pa
+        var da: Vector2 = fixed_edge[1]-fixed_edge[0]
+        var db: Vector2 = moving_edge[1]-moving_edge[0]
+        if minf(da.length(),db.length()) < 0.00001 or absf(da.length()-db.length()) > 0.001:
+            continue
+        var angle: float = db.angle_to(da)
+        var offset: Vector2 = fixed_edge[0]-moving_edge[0].rotated(angle)
+        # All additional common boundaries must already agree under this
+        # exact transform. Otherwise retain a cut rather than hiding a
+        # discontinuity in the same chart.
+        var valid: bool = true
+        var checked: Dictionary = {}
+        for li in incident[move]:
+            if checked.has(li):
+                continue
+            checked[li] = true
+            var other: Dictionary = links[li]
+            var oa: int = int(tris[int(other.ta)].chart)
+            var ob: int = int(tris[int(other.tb)].chart)
+            if not ((oa == keep and ob == move) or (oa == move and ob == keep)):
+                continue
+            var sa: PackedVector2Array = _segment_uv(tris[int(other.ta)],other.ea,other.a0,other.a1,"xy")
+            var sb: PackedVector2Array = _segment_uv(tris[int(other.tb)],other.eb,other.b0,other.b1,"xy")
+            for k in range(2):
+                var av: Vector2 = sa[k].rotated(angle)+offset if oa == move else sa[k]
+                var bv: Vector2 = sb[k].rotated(angle)+offset if ob == move else sb[k]
+                if av.distance_to(bv) > 0.001:
+                    valid = false
+                    break
+            if not valid:
+                break
+        if not valid:
+            continue
+        var projected: Dictionary = {}
+        var lo := Vector2(INF,INF)
+        var hi := Vector2(-INF,-INF)
+        for ti in members[keep]:
+            for point in tris[ti].xy:
+                lo = lo.min(point)
+                hi = hi.max(point)
+        for ti in members[move]:
+            var xy := PackedVector2Array()
+            for point in tris[ti].xy:
+                var v: Vector2 = point.rotated(angle)+offset
+                xy.append(v)
+                lo = lo.min(v)
+                hi = hi.max(v)
+            projected[ti] = xy
+        var old_a: Vector2 = charts[keep].max-charts[keep].min
+        var old_b: Vector2 = charts[move].max-charts[move].min
+        var size: Vector2 = hi-lo
+        var padded: Vector2 = Vector2.ONE*float(2*PADDING+2)
+        var combined: Vector2 = size+padded
+        var pad_a: Vector2 = old_a+padded
+        var pad_b: Vector2 = old_b+padded
+        # Prevent a long sparse net from consuming disproportionate atlas
+        # space. Never scale the island merely to make packing fit.
+        if combined.x*combined.y > (pad_a.x*pad_a.y+pad_b.x*pad_b.y)*1.6:
+            continue
+        for ti in members[move]:
+            var a: PackedVector2Array = projected[ti]
+            var alo: Vector2 = a[0].min(a[1]).min(a[2])
+            var ahi: Vector2 = a[0].max(a[1]).max(a[2])
+            for tj in members[keep]:
+                budget -= 1
+                if budget < 0:
+                    valid = false
+                    break
+                var b: PackedVector2Array = tris[tj].xy
+                var blo: Vector2 = b[0].min(b[1]).min(b[2])
+                var bhi: Vector2 = b[0].max(b[1]).max(b[2])
+                if minf(ahi.x,bhi.x)-maxf(alo.x,blo.x) <= 0.0001 or minf(ahi.y,bhi.y)-maxf(alo.y,blo.y) <= 0.0001:
+                    continue
+                if _overlaps(a,b):
+                    valid = false
+                    break
+            if not valid:
+                break
+        if not valid:
+            continue
+        for ti in members[move]:
+            tris[ti].xy = projected[ti]
+            tris[ti].chart = keep
+        (members[keep] as Array).append_array(members[move])
+        members[move] = []
+        (incident[keep] as Array).append_array(incident[move])
+        incident[move] = []
+        charts[keep].min = lo.floor()
+        charts[keep].max = hi
+        charts[keep].rectified = false
+    var result: Array[Dictionary] = []
+    for ci in range(charts.size()):
+        if members[ci].is_empty():
+            continue
+        for ti in members[ci]:
+            tris[ti].chart = result.size()
+        result.append(charts[ci])
+    return result
+
 static func _align_rigid_chart_grids(tris: Array[Dictionary],charts: Array[Dictionary]) -> void:
     var links: Array[Dictionary] = []
     var adjacency: Array = []
