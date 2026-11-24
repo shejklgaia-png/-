@@ -504,6 +504,14 @@ static func _make_arms(robot: Node3D) -> void:
             0.115, 0.12)
         _disk_x(b, "hub", Vector3(s * 0.31, -0.068, -0.592),
             0.074, 0.10)
+        _emit(pivot, "LeftArm" if side < 0 else "RightArm", b)
+        # Separate the existing hand geometry at the wrist hub. The shared
+        # BASE model retains its identical neutral silhouette and arm API.
+        var wrist := Node3D.new()
+        wrist.name = "WristPivot"
+        wrist.position = Vector3(s*0.31,-0.065,-0.592)
+        pivot.add_child(wrist)
+        b = Batch.new()
         # True three-finger C-hands: three independently arched prongs,
         # with hooked, inward-facing tips and armored yellow ends.
         var anchors: Array[Vector2] = [
@@ -513,21 +521,20 @@ static func _make_arms(robot: Node3D) -> void:
         ]
         for k in range(3):
             var off: Vector2 = anchors[k]
-            var start := Vector3(s * 0.31 + off.x,
-                -0.065 + off.y, -0.592)
+            var start := Vector3(off.x,off.y,0.0)
             var knuckle := Vector3(start.x + off.x * 0.28,
-                start.y + off.y * 0.34, -0.713)
+                start.y + off.y * 0.34, -0.121)
             var hook := Vector3(knuckle.x - off.x * 0.32,
-                knuckle.y - off.y * 0.32, -0.821)
+                knuckle.y - off.y * 0.32, -0.229)
             var tip := Vector3(hook.x - off.x * 0.52,
-                hook.y - off.y * 0.51, -0.837)
+                hook.y - off.y * 0.51, -0.245)
             _disk_x(b, "joint", start, 0.052, 0.076, 10)
             _rod(b, "shell", start, knuckle, 0.070, 7)
             _rod(b, "steel", knuckle, hook, 0.063, 7)
             _rod(b, "amber", hook, tip, 0.059, 7)
             _rod(b, "chrome", tip, tip + Vector3(0, 0, -0.018),
                 0.039, 7)
-        _emit(pivot, "LeftArm" if side < 0 else "RightArm", b)
+        _emit(wrist, "LeftHand" if side < 0 else "RightHand", b)
 
 
 static func create_model() -> Node3D:

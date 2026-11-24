@@ -37,9 +37,11 @@ var cycle_running: bool = false
 var mechanism_layouts: Dictionary = {}
 var logistics: Dictionary = {}
 var idle_seconds: float = 0.0
+var print_idle_rng := RandomNumberGenerator.new()
 
 func build(stage: Node3D) -> void:
     host = stage
+    print_idle_rng.randomize()
     _build_outdoor_deck()
     context_root = _child(host,"DistantBaseFacilities")
     for key in KEYS:
@@ -845,8 +847,11 @@ func _make_print_arm(mount: Node3D,radial: Vector3) -> Dictionary:
     _shape(b,"octagonal_slew",Vector3(0,0.38,0),Vector3(0.46,0.20,0.46),"gold")
     _shape(b,"drum",Vector3(0,0.54,0),Vector3(0.20,0.16,0.20),"edge")
     _shape(b,"drum",Vector3(0,0.61,0),Vector3(0.12,0.02,0.12),"lab_cyan")
+    # Asymmetric service lug makes wrist rotation visible even at a distance.
+    _shape(b,"bevel",Vector3(0.30,0.22,0),Vector3(0.16,0.25,0.23),"gold")
+    _box(b,Vector3(0.39,0.22,0),Vector3(0.035,0.13,0.11),"lab_cyan")
     _finish(b)
-    return {"radial":radial,"swivel":swivel,"shoulder":shoulder,"upper":upper,"elbow":elbow,"fore":fore,"wrist":wrist,"tool":tool}
+    return {"radial":radial,"swivel":swivel,"shoulder":shoulder,"upper":upper,"elbow":elbow,"fore":fore,"wrist":wrist,"tool":tool,"idle_time":-print_idle_rng.randf_range(0.1,1.8),"idle_duration":2.0,"idle_kind":0,"idle_sign":1.0}
 
 func _print_link_pose(n: Node3D,a: Vector3,z: Vector3,hinge: Vector3) -> void:
     var y: Vector3 = (z-a).normalized()
@@ -868,6 +873,9 @@ func _sample_print_arm(arm: Dictionary,index: int,t: float,height: float,grow: f
     var park: Vector3 = -radial*1.20+Vector3.UP*4.45
     var tip: Vector3 = park.lerp(work,blend)
     var tool_axis: Vector3 = (Vector3.DOWN-radial*0.16*blend).normalized()
+    _pose_print_arm(arm,tip,tool_axis,0.0)
+
+func _pose_print_arm(arm: Dictionary,tip: Vector3,tool_axis: Vector3,roll: float) -> void:
     var wrist_pos: Vector3 = tip-tool_axis*PRINT_TOOL
     var delta: Vector3 = wrist_pos-PRINT_SHOULDER
     var d: float = clampf(delta.length(),0.18,PRINT_UPPER+PRINT_FORE-0.025)
@@ -887,6 +895,53 @@ func _sample_print_arm(arm: Dictionary,index: int,t: float,height: float,grow: f
     _print_link_pose(arm["fore"],elbow_pos,wrist_pos,hinge)
     _print_link_pose(arm["wrist"],wrist_pos,tip,hinge)
     _print_link_pose(arm["tool"],wrist_pos,tip,hinge)
+    (arm["tool"] as Node3D).rotate_object_local(Vector3.UP,roll)
+
+func _animate_print_idle(delta: float) -> void:
+    # The idle envelope returns the heads to their authored neutral position
+    # before printing begins or the scene is switched. No movement near stock.
+    var weight: float = 1.0
+    if cycle_running:
+        var t: float = elapsed/maxf(0.01,float(logistics["LABO"].duration()))
+        if t<0.29:
+            weight = 1.0-smoothstep(0.23,0.29,t)
+        elif t<0.72:
+            var machine_t: float = (t-0.29)/0.43
+            weight = smoothstep(0.56,0.64,machine_t)
+        else:
+            weight = 1.0
+    if weight<=0.001:
+        return
+    var arms: Array = motion_parts["LABO"]["print_arms"]
+    for arm in arms:
+        var age: float = float(arm["idle_time"])+delta
+        var span: float = float(arm["idle_duration"])
+        if age>=span:
+            age = -print_idle_rng.randf_range(0.6,2.8)
+            arm["idle_kind"] = print_idle_rng.randi_range(0,4)
+            arm["idle_duration"] = print_idle_rng.randf_range(1.4,3.1)
+            arm["idle_sign"] = -1.0 if print_idle_rng.randf()<0.5 else 1.0
+            span = float(arm["idle_duration"])
+        arm["idle_time"] = age
+        var u: float = clampf(age/span,0.0,1.0)
+        var e: float = sin(PI*u)*weight
+        var radial: Vector3 = arm["radial"]
+        var tangent: Vector3 = Vector3.UP.cross(radial)
+        var tip: Vector3 = -radial*1.20+Vector3.UP*4.45
+        var axis: Vector3 = Vector3.DOWN
+        var roll: float = 0.0
+        var sign_value: float = float(arm["idle_sign"])
+        match int(arm["idle_kind"]):
+            0: roll = sign_value*TAU*e
+            1: tip.y += 0.40*e
+            2: axis = (Vector3.DOWN+tangent*(0.24*sin(TAU*u)*e)).normalized()
+            3:
+                tip += radial*0.28*e
+                roll = sign_value*0.65*sin(TAU*u)*e
+            4:
+                tip.y += 0.23*e
+                tip += tangent*(0.16*sin(TAU*u)*e)
+        _pose_print_arm(arm,tip,axis,roll)
 
 func _labo(key: String) -> void:
     # Independent full-size design: three articulated print arms, left feedstock
@@ -1345,7 +1400,7 @@ func focus_point(key: String, inspect: bool) -> Vector3:
         return (data["root"] as Node3D).to_global(data["focus"])
     return (terminals[key] as Node3D).to_global(Vector3(0,1.05,0.34))
 
-func start_cycle(key: String) -> void:
+func start_cycle(key: String,prefer_inbound: bool = false) -> void:
     if key != active_key or cycle_running or not _mechanism_aligned(key):
         return
     elapsed = 0.0
@@ -1353,11 +1408,17 @@ func start_cycle(key: String) -> void:
     if key == "LABO":
         motion_parts[key]["variant"] = (int(motion_parts[key]["variant"])+1)%4
     idle_seconds = 0.0
-    logistics[key].begin()
+    logistics[key].begin(prefer_inbound)
     _sample(key,0.0)
 
 func cycle_complete() -> bool:
     return not cycle_running
+
+func logistics_carrier(key: String,inbound: bool) -> Node3D:
+    var flow = logistics.get(key)
+    if flow==null:
+        return null
+    return flow.truck_in if inbound else flow.truck_out
 
 func animate(delta: float, time: float, key: String) -> void:
     if key != active_key:
@@ -1386,6 +1447,8 @@ func animate(delta: float, time: float, key: String) -> void:
         if idle_seconds>=5.0:
             idle_seconds = 0.0
             start_cycle(key)
+    if key=="LABO":
+        _animate_print_idle(delta)
 
 func _sample_machine(key: String, t: float) -> void:
     var m: Dictionary = motion_parts[key]

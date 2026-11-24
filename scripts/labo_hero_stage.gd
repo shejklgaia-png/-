@@ -13,6 +13,18 @@ var crate_route_poses: Dictionary = {}
 var crate_head: Node3D
 var crate_arm: Node3D
 var crate_left_arm: Node3D
+var crate_right_wrist: Node3D
+var crate_left_wrist: Node3D
+var idle_rng := RandomNumberGenerator.new()
+var idle_kind: int = -1
+var idle_age: float = 0.0
+var idle_duration: float = 2.0
+var idle_sign: float = 1.0
+var attention_target: Node3D
+var attention_queue: Array[Node3D] = []
+var carrier_seen: Array[bool] = [false,false]
+const GLANCE_TURN_SECONDS := 0.30
+const GLANCE_HOLD_SECONDS := 1.50
 var hero_camera: Camera3D
 var camera_look: Vector3 = Vector3.ZERO
 var camera_previews: Dictionary = {}
@@ -52,6 +64,9 @@ func _build_crate() -> void:
     crate_head = crate.get_node("HeadPivot") as Node3D
     crate_arm = crate.get_node("RightArmPivot") as Node3D
     crate_left_arm = crate.get_node("LeftArmPivot") as Node3D
+    crate_right_wrist = crate_arm.get_node("WristPivot") as Node3D
+    crate_left_wrist = crate_left_arm.get_node("WristPivot") as Node3D
+    idle_rng.randomize()
 
 
 func _ready() -> void:
@@ -88,18 +103,26 @@ func _ready() -> void:
     hero_camera.near = 0.10
     hero_camera.far = 220.0
     hero_camera.keep_aspect = Camera3D.KEEP_HEIGHT
-    set_section(current_section)
+    set_section(current_section,false)
 
 func set_base_context(sources: Dictionary) -> void:
     if rebuilt_scenes != null:
         rebuilt_scenes.set_base_context(sources)
 
-func set_section(section: String) -> void:
+func set_section(section: String,dispatch: bool = true) -> void:
     current_section = section if section in ["LABO", "SMELTER", "RECYCLER", "STORAGE"] else "LABO"
     rebuilt_scenes.select(current_section)
     clock = 0.0
     state_time = 0.0
-    work_state = "walk_to_terminal"
+    work_state = "idle"
+    attention_target = null
+    attention_queue.clear()
+    carrier_seen = [false,false]
+    idle_kind = -1
+    idle_age = 0.0
+    idle_duration = idle_rng.randf_range(0.5,1.5)
+    crate_right_wrist.rotation = Vector3.ZERO
+    crate_left_wrist.rotation = Vector3.ZERO
     crate_head.rotation = Vector3.ZERO
     crate_arm.rotation = Vector3.ZERO
     crate_left_arm.rotation = Vector3.ZERO
@@ -151,6 +174,10 @@ func set_section(section: String) -> void:
         if saved.has("eye") and saved.has("look") and saved.has("fov"):
             apply_camera_preview(PlacementStore.vec(saved["eye"]),
                 PlacementStore.vec(saved["look"]),float(saved["fov"]))
+    # Menu entry is the dispatch trigger, after saved placement is applied.
+    # No dependency on the operator reaching the console first.
+    if dispatch:
+        rebuilt_scenes.start_cycle(current_section,true)
 
 func camera_section_id() -> String:
     # New geometry has different bounds. Legacy camera/model coordinates from
@@ -313,6 +340,8 @@ func _relax_arms(delta: float) -> void:
     crate_head.rotation = crate_head.rotation.lerp(Vector3.ZERO,minf(1.0,delta*5.0))
     crate_arm.rotation = crate_arm.rotation.lerp(Vector3.ZERO,minf(1.0,delta*5.0))
     crate_left_arm.rotation = crate_left_arm.rotation.lerp(Vector3.ZERO,minf(1.0,delta*5.0))
+    crate_left_wrist.rotation = crate_left_wrist.rotation.lerp(Vector3.ZERO,minf(1.0,delta*5.0))
+    crate_right_wrist.rotation = crate_right_wrist.rotation.lerp(Vector3.ZERO,minf(1.0,delta*5.0))
 
 func _move_to(goal: Vector3, delta: float, turn: bool = true) -> bool:
     var diff: Vector3 = goal - crate.position
@@ -489,9 +518,135 @@ func _enter(state: String) -> void:
     nav_route_failed = false
     nav_dock_checked = false
 
+func _observe_carrier_starts() -> void:
+    # Rising visibility marks the actual dispatch of each independent vehicle.
+    # One reaction per arrival, not one reaction per animation frame.
+    for i in range(2):
+        var vehicle: Node3D = rebuilt_scenes.logistics_carrier(current_section,i==0)
+        var present: bool = is_instance_valid(vehicle) and vehicle.visible
+        if present and not carrier_seen[i]:
+            attention_queue.append(vehicle)
+        carrier_seen[i] = present
+
+func _watch_carrier(delta: float) -> bool:
+    if work_state!="watch_carrier":
+        if attention_queue.is_empty():
+            return false
+        attention_target = attention_queue.pop_front()
+        _enter("watch_carrier")
+    if not is_instance_valid(attention_target):
+        _enter("walk_to_terminal")
+        return false
+    # Turn the neck toward the moving truck; if it is far behind, use a
+    # modest base turn only while clear of the console.
+    var aim: Vector3 = attention_target.global_position+Vector3.UP*1.15
+    var local: Vector3 = crate.to_local(aim)
+    var yaw: float = atan2(-local.x,-local.z)
+    if absf(yaw)>1.15 and not nav_docked:
+        crate.rotation.y += signf(yaw)*minf(absf(yaw)-1.15,delta*3.5)
+        local = crate.to_local(aim)
+        yaw = atan2(-local.x,-local.z)
+    var pitch: float = atan2(local.y-1.30,maxf(0.05,Vector2(local.x,local.z).length()))
+    var rate: float = 12.0
+    crate_head.rotation.x = lerpf(crate_head.rotation.x,clampf(pitch,-0.34,0.34),minf(1.0,delta*rate))
+    crate_head.rotation.y = lerp_angle(crate_head.rotation.y,clampf(yaw,-2.65,2.65),minf(1.0,delta*rate))
+    crate_head.rotation.z = lerpf(crate_head.rotation.z,0.0,minf(1.0,delta*rate))
+    crate_arm.rotation = crate_arm.rotation.lerp(Vector3.ZERO,minf(1.0,delta*6.0))
+    crate_left_arm.rotation = crate_left_arm.rotation.lerp(Vector3.ZERO,minf(1.0,delta*6.0))
+    crate_right_wrist.rotation = crate_right_wrist.rotation.lerp(Vector3.ZERO,minf(1.0,delta*6.0))
+    crate_left_wrist.rotation = crate_left_wrist.rotation.lerp(Vector3.ZERO,minf(1.0,delta*6.0))
+    if state_time>=GLANCE_TURN_SECONDS+GLANCE_HOLD_SECONDS:
+        attention_target = null
+        idle_age = 0.0
+        idle_kind = -1
+        # Already standing at the console? Resume the operator pose without
+        # walking through it. A partially docked robot finishes its approach.
+        if nav_docked:
+            if _room_point(crate.global_position).distance_to(_terminal_point(1.49))<0.08:
+                _enter("operate")
+            else:
+                _enter("dock")
+        else:
+            _enter("walk_to_terminal")
+    return true
+
+func _crate_idle(delta: float) -> void:
+    idle_age += delta
+    if idle_kind<0:
+        if idle_age<idle_duration:
+            _relax_arms(delta)
+            return
+        idle_kind = idle_rng.randi_range(0,9)
+        idle_age = 0.0
+        idle_duration = idle_rng.randf_range(1.6,3.8)
+        idle_sign = -1.0 if idle_rng.randf()<0.5 else 1.0
+    var u: float = clampf(idle_age/idle_duration,0.0,1.0)
+    var envelope: float = sin(PI*u)
+    var wave: float = sin(TAU*u)*envelope
+    var h := Vector3.ZERO
+    var l := Vector3.ZERO
+    var r := Vector3.ZERO
+    var lw: float = 0.0
+    var rw: float = 0.0
+    match idle_kind:
+        0: # Look left then right.
+            h.y = 0.55*wave*idle_sign
+        1: # Tilt the head quizzically.
+            h = Vector3(-0.08*envelope,0.18*envelope*idle_sign,0.16*envelope*idle_sign)
+        2: # Two small nods.
+            h.x = 0.17*sin(TAU*2.0*u)*envelope
+        3: # Examine the raised left hand and turn the wrist.
+            l.x = 0.36*envelope
+            h = Vector3(-0.14*envelope,0.24*envelope,0)
+            lw = TAU*envelope
+        4: # Examine the right hand.
+            r.x = 0.36*envelope
+            h = Vector3(-0.14*envelope,-0.24*envelope,0)
+            rw = -TAU*envelope
+        5: # A tiny alternating arm stretch.
+            l.x = 0.22*maxf(0.0,wave)
+            r.x = 0.22*maxf(0.0,-wave)
+        6: # Look up at overhead machinery.
+            h.x = 0.27*envelope
+            h.y = 0.16*wave
+        7: # Rotate both wrists, without moving the tracks.
+            l.x = 0.13*envelope
+            r.x = 0.13*envelope
+            lw = TAU*envelope
+            rw = -TAU*envelope
+        8: # Brief two-arm lift, then relax.
+            l.x = 0.26*envelope
+            r.x = 0.26*envelope
+            h.x = -0.12*envelope
+        9: # A small one-arm wave and head tilt.
+            h.z = 0.10*envelope*idle_sign
+            if idle_sign>0:
+                l.x = (0.23+0.08*sin(TAU*3.0*u))*envelope
+                lw = 0.45*wave
+            else:
+                r.x = (0.23+0.08*sin(TAU*3.0*u))*envelope
+                rw = 0.45*wave
+    # If an approach failed with CRATE still close to the terminal, keep
+    # arms tucked instead of letting idle gestures sweep into the console.
+    if nav_docked:
+        l = Vector3.ZERO
+        r = Vector3.ZERO
+        lw = 0.0
+        rw = 0.0
+    var rate: float = minf(1.0,delta*10.0)
+    crate_head.rotation = crate_head.rotation.lerp(h,rate)
+    crate_arm.rotation = crate_arm.rotation.lerp(r,rate)
+    crate_left_arm.rotation = crate_left_arm.rotation.lerp(l,rate)
+    crate_left_wrist.rotation.z = lerpf(crate_left_wrist.rotation.z,lw,rate)
+    crate_right_wrist.rotation.z = lerpf(crate_right_wrist.rotation.z,rw,rate)
+    if u>=1.0:
+        idle_kind = -1
+        idle_age = 0.0
+        idle_duration = idle_rng.randf_range(0.8,3.2)
+
 func _process(delta: float) -> void:
     clock += delta
-    state_time += delta
+    state_time += minf(delta,0.10) if work_state=="watch_carrier" else delta
     rebuilt_scenes.animate(delta,clock,current_section)
     if nav_dirty:
         _build_navigation()
@@ -501,38 +656,49 @@ func _process(delta: float) -> void:
         crate.visible = nav_ready
         if nav_ready:
             crate.position = _nav_local(_nav_position(safe))
-        _enter("walk_to_terminal")
+        _enter("idle")
     if not nav_ready:
+        return
+    _observe_carrier_starts()
+    if _watch_carrier(delta):
         return
     match work_state:
         "walk_to_terminal":
             if _walk_route(_terminal_point(2.25),delta):
                 _enter("dock")
+            elif nav_route_failed:
+                _enter("idle")
         "dock":
             if _dock(delta):
                 _enter("operate")
+            elif nav_dock_checked and not nav_dock_allowed:
+                _enter("idle")
         "operate":
             _face_point(_terminal_facing_point(),delta)
-            # Several deliberate button presses, short reading pauses, then release.
+            _relax_arms(delta)
             var envelope: float = smoothstep(0.12,0.65,state_time)*(1.0-smoothstep(5.45,5.95,state_time))
             var tap: float = 0.5+0.5*sin(state_time*TAU/0.95)
             crate_left_arm.rotation.x = (0.10+0.16*tap)*envelope
             crate_head.rotation.x = -0.07+0.06*sin(state_time*1.4)
             crate_head.rotation.y = 0.07*sin(state_time*0.9)
-            if state_time >= 2.0 and rebuilt_scenes.cycle_complete():
-                rebuilt_scenes.start_cycle(current_section)
             if state_time >= OPERATE_SECONDS:
                 _enter("undock")
         "undock":
             if _dock(delta,true):
                 _enter("walk_to_inspection")
+            elif nav_dock_checked and not nav_dock_allowed:
+                _enter("idle")
         "walk_to_inspection":
             if _walk_route(_inspection_point(),delta):
                 _enter("inspect")
+            elif nav_route_failed:
+                _enter("idle")
         "inspect":
             _face_point(crate_route.to_local(rebuilt_scenes.focus_point(current_section,true)),delta)
             crate_head.rotation.x = -0.12 + 0.08*sin(state_time*1.5)
             crate_head.rotation.y = 0.12*sin(state_time*0.9)
             crate_left_arm.rotation.x = -0.17*(0.5+0.5*sin(state_time*2.0))
-            if state_time >= 2.5 and rebuilt_scenes.cycle_complete():
-                _enter("walk_to_terminal")
+            if state_time >= 2.5:
+                _enter("idle")
+        "idle":
+            _crate_idle(delta)
