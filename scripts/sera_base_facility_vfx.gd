@@ -257,6 +257,8 @@ func setup(model: Node3D, key: String) -> void:
         # Remove side/entrance shafts entirely at every other BASE site.
         # Add purpose-built local luminaires at their work surfaces instead.
         _add_practical_lighting(key)
+        if key == "NEXUS" and model.get_meta("base_design", "") == "NEXUS_COMMAND_BUNKER_20261124":
+            _add_nexus_steam()
         set_process(false)
     # The actual authored emissive architecture should emit soft light too,
     # not only the VFX fixtures. Gather it once before building the batch.
@@ -329,6 +331,11 @@ func _collect_authored_emission_halos() -> void:
         var mat: StandardMaterial3D = source.material_override as StandardMaterial3D
         if mat != null and not mat.emission_enabled:
             ordered_sources.append(source)
+    var animated_indicators: Dictionary = {}
+    var motion: Dictionary = _model.get_meta("motion_entries", {})
+    for record in motion.get("NexusSignalIndicator", []):
+        var multi: MultiMesh = record["mesh"]
+        animated_indicators["%d:%d" % [multi.get_instance_id(), int(record["index"])]] = true
     for source in ordered_sources:
         if remaining <= 0:
             break
@@ -337,6 +344,10 @@ func _collect_authored_emission_halos() -> void:
         var white_detail: bool = not emissive
         var many: int = source.multimesh.instance_count
         for i in range(many):
+            # Pulsing roof indicators must not leave a static halo when off.
+            if not animated_indicators.is_empty() and animated_indicators.has(
+                    "%d:%d" % [source.multimesh.get_instance_id(), i]):
+                continue
             var pose: Transform3D = source.multimesh.get_instance_transform(i)
             var center: Vector3 = to_local(source.to_global(pose.origin))
             # Use actual batched instance dimensions in the VFX local frame.
@@ -1080,6 +1091,43 @@ func _add_smoke() -> void:
         part.local_coords = true
         part.emitting = true
         stack_group.add_child(part)
+
+func _add_nexus_steam() -> void:
+    # Three low-count, staggered bursts share one quad/material. The flue
+    # tops are y=5.46 in the authored roof, not the building's floor.
+    var sprite := QuadMesh.new()
+    sprite.size = Vector2(0.30, 0.30)
+    sprite.material = _smoke_quad_material()
+    var fade := Gradient.new()
+    fade.set_color(0, Color(0.86, 0.91, 0.94, 0.0))
+    fade.add_point(0.08, Color(0.86, 0.91, 0.94, 0.42))
+    fade.add_point(0.24, Color(0.83, 0.88, 0.91, 0.25))
+    fade.add_point(0.42, Color(0.83, 0.88, 0.91, 0.0))
+    fade.set_color(fade.get_point_count() - 1, Color(0.83, 0.88, 0.91, 0.0))
+    var origins: Array[Vector3] = [Vector3(-0.93, 5.47, -1.57),
+        Vector3(-0.47, 5.47, -1.57), Vector3(-1.27, 4.99, 0.72)]
+    for i in range(origins.size()):
+        var part := CPUParticles3D.new()
+        part.name = "NexusSteamBurst%d" % i
+        part.set_meta("FX_NO_OUTLINE", true)
+        part.position = origins[i]
+        part.amount = 5 if i < 2 else 3
+        part.lifetime = [5.7, 8.3, 13.1][i]
+        part.explosiveness = 0.92
+        part.preprocess = [0.0, 2.3, 4.6][i]
+        part.fixed_fps = 15
+        part.direction = Vector3(0.15, 1.0, 0.0)
+        part.gravity = Vector3(0.04, 0.02, 0.0)
+        part.spread = 12.0
+        part.initial_velocity_min = 0.32
+        part.initial_velocity_max = 0.48
+        part.scale_amount_min = 0.55 if i < 2 else 0.30
+        part.scale_amount_max = 1.20 if i < 2 else 0.70
+        part.color_ramp = fade
+        part.mesh = sprite
+        part.local_coords = true
+        part.emitting = true
+        add_child(part)
 
 func _add_fire_floor() -> void:
     # Light-pool illusion, not a real screen-space SSR/reflection: this works

@@ -252,6 +252,13 @@ class Batch:
             if motion_names.has("LabArmLinkA"):
                 multi.custom_aabb = AABB(Vector3(-5.0, 0.0, -5.0),
                     Vector3(10.0, 6.2, 10.0)).merge(multi.get_aabb())
+            elif motion_names.has("NexusDishReflector"):
+                # Only animated buckets need conservative swept bounds.
+                for records in motion_indices.values():
+                    for slot in records:
+                        if str(slot["bucket"]) == key:
+                            multi.custom_aabb = multi.get_aabb().grow(1.6)
+                            break
             var surface := StandardMaterial3D.new()
             # Texture audit: the industrial steel/armor/oxide SVGs have
             # near-white substrates, not black pixels. The BASE NEXUS front
@@ -414,7 +421,7 @@ static func build_nexus(parent: Node3D) -> void:
     parent.add_child(node)
     var g := Batch.new(node)
     g.yaw = facility_yaw_radians("NEXUS")
-    g.motion_names = BaseFacilityMotion.MOTION_FEATURES["NEXUS"]
+    g.motion_names = BaseFacilityMotion.MOTION_FEATURES["NEXUS"] if ARCHIVED_NEXUS_MODEL else []
     g.outline_enabled = true
     # Broaden the hub silhouette without enlarging the surrounding clutter.
     g.detail_scale = 1.14
@@ -546,10 +553,20 @@ static func _nexus_command_bunker(g: Batch) -> void:
         g.poly("NexusRoofCoolingModule", "nexus_shallow_bevel",
             Vector3(side * 1.99, 4.62, 0.48),
             Vector3(1.35, 0.53, 2.13), "armor")
-        g.poly_tilt("NexusRoofExhaustLouvers", "louver",
-            Vector3(side * 1.99, 4.91, 0.48),
-            Vector3(1.04, 1.74, 0.15), "trim",
-            Vector3(-PI * 0.5, 0, 0))
+        # Two real exposed rotors per housing; recessed behind a raised rim.
+        for row in range(2):
+            var center := Vector3(side * 1.99, 4.96, 0.04 + float(row) * 0.88)
+            g.poly("NexusFanRecess", "drum", center - Vector3(0, 0.035, 0),
+                Vector3(0.76, 0.10, 0.76), "dark")
+            g.poly("NexusFanRim", "vent_stack", center,
+                Vector3(0.83, 0.13, 0.83), "trim")
+            g.poly("NexusFanHub", "drum", center + Vector3(0, 0.075, 0),
+                Vector3(0.19, 0.12, 0.19), "armor_light")
+            for blade in range(4):
+                var angle: float = TAU * float(blade) / 4.0
+                var radial := Vector3(cos(angle), 0, sin(angle))
+                g.box_tilt("NexusFanBlade", center + radial * 0.145 + Vector3(0, 0.056, 0),
+                    Vector3(0.19, 0.045, 0.09), "edge", Vector3(0.22, -angle, 0.0))
         g.rod("NexusRoofCoolantPipe", Vector3(side * 2.73, 4.55, -1.84),
             Vector3(side * 2.73, 4.55, 1.68), 0.16, "gold")
         g.rod("NexusRoofPipeElbow", Vector3(side * 2.73, 4.55, 1.68),
@@ -572,7 +589,7 @@ static func _nexus_command_bunker(g: Batch) -> void:
     _nexus_roof_services(g)
     # Enlarge the canvas-covered service bay on the left of the airlock.
     # All frame members follow the same pitch; leave the door approach open.
-    g.poly_tilt("NexusServiceAwning", "canvas", Vector3(-2.76, 2.88, 3.24),
+    g.poly_tilt("NexusServiceAwning", "nexus_canvas", Vector3(-2.76, 2.88, 3.24),
         Vector3(2.00, 0.33, 1.68), "cloth", Vector3(0.12, 0, 0))
     for side in [-1.0, 1.0]:
         var x: float = -2.76 + side * 0.88
@@ -608,6 +625,31 @@ static func _nexus_roof_services(g: Batch) -> void:
                 Vector3(0.09, 0.37, 0.49), "trim")
         g.box("NexusDuctRoofSaddle", Vector3(side * 0.79, 4.68, z),
             Vector3(0.20, 0.12, 0.47), "trim")
+    # A steerable dish on the plenum: the pedestal is stationary; all
+    # moving reflector/feed parts share the actual elevation hinge.
+    g.poly("NexusDishPedestal", "drum", Vector3(0, 5.19, 0.32),
+        Vector3(0.45, 0.22, 0.45), "trim")
+    g.poly("NexusDishAzimuthBearing", "octagonal_slew", Vector3(0, 5.37, 0.32),
+        Vector3(0.40, 0.24, 0.40), "slate")
+    for side in [-1.0, 1.0]:
+        g.box("NexusDishYoke", Vector3(side * 0.23, 5.65, 0.32),
+            Vector3(0.12, 0.52, 0.23), "trim")
+    g.rod("NexusDishHinge", Vector3(-0.28, 5.90, 0.32),
+        Vector3(0.28, 5.90, 0.32), 0.15, "edge")
+    g.poly("NexusDishReflector", "nexus_dish", Vector3(0, 5.90, 0.32),
+        Vector3(1.36, 1.36, 0.64), "armor_light")
+    for i in range(3):
+        var a: float = TAU * float(i) / 3.0
+        g.rod("NexusDishFeedArm", Vector3(cos(a) * 0.59, 5.90 + sin(a) * 0.59, 0.56),
+            Vector3(0, 5.90, 0.85), 0.065, "trim")
+    g.rod("NexusDishFeed", Vector3(0, 5.90, 0.78),
+        Vector3(0, 5.90, 0.98), 0.18, "dark")
+    # Motorized plenum outlet louvers, each hinged on its own long axis.
+    g.box("NexusPlenumOutlet", Vector3(0, 4.86, 1.08),
+        Vector3(0.56, 0.36, 0.08), "dark")
+    for row in range(3):
+        g.box("NexusPlenumLouver", Vector3(0, 4.75 + float(row) * 0.11, 1.14),
+            Vector3(0.49, 0.055, 0.13), "edge")
     # Rear exhaust equipment: two hollow open-ended flues on a sealed base.
     g.poly("NexusRearExhaustBase", "nexus_shallow_bevel",
         Vector3(-0.70, 4.78, -1.57), Vector3(0.85, 0.26, 0.77), "slate")
@@ -633,6 +675,9 @@ static func _nexus_roof_services(g: Batch) -> void:
     g.poly_tilt("NexusSignalCabinetVent", "louver",
         Vector3(0.62, 4.87, -1.23), Vector3(0.45, 0.28, 0.12), "trim",
         Vector3.ZERO)
+    for i in range(3):
+        g.box("NexusSignalIndicator", Vector3(0.42 + float(i) * 0.20, 5.105, -1.34),
+            Vector3(0.105, 0.04, 0.11), "blue_light")
     g.rod("NexusSecondaryAntennaMast", Vector3(0.62, 5.09, -1.58),
         Vector3(0.62, 5.87, -1.58), 0.12, "edge")
     g.rod("NexusAntennaYagiBoom", Vector3(0.62, 5.68, -1.99),
