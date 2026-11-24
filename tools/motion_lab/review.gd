@@ -44,10 +44,18 @@ func _run() -> void:
 	var length := p.get_animation(clip).length
 	var camera := Camera3D.new()
 	root.add_child(camera)
-	camera.position = Vector3(5, 3, 6)
-	camera.look_at(Vector3(0, 1.25, 0))
+	var spec = JSON.parse_string(FileAccess.get_file_as_string(dir.path_join("design.json")))
+	if not spec is Dictionary:
+		quit(9)
+		return
+	var review: Dictionary = spec.get("review", {})
+	var xyz: Array = review.get("target", [0, 0, 1.25])
+	var target := Vector3(float(xyz[0]), float(xyz[2]), -float(xyz[1]))
+	var size := float(review.get("scale", 5.0))
+	camera.position = target + Vector3(1, 0.6, 1.2) * size
+	camera.look_at(target)
 	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
-	camera.size = 5.0
+	camera.size = size
 	camera.make_current()
 	var light := DirectionalLight3D.new()
 	root.add_child(light)
