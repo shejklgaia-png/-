@@ -59,8 +59,8 @@ void fragment() {
 # while the far (world +Z) edge is UV.y=1.
 const NEXUS_SHUTTER_BEAM_SHADER: String = """
 shader_type spatial;
-render_mode unshaded, blend_add, cull_disabled, depth_draw_never;
-uniform vec4 beam_tint : source_color = vec4(0.73, 0.92, 1.0, 0.72);
+render_mode unshaded, blend_mix, cull_disabled, depth_draw_never;
+uniform vec4 beam_tint : source_color = vec4(0.8627451, 0.8941176, 0.9098039, 1.0);
 void fragment() {
     // 0 at the shutter, 1 at the distant tip. Prior UV inversion
     // incorrectly illuminated the far tip and dimmed the entrance.
@@ -70,7 +70,8 @@ void fragment() {
     float reach = 1.0 - smoothstep(0.09, 1.0, longitudinal);
     float band = transverse * pow(reach, 1.20);
     ALBEDO = beam_tint.rgb;
-    EMISSION = beam_tint.rgb * band * 6.2;
+    // At the shutter the source color is opaque; the floor fades into
+    // the existing scene without additive HDR overshoot.
     ALPHA = clamp(beam_tint.a * band, 0.0, 1.0);
 }
 """
@@ -2886,9 +2887,31 @@ func _add_practical_lighting(key: String) -> void:
             # The original shutter gap remains a narrow architectural emitter.
             # A proper high-mounted projector now illuminates the apron,
             # rather than a fake spotlight emerging from floor level.
-            _slot_lamp("ShutterLowerGapEmitter",
-                Vector3(0.0, 0.34, 2.97),
-                Vector3(shutter_width, 0.050, 0.06), Color("#bbecff"))
+            # Use the actual behind-door material as the single peak source.
+            # Do not add the generic slot lamp's emission or additive halo.
+            var entry_light := _model.get_node_or_null("NexusEntryLight") as MeshInstance3D
+            var entry_material: StandardMaterial3D
+            if entry_light != null:
+                entry_material = entry_light.material_override as StandardMaterial3D
+            if entry_material == null:
+                entry_material = StandardMaterial3D.new()
+                entry_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+                entry_material.albedo_color = Color("#dce4e8")
+            var gap_tint: Color = entry_material.albedo_color
+            var gap := Node3D.new()
+            gap.name = "ShutterLowerGapEmitter"
+            gap.set_meta("FX_NO_OUTLINE", true)
+            gap.position = Vector3(0.0, 0.34, 2.97)
+            add_child(gap)
+            var gap_size := Vector3(shutter_width, 0.050, 0.06)
+            _box(gap, "RecessedSteelRim", Vector3.ZERO,
+                gap_size + Vector3(0.08, 0.06, 0.04), Color("#283944"))
+            var gap_face := _box(gap, "IlluminatedGap",
+                Vector3(0.0, 0.0, gap_size.z * 0.71), gap_size, gap_tint)
+            gap_face.material_override = entry_material
+            gap_face.set_meta("sera_preserve_authored_material", true)
+            gap_face.set_meta("sera_outline_occluder_only", true)
+            gap_face.set_meta("sera_outline_emissive_protect", true)
             _directed_searchlight("GateApronSearchlight",
                 Vector3(0.0, 3.48, 3.25),
                 Vector3(0.0, 0.37, 4.76),
@@ -2899,9 +2922,7 @@ func _add_practical_lighting(key: String) -> void:
             _make_surface("ShutterLowerGapSpill",
                 Vector3(0.0, 0.34, 5.89), Vector2(shutter_width, 5.80),
                 Vector3(-PI * 0.5, 0.0, 0.0),
-                NEXUS_SHUTTER_BEAM_SHADER, Color("#bbecff"), false)
-            _queue_soft_halo(Vector3(0.0, 0.39, 3.065),
-                Vector2(shutter_width, 0.63), Color("#bceaff"), 0.24)
+                NEXUS_SHUTTER_BEAM_SHADER, gap_tint, false)
         "RECYCLER":
             # Two jaws, two actual aimed lamps. The old central spotlight
             # used a different origin than both visible lamp housings.
