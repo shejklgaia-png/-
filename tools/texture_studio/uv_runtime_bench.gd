@@ -85,4 +85,7 @@ func _run() -> void:
         quit(2)
         return
     print("UV_BENCH ",JSON.stringify(report))
+    # Remove the source rig while the viewport-owned outline registry still has a tree.
+    host.free()
+    await process_frame
     quit(0 if invalid == 0 and counted > 0 else 3)
