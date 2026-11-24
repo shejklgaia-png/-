@@ -6,12 +6,16 @@ const ZOOM_SECONDS := 0.95
 const REVEAL_SECONDS := 0.8
 const SOFT_WHITE := Color("#dce4e8")
 const SHUTTER_FEATURES := ["NexusBlastDoor", "NexusBlastShutterSlat"]
+const SHUTTER_SFX_PATH := "res://BGM/巨大シャッターが開く.mp3"
+const SHUTTER_SFX_VOLUME_DB := -6.0
+const SHUTTER_SFX_FADE_SECONDS := 0.35
 var _cover: ColorRect
 var _model: Node3D
 var _camera: Camera3D
 var _base: Node3D
 var _hud: Control
 var _music: AudioStreamPlayer
+var _shutter_sfx: AudioStreamPlayer
 var _start_pose: Transform3D
 var _start_size: float
 var _start_volume: float
@@ -41,6 +45,7 @@ func run(base: Node3D, camera: Camera3D, model: Node3D, hud: Control,
         _start_volume = _music.volume_db
         var audio_fade := create_tween()
         audio_fade.tween_property(_music, "volume_db", -60.0, 1.4).set_trans(Tween.TRANS_SINE)
+    _play_shutter_sfx()
     var opening := create_tween()
     opening.tween_method(_set_shutter, 0.0, 1.0, OPEN_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
     await opening.finished
@@ -53,7 +58,10 @@ func run(base: Node3D, camera: Camera3D, model: Node3D, hud: Control,
     var zoom := create_tween().set_parallel(true)
     zoom.tween_method(_zoom_camera.bind(end_pose), 0.0, 1.0, ZOOM_SECONDS).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
     zoom.tween_property(_cover, "modulate:a", 1.0, 0.40).set_delay(ZOOM_SECONDS - 0.40).set_trans(Tween.TRANS_SINE)
+    if is_instance_valid(_shutter_sfx):
+        zoom.tween_property(_shutter_sfx, "volume_db", -60.0, SHUTTER_SFX_FADE_SECONDS).set_delay(ZOOM_SECONDS - SHUTTER_SFX_FADE_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
     await zoom.finished
+    _stop_shutter_sfx()
     _cover.modulate.a = 1.0
     if is_instance_valid(_music):
         _music.stop()
@@ -97,6 +105,32 @@ func run(base: Node3D, camera: Camera3D, model: Node3D, hud: Control,
     await reveal.finished
     queue_free()
 
+func _play_shutter_sfx() -> void:
+    # Raw MP3 for GitSync before import, imported resource for exported APKs.
+    var clip: AudioStreamMP3
+    if FileAccess.file_exists(SHUTTER_SFX_PATH):
+        clip = AudioStreamMP3.load_from_file(SHUTTER_SFX_PATH)
+    if clip == null and ResourceLoader.exists(SHUTTER_SFX_PATH):
+        clip = ResourceLoader.load(SHUTTER_SFX_PATH) as AudioStreamMP3
+        if clip != null:
+            clip = clip.duplicate() as AudioStreamMP3
+    if clip == null:
+        push_warning("SERA: NEXUS shutter SFX unavailable")
+        return
+    clip.loop = false
+    _shutter_sfx = AudioStreamPlayer.new()
+    _shutter_sfx.name = "NexusShutterOpenSFX"
+    _shutter_sfx.stream = clip
+    _shutter_sfx.volume_db = SHUTTER_SFX_VOLUME_DB
+    add_child(_shutter_sfx)
+    _shutter_sfx.play()
+
+func _stop_shutter_sfx() -> void:
+    if is_instance_valid(_shutter_sfx):
+        _shutter_sfx.stop()
+        _shutter_sfx.queue_free()
+        _shutter_sfx = null
+
 func _set_shutter(progress: float) -> void:
     if not is_instance_valid(_model):
         return
@@ -120,6 +154,7 @@ func _zoom_camera(progress: float, end_pose: Transform3D) -> void:
     _camera.size = _start_size * pow(1.9 / _start_size, progress)
 
 func _recover(message: String) -> void:
+    _stop_shutter_sfx()
     push_error(message)
     if is_instance_valid(_base):
         _camera.global_transform = _start_pose
