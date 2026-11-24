@@ -149,6 +149,203 @@ static func build(room: Node3D) -> void:
         -26.93, -26.87, glow)
 
 
+    _build_industrial_services(root)
+
+
+# Background-only, fixed architectural paths. Each material group is one
+# opaque mesh, including its collars, returns and support connections.
+static func _build_industrial_services(root: Node3D) -> void:
+    var duct := SurfaceTool.new()
+    var steel := SurfaceTool.new()
+    var fins := SurfaceTool.new()
+    for tool in [duct, steel, fins]:
+        tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+        tool.set_smooth_group(-1)
+
+    # Front and rear runs stop short of the canopy and launch clearance.
+    # Tops intersect the original transverse girders (underside y=8.74).
+    # Ends terminate inside those girders instead of floating in the room.
+    _service_sweep(duct, [Vector3(-3.15, 8.55, -2.65),
+        Vector3(-3.15, 8.55, 4.80), Vector3(-3.15, 8.55, 12.25)],
+        Vector3.RIGHT, _service_section(0.58, 0.34, 0.16))
+    _service_sweep(duct, [Vector3(-3.65, 8.55, -24.95),
+        Vector3(-3.65, 8.55, -17.55)],
+        Vector3.RIGHT, _service_section(0.75, 0.36, 0.17))
+    _service_sweep(steel, [Vector3(3.12, 8.60, -2.65),
+        Vector3(3.12, 8.60, 4.80), Vector3(3.12, 8.60, 12.25)],
+        Vector3.RIGHT, _service_round(0.26, 8))
+    _service_sweep(steel, [Vector3(3.75, 8.63, 4.80),
+        Vector3(3.75, 8.63, 12.25)], Vector3.RIGHT, _service_round(0.19, 8))
+    for z in [-2.65, 4.80, 12.25]:
+        _service_sweep(duct, [Vector3(-3.15, 8.55, z-0.16),
+            Vector3(-3.15, 8.55, z+0.16)], Vector3.RIGHT,
+            _service_section(0.67, 0.42, 0.14))
+        _service_sweep(steel, [Vector3(3.12, 8.60, z-0.14),
+            Vector3(3.12, 8.60, z+0.14)], Vector3.RIGHT, _service_round(0.34, 8))
+
+    # Rear-left wall heat exchanger: fins seat in the existing inset face.
+    # Keep the cyan indicator above it and the central mark unobstructed.
+    _service_sweep(fins, [Vector3(-7.65, 3.50, -26.88),
+        Vector3(-4.55, 3.50, -26.88)], Vector3.UP,
+        _service_section(0.23, 0.24, 0.07))
+    _service_sweep(fins, [Vector3(-7.65, 5.20, -26.88),
+        Vector3(-4.55, 5.20, -26.88)], Vector3.UP,
+        _service_section(0.23, 0.24, 0.07))
+    for i in range(12):
+        var x: float = -7.55 + float(i)*0.26
+        _service_sweep(fins, [Vector3(x, 3.47, -26.81),
+            Vector3(x, 5.23, -26.81)], Vector3.RIGHT,
+            _service_section(0.075, 0.29, 0.05))
+    # Bent metal return is continuous from the rear shell into the manifold.
+    _service_sweep(steel, [Vector3(-4.63, 5.42, -26.89),
+        Vector3(-4.27, 5.42, -26.89), Vector3(-4.06, 5.63, -26.89),
+        Vector3(-4.06, 6.30, -26.89), Vector3(-3.83, 6.53, -26.89),
+        Vector3(-3.38, 6.53, -26.89)],
+        Vector3.BACK, _service_round(0.15, 8))
+    _service_sweep(steel, [Vector3(-3.38, 6.53, -26.80),
+        Vector3(-3.38, 6.53, -27.47)], Vector3.RIGHT, _service_round(0.15, 8))
+
+    # Right forward wall only: no mesh in the protected rear gate bay.
+    # Two unequal wall-mounted conduits are rooted inside the forward shell.
+    _service_sweep(steel, [Vector3(8.82, 7.68, -15.80),
+        Vector3(8.82, 7.38, -15.50),
+        Vector3(8.82, 5.95, -14.08), Vector3(8.82, 5.95, -8.70)], Vector3.RIGHT,
+        _service_round(0.21, 8))
+    for end_point in [Vector3(8.82,7.68,-15.80), Vector3(8.82,5.95,-8.70)]:
+        _service_sweep(steel, [end_point-Vector3(0.07,0,0),
+            end_point+Vector3(0.31,0,0)], Vector3.UP, _service_round(0.23,8))
+    _service_sweep(duct, [Vector3(8.91, 4.76, -14.70),
+        Vector3(8.91, 4.76, -8.40)], Vector3.RIGHT,
+        _service_section(0.25, 0.38, 0.09))
+    _service_submit(root, "CeilingAndWallDuctMesh", duct, Color("#65727b"), 0)
+    _service_submit(root, "IndustrialPipeMesh", steel, Color("#8a8980"), 1)
+    _service_submit(root, "RearHeatExchangerMesh", fins, Color("#60727b"), 2)
+
+
+static func _service_section(w: float, h: float, bevel: float) -> Array:
+    return [Vector2(-w+bevel,-h), Vector2(w-bevel,-h),
+        Vector2(w,-h+bevel), Vector2(w,h-bevel), Vector2(w-bevel,h),
+        Vector2(-w+bevel,h), Vector2(-w,h-bevel), Vector2(-w,-h+bevel)]
+
+
+static func _service_round(radius: float, sides: int) -> Array:
+    var points: Array = []
+    for i in range(sides):
+        var a: float = TAU*float(i)/float(sides)
+        points.append(Vector2(cos(a),sin(a))*radius)
+    return points
+
+
+static func _service_sweep(tool: SurfaceTool, path: Array, side_axis: Vector3,
+        section: Array) -> void:
+    # Use one continuous ring per path joint. Face UVs are perimeter/travel
+    # in meters, so long ducts do not stretch a single small panel image.
+    var rings: Array = []
+    var distances: Array[float] = [0.0]
+    for i in range(path.size()):
+        var center: Vector3 = path[i]
+        var before: Vector3 = center - Vector3(path[maxi(0,i-1)])
+        var after: Vector3 = Vector3(path[mini(path.size()-1,i+1)]) - center
+        var tangent: Vector3 = (before.normalized()+after.normalized()).normalized()
+        var right: Vector3 = (side_axis-tangent*side_axis.dot(tangent)).normalized()
+        var up: Vector3 = tangent.cross(right).normalized()
+        var ring: Array[Vector3] = []
+        for value in section:
+            var p: Vector2 = value
+            ring.append(center+right*p.x+up*p.y)
+        rings.append(ring)
+        if i > 0:
+            distances.append(distances[i-1]+before.length())
+    var around: float = 0.0
+    for j in range(section.size()):
+        var k: int = (j+1)%section.size()
+        var edge: float = Vector2(section[j]).distance_to(Vector2(section[k]))
+        for i in range(path.size()-1):
+            var a: Vector3 = rings[i][j]
+            var b: Vector3 = rings[i][k]
+            var c: Vector3 = rings[i+1][k]
+            var d: Vector3 = rings[i+1][j]
+            var uv0 := Vector2(around,distances[i])
+            var uv1 := Vector2(around+edge,distances[i])
+            var uv2 := Vector2(around+edge,distances[i+1])
+            var uv3 := Vector2(around,distances[i+1])
+            _service_triangle(tool,a,c,b,uv0,uv2,uv1)
+            _service_triangle(tool,a,d,c,uv0,uv3,uv2)
+        around += edge
+    # Closed ends have their own planar metric UVs.
+    var last: int = path.size()-1
+    for j in range(1,section.size()-1):
+        _service_triangle(tool,rings[0][0],rings[0][j],rings[0][j+1],
+            section[0],section[j],section[j+1])
+        _service_triangle(tool,rings[last][0],rings[last][j+1],rings[last][j],
+            section[0],section[j+1],section[j])
+
+
+static func _service_triangle(tool: SurfaceTool, a: Vector3, b: Vector3,
+        c: Vector3, ua: Vector2, ub: Vector2, uc: Vector2) -> void:
+    var normal: Vector3 = (c-a).cross(b-a).normalized()
+    tool.set_normal(normal)
+    tool.set_uv(ua/1.20)
+    tool.add_vertex(a)
+    tool.set_uv(ub/1.20)
+    tool.add_vertex(b)
+    tool.set_uv(uc/1.20)
+    tool.add_vertex(c)
+
+
+static func _service_submit(root: Node3D, label: String, tool: SurfaceTool,
+        tint: Color, finish: int) -> void:
+    var mesh := MeshInstance3D.new()
+    mesh.name = label
+    mesh.mesh = tool.commit()
+    var material := _mat(tint)
+    material.albedo_texture = _service_texture(finish)
+    material.texture_repeat = true
+    material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+    mesh.material_override = material
+    mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    mesh.set_meta("FX_NO_OUTLINE", true)
+    mesh.set_meta("sera_outline_occluder_only", true)
+    root.add_child(mesh)
+
+
+static func _service_texture(finish: int) -> ImageTexture:
+    # Three neutral pixel finishes multiply the restrained material colors.
+    # Integer-pixel tooling marks and joints; never large camouflage bands.
+    var image := Image.create(64,64,false,Image.FORMAT_RGBA8)
+    image.fill(Color("#e4e4e4"))
+    for y in range(64):
+        for x in range(64):
+            var value: int = 226 + ((x*13+y*7+x*y*3)%9)-4
+            if finish == 0:
+                if y == 0 or y == 1:
+                    value = 138
+                elif y == 2:
+                    value = 248
+                elif (x == 5 or x == 58) and (y == 6 or y == 57):
+                    value = 105
+                elif (x*17+y*11)%113 == 0:
+                    value = 196
+            elif finish == 1:
+                if y == 0 or y == 32:
+                    value = 160
+                elif y == 1 or y == 33:
+                    value = 250
+                elif x%9 == 0 and y%7 < 3:
+                    value = 204
+            else:
+                if x%16 == 0:
+                    value = 170
+                elif x%16 == 1:
+                    value = 245
+                elif y%11 == 0 and x%5 < 3:
+                    value = 200
+            var tone: float = float(value)/255.0
+            image.set_pixel(x,y,Color(tone,tone,tone,1.0))
+    image.generate_mipmaps()
+    return ImageTexture.create_from_image(image)
+
+
 static func _cast(root: Node3D, label: String,
         perimeter: Array, back_z: float, front_z: float,
         material: Material) -> void:
