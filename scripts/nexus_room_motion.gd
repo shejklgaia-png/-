@@ -283,21 +283,103 @@ func _build_deployment_shutters(at: Vector3, yaw: float,
     root.position = at
     root.rotation.y = yaw
     add_child(root)
+    var shutter_finish := (dark as StandardMaterial3D).duplicate() as StandardMaterial3D
+    shutter_finish.albedo_color = Color.WHITE
+    shutter_finish.vertex_color_use_as_albedo = true
+    shutter_finish.roughness = 0.76
+    shutter_finish.metallic = 0.14
+    shutter_finish.metallic_specular = 0.14
     for side in [-1.0, 1.0]:
-        var leaf := _box(root, "SlidingGateLeaf",
-            Vector3(side * 0.84, 3.82, 1.04),
-            Vector3(1.63, 5.45, 0.16), dark)
-        _box(leaf, "CastLeafRib", Vector3(
-            -side * 0.35, 0.0, 0.11),
-            Vector3(0.16, 4.75, 0.09), metal)
-        # The custom dock, lightspill and original selection silhouettes all
-        # stay fixed; only these independent shutter leaves slide.
+        # One mesh per leaf, with the same mechanical bounds as before.
+        # All molded relief moves as part of the leaf; no static ribs can
+        # remain across the open aperture.
+        var leaf := _mesh(root, "SlidingGateLeaf", _portal_leaf_mesh(side), shutter_finish)
+        leaf.position = Vector3(side * 0.84, 3.82, 1.04)
+        leaf.set_meta("sera_preserve_authored_material", true)
         _gate_leaves.append(leaf)
     # Gate origin, scales and offsets are already world-space metres (the
     # original Blockbench geometry was expanded by scale_factor in _module).
     # Keep this signature so its desired size can track a later gate revision.
     if scale_factor <= 0.0:
         push_warning("NEXUS animated portal requires a positive scale")
+
+
+# Eight-point door profile with real thickness. An armored rim, recessed
+# central panel and shallow reinforcing rails share a single vertex-color
+# surface. The moving outer dimensions stay 1.63 x 5.45 x 0.16 m.
+func _portal_leaf_mesh(side: float) -> ArrayMesh:
+    var surface := SurfaceTool.new()
+    surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+    var profile := PackedVector2Array([
+        Vector2(-0.815, -2.685), Vector2(-0.775, -2.725),
+        Vector2(0.775, -2.725), Vector2(0.815, -2.685),
+        Vector2(0.815, 2.685), Vector2(0.775, 2.725),
+        Vector2(-0.775, 2.725), Vector2(-0.815, 2.685)])
+    var rings: Array[PackedVector3Array] = []
+    var depths: Array[float] = [-0.08, 0.035, 0.08, 0.08, 0.025]
+    var scales: Array[Vector2] = [Vector2.ONE, Vector2.ONE, Vector2(0.96, 0.985),
+        Vector2(0.77, 0.91), Vector2(0.73, 0.89)]
+    for j in range(depths.size()):
+        var ring := PackedVector3Array()
+        for p in profile:
+            ring.append(Vector3(p.x * scales[j].x, p.y * scales[j].y, depths[j]))
+        rings.append(ring)
+    var colors: Array[Color] = [Color("#273847"), Color("#8496a4"),
+        Color("#526879"), Color("#1e2d39")]
+    for j in range(4):
+        for i in range(8):
+            var k: int = (i + 1) % 8
+            var a: Vector3 = rings[j][i]
+            var b: Vector3 = rings[j][k]
+            var c: Vector3 = rings[j + 1][k]
+            var d: Vector3 = rings[j + 1][i]
+            var outward := Vector3(a.x + b.x, a.y + b.y, 0.0)
+            if j >= 1:
+                outward.z = 5.0
+            if j == 3:
+                outward.x *= -1.0
+                outward.y *= -1.0
+            _portal_quad(surface, a, b, c, d, outward, colors[j])
+    for i in range(1, 7):
+        _portal_tri(surface, rings[0][0], rings[0][i], rings[0][i + 1],
+            Vector3.FORWARD, Color("#273847"))
+        _portal_tri(surface, rings[4][0], rings[4][i], rings[4][i + 1],
+            Vector3.BACK, Color("#344c5d"))
+    # Two stepped load-transfer strips are stamped into the recessed field.
+    # These strips stay below the outer lip and away from the meeting seam.
+    for offset in [-1.0, 1.0]:
+        var y: float = offset * 1.26
+        var x: float = side * 0.12
+        _portal_quad(surface, Vector3(x-0.39,y-0.12,0.027),
+            Vector3(x+0.39,y-0.12,0.027), Vector3(x+0.48,y+0.08,0.062),
+            Vector3(x-0.48,y+0.08,0.062), Vector3.BACK, Color("#657b89"))
+        _portal_quad(surface, Vector3(x-0.48,y+0.08,0.062),
+            Vector3(x+0.48,y+0.08,0.062), Vector3(x+0.39,y+0.15,0.027),
+            Vector3(x-0.39,y+0.15,0.027), Vector3.BACK, Color("#293c49"))
+    var mesh := surface.commit()
+    return mesh
+
+
+func _portal_quad(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3,
+        d: Vector3, outward: Vector3, tint: Color) -> void:
+    _portal_tri(surface, a, b, c, outward, tint)
+    _portal_tri(surface, a, c, d, outward, tint)
+
+
+func _portal_tri(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3,
+        outward: Vector3, tint: Color) -> void:
+    var normal: Vector3 = (b - a).cross(c - a).normalized()
+    if normal.dot(outward) > 0.0:
+        var swap: Vector3 = b
+        b = c
+        c = swap
+    else:
+        normal = -normal
+    for p in [a,b,c]:
+        surface.set_normal(normal)
+        surface.set_color(tint)
+        surface.set_uv(Vector2((p.x + 0.815) / 1.63, (p.y + 2.725) / 5.45))
+        surface.add_vertex(p)
 
 
 func _ring(parent: Node3D, label: String, inner: float,

@@ -38,24 +38,31 @@ static func build(room: Node3D, gate_at: Vector3,
 
     # Additional precision-machined parts share three MultiMesh draw batches.
     var boxes: Dictionary = {}
-    # The old overlapping wall lintel and rear tie blocks are removed.
-    # Keep only the actual portal trim, lights and approach hardware.
+    # Delete free-standing duplicate trim and the five floating header
+    # tabs. Keep the original portal lights, and stamp the access ramp
+    # with properly seated traction bars rather than buried crossbars.
     for side_value in [-1, 1]:
         var side: float = float(side_value)
-        _box(boxes, "trim", Vector3(side * 2.77, 4.12, 1.27),
-            Vector3(0.16, 4.40, 0.18))
-        _box(boxes, "cyan", Vector3(side * 2.58, 4.33, 1.43),
-            Vector3(0.065, 2.68, 0.062))
-        _box(boxes, "amber", Vector3(side * 1.75, -0.60, 6.72),
-            Vector3(0.20, 0.055, 0.13))
-    for x in [-2.10, -1.05, 0.0, 1.05, 2.10]:
-        _box(boxes, "trim", Vector3(float(x), 7.76, 0.78),
-            Vector3(0.68, 0.16, 0.12))
+        _box(boxes, "amber", Vector3(side * 1.67, -0.62, 6.72),
+            Vector3(0.09, 0.045, 0.13))
     for z in [2.15, 3.46, 4.77, 6.05]:
         var center_y: float = 0.04 - (float(z) - 1.28) * (
-            0.77 / 5.74) - 0.027
-        _box(boxes, "trim", Vector3(0.0, center_y, float(z)),
-            Vector3(3.12, 0.037, 0.067))
+            0.77 / 5.74) + 0.008
+        _box(boxes, "iron", Vector3(0.0, center_y, float(z)),
+            Vector3(3.12, 0.028, 0.065))
+    # The authored plaque is 2.295m wide after scaling. Text sits on
+    # its actual front face, never on the wall or moving shutter.
+    var plaque := Label3D.new()
+    plaque.name = "PortalDesignation"
+    plaque.text = "DEPLOYMENT  /  01"
+    plaque.font_size = 80
+    plaque.pixel_size = 0.00245
+    plaque.outline_size = 0
+    plaque.modulate = Color("#c6dce4")
+    plaque.position = Vector3(0.0, 6.71, 1.865)
+    plaque.set_meta("FX_NO_OUTLINE", true)
+    plaque.set_meta("sera_skip_common_id_outline", true)
+    root.add_child(plaque)
 
     # Gate-wall hardware stays fixed. The auxiliary DEPLOYMENT console is
     # placed under its own pivot so canonical editing moves ONLY the kiosk,
