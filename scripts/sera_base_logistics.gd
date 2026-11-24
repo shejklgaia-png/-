@@ -7,6 +7,7 @@ const Architecture = preload("res://scripts/sera_base_architecture.gd")
 const Clutter = preload("res://scripts/sera_base_clutter.gd")
 const FreshDesign = preload("res://scripts/sera_base_fresh_design.gd")
 const Power = preload("res://scripts/sera_base_power_distribution.gd")
+const Polygon = preload("res://scripts/sera_base_polygon_meshes.gd")
 const CELL: float = 0.75
 const REGION := Rect2i(-46, -46, 93, 93)
 const CLEARANCE: float = 0.84
@@ -26,6 +27,7 @@ class Visual:
     var pose: Transform3D = Transform3D.IDENTITY
     var shown: bool = true
     var dirty: bool = true
+    var node: MeshInstance3D
 
 class Dock:
     var cell: Vector2i
@@ -86,6 +88,12 @@ var _screen_costs: Dictionary = {}
 var _reserved: Dictionary = {}
 var _road_cells: Dictionary = {}
 var _ramp_surface: Node3D
+var _solid_meshes: Dictionary = {}
+var _phase: String = "NEW"
+var _planned_count: int = 0
+var _vehicle_count: int = 0
+var _cargo_count: int = 0
+var _ready_for_motion: bool = false
 
 func _xz(v: Vector3) -> Vector2:
     return Vector2(v.x, v.z)
@@ -351,11 +359,13 @@ func _plan(t: Truck) -> bool:
 
 func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, crate_path: Array, camera: Camera3D = null) -> void:
     _camera = camera
+    _phase = "GRID"
     print("SERA_BASE_LOGISTICS: setup begin")
     var sites: Array = [{"id": "NEXUS", "at": nexus_origin}]
     sites.append_array(specs)
     _obstacles(root, sites, power, crate_path)
     _find_network_anchor()
+    _phase = "DOCKS"
     var origins: Dictionary = {}
     for spec in specs:
         var key: String = str(spec["id"])
@@ -367,6 +377,7 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
             _docks[key] = dock
         else:
             push_warning("BASE logistics: no clear cargo dock for " + key)
+    _phase = "ROUTES"
     var moving_count: int = 0
     for route in ROUTES:
         var source: String = route[0]
@@ -408,18 +419,38 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
             t.pos = _point(t.home)
             _homes.append(t.home)
             _trucks.append(t)
+    _planned_count = moving_count
     print("SERA_BASE_LOGISTICS: docks=", _docks.size(), " vehicles=", _trucks.size(), " routable=", moving_count, " parked=", _trucks.size() - moving_count)
     # The BASE represents an already operating yard. Seed nonconflicting
     # loaded trips on the visible delivery legs instead of starting every
     # truck empty behind its source facility.
     _seed_active_deliveries()
     _capture_reservations()
+    _phase = "PLANNED"
+
+
+# Separate public entrypoints: if the routing call terminates early, the
+# BASE can still draw the successfully allocated vehicles and report why.
+func build_carriers() -> void:
+    _phase = "CARRIERS" if _phase == "PLANNED" else _phase + "/CARRIERS"
     _batch = Architecture.Batch.new(self)
+    # Chassis for every allocated vehicle before cargo or articulated docks.
+    for t in _trucks:
+        _make_chassis(t)
+        _truck_pose(t)
+    for t in _trucks:
+        _make_truck_details(t)
+        _truck_pose(t)
+    print("SERA_BASE_LOGISTICS: direct chassis=", _vehicle_count, " cargo=", _cargo_count)
+
+
+func build_docks_and_motion() -> void:
+    var previous_phase: String = _phase
+    _phase = "DOCK_DRAW"
+    if _batch == null:
+        _batch = Architecture.Batch.new(self)
     for dock in _docks.values():
         _make_dock(dock)
-    for t in _trucks:
-        _make_truck(t)
-        _truck_pose(t)
     # Bake actual world transforms before creating renderers.
     for v in _visuals:
         var transform: Transform3D = _visible_transform(v)
@@ -445,6 +476,14 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
                     break
     print("SERA_BASE_LOGISTICS: render_buckets=", _draws.size(), "/", _batch.entries.size())
     _flush_poses()
+    _ready_for_motion = previous_phase == "CARRIERS"
+    _phase = "READY" if _ready_for_motion else previous_phase + "/STOP"
+
+
+func diagnostic_text() -> String:
+    return "物流 %s\n車体 %d/12  経路 %d\n貨物 %d  ドック %d" % [
+        _phase, _vehicle_count, _planned_count, _cargo_count, _docks.size()]
+
 
 func _capture_reservations() -> void:
     for t in _trucks:
@@ -549,6 +588,9 @@ func _set(v: Visual, pose: Transform3D, shown: bool = true) -> void:
         v.pose = pose
         v.shown = shown
         v.dirty = true
+    if is_instance_valid(v.node):
+        v.node.transform = pose
+        v.node.visible = shown
 
 func _pose(p: Vector3, yaw: float = 0.0) -> Transform3D:
     return Transform3D(Basis(Vector3.UP, yaw), p)
@@ -573,7 +615,102 @@ func _flush_poses() -> void:
                 multi.set_instance_transform(start + i, transform * (local[i] as Transform3D))
         v.dirty = false
 
-func _make_truck(t: Truck) -> void:
+# Bake the same authored vehicle parts into one real MeshInstance3D.
+# No shared instance-slot lookup, hidden zero-scale matrices or custom AABB
+# are involved in drawing a carrier or its two boxes.
+func _primitive(kind: String) -> Mesh:
+    if kind == "cube":
+        var cube := BoxMesh.new()
+        cube.size = Vector3.ONE
+        return cube
+    if kind == "tube":
+        var tube := CylinderMesh.new()
+        tube.top_radius = 0.5
+        tube.bottom_radius = 0.5
+        tube.height = 1.0
+        tube.radial_segments = 8
+        return tube
+    return Polygon.make(kind)
+
+
+func _bake_mesh(g: Variant) -> ArrayMesh:
+    var mesh := ArrayMesh.new()
+    for glowing in [false, true]:
+        var vertices := PackedVector3Array()
+        var normals := PackedVector3Array()
+        var colors := PackedColorArray()
+        var indices := PackedInt32Array()
+        for key in g.entries:
+            var parts: PackedStringArray = str(key).split("|")
+            var kind: String = parts[0]
+            var tint: String = parts[1]
+            var luminous: bool = tint in ["blue_light", "amber_light", "amber", "lab_cyan"]
+            if luminous != bool(glowing):
+                continue
+            var primitive: Mesh = _primitive(kind)
+            if primitive == null:
+                continue
+            var color := Color(str(Architecture.COLORS.get(tint, "#9ba8b1")))
+            if tint == "caution":
+                color = Color("#e7b637")
+            for surface_index in range(primitive.get_surface_count()):
+                var arrays: Array = primitive.surface_get_arrays(surface_index)
+                var source_vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+                var source_normals: PackedVector3Array = arrays[Mesh.ARRAY_NORMAL]
+                var source_indices: PackedInt32Array = []
+                if arrays[Mesh.ARRAY_INDEX] != null:
+                    source_indices = arrays[Mesh.ARRAY_INDEX]
+                for local_value in g.entries[key]:
+                    var local: Transform3D = local_value
+                    var normal_basis: Basis = local.basis.inverse().transposed()
+                    var first: int = vertices.size()
+                    for j in range(source_vertices.size()):
+                        vertices.append(local * source_vertices[j])
+                        normals.append((normal_basis * source_normals[j]).normalized() if j < source_normals.size() else Vector3.UP)
+                        colors.append(color)
+                    if source_indices.is_empty():
+                        for j in range(source_vertices.size()):
+                            indices.append(first + j)
+                    else:
+                        for j in source_indices:
+                            indices.append(first + j)
+        if vertices.is_empty():
+            continue
+        var output: Array = []
+        output.resize(Mesh.ARRAY_MAX)
+        output[Mesh.ARRAY_VERTEX] = vertices
+        output[Mesh.ARRAY_NORMAL] = normals
+        output[Mesh.ARRAY_COLOR] = colors
+        output[Mesh.ARRAY_INDEX] = indices
+        mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, output)
+        var material := StandardMaterial3D.new()
+        material.albedo_color = Color.WHITE
+        material.vertex_color_use_as_albedo = true
+        material.metallic = 0.18
+        material.roughness = 0.82
+        if glowing:
+            material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+        mesh.surface_set_material(mesh.get_surface_count() - 1, material)
+    return mesh
+
+
+func _direct_visual(g: Variant, cache_key: String, label: String) -> Visual:
+    if not _solid_meshes.has(cache_key):
+        _solid_meshes[cache_key] = _bake_mesh(g)
+    var mesh: ArrayMesh = _solid_meshes[cache_key]
+    var v := Visual.new()
+    var draw := MeshInstance3D.new()
+    draw.name = label
+    draw.mesh = mesh
+    draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    draw.set_meta("sera_outline_role", "clutter")
+    draw.set_meta("sera_preserve_authored_material", true)
+    add_child(draw)
+    v.node = draw
+    return v
+
+
+func _make_chassis(t: Truck) -> void:
     var g: Variant = _template()
     # Thin steel flatbed, independent crawler pods, front-facing sensor.
     g.poly("CarrierDeck", "bevel", Vector3(0, 0.32, 0), Vector3(0.94, 0.14, 1.30), "caution")
@@ -592,7 +729,14 @@ func _make_truck(t: Truck) -> void:
     g.poly_tilt("CarrierSensorLens", "drum", Vector3(0, 0.23, 0.75), Vector3(0.15, 0.045, 0.15), "blue_light", Vector3(PI * 0.5, 0, 0))
     for i in range(3):
         g.box_tilt("CarrierWarningStripe", Vector3(-0.28 + i * 0.12, 0.35, -0.655), Vector3(0.07, 0.07, 0.02), "dark", Vector3(0, 0, -0.45))
-    t.body = _visual(g)
+    t.body = _direct_visual(g, "chassis", "Carrier_%02d" % t.id)
+    if t.body.node.mesh != null and t.body.node.mesh.get_surface_count() > 0:
+        _vehicle_count += 1
+    else:
+        push_error("SERA_BASE_LOGISTICS: carrier chassis mesh empty")
+
+
+func _make_truck_details(t: Truck) -> void:
     # Eight top-return cleats on both crawlers: phase follows travelled metres.
     for i in range(8):
         var tread: Variant = _template()
@@ -620,9 +764,12 @@ func _make_truck(t: Truck) -> void:
         else:
             # Use the actual warehouse builder, not a second lookalike.
             FreshDesign.storage_cargo(cargo, Vector3(0, 0.58 * 0.62 * 0.5, 0), 0.62, i, i)
-        var v: Visual = _visual(cargo)
+        var cache_key: String = ("raw" if t.raw else "finished") + str(i)
+        var v: Visual = _direct_visual(cargo, cache_key, "CarrierCargo_%02d_%d" % [t.id, i])
         _set(v, Transform3D.IDENTITY, false)
         t.cargo.append(v)
+        if v.node.mesh != null and v.node.mesh.get_surface_count() > 0:
+            _cargo_count += 1
 
 func _make_dock(d: Dock) -> void:
     var fixed: Variant = _template()
@@ -913,6 +1060,8 @@ func _handle(t: Truck, d: Dock, dt: float) -> void:
         t.clock = 0.0
 
 func advance(delta: float) -> void:
+    if not _ready_for_motion:
+        return
     _acc = minf(_acc + delta, STEP * 3.0)
     while _acc >= STEP:
         _acc -= STEP
