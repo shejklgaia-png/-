@@ -55,6 +55,7 @@ func build(stage: Node3D) -> void:
             # animation pivots and existing placement coordinates stay intact.
             room.position.y = WORK_DECK_RISE
             _raised_worksite(key)
+            _open_box_frame(key)
         room.visible = false
 
 func _model(key: String, label: String, at: Vector3) -> Node3D:
@@ -345,6 +346,130 @@ func _raised_worksite(key: String) -> void:
         b.poly_tilt("CargoRearWeatherCap","roof",Vector3(center_x,post_height-0.12,rear_z+0.28),
             Vector3(width-1.1,0.16,0.96),"armor",Vector3(0.09,0,0))
     _finish(b)
+
+func _open_box_frame(key: String) -> void:
+    # A real perimeter portal frame above the separate equipment, not a
+    # sealed hall. Dimensions are in final scene metres, after machine scaling.
+    var is_lab: bool = key == "LABO"
+    var cx: float = -0.7 if is_lab else -0.4
+    var cz: float = 1.1 if is_lab else 2.5
+    var width: float = 27.4 if is_lab else 28.4
+    var depth: float = 22.4 if is_lab else 23.4
+    var height: float = 16.4 if is_lab else 19.0
+    var left: float = cx-width*0.5
+    var right: float = cx+width*0.5
+    var rear: float = cz-depth*0.5
+    var front: float = cz+depth*0.5
+    var frame := _model(key,"LabOpenSteelPortalFrame" if is_lab else "StorageOpenSteelPortalFrame",Vector3.ZERO)
+    var b = _batch(frame)
+    # Four leg assemblies, wide clear front opening and no intermediate
+    # columns in the robot path, stock transfer, or crane operating envelope.
+    for x in [left,right]:
+        for z in [rear,front]:
+            _shape(b,"deck",Vector3(x,0.12,z),Vector3(1.45,0.24,1.45),"trim")
+            _shape(b,"bevel",Vector3(x,0.43,z),Vector3(1.08,0.62,1.08),"armor")
+            for sx in [-1.0,1.0]:
+                for sz in [-1.0,1.0]:
+                    _shape(b,"drum",Vector3(x+sx*0.50,0.27,z+sz*0.50),
+                        Vector3(0.16,0.12,0.16),"edge")
+            _box(b,Vector3(x,height*0.5,z),Vector3(0.62,height,0.64),"slate")
+            for sx in [-1.0,1.0]:
+                _box(b,Vector3(x+sx*0.34,height*0.5,z),
+                    Vector3(0.14,height,0.96),"armor")
+                _box(b,Vector3(x+sx*0.43,1.25,z),
+                    Vector3(0.035,1.72,0.80),"trim")
+            for y in [0.76,2.2,height-1.10]:
+                _shape(b,"bevel",Vector3(x,y,z),Vector3(0.96,0.19,1.05),"edge")
+            _box(b,Vector3(x,1.48,z+0.50),Vector3(0.50,0.18,0.05),"caution")
+            _box(b,Vector3(x,1.14,z+0.50),Vector3(0.50,0.18,0.05),"caution")
+            _shape(b,"bevel",Vector3(x,height-0.22,z),Vector3(1.24,0.44,1.24),"armor_light")
+            for y in [height-0.72,height-1.00]:
+                _box(b,Vector3(x,y,z+0.49),Vector3(0.42,0.095,0.08),"edge")
+    # Deep fabricated beams with separate flanges and web stiffeners.
+    for z in [rear,front]:
+        _box(b,Vector3(cx,height-0.48,z),Vector3(width,0.95,0.53),"slate")
+        for y in [height-0.04,height-0.92]:
+            _box(b,Vector3(cx,y,z),Vector3(width+0.78,0.18,0.94),"armor")
+        for i in range(1,7):
+            var x: float = left+width*float(i)/7.0
+            _box(b,Vector3(x,height-0.48,z),Vector3(0.16,0.74,0.80),"trim")
+    for x in [left,right]:
+        _box(b,Vector3(x,height-0.48,cz),Vector3(0.53,0.95,depth),"slate")
+        for y in [height-0.04,height-0.92]:
+            _box(b,Vector3(x,y,cz),Vector3(0.94,0.18,depth+0.78),"armor")
+        for i in range(1,6):
+            var z: float = rear+depth*float(i)/6.0
+            _box(b,Vector3(x,height-0.48,z),Vector3(0.80,0.74,0.16),"trim")
+    # Top lattice: two cross beams and longitudinal service rails. Large
+    # rectangular openings show the sky; no roof sheet or continuous ceiling.
+    for z in [rear+depth*0.33,rear+depth*0.67]:
+        _box(b,Vector3(cx,height-0.68,z),Vector3(width-0.8,0.46,0.30),"slate")
+        for y in [height-0.43,height-0.93]:
+            _box(b,Vector3(cx,y,z),Vector3(width-0.8,0.12,0.60),"edge")
+    for x in [cx-width*0.25,cx+width*0.25]:
+        _box(b,Vector3(x,height-0.34,cz),Vector3(0.30,0.34,depth-0.92),"trim")
+    # Knee braces stay in the upper corners. No diagonal across the front
+    # face; all goods, CRATE and the central machine remain visible.
+    for x in [left,right]:
+        var sx: float = 1.0 if x<cx else -1.0
+        for z in [rear,front]:
+            var sz: float = 1.0 if z<cz else -1.0
+            _pipe(b,Vector3(x,height-3.45,z),Vector3(x,height-1.0,z+sz*3.1),0.32,"edge")
+            if z == rear:
+                _pipe(b,Vector3(x,height-3.45,z),Vector3(x+sx*3.1,height-1.0,z),0.32,"edge")
+        # High-side diagonal bracing restricted to rear bay only.
+        _pipe(b,Vector3(x,5.1,rear),Vector3(x,height-1.05,rear+depth*0.32),0.26,"slate")
+        _pipe(b,Vector3(x,height-1.05,rear),Vector3(x,5.1,rear+depth*0.32),0.26,"slate")
+        # Rear half has a separately supported maintenance rail.
+        _box(b,Vector3(x,5.1,rear+depth*0.16),Vector3(0.38,0.34,depth*0.32),"trim")
+    # Low perimeter cable tray, junction boxes and connected risers.
+    # No cables or obstacles cross the access ramps or the work route.
+    for x in [left,right]:
+        var inward: float = 1.0 if x<cx else -1.0
+        var cable_x: float = x+inward*0.72
+        _box(b,Vector3(cable_x,0.14,cz-1.6),Vector3(0.39,0.24,depth-4.8),"trim")
+        for j in range(8):
+            var z: float = rear+1.0+float(j)*(depth-5.6)/7.0
+            _box(b,Vector3(cable_x,0.29,z),Vector3(0.48,0.08,0.14),"edge")
+        _pipe(b,Vector3(cable_x,0.26,rear+0.8),Vector3(cable_x,0.26,rear),0.16,"rubber")
+        _pipe(b,Vector3(cable_x,0.26,rear),Vector3(cable_x,3.3,rear),0.16,"rubber")
+        _pipe(b,Vector3(cable_x,3.3,rear),Vector3(x+inward*0.44,3.3,rear),0.16,"rubber")
+        _shape(b,"bevel",Vector3(x+inward*0.68,2.55,rear),
+            Vector3(0.62,1.0,0.65),"armor_light")
+        _box(b,Vector3(x+inward*0.68,2.72,rear+0.35),
+            Vector3(0.40,0.11,0.05),"lab_cyan")
+        # Recessed side service drains and the near corner bumper.
+        for z in [cz-3.1,cz+3.1]:
+            _box(b,Vector3(x+inward*1.42,0.028,z),Vector3(0.78,0.045,1.6),"dark")
+            for j in range(7):
+                _box(b,Vector3(x+inward*1.42,0.060,z-0.66+float(j)*0.22),
+                    Vector3(0.69,0.045,0.065),"edge")
+        _shape(b,"octagonal_slew",Vector3(x+inward*1.05,0.64,front-1.25),
+            Vector3(0.38,1.28,0.38),"gold")
+        _box(b,Vector3(x+inward*1.05,0.86,front-1.25),Vector3(0.42,0.15,0.42),"trim")
+    # Dedicated fixture identities: LABO cool task light, STORAGE amber
+    # loading indicator. Emissive geometry shares the existing batch palette.
+    for x in [left,right]:
+        var inward: float = 1.0 if x<cx else -1.0
+        for z in [rear,front]:
+            var lamp_x: float = x+inward*1.45
+            _pipe(b,Vector3(x,7.2,z),Vector3(lamp_x,7.2,z),0.16,"trim")
+            _shape(b,"hood",Vector3(lamp_x,7.02,z),Vector3(0.9,0.30,0.74),"armor")
+            _box(b,Vector3(lamp_x,6.83,z),Vector3(0.68,0.06,0.52),
+                "lab_cyan" if is_lab else "amber_light")
+    # Small equipment identification panels on the front top beam.
+    # They are separate physical faces rather than UI overlay.
+    _shape(b,"bevel",Vector3(cx,height-0.49,front+0.53),Vector3(4.5,0.70,0.18),"dark")
+    for i in range(3):
+        _box(b,Vector3(cx-1.55+float(i)*0.32,height-0.48,front+0.65),
+            Vector3(0.17,0.34,0.07),"lab_cyan" if is_lab else "amber_light")
+    _box(b,Vector3(cx+0.82,height-0.49,front+0.65),Vector3(2.10,0.09,0.07),"edge")
+    _finish(b)
+    # Two near-corner lamps illuminate only the loading edge; no new shadows.
+    for x in [left,right]:
+        var inward: float = 1.0 if x<cx else -1.0
+        _task_light(frame,Vector3(x+inward*1.45,6.65,front),
+            Color("#c4efff") if is_lab else Color("#ffdda1"),9.0,0.65)
 
 func set_base_context(sources: Dictionary) -> void:
     # Copy render nodes only. No duplicated scripts, lights, particles or UI.
