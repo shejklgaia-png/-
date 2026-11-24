@@ -454,7 +454,11 @@ func _prepare_canonical_placement_specs() -> void:
     }
 
 
-func _ensure_placement_editor_nodes() -> void:
+func _ensure_placement_editor_nodes(kind: String) -> void:
+    # Match the working LABO editor lifecycle: create ONLY the requested
+    # scripted Control when its launcher is pressed. The old .tscn contained
+    # generic Controls whose scripts failed to attach in Android exports;
+    # an is_instance_valid() check alone let those placeholders persist.
     if not is_instance_valid(placement_ui_layer):
         placement_ui_layer = get_node_or_null(
             "NexusPlacementOverlay") as CanvasLayer
@@ -463,22 +467,45 @@ func _ensure_placement_editor_nodes() -> void:
         placement_ui_layer.name = "NexusPlacementOverlay"
         placement_ui_layer.layer = 8
         add_child(placement_ui_layer)
-    if not is_instance_valid(placement_editor):
-        placement_editor = placement_ui_layer.get_node_or_null(
-            "NexusCanonicalPlacement")
-    if not is_instance_valid(placement_editor):
-        placement_editor = NexusCanonicalPlacement.new()
-        placement_editor.name = "NexusCanonicalPlacement"
-        placement_editor.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        placement_ui_layer.add_child(placement_editor)
-    if not is_instance_valid(camera_angle_editor):
-        camera_angle_editor = placement_ui_layer.get_node_or_null(
-            "NexusCameraAnglePlacement")
-    if not is_instance_valid(camera_angle_editor):
-        camera_angle_editor = NexusCameraAnglePlacement.new()
-        camera_angle_editor.name = "NexusCameraAnglePlacement"
-        camera_angle_editor.mouse_filter = Control.MOUSE_FILTER_IGNORE
-        placement_ui_layer.add_child(camera_angle_editor)
+
+    if kind == "PLACE":
+        var existing_place: Control = placement_ui_layer.get_node_or_null(
+            "NexusCanonicalPlacement") as Control
+        if is_instance_valid(existing_place) and (
+                existing_place.get_script() == null or
+                not existing_place.has_method("configure") or
+                not existing_place.has_method("open_mode")):
+            # An unbound Control cannot become a placement editor merely by
+            # having the expected node name. Remove it from the live scene.
+            placement_ui_layer.remove_child(existing_place)
+            existing_place.queue_free()
+            existing_place = null
+            placement_editor = null
+        if not is_instance_valid(existing_place):
+            existing_place = NexusCanonicalPlacement.new()
+            if is_instance_valid(existing_place):
+                existing_place.name = "NexusCanonicalPlacement"
+                existing_place.mouse_filter = Control.MOUSE_FILTER_IGNORE
+                placement_ui_layer.add_child(existing_place)
+        placement_editor = existing_place
+    elif kind == "ANGLE":
+        var existing_angle: Control = placement_ui_layer.get_node_or_null(
+            "NexusCameraAnglePlacement") as Control
+        if is_instance_valid(existing_angle) and (
+                existing_angle.get_script() == null or
+                not existing_angle.has_method("configure") or
+                not existing_angle.has_method("open_mode")):
+            placement_ui_layer.remove_child(existing_angle)
+            existing_angle.queue_free()
+            existing_angle = null
+            camera_angle_editor = null
+        if not is_instance_valid(existing_angle):
+            existing_angle = NexusCameraAnglePlacement.new()
+            if is_instance_valid(existing_angle):
+                existing_angle.name = "NexusCameraAnglePlacement"
+                existing_angle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+                placement_ui_layer.add_child(existing_angle)
+        camera_angle_editor = existing_angle
 
 
 # Follow the working LABO editor's lifecycle: acquire a node, validate its
@@ -510,7 +537,7 @@ func _placement_editor_failure(kind: String, editor) -> String:
 
 
 func _initialize_camera_angle_editor() -> bool:
-    _ensure_placement_editor_nodes()
+    _ensure_placement_editor_nodes("ANGLE")
     if not is_instance_valid(camera_angle_editor):
         return false
     if not camera_angle_editor.is_inside_tree() or (
@@ -522,7 +549,7 @@ func _initialize_camera_angle_editor() -> bool:
 
 
 func _initialize_canonical_placement_editor() -> bool:
-    _ensure_placement_editor_nodes()
+    _ensure_placement_editor_nodes("PLACE")
     if not is_instance_valid(placement_editor):
         return false
     if not placement_editor.is_inside_tree() or (
@@ -628,8 +655,8 @@ func _sync_placement_launchers() -> void:
     angle_entry_button.size = launcher_size
 
     var editor_open: bool = (
-        (is_instance_valid(placement_editor) and bool(placement_editor.get("active")))
-        or (is_instance_valid(camera_angle_editor) and bool(camera_angle_editor.get("active"))))
+        (is_instance_valid(placement_editor) and placement_editor.has_method("open_mode") and bool(placement_editor.get("active")))
+        or (is_instance_valid(camera_angle_editor) and camera_angle_editor.has_method("open_mode") and bool(camera_angle_editor.get("active"))))
     placement_entry_button.visible = focused_target.is_empty() and not editor_open
     # Show the camera launcher for every supported focused menu, even when
     # its controller has not yet been created. No tween visibility dependency.
@@ -639,9 +666,12 @@ func _sync_placement_launchers() -> void:
 
 
 func _process(delta: float) -> void:
+    # Recover focus transitions BEFORE touching optional placement UI. If an
+    # editor is missing its script, a UI failure must not leave NEXUS consoles
+    # permanently blocked behind in_transition.
+    _recover_nexus_transition_if_stalled(delta)
     _sync_placement_launchers()
     SeraSave.record_game_time(delta)
-    _recover_nexus_transition_if_stalled(delta)
     _refresh_outline_debug(delta)
     _update_system_confirmation_blink(delta)
     _update_training_start_pulse(delta)
@@ -4435,10 +4465,10 @@ func _on_android_back() -> void:
     _navigate_back()
 
 func _navigate_back() -> void:
-    if is_instance_valid(camera_angle_editor) and bool(camera_angle_editor.get("active")):
+    if is_instance_valid(camera_angle_editor) and camera_angle_editor.has_method("open_mode") and bool(camera_angle_editor.get("active")):
         camera_angle_editor.call("close_mode")
         return
-    if is_instance_valid(placement_editor) and bool(placement_editor.get("active")):
+    if is_instance_valid(placement_editor) and placement_editor.has_method("open_mode") and bool(placement_editor.get("active")):
         placement_editor.call("close_mode")
         return
     if customize_part_preview_fullscreen_active:
@@ -4460,11 +4490,11 @@ func _navigate_back() -> void:
 func _input(event: InputEvent) -> void:
     # Once an editor is active, it exclusively owns the viewport's pointer.
     # Inactive editors must not consume launcher taps before the host sees them.
-    if is_instance_valid(camera_angle_editor) and bool(camera_angle_editor.get("active")):
+    if is_instance_valid(camera_angle_editor) and camera_angle_editor.has_method("open_mode") and bool(camera_angle_editor.get("active")):
         if bool(camera_angle_editor.call("route_input", event)):
             get_viewport().set_input_as_handled()
             return
-    if is_instance_valid(placement_editor) and bool(placement_editor.get("active")):
+    if is_instance_valid(placement_editor) and placement_editor.has_method("open_mode") and bool(placement_editor.get("active")):
         if bool(placement_editor.call("route_input", event)):
             get_viewport().set_input_as_handled()
             return
@@ -4722,9 +4752,9 @@ func _tap_at(point: Vector2) -> void:
     return
 
 func _enter_base() -> void:
-    if is_instance_valid(camera_angle_editor) and bool(camera_angle_editor.get("active")):
+    if is_instance_valid(camera_angle_editor) and camera_angle_editor.has_method("open_mode") and bool(camera_angle_editor.get("active")):
         camera_angle_editor.call("close_mode")
-    if is_instance_valid(placement_editor) and bool(placement_editor.get("active")):
+    if is_instance_valid(placement_editor) and placement_editor.has_method("open_mode") and bool(placement_editor.get("active")):
         placement_editor.call("close_mode")
     # Explicit EXIT TO BASE must not be blocked by an interrupted tween.
     if focus_tween != null and focus_tween.is_running():
@@ -4838,7 +4868,7 @@ func _focus_arrived(target_name: String) -> void:
 func _return_to_overview() -> void:
     if in_transition or focused_target.is_empty():
         return
-    if is_instance_valid(camera_angle_editor) and bool(camera_angle_editor.get("active")):
+    if is_instance_valid(camera_angle_editor) and camera_angle_editor.has_method("open_mode") and bool(camera_angle_editor.get("active")):
         camera_angle_editor.call("close_mode")
     if nexus_room_motion != null:
         nexus_room_motion.set_deployment_open(false)

@@ -1,21 +1,6 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=2 format=3]
 
 [ext_resource type="Script" path="res://scripts/command_nexus.gd" id="1_world"]
-[ext_resource type="Script" path="res://scripts/nexus_canonical_placement.gd" id="2_place"]
-[ext_resource type="Script" path="res://scripts/nexus_camera_angle_placement.gd" id="3_angle"]
 
 [node name="CommandNexus" type="Node3D"]
 script = ExtResource("1_world")
-
-; Editors exist before the NEXUS HUD is built. Invisible until explicitly
-; configured, both Control nodes ignore normal pointer input.
-[node name="NexusPlacementOverlay" type="CanvasLayer" parent="."]
-layer = 8
-
-[node name="NexusCanonicalPlacement" type="Control" parent="NexusPlacementOverlay"]
-mouse_filter = 2
-script = ExtResource("2_place")
-
-[node name="NexusCameraAnglePlacement" type="Control" parent="NexusPlacementOverlay"]
-mouse_filter = 2
-script = ExtResource("3_angle")
