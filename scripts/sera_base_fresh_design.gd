@@ -1,4 +1,5 @@
 extends RefCounted
+const LabPrintArms = preload("res://scripts/sera_base_labo_print_arms.gd")
 const CollectorCrane = preload("res://scripts/sera_base_collector_crane.gd")
 const CollectorConveyor = preload("res://scripts/sera_base_collector_conveyor.gd")
 ## SERA BASE FRESH_20261122 — image-reference industrial re-authoring of eight facilities.
@@ -191,35 +192,12 @@ static func _labo(g: Variant) -> void:
         Vector3(0.19, 2.02, -0.95), Vector3(0.43, 0.18, 0.43), "gold")
     g.rod("LabCoolantSupply", Vector3(0.19, 0.72, -0.67),
         Vector3(0.19, 0.72, 0.35), 0.13, "gold")
-    # Main fabrication gantry: shaped cast feet, substantial guide columns,
-    # and two diagonal braces on the rear side of the carriage opening.
+    # Open fabrication bed shared by the three multi-joint print robots.
     g.poly("LabPrinterPedestal", "octagonal_slew",
         Vector3(0.10, 0.68, 1.13), Vector3(1.65, 0.43, 1.23), "dark")
     g.poly("FreshLabFabricationBed", "tray",
         Vector3(0.10, 0.94, 1.13), Vector3(2.11, 0.24, 1.41), "armor_light")
-    for side in [-1.0, 1.0]:
-        var x: float = side * 1.04
-        g.poly("LabPrinterCastFoot", "gusset",
-            Vector3(x, 0.89, 0.77), Vector3(0.47, 0.60, 0.53), "slate")
-        g.poly("FreshLabPrinterRail", "octagonal_slew",
-            Vector3(x, 1.88, 0.98), Vector3(0.34, 1.63, 0.35), "armor_light")
-        g.poly("LabPrinterGuideBearing", "drum",
-            Vector3(x, 2.45, 0.98), Vector3(0.43, 0.32, 0.43), "edge")
-        g.rod("LabPrinterDiagonalBrace", Vector3(x, 1.00, 0.28),
-            Vector3(x, 2.37, 0.98), 0.19, "trim")
-        g.box("FreshLabPrinterLegLight", Vector3(x, 1.88, 1.17),
-            Vector3(0.13, 0.78, 0.08), "lab_cyan")
-    g.poly_tilt("FreshLabOpenPrinterBridge", "octagonal_slew",
-        Vector3(0, 2.64, 0.97), Vector3(0.33, 2.30, 0.37),
-        "edge", Vector3(0, 0, PI * 0.5))
-    # Carriage, motor and nozzle retain their existing animation feature IDs.
-    g.poly_tilt("FreshLabPrinterServo", "drum",
-        Vector3(0.10, 2.40, 1.05), Vector3(0.57, 0.50, 0.57),
-        "slate", Vector3(0, 0, PI * 0.5))
-    g.poly("FreshLabPrinterHotHead", "octagonal_slew",
-        Vector3(0.10, 1.93, 1.05), Vector3(0.39, 0.61, 0.39), "gold")
-    g.poly("FreshLabPrinterTip", "drum",
-        Vector3(0.10, 1.55, 1.08), Vector3(0.20, 0.20, 0.20), "amber_light")
+    LabPrintArms.build(g)
     # A recognizable hollow Shell component under manufacture, not a cube.
     g.poly("FreshLabPrintedShell", "vent_stack",
         Vector3(0.10, 1.08, 1.13), Vector3(0.74, 0.40, 0.67), "blue")
