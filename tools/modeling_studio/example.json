@@ -218,5 +218,23 @@
       "radius": 0.035,
       "material": "dark"
     }
-  ]
+  ],
+  "landmarks": {
+    "indicator_center": {
+      "node": "indicator",
+      "local": [
+        0,
+        -0.015,
+        0
+      ]
+    },
+    "shaft_center": {
+      "node": "shaft",
+      "local": [
+        0,
+        0,
+        0
+      ]
+    }
+  }
 }
