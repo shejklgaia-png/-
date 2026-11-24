@@ -1,6 +1,7 @@
 extends RefCounted
 ## Dedicated life-size OUTDOOR production sets. BASE icons are design references only.
 ## All dimensions are authored in metres, never scaled BASE meshes.
+const Logistics = preload("res://scripts/labo_worksite_logistics.gd")
 const Architecture = preload("res://scripts/sera_base_architecture.gd")
 const Monitor = preload("res://scripts/sera_labo_monitor_24fps.gd")
 const DeckLayout = preload("res://scripts/sera_base_deck_layout.gd")
@@ -34,6 +35,8 @@ var active_key: String = ""
 var elapsed: float = 0.0
 var cycle_running: bool = false
 var mechanism_layouts: Dictionary = {}
+var logistics: Dictionary = {}
+var idle_seconds: float = 0.0
 
 func build(stage: Node3D) -> void:
     host = stage
@@ -62,6 +65,7 @@ func build(stage: Node3D) -> void:
             _open_box_frame(key)
         # Capture relative mechanical alignment after scaling, not the whole room pose.
         _capture_mechanism(key)
+        _build_logistics(key)
         room.visible = false
 
 func _model(key: String, label: String, at: Vector3) -> Node3D:
@@ -1094,105 +1098,43 @@ func _recycler(key: String) -> void:
     _console(key,Vector3(4.7,0,4.0),3)
 
 func _storage(key: String) -> void:
-    # BASE: rear rack bank, clear forward apron and left-side loading lift.
-    var rack := _model(key,"RearHighBayRackBank",Vector3(1.0,0,-3.4))
-    var b = _batch(rack)
-    _skid(b,16.8,5.8)
-    for x in [-7.5,-2.5,2.5,7.5]:
-        for z in [-2.3,2.3]:
-            _shape(b,"bevel",Vector3(x,5.8,z),Vector3(0.48,11.6,0.52),"armor_light")
-            for y in [0.68,3.18,5.68,8.18,10.68]:
-                _shape(b,"deck",Vector3(x,y,z),Vector3(0.65,0.18,0.68),"edge")
-        _pipe(b,Vector3(x,0.7,-2.3),Vector3(x,11.2,2.3),0.19,"trim")
-    for level in range(4):
-        var y: float = 0.75+float(level)*2.5
-        _shape(b,"deck",Vector3(0,y,0),Vector3(15.8,0.30,4.7),"slate")
-        for z in [-2.38,2.38]:
-            _box(b,Vector3(0,y,z),Vector3(15.8,0.24,0.22),"gold")
-        for x in [-5.0,0.0,5.0]:
-            _box(b,Vector3(x,y+0.20,-2.07),Vector3(0.30,0.24,0.20),"edge")
-            _box(b,Vector3(x,y+0.20,2.42),Vector3(0.64,0.12,0.06),"lab_cyan")
-    for side in [-1.0,1.0]:
-        _pipe(b,Vector3(side*7.5,0.72,-2.3),Vector3(-side*7.5,11.25,-2.3),0.25,"edge")
-    _shape(b,"roof",Vector3(0,11.75,-0.8),Vector3(16.6,0.25,3.25),"armor")
-    _finish(b)
-    for level in range(4):
-        for col in range(6):
-            if level==2 and col==0:
-                continue
-            var cargo := _child(rack,"Stock_"+str(level)+"_"+str(col),
-                Vector3(-6.25+float(col)*2.5,0.90+float(level)*2.5,0.2))
-            (targets[key] as Array).append(cargo)
-            var cb = _batch(cargo)
-            _shape(cb,"cargo_case",Vector3(0,0.83,0),Vector3(1.92,1.60,3.5),
-                "crate" if posmod(level+col,3)!=0 else "slate")
-            _box(cb,Vector3(0,0.84,1.79),Vector3(0.64,0.22,0.09),"gold")
-            for side in [-1.0,1.0]:
-                _box(cb,Vector3(side*0.86,0.84,1.79),Vector3(0.12,1.3,0.12),"edge")
-            _finish(cb)
-    var mast := _model(key,"LeftLoadingLiftMastV2",Vector3(-5.25,0,3.75))
-    b = _batch(mast)
-    _skid(b,4.8,4.4)
-    for x in [-1.6,1.6]:
-        _shape(b,"bevel",Vector3(x,5.85,0),Vector3(0.48,11.7,0.78),"armor_light")
-        _box(b,Vector3(x,5.8,0.42),Vector3(0.10,11.1,0.12),"edge")
-        _pipe(b,Vector3(x,0.5,-0.5),Vector3(x,11.1,-0.5),0.18,"gold")
-        _shape(b,"gusset",Vector3(signf(x)*1.95,0.90,-1.2),Vector3(0.75,1.4,1.9),"slate")
-    _shape(b,"drum",Vector3(0,11.62,0),Vector3(2.0,0.9,1.7),"slate")
-    _shape(b,"louver",Vector3(0,11.55,0.88),Vector3(1.65,0.56,0.18),"edge")
-    _box(b,Vector3(0,11.05,0.45),Vector3(2.6,0.14,0.11),"lab_cyan")
-    _finish(b)
-    var platform_mount := _child(mast,"LiftPlacement",Vector3(0,0.76,0.45))
-    (targets[key] as Array).append(platform_mount)
-    var platform := _child(platform_mount,"LiftCarriage")
-    b = _batch(platform)
-    _shape(b,"deck",Vector3(0,-0.06,0),Vector3(2.60,0.22,4.0),"gold")
-    for x in [-1.27,1.27]:
-        _box(b,Vector3(x,0.24,0),Vector3(0.12,0.22,4.0),"edge")
-    for j in range(12):
-        _pipe(b,Vector3(-1.16,0.22,-1.83+float(j)*0.33),
-            Vector3(1.16,0.22,-1.83+float(j)*0.33),0.20,"edge")
-    _finish(b)
-    # A fixed roller bridge spans only the gap in front of the empty shelf.
-    # At the transfer height its rollers are flush with the shelf and lift.
-    var bridge := _child(rack,"StorageTransferBridge",Vector3(-6.25,5.90,0))
-    b = _batch(bridge)
-    for x in [-1.15,1.15]:
-        _box(b,Vector3(x,-0.18,4.00),Vector3(0.12,0.24,3.10),"slate")
-    for j in range(11):
-        var z: float = 2.50+float(j)*0.295
-        _pipe(b,Vector3(-1.07,-0.10,z),Vector3(1.07,-0.10,z),0.20,"edge")
-    _finish(b)
-    var load_mount := _child(mast,"LiftCargoPlacement")
-    (targets[key] as Array).append(load_mount)
-    var load := _cargo(load_mount,"LiftCargo",Vector3.ZERO,Vector3(1.92,1.6,3.0))
-    _moving(key,"lift",platform)
-    _moving(key,"lift_mount",platform_mount)
-    _moving(key,"cargo_mount",load_mount)
-    _moving(key,"lift_cargo",load)
-    var apron := _model(key,"ForwardLoadingApronV2",Vector3(3.25,0,3.5))
-    b = _batch(apron)
-    _skid(b,10.2,6.4)
-    _shape(b,"deck",Vector3(0,0.47,0),Vector3(9.6,0.20,5.7),"armor")
-    for x in [-4.5,0.0,4.5]:
-        _box(b,Vector3(x,0.59,0),Vector3(0.11,0.03,5.4),"caution")
-    _box(b,Vector3(0,0.61,2.8),Vector3(9.1,0.17,0.20),"rubber")
-    for x in [-4.5,4.5]:
-        _pipe(b,Vector3(x,0.5,-2.5),Vector3(x,4.7,-2.5),0.22,"edge")
-        _pipe(b,Vector3(x,4.7,-2.5),Vector3(x,4.7,0.5),0.20,"edge")
-        _shape(b,"hood",Vector3(x,4.7,0.5),Vector3(1.1,0.37,0.7),"armor")
-        _box(b,Vector3(x,4.48,0.5),Vector3(0.88,0.08,0.53),"amber_light")
-    _finish(b)
-    var dispatch := _conveyor(key,"LeftReceivingRollersV2",Vector3(-5.25,0,8.0),2.8,3.5)
-    inspection[key] = {"root":apron,"stand":Vector3(-1.0,0,5.4),"focus":Vector3(-2.0,2.0,-1.0)}
-    _moving(key,"rack",rack)
-    _moving(key,"mast",mast)
-    _moving(key,"dispatch",dispatch)
-    motion_parts[key]["reverse"] = false
-    motion_parts[key]["stored"] = false
-    for x in [-4.5,4.5]:
-        _task_light(apron,Vector3(x,4.15,0.5),Color("#ffe0b2"),6.0,1.0)
-    _console(key,Vector3(5.8,0,8.5),4)
+    # Full-size warehouse is built by the shared logistics module after scaling.
+    var anchor := _model(key,"WarehouseInspectionAnchor",Vector3(0,0,0))
+    inspection[key] = {"root":anchor,"stand":Vector3(0,0,4.5),"focus":Vector3(0,3,-4.0)}
+    _moving(key,"storage_anchor",anchor)
+    _console(key,Vector3(0,0,7.5),4)
+
+func _build_logistics(key: String) -> void:
+    var m: Dictionary = motion_parts[key]
+    var room: Node3D = rooms[key]
+    var source := Vector3.ZERO
+    var destination := Vector3.ZERO
+    if key=="LABO":
+        var supply := room.get_node("ReceivingHopperAndFeed") as Node3D
+        source = room.to_local(supply.to_global(Vector3(0,3.75,0)))
+        m["variant"] = 0
+        _sample_machine(key,1.0)
+        var product: Node3D = (m["products"] as Node3D).get_child(0) as Node3D
+        destination = room.to_local(product.global_position)
+        m["variant"] = -1
+        _sample_machine(key,0.0)
+    elif key!="STORAGE":
+        _sample_machine(key,0.0)
+        source = room.to_local((m["feed"] as Node3D).global_position)
+        _sample_machine(key,1.0)
+        destination = room.to_local((m["output"] as Node3D).global_position)
+        _sample_machine(key,0.0)
+        (m["feed"] as Node3D).visible = false
+        (m["output"] as Node3D).visible = false
+    var flow := Logistics.new()
+    flow.build(room,key,source,destination)
+    logistics[key] = flow
+
+func logistics_reservations(key: String) -> Array[AABB]:
+    var flow = logistics.get(key)
+    if flow==null:
+        return []
+    return flow.reserves
 
 func placement_models(key: String) -> Array[Node3D]:
     var result: Array[Node3D] = []
@@ -1207,9 +1149,12 @@ func select(key: String) -> void:
         (rooms[id] as Node3D).visible = id == key
     elapsed = 0.0
     cycle_running = false
-    if key == "STORAGE":
-        motion_parts[key]["reverse"] = bool(motion_parts[key]["stored"])
-    _sample(key,0.0)
+    idle_seconds = 0.0
+    if logistics.has(key):
+        logistics[key].reset()
+    if key!="STORAGE":
+        _sample_machine(key,0.0)
+        _hide_machine_payloads(key)
 
 func work_point(key: String, inspect: bool) -> Vector3:
     if inspect:
@@ -1224,14 +1169,14 @@ func focus_point(key: String, inspect: bool) -> Vector3:
     return (terminals[key] as Node3D).to_global(Vector3(0,1.05,0.34))
 
 func start_cycle(key: String) -> void:
-    if key != active_key or not _mechanism_aligned(key):
+    if key != active_key or cycle_running or not _mechanism_aligned(key):
         return
     elapsed = 0.0
     cycle_running = true
     if key == "LABO":
         motion_parts[key]["variant"] = (int(motion_parts[key]["variant"])+1)%4
-    if key == "STORAGE":
-        motion_parts[key]["reverse"] = bool(motion_parts[key]["stored"])
+    idle_seconds = 0.0
+    logistics[key].begin()
     _sample(key,0.0)
 
 func cycle_complete() -> bool:
@@ -1251,14 +1196,18 @@ func animate(delta: float, time: float, key: String) -> void:
     if cycle_running:
         if not _mechanism_aligned(key):
             cycle_running = false
+            logistics[key].reset()
             return
-        elapsed = minf(10.0,elapsed+delta)
-        _sample(key,elapsed/10.0)
-        cycle_running = elapsed < 10.0
-        if not cycle_running and key == "STORAGE":
-            motion_parts[key]["stored"] = not bool(motion_parts[key]["reverse"])
+        var duration: float = logistics[key].duration()
+        elapsed = minf(duration,elapsed+delta)
+        _sample(key,elapsed/duration)
+        cycle_running = elapsed < duration
+    else:
+        idle_seconds += delta
+        if idle_seconds>=5.0:
+            start_cycle(key)
 
-func _sample(key: String, t: float) -> void:
+func _sample_machine(key: String, t: float) -> void:
     var m: Dictionary = motion_parts[key]
     match key:
         "LABO":
@@ -1347,24 +1296,39 @@ func _sample(key: String, t: float) -> void:
             (m["shaft1"] as Node3D).rotation.x = -t*TAU*4.0
             output.visible = t>0.60
             output.position.z = -1.7+3.4*smoothstep(0.60,1.0,t)
-        "STORAGE":
-            var lift: Node3D = m["lift"]
-            var cargo: Node3D = m["lift_cargo"]
-            var rack: Node3D = m["rack"]
-            var dispatch: Node3D = m["dispatch"]
-            # Alternate delivery/retrieval, so cargo never snaps back to the inlet.
-            var phase: float = 1.0-t if bool(m["reverse"]) else t
-            var height: float = smoothstep(0.22,0.45,phase)*(1.0-smoothstep(0.82,1.0,phase))
-            lift.position.y = 4.82*height
-            var mount := cargo.get_parent() as Node3D
-            var incoming: Vector3 = mount.to_local(dispatch.to_global(Vector3(0,1.08,0.20)))
-            var on_lift: Vector3 = mount.to_local(lift.to_global(Vector3(0,0.32,0)))
-            var destination: Vector3 = mount.to_local(rack.to_global(Vector3(-6.25,5.90,0.2)))
-            cargo.position = incoming.lerp(on_lift,smoothstep(0.0,0.22,phase))
-            if phase>=0.45:
-                cargo.position = on_lift.lerp(destination,smoothstep(0.50,0.76,phase))
-            if phase>=0.76:
-                cargo.position = destination
+func _hide_machine_payloads(key: String) -> void:
+    var m: Dictionary = motion_parts[key]
+    if key=="LABO":
+        for p in (m["products"] as Node3D).get_children():
+            (p as Node3D).visible = false
+    elif key!="STORAGE":
+        (m["feed"] as Node3D).visible = false
+        (m["output"] as Node3D).visible = false
+
+func _sample(key: String,t: float) -> void:
+    var flow = logistics[key]
+    if key=="STORAGE":
+        flow.sample_storage(t)
+        return
+    var m: Dictionary = motion_parts[key]
+    if t<0.29:
+        _sample_machine(key,0.0)
+        _hide_machine_payloads(key)
+        var input: Node3D = null if key=="LABO" else m["feed"] as Node3D
+        flow.sample_in(t,input)
+        return
+    flow.truck_in.visible = false
+    flow.raw.visible = false
+    if t<0.72:
+        _sample_machine(key,clampf((t-0.29)/0.43,0.0,1.0))
+        return
+    _sample_machine(key,1.0)
+    var output: Node3D
+    if key=="LABO":
+        output = (m["products"] as Node3D).get_child(int(m["variant"])) as Node3D
+    else:
+        output = m["output"] as Node3D
+    flow.sample_out(t,output)
 
 # Linked machinery must retain its relative alignment. The entire room or a
 # complete mechanism may move; independent unsafe placement stops animation.
@@ -1376,7 +1340,7 @@ func _mechanism_nodes(key: String) -> Array[Node3D]:
         "LABO": names = ["print_frame","rail","tray","carriage_mount","head_mount"]
         "SMELTER": names = ["hopper","charge_conveyor","charge_hoist","charge_mount","furnace","casting_line","ingot_mount","cooling"]
         "RECYCLER": names = ["crusher","feed_conveyor","scrap_mount","shaft_root0","shaft_root1","ramp","sorted_line","sorted_mount"]
-        "STORAGE": names = ["rack","mast","dispatch","lift_mount","cargo_mount"]
+        "STORAGE": names = ["storage_anchor"]
     for label in names:
         result.append(m[label] as Node3D)
     # Head mount is a child of the animated carriage; use its LOCAL transform
