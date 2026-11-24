@@ -26,8 +26,8 @@ func _run() -> void:
     var source: MeshInstance3D = snapshot.source
     host.add_child(source)
     var begin := Time.get_ticks_msec()
-    var variant: String = args[3] if args.size() > 3 else "v20"
-    var result: Dictionary = UV.build(source,density,true,true,variant!="baseline")
+    var variant: String = args[3] if args.size() > 3 else "v23"
+    var result: Dictionary = UV.build(source,density,true,true,true,variant!="baseline")
     var elapsed := Time.get_ticks_msec()-begin
     if result.has("error"):
         push_error(str(result.error))
@@ -49,6 +49,7 @@ func _run() -> void:
     var island_sum: float = 0.0
     var min_ratio: float = INF
     var max_ratio: float = 0.0
+    var worst_edges: Array[Dictionary] = []
     var physical: Array = UV._seam_segments(tris,true)
     for link in physical:
         var m: Dictionary = UV._diagnostic_edge_metrics(tris,link,Vector2(side))
@@ -67,6 +68,12 @@ func _run() -> void:
         sum_sq += r*r
         if r > 0.25:
             bad += 1
+            var u: PackedVector2Array = UV._segment_uv(tris[int(link.ta)],int(link.ea),float(link.a0),float(link.a1),"uv")
+            var v: PackedVector2Array = UV._segment_uv(tris[int(link.tb)],int(link.eb),float(link.b0),float(link.b1),"uv")
+            var du: Vector2 = (u[1]-u[0])*Vector2(side)
+            var dv: Vector2 = (v[1]-v[0])*Vector2(side)
+            var quarter: float = roundf(dv.angle_to(du)/(PI*0.5))*(PI*0.5)
+            worst_edges.append({"edge":UV._topology_edge_id(link),"residual":r,"length_a":du.length(),"length_b":dv.length(),"vector_lower_bound":(du-dv.rotated(quarter)).length()*0.5,"angle_deg":float(m.angle),"chart_a":int(link.a),"chart_b":int(link.b)})
         if r > 1.0:
             severe += 1
     var winding_signature: String = ""
@@ -115,7 +122,8 @@ func _run() -> void:
                 overlap_pairs += 1
     var distortion: Vector3 = UV._topology_distortion(tris,density)
     var diagnostic: Dictionary = UV.diagnostic_report(tris,side,density)
-    var report: Dictionary = {"id":id,"density":density,"version":result.unwrap_version,"triangles":tris.size(),"charts":result.charts,"atlas":side.x,"physical_edges":counted,"island_edges":island_edges,"island_bad":island_bad,"island_severe":island_severe,"island_max":island_max,"island_sum_sq":island_sum,"bad":bad,"severe":severe,"max":max_res,"sum_sq":sum_sq,"invalid":invalid,"winding_signature":winding_signature.sha256_text(),"overlap_pairs":overlap_pairs,"overlap_unchecked":overlap_unchecked,"min_ratio":min_ratio,"max_ratio":max_ratio,"shape_max":distortion.x,"shape_mean":distortion.y,"area_max":distortion.z,"elapsed_ms":elapsed,"diagnostic":diagnostic.report,"solver":result.affine_report}
+    worst_edges.sort_custom(func(a: Dictionary,b: Dictionary) -> bool: return float(a.residual)>float(b.residual))
+    var report: Dictionary = {"id":id,"density":density,"version":result.unwrap_version,"triangles":tris.size(),"charts":result.charts,"atlas":side.x,"physical_edges":counted,"island_edges":island_edges,"island_bad":island_bad,"island_severe":island_severe,"island_max":island_max,"island_sum_sq":island_sum,"bad":bad,"severe":severe,"max":max_res,"sum_sq":sum_sq,"invalid":invalid,"worst_edges":worst_edges.slice(0,24),"winding_signature":winding_signature.sha256_text(),"overlap_pairs":overlap_pairs,"overlap_unchecked":overlap_unchecked,"min_ratio":min_ratio,"max_ratio":max_ratio,"shape_max":distortion.x,"shape_mean":distortion.y,"area_max":distortion.z,"elapsed_ms":elapsed,"diagnostic":diagnostic.report,"solver":result.affine_report}
     var file := FileAccess.open(dest,FileAccess.WRITE)
     if file == null:
         push_error("Cannot write UV report")

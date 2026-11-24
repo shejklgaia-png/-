@@ -3,7 +3,7 @@ extends RefCounted
 const MAX_TRIANGLES = 12000
 const PADDING = 2
 
-static func build(source: MeshInstance3D, density: int, preserve_shape: bool = true, balanced_shape: bool = false, exact_block: bool = true) -> Dictionary:
+static func build(source: MeshInstance3D, density: int, preserve_shape: bool = true, balanced_shape: bool = false, exact_block: bool = true, cut_graph: bool = true) -> Dictionary:
     var tris: Array[Dictionary] = []
     var charts: Array[Dictionary] = []
     var scale_basis: Basis = source.global_transform.basis if source.is_inside_tree() else source.transform.basis
@@ -111,6 +111,10 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
                 affine_report += " / "+_threshold_joint_search(tris,charts,density)
                 if exact_block:
                     affine_report += " / "+_exact_block_search(tris,charts,density,true)
+                    if cut_graph and not topology_tris.is_empty():
+                        var rebuilt: Dictionary = _rebuild_cut_graph(tris,charts,topology_tris,topology_charts,density)
+                        charts = rebuilt.charts
+                        affine_report += " / "+str(rebuilt.report)
             else:
                 affine_report += " / 閾値連立 規模上限"
     else:
@@ -188,7 +192,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     arrays[Mesh.ARRAY_TEX_UV2] = diagnostic_uv
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":(("shape-affine-v20" if exact_block else "shape-affine-v19") if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
+    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":((("shape-affine-v23" if cut_graph else "shape-affine-v20") if exact_block else "shape-affine-v19") if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
 
 ## Group connected coplanar triangles, and the two halves of slightly
 ## warped authored quads. Never use an internal triangulation diagonal
@@ -3048,7 +3052,7 @@ static func _hinge_pack_side(charts: Array[Dictionary]) -> int:
         side *= 2
     return side
 
-static func _connect_hinge_charts(tris: Array[Dictionary],charts: Array[Dictionary],alternate: bool = false,preferred: Dictionary = {}) -> Array[Dictionary]:
+static func _connect_hinge_charts(tris: Array[Dictionary],charts: Array[Dictionary],alternate: bool = false,preferred: Dictionary = {},graph_mode: int = 0) -> Array[Dictionary]:
     var members: Array = []
     var incident: Array = []
     for ci in range(charts.size()):
@@ -3071,7 +3075,13 @@ static func _connect_hinge_charts(tris: Array[Dictionary],charts: Array[Dictiona
         var na: Vector3 = a.face_normal
         var nb: Vector3 = b.face_normal
         var alignment: float = na.dot(nb)
-        if alignment < (-0.1736482 if alternate else 0.4226183):
+        var key: String = _topology_edge_id(link)
+        if graph_mode==1 and not preferred.has(key):
+            continue
+        # Reconstructed nets may use sharp, but physically compatible, hinges.
+        # Keep the same complete common-boundary and overlap checks below.
+        var minimum: float = -0.4999 if graph_mode>0 and float(preferred.get(key,0.0))>=10.0 else (-0.1736482 if alternate else 0.4226183)
+        if alignment < minimum:
             continue
         var pa: PackedVector2Array = _segment_uv(a,link.ea,link.a0,link.a1,"xy")
         var pb: PackedVector2Array = _segment_uv(b,link.eb,link.b0,link.b1,"xy")
@@ -4982,3 +4992,114 @@ static func _exact_block_search(tris: Array[Dictionary],charts: Array[Dictionary
                         score = _local_uv_metrics(tris,links,all_links)
                         break
     return "exact block %d/%d; bad %d->%d, max %.4f->%.4f, sum %.4f->%.4f" % [accepted,tested,int(base.y),int(score.y),base.x,score.x,base.z,score.z]
+
+# Rebuild the cut graph from metric seed domains, not the distorted final UVs.
+# Candidate A keeps old welds and prioritizes problematic shared boundaries.
+# Candidate B allows other hinges after the high-residual boundaries.
+# All joins remain exact rigid transforms; no hidden discontinuity or overlap.
+static func _graph_metrics(tris: Array[Dictionary],all_physical: bool) -> Vector4:
+    var result := Vector4.ZERO
+    for link in _seam_segments(tris,all_physical):
+        var r: float = _local_uv_link_error(tris,link)
+        result.x = maxf(result.x,r)
+        result.y += 1.0 if r>0.25 else 0.0
+        result.z += r*r
+        result.w += 1.0 if r>1.0 else 0.0
+    return result
+
+static func _graph_nonregression(before: Vector4,after: Vector4) -> bool:
+    return after.is_finite() and after.x<=before.x+0.000001 and after.y<=before.y and after.z<=before.z+0.000001 and after.w<=before.w
+
+static func _graph_winding_ok(before: Array[Dictionary],after: Array[Dictionary]) -> bool:
+    if before.size()!=after.size():
+        return false
+    for i in range(before.size()):
+        var a: PackedVector2Array = before[i].xy
+        var b: PackedVector2Array = after[i].xy
+        var wa: float = (a[1]-a[0]).cross(a[2]-a[0])
+        var wb: float = (b[1]-b[0]).cross(b[2]-b[0])
+        if not is_finite(wb) or absf(wb)<0.00000001 or wa*wb<=0.0:
+            return false
+    return true
+
+static func _rebuild_cut_graph(tris: Array[Dictionary],charts: Array[Dictionary],seed_tris: Array[Dictionary],seed_charts: Array[Dictionary],density: int) -> Dictionary:
+    var base: Vector4 = _graph_metrics(tris,true)
+    var base_seam: Vector4 = _graph_metrics(tris,false)
+    if base_seam.x<=0.5 and base_seam.y<=float(_seam_segments(tris).size())*0.1:
+        return {"charts":charts,"report":"cut graph: within threshold"}
+    var weights: Dictionary = {}
+    var seed_keys: Dictionary = {}
+    for link in _seam_segments(seed_tris):
+        seed_keys[_topology_edge_id(link)] = true
+    var count: int = 0
+    for link in _seam_segments(tris,true):
+        var key: String = _topology_edge_id(link)
+        if not seed_keys.has(key):
+            continue
+        var r: float = _local_uv_link_error(tris,link)
+        if int(link.a)==int(link.b):
+            weights[key] = 1.0
+        elif r>0.25:
+            var a: PackedVector2Array = _segment_uv(tris[int(link.ta)],int(link.ea),float(link.a0),float(link.a1),"xy")
+            var b: PackedVector2Array = _segment_uv(tris[int(link.tb)],int(link.eb),float(link.b0),float(link.b1),"xy")
+            var da: Vector2 = a[1]-a[0]
+            var db: Vector2 = b[1]-b[0]
+            var q: float = roundf(db.angle_to(da)/(PI*0.5))*(PI*0.5)
+            var lower: float = (da-db.rotated(q)).length()*0.5
+            weights[key] = 10.0+r+lower
+            count += 1
+    if count==0:
+        return {"charts":charts,"report":"cut graph: no eligible bad boundaries"}
+    var shape: Vector3 = _topology_distortion(tris,density)
+    var capacity: int = _hinge_pack_side(charts)
+    var selected: Dictionary = {}
+    var best: Vector4 = base
+    var best_seam: Vector4 = base_seam
+    var report: String = "cut graph eligible %d" % count
+    for mode in [1,2]:
+        var trial: Dictionary = _joint_copy(seed_tris,seed_charts)
+        var tt: Array[Dictionary] = trial.tris
+        var tc: Array[Dictionary] = trial.charts
+        tc = _connect_hinge_charts(tt,tc,true,weights,int(mode))
+        var actual_shape: Vector3 = _topology_distortion(tt,density)
+        if not _joint_shape_ok(shape,actual_shape) or not _graph_winding_ok(tris,tt):
+            report += " / mode %d shape or winding reject" % int(mode)
+            continue
+        if _hinge_pack_side(tc)>capacity:
+            report += " / mode %d initial capacity reject" % int(mode)
+            continue
+        _synchronize_chart_grids(tt,tc,true)
+        _align_rigid_chart_grids(tt,tc)
+        _relax_all_chart_phases(tt,tc)
+        var score: Vector4 = _graph_metrics(tt,true)
+        var seam: Vector4 = _graph_metrics(tt,false)
+        report += " / mode %d islands %d, bad %d, max %.4f, sum %.4f" % [int(mode),tc.size(),int(score.y),score.x,score.z]
+        # Refinement is only attempted for promising candidate topology.
+        # Do not pay a full optimization pass for a clearly inferior net.
+        if score.x<=base.x+0.10 and score.y<=base.y+8.0 and score.z<=base.z*1.15+0.000001 and _hinge_pack_side(tc)<=capacity:
+            _exact_block_search(tt,tc,density,true)
+            score = _graph_metrics(tt,true)
+            seam = _graph_metrics(tt,false)
+            report += " refined %d/%.4f/%.4f" % [int(score.y),score.x,score.z]
+        var improved: bool = score.x<best.x-0.001 or score.y<best.y or score.z<best.z-0.001
+        if not improved or not _graph_nonregression(best,score) or not _graph_nonregression(best_seam,seam):
+            report += " quality reject"
+            continue
+        if not _joint_shape_ok(shape,_topology_distortion(tt,density)) or not _graph_winding_ok(tris,tt) or _hinge_pack_side(tc)>capacity:
+            report += " final guard reject"
+            continue
+        # All physical adjacency coverage must remain unchanged.
+        if _seam_segments(tt,true).size()!=_seam_segments(tris,true).size():
+            report += " coverage reject"
+            continue
+        selected = {"tris":tt,"charts":tc}
+        best = score
+        best_seam = seam
+        report += " accepted"
+    if selected.is_empty():
+        return {"charts":charts,"report":report+" / V20 retained"}
+    var out: Array[Dictionary] = selected.tris
+    for i in range(tris.size()):
+        tris[i].xy = out[i].xy
+        tris[i].chart = out[i].chart
+    return {"charts":selected.charts,"report":report+" / cut graph selected"}
