@@ -148,6 +148,10 @@ static func build(room: Node3D) -> void:
     # steel height stays below the existing maintenance stage and consoles.
     _signature_deck_features(batches)
     _asymmetric_service_bays(batches)
+    # Distinct near-field inspection covers sit off the printed center
+    # route, with tops only millimeters above the original deck.
+    _access_cover(batches, -1.12, 5.65, 0.66, 0.86)
+    _access_cover(batches, 1.06, 6.22, 0.78, 0.96)
     _submit(room, batches)
 
 
@@ -171,7 +175,9 @@ static func _plate_finish(lane: int, index: int, z: float) -> String:
             return "deck_graphite" if phase < 4 else "deck_side"
         if lane in [0, 6]:
             return "deck_blue" if phase < 4 else "deck_mid"
-        return "deck_mid" if phase < 4 else "deck_deep"
+        # Narrow service runs next to the command deck get visible tread
+        # steel, not the same smooth finish as the central walkway.
+        return "deck_side" if lane in [2,4] and phase < 4 else "deck_deep"
     if lane == 3:
         return "deck_bright" if phase < 2 else "deck_steel"
     if lane in [0, 6]:
@@ -1111,23 +1117,34 @@ static func make_service_tread_texture() -> ImageTexture:
 # quiet for the existing world-space stencil labels. No extra floor meshes.
 static func make_command_walkway_texture() -> ImageTexture:
     var image := Image.create(128,96,false,Image.FORMAT_RGBA8)
+    # Neutral steel center. Mid-scale details are deliberately restricted
+    # to the edges so world-space words remain on a quiet solid support.
     for y in range(96):
         for x in range(128):
-            var v: float = float(218+((x*11+y*7+x*y)%11)-5)/255.0
+            var v: float = float(220+((x*11+y*7+x*y)%11)-5)/255.0
             var tone := Color(v,v,v,1)
-            if x in [4,5,122,123] or y in [4,91]:
-                tone = Color("#929a9e")
-            elif x in [8,119] or y in [6,89]:
-                tone = Color("#edf0ed")
-            elif (x>=11 and x<=17) or (x>=110 and x<=116):
-                tone = Color("#a4afb3")
-                if (y/8.0-floor(y/8.0))<0.5:
-                    tone = Color("#c7b99a")
+            if x < 17 or x > 110:
+                tone = Color("#9aa4a8")
+                if (x+y)%13 == 0:
+                    tone = Color("#b0b7b8")
+            if x in [4,5,122,123] or y in [3,4,91,92]:
+                tone = Color("#777f83")
+            elif x in [7,120] or y in [6,89]:
+                tone = Color("#f1f2e8")
+            elif x in [18,19,108,109]:
+                tone = Color("#c3ad7d") if y%18 < 13 else Color("#737e80")
             image.set_pixel(x,y,tone)
-    for x in [21,106]:
+    # Bolt recesses and short L-shaped stamped joints at the corners.
+    for x in [25,102]:
         for y in [12,83]:
-            image.fill_rect(Rect2i(x-2,y-2,5,5),Color("#899398"))
-            image.fill_rect(Rect2i(x-1,y-1,3,3),Color("#cdd2d1"))
-            image.set_pixel(x,y,Color("#666e75"))
+            image.fill_rect(Rect2i(x-3,y-3,7,7),Color("#848d91"))
+            image.fill_rect(Rect2i(x-2,y-2,5,5),Color("#dce0dd"))
+            image.fill_rect(Rect2i(x-1,y,3,1),Color("#687178"))
+            var dx: int = -1 if x<64 else 1
+            var dy: int = -1 if y<48 else 1
+            for k in range(4,12):
+                image.set_pixel(x+k*dx,y,Color("#959da0"))
+            for k in range(4,9):
+                image.set_pixel(x,y+k*dy,Color("#a4adae"))
     image.generate_mipmaps()
     return ImageTexture.create_from_image(image)
