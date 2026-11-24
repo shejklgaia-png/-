@@ -3,7 +3,7 @@ extends RefCounted
 const MAX_TRIANGLES = 12000
 const PADDING = 2
 
-static func build(source: MeshInstance3D, density: int, preserve_shape: bool = true, balanced_shape: bool = false, exact_block: bool = true) -> Dictionary:
+static func build(source: MeshInstance3D, density: int, preserve_shape: bool = true, balanced_shape: bool = false, exact_block: bool = true, face_paint: bool = false) -> Dictionary:
     var tris: Array[Dictionary] = []
     var charts: Array[Dictionary] = []
     var scale_basis: Basis = source.global_transform.basis if source.is_inside_tree() else source.transform.basis
@@ -66,11 +66,13 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
             tris.append({"p":p,"n":normals,"face_normal":n,"surface":s,"authored_face":face_id,"base":base,"tex":tex,"prior":prior,"colors":colors,"repeat":mat == null or mat.texture_repeat,"cull":cull})
     if tris.is_empty():
         return {"error":"描画可能な三角形がありません"}
-    charts = _edge_aligned_charts(tris,density,preserve_shape)
+    charts = _edge_aligned_charts(tris,density,preserve_shape or face_paint,face_paint)
     charts = _split_overlapping_charts(tris,charts)
     var initial_chart_count: int = charts.size()
     var affine_report: String = ""
-    if preserve_shape:
+    if face_paint:
+        affine_report = "面別計量キャンバス / 大域グリッド拘束なし / 整数配置"
+    elif preserve_shape:
         var topology_tris: Array[Dictionary] = []
         var topology_charts: Array[Dictionary] = []
         if balanced_shape and tris.size() <= 600 and charts.size() <= 192:
@@ -188,7 +190,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     arrays[Mesh.ARRAY_TEX_UV2] = diagnostic_uv
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":(("shape-affine-v20" if exact_block else "shape-affine-v19") if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
+    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"face_paint":face_paint,"unwrap_version":"face-paint-v24" if face_paint else (("shape-affine-v20" if exact_block else "shape-affine-v19") if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
 
 ## Group connected coplanar triangles, and the two halves of slightly
 ## warped authored quads. Never use an internal triangulation diagonal
@@ -268,7 +270,7 @@ static func _can_join(a: Dictionary,b: Dictionary,edge_a: int,edge_b: int,preser
     var bn: PackedVector3Array = b.n
     return an[0].dot(bn[0]) > 0.9999 and _shared_uv(a,b,edge_a,edge_b)
 
-static func _edge_aligned_charts(tris: Array[Dictionary],density: int,preserve_shape: bool = false) -> Array[Dictionary]:
+static func _edge_aligned_charts(tris: Array[Dictionary],density: int,preserve_shape: bool = false,face_paint: bool = false) -> Array[Dictionary]:
     var parent := PackedInt32Array()
     parent.resize(tris.size())
     var edges: Dictionary = {}
@@ -283,7 +285,16 @@ static func _edge_aligned_charts(tris: Array[Dictionary],density: int,preserve_s
             var incidents: Array = edges[key]
             for item in incidents:
                 var other: int = int(item.x)
-                if _can_join(t,tris[other],e,int(item.y),preserve_shape):
+                var other_face: Dictionary = tris[other]
+                var compatible: bool = _can_join(t,other_face,e,int(item.y),preserve_shape)
+                if face_paint:
+                    var fa: int = int(t.get("authored_face",-1))
+                    var fb: int = int(other_face.get("authored_face",-1))
+                    if fa>=0 or fb>=0:
+                        compatible = compatible and fa>=0 and fa==fb and int(t.surface)==int(other_face.surface)
+                    # Non-planar authored faces get separate metric patches.
+                    compatible = compatible and Vector3(t.face_normal).dot(Vector3(other_face.face_normal))>0.9999
+                if compatible:
                     _join(parent,i,other)
             incidents.append(Vector2i(i,e))
     var groups: Dictionary = {}
@@ -4982,3 +4993,61 @@ static func _exact_block_search(tris: Array[Dictionary],charts: Array[Dictionary
                         score = _local_uv_metrics(tris,links,all_links)
                         break
     return "exact block %d/%d; bad %d->%d, max %.4f->%.4f, sum %.4f->%.4f" % [accepted,tested,int(base.y),int(score.y),base.x,score.x,base.z,score.z]
+
+# Cache only true shared physical edges. No atlas-neighbor guesses.
+static func face_bridge_index(tris: Array) -> Dictionary:
+    var index: Dictionary = {}
+    for link in _seam_segments(tris):
+        var key := Vector2i(mini(int(link.ta),int(link.tb)),maxi(int(link.ta),int(link.tb)))
+        if not index.has(key):
+            index[key] = []
+        (index[key] as Array).append(link)
+    return index
+
+# Develop two triangles around their common edge. Intersect the straight
+# local stroke with that edge in metric space, then map the same physical
+# parameter into both independent pixel canvases.
+static func face_bridge(tris: Array,index: Dictionary,a: Dictionary,b: Dictionary,side: Vector2i,density: int) -> Dictionary:
+    if a.is_empty() or b.is_empty() or int(a.chart)==int(b.chart):
+        return {}
+    var ia: int = int(a.triangle)
+    var ib: int = int(b.triangle)
+    var key := Vector2i(mini(ia,ib),maxi(ia,ib))
+    if not index.has(key):
+        return {}
+    var pa: Vector3 = a.position
+    var pb: Vector3 = b.position
+    if pa.distance_to(pb)>4.0/float(maxi(density,1)):
+        return {}
+    for link in index[key]:
+        var t: Dictionary = tris[int(link.ta)]
+        var p: PackedVector3Array = t.p
+        var e: int = int(link.ea)
+        var start: Vector3 = p[e].lerp(p[(e+1)%3],float(link.a0))
+        var end: Vector3 = p[e].lerp(p[(e+1)%3],float(link.a1))
+        var length: float = start.distance_to(end)
+        if length<0.00001:
+            continue
+        var axis: Vector3 = (end-start)/length
+        var xa: float = (pa-start).dot(axis)
+        var xb: float = (pb-start).dot(axis)
+        var ha: float = (pa-start-axis*xa).length()
+        var hb: float = (pb-start-axis*xb).length()
+        if ha+hb>4.0/float(maxi(density,1)):
+            continue
+        var f: float = (xa*hb+xb*ha)/(ha+hb)/length if ha+hb>0.000001 else (xa+xb)/(2.0*length)
+        if f< -0.0001 or f>1.0001:
+            continue
+        f = clampf(f,0.0,1.0)
+        var sa: PackedVector2Array = _segment_uv(t,e,float(link.a0),float(link.a1),"uv")
+        var other: Dictionary = tris[int(link.tb)]
+        var sb: PackedVector2Array = _segment_uv(other,int(link.eb),float(link.b0),float(link.b1),"uv")
+        var size: Vector2 = Vector2(side)
+        var au: PackedVector2Array = t.uv
+        var bu: PackedVector2Array = other.uv
+        var qa: Vector2 = sa[0].lerp(sa[1],f)*size+_seam_pixel_inset(sa[0]*size,sa[1]*size,(au[0]+au[1]+au[2])*size/3.0)
+        var qb: Vector2 = sb[0].lerp(sb[1],f)*size+_seam_pixel_inset(sb[0]*size,sb[1]*size,(bu[0]+bu[1]+bu[2])*size/3.0)
+        var ea: Vector2i = Vector2i(qa.floor()).clamp(Vector2i.ZERO,side-Vector2i.ONE)
+        var eb: Vector2i = Vector2i(qb.floor()).clamp(Vector2i.ZERO,side-Vector2i.ONE)
+        return {"a":ea if ia==int(link.ta) else eb,"b":eb if ia==int(link.ta) else ea,"position":start.lerp(end,f),"fraction":f}
+    return {}

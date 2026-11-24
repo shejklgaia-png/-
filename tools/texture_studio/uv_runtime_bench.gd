@@ -26,8 +26,8 @@ func _run() -> void:
     var source: MeshInstance3D = snapshot.source
     host.add_child(source)
     var begin := Time.get_ticks_msec()
-    var variant: String = args[3] if args.size() > 3 else "v20"
-    var result: Dictionary = UV.build(source,density,true,true,variant!="baseline")
+    var variant: String = args[3] if args.size() > 3 else "face"
+    var result: Dictionary = UV.build(source,density,true,true,true,variant=="face")
     var elapsed := Time.get_ticks_msec()-begin
     if result.has("error"):
         push_error(str(result.error))
@@ -113,9 +113,49 @@ func _run() -> void:
                 break
             if UV._overlaps(a.uv,b.uv):
                 overlap_pairs += 1
+    var bridge_index: Dictionary = UV.face_bridge_index(tris)
+    var bridge_count: int = 0
+    var bridge_ok: int = 0
+    var painted: Image = atlas.duplicate() as Image
+    var color := Color8(231,57,103,255)
+    for link in UV._seam_segments(tris):
+        var ta: Dictionary = tris[int(link.ta)]
+        var tb: Dictionary = tris[int(link.tb)]
+        var pa: PackedVector3Array = ta.p
+        var pb: PackedVector3Array = tb.p
+        var ea: int = int(link.ea)
+        var eb: int = int(link.eb)
+        var wa: Vector3 = pa[ea].lerp(pa[(ea+1)%3],(float(link.a0)+float(link.a1))*0.5)
+        var wb: Vector3 = pb[eb].lerp(pb[(eb+1)%3],(float(link.b0)+float(link.b1))*0.5)
+        var h1: Dictionary = {"triangle":int(link.ta),"chart":int(link.a),"position":wa.move_toward((pa[0]+pa[1]+pa[2])/3.0,0.2/float(density))}
+        var h2: Dictionary = {"triangle":int(link.tb),"chart":int(link.b),"position":wb.move_toward((pb[0]+pb[1]+pb[2])/3.0,0.2/float(density))}
+        bridge_count += 1
+        var bridge: Dictionary = UV.face_bridge(tris,bridge_index,h1,h2,side,density)
+        if bridge.is_empty() or atlas.get_pixelv(bridge.a).a<0.5 or atlas.get_pixelv(bridge.b).a<0.5:
+            continue
+        painted.set_pixelv(bridge.a,color)
+        painted.set_pixelv(bridge.b,color)
+        if painted.get_pixelv(bridge.a)==painted.get_pixelv(bridge.b):
+            bridge_ok += 1
+    var baked := Image.create(side.x,side.y,false,Image.FORMAT_RGBA8)
+    baked.blit_rect(painted,Rect2i(Vector2i.ZERO,side),Vector2i.ZERO)
+    var restored_image := Image.new()
+    var png_ok: bool = restored_image.load_png_from_buffer(baked.save_png_to_buffer())==OK and restored_image.get_data()==painted.get_data()
+    var chart_ids: Array = []
+    var face_ids: Array = []
+    for t in tris:
+        chart_ids.append(int(t.chart))
+        face_ids.append([int(t.surface),int(t.authored_face)])
+    var mesh_roundtrip: Array = UV.restore_triangles(result.mesh,chart_ids,face_ids)
+    var restore_ok: bool = mesh_roundtrip.size()==tris.size()
+    if restore_ok:
+        for i in range(tris.size()):
+            if mesh_roundtrip[i].uv!=tris[i].uv or mesh_roundtrip[i].p!=tris[i].p or int(mesh_roundtrip[i].chart)!=int(tris[i].chart):
+                restore_ok = false
+                break
     var distortion: Vector3 = UV._topology_distortion(tris,density)
     var diagnostic: Dictionary = UV.diagnostic_report(tris,side,density)
-    var report: Dictionary = {"id":id,"density":density,"version":result.unwrap_version,"triangles":tris.size(),"charts":result.charts,"atlas":side.x,"physical_edges":counted,"island_edges":island_edges,"island_bad":island_bad,"island_severe":island_severe,"island_max":island_max,"island_sum_sq":island_sum,"bad":bad,"severe":severe,"max":max_res,"sum_sq":sum_sq,"invalid":invalid,"winding_signature":winding_signature.sha256_text(),"overlap_pairs":overlap_pairs,"overlap_unchecked":overlap_unchecked,"min_ratio":min_ratio,"max_ratio":max_ratio,"shape_max":distortion.x,"shape_mean":distortion.y,"area_max":distortion.z,"elapsed_ms":elapsed,"diagnostic":diagnostic.report,"solver":result.affine_report}
+    var report: Dictionary = {"id":id,"density":density,"version":result.unwrap_version,"triangles":tris.size(),"charts":result.charts,"atlas":side.x,"physical_edges":counted,"island_edges":island_edges,"island_bad":island_bad,"island_severe":island_severe,"island_max":island_max,"island_sum_sq":island_sum,"bad":bad,"severe":severe,"max":max_res,"sum_sq":sum_sq,"invalid":invalid,"winding_signature":winding_signature.sha256_text(),"overlap_pairs":overlap_pairs,"overlap_unchecked":overlap_unchecked,"min_ratio":min_ratio,"max_ratio":max_ratio,"shape_max":distortion.x,"shape_mean":distortion.y,"area_max":distortion.z,"elapsed_ms":elapsed,"diagnostic":diagnostic.report,"solver":result.affine_report,"bridge_count":bridge_count,"bridge_ok":bridge_ok,"png_roundtrip":png_ok,"mesh_restore":restore_ok}
     var file := FileAccess.open(dest,FileAccess.WRITE)
     if file == null:
         push_error("Cannot write UV report")
