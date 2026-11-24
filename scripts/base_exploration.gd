@@ -1887,13 +1887,17 @@ func _process(delta: float) -> void:
             player.rotation.y = lerp_angle(player.rotation.y, yaw, minf(1.0, delta * 11.0))
         if rig != null:
             rig.call("set_moving", moving, false, Vector2(0, 1), false)
-    _update_crate(delta)
-    if is_instance_valid(logistics) and not power_view_active:
+    # The covered outdoor worksite remains visually frozen during facility UI.
+    # Keep game time/GUI alive; no simulation catch-up when the modal closes.
+    var facility_open: bool = is_instance_valid(facility_system) and bool(facility_system.call("is_menu_open"))
+    if not facility_open:
+        _update_crate(delta)
+    if is_instance_valid(logistics) and not power_view_active and not facility_open:
         logistics.call("advance", delta)
         logistics_diagnostic_elapsed += delta
         if logistics_diagnostic_elapsed >= 1.0:
             logistics_diagnostic_elapsed = 0.0
-            if is_instance_valid(logistics_status):
+            if is_instance_valid(logistics_status) and logistics_status.is_visible_in_tree():
                 logistics_status.text = _base_diagnostic_text()
     # The outdoor BASE is a fixed isometric menu while SERA is disabled.
     # Preserve dormant player-follow logic only for a future controls re-enable.
