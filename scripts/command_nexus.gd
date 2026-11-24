@@ -1743,8 +1743,8 @@ func _nexus_make_pixel_steel(variant: int) -> Texture2D:
     # Only selected plates receive one small, deliberately asymmetrical stain.
     # Brown oxide hugs an edge; charcoal oil leaves a short dragged smudge.
     if variant in [2, 3]:
-        var x: int = 7 if base_variant == 0 else 43
-        var y: int = 39 if base_variant == 0 else 8
+        var x: int = 5 if base_variant == 0 else 45
+        var y: int = 47 if base_variant == 0 else 6
         # Warm values compensate for the blue-grey underlying material.
         var rust_edge := Color("#f0ae62")
         var rust_body := Color("#db8535")
@@ -1763,8 +1763,8 @@ func _nexus_make_pixel_steel(variant: int) -> Texture2D:
         image.set_pixel(x + 5, y + 8, rust_edge)
         image.set_pixel(x + 14, y + 7, rust_edge)
     elif variant in [4, 5]:
-        var x: int = 35 if base_variant == 0 else 12
-        var y: int = 15 if base_variant == 0 else 43
+        var x: int = 42 if base_variant == 0 else 7
+        var y: int = 9 if base_variant == 0 else 47
         var oil_edge := Color("#8f9392")
         var oil_body := Color("#515653")
         var oil_core := Color("#272b2c")

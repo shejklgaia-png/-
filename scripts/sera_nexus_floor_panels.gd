@@ -817,9 +817,9 @@ static func _split_stain_batches(batches: Dictionary) -> void:
                 var variant: int = int(variants[key])
                 var uv: Vector2
                 if str(spot[1]) == "_rust":
-                    uv = Vector2(0.25, 0.66) if variant == 0 else Vector2(0.77, 0.18)
+                    uv = Vector2(0.18, 0.80) if variant == 0 else Vector2(0.80, 0.16)
                 else:
-                    uv = Vector2(0.66, 0.29) if variant == 0 else Vector2(0.32, 0.73)
+                    uv = Vector2(0.75, 0.20) if variant == 0 else Vector2(0.21, 0.80)
                 var at: Vector3 = pose * Vector3(uv.x - 0.5, PLATE_TOP, uv.y - 0.5)
                 if absf(at.x) > 1.0 or at.z > 5.15 or at.z < -3.1:
                     continue
@@ -914,7 +914,7 @@ static func _submit(room: Node3D, batches: Dictionary) -> void:
     # Paint is flush with the deck, depth-tested, and never an input target.
     # The default portrait camera sees the narrow center aisle between the
     # consoles. Keep the lettering above EXIT/PLACE and off both terminals.
-    _place_plate_stencil(root, batches, "NEXUS", Vector2(-0.65, 4.44), 0.0036, Color("#c9d1d4"))
+    _place_plate_stencil(root, batches, "NEXUS", Vector2(-0.65, 4.44), 0.0026, Color("#c9d1d4"))
     _place_plate_stencil(root, batches, "A1 / HUB", Vector2(-0.65, 2.40), 0.0030, Color("#c4ccd0"))
     _place_plate_stencil(root, batches, "SERVICE", Vector2(-0.65, 0.12), 0.0029, Color("#d4b779"))
     _place_plate_stencil(root, batches, "KEEP CLEAR", Vector2(0.55, -1.26), 0.0027, Color("#d4b779"))
