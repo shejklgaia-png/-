@@ -143,7 +143,9 @@ func _ready() -> void:
     get_window().go_back_requested.connect(_on_android_back)
     _setup_world()
     _create_camera()
-    _create_startup_overlay()
+    var returning_from_nexus := get_tree().root.get_node_or_null("NexusExitTransition") != null
+    if not returning_from_nexus:
+        _create_startup_overlay()
     print("SERA_BASE_BOOT: initial frame ready")
     # A process_frame signal fires before rendering.  Keep two frames.
     await get_tree().process_frame
@@ -199,14 +201,17 @@ func _ready() -> void:
     # frames of the fully online COMPLETE slate before uncovering BASE.
     if console_screen != null:
         await Signal(console_screen, &"completion_cut_finished")
-    startup_layer.queue_free()
+    if is_instance_valid(startup_layer):
+        startup_layer.queue_free()
     startup_layer = null
     console_screen = null
+    set_meta("sera_base_boot_complete", true)
     print("SERA_BASE_BOOT: COMPLETE")
-    call_deferred("_start_base_bgm")
+    if not returning_from_nexus:
+        call_deferred("_start_base_bgm")
 
 
-func _start_base_bgm() -> void:
+func _start_base_bgm(fade_in: bool = false) -> void:
     if scene_changing or is_instance_valid(base_bgm_player):
         return
     var music: AudioStreamOggVorbis
@@ -229,11 +234,14 @@ func _start_base_bgm() -> void:
     base_bgm_player = AudioStreamPlayer.new()
     base_bgm_player.name = "BaseBGMScrapSanctuary"
     base_bgm_player.stream = music
-    base_bgm_player.volume_db = BASE_BGM_VOLUME_DB
+    base_bgm_player.volume_db = -60.0 if fade_in else BASE_BGM_VOLUME_DB
     # One persistent player for this BASE scene, including LABO and GRID.
     # Leaving for NEXUS frees the scene/player automatically.
     add_child(base_bgm_player)
     base_bgm_player.play()
+    if fade_in:
+        var fade := create_tween()
+        fade.tween_property(base_bgm_player, "volume_db", BASE_BGM_VOLUME_DB, 0.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 
 func _create_startup_overlay() -> void:
@@ -1441,7 +1449,7 @@ func _power_camera_return_finished() -> void:
 
 
 func _on_android_back() -> void:
-    if scene_changing:
+    if scene_changing or get_tree().root.get_node_or_null("NexusExitTransition") != null:
         return
     if power_view_active:
         _power_back_pressed()
@@ -1450,7 +1458,7 @@ func _on_android_back() -> void:
         facility_system.call("navigate_back")
 
 func _input(event: InputEvent) -> void:
-    if scene_changing or hud == null:
+    if scene_changing or hud == null or get_tree().root.get_node_or_null("NexusExitTransition") != null:
         return
     if power_view_active:
         _power_input(event)
@@ -1594,6 +1602,8 @@ func _process(delta: float) -> void:
             facility_system.call("is_menu_open"))
 
 func _enter_nexus() -> void:
+    if get_tree().root.get_node_or_null("NexusExitTransition") != null:
+        return
     if scene_changing or power_transition_busy or not is_instance_valid(nexus_building):
         return
     var model := nexus_building.get_node_or_null("NexusArchitecture") as Node3D
