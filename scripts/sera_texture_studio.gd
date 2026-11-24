@@ -77,6 +77,7 @@ var uv_generation: int = 0
 var uv_initial_charts: int = -1
 var uv_final_charts: int = -1
 var uv_unwrap_version: String = "未展開"
+var uv_affine_report: String = ""
 var tool_picker: StudioChoice
 var color_picker: Button
 var paint_color: Color = Color("#8daebd")
@@ -991,6 +992,7 @@ func _rebuild() -> void:
     uv_initial_charts = int(result.initial_charts)
     uv_final_charts = int(result.charts)
     uv_unwrap_version = str(result.unwrap_version)
+    uv_affine_report = str(result.get("affine_report",""))
     layers.clear()
     layer_visible.clear()
     layer_index = 0
@@ -1546,6 +1548,8 @@ func _copy_diagnostics() -> void:
         return
     var result: Dictionary = UV.diagnostic_report_faces(triangles,img.get_size(),atlas_density,selected_diagnostic_faces)
     var header: String = "%s\nUV方式: %s / UV#%d / %s\n" % [selected_model_label.text,_uv_mode_name(atlas_preserve_shape,atlas_balanced_shape),uv_generation,uv_unwrap_version]
+    if not uv_affine_report.is_empty():
+        header += "均衡補正: "+uv_affine_report+"\n"
     if uv_initial_charts >= 0:
         header += "折り開き前後の島数: %d → %d\n" % [uv_initial_charts,uv_final_charts]
     if preserve_shape_requested != atlas_preserve_shape or balanced_shape_requested != atlas_balanced_shape or density_picker.get_selected_id() != atlas_density:
@@ -1689,7 +1693,7 @@ func _save() -> void:
     if file == null:
         _show_status("合成保存済み・プロジェクト保存失敗")
         return
-    file.store_string(JSON.stringify({"version":1,"density":atlas_density,"preserve_shape":atlas_preserve_shape,"balanced_shape":atlas_balanced_shape,"unwrap_version":uv_unwrap_version,"initial_charts":uv_initial_charts,"final_charts":uv_final_charts,"charts":ids,"visible":layer_visible,"face_sources":face_sources}))
+    file.store_string(JSON.stringify({"version":1,"density":atlas_density,"preserve_shape":atlas_preserve_shape,"balanced_shape":atlas_balanced_shape,"unwrap_version":uv_unwrap_version,"affine_report":uv_affine_report,"initial_charts":uv_initial_charts,"final_charts":uv_final_charts,"charts":ids,"visible":layer_visible,"face_sources":face_sources}))
     file.close()
     _show_status("編集プロジェクト保存済み: "+stem)
 
@@ -1744,6 +1748,7 @@ func _load_project(path: String) -> void:
     atlas_preserve_shape = bool(data.get("preserve_shape",false))
     atlas_balanced_shape = atlas_preserve_shape and bool(data.get("balanced_shape",false))
     uv_unwrap_version = str(data.get("unwrap_version","旧保存"))
+    uv_affine_report = str(data.get("affine_report",""))
     uv_initial_charts = int(data.get("initial_charts",-1))
     uv_final_charts = int(data.get("final_charts",-1))
     preserve_shape_requested = atlas_preserve_shape
