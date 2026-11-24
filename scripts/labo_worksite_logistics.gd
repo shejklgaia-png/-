@@ -392,7 +392,7 @@ func duration() -> float:
         return REFINERY_SECONDS
     return storage_cycle_seconds if key=="STORAGE" else 26.0
 
-func begin() -> void:
+func begin(prefer_inbound: bool = false) -> void:
     input_finished = false
     reset()
     if key!="STORAGE":
@@ -409,7 +409,7 @@ func begin() -> void:
     # The probability is proportional to free/occupied capacity. The boundary
     # conditions are absolute, and only the selected operation reserves a bay.
     var fill: float = float(full.size())/float(maxi(1,storage_slots.size()))
-    inbound_operation = full.is_empty() or (not empty.is_empty() and rng.randf()<1.0-fill)
+    inbound_operation = full.is_empty() or (not empty.is_empty() and (prefer_inbound or rng.randf()<1.0-fill))
     store_index = empty[rng.randi_range(0,empty.size()-1)] if inbound_operation and not empty.is_empty() else -1
     take_index = full[rng.randi_range(0,full.size()-1)] if not inbound_operation and not full.is_empty() else -1
     storage_committed = false
@@ -725,9 +725,9 @@ func _sample_storage_departure(t: float) -> void:
         _stacker(Vector3(outlet.x,outlet.y,aisle_z),(outlet.z-aisle_z)*(1.0-smoothstep(0.44,0.49,t)))
         if t<0.49:
             _place(active_box,outlet)
-    truck_out.visible = t>=0.16 and t<1.0
+    truck_out.visible = t<1.0
     if t<0.42:
-        _storage_truck(truck_out,out_far,out_dock,(t-0.16)/0.26)
+        _storage_truck(truck_out,out_far,out_dock,t/0.42)
     elif t<0.64:
         _storage_truck(truck_out,out_far,out_dock,1.0)
     else:
