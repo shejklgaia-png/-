@@ -4972,8 +4972,15 @@ func _project_training_render_contour() -> Array[PackedVector2Array]:
             # These armor primitives are convex. Their true vertices preserve
             # the beveled corners; the bounding-box proxy does not.
             var points := PackedVector3Array()
-            for vertex in _mesh_outline_local_vertices(mesh):
-                points.append(pose * vertex)
+            # Use the actual primitive vertices too (not a cylinder/quad AABB).
+            var vertices: PackedVector3Array = _selection_mesh_faces(mesh)
+            if vertices.is_empty():
+                vertices = _mesh_outline_local_vertices(mesh)
+            var seen: Dictionary = {}
+            for vertex in vertices:
+                if not seen.has(vertex):
+                    seen[vertex] = true
+                    points.append(pose * vertex)
             solid_clusters.append(points)
     # A tiny overlap joins shared triangle edges before the final 2px margin.
     # No projection work is added to the per-frame pulse animation.
