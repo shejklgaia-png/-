@@ -507,12 +507,7 @@ static func _recycler(g: Variant) -> void:
             Vector3(0.13, 0.30, 1.43), "armor", Vector3(0.34, 0, 0))
     g.box("FreshRecyclerOutletWearEdge",
         Vector3(0, 0.59, 1.48), Vector3(1.72, 0.11, 0.13), "gold")
-    # Intact salvage travels from rear gravity feed through the cutters.
-    for i in range(2):
-        g.poly_tilt("RecyclerIntactPart", "bevel",
-            Vector3(-0.32 + 0.64*float(i), 2.60, 0.22),
-            Vector3(0.40, 0.33, 0.46), "rust" if i == 0 else "armor",
-            Vector3(0.15, 0.25*float(i), 0.1))
+    # Incoming salvage is rendered by the logistics cargo instances.
     g.poly("RecyclerRecoveredPart", "gear", Vector3(-0.43, 0.87, 0.77),
         Vector3(0.29, 0.14, 0.29), "edge")
     g.box("RecyclerRecoveredPart", Vector3(0, 0.89, 0.72),
