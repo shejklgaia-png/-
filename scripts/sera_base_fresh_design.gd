@@ -647,25 +647,35 @@ static func _storage(g: Variant) -> void:
 
 
 static func _terminal(g: Variant) -> void:
-    # Construction control station: armored planning monitor, physical
-    # survey projector, and an open service deck. Keep monitor mapping fixed.
+    # Heavy construction commissioning cell. +Z is the working front.
+    # Rear blueprint display remains on the existing animated material mapping.
+    # An open front assembly jig and an articulated hydraulic handling arm
+    # distinguish this from an ordinary information terminal.
     _pad(g, 2.16, 2.12)
-    g.poly("FreshTerminalDeck", "deck",
-        Vector3(0, 0.53, 0.0), Vector3(2.04, 0.27, 1.94), "slate")
+    g.poly("FreshBuildLoadBed", "bevel",
+        Vector3(0, 0.57, 0.06), Vector3(2.06, 0.30, 1.90), "dark")
+    g.poly("FreshBuildJigDeck", "deck",
+        Vector3(0, 0.76, 0.46), Vector3(1.43, 0.14, 0.99), "slate")
     for side in [-1.0, 1.0]:
-        g.poly("FreshTerminalConsolePedestal", "gusset",
-            Vector3(side * 0.67, 0.88, -0.13),
-            Vector3(0.32, 0.86, 0.85), "armor")
-        g.rod("FreshTerminalDisplayLoadStrut",
-            Vector3(side * 0.74, 0.67, -0.59),
-            Vector3(side * 0.74, 2.58, -0.40), 0.16, "edge")
-        g.rod("FreshTerminalRearDiagonalBrace",
-            Vector3(side * 0.74, 0.67, 0.12),
-            Vector3(side * 0.74, 2.35, -0.40), 0.12, "trim")
-        g.poly("FreshTerminalDataLinkHousing", "vent_stack",
-            Vector3(side * 0.86, 1.67, -0.46),
-            Vector3(0.32, 0.93, 0.32), "slate")
-    # Sloped structural hood and deeply recessed monitor frame.
+        # Solid load path from bed to shoulder; the open middle remains visible.
+        g.poly("FreshBuildFootCasting", "gusset",
+            Vector3(side * 0.85, 0.79, -0.48), Vector3(0.43, 0.62, 0.86), "armor")
+        g.poly("FreshBuildRearTower", "bevel",
+            Vector3(side * 0.84, 1.86, -0.60), Vector3(0.40, 2.52, 0.58), "slate")
+        g.poly("FreshBuildTowerShoulder", "gusset",
+            Vector3(side * 0.84, 2.78, -0.48), Vector3(0.47, 0.70, 0.73), "armor_light")
+        g.rod("FreshBuildTowerDiagonal",
+            Vector3(side * 0.86, 0.75, 0.07),
+            Vector3(side * 0.86, 2.19, -0.62), 0.12, "edge")
+        g.poly("FreshBuildHydraulicService", "vent_stack",
+            Vector3(side * 0.84, 1.24, -0.20), Vector3(0.34, 0.58, 0.36), "armor")
+        g.box("FreshBuildFixtureRail",
+            Vector3(side * 0.63, 0.85, 0.54), Vector3(0.13, 0.11, 0.88), "edge")
+        g.poly("FreshBuildRailStop", "bevel",
+            Vector3(side * 0.63, 0.90, 0.94), Vector3(0.27, 0.21, 0.17), "caution")
+        g.box("FreshBuildBedStripe",
+            Vector3(side * 0.79, 0.70, 0.99), Vector3(0.29, 0.14, 0.045), "gold")
+    # Armored rear planning screen; retain the mapped display plane exactly.
     g.poly("FreshTerminalDisplayBack", "deck",
         Vector3(0, 1.94, -0.03), Vector3(1.92, 1.43, 0.36), "armor")
     g.box("FreshTerminalWideScreen",
@@ -673,48 +683,74 @@ static func _terminal(g: Variant) -> void:
     g.box("FreshTerminalLiveDisplay",
         Vector3(0, 1.94, 0.46), Vector3(1.49, 0.99, 0.09), "terminal_monitor")
     for side in [-1.0, 1.0]:
-        g.box("FreshTerminalScreenSideFrame",
-            Vector3(side * 0.86, 1.94, 0.30), Vector3(0.18, 1.37, 0.43), "armor_light")
-        g.box("FreshTerminalScreenStatusLight",
-            Vector3(side * 0.86, 1.94, 0.53), Vector3(0.07, 0.72, 0.07), "blue_light")
-    for y in [1.30, 2.58]:
-        g.box("FreshTerminalScreenCrossFrame",
-            Vector3(0, y, 0.30), Vector3(1.88, 0.17, 0.43), "armor_light")
-    g.poly_tilt("FreshTerminalMonitorVisor", "roof",
-        Vector3(0, 2.71, -0.06), Vector3(2.07, 0.20, 0.86),
-        "armor_light", Vector3(-0.16, 0, 0))
-    for i in range(4):
-        g.box("FreshTerminalBlueprintRows",
-            Vector3(0, 1.60 + float(i) * 0.23, 0.53),
-            Vector3(1.27, 0.032, 0.031), "blue_light")
-    # Physical construction controls sit below the map, within reach.
-    g.poly_tilt("FreshTerminalControlDeck", "deck",
-        Vector3(0, 1.04, 0.64), Vector3(1.85, 0.20, 0.81),
+        g.poly("FreshBuildScreenCheek", "bevel",
+            Vector3(side * 0.87, 1.94, 0.28), Vector3(0.20, 1.43, 0.43), "armor_light")
+        g.box("FreshBuildScreenStatus",
+            Vector3(side * 0.87, 1.94, 0.52), Vector3(0.065, 0.74, 0.06), "blue_light")
+    g.poly("FreshBuildHeader", "bevel",
+        Vector3(0, 2.67, 0.08), Vector3(1.98, 0.25, 0.71), "slate")
+    g.box("FreshBuildHeaderLight",
+        Vector3(0, 2.63, 0.46), Vector3(0.88, 0.07, 0.07), "blue_light")
+    g.poly("FreshBuildCrownCrossmember", "bevel",
+        Vector3(0, 3.19, -0.57), Vector3(2.08, 0.40, 0.60), "armor")
+    g.poly("FreshBuildCrownDrive", "vent_stack",
+        Vector3(0.13, 3.49, -0.56), Vector3(0.79, 0.28, 0.47), "slate")
+    # Off-center optical surveying head. It reads as a rugged tool, not an aerial.
+    g.poly("FreshBuildSurveyBracket", "gusset",
+        Vector3(-0.69, 3.43, -0.10), Vector3(0.44, 0.42, 0.65), "armor")
+    g.poly_tilt("FreshBuildSurveyHead", "drum",
+        Vector3(-0.69, 3.54, 0.26), Vector3(0.42, 0.36, 0.42),
+        "dark", Vector3(PI * 0.5, 0, 0))
+    g.box("FreshBuildSurveyLens",
+        Vector3(-0.69, 3.54, 0.47), Vector3(0.20, 0.20, 0.06), "blue_light")
+    g.poly("FreshBuildWorkBeacon", "octagonal_slew",
+        Vector3(0.83, 3.49, -0.57), Vector3(0.27, 0.22, 0.27), "amber_light")
+    # A compact slab fixture with visible foundation sockets and a central
+    # structural module. Keep the front and all four corners visually open.
+    g.poly("FreshBuildModuleBase", "bevel",
+        Vector3(-0.15, 0.91, 0.53), Vector3(0.69, 0.16, 0.66), "armor_light")
+    for side in [-1.0, 1.0]:
+        for end in [-1.0, 1.0]:
+            g.poly("FreshBuildModuleSocket", "octagonal_slew",
+                Vector3(-0.15 + side * 0.24, 1.01, 0.53 + end * 0.22),
+                Vector3(0.15, 0.12, 0.15), "dark")
+        g.poly("FreshBuildModuleRib", "gusset",
+            Vector3(-0.15 + side * 0.22, 1.09, 0.53),
+            Vector3(0.16, 0.31, 0.38), "slate")
+    g.poly("FreshBuildModuleLock", "bevel",
+        Vector3(-0.15, 1.17, 0.53), Vector3(0.38, 0.19, 0.39), "armor")
+    # Visible two-link arm, pivots and telescopic cylinder, on the right side
+    # of the jig. Its working envelope stays below the live monitor.
+    g.poly("FreshBuildArmTurret", "octagonal_slew",
+        Vector3(0.79, 0.91, 0.37), Vector3(0.48, 0.26, 0.48), "dark")
+    g.poly("FreshBuildArmShoulder", "bevel",
+        Vector3(0.79, 1.11, 0.37), Vector3(0.31, 0.27, 0.34), "armor")
+    g.rod("FreshBuildArmUpperLink",
+        Vector3(0.79, 1.14, 0.37), Vector3(0.74, 1.53, 0.78), 0.15, "armor_light")
+    g.rod("FreshBuildArmCylinder",
+        Vector3(0.91, 1.03, 0.34), Vector3(0.88, 1.37, 0.65), 0.095, "dark")
+    g.rod("FreshBuildArmPiston",
+        Vector3(0.88, 1.37, 0.65), Vector3(0.85, 1.53, 0.78), 0.055, "edge")
+    g.poly_tilt("FreshBuildArmElbow", "drum",
+        Vector3(0.74, 1.53, 0.78), Vector3(0.27, 0.26, 0.27),
+        "slate", Vector3(0, 0, PI * 0.5))
+    g.rod("FreshBuildArmForelink",
+        Vector3(0.74, 1.53, 0.78), Vector3(0.29, 1.31, 0.69), 0.13, "armor_light")
+    g.poly("FreshBuildArmToolChuck", "octagonal_slew",
+        Vector3(0.29, 1.28, 0.69), Vector3(0.24, 0.19, 0.24), "dark")
+    for side in [-1.0, 1.0]:
+        g.rod("FreshBuildArmClampJaw",
+            Vector3(0.29 + side * 0.09, 1.23, 0.69),
+            Vector3(0.29 + side * 0.13, 1.13, 0.69), 0.045, "gold")
+    # Compact operator input pod on the other side, rather than a full
+    # counter blocking the manufacturing bed.
+    g.poly_tilt("FreshBuildControlPod", "deck",
+        Vector3(-0.80, 1.18, 0.37), Vector3(0.41, 0.19, 0.40),
         "armor", Vector3(-0.24, 0, 0))
-    for col in range(4):
-        g.box("FreshTerminalTactileKey",
-            Vector3(-0.67 + float(col) * 0.22, 1.17, 0.67),
-            Vector3(0.16, 0.075, 0.16), "edge")
-    g.poly("FreshTerminalEmergencySelector", "octagonal_slew",
-        Vector3(0.35, 1.19, 0.70), Vector3(0.28, 0.17, 0.28), "caution")
-    g.poly("FreshTerminalPlanJogDial", "gear",
-        Vector3(0.69, 1.20, 0.68), Vector3(0.31, 0.13, 0.31), "edge")
-    # Survey mast connects the blueprint station to the construction field.
-    g.poly("FreshTerminalMastFoot", "octagonal_slew",
-        Vector3(0.85, 0.76, -0.77), Vector3(0.42, 0.38, 0.42), "slate")
-    g.rod("FreshTerminalSignalMast",
-        Vector3(0.85, 0.92, -0.77), Vector3(0.85, 3.68, -0.77), 0.15, "gold")
-    g.poly("FreshTerminalSurveyHead", "drum",
-        Vector3(0.85, 3.66, -0.77), Vector3(0.42, 0.30, 0.42), "armor")
-    g.poly_tilt("FreshTerminalSurveyOptics", "vent_stack",
-        Vector3(0.85, 3.65, -0.51), Vector3(0.25, 0.23, 0.25),
-        "edge", Vector3(PI * 0.5, 0, 0))
-    g.box("FreshTerminalSurveyLens",
-        Vector3(0.85, 3.65, -0.39), Vector3(0.15, 0.15, 0.045), "blue_light")
-    g.box("FreshTerminalMastLamp",
-        Vector3(0.85, 3.87, -0.77), Vector3(0.22, 0.22, 0.22), "amber_light")
-    g.poly("FreshTerminalSideBattery", "cargo_case",
-        Vector3(-0.96, 0.85, -0.47), Vector3(0.42, 0.56, 0.68), "crate")
+    g.box("FreshBuildControlStatus",
+        Vector3(-0.80, 1.29, 0.30), Vector3(0.24, 0.06, 0.09), "blue_light")
+    g.poly("FreshBuildControlDial", "gear",
+        Vector3(-0.80, 1.31, 0.49), Vector3(0.20, 0.10, 0.20), "edge")
 
 
 static func add_details(g: Variant, key: String) -> void:
