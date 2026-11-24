@@ -150,7 +150,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     arrays[Mesh.ARRAY_TEX_UV2] = diagnostic_uv
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v8" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
+    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v9" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
 
 ## Group connected coplanar triangles, and the two halves of slightly
 ## warped authored quads. Never use an internal triangulation diagonal
@@ -1263,7 +1263,9 @@ static func _relax_uv_boundary_vertices(tris: Array[Dictionary],charts: Array[Di
     var paired_report: String = _relax_paired_uv_endpoints(tris,charts,original,members,nodes,corner_nodes,links,locked)
     var global_report: String = _relax_global_uv_boundaries(tris,charts,original,members,nodes,corner_nodes,links,locked)
     var convergence_report: String = _relax_global_uv_boundaries(tris,charts,original,members,nodes,corner_nodes,links,locked,true)
-    return note+" / 採用 / "+paired_report+" / "+global_report+" / "+convergence_report+" / "+_relax_rigid_uv_islands(tris,charts,members,links)
+    var rigid_report: String = _relax_rigid_uv_islands(tris,charts,members,links)
+    var coupled_report: String = _relax_coupled_seam_clusters(tris,charts,original,members,nodes,corner_nodes,links,locked)
+    return note+" / 採用 / "+paired_report+" / "+global_report+" / "+convergence_report+" / "+rigid_report+" / "+coupled_report
 
 
 # Try simultaneous moves of corresponding endpoints on both sides of
@@ -1388,6 +1390,173 @@ static func _relax_paired_uv_endpoints(tris: Array[Dictionary],charts: Array[Dic
 # A rigid island transform preserves all existing edge ratios, signed
 # triangle areas, internal seams and overlap relationships. Optimize its
 # lattice direction and phase without consuming the vertex deformation budget.
+
+# Fit both ends of every incident seam in a small connected island group.
+# Freeze quarter-turn and integer phase choices during the linear solve.
+# Intermediate iterates need not pass the discrete global edge-count gate;
+# only actual committed layouts do. This lets coupled moves cross plateaus.
+static func _relax_coupled_seam_clusters(tris: Array[Dictionary],charts: Array[Dictionary],original: Array[PackedVector2Array],members: Array,nodes: Array[Dictionary],corner_nodes: Array[PackedInt32Array],links: Array[Dictionary],locked: Dictionary) -> String:
+    var all_links: Array = []
+    var incident: Array = []
+    var chart_nodes: Array = []
+    for ci in range(charts.size()):
+        incident.append([])
+        chart_nodes.append([])
+    for ni in range(nodes.size()):
+        (chart_nodes[int(nodes[ni].chart)] as Array).append(ni)
+    for li in range(links.size()):
+        all_links.append(li)
+        (incident[int(links[li].a)] as Array).append(li)
+        (incident[int(links[li].b)] as Array).append(li)
+    var baseline: Vector3 = _local_uv_metrics(tris,links,all_links)
+    var score: Vector3 = baseline
+    var capacity: int = _hinge_pack_side(charts)
+    var accepted: int = 0
+    var tested: int = 0
+    var rejected_shape: int = 0
+    var rejected_capacity: int = 0
+    for sweep in range(3):
+        var ranking: Array = all_links.duplicate()
+        ranking.sort_custom(func(a: int,b: int) -> bool:
+            var ea: float = _local_uv_link_error(tris,links[a])
+            var eb: float = _local_uv_link_error(tris,links[b])
+            return ea > eb if absf(ea-eb) > 0.000001 else a < b)
+        var seen: Dictionary = {}
+        var improved: bool = false
+        for li in ranking:
+            var seed: Dictionary = links[int(li)]
+            if _local_uv_link_error(tris,seed) <= 0.25 or seen.size() >= 4:
+                break
+            var ca: int = int(seed.a)
+            var cb: int = int(seed.b)
+            var key := Vector2i(mini(ca,cb),maxi(ca,cb))
+            if seen.has(key):
+                continue
+            seen[key] = true
+            var base: Array[PackedVector2Array] = []
+            for t in tris:
+                var xy: PackedVector2Array = t.xy
+                base.append(xy.duplicate())
+            var best_score: Vector3 = score
+            var best_xy: Array[PackedVector2Array] = []
+            var found: bool = false
+            # Try a smaller island by itself and both connected islands.
+            for group in [[ca],[cb],[ca,cb]]:
+                var active: Array[int] = []
+                var active_set: Dictionary = {}
+                var edge_set: Dictionary = {}
+                var changed_by_chart: Dictionary = {}
+                for ci in group:
+                    var changed: Dictionary = {}
+                    for ni in chart_nodes[int(ci)]:
+                        if locked.has(ni):
+                            continue
+                        active.append(int(ni))
+                        active_set[int(ni)] = true
+                        for ref in nodes[int(ni)].refs:
+                            changed[int(ref.x)] = true
+                    changed_by_chart[int(ci)] = changed
+                    for edge in incident[int(ci)]:
+                        edge_set[int(edge)] = true
+                if active.is_empty():
+                    continue
+                # Each equation is R_a*delta_a - R_b*delta_b = -error,
+                # with fractional edge endpoints represented by coefficients.
+                var equations: Array[Dictionary] = []
+                for edge in edge_set:
+                    var link: Dictionary = links[int(edge)]
+                    var ta: int = int(link.ta)
+                    var tb: int = int(link.tb)
+                    var ea: int = int(link.ea)
+                    var eb: int = int(link.eb)
+                    var a: PackedVector2Array = _segment_uv({"xy":base[ta]},ea,float(link.a0),float(link.a1),"xy")
+                    var b: PackedVector2Array = _segment_uv({"xy":base[tb]},eb,float(link.b0),float(link.b1),"xy")
+                    var da: Vector2 = a[1]-a[0]
+                    var db: Vector2 = b[1]-b[0]
+                    var quarter: float = roundf(db.angle_to(da)/(PI*0.5))*(PI*0.5)
+                    var err0: Vector2 = a[0]-b[0].rotated(quarter)
+                    err0 -= err0.round()
+                    var err1: Vector2 = err0+da-db.rotated(quarter)
+                    var ids := PackedInt32Array([corner_nodes[ta][ea],corner_nodes[ta][(ea+1)%3],corner_nodes[tb][eb],corner_nodes[tb][(eb+1)%3]])
+                    var is_seed_pair: bool = (int(link.a)==ca and int(link.b)==cb) or (int(link.a)==cb and int(link.b)==ca)
+                    var error: float = maxf(err0.length(),err1.length())
+                    for endpoint in range(2):
+                        var fa: float = float(link.a0) if endpoint == 0 else float(link.a1)
+                        var fb: float = float(link.b0) if endpoint == 0 else float(link.b1)
+                        equations.append({"ids":ids,"coef":PackedFloat32Array([1.0-fa,fa,1.0-fb,fb]),"quarter":quarter,"error":err0 if endpoint == 0 else err1,"severity":error,"seed":is_seed_pair})
+                for boost in [2.0,6.0,16.0]:
+                    var delta := PackedVector2Array()
+                    delta.resize(nodes.size())
+                    # Damped Jacobi solution of the fixed linear equations.
+                    for iteration in range(16):
+                        var sums := PackedVector2Array()
+                        var weights := PackedFloat32Array()
+                        sums.resize(nodes.size())
+                        weights.resize(nodes.size())
+                        for eq in equations:
+                            var ids: PackedInt32Array = eq.ids
+                            var coefficients: PackedFloat32Array = eq.coef
+                            var quarter: float = float(eq.quarter)
+                            var err: Vector2 = eq.error
+                            var weight: float = (1.0+float(eq.severity))* (float(boost) if bool(eq.seed) else 1.0)
+                            for k in range(4):
+                                var value: Vector2 = delta[ids[k]]*coefficients[k]
+                                err += value if k < 2 else -value.rotated(quarter)
+                            for k in range(4):
+                                var ni: int = ids[k]
+                                if not active_set.has(ni):
+                                    continue
+                                var coef: float = coefficients[k]
+                                var direction: Vector2 = -err if k < 2 else err.rotated(-quarter)
+                                sums[ni] += direction*coef*weight
+                                weights[ni] += coef*coef*weight
+                        for ni in active:
+                            var correction: Vector2 = (sums[ni]-delta[ni]*0.2)/(weights[ni]+0.2)
+                            delta[ni] = (delta[ni]+correction*0.3).limit_length(0.65)
+                    for fraction in [1.0,0.75,0.5,0.25,0.125]:
+                        # All copies of a welded UV vertex get the same delta.
+                        for ni in active:
+                            _set_local_uv_shift(tris,base,nodes[ni].refs,delta[ni]*float(fraction))
+                        tested += 1
+                        var candidate: Vector3 = _local_uv_metrics(tris,links,all_links)
+                        if candidate.x <= score.x+0.000001 and candidate.y <= score.y and candidate.z < score.z-0.000001:
+                            var better: bool = not found or candidate.x < best_score.x-0.000001 or (absf(candidate.x-best_score.x) <= 0.000001 and candidate.z < best_score.z-0.000001)
+                            if better:
+                                var valid: bool = true
+                                for ci in group:
+                                    if not _valid_local_uv_shift(tris,original,changed_by_chart[int(ci)],members[int(ci)]):
+                                        valid = false
+                                        break
+                                if not valid:
+                                    rejected_shape += 1
+                                else:
+                                    var bounds: Array[Dictionary] = _global_uv_chart_bounds(tris,charts,members)
+                                    if _hinge_pack_side(bounds) <= capacity:
+                                        best_xy.clear()
+                                        for t in tris:
+                                            var xy: PackedVector2Array = t.xy
+                                            best_xy.append(xy.duplicate())
+                                        best_score = candidate
+                                        found = true
+                                    else:
+                                        rejected_capacity += 1
+                        for ni in active:
+                            _set_local_uv_shift(tris,base,nodes[ni].refs,Vector2.ZERO)
+            if found:
+                for ti in range(tris.size()):
+                    tris[ti].xy = best_xy[ti]
+                var bounds: Array[Dictionary] = _global_uv_chart_bounds(tris,charts,members)
+                for ci in range(charts.size()):
+                    charts[ci].min = bounds[ci].min
+                    charts[ci].max = bounds[ci].max
+                score = best_score
+                accepted += 1
+                improved = true
+        if not improved:
+            break
+    return "連立境界補正 %d採用/%d試行・形状拒否%d・容量拒否%d・問題辺 %d→%d・最大 %.3f→%.3fpx・二乗和 %.3f→%.3f / %s" % [accepted,tested,rejected_shape,rejected_capacity,int(baseline.y),int(score.y),baseline.x,score.x,baseline.z,score.z,"採用" if accepted > 0 else "不採用・V8維持"]
+
+
 static func _apply_rigid_uv_island(tris: Array[Dictionary],members: Array,base: Array[PackedVector2Array],pivot: Vector2,angle: float,offset: Vector2) -> void:
     for j in range(members.size()):
         var xy: PackedVector2Array = base[j].duplicate()
