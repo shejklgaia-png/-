@@ -780,15 +780,23 @@ static func _mesh_from_arrays(verts: PackedVector3Array,
 # of the original batch; no duplicate geometry, overlays or z-fighting.
 static func _split_stain_batches(batches: Dictionary) -> void:
     var spots: Array = [
-        [Vector2(-2.70, 4.15), "_rust"],
-        [Vector2(0.95, 6.15), "_oil"],
-        [Vector2(-0.95, 0.75), "_oil"],
-        [Vector2(2.70, -2.20), "_rust"],
-        [Vector2(-5.00, -0.40), "_oil"],
-        [Vector2(5.00, 5.70), "_rust"]
+        [Vector2(-0.48, 4.95), "_rust"],
+        [Vector2(0.40, 3.25), "_oil"],
+        [Vector2(-0.48, 2.10), "_oil"],
+        [Vector2(0.47, 1.15), "_rust"],
+        [Vector2(-0.55, -0.60), "_rust"],
+        [Vector2(0.48, -2.65), "_oil"]
     ]
     var selected: Dictionary = {}
     var keys: Array = batches.keys()
+    # Match the texture variant assignment of the clean floor batches.
+    var variants: Dictionary = {}
+    var variant_index: int = 0
+    for key_value in keys:
+        var key: String = str(key_value)
+        if key.begins_with("armor_") or key.begins_with("wedge_"):
+            variants[key] = variant_index % 2
+            variant_index += 1
     for spot in spots:
         var target: Vector2 = spot[0]
         var best_dist: float = 2.5
@@ -804,7 +812,18 @@ static func _split_stain_batches(batches: Dictionary) -> void:
                 if picked.has(index):
                     continue
                 var pose: Transform3D = transforms[index]
-                var distance: float = target.distance_to(Vector2(pose.origin.x, pose.origin.z))
+                # Rank the actual stain location, not just the plate center.
+                # Avoid the side consoles and floor area behind the bottom HUD.
+                var variant: int = int(variants[key])
+                var uv: Vector2
+                if str(spot[1]) == "_rust":
+                    uv = Vector2(0.25, 0.66) if variant == 0 else Vector2(0.77, 0.18)
+                else:
+                    uv = Vector2(0.66, 0.29) if variant == 0 else Vector2(0.32, 0.73)
+                var at: Vector3 = pose * Vector3(uv.x - 0.5, PLATE_TOP, uv.y - 0.5)
+                if absf(at.x) > 1.0 or at.z > 5.15 or at.z < -3.1:
+                    continue
+                var distance: float = target.distance_to(Vector2(at.x, at.z))
                 if distance < best_dist:
                     best_dist = distance
                     best_key = key
@@ -893,10 +912,12 @@ static func _submit(room: Node3D, batches: Dictionary) -> void:
         instance.set_meta("FX_NO_OUTLINE", true)
         root.add_child(instance)
     # Paint is flush with the deck, depth-tested, and never an input target.
-    _floor_stencil(root, "NEXUS", Vector3(-0.93, 0.178, 5.45), 0.0047, Color("#aeb8bd"))
-    _floor_stencil(root, "A1 / HUB", Vector3(0.94, 0.178, 5.45), 0.0036, Color("#a3afb6"))
-    _floor_stencil(root, "SERVICE", Vector3(-2.69, 0.178, 4.88), 0.0033, Color("#9f8d57"))
-    _floor_stencil(root, "KEEP CLEAR", Vector3(2.69, 0.178, 4.88), 0.0028, Color("#9f8d57"))
+    # The default portrait camera sees the narrow center aisle between the
+    # consoles. Keep the lettering above EXIT/PLACE and off both terminals.
+    _floor_stencil(root, "NEXUS", Vector3(0.0, 0.178, 4.69), 0.0039, Color("#c9d1d4"))
+    _floor_stencil(root, "A1 / HUB", Vector3(0.0, 0.178, 2.80), 0.0031, Color("#c4ccd0"))
+    _floor_stencil(root, "SERVICE", Vector3(0.0, 0.178, 0.10), 0.0030, Color("#d4b779"))
+    _floor_stencil(root, "KEEP CLEAR", Vector3(0.0, 0.178, -1.34), 0.0028, Color("#d4b779"))
 
 
 static func _floor_stencil(root: Node3D, wording: String, at: Vector3,
