@@ -588,17 +588,22 @@ func attach_hud(hud: Control) -> void:
     hero_rotate_icon = RotateMark.new()
     hero_rotate_icon.name = "WorksiteRotateCue"
     hero_frame.add_child(hero_rotate_icon)
-    hero_rotate_icon.position = Vector2(8, 8)
-    hero_rotate_icon.size = Vector2(28, 28)
+    # The hanging section tabs overlap the top of the 3D preview.
+    # Keep both camera cues at the bottom corners, inside the preview.
+    hero_rotate_icon.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+    hero_rotate_icon.offset_left = 8.0
+    hero_rotate_icon.offset_right = 36.0
+    hero_rotate_icon.offset_top = -36.0
+    hero_rotate_icon.offset_bottom = -8.0
     hero_reset_icon = Control.new()
     hero_reset_icon.name = "WorksiteCameraReset"
     hero_reset_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
     hero_frame.add_child(hero_reset_icon)
-    hero_reset_icon.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+    hero_reset_icon.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
     hero_reset_icon.offset_left = -44.0
     hero_reset_icon.offset_right = -8.0
-    hero_reset_icon.offset_top = 8.0
-    hero_reset_icon.offset_bottom = 44.0
+    hero_reset_icon.offset_top = -44.0
+    hero_reset_icon.offset_bottom = -8.0
     hero_reset_icon.draw.connect(_draw_hero_camera_reset)
     var header_row := HBoxContainer.new()
     header_row.name = "FacilityHeaderRow"
