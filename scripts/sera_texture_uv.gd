@@ -21,8 +21,17 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
         var vertex_colors: PackedColorArray = arr[Mesh.ARRAY_COLOR] if arr[Mesh.ARRAY_COLOR] != null else PackedColorArray()
         var ids: PackedInt32Array = arr[Mesh.ARRAY_INDEX] if arr[Mesh.ARRAY_INDEX] != null else PackedInt32Array()
         var count: int = ids.size() if not ids.is_empty() else vs.size()
-        var mat := source.get_active_material(s) as StandardMaterial3D
-        if source.get_active_material(s) != null and mat == null:
+        var active: Material = source.get_active_material(s)
+        var mat: StandardMaterial3D = active as StandardMaterial3D
+        var encoded_culling: bool = false
+        if active is ShaderMaterial:
+            var shader_mat: ShaderMaterial = active as ShaderMaterial
+            if shader_mat.shader != null and shader_mat.shader.resource_path == "res://shaders/sera_texture_studio_preview.gdshader":
+                mat = StandardMaterial3D.new()
+                mat.albedo_texture = shader_mat.get_shader_parameter("source_texture") as Texture2D
+                mat.texture_repeat = false
+                encoded_culling = true
+        if active != null and mat == null:
             return {"error": "特殊マテリアルは未対応です"}
         var base := Color.WHITE if mat == null else mat.albedo_color
         var tex: Image = null
@@ -66,7 +75,10 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
                 normals.append(nn)
                 prior.append(old_uv[ix[k]] if old_uv.size() == vs.size() else Vector2.ZERO)
                 colors.append(vertex_colors[ix[k]] if mat != null and mat.vertex_color_use_as_albedo and vertex_colors.size() == vs.size() else Color.WHITE)
-            tris.append({"p":p,"n":normals,"xy":xy,"chart":ci,"base":base,"tex":tex,"prior":prior,"colors":colors,"repeat":mat == null or mat.texture_repeat})
+            var cull: int = BaseMaterial3D.CULL_DISABLED if mat == null else mat.cull_mode
+            if encoded_culling and vertex_colors.size() == vs.size():
+                cull = _decode_cull(vertex_colors[ix[0]].r)
+            tris.append({"p":p,"n":normals,"xy":xy,"chart":ci,"base":base,"tex":tex,"prior":prior,"colors":colors,"repeat":mat == null or mat.texture_repeat,"cull":cull})
     if tris.is_empty():
         return {"error":"描画可能な三角形がありません"}
     var order: Array[int] = []
@@ -111,6 +123,7 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
     var vertices := PackedVector3Array()
     var normals_out := PackedVector3Array()
     var uvs := PackedVector2Array()
+    var flags := PackedColorArray()
     for t in tris:
         var c: Dictionary = charts[t.chart]
         var uv := PackedVector2Array()
@@ -120,6 +133,7 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
             vertices.append(t.p[k])
             normals_out.append(t.n[k])
             uvs.append(uv[k])
+            flags.append(Color(_encode_cull(int(t.cull)),1.0,1.0,1.0))
         t.uv = uv
         _bake_triangle(img,t,distances)
     var arrays: Array = []
@@ -127,6 +141,7 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
     arrays[Mesh.ARRAY_VERTEX] = vertices
     arrays[Mesh.ARRAY_NORMAL] = normals_out
     arrays[Mesh.ARRAY_TEX_UV] = uvs
+    arrays[Mesh.ARRAY_COLOR] = flags
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
     return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size()}
@@ -194,6 +209,20 @@ static func _bake_triangle(img: Image,t: Dictionary, distances: PackedFloat32Arr
             color *= colors[0]*weights.x+colors[1]*weights.y+colors[2]*weights.z
             img.set_pixel(x,y,Color(color.r,color.g,color.b,1.0))
 
+static func _encode_cull(mode: int) -> float:
+    if mode == BaseMaterial3D.CULL_FRONT:
+        return 0.0
+    if mode == BaseMaterial3D.CULL_BACK:
+        return 0.5
+    return 1.0
+
+static func _decode_cull(flag: float) -> int:
+    if flag < 0.25:
+        return BaseMaterial3D.CULL_FRONT
+    if flag < 0.75:
+        return BaseMaterial3D.CULL_BACK
+    return BaseMaterial3D.CULL_DISABLED
+
 static func hit(tris: Array,origin: Vector3,direction: Vector3) -> Dictionary:
     var nearest := INF
     var result: Dictionary = {}
@@ -204,6 +233,11 @@ static func hit(tris: Array,origin: Vector3,direction: Vector3) -> Dictionary:
         var h := direction.cross(e2)
         var det := e1.dot(h)
         if absf(det) < 0.0000001:
+            continue
+        # Godot front faces use clockwise winding; the picking side must
+        # match the visible side of the preview shader.
+        var cull: int = int(t.get("cull",BaseMaterial3D.CULL_DISABLED))
+        if (cull == BaseMaterial3D.CULL_FRONT and det < 0.0) or (cull == BaseMaterial3D.CULL_BACK and det > 0.0):
             continue
         var q := origin-p[0]
         var u := q.dot(h)/det
@@ -226,10 +260,11 @@ static func restore_triangles(mesh: ArrayMesh, chart_ids: Array) -> Array:
     var a: Array = mesh.surface_get_arrays(0)
     var vertices: PackedVector3Array = a[Mesh.ARRAY_VERTEX]
     var uv: PackedVector2Array = a[Mesh.ARRAY_TEX_UV]
+    var flags: PackedColorArray = a[Mesh.ARRAY_COLOR] if a[Mesh.ARRAY_COLOR] != null else PackedColorArray()
     if vertices.size() != uv.size() or vertices.size() % 3 != 0 or chart_ids.size()*3 != vertices.size() or chart_ids.size() > MAX_TRIANGLES:
         return result
     for i in range(0,vertices.size(),3):
-        result.append({"p":PackedVector3Array([vertices[i],vertices[i+1],vertices[i+2]]),"uv":PackedVector2Array([uv[i],uv[i+1],uv[i+2]]),"chart":int(chart_ids[i/3])})
+        result.append({"p":PackedVector3Array([vertices[i],vertices[i+1],vertices[i+2]]),"uv":PackedVector2Array([uv[i],uv[i+1],uv[i+2]]),"chart":int(chart_ids[i/3]),"cull":_decode_cull(flags[i].r) if flags.size() == vertices.size() else BaseMaterial3D.CULL_DISABLED})
     return result
 
 static func mirror_hit(tris: Array, origin: Vector3, direction: Vector3, hit_position: Vector3, axis_x: float, tolerance: float) -> Dictionary:
