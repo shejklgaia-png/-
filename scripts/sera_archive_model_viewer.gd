@@ -63,12 +63,12 @@ func _ready() -> void:
     _button("next", "›")
     _button("reset", "")
     _button("back", "戻る")
-    buttons["reset"].queue_redraw()
+    var reset_panel: Panel = buttons["reset"]
+    reset_panel.queue_redraw()
     resized.connect(_layout)
     _layout()
-    hide()
 
-func _label(value: String, font_size: int) -> Label:
+func _label(value: String, font_size: int, parent: Control = null) -> Label:
     var label := Label.new()
     label.text = value
     label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -78,7 +78,10 @@ func _label(value: String, font_size: int) -> Label:
     label.add_theme_font_override("font", Skin.ui_font())
     label.add_theme_font_size_override("font_size", font_size)
     label.add_theme_color_override("font_color", Color("#d7e6ed"))
-    add_child(label)
+    if parent == null:
+        add_child(label)
+    else:
+        parent.add_child(label)
     return label
 
 func _button(id: String, value: String) -> void:
@@ -86,9 +89,7 @@ func _button(id: String, value: String) -> void:
     panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
     panel.add_theme_stylebox_override("panel", Skin.terminal_segment_style("normal"))
     add_child(panel)
-    var label := _label(value, 16)
-    remove_child(label)
-    panel.add_child(label)
+    var label := _label(value, 16, panel)
     label.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     buttons[id] = panel
     if id == "reset":
@@ -135,7 +136,10 @@ func _layout() -> void:
         _apply_transform()
 
 func open_archive() -> void:
+    # Display the independent UI immediately; do not tie visibility to
+    # rig initialization or the first SubViewport render.
     show()
+    _layout()
     _set_category(0)
 
 func close_archive() -> void:
@@ -202,11 +206,19 @@ func _select(index: int) -> void:
     _refresh_rows()
     generation += 1
     _drop_view()
+    caption.text += "  /  LOADING"
     _load_selected.call_deferred(generation, category, selected)
 
 func _load_selected(request: int, kind: int, id: String) -> void:
-    if request != generation or not visible:
+    # Allow the visible menu to render before construction of a heavy rig.
+    await get_tree().process_frame
+    if request != generation or not is_visible_in_tree():
         return
+    var display_name: String = id
+    for entry in entries:
+        if str(entry["id"]) == id:
+            display_name = str(entry["name"])
+            break
     viewport = SubViewport.new()
     viewport.own_world_3d = true
     viewport.render_target_update_mode = SubViewport.UPDATE_WHEN_VISIBLE
@@ -225,7 +237,7 @@ func _load_selected(request: int, kind: int, id: String) -> void:
         if request != generation:
             return
         if not bool(equipment.get("ready_for_commands")):
-            caption.text += " / MODEL UNAVAILABLE"
+            caption.text = display_name + " / MODEL UNAVAILABLE"
             return
         var spec: Dictionary = Catalog.spec(id) if kind == 1 else {}
         var gear: Dictionary = {}
@@ -237,6 +249,7 @@ func _load_selected(request: int, kind: int, id: String) -> void:
             "editing_slot":str(spec.get("slot","head")), "selected":gear,
             "size":1.0, "keep_aspect":true, "background_mode":"grid",
             "camera":{"yaw":156.9,"pitch":11.87,"roll":0.0,"panX":0.0,"panY":0.0,"zoom":0.86}})
+        caption.text = display_name
         return
     stage = Node3D.new()
     viewport.add_child(stage)
@@ -285,13 +298,14 @@ func _load_selected(request: int, kind: int, id: String) -> void:
     var bounds: Dictionary = {}
     _collect_bounds(model, bounds)
     if not bounds.has("box"):
-        caption.text += " / MODEL UNAVAILABLE"
+        caption.text = display_name + " / MODEL UNAVAILABLE"
         return
     var box: AABB = bounds["box"]
     center.position = -box.get_center()
     center.scale = Vector3.ONE * (1.7/maxf(0.001,box.size.length()))
     center.position *= center.scale.x
     _reset_view()
+    caption.text = display_name
 
 func _collect_bounds(node: Node, data: Dictionary) -> void:
     if node is Node3D and not (node as Node3D).is_visible_in_tree():
@@ -329,36 +343,45 @@ func _apply_transform() -> void:
     var aspect: float = host.size.x/maxf(1.0,host.size.y)
     camera.size = fit_size/maxf(0.2,minf(1.0,aspect))/zoom
 
+func _contains(control: Control, point: Vector2) -> bool:
+    if not is_instance_valid(control) or not control.is_visible_in_tree():
+        return false
+    var local: Vector2 = control.get_global_transform_with_canvas().affine_inverse() * point
+    return Rect2(Vector2.ZERO, control.size).has_point(local)
+
+func _preview_point(point: Vector2) -> Vector2:
+    return host.get_global_transform_with_canvas().affine_inverse() * point
+
 func _touch(id: int, pressed: bool, point: Vector2) -> void:
     if pressed:
-        if host.get_global_rect().has_point(point):
+        if _contains(host, point):
             var reset: Panel = buttons["reset"]
-            if reset.get_global_rect().has_point(point):
+            if _contains(reset, point):
                 press_controls[id] = "reset"
             else:
                 fingers[id] = point
                 if is_instance_valid(equipment):
-                    equipment.call("_on_preview_touch",id,true,point-host.get_global_rect().position)
+                    equipment.call("_on_preview_touch",id,true,_preview_point(point))
         else:
             var hit := ""
             for key in buttons:
                 var p: Panel = buttons[key]
-                if p.visible and p.get_global_rect().has_point(point):
+                if _contains(p, point):
                     hit = str(key)
                     break
-            if hit.is_empty() and not get_global_rect().has_point(point):
+            if hit.is_empty() and not _contains(self, point):
                 hit = "outside"
             press_controls[id] = hit
     elif fingers.has(id):
         fingers.erase(id)
         if is_instance_valid(equipment):
-            equipment.call("_on_preview_touch",id,false,point-host.get_global_rect().position)
+            equipment.call("_on_preview_touch",id,false,_preview_point(point))
     elif press_controls.has(id):
         var hit: String = press_controls[id]
         press_controls.erase(id)
-        if hit == "outside" and not get_global_rect().has_point(point):
+        if hit == "outside" and not _contains(self, point):
             close_requested.emit()
-        elif buttons.has(hit) and (buttons[hit] as Panel).get_global_rect().has_point(point):
+        elif buttons.has(hit) and _contains(buttons[hit] as Panel, point):
             _activate(hit)
 
 func _activate(id: String) -> void:
@@ -381,7 +404,7 @@ func _drag(id: int, point: Vector2) -> void:
     var before: Array = fingers.values()
     fingers[id] = point
     if is_instance_valid(equipment):
-        equipment.call("_on_preview_drag",id,point-host.get_global_rect().position)
+        equipment.call("_on_preview_drag",id,_preview_point(point))
         return
     if fingers.size() == 1:
         var delta: Vector2 = point-old
@@ -413,7 +436,7 @@ func route_input(event: InputEvent) -> bool:
     elif event is InputEventMouseButton:
         if event.button_index == MOUSE_BUTTON_LEFT:
             _touch(-10,event.pressed,event.position)
-        elif event.pressed and host.get_global_rect().has_point(event.position) and event.button_index in [MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN]:
+        elif event.pressed and _contains(host, event.position) and event.button_index in [MOUSE_BUTTON_WHEEL_UP,MOUSE_BUTTON_WHEEL_DOWN]:
             var factor: float = 1.1 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0/1.1
             if is_instance_valid(equipment) and bool(equipment.get("ready_for_commands")):
                 equipment.set("camera_zoom",clampf(float(equipment.get("camera_zoom"))*factor,0.25,4.0))
