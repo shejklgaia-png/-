@@ -7,6 +7,10 @@ extends RefCounted
 ## No runtime animation, light, physics, viewport or selection ID is added.
 
 static func suppresses_authored_part(label: String) -> bool:
+    # The long amber ceiling conductor projected into the gate close-up.
+    # The recessed wall conduit already covers its function in this bay.
+    if label == "Suspended power line 1 0":
+        return true
     # Replace the old transverse box-beam system, not its practical lights.
     if label.begins_with("Deep overhead girder ") or label.begins_with("Girder inset lower spine ") or label.begins_with("Background girder "):
         return true
@@ -495,24 +499,6 @@ static func _build_launch_architecture(root: Node3D, gate_at: Vector3,
     _service_submit(pivot,"WallLaunchSocketMachinedTrim",trim,Color("#939184"),_service_texture(1))
     _service_submit(pivot,"WallLaunchSocketServiceInsets",recess,Color("#273c4a"),_service_texture(2))
 
-    # Flush approach graphics continue the actual rotated ramp. No geometry
-    # on the ramp, threshold or kiosk footprint, and no raised obstacles.
-    var guidance := SurfaceTool.new()
-    guidance.begin(Mesh.PRIMITIVE_TRIANGLES)
-    guidance.set_smooth_group(-1)
-    var floor_y: float = 0.179-gate_at.y
-    for side in [-1.0,1.0]:
-        for k in range(3):
-            var z0: float = 7.32+float(k)*0.48
-            var x0: float = side*1.52
-            var x1: float = side*1.80
-            var a := Vector3(x0,floor_y,z0)
-            var b := Vector3(x1,floor_y,z0+0.12)
-            var d := Vector3(x0,floor_y,z0+0.14)
-            var e := Vector3(x1,floor_y,z0+0.26)
-            _service_triangle(guidance,a,b,e,Vector2.ZERO,Vector2.RIGHT,Vector2.ONE)
-            _service_triangle(guidance,a,e,d,Vector2.ZERO,Vector2.ONE,Vector2.DOWN)
-    _service_submit(pivot,"LaunchApronGuidance",guidance,Color("#a39873"),_service_texture(1))
 
 
 # Give the remaining long wall bays the same chamfered socket vocabulary.
