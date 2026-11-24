@@ -180,19 +180,7 @@ func _ready() -> void:
     await _startup_budget.yield_frame()
     if console_screen != null:
         console_screen.set_cyber_font(LaboSkin.display_font())
-    # Imported textures can be decoded concurrently; missing imports retain
-    # the existing raw-editor fallback. Never call threaded_get before ready.
-    var requests: Array[String] = []
-    for path in [WEATHERED_STEEL_PATH, WEATHERED_DECK_PATH, BASE_LOGISTICS_PATH]:
-        if ResourceLoader.exists(path) and ResourceLoader.load_threaded_request(path) == OK:
-            requests.append(path)
-    var boot_resources: Dictionary = {}
-    for path in requests:
-        while ResourceLoader.load_threaded_get_status(path) == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
-            await _startup_budget.yield_frame()
-        if ResourceLoader.load_threaded_get_status(path) == ResourceLoader.THREAD_LOAD_LOADED:
-            boot_resources[path] = ResourceLoader.load_threaded_get(path)
-    await _startup_budget.checkpoint("resources")
+    # Build the real scene continuously; resources load synchronously on use.
     await _build_hangar()
     _startup_step("WORLD / FLOOR MATRIX ONLINE", 18)
     await _startup_budget.checkpoint("floor")
@@ -202,7 +190,7 @@ func _ready() -> void:
     await _build_power_distribution_startup()
     _startup_step("GRID / POWER ROUTING ONLINE", 21)
     await _startup_budget.checkpoint("power distribution")
-    await _build_logistics(boot_resources.get(BASE_LOGISTICS_PATH))
+    await _build_logistics()
     await BasePowerDistribution.install_protectors_budgeted(power_distribution, logistics, _startup_budget)
     if is_instance_valid(logistics) or not facility_poses.is_empty():
         BaseClutter.set_preview_layouts(await BaseLayoutPreview.reserve_props_budgeted(
@@ -384,18 +372,8 @@ func _create_grid_plates(floor: Node3D) -> Array[Dictionary]:
     ]
     var sites: Array[Dictionary] = BaseDeckLayout.facility_sites(
         NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS)
-    # Pure value computation only: no scene tree, resources or GPU access.
-    var panels: Array[Dictionary] = []
-    var worker := Thread.new()
-    var start_error: Error = worker.start(func(): return BaseDeckLayout.generate(
-        PLATE_GRID_RADIUS_CELLS, PLATE_GRID_STEP, sites))
-    if start_error == OK:
-        while worker.is_alive():
-            await _startup_budget.yield_frame()
-        panels = worker.wait_to_finish()
-    else:
-        panels = BaseDeckLayout.generate(PLATE_GRID_RADIUS_CELLS, PLATE_GRID_STEP, sites)
-    await _startup_budget.checkpoint("deck partition")
+    var panels: Array[Dictionary] = BaseDeckLayout.generate(
+        PLATE_GRID_RADIUS_CELLS, PLATE_GRID_STEP, sites)
     # Physically chamfered eight-sided polygonal unit slab, sharing one
     # CPU-side mesh across all existing six floor MultiMesh draw batches.
     var plate_mesh: ArrayMesh = BasePolygon.make("deck")
