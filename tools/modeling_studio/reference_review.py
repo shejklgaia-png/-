@@ -11,7 +11,33 @@ from PIL import Image, ImageChops
 VIEWS = {"front","back","left","right","top","bottom","front_3q","back_3q"}
 SIZE = 768
 
-def mask(path, mode):
+def uniform_background_mask(im, tolerance=20):
+    """Remove only border-connected pixels near a uniform background color.
+    Preserve interior same-color details. Reject nonuniform borders.
+    """
+    if not 0 <= tolerance <= 80:
+        raise ValueError("background tolerance must be 0..80")
+    rgb = im.convert("RGB")
+    w,h = rgb.size
+    if min(w,h)<3 or w*h>16_000_000:
+        raise ValueError("reference size outside supported range")
+    p=rgb.load()
+    border=[p[x,0] for x in range(w)]+[p[x,h-1] for x in range(w)]+[p[0,y] for y in range(1,h-1)]+[p[w-1,y] for y in range(1,h-1)]
+    bg=tuple(sorted(v[i] for v in border)[len(border)//2] for i in range(3))
+    def close(v):
+        return max(abs(v[i]-bg[i]) for i in range(3)) <= tolerance
+    if sum(close(v) for v in border)/len(border)<.98:
+        raise ValueError("nonuniform or obstructed image border; use a manual mask")
+    # Flood fill a binary candidate image from an external padded border.
+    from PIL import ImageDraw
+    candidates=Image.new("L",(w+2,h+2),255)
+    inner=Image.new("L",(w,h))
+    inner.putdata([255 if close(v) else 0 for v in rgb.getdata()])
+    candidates.paste(inner,(1,1))
+    ImageDraw.floodfill(candidates,(0,0),128)
+    return candidates.crop((1,1,w+1,h+1)).point(lambda v:0 if v==128 else 255)
+
+def mask(path, mode, tolerance=20):
     with Image.open(path) as im:
         if mode == "alpha":
             if "A" not in im.getbands() and "transparency" not in im.info:
@@ -19,8 +45,10 @@ def mask(path, mode):
             channel = im.convert("RGBA").getchannel("A")
         elif mode == "white":
             channel = im.convert("L")
+        elif mode == "uniform_background":
+            channel = uniform_background_mask(im,tolerance)
         else:
-            raise ValueError("mask mode must be alpha or white")
+            raise ValueError("mask mode must be alpha, white or uniform_background")
         result = channel.point(lambda x: 255 if x >= 128 else 0)
     if not result.getbbox() or result.getbbox() == (0,0,*result.size) and result.histogram()[255] == result.width*result.height:
         raise ValueError("empty or entirely foreground mask")
@@ -91,10 +119,13 @@ def main():
         path=(manifest.parent/s["mask"]).resolve()
         if not path.is_relative_to(manifest.parent):
             raise ValueError("reference must be inside manifest directory")
-        a=mask(path,s["mode"])
+        a=mask(path,s["mode"],s.get("background_tolerance",20))
+        a.save(out/(name+"_reference_mask.png"))
         b=mask(root/(name+".png"),"alpha")
         report,overlay=compare(a,b,s.get("landmarks",{}),projections[name]["landmarks"],s.get("alignment","fixed"))
         report["alignment"]=s.get("alignment","fixed")
+        report["mask_mode"]=s["mode"]
+        report["mask_requires_visual_review"]=s["mode"]=="uniform_background"
         scores[name]=report
         overlay.save(out/(name+"_overlay.png"))
     report={"format":"SERA_REFERENCE_RESULT_V1","views":scores,

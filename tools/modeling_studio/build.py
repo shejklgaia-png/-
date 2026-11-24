@@ -223,7 +223,7 @@ def aim(obj, target):
     obj.rotation_euler = (Vector(target)-obj.location).to_track_quat('-Z','Y').to_euler()
 
 
-def render_views(objects, out, resolution, landmarks):
+def render_views(objects, out, resolution, landmarks, cameras):
     corners = [obj.matrix_world @ Vector(c) for obj in objects if obj.type=='MESH' for c in obj.bound_box]
     if not corners:
         raise ValueError("model contains no mesh")
@@ -267,12 +267,25 @@ def render_views(objects, out, resolution, landmarks):
         lights.append(light)
     projections = {}
     nodes = {obj.name: obj for obj in objects}
+    if not set(cameras) <= set(VIEWS):
+        raise ValueError("camera overrides must name an existing review view")
     for name,direction in VIEWS.items():
-        camera.location = center+Vector(direction).normalized()*span*3
-        if name in ("top","bottom"):
-            camera.rotation_euler = (0,0,0) if name=="top" else (math.pi,0,0)
+        cfg = cameras.get(name,{})
+        target = Vector(cfg.get("target",center))
+        direction = Vector(cfg.get("direction",direction))
+        scale = float(cfg.get("ortho_scale",span*1.12))
+        if direction.length < 1e-8 or not math.isfinite(scale) or scale<=0:
+            raise ValueError("invalid camera configuration: "+name)
+        camera_data.ortho_scale = scale
+        camera.location = target+direction.normalized()*span*3
+        if abs(direction.normalized().z)>0.999999:
+            camera.rotation_euler = (0,0,0) if direction.z>0 else (math.pi,0,0)
         else:
-            aim(camera, center)
+            aim(camera, target)
+        roll = math.radians(float(cfg.get("roll_degrees",0)))
+        if roll:
+            from mathutils import Quaternion
+            camera.rotation_euler = (camera.rotation_euler.to_quaternion() @ Quaternion((0,0,1),roll)).to_euler()
         bpy.context.view_layer.update()
         points = {}
         for label, point in landmarks.items():
@@ -280,7 +293,8 @@ def render_views(objects, out, resolution, landmarks):
             ndc = world_to_camera_view(scene, camera, world)
             points[label] = [ndc.x * resolution, (1-ndc.y) * resolution]
         projections[name] = {"landmarks": points, "resolution": resolution,
-                             "ortho_scale": camera_data.ortho_scale}
+                             "ortho_scale": camera_data.ortho_scale, "camera_location": list(camera.location),
+                             "camera_rotation": list(camera.rotation_euler), "target": list(target)}
         scene.render.filepath = str(out/(name+".png"))
         bpy.ops.render.render(write_still=True)
     (out/"projections.json").write_text(json.dumps(projections, indent=2), encoding="utf-8")
@@ -310,7 +324,7 @@ def main():
     resolution = int(spec.get("review_resolution",768))
     if not 128<=resolution<=2048:
         raise ValueError("review_resolution must be 128..2048")
-    render_views(objects,out,resolution,spec.get("landmarks", {}))
+    render_views(objects,out,resolution,spec.get("landmarks", {}),spec.get("review_cameras", {}))
     (out/"complete.json").write_text(json.dumps(dict(format=spec["format"],views=list(VIEWS),
         triangles=sum(row["triangles"] for row in report)),indent=2),encoding="utf-8")
 

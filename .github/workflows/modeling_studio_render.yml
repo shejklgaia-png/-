@@ -31,18 +31,33 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+      - name: Check reference metric math independently
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/review-venv"
+          "$RUNNER_TEMP/review-venv/bin/pip" install Pillow==11.3.0
+          "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/check_reference_metrics.py
       - name: Install Blender 4.5.3 LTS
         shell: bash
         run: |
           set -euo pipefail
           cd "$RUNNER_TEMP"
           archive=blender-4.5.3-linux-x64.tar.xz
-          base=https://download.blender.org/release/Blender4.5
-          curl --fail --location --retry 3 "$base/$archive" -o "$archive"
-          curl --fail --location --retry 3 "$base/blender-4.5.3.sha256" -o checksums.txt
-          awk -v a="$archive" '$2==a || $2=="*"a {print}' checksums.txt > selected.sha256
-          test "$(wc -l < selected.sha256)" -eq 1
-          sha256sum --check selected.sha256
+          ok=0
+          for base in https://download.blender.org/release/Blender4.5 https://mirror.blender.org/release/Blender4.5; do
+            rm -f "$archive" checksums.txt selected.sha256
+            if curl --fail --location --retry 2 --connect-timeout 20 --max-time 240 "$base/blender-4.5.3.sha256" -o checksums.txt &&
+               awk -v a="$archive" '$2==a || $2=="*"a {print}' checksums.txt > selected.sha256 &&
+               test "$(wc -l < selected.sha256)" -eq 1 &&
+               curl --fail --location --retry 2 --connect-timeout 20 --max-time 300 "$base/$archive" -o "$archive" &&
+               sha256sum --check selected.sha256; then
+              ok=1
+              break
+            fi
+            echo "::warning::Blender source failed: $base"
+          done
+          test "$ok" -eq 1
           tar -xf "$archive"
           echo "$RUNNER_TEMP/blender-4.5.3-linux-x64" >> "$GITHUB_PATH"
       - name: Generate model and review images
@@ -58,9 +73,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m venv "$RUNNER_TEMP/review-venv"
-          "$RUNNER_TEMP/review-venv/bin/pip" install Pillow==11.3.0
-          "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/check_reference_metrics.py
           if [[ -n "$REFERENCE_MANIFEST" ]]; then
             manifest=$(realpath -- "$REFERENCE_MANIFEST")
             root=$(realpath tools/modeling_studio)
