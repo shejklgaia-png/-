@@ -135,6 +135,8 @@ static func apply_to_rig(rig: Node3D) -> Dictionary:
             for candidate in selection.get(slot, []):
                 var mesh: MeshInstance3D = candidate as MeshInstance3D
                 if not _is_display_piece(mesh):
+                    if is_instance_valid(mesh):
+                        _apply_native_flat(mesh)
                     continue
                 var mesh_id: int = mesh.get_instance_id()
                 if applied_mesh_ids.has(mesh_id):
@@ -233,6 +235,173 @@ static func _make_shaded_material(geometry: GeometryInstance3D,
     return shaded
 
 
+
+# Native physically lit solids (notably BASE buildings) must keep the real
+# StandardMaterial3D and work lights. Only their geometric normals change.
+# Cache by source mesh, not by instance; no extra passes or periodic scans.
+static var _native_flat_cache: Dictionary = {}
+
+static func _native_lit(material: Material) -> bool:
+    if material == null:
+        return true
+    var native: BaseMaterial3D = material as BaseMaterial3D
+    return native != null and (
+        native.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED) and (
+        native.shading_mode != BaseMaterial3D.SHADING_MODE_UNSHADED)
+
+static func _flat_native_mesh(source: Mesh) -> Mesh:
+    if source == null or source is BoxMesh or source is QuadMesh or (
+            source is PlaneMesh) or source is PointMesh or (
+            not (source is ArrayMesh or source is PrimitiveMesh)) or (
+            source is ArrayMesh and (source as ArrayMesh).get_blend_shape_count() > 0) or (
+            source.get_meta("sera_flat_face_mesh", false)):
+        return source
+    var key: int = source.get_instance_id()
+    if _native_flat_cache.has(key):
+        var entry: Array = _native_flat_cache[key]
+        if entry[0].get_ref() == source:
+            var cached: Mesh = entry[1].get_ref() as Mesh
+            if cached != null:
+                return cached
+    var output := ArrayMesh.new()
+    var changed: bool = false
+    for surface in range(source.get_surface_count()):
+        var primitive: int = Mesh.PRIMITIVE_TRIANGLES
+        var flags: int = 0
+        if source is ArrayMesh:
+            var array_source: ArrayMesh = source as ArrayMesh
+            primitive = array_source.surface_get_primitive_type(surface)
+            # Preserve custom channel format bits and 8-weight layout.
+            flags = array_source.surface_get_format(surface) & (
+                ((1 << 25) - (1 << 13)) | Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS)
+        var arrays: Array = source.surface_get_arrays(surface)
+        if arrays.size() != Mesh.ARRAY_MAX or arrays[Mesh.ARRAY_VERTEX] == null:
+            return source
+        if primitive == Mesh.PRIMITIVE_TRIANGLES and (
+                arrays[Mesh.ARRAY_VERTEX] is PackedVector3Array):
+            var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+            var normals: PackedVector3Array = PackedVector3Array()
+            if arrays[Mesh.ARRAY_NORMAL] != null:
+                normals = arrays[Mesh.ARRAY_NORMAL]
+            var indices := PackedInt32Array()
+            if arrays[Mesh.ARRAY_INDEX] != null:
+                indices = arrays[Mesh.ARRAY_INDEX]
+            if indices.is_empty():
+                indices.resize(vertices.size())
+                for i in range(vertices.size()):
+                    indices[i] = i
+            var needs_flat: bool = normals.size() != vertices.size()
+            if indices.size() % 3 != 0 or vertices.is_empty():
+                return source
+            var face_normals := PackedVector3Array()
+            face_normals.resize(indices.size())
+            for i in range(0, indices.size(), 3):
+                var ia: int = indices[i]
+                var ib: int = indices[i + 1]
+                var ic: int = indices[i + 2]
+                # Godot mesh front faces use clockwise winding.
+                var n: Vector3 = (vertices[ic] - vertices[ia]).cross(
+                    vertices[ib] - vertices[ia]).normalized()
+                if n.is_zero_approx():
+                    n = normals[ia] if normals.size() == vertices.size() else Vector3.UP
+                for j in range(3):
+                    face_normals[i + j] = n
+                    if normals.size() == vertices.size() and (
+                            normals[indices[i + j]].dot(n) < 0.99999):
+                        needs_flat = true
+            if needs_flat:
+                # Preserve UV, vertex paint, tangent, skin and custom channels.
+                # Unindex only surfaces that actually have interpolated normals.
+                var flat_arrays: Array = arrays.duplicate()
+                for slot in range(Mesh.ARRAY_INDEX):
+                    if slot == Mesh.ARRAY_NORMAL or arrays[slot] == null:
+                        continue
+                    var channel: Variant = arrays[slot]
+                    if channel.size() == 0:
+                        continue
+                    if channel.size() % vertices.size() != 0:
+                        return source
+                    var stride: int = int(channel.size() / vertices.size())
+                    var expanded: Variant = channel.duplicate()
+                    expanded.resize(indices.size() * stride)
+                    for i in range(indices.size()):
+                        for component in range(stride):
+                            expanded[i * stride + component] = channel[
+                                indices[i] * stride + component]
+                    flat_arrays[slot] = expanded
+                flat_arrays[Mesh.ARRAY_NORMAL] = face_normals
+                flat_arrays[Mesh.ARRAY_INDEX] = null
+                # Keep the tangent basis orthogonal to the new face normal.
+                if flat_arrays[Mesh.ARRAY_TANGENT] != null:
+                    var tangents: PackedFloat32Array = flat_arrays[Mesh.ARRAY_TANGENT]
+                    if tangents.size() == indices.size() * 4:
+                        for i in range(indices.size()):
+                            var t: Vector3 = Vector3(tangents[i * 4],
+                                tangents[i * 4 + 1], tangents[i * 4 + 2])
+                            var n: Vector3 = face_normals[i]
+                            t = (t - n * n.dot(t)).normalized()
+                            if t.is_zero_approx():
+                                t = n.cross(Vector3.UP if absf(n.y) < 0.9 else Vector3.RIGHT).normalized()
+                            tangents[i * 4] = t.x
+                            tangents[i * 4 + 1] = t.y
+                            tangents[i * 4 + 2] = t.z
+                        flat_arrays[Mesh.ARRAY_TANGENT] = tangents
+                arrays = flat_arrays
+                changed = true
+        output.add_surface_from_arrays(primitive, arrays, [], {}, flags)
+        if output.get_surface_count() != surface + 1:
+            return source
+        output.surface_set_material(surface, source.surface_get_material(surface))
+        if source is ArrayMesh:
+            output.surface_set_name(surface, (source as ArrayMesh).surface_get_name(surface))
+    var result: Mesh = output if changed else source
+    if changed:
+        output.resource_name = source.resource_name
+        if source is ArrayMesh:
+            output.custom_aabb = (source as ArrayMesh).custom_aabb
+        output.set_meta("sera_flat_face_mesh", true)
+    if _native_flat_cache.size() >= 2048:
+        # Bound the cache; nodes/multimeshes still own their converted resource.
+        _native_flat_cache.clear()
+    _native_flat_cache[key] = [weakref(source), weakref(result)]
+    return result
+
+static func _apply_native_flat(node: GeometryInstance3D) -> void:
+    if bool(node.get_meta("FX_NO_OUTLINE", false)) or (
+            bool(node.get_meta("sera_no_view_edges", false))):
+        return
+    if node is MultiMeshInstance3D:
+        var batch_node: MultiMeshInstance3D = node as MultiMeshInstance3D
+        var batch: MultiMesh = batch_node.multimesh
+        if batch == null or batch.mesh == null:
+            return
+        var material: Material = node.material_override
+        if material != null:
+            if not _native_lit(material):
+                return
+        else:
+            for i in range(batch.mesh.get_surface_count()):
+                if not _native_lit(batch.mesh.surface_get_material(i)):
+                    return
+        var flat: Mesh = _flat_native_mesh(batch.mesh)
+        if flat != batch.mesh:
+            batch.mesh = flat
+    elif node is MeshInstance3D:
+        var mesh_node: MeshInstance3D = node as MeshInstance3D
+        var source: Mesh = mesh_node.mesh
+        if source == null:
+            return
+        var overrides: Array[Material] = []
+        for i in range(source.get_surface_count()):
+            if not _native_lit(mesh_node.get_active_material(i)):
+                return
+            overrides.append(mesh_node.get_surface_override_material(i))
+        var flat: Mesh = _flat_native_mesh(source)
+        if flat != source:
+            mesh_node.mesh = flat
+            for i in range(overrides.size()):
+                mesh_node.set_surface_override_material(i, overrides[i])
+
 static func _apply_subtree_node(node: Node, preserve_per_object: bool) -> int:
     var changed: int = 0
     if node is MeshInstance3D:
@@ -259,6 +428,8 @@ static func _apply_subtree_node(node: Node, preserve_per_object: bool) -> int:
                 if batch_material != null:
                     batch.material_override = batch_material
                     changed += 1
+    if node is MeshInstance3D or node is MultiMeshInstance3D:
+        _apply_native_flat(node as GeometryInstance3D)
     return changed
 
 
