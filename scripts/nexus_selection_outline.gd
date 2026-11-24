@@ -23,15 +23,18 @@ func _process(delta: float) -> void:
     pulse_time = fposmod(pulse_time + delta, TAU / 3.6)
     queue_redraw()
 
+static func pulse_color(time_seconds: float) -> Color:
+    var blink := 0.5 + 0.5 * sin(time_seconds * 3.6)
+    return DIM_COLOR.lerp(BRIGHT_COLOR, blink)
+
 func _draw() -> void:
-    var blink := 0.5 + 0.5 * sin(pulse_time * 3.6)
     for name in polygons.keys():
         if not active_target.is_empty() and name != active_target:
             continue
         if hide_customize_preview_outline and name == "CUSTOMIZE":
             continue
         var selected: bool = name == active_target
-        var stroke: Color = DIM_COLOR.lerp(BRIGHT_COLOR, blink)
+        var stroke: Color = pulse_color(pulse_time)
         var thickness: float = FOCUSED_STROKE_PX if selected else OVERVIEW_STROKE_PX
         if clipped_strokes.has(name):
             # Already segmented along SERA's silhouette; never re-close these

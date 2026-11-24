@@ -4,6 +4,7 @@ extends Control
 ## foreground VFX. One shared ID viewport, no CPU pixel reads or source edits.
 # Reuse the proven IRIS resources, with no reimplementation of their code.
 const GraphicsSettings = preload("res://scripts/sera_graphics_settings.gd")
+const SelectionStyle = preload("res://scripts/nexus_selection_outline.gd")
 const ID_CLOSED = preload("res://shaders/sera_iris_mesh_id_closed.gdshader")
 const ID_OPEN = preload("res://shaders/sera_iris_mesh_id_open.gdshader")
 const MULTI_ID_CLOSED = preload("res://shaders/sera_scene_multimesh_iris_id_closed.gdshader")
@@ -46,6 +47,7 @@ var _next_id: int = 1
 var _id_allocations: Dictionary = {} # source id -> {first, count}
 var _free_ranges: Array[Dictionary] = []
 var _base_scene: WeakRef
+var _facility_selection_time: float = 0.0
 var _scan_elapsed: float = 0.0
 var _last_camera: Transform3D = Transform3D.IDENTITY
 var _last_camera_fov: float = -1.0
@@ -664,6 +666,23 @@ func set_nexus_sera_contact_mode(enabled: bool) -> void:
     set_scene_profile(2 if enabled else 0)
 
 
+# BASE uses the very same visible-ID texture and compositing draw as its
+# normal black ink. Only the color/opacity uniform changes on each frame.
+func _update_facility_selection_pulse(delta: float) -> void:
+    if _screen_material == null or _screen_material.shader != SHARED_INK:
+        return
+    var base: Node3D = _base_scene.get_ref() as Node3D if _base_scene != null else null
+    var enabled: bool = is_instance_valid(base) and base.has_method(
+        "is_facility_selection_outline_visible") and bool(
+        base.call("is_facility_selection_outline_visible"))
+    _screen_material.set_shader_parameter("facility_selection_enabled", enabled)
+    if enabled:
+        _facility_selection_time = fposmod(_facility_selection_time + delta, TAU / 3.6)
+        _screen_material.set_shader_parameter("facility_selection_color",
+            SelectionStyle.pulse_color(_facility_selection_time))
+        _screen_material.set_shader_parameter("facility_selection_width",
+            SelectionStyle.OVERVIEW_STROKE_PX)
+
 func _process(delta: float) -> void:
     if _root_refs.is_empty() or not is_instance_valid(source_viewport):
         return
@@ -696,6 +715,7 @@ func _process(delta: float) -> void:
     ink.visible = not spatial_mode
     if spatial_mode:
         _sync_screen_quad(source_camera)
+        _update_facility_selection_pulse(delta)
     elif is_instance_valid(_screen_quad):
         _screen_quad.visible = false
     # Exactly the Bittaran late _process pose capture for each shared-ID
