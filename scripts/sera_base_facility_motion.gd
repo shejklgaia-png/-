@@ -124,10 +124,14 @@ func _lab_arm_target(t: float) -> Vector3:
     # retreat to stock from its outer side. No diagonal through the gantry.
     var up := Vector3(0.10, 1.53, 1.13)
     var front := Vector3(0.10, 1.53, 1.70)
-    var outer := Vector3(-1.78, 1.53, 1.70)
-    var outer_stock := Vector3(-1.78, 1.53, 0.02)
-    var above_stock := Vector3(-1.55, 1.53, 0.02)
-    var retreat := Vector3(-1.55, 1.95, 0.02)
+    # Both stock hatch leaves stand upright when open (top <= 1.71 m).
+    # The carried shell extends 0.20 m below its centre: cross the front
+    # leaf only at 2.02 m, then descend vertically inside the opening.
+    # Keep the lower pickup path clear of the printer gantry.
+    var outer := Vector3(-1.78, 2.02, 1.70)
+    var outer_stock := Vector3(-1.78, 2.02, 0.02)
+    var above_stock := Vector3(LAB_STOCK_CENTER.x, 2.02, LAB_STOCK_CENTER.z)
+    var retreat := above_stock
     if t < 7.0: return LAB_ARM_IDLE
     if t < 7.45: return LAB_ARM_IDLE.lerp(Vector3(0.10, 1.90, 0.30), _lab_ease(t, 7.0, 7.45))
     if t < 8.0: return Vector3(0.10, 1.90, 0.30).lerp(up, _lab_ease(t, 7.45, 8.0))
@@ -137,6 +141,8 @@ func _lab_arm_target(t: float) -> Vector3:
     if t < 11.1: return up.lerp(front, _lab_ease(t, 10.4, 11.1))
     if t < 12.2: return front.lerp(outer, _lab_ease(t, 11.1, 12.2))
     if t < 13.0: return outer.lerp(outer_stock, _lab_ease(t, 12.2, 13.0))
+    # Centre the payload over the aperture before lowering; never enter
+    # diagonally across a hatch. Release and withdraw along the same axis.
     if t < 13.4: return outer_stock.lerp(above_stock, _lab_ease(t, 13.0, 13.4))
     if t < 14.2: return above_stock.lerp(LAB_STOCK_CENTER, _lab_ease(t, 13.4, 14.2))
     if t < 14.7: return LAB_STOCK_CENTER
