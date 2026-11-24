@@ -239,6 +239,9 @@ func _ready() -> void:
     await _startup_budget.checkpoint("shutter audio")
     _create_hud()
     await _startup_budget.checkpoint("HUD")
+    # All three worksite rooms are resident before the BASE completion flag.
+    # The loading overlay/entry cover stays opaque and normal input disabled.
+    await facility_system.call("prewarm_hero_startup", _startup_budget)
     _startup_step("OS / INTERFACE ONLINE", 99)
     SeraSave.mark_location("BASE")
     _restore_boot_rendering()
@@ -1870,10 +1873,6 @@ func _process(delta: float) -> void:
         return
     elapsed += delta
     SeraSave.record_game_time(delta)
-    # Prewarm only in the interactive BASE overview, never during boot,
-    # GRID, canonical placement, menu operations or a scene transition.
-    if is_instance_valid(facility_system) and not power_view_active and not power_transition_busy and not facility_placement_active and get_tree().root.get_node_or_null("NexusExitTransition") == null:
-        facility_system.call("prewarm_hero_tick", delta)
     if HUB_SERA_CONTROLS_ENABLED:
         var direction: Vector2 = joystick
         var keys := Vector2(

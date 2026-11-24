@@ -18,3 +18,10 @@
 - 部分構築の部屋をready扱いしない。ユーザーが先読み途中で開いた場合、その部屋の残工程を同期完了して既存set_sectionを一度実行、正規配置・カメラ・ナビゲーション・搬入開始を従来どおり処理。粉砕機は必要時構築。生成済みの部屋は再利用。
 - 非表示時はHeroのprocess_mode、描画更新、ID描画ターゲットを停止。部屋単位でも非選択時は非表示/停止。初回の枠線登録・GPU描画・経路探索は実メニューで行うため、全ての初回待ちを除去するものではない。メモリ増加、実機時間・FPS未計測。CIなし。
 - 参考: https://docs.godotengine.org/en/stable/tutorials/io/background_loading.html ; https://docs.godotengine.org/en/stable/tutorials/performance/thread_safe_apis.html ; https://forum.godotengine.org/t/understanding-and-smoothing-resource-management-of-godot-4/95761
+
+## BASE完了前の常駐ロード（2026-11-24・PR1202の後継）
+- 起動後0.8秒/160ms間隔の先読みを廃止。BASEロード画面の実完了条件にLABO・SMELTER・STORAGEの全ルーム生成を追加。NEXUSからの帰還時も同じ処理。
+- 既存協調ロード予算を利用。共通床、遠景、各室の構築を行い、正規配置とクレート用経路探索グリッドを各室ごとに準備。切替時は同じノードとグリッドを再利用し、正規配置変更で該当グリッドを失効。
+- アニメーションは停止したまま各室を選択・描画ウォームアップ要求。実メニューだけで搬入を開始。非表示時はHero/ID描画停止。GL Compatibilityの実際の描画・シェーダーキャッシュ効果は未確認。
+- 起動時間とRAMは増加し得る。単一処理や初回GPU描画・UI構築によるカクつきが完全になくなる保証はない。粉砕機は対象外。CI・実機未実施。
+- 参照: https://docs.godotengine.org/en/stable/tutorials/performance/pipeline_compilations.html ; https://docs.godotengine.org/en/stable/tutorials/io/background_loading.html ; https://docs.godotengine.org/en/stable/classes/class_astargrid2d.html

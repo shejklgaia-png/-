@@ -140,9 +140,6 @@ var hero_viewport: SubViewport
 var hero_stage: Node3D
 const HERO_SCENE_PATH := "res://scenes/labo_hero_stage.tscn"
 const HERO_PREWARM_KEYS: Array[String] = ["LABO", "SMELTER", "STORAGE"]
-const HERO_PREWARM_INTERVAL: float = 0.16
-var hero_prewarm_delay: float = 0.8
-var hero_prewarm_index: int = 0
 var hero_load_requested: bool = false
 var hero_scene_resource: PackedScene
 const ModelPlacement = preload("res://scripts/labo_model_placement.gd")
@@ -1443,30 +1440,53 @@ func _set_hero_running(running: bool) -> void:
             if is_instance_valid(id_target):
                 id_target.render_target_update_mode = SubViewport.UPDATE_DISABLED
 
-func prewarm_hero_tick(delta: float) -> void:
-    if hero_host == null or is_menu_open() or hero_prewarm_index >= HERO_PREWARM_KEYS.size():
+func _hero_context_sources() -> Dictionary:
+    var sources: Dictionary = facility_nodes.duplicate()
+    var base := get_parent()
+    if is_instance_valid(base):
+        var nexus := base.get_node_or_null("NEXUSBuilding") as Node3D
+        if is_instance_valid(nexus):
+            sources["NEXUS"] = nexus
+    return sources
+
+func prewarm_hero_startup(budget: Variant) -> void:
+    if hero_host == null:
+        push_error("SERA_HERO_PREWARM: HUD missing")
         return
-    hero_prewarm_delay -= minf(delta, 0.10)
-    if hero_prewarm_delay > 0.0:
-        return
-    hero_prewarm_delay = HERO_PREWARM_INTERVAL
+    _request_hero_scene()
+    while hero_load_requested and ResourceLoader.load_threaded_get_status(HERO_SCENE_PATH) == ResourceLoader.THREAD_LOAD_IN_PROGRESS:
+        await budget.yield_frame()
+    _ensure_labo_hero("LABO")
     if not is_instance_valid(hero_stage):
-        _request_hero_scene()
-        if not _resolve_hero_scene(false):
-            return
-        _ensure_labo_hero(HERO_PREWARM_KEYS[hero_prewarm_index])
+        push_error("SERA_HERO_PREWARM: stage missing; menu retry available")
         return
-    var key: String = HERO_PREWARM_KEYS[hero_prewarm_index]
-    var started: int = Time.get_ticks_usec()
-    # A main-thread, single-phase step, not a background scene-tree mutation.
-    # The menu can finish the same room at any later input boundary.
-    if bool(hero_stage.call("advance_prewarm", key)):
-        hero_prewarm_index += 1
-        print("SERA_HERO_PREWARM READY: ", key)
+    for key in HERO_PREWARM_KEYS:
+        while not bool(hero_stage.call("prewarm_ready", key)):
+            hero_stage.call("advance_prewarm", key)
+            await budget.checkpoint("worksite geometry " + key)
+    hero_stage.call("set_base_context", _hero_context_sources())
+    await budget.checkpoint("worksite distant context")
+    # First select prepares real navigation and saved poses without dispatch.
+    # Keep the stage and every child animation disabled throughout.
+    hero_stage.call("enable_hero_outline")
+    var compositor := hero_viewport.get_node_or_null("SeraIDOutlineLayer/SeraIDOutlineControl")
+    if hero_viewport.size.x < 32 or hero_viewport.size.y < 32:
+        hero_viewport.size = Vector2i(480, 240)
+    for key in HERO_PREWARM_KEYS:
+        hero_stage.call("set_section", key, false)
+        await budget.checkpoint("worksite navigation " + key)
+        # Compatibility can compile shaders on their first visible draw.
+        # Request a covered warm frame of each room; no simulation advances.
+        if DisplayServer.get_name() != "headless":
+            if is_instance_valid(compositor):
+                compositor.call("_process", 0.0)
+            hero_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+            await budget.yield_frame()
+            await budget.yield_frame()
+        _set_hero_running(false)
+        print("SERA_HERO_PREWARM RESIDENT: ", key)
+    # All rooms and navigation maps stay alive, but no offscreen updates.
     _set_hero_running(false)
-    var used: float = float(Time.get_ticks_usec() - started) / 1000.0
-    if used > 16.0:
-        print("SERA_HERO_PREWARM phase ", key, " ", used, "ms")
 
 
 func _set_labo_hero(enabled: bool, section: String = "") -> void:
@@ -1496,13 +1516,7 @@ func _set_labo_hero(enabled: bool, section: String = "") -> void:
         modal_panel.anchor_bottom = 0.985
         # Read live canonical BASE placements after the user edits them.
         # The hero only consumes the geometry and transforms, never changes BASE.
-        var context_sources: Dictionary = facility_nodes.duplicate()
-        var base := get_parent()
-        if is_instance_valid(base):
-            var nexus := base.get_node_or_null("NEXUSBuilding") as Node3D
-            if is_instance_valid(nexus):
-                context_sources["NEXUS"] = nexus
-        hero_stage.call("set_base_context",context_sources)
+        hero_stage.call("set_base_context", _hero_context_sources())
         hero_stage.call("set_section", section)
         # WHEN_VISIBLE can stop refreshing the offscreen stage on some Android
         # GL Compatibility devices. Animate while this modal is actually open.
