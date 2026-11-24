@@ -285,6 +285,8 @@ var customize_touch_last_x: float = 0.0
 var customize_touch_last_y: float = 0.0
 var customize_touch_last: Vector2 = Vector2.ZERO
 var customize_mouse_drag: bool = false
+var _customize_world_drag_dirty: bool = false
+var _customize_world_drag_elapsed: float = 0.0
 var customize_mouse_last_x: float = 0.0
 var customize_mouse_last_y: float = 0.0
 var customize_mouse_last: Vector2 = Vector2.ZERO
@@ -910,6 +912,14 @@ func _process(delta: float) -> void:
         if archive_refresh_elapsed >= 1.0:
             archive_refresh_elapsed = 0.0
             _refresh_archive_records()
+    if _customize_world_drag_dirty:
+        _customize_world_drag_elapsed += delta
+        if _customize_world_drag_elapsed >= 0.05 or (customize_touch_id == -1 and not customize_mouse_drag):
+            _customize_world_drag_elapsed = 0.0
+            _customize_world_drag_dirty = false
+            if is_instance_valid(sera_display_rig):
+                _capture_sera_silhouette(sera_display_rig)
+                _update_projected_silhouettes()
     _flush_selection_pose()
     if _ambience_dirty:
         _ambience_save_delay -= delta
@@ -3775,6 +3785,9 @@ func _set_customize_mode(mode: int) -> void:
     if mode < 0 or mode > 1:
         return
     customize_display_mode = mode
+    if mode != 0:
+        customize_touch_id = -1
+        customize_mouse_drag = false
     _refresh_customize_mode_tabs()
     if focused_target != "CUSTOMIZE":
         return
@@ -6416,7 +6429,15 @@ func _restore_customization_preview() -> void:
     customize_mouse_drag = false
     if customize_entrance_tween != null and customize_entrance_tween.is_valid():
         customize_entrance_tween.kill()
-    if not customize_preview_active or sera_display_rig == null:
+    if not is_instance_valid(sera_display_rig):
+        return
+    if not customize_preview_active:
+        if focused_target == "CUSTOMIZE" and not CUSTOMIZE_SPECIAL_PRESENTATION_ENABLED:
+            sera_display_rig.transform = sera_original_transform
+            _customize_world_drag_dirty = false
+            _customize_world_drag_elapsed = 0.0
+            _capture_sera_silhouette(sera_display_rig)
+            _update_projected_silhouettes()
         return
     sera_display_rig.visible = true
     if customize_glow_quad != null:
@@ -6521,8 +6542,8 @@ func _fit_customization_preview() -> void:
     customize_preview_fitted_scale = customize_preview_scale
 
 func _is_customization_drag_zone(pixel: Vector2) -> bool:
-    if focused_target != "CUSTOMIZE" or not customize_preview_active or (
-            customize_display_mode != 0) or hud == null:
+    if focused_target != "CUSTOMIZE" or (CUSTOMIZE_SPECIAL_PRESENTATION_ENABLED and not customize_preview_active) or (
+            customize_display_mode != 0) or hud == null or not is_instance_valid(sera_display_rig) or not sera_display_rig.is_visible_in_tree():
         return false
     if not Rect2(Vector2.ZERO, hud.size).has_point(pixel):
         return false
@@ -6547,11 +6568,19 @@ func _is_customization_drag_zone(pixel: Vector2) -> bool:
     return true
 
 func _rotate_customization_preview(delta: Vector2) -> void:
-    if not customize_preview_active or sera_display_rig == null:
+    if not is_instance_valid(sera_display_rig) or focused_target != "CUSTOMIZE" or customize_display_mode != 0:
         return
     if delta.length_squared() < 0.000001:
         return
     var yaw_delta: float = delta.x / maxf(hud.size.x, 1.0) * CUSTOMIZE_DRAG_FULL_TURN
+    if not CUSTOMIZE_SPECIAL_PRESENTATION_ENABLED:
+        # Rotate around the stand's vertical axis only. Keep soles on the
+        # platform, root position and scale unchanged; never orbit the camera.
+        sera_display_rig.rotate_y(yaw_delta)
+        _customize_world_drag_dirty = true
+        return
+    if not customize_preview_active:
+        return
     var pitch_delta: float = -delta.y / maxf(hud.size.y, 1.0) * PI
     customize_preview_yaw = wrapf(customize_preview_yaw + yaw_delta, -PI, PI)
     customize_preview_pitch = clampf(customize_preview_pitch + pitch_delta,
@@ -7288,9 +7317,9 @@ func _input(event: InputEvent) -> void:
             (event is InputEventMouseButton and customize_mouse_drag))
         if not is_customization_capture:
             if is_pointer and (
-                    (customize_stats_panel != null and
+                    (customize_stats_panel != null and customize_stats_panel.visible and
                     customize_stats_panel.get_global_rect().has_point(event.position)) or
-                    (customize_part_stats_panel != null and
+                    (customize_part_stats_panel != null and customize_part_stats_panel.visible and
                     customize_part_stats_panel.get_global_rect().has_point(event.position))):
                 return
     # Picker taps occur on RELEASE so upward swipes cannot accidentally equip.
@@ -7533,6 +7562,7 @@ func _select_target(target_name: String) -> void:
     _nexus_set_room_mark_visible(false)
     if nexus_room_motion != null:
         nexus_room_motion.set_deployment_open(target_name == "DEPLOYMENT")
+        nexus_room_motion.set_customize_scan_parked(target_name == "CUSTOMIZE")
     # Show the bright contour in the initial press event, before camera tween.
     outline.set("active_target", target_name)
     _update_projected_silhouettes()
@@ -7697,6 +7727,8 @@ func _overview_arrived() -> void:
         _restore_customization_preview()
     in_transition = false
     explore_panel.visible = true
+    if focused_target == "CUSTOMIZE" and is_instance_valid(nexus_room_motion):
+        nexus_room_motion.set_customize_scan_parked(false)
     focused_target = ""
     _nexus_set_room_mark_visible(true)
     outline.set("hide_customize_preview_outline", false)

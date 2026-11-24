@@ -30,6 +30,11 @@ var _scan_material: ShaderMaterial
 var _scan_head_y: float = 4.2
 var _scan_radius_scale: float = 1.0
 var _scan_last_pose: Vector2 = Vector2(-1,-1)
+var _scan_clock: float = 0.0
+var _scan_parked_for_customize: bool = false
+var _scan_park_elapsed: float = 0.0
+var _scan_park_from: Vector3 = Vector3.ZERO
+var _scan_fill: float = 0.0
 var _launch_scan: Node3D
 var _launch_status: Label3D
 var _launch_indicator: MeshInstance3D
@@ -92,7 +97,7 @@ func _process(delta: float) -> void:
         _arm_heads[i].position.y = -0.10 - 0.16 * (
             0.5 + 0.5 * sin(phase))
 
-    _update_scanner()
+    _update_scanner(step)
 
     # Small mechanical pivots may sleep offscreen. Their absolute phase
     # still advances; a zoom or editor resumes all before camera movement.
@@ -607,8 +612,34 @@ func _scan_ease(t: float) -> float:
     return v*v*v*(v*(v*6.0-15.0)+10.0)
 
 
-func _update_scanner() -> void:
-    var t: float = fposmod(_elapsed,SCAN_CYCLE)
+# Called on the selection press, not after the camera tween.
+func set_customize_scan_parked(value: bool) -> void:
+    if _scan_parked_for_customize == value:
+        return
+    _scan_parked_for_customize = value
+    if value:
+        _scan_park_elapsed = 0.0
+        _scan_park_from = Vector3(_scanner.position.y,_scanner.scale.x,_scan_fill)
+    else:
+        # A very quick exit may interrupt docking. Finish the same fast
+        # docking path before restarting, never teleport the ring.
+        _scan_clock = 5.0
+
+
+func _update_scanner(step: float) -> void:
+    if _scan_parked_for_customize or (_scan_park_elapsed < 0.65 and _scan_park_from != Vector3.ZERO):
+        _scan_park_elapsed = minf(_scan_park_elapsed+step,0.65)
+        # Never shrink around the body. Lift to the measured clear height,
+        # then contract and seat into the fixed socket.
+        var clear_y: float = maxf(_scan_head_y,_scan_park_from.x)
+        var lift: float = _scan_ease(_scan_park_elapsed/0.40)
+        var seat: float = _scan_ease((_scan_park_elapsed-0.40)/0.25)
+        var y: float = lerpf(lerpf(_scan_park_from.x,clear_y,lift),SCAN_DOCK_Y,seat)
+        _apply_scan_pose(y,lerpf(_scan_park_from.y,1.0,seat),
+            _scan_park_from.z*(1.0-_scan_ease(_scan_park_elapsed/0.20)))
+        return
+    var t: float = fposmod(_scan_clock,SCAN_CYCLE)
+    _scan_clock = fposmod(_scan_clock+step,SCAN_CYCLE)
     var y: float = SCAN_DOCK_Y
     var radial: float = 1.0
     var fill: float = 0.0
@@ -638,8 +669,13 @@ func _update_scanner() -> void:
     elif t >= 20.9 and t < 23.0:
         y = lerpf(_scan_head_y,SCAN_DOCK_Y,_scan_ease((t-20.9)/2.1))
         radial = lerpf(_scan_radius_scale,1.0,_scan_ease((t-20.9)/1.0))
+    _apply_scan_pose(y,radial,fill)
+
+
+func _apply_scan_pose(y: float,radial: float,fill: float) -> void:
     _scanner.position.y = y
     _scanner.scale = Vector3(radial,1.0,radial)
+    _scan_fill = fill
     _scan_grid.visible = fill > 0.001
     if _scan_grid.visible:
         _scan_material.set_shader_parameter("coverage",fill)
