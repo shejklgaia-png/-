@@ -63,6 +63,11 @@ var batch_data: Dictionary = {}
 var _nexus_batch_roles: Dictionary = {}
 const NEXUS_AMBIENCE_FILE: String = "user://sera_nexus_ambience.cfg"
 var _ambience_value: float = 1.0
+var _scenery_filter_value: float = 0.28
+var _scenery_filter_slider: HSlider
+var _scenery_filter_label: Label
+var _ambience_active_row: int = 0
+var _nexus_id_outline: Node
 var _ambience_env: Environment
 var _ambience_lights: Array[Light3D] = []
 var _ambience_light_base: Array[float] = []
@@ -478,6 +483,8 @@ func _ready() -> void:
     var id_outline := SeraViewEdges.new()
     id_outline.name = "ViewEdges"
     id_outline.set_outline_profile(4)
+    id_outline.set_nexus_scenery_filter(_scenery_filter_value)
+    _nexus_id_outline = id_outline
     add_child(id_outline)
     if CUSTOMIZE_SPECIAL_PRESENTATION_ENABLED:
         _create_customization_glow()
@@ -963,6 +970,7 @@ func _load_nexus_ambience() -> void:
     var cfg := ConfigFile.new()
     if cfg.load(NEXUS_AMBIENCE_FILE) == OK:
         _ambience_value = clampf(float(cfg.get_value("nexus", "brightness", 1.0)), 0.5, 1.5)
+        _scenery_filter_value = clampf(float(cfg.get_value("nexus", "scenery_filter", 0.28)), 0.0, 1.0)
 
 
 func _save_nexus_ambience() -> void:
@@ -970,6 +978,7 @@ func _save_nexus_ambience() -> void:
         return
     var cfg := ConfigFile.new()
     cfg.set_value("nexus", "brightness", _ambience_value)
+    cfg.set_value("nexus", "scenery_filter", _scenery_filter_value)
     if cfg.save(NEXUS_AMBIENCE_FILE) == OK:
         _ambience_dirty = false
     else:
@@ -1010,6 +1019,21 @@ func _create_nexus_ambience_ui() -> void:
     _ambience_slider.focus_mode = Control.FOCUS_NONE
     _ambience_panel.add_child(_ambience_slider)
     _ambience_label.text = "明暗 / LIGHT  %d%%" % roundi(_ambience_value * 100.0)
+    _scenery_filter_label = Label.new()
+    _scenery_filter_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _scenery_filter_label.add_theme_font_size_override("font_size", 15)
+    _scenery_filter_label.add_theme_color_override("font_color", Color("#ddfaff"))
+    _scenery_filter_label.text = "背景 / FILTER  %d%%" % roundi(_scenery_filter_value * 100.0)
+    _ambience_panel.add_child(_scenery_filter_label)
+    _scenery_filter_slider = HSlider.new()
+    _scenery_filter_slider.name = "SceneryFilterSlider"
+    _scenery_filter_slider.min_value = 0.0
+    _scenery_filter_slider.max_value = 1.0
+    _scenery_filter_slider.step = 0.01
+    _scenery_filter_slider.value = _scenery_filter_value
+    _scenery_filter_slider.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    _scenery_filter_slider.focus_mode = Control.FOCUS_NONE
+    _ambience_panel.add_child(_scenery_filter_slider)
 
 
 func _layout_nexus_ambience(view: Vector2) -> void:
@@ -1017,16 +1041,33 @@ func _layout_nexus_ambience(view: Vector2) -> void:
         return
     var width: float = minf(255.0, view.x * 0.49)
     _ambience_panel.position = Vector2(maxf(12.0, view.x * 0.035), maxf(12.0, view.y * 0.018))
-    _ambience_panel.size = Vector2(width, 58.0)
+    _ambience_panel.size = Vector2(width, 112.0)
     _ambience_label.position = Vector2(10.0, 4.0)
     _ambience_label.size = Vector2(width - 20.0, 22.0)
     _ambience_slider.position = Vector2(12.0, 29.0)
     _ambience_slider.size = Vector2(width - 24.0, 23.0)
+    _scenery_filter_label.position = Vector2(10.0, 58.0)
+    _scenery_filter_label.size = Vector2(width - 20.0, 22.0)
+    _scenery_filter_slider.position = Vector2(12.0, 83.0)
+    _scenery_filter_slider.size = Vector2(width - 24.0, 23.0)
 
 
 func _nexus_ambience_at(point: Vector2) -> void:
-    var rect: Rect2 = _ambience_slider.get_global_rect()
+    var slider: HSlider = _scenery_filter_slider if _ambience_active_row == 1 else _ambience_slider
+    var rect: Rect2 = slider.get_global_rect()
     var ratio: float = clampf((point.x - rect.position.x - 6.0) / maxf(rect.size.x - 12.0, 1.0), 0.0, 1.0)
+    if _ambience_active_row == 1:
+        var filter_value: float = snappedf(ratio, 0.01)
+        if is_equal_approx(filter_value, _scenery_filter_value):
+            return
+        _scenery_filter_value = filter_value
+        _scenery_filter_slider.value = filter_value
+        _scenery_filter_label.text = "背景 / FILTER  %d%%" % roundi(filter_value * 100.0)
+        if is_instance_valid(_nexus_id_outline):
+            _nexus_id_outline.call("set_nexus_scenery_filter", filter_value)
+        _ambience_dirty = true
+        _ambience_save_delay = 0.45
+        return
     var next: float = snappedf(0.5 + ratio, 0.01)
     if is_equal_approx(next, _ambience_value):
         return
@@ -1045,6 +1086,7 @@ func _route_nexus_ambience_input(event: InputEvent) -> bool:
     if event is InputEventScreenTouch:
         if event.pressed and _ambience_touch < 0 and area.has_point(event.position):
             _ambience_touch = event.index
+            _ambience_active_row = 1 if event.position.y >= area.position.y + area.size.y * 0.5 else 0
             _nexus_ambience_at(event.position)
             return true
         if not event.pressed and event.index == _ambience_touch:
@@ -1057,7 +1099,10 @@ func _route_nexus_ambience_input(event: InputEvent) -> bool:
         return true
     elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
         if event.pressed and area.has_point(event.position):
+            if _ambience_touch >= 0:
+                return true
             _ambience_mouse = true
+            _ambience_active_row = 1 if event.position.y >= area.position.y + area.size.y * 0.5 else 0
             _nexus_ambience_at(event.position)
             return true
         if not event.pressed and _ambience_mouse:
@@ -1149,7 +1194,9 @@ void fragment() {
         mask = (1.0-smoothstep(half_width*0.5,half_width,across))*pow(1.0-down,1.6);
     }
     ALBEDO = tint.rgb * mix(0.72,1.12,brightness-0.5);
-    ALPHA = clamp(opacity*mask*mix(0.70,1.15,brightness-0.5),0.0,0.85);
+    // Architectural filter strength stays fixed when LIGHT is adjusted.
+    float opacity_gain = (mode == 1 || mode == 2 || mode == 4) ? 1.0 : mix(0.70,1.15,brightness-0.5);
+    ALPHA = clamp(opacity*mask*opacity_gain,0.0,0.85);
 }
 """
     var root := Node3D.new()
@@ -1168,13 +1215,13 @@ void fragment() {
     # The visible-ID compositor now applies the main scenery-only veil,
     # including projecting beams, columns and seams. Keep these surface
     # planes as a subtle supplementary depth grade, not the primary mask.
-    var wall := _nexus_atmosphere_material(shader, 1, Color("#8296a5"), 0.08)
+    var wall := _nexus_atmosphere_material(shader, 1, Color("#8296a5"), 0.25)
     _nexus_atmosphere_plane(root, "RearWallLeftFilter", Vector3(-3.505,4.18,-27.38), Vector2(13.09,8.46), wall)
     _nexus_atmosphere_plane(root, "RearWallRightFilter", Vector3(9.625,4.18,-27.38), Vector2(0.85,8.46), wall)
     _nexus_atmosphere_plane(root, "RearWallHeaderFilter", Vector3(6.25,9.32,-27.38), Vector2(7.48,1.80), wall)
-    var ceiling := _nexus_atmosphere_material(shader, 2, Color("#8498a8"), 0.12)
+    var ceiling := _nexus_atmosphere_material(shader, 2, Color("#8498a8"), 0.25)
     _nexus_atmosphere_plane(root, "CeilingDepthGradient", Vector3(0,9.39,-7.8), Vector2(19.7,39.4), ceiling, -PI*0.5)
-    _ambience_floor_filter = _nexus_atmosphere_material(shader, 4, Color("#7c92a1"), 0.06)
+    _ambience_floor_filter = _nexus_atmosphere_material(shader, 4, Color("#7c92a1"), 0.15)
     # Match the actual deck triangles, rather than a floating rectangle
     # across grilles, channels, lettering and step edges.
     _attach_nexus_floor_filter()

@@ -15,6 +15,7 @@ var _all_widths_explicit: bool = false
 var _actor_widths_px: Vector3 = Vector3(-1.0, -1.0, -1.0)
 var _nexus_sera_contact_mode: bool = false
 var _numeric_outline_profile: int = 0
+var _nexus_scenery_filter: float = -1.0
 var _compositor: Control
 
 
@@ -91,6 +92,8 @@ func _register() -> void:
         3 if _in_training_id_scene(actor) and not is_bittaran
         else _numeric_outline_profile)
     _compositor.call("set_scene_profile", profile)
+    if profile == 4 and _nexus_scenery_filter >= 0.0:
+        _compositor.call("set_nexus_scenery_filter", _nexus_scenery_filter)
     if _all_widths_explicit:
         _compositor.call("set_actor_outline_widths",
             _actor_widths_px.x, _actor_widths_px.y, _actor_widths_px.z)
@@ -138,6 +141,12 @@ func set_outline_profile(profile: int) -> void:
     _numeric_outline_profile = clampi(profile, 0, 4)
     if is_instance_valid(_compositor):
         _compositor.call("set_scene_profile", _numeric_outline_profile)
+
+
+func set_nexus_scenery_filter(value: float) -> void:
+    _nexus_scenery_filter = clampf(value, 0.0, 1.0)
+    if is_instance_valid(_compositor) and _numeric_outline_profile == 4:
+        _compositor.call("set_nexus_scenery_filter", _nexus_scenery_filter)
 
 
 # Compatibility API: old NEXUS callers now select the numeric profile,

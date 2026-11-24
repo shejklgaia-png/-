@@ -77,6 +77,7 @@ var _bittaran_id_mode: bool = false
 # Numeric profile selects environment: 0=BASE/default, 1=Bittaran,
 # 2=NEXUS room, 3=training. Character widths stay universally 4/0/2.
 var _requested_scene_profile: int = 0
+var _nexus_scenery_filter: float = 0.28
 # In combat, read the interpolated render pose only from late _process.
 # The Bittaran battle and the articulated SERA rig finish their own _process
 # before our process_priority=10000. Capturing at frame_pre_draw happened
@@ -344,6 +345,7 @@ func set_shared_scene_mode(enabled: bool) -> void:
     if enabled:
         _screen_material = ShaderMaterial.new()
         _screen_material.shader = SHARED_INK
+        _screen_material.set_shader_parameter("nexus_scenery_filter", _nexus_scenery_filter)
         OutlineStandard.apply_id_widths(_screen_material)
         _screen_material.render_priority = -30
         _screen_material.set_shader_parameter(
@@ -426,6 +428,12 @@ func _commit_visible_render_pose(
 # This is intentionally NOT a topology-based convex/crease detector.
 func _active_scene_profile() -> int:
     return 1 if _bittaran_id_mode else _requested_scene_profile
+
+
+func set_nexus_scenery_filter(value: float) -> void:
+    _nexus_scenery_filter = clampf(value, 0.0, 1.0)
+    if _screen_material != null and _screen_material.shader == SHARED_INK:
+        _screen_material.set_shader_parameter("nexus_scenery_filter", _nexus_scenery_filter)
 
 
 func set_scene_profile(profile: int) -> void:
