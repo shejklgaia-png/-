@@ -469,43 +469,43 @@ func _ensure_placement_editor_nodes(kind: String) -> void:
         add_child(placement_ui_layer)
 
     if kind == "PLACE":
-        var existing = placement_ui_layer.get_node_or_null(
-            "NexusCanonicalPlacement")
-        if is_instance_valid(existing) and (
-                existing.get_script() == null or
-                not existing.has_method("configure") or
-                not existing.has_method("open_mode")):
+        var existing_place: Control = placement_ui_layer.get_node_or_null(
+            "NexusCanonicalPlacement") as Control
+        if is_instance_valid(existing_place) and (
+                existing_place.get_script() == null or
+                not existing_place.has_method("configure") or
+                not existing_place.has_method("open_mode")):
             # An unbound Control cannot become a placement editor merely by
             # having the expected node name. Remove it from the live scene.
-            placement_ui_layer.remove_child(existing)
-            existing.queue_free()
-            existing = null
+            placement_ui_layer.remove_child(existing_place)
+            existing_place.queue_free()
+            existing_place = null
             placement_editor = null
-        if not is_instance_valid(existing):
-            existing = NexusCanonicalPlacement.new()
-            if is_instance_valid(existing):
-                existing.name = "NexusCanonicalPlacement"
-                existing.mouse_filter = Control.MOUSE_FILTER_IGNORE
-                placement_ui_layer.add_child(existing)
-        placement_editor = existing
+        if not is_instance_valid(existing_place):
+            existing_place = NexusCanonicalPlacement.new()
+            if is_instance_valid(existing_place):
+                existing_place.name = "NexusCanonicalPlacement"
+                existing_place.mouse_filter = Control.MOUSE_FILTER_IGNORE
+                placement_ui_layer.add_child(existing_place)
+        placement_editor = existing_place
     elif kind == "ANGLE":
-        var existing = placement_ui_layer.get_node_or_null(
-            "NexusCameraAnglePlacement")
-        if is_instance_valid(existing) and (
-                existing.get_script() == null or
-                not existing.has_method("configure") or
-                not existing.has_method("open_mode")):
-            placement_ui_layer.remove_child(existing)
-            existing.queue_free()
-            existing = null
+        var existing_angle: Control = placement_ui_layer.get_node_or_null(
+            "NexusCameraAnglePlacement") as Control
+        if is_instance_valid(existing_angle) and (
+                existing_angle.get_script() == null or
+                not existing_angle.has_method("configure") or
+                not existing_angle.has_method("open_mode")):
+            placement_ui_layer.remove_child(existing_angle)
+            existing_angle.queue_free()
+            existing_angle = null
             camera_angle_editor = null
-        if not is_instance_valid(existing):
-            existing = NexusCameraAnglePlacement.new()
-            if is_instance_valid(existing):
-                existing.name = "NexusCameraAnglePlacement"
-                existing.mouse_filter = Control.MOUSE_FILTER_IGNORE
-                placement_ui_layer.add_child(existing)
-        camera_angle_editor = existing
+        if not is_instance_valid(existing_angle):
+            existing_angle = NexusCameraAnglePlacement.new()
+            if is_instance_valid(existing_angle):
+                existing_angle.name = "NexusCameraAnglePlacement"
+                existing_angle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+                placement_ui_layer.add_child(existing_angle)
+        camera_angle_editor = existing_angle
 
 
 # Follow the working LABO editor's lifecycle: acquire a node, validate its
