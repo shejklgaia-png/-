@@ -1077,7 +1077,9 @@ static func _refine_small_chart(tris: Array[Dictionary],chart: Dictionary,ci: in
                         if altitude > 0.00001:
                             var orientation: float = signf(base.cross(q[k]-q[i0]))
                             var tri: PackedVector2Array = q.duplicate()
-                            var v: Vector2 = q[i0]+base.normalized()*along+base.normalized().orthogonal()*altitude*orientation
+                            var axis: Vector2 = base.normalized()
+                            var perpendicular := Vector2(-axis.y,axis.x)
+                            var v: Vector2 = q[i0]+axis*along+perpendicular*altitude*orientation
                             tri[k] = v.round() if quantize else v
                             candidates.append(tri)
         # Small lattice moves can improve conflicting edges without
