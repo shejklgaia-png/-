@@ -1181,9 +1181,8 @@ func sample_fire(seconds: float) -> void:
     FurnaceFlame.sample(_furnace_sprite,seconds)
     FurnaceFlame.sample(_furnace_front_sprite,seconds)
     if _furnace_lamp != null:
-        var pulse: float = 0.83 + 0.09 * sin(seconds * 2.7) + (
-            0.05 * sin(seconds * 4.83)) + 0.03 * sin(seconds * 8.17)
-        _furnace_lamp.light_energy = 2.05 * pulse
+        var energy: float = 0.68*FurnaceFlame.radiance(seconds)+0.32*FurnaceFlame.radiance(seconds,37)
+        _furnace_lamp.light_energy = 1.72*energy
 
 func _process(delta: float) -> void:
     _elapsed += maxf(delta, 0.0)
