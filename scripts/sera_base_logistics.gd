@@ -5,6 +5,7 @@ extends Node3D
 ## never has to acquire a second intersection while holding the first.
 const Architecture = preload("res://scripts/sera_base_architecture.gd")
 const Clutter = preload("res://scripts/sera_base_clutter.gd")
+const FreshDesign = preload("res://scripts/sera_base_fresh_design.gd")
 const Power = preload("res://scripts/sera_base_power_distribution.gd")
 const CELL: float = 0.75
 const REGION := Rect2i(-46, -46, 93, 93)
@@ -38,6 +39,8 @@ class Dock:
     var grip: Visual
     var jaw_a: Visual
     var jaw_b: Visual
+    var lifts: Array[Visual] = []
+    var shutters: Array[Visual] = []
 
 class Truck:
     var id: int
@@ -439,11 +442,8 @@ func _make_truck(t: Truck) -> void:
                     p.origin.y += 0.083
                     pieces[j] = p
         else:
-            # Same case/lock/ID meshes and palette as FreshStorageCargoCase.
-            var p := Vector3(0, 0.18, 0)
-            cargo.poly("FreshStorageCargoCase", "cargo_case", p, Vector3(0.58, 0.36, 0.56), "crate" if i == 0 else "armor_light")
-            cargo.box("FreshStorageCargoLock", p + Vector3(0, -0.043, 0.29), Vector3(0.20, 0.08, 0.043), "edge")
-            cargo.box("FreshStorageCargoID", p + Vector3(0.117, 0.087, 0.29), Vector3(0.20, 0.09, 0.037), "caution" if i == 0 else "blue")
+            # Use the actual warehouse builder, not a second lookalike.
+            FreshDesign.storage_cargo(cargo, Vector3(0, 0.58 * 0.62 * 0.5, 0), 0.62, i, i)
         var v: Visual = _visual(cargo)
         _set(v, Transform3D.IDENTITY, false)
         t.cargo.append(v)
@@ -452,7 +452,7 @@ func _make_dock(d: Dock) -> void:
     var fixed: Variant = _template()
     # Dedicated inbound/outbound stock buffer integrated with each facility's
     # service apron. Two recessed lift pockets and a separate SCARA pedestal.
-    fixed.poly("LogisticsBufferBase", "bevel", Vector3(0, 0.15, 0), Vector3(0.76, 0.30, 1.45), "slate")
+    fixed.poly("LogisticsBufferBase", "bevel", Vector3(0, 0.055, 0), Vector3(0.76, 0.11, 1.45), "slate")
     for s in [-1.0, 1.0]:
         fixed.box("LogisticsBufferSide", Vector3(s * 0.37, 0.36, 0), Vector3(0.10, 0.58, 1.44), "armor")
         fixed.box("LogisticsBufferRim", Vector3(s * 0.37, 0.61, 0), Vector3(0.12, 0.07, 1.48), "caution")
@@ -460,6 +460,15 @@ func _make_dock(d: Dock) -> void:
     fixed.box("LogisticsBufferDivider", Vector3(0, 0.36, 0), Vector3(0.70, 0.48, 0.07), "trim")
     fixed.box("LogisticsBufferStatus", Vector3(0, 0.40, 0.765), Vector3(0.28, 0.07, 0.035), "blue_light")
     _set(_visual(fixed), _pose(_v3(d.stage), d.yaw))
+    var lift: Variant = _template()
+    lift.box("LogisticsBufferLift", Vector3(0, -0.035, 0), Vector3(0.62, 0.07, 0.60), "slate")
+    var cover: Variant = _template()
+    cover.box("LogisticsBufferHatch", Vector3.ZERO, Vector3(0.68, 0.065, 0.65), "armor_light")
+    cover.box("LogisticsBufferHatchRib", Vector3(0, 0.045, 0), Vector3(0.56, 0.035, 0.09), "edge")
+    for i in range(2):
+        d.lifts.append(_visual(lift))
+        d.shutters.append(_visual(cover))
+        _buffer_pose(d, i, RACK_Y - 0.48, 0.0)
     var post: Variant = _template()
     post.poly("LogisticsArmFoot", "octagonal_slew", Vector3(0, 0.09, 0), Vector3(0.44, 0.18, 0.44), "slate")
     post.poly("LogisticsArmColumn", "octagonal_slew", Vector3(0, 0.83, 0), Vector3(0.24, 1.45, 0.24), "armor")
@@ -513,6 +522,16 @@ func _arm(d: Dock, payload_bottom: Vector3, jaw: float) -> void:
     var turn := Basis(Vector3.UP, d.yaw)
     _set(d.jaw_a, _pose(hand + turn * Vector3(-jaw, 0, 0), d.yaw))
     _set(d.jaw_b, _pose(hand + turn * Vector3(jaw, 0, 0), d.yaw))
+
+func _buffer_pose(d: Dock, i: int, y: float, opening: float) -> void:
+    var rack: Vector3 = _rack_slot(d, i)
+    var turn := Basis(Vector3.UP, d.yaw)
+    var lift_at := Vector3(rack.x, y, rack.z)
+    # Hatch slides sideways into a raised external guide, never through cargo.
+    var cover_at: Vector3 = rack + turn * Vector3(0.73 * opening, 0.075, 0)
+    _set(d.lifts[i], _pose(lift_at, d.yaw))
+    _set(d.shutters[i], _pose(cover_at, d.yaw))
+
 
 func _deck_slot(t: Truck, i: int) -> Vector3:
     return _v3(t.pos, DECK_Y) + Basis(Vector3.UP, t.yaw) * Vector3(0, 0, -0.32 + 0.64 * i)
@@ -650,11 +669,17 @@ func _handle(t: Truck, d: Dock, dt: float) -> void:
     var hand: Vector3 = idle
     var cargo: Vector3 = pick
     var visible_cargo: bool = true
+    var lift_y: float = RACK_Y
+    var opening: float = 1.0
     var jaw: float = 0.37
     if phase < 0.55:
         hand = idle.lerp(pick_high, smoothstep(0.0, 0.55, phase))
+        opening = smoothstep(0.0, 0.19, phase)
         if loading:
-            cargo.y = lerpf(RACK_Y - 0.48, RACK_Y, smoothstep(0.0, 0.45, phase))
+            cargo.y = lerpf(RACK_Y - 0.48, RACK_Y, smoothstep(0.20, 0.53, phase))
+            lift_y = cargo.y
+        else:
+            lift_y = lerpf(RACK_Y - 0.48, RACK_Y, smoothstep(0.20, 0.53, phase))
     elif phase < 1.05:
         hand = pick_high.lerp(pick, smoothstep(0.55, 1.05, phase))
     elif phase < 1.25:
@@ -684,16 +709,24 @@ func _handle(t: Truck, d: Dock, dt: float) -> void:
         cargo = drop
         if not loading:
             # Lower into the recessed stock receiver only after release.
-            cargo.y = lerpf(RACK_Y, RACK_Y - 0.49, smoothstep(3.35, BOX_TIME, phase))
-            visible_cargo = phase < BOX_TIME - 0.03
+            cargo.y = lerpf(RACK_Y, RACK_Y - 0.48, smoothstep(3.35, 3.62, phase))
+            lift_y = cargo.y
+            visible_cargo = phase < BOX_TIME - 0.02
+        else:
+            lift_y = lerpf(RACK_Y, RACK_Y - 0.48, smoothstep(3.35, 3.62, phase))
+        opening = 1.0 - smoothstep(3.62, BOX_TIME, phase)
+    _buffer_pose(d, index, lift_y, opening)
     _arm(d, hand, jaw)
     _set(t.cargo[index], _pose(cargo, d.yaw), visible_cargo)
     for i in range(2):
         if i == index:
             continue
+        _buffer_pose(d, i, RACK_Y - 0.48, 0.0)
         var on_deck: bool = (i < index) if loading else (i > index)
         _set(t.cargo[i], _pose(_deck_slot(t, i), t.yaw), on_deck)
     if t.clock >= BOX_TIME * 2.0:
+        for i in range(2):
+            _buffer_pose(d, i, RACK_Y - 0.48, 0.0)
         t.loaded = loading
         _arm(d, idle, 0.37)
         t.leg += 1
