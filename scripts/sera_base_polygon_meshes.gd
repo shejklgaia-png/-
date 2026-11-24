@@ -161,7 +161,7 @@ static func _canopy_y(x: float, z: float) -> float:
     var fold: float = 0.045 * sin((x + 0.5) * PI * 3.0)
     return ridge + sag + fold
 
-static func _canvas(st: SurfaceTool) -> void:
+static func _canvas(st: SurfaceTool, pinned: bool = false) -> void:
     # Top and bottom are actual 4x4 tessellations, hem has real thickness.
     var grid: Array = []
     for iz in range(5):
@@ -169,7 +169,12 @@ static func _canvas(st: SurfaceTool) -> void:
         var z: float = -0.5 + float(iz) * 0.25
         for ix in range(5):
             var x: float = -0.5 + float(ix) * 0.25
-            row.append(Vector3(x, _canopy_y(x, z), z))
+            # Fixed perimeter: scaling this canopy along local Y changes
+            # only the inner fabric billow, not its attachment rails.
+            var y: float = _canopy_y(x, z)
+            if pinned:
+                y = 0.34 * (1.0 - 4.0 * x * x) * (1.0 - 4.0 * z * z) * sin(PI * (x + 0.82))
+            row.append(Vector3(x, y, z))
         grid.append(row)
     for iz in range(4):
         for ix in range(4):
@@ -418,6 +423,29 @@ static func _nexus_portal(st: SurfaceTool) -> void:
             Vector3(b.x, b.y, 0.5), Vector3(a.x, a.y, 0.5),
             Vector3(-direction.y, direction.x, 0.0))
 
+# The dish is a real shallow paraboloid with a closed thin backing.
+static func _nexus_dish(st: SurfaceTool) -> void:
+    const SEGMENTS: int = 16
+    for side in [0.0, -0.05]:
+        for ring in range(3):
+            var r0: float = float(ring) / 6.0
+            var r1: float = float(ring + 1) / 6.0
+            for i in range(SEGMENTS):
+                var a: float = TAU * float(i) / float(SEGMENTS)
+                var b: float = TAU * float(i + 1) / float(SEGMENTS)
+                var p := Vector3(r0 * cos(a), r0 * sin(a), side + 1.8 * r0 * r0)
+                var q := Vector3(r1 * cos(a), r1 * sin(a), side + 1.8 * r1 * r1)
+                var u := Vector3(r1 * cos(b), r1 * sin(b), side + 1.8 * r1 * r1)
+                var v := Vector3(r0 * cos(b), r0 * sin(b), side + 1.8 * r0 * r0)
+                _quad(st, p, q, u, v, Vector3.BACK if side == 0.0 else Vector3.FORWARD)
+    for i in range(SEGMENTS):
+        var a: float = TAU * float(i) / float(SEGMENTS)
+        var b: float = TAU * float(i + 1) / float(SEGMENTS)
+        var p := Vector3(0.5 * cos(a), 0.5 * sin(a), 0.45)
+        var q := Vector3(0.5 * cos(b), 0.5 * sin(b), 0.45)
+        _quad(st, p, q, q - Vector3(0, 0, 0.05),
+            p - Vector3(0, 0, 0.05), Vector3(cos((a+b)*0.5), sin((a+b)*0.5), 0))
+
 static func make(kind: String) -> ArrayMesh:
     if _mesh_cache.has(kind):
         return _mesh_cache[kind] as ArrayMesh
@@ -438,6 +466,10 @@ static func make(kind: String) -> ArrayMesh:
             _hood(st)
         "canvas":
             _canvas(st)
+        "nexus_canvas":
+            _canvas(st, true)
+        "nexus_dish":
+            _nexus_dish(st)
         "drum":
             _rotor(st, false)
         "gear":
