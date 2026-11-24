@@ -62,6 +62,7 @@ class Truck:
     var segment_cells: Array = []
     var leg: int = 0
     var waypoint: int = 1
+    var released_at: Vector2i = Vector2i(999, 999)
     var mode: String = "home"
     var wait: float = 0.0
     var clock: float = 0.0
@@ -306,8 +307,15 @@ func _parking_options(origin: Vector2, destination: Vector2) -> Array[Dictionary
 
 
 func _keep_parking_clear(t: Truck) -> void:
-    for c in t.cells:
-        _route_parking_exclusion[c] = true
+    # Preserve the original 1.51m parked-truck separation along the new
+    # shortcut segments, not just at their endpoints.
+    for leg in t.legs:
+        for i in range(1, leg.size()):
+            for c in _trace(leg[i - 1], leg[i], false):
+                for x in range(-2, 3):
+                    for z in range(-2, 3):
+                        if Vector2(x, z).length() * CELL < 1.51:
+                            _route_parking_exclusion[c + Vector2i(x, z)] = true
 
 
 func _expand_cell(target: Dictionary, c: Vector2i) -> void:
@@ -322,12 +330,12 @@ func _expand_cell(target: Dictionary, c: Vector2i) -> void:
 # accepting it. Reservations are generated from these same swept segments.
 func _trace(a: Vector2i, b: Vector2i, require_clear: bool = true) -> Array[Vector2i]:
     var result: Array[Vector2i] = []
-    var from: Vector2 = _point(a)
-    var to: Vector2 = _point(b)
-    var steps: int = maxi(1, ceili(from.distance_to(to) / (CELL * 0.20)))
+    var start_point: Vector2 = _point(a)
+    var end_point: Vector2 = _point(b)
+    var steps: int = maxi(1, ceili(start_point.distance_to(end_point) / (CELL * 0.20)))
     var previous: Vector2i = a
     for i in range(steps + 1):
-        var c: Vector2i = _cell(from.lerp(to, float(i) / float(steps)))
+        var c: Vector2i = _cell(start_point.lerp(end_point, float(i) / float(steps)))
         if require_clear and not _free(c):
             return []
         if c != previous and c.x != previous.x and c.y != previous.y:
@@ -623,8 +631,12 @@ func diagnostic_text() -> String:
             var p: Vector3 = t.body.node.global_position + Vector3.UP * 0.4
             if t.body.node.is_visible_in_tree() and not _camera.is_position_behind(p) and view.has_point(_camera.unproject_position(p)):
                 projected += 1
-    return "物流 %s\n車体 %d/%d  経路 %d\n画面内 %d  貨物 %d\nドック %d" % [
-        _phase, _vehicle_count, FLEET_SIZE, _planned_count, projected, _cargo_count, _docks.size()]
+    var working: int = 0
+    for t in _trucks:
+        if t.mode in ["drive", "align", "load", "unload"]:
+            working += 1
+    return "物流 %s\n車体 %d/%d  経路 %d\n画面内 %d  貨物 %d\n稼働 %d  ドック %d" % [
+        _phase, _vehicle_count, FLEET_SIZE, _planned_count, projected, _cargo_count, working, _docks.size()]
 
 
 func _capture_reservations() -> void:
@@ -1094,13 +1106,34 @@ func _dispatch_waiting() -> void:
         _held[t.id] = claim
         t.leg = next_leg
         t.waypoint = 1
+        t.released_at = Vector2i(999, 999)
         t.mode = "drive"
         t.wait = 0.0
 
 
 func _advance_waypoint(t: Truck) -> void:
     t.waypoint += 1
+    t.released_at = Vector2i(999, 999)
     _held[t.id] = _leg_remainder(t, t.leg, t.waypoint)
+
+
+func _release_passed(t: Truck) -> void:
+    var current: Vector2i = _cell(t.pos)
+    if current == t.released_at:
+        return
+    t.released_at = current
+    var path: Array = t.legs[t.leg]
+    var segments: Array = t.segment_cells[t.leg]
+    var axis: Vector2 = (_point(path[t.waypoint]) - _point(path[t.waypoint - 1])).normalized()
+    var claim: Dictionary = {}
+    var current_segment: Dictionary = segments[t.waypoint - 1]
+    for c in current_segment:
+        # Leave a full chassis-length safety buffer behind the actual pose.
+        if (_point(c) - t.pos).dot(axis) >= -1.5:
+            claim[c] = true
+    for i in range(t.waypoint, segments.size()):
+        claim.merge(segments[i], true)
+    _held[t.id] = claim
 
 
 func _drive(t: Truck, dt: float) -> void:
@@ -1142,6 +1175,8 @@ func _drive(t: Truck, dt: float) -> void:
     if t.pos.distance_to(goal) < 0.001:
         t.pos = goal
         _advance_waypoint(t)
+    else:
+        _release_passed(t)
 
 
 func _dock_for(t: Truck) -> Dock:
