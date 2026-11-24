@@ -1,11 +1,11 @@
 extends Control
-## BASE/GRID presentation-only controls. Interactive selections do NOT create
-## simulated machines, consume resources, or persist any board occupancy.
+## GRID session layout draft controls; no economy or persistent inventory.
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const Cut = preload("res://scripts/sera_base_grid_cut_control.gd")
-const CODES = ["G", "H", "K", "P", "C", "D", "R", "X", "Y", "T", "O"]
-const MODES = ["PLACE", "MOVE", "ROTATE"]
-const MODE_LABELS = ["配置", "移動", "回転"]
+const Draft = preload("res://scripts/sera_grid_layout_draft.gd")
+const CODES = Draft.CODES
+const MODES = ["PLACE", "MOVE", "ROTATE", "REMOVE"]
+const MODE_LABELS = ["配置", "移動", "回転", "撤去"]
 
 signal node_chosen(code: String)
 signal operation_changed(operation: String)
@@ -43,7 +43,7 @@ func _ready() -> void:
     tray_title = Label.new()
     tray_title.name = "ModuleTrayTitle"
     tray_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    tray_title.text = "NODE PALETTE  /  PREVIEW"
+    tray_title.text = "設計プレビュー / 保存・資源消費なし"
     tray_title.add_theme_font_override("font", LaboSkin.data_font())
     tray_title.add_theme_font_size_override("font_size", 17)
     tray_title.add_theme_color_override("font_color", Color("#bacbd6"))
@@ -61,10 +61,11 @@ func _ready() -> void:
     for code in CODES:
         var module: Control = Cut.new()
         module.name = "Node_" + code
-        module.custom_minimum_size = Vector2(74, 78)
-        module.size = Vector2(74, 78)
+        module.custom_minimum_size = Vector2(112, 78)
+        module.size = Vector2(112, 78)
         row.add_child(module)
-        module.call("configure", "module", code, "MODULE")
+        var f := Draft.footprint(code)
+        module.call("configure", "module", code, "%d CELLS" % (f.x * f.y))
         module.connect("activated", Callable(self, "_choose_node"))
         modules[code] = module
     rail = Control.new()
@@ -117,9 +118,9 @@ func reflow(dims: Vector2) -> void:
     tray_title.size = Vector2(tray.size.x - 36, 28)
     scroll.position = Vector2(12, 46)
     scroll.size = Vector2(tray.size.x - 24, 86)
-    rail.size = Vector2(68, 252)
+    rail.size = Vector2(68, 340)
     rail.position = Vector2(view_size.x - 77.0 if editing else
-        view_size.x + 18.0, maxf(120.0, view_size.y * 0.41 - 50.0))
+        view_size.x + 18.0, maxf(120.0, view_size.y * 0.41 - 94.0))
 
 
 func set_grid(show: bool, animate: bool = true) -> void:
@@ -158,7 +159,7 @@ func set_edit(show: bool, animate: bool = true) -> void:
     var tray_target := Vector2(12.0,
         view_size.y - tray_height - 10.0 if show else view_size.y + 12.0)
     var rail_target := Vector2(view_size.x - 77.0 if show else
-        view_size.x + 18.0, maxf(120.0, view_size.y * 0.41 - 50.0))
+        view_size.x + 18.0, maxf(120.0, view_size.y * 0.41 - 94.0))
     if not animate:
         tray.position = tray_target
         rail.position = rail_target
@@ -189,8 +190,8 @@ func _choose_node(value: String) -> void:
         var item: Control = modules[code]
         item.set("selected", code == value)
         item.queue_redraw()
-    tray_title.text = "NODE / " + value + "    PREVIEW ONLY"
     _choose_operation("PLACE")
+    tray_title.text = Draft.description(value) + " / 配置プレビュー"
     node_chosen.emit(value)
 
 
@@ -203,6 +204,10 @@ func _choose_operation(value: String) -> void:
         item.set("selected", key == value)
         item.queue_redraw()
     operation_changed.emit(value)
+
+
+func set_draft_status(message: String) -> void:
+    tray_title.text = message
 
 
 func is_interface_hit(pixel: Vector2) -> bool:

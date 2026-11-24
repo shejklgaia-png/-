@@ -1,11 +1,12 @@
 extends RefCounted
 const StaticBake = preload("res://scripts/sera_static_bake.gd")
-## SERA BASE / Ver.0.9 POWER CONTROL preview.
+## SERA BASE / Ver.2.11 initial GRID layout preview.
 ## Drawn off the overview at camera-right, not an independent scene.
-## No simulation is claimed until the G/H/K/P/C/D/R/X/Y/T/O rules are fixed.
+## Economy and electrical simulation remain separate from the board.
 const FixedLayout = preload("res://scripts/sera_base_authored_layout.gd")
-const GRID_SIDE: int = 8
-const CELL_PITCH: float = 1.28
+const GRID_SIDE: int = 10
+const CELL_PITCH: float = 1.024
+const TILE_WIDTH: float = 0.936
 const BOARD_CENTER: Vector3 = Vector3(35.5, 0.0, -20.0)
 const GENERATOR_ORIGIN: Vector3 = Vector3(8.85, 0.0, -1.65)
 const CABLE_SEGMENTS: int = 48
@@ -86,7 +87,7 @@ static func _tube(parent: Node3D, name: String, radius: float,
 
 static func _cells(parent: Node3D) -> void:
     var tile_mesh := BoxMesh.new()
-    tile_mesh.size = Vector3(1.17, 0.085, 1.17)
+    tile_mesh.size = Vector3(TILE_WIDTH, 0.085, TILE_WIDTH)
     for shade in range(2):
         var groups := MultiMesh.new()
         groups.transform_format = MultiMesh.TRANSFORM_3D
@@ -98,8 +99,8 @@ static func _cells(parent: Node3D) -> void:
                 if (x + z) % 2 != shade:
                     continue
                 var offset := Vector3(
-                    (float(x) - 3.5) * CELL_PITCH,
-                    0.38, (float(z) - 3.5) * CELL_PITCH)
+                    (float(x) - (GRID_SIDE - 1) * 0.5) * CELL_PITCH,
+                    0.38, (float(z) - (GRID_SIDE - 1) * 0.5) * CELL_PITCH)
                 groups.set_instance_transform(index,
                     Transform3D(Basis.IDENTITY, BOARD_CENTER + offset))
                 index += 1
@@ -138,9 +139,9 @@ static func build(parent: Node3D) -> Node3D:
         Vector3(0.45, 0.34, 0.48), Color("#5a899e"))
 
     var frame := Node3D.new()
-    frame.name = "PowerGrid8x8"
+    frame.name = "PowerGrid10x10"
     stage.add_child(frame)
-    # One continuous plinth under the 64 actual slot surfaces.
+    # One continuous plinth under the 100 actual slot surfaces.
     _box(frame, "GridFoundation", BOARD_CENTER + Vector3(0, 0.12, 0),
         Vector3(11.75, 0.30, 11.75), Color("#1a252f"))
     _box(frame, "GridUnderframe", BOARD_CENTER + Vector3(0, 0.29, 0),
