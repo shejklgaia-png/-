@@ -437,13 +437,15 @@ func _ready() -> void:
     placement_ui_layer.name = "NexusPlacementOverlay"
     placement_ui_layer.layer = 8
     add_child(placement_ui_layer)
+    # Create the light camera editor FIRST. A failure while binding complex
+    # placement meshes must never prevent camera-angle editing from existing.
+    camera_angle_editor = NexusCameraAnglePlacement.new()
+    placement_ui_layer.add_child(camera_angle_editor)
+    camera_angle_editor.configure(self)
     placement_editor = NexusCanonicalPlacement.new()
     placement_ui_layer.add_child(placement_editor)
     placement_editor.configure(self, placement_specs,
         canonical_core_refs, canonical_render_batches)
-    camera_angle_editor = NexusCameraAnglePlacement.new()
-    placement_ui_layer.add_child(camera_angle_editor)
-    camera_angle_editor.configure(self)
     # The rejected 2D bounding-box contour is not created in NEXUS.
     # The new depth hull shares the real 3D scene and its current camera.
     SeraSave.mark_location("NEXUS")
@@ -452,22 +454,34 @@ func _ready() -> void:
     if focus_views.has(route):
         call_deferred("_select_target", route)
 
+func _placement_launch_failure(panel: Panel, message: String) -> void:
+    push_warning(message)
+    if panel != null:
+        var caption: Label = panel.get_node_or_null("Caption") as Label
+        if caption != null:
+            caption.text = message
+
+
 func _open_canonical_placement() -> void:
     if placement_editor == null or not placement_editor.is_inside_tree():
-        push_warning("NEXUS canonical placement editor is not ready")
+        _placement_launch_failure(placement_entry_button, "PLACE / NOT READY")
         return
     if placement_editor.open_mode():
         _sync_placement_launchers()
         get_viewport().set_input_as_handled()
+    else:
+        _placement_launch_failure(placement_entry_button, "PLACE / BLOCKED")
 
 
 func _open_camera_angle_placement() -> void:
     if camera_angle_editor == null or not camera_angle_editor.is_inside_tree():
-        push_warning("NEXUS camera angle editor is not ready")
+        _placement_launch_failure(angle_entry_button, "ANGLE / NOT READY")
         return
     if camera_angle_editor.open_mode():
         _sync_placement_launchers()
         get_viewport().set_input_as_handled()
+    else:
+        _placement_launch_failure(angle_entry_button, "ANGLE / BLOCKED")
 
 
 func _placement_launcher_panel(caption: String, id: String) -> Panel:
