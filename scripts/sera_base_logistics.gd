@@ -111,6 +111,11 @@ var _planned_count: int = 0
 var _vehicle_count: int = 0
 var _cargo_count: int = 0
 var _ready_for_motion: bool = false
+var _facility_motion: Dictionary = {}
+
+func bind_facility_motion(key: String, motion: Node) -> void:
+    if is_instance_valid(motion):
+        _facility_motion[key] = motion
 
 func _xz(v: Vector3) -> Vector2:
     return Vector2(v.x, v.z)
@@ -1008,7 +1013,7 @@ func _make_truck_details(t: Truck) -> void:
     t.lamp_wait = _visual(wait)
     for raw in [true, false]:
         for i in range(2):
-            var mesh: ArrayMesh = _cargo_mesh(bool(raw), i)
+            var mesh: ArrayMesh = _cargo_mesh(bool(raw), i, t.destination)
             if raw:
                 t.raw_meshes.append(mesh)
             else:
@@ -1029,8 +1034,8 @@ func _make_truck_details(t: Truck) -> void:
             _cargo_count += 1
 
 
-func _cargo_mesh(raw: bool, i: int) -> ArrayMesh:
-    var key: String = ("raw" if raw else "finished") + str(i)
+func _cargo_mesh(raw: bool, i: int, destination: String) -> ArrayMesh:
+    var key: String = ("raw" if raw else destination) + str(i)
     if not _solid_meshes.has(key):
         var cargo: Variant = _template()
         if raw:
@@ -1044,8 +1049,28 @@ func _cargo_mesh(raw: bool, i: int) -> ArrayMesh:
                     p.origin.y += 0.083
                     pieces[j] = p
         else:
-            # Use the actual warehouse builder, not a second lookalike.
-            FreshDesign.storage_cargo(cargo, Vector3(0, 0.58 * 0.62 * 0.5, 0), 0.62, i, i)
+            cargo.poly("ProductPallet", "tray", Vector3(0,0.065,0), Vector3(0.58,0.13,0.56), "slate")
+            for side in [-1.0,1.0]:
+                cargo.box("ProductGripRail", Vector3(side*0.27,0.15,0), Vector3(0.045,0.19,0.53), "edge")
+            match destination:
+                "SMELTER":
+                    for row in range(2):
+                        for col in range(2):
+                            cargo.poly("CastMetalIngot", "bevel", Vector3(-0.12+col*0.24,0.18,-0.13+row*0.26),
+                                Vector3(0.22,0.15,0.24), "edge" if i==0 else "armor_light")
+                "RECYCLER":
+                    cargo.poly("RecoveredGear", "gear", Vector3(-0.12,0.19,-0.10),
+                        Vector3(0.24,0.12,0.24), "edge")
+                    cargo.box("RecoveredBoard", Vector3(0.13,0.15,0.10),Vector3(0.24,0.07,0.26), "blue")
+                    for k in range(3):
+                        cargo.box("BoardContact", Vector3(0.06+k*0.07,0.195,0.10),Vector3(0.03,0.03,0.15), "gold")
+                    cargo.poly_tilt("RecoveredMotor", "drum", Vector3(0.12,0.21,-0.14),
+                        Vector3(0.20,0.22,0.20), "armor_light", Vector3(0,0,PI*0.5))
+                _:
+                    cargo.poly("FabricatedShell", "vent_stack",Vector3(0,0.23,0),
+                        Vector3(0.44,0.31,0.43), "blue")
+                    cargo.poly("FabricatedCollar", "gear",Vector3(0,0.14,0),
+                        Vector3(0.47,0.10,0.46), "edge")
         _solid_meshes[key] = _bake_mesh(cargo)
     return _solid_meshes[key]
 
@@ -1501,11 +1526,19 @@ func _handle(t: Truck, d: Dock, dt: float) -> void:
             _buffer_pose(d, i, RACK_Y - 0.48, 0.0)
         t.loaded = loading
         _arm(d, idle, 0.37)
-        if t.leg == 1 and not loading:
-            _cargo_kind(t, false)
-            t.mode = "load"
-            t.clock = 0.0
-            return
+        if not loading and t.leg in [1,2]:
+            var site: String = t.destination if t.leg == 1 else "STORAGE"
+            var motion: Node = _facility_motion.get(site)
+            if is_instance_valid(motion) and motion.has_method("begin_material_cycle"):
+                motion.call("begin_material_cycle")
+                t.mode = "process_stock"
+                t.clock = 0.0
+                return
+            if t.leg == 1:
+                _cargo_kind(t, false)
+                t.mode = "load"
+                t.clock = 0.0
+                return
         t.leg += 1
         t.waypoint = 1
         t.mode = "leg_wait"
@@ -1540,6 +1573,19 @@ func advance(delta: float) -> void:
                         t.clock = 0.0
                 "load", "unload":
                     _handle(t, _dock_for(t), STEP)
+                "process_stock":
+                    var site: String = t.destination if t.leg == 1 else "STORAGE"
+                    var motion: Node = _facility_motion.get(site)
+                    if not is_instance_valid(motion) or bool(motion.call("material_cycle_complete")):
+                        if t.leg == 1:
+                            _cargo_kind(t, false)
+                            t.mode = "load"
+                        else:
+                            t.leg += 1
+                            t.waypoint = 1
+                            t.mode = "leg_wait"
+                            t.wait = 0.0
+                        t.clock = 0.0
                 "unavailable":
                     continue
             _truck_pose(t)
