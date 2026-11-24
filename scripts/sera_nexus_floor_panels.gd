@@ -776,7 +776,65 @@ static func _mesh_from_arrays(verts: PackedVector3Array,
     return mesh
 
 
+# Pick six isolated plates by their actual centers. Split their transforms out
+# of the original batch; no duplicate geometry, overlays or z-fighting.
+static func _split_stain_batches(batches: Dictionary) -> void:
+    var spots: Array = [
+        [Vector2(-2.70, 4.15), "_rust"],
+        [Vector2(0.95, 6.15), "_oil"],
+        [Vector2(-0.95, 0.75), "_oil"],
+        [Vector2(2.70, -2.20), "_rust"],
+        [Vector2(-5.00, -0.40), "_oil"],
+        [Vector2(5.00, 5.70), "_rust"]
+    ]
+    var selected: Dictionary = {}
+    var keys: Array = batches.keys()
+    for spot in spots:
+        var target: Vector2 = spot[0]
+        var best_dist: float = 2.5
+        var best_key: String = ""
+        var best_index: int = -1
+        for key_value in keys:
+            var key: String = str(key_value)
+            if not key.begins_with("armor_") and not key.begins_with("wedge_"):
+                continue
+            var transforms: Array = batches[key]
+            var picked: Dictionary = selected.get(key, {})
+            for index in range(transforms.size()):
+                if picked.has(index):
+                    continue
+                var pose: Transform3D = transforms[index]
+                var distance: float = target.distance_to(Vector2(pose.origin.x, pose.origin.z))
+                if distance < best_dist:
+                    best_dist = distance
+                    best_key = key
+                    best_index = index
+        if best_index >= 0:
+            var picked: Dictionary = selected.get(best_key, {})
+            picked[best_index] = str(spot[1])
+            selected[best_key] = picked
+    # The clean batches keep their original insertion order, so their
+    # existing texture variant assignment remains unchanged.
+    for key_value in keys:
+        var key: String = str(key_value)
+        if not selected.has(key):
+            continue
+        var picked: Dictionary = selected[key]
+        var original: Array = batches[key]
+        var clean: Array = []
+        for index in range(original.size()):
+            if picked.has(index):
+                var dirty_key: String = key + str(picked[index])
+                var dirty: Array = batches.get(dirty_key, [])
+                dirty.append(original[index])
+                batches[dirty_key] = dirty
+            else:
+                clean.append(original[index])
+        batches[key] = clean
+
+
 static func _submit(room: Node3D, batches: Dictionary) -> void:
+    _split_stain_batches(batches)
     var root := Node3D.new()
     root.name = "NexusDeckReferenceV3"
     room.add_child(root)
@@ -815,6 +873,9 @@ static func _submit(room: Node3D, batches: Dictionary) -> void:
         elif key.begins_with("disc_"):
             mesh_data = disc
             material_key = key.trim_prefix("disc_")
+        material_key = material_key.trim_suffix("_rust").trim_suffix("_oil")
+        if transforms.is_empty():
+            continue
         var multimesh := MultiMesh.new()
         multimesh.transform_format = MultiMesh.TRANSFORM_3D
         multimesh.mesh = mesh_data

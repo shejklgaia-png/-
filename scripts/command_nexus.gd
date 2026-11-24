@@ -1417,12 +1417,13 @@ func _nexus_apply_wear_after_entry() -> void:
     var deck := get_node_or_null("NexusDeckReferenceV3")
     if deck == null:
         return
-    for variant in range(2):
+    for variant in range(6):
         var texture: Texture2D = _nexus_make_pixel_steel(variant)
         if texture == null:
             return
         _nexus_pixel_steel.append(texture)
     var batch_index: int = 0
+    var clean_variants: Dictionary = {}
     for child in deck.get_children():
         if not (child is MultiMeshInstance3D):
             continue
@@ -1434,7 +1435,15 @@ func _nexus_apply_wear_after_entry() -> void:
         if source == null or source.albedo_texture != null:
             continue
         var worn := source.duplicate() as StandardMaterial3D
-        worn.albedo_texture = _nexus_pixel_steel[batch_index % 2]
+        var texture_index: int = batch_index % 2
+        if surface_name.ends_with("_rust"):
+            texture_index = int(clean_variants.get(surface_name.trim_suffix("_rust"), 0)) + 2
+        elif surface_name.ends_with("_oil"):
+            texture_index = int(clean_variants.get(surface_name.trim_suffix("_oil"), 0)) + 4
+        else:
+            clean_variants[surface_name] = texture_index
+            batch_index += 1
+        worn.albedo_texture = _nexus_pixel_steel[texture_index]
         # Explicit plate-local UVs: one lookup, no blended world triplanar.
         worn.uv1_triplanar = false
         worn.uv1_world_triplanar = false
@@ -1445,13 +1454,13 @@ func _nexus_apply_wear_after_entry() -> void:
         worn.roughness = 0.86
         worn.metallic_specular = 0.12
         geometry.material_override = worn
-        batch_index += 1
 
 
 # Authored integer-pixel clusters, not a downsampled photo or random noise.
 # Neutral value ramp multiplies the existing blue-grey plate family colors.
 # Broad quiet fields keep the equipment visually dominant.
 func _nexus_make_pixel_steel(variant: int) -> Texture2D:
+    var base_variant: int = variant % 2
     var image := Image.create(64, 64, false, Image.FORMAT_RGBA8)
     var steel := Color("#ebedef")
     var soft := Color("#d7dce0")
@@ -1460,7 +1469,7 @@ func _nexus_make_pixel_steel(variant: int) -> Texture2D:
     var rim := Color("#fafbfc")
     image.fill(steel)
     # Two asymmetrical factory finish planes, with stepped endpoints.
-    if variant == 0:
+    if base_variant == 0:
         image.fill_rect(Rect2i(2, 3, 60, 7), soft)
         image.fill_rect(Rect2i(2, 10, 37, 2), soft)
         image.fill_rect(Rect2i(39, 10, 15, 1), soft)
@@ -1482,7 +1491,7 @@ func _nexus_make_pixel_steel(variant: int) -> Texture2D:
     image.fill_rect(Rect2i(6, 47, 1, 5), rim)
     # Just three compact scuff clusters, distinct sizes and no isolated grain.
     var marks: Array[Vector2i] = [Vector2i(15, 20), Vector2i(37, 37), Vector2i(25, 53)]
-    if variant == 1:
+    if base_variant == 1:
         marks = [Vector2i(34, 13), Vector2i(23, 31), Vector2i(42, 49)]
     for index in range(marks.size()):
         var p: Vector2i = marks[index]
@@ -1493,6 +1502,35 @@ func _nexus_make_pixel_steel(variant: int) -> Texture2D:
         if index == 1:
             image.fill_rect(Rect2i(p.x + 3, p.y - 2, 4, 1), soft)
             image.fill_rect(Rect2i(p.x + 5, p.y - 1, 3, 1), soft)
+    # Only selected plates receive one small, deliberately asymmetrical stain.
+    # Brown oxide hugs an edge; charcoal oil leaves a short dragged smudge.
+    if variant in [2, 3]:
+        var x: int = 7 if base_variant == 0 else 43
+        var y: int = 39 if base_variant == 0 else 8
+        var rust_edge := Color("#cba476")
+        var rust_body := Color("#ad7444")
+        var rust_core := Color("#78482b")
+        image.fill_rect(Rect2i(x, y, 9, 2), rust_edge)
+        image.fill_rect(Rect2i(x + 2, y + 2, 10, 3), rust_edge)
+        image.fill_rect(Rect2i(x + 4, y + 5, 6, 2), rust_edge)
+        image.fill_rect(Rect2i(x + 2, y + 1, 5, 3), rust_body)
+        image.fill_rect(Rect2i(x + 5, y + 3, 4, 2), rust_body)
+        image.fill_rect(Rect2i(x + 3, y + 2, 3, 1), rust_core)
+        image.fill_rect(Rect2i(x + 13, y + 5, 2, 1), rust_body)
+    elif variant in [4, 5]:
+        var x: int = 35 if base_variant == 0 else 12
+        var y: int = 15 if base_variant == 0 else 43
+        var oil_edge := Color("#8f9392")
+        var oil_body := Color("#515653")
+        var oil_core := Color("#272b2c")
+        image.fill_rect(Rect2i(x + 3, y, 7, 2), oil_edge)
+        image.fill_rect(Rect2i(x, y + 2, 12, 3), oil_edge)
+        image.fill_rect(Rect2i(x + 2, y + 5, 8, 2), oil_edge)
+        image.fill_rect(Rect2i(x + 3, y + 1, 5, 5), oil_body)
+        image.fill_rect(Rect2i(x + 1, y + 3, 8, 2), oil_body)
+        image.fill_rect(Rect2i(x + 4, y + 2, 4, 2), oil_core)
+        image.fill_rect(Rect2i(x + 10, y + 5, 4, 1), oil_body)
+        image.fill_rect(Rect2i(x + 15, y + 6, 2, 1), oil_edge)
     # Keep distant grazing angles stable without bilinear filtering up close.
     image.generate_mipmaps()
     return ImageTexture.create_from_image(image)
