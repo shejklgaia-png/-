@@ -2217,7 +2217,13 @@ func _nexus_console_casting(family: int) -> ArrayMesh:
                 outward.y = 0.6
             # Only the broad, planar middle band receives the hatch.
             # Each quad shares a UV chart; its diagonal never changes projection.
-            _nexus_panel_quad(surface,a,b,c,d,outward,j == 1 and i % 2 == 0)
+            if j == 2 and i == 4:
+                # The wide front shoulder under the keys is visible in
+                # close-ups. Give it its own shallow strip chart, not a
+                # full square hatch distorted onto a narrow bevel.
+                _nexus_panel_strip_quad(surface,a,b,c,d,outward)
+            else:
+                _nexus_panel_quad(surface,a,b,c,d,outward,j == 1 and i % 2 == 0)
     for i in range(1,7):
         _nexus_panel_cap(surface,rings[0][0],rings[0][i],rings[0][i+1],Vector3.DOWN,widths[0],false)
         _nexus_panel_cap(surface,rings[3][0],rings[3][i],rings[3][i+1],Vector3.UP,widths[3],true)
@@ -2276,8 +2282,19 @@ func _nexus_panel_quad(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3,
         d: Vector3, outward: Vector3, decorated: bool) -> void:
     var ua := Vector2(0.0, 1.0) if decorated else NEXUS_PLAIN_PANEL_UV
     var ub := Vector2(1.0, 1.0) if decorated else NEXUS_PLAIN_PANEL_UV
-    var uc := Vector2(1.0, 0.0) if decorated else NEXUS_PLAIN_PANEL_UV
-    var ud := Vector2(0.0, 0.0) if decorated else NEXUS_PLAIN_PANEL_UV
+    var uc := Vector2(1.0, 12.0/64.0) if decorated else NEXUS_PLAIN_PANEL_UV
+    var ud := Vector2(0.0, 12.0/64.0) if decorated else NEXUS_PLAIN_PANEL_UV
+    _nexus_armor_triangle(surface,a,b,c,outward,ua,ub,uc)
+    _nexus_armor_triangle(surface,a,c,d,outward,ua,uc,ud)
+
+
+func _nexus_panel_strip_quad(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3,
+        d: Vector3, outward: Vector3) -> void:
+    # Reserved texture rows 2..11, entirely separate from the broad hatch.
+    var ua := Vector2(0.0,11.0/64.0)
+    var ub := Vector2(1.0,11.0/64.0)
+    var uc := Vector2(1.0,2.0/64.0)
+    var ud := Vector2(0.0,2.0/64.0)
     _nexus_armor_triangle(surface,a,b,c,outward,ua,ub,uc)
     _nexus_armor_triangle(surface,a,c,d,outward,ua,uc,ud)
 
@@ -2289,7 +2306,7 @@ func _nexus_panel_cap(surface: SurfaceTool, a: Vector3, b: Vector3, c: Vector3,
         var at := NEXUS_PLAIN_PANEL_UV
         if decorated:
             if absf(outward.y) > 0.5:
-                at = Vector2(p.x / span + 0.5, 0.5 - p.z / span)
+                at = Vector2(p.x / span + 0.5, lerpf(12.0/64.0,1.0,0.5 - p.z / span))
             else:
                 at = Vector2(p.x / span + 0.5, 0.5 - p.y / span)
         uv.append(at.clamp(Vector2.ZERO,Vector2.ONE))
@@ -2407,93 +2424,115 @@ func _nexus_apply_wear_after_entry() -> void:
 
 # Neutral luminance detail multiplies the original painted shell color.
 # All strokes are baked pixels, not extra geometry or ID/selection lines.
+# Baked pixel details, with a quiet outer border. Use two-pixel dark
+# seams on broad faces so the mipmapped mobile view can retain the design.
 func _nexus_make_console_panel_texture(training: bool) -> Texture2D:
-    var image := Image.create(64, 64, false, Image.FORMAT_RGBA8)
-    var paint := Color("#f1f2f2")
-    var seam := Color("#73828b")
-    var recess := Color("#a7b2b7")
-    var lip := Color("#ffffff")
+    var image := Image.create(64,64,false,Image.FORMAT_RGBA8)
+    var paint := Color("#f4f5f5")
+    var seam := Color("#4e5b64")
+    var inset := Color("#d5dce0")
+    var rim := Color("#ffffff")
     image.fill(paint)
+    _nexus_front_panel_strip(image, training, seam, inset, rim)
     if training:
-        # Stepped service panel: asymmetric mechanical access cover.
-        image.fill_rect(Rect2i(12, 13, 31, 1), seam)
-        image.fill_rect(Rect2i(12, 14, 1, 35), seam)
-        image.fill_rect(Rect2i(43, 13, 1, 9), seam)
-        image.fill_rect(Rect2i(43, 22, 8, 1), seam)
-        image.fill_rect(Rect2i(50, 23, 1, 26), seam)
-        image.fill_rect(Rect2i(12, 49, 39, 1), seam)
-        image.fill_rect(Rect2i(14, 15, 27, 1), lip)
-        image.fill_rect(Rect2i(14, 48, 35, 1), recess)
-        image.fill_rect(Rect2i(27, 39, 11, 1), recess)
-        image.fill_rect(Rect2i(27, 40, 11, 1), lip)
+        # Mechanical stepped service panel; keep the corners of the
+        # hatch within the usable flat face even on faceted shells.
+        image.fill_rect(Rect2i(10,16,33,34),seam)
+        image.fill_rect(Rect2i(43,27,10,23),seam)
+        image.fill_rect(Rect2i(12,18,29,30),inset)
+        image.fill_rect(Rect2i(41,29,10,19),inset)
+        image.fill_rect(Rect2i(13,18,27,1),rim)
+        image.fill_rect(Rect2i(13,19,1,27),rim)
+        image.fill_rect(Rect2i(43,29,7,1),rim)
+        image.fill_rect(Rect2i(26,41,12,3),seam)
+        image.fill_rect(Rect2i(27,42,10,1),Color("#a1adb4"))
+        _nexus_panel_fastener(image,Vector2i(16,22),seam,rim)
+        _nexus_panel_fastener(image,Vector2i(36,22),seam,rim)
+        _nexus_panel_fastener(image,Vector2i(16,44),seam,rim)
+        _nexus_panel_fastener(image,Vector2i(46,44),seam,rim)
     else:
-        # Rectilinear service hatch, appropriate to the SYSTEM terminal.
-        image.fill_rect(Rect2i(10, 15, 44, 1), seam)
-        image.fill_rect(Rect2i(10, 16, 1, 31), seam)
-        image.fill_rect(Rect2i(53, 16, 1, 31), seam)
-        image.fill_rect(Rect2i(10, 47, 44, 1), seam)
-        image.fill_rect(Rect2i(12, 16, 40, 1), lip)
-        image.fill_rect(Rect2i(12, 46, 40, 1), recess)
-        image.fill_rect(Rect2i(40, 35, 10, 1), recess)
-        image.fill_rect(Rect2i(40, 36, 10, 1), lip)
-    # Four recessed captive screw heads; do not scatter random dots.
-    var screw_x: int = 48 if training else 50
-    for at in [Vector2i(16, 19), Vector2i(39 if training else 48, 19),
-            Vector2i(16, 43), Vector2i(screw_x, 43)]:
-        image.fill_rect(Rect2i(at.x, at.y, 2, 2), recess)
-        image.set_pixel(at.x, at.y, seam)
-        image.set_pixel(at.x + 1, at.y + 1, lip)
-    # Two unobtrusive short wear marks maintain the existing pixel finish.
-    image.fill_rect(Rect2i(6, 8, 5, 1), recess)
-    image.fill_rect(Rect2i(55, 54, 4, 1), recess)
+        image.fill_rect(Rect2i(9,16,46,35),seam)
+        image.fill_rect(Rect2i(11,18,42,31),inset)
+        image.fill_rect(Rect2i(12,18,40,1),rim)
+        image.fill_rect(Rect2i(12,19,1,28),rim)
+        # Narrow removable service strip and three recessed slots.
+        image.fill_rect(Rect2i(35,37,13,6),Color("#a0adb5"))
+        for x in [37,41,45]:
+            image.fill_rect(Rect2i(x,38,2,3),seam)
+        for at in [Vector2i(15,22),Vector2i(48,22),Vector2i(15,45),Vector2i(48,45)]:
+            _nexus_panel_fastener(image,at,seam,rim)
+    image.fill_rect(Rect2i(7,55,5,1),Color("#b2bdc4"))
+    image.fill_rect(Rect2i(51,56,5,1),Color("#a9b5bd"))
     image.generate_mipmaps()
     return ImageTexture.create_from_image(image)
 
 
-# The archive uses rack-style horizontal service seams and a small
-# cartridge identification strip, not the console's large access hatch.
+func _nexus_panel_fastener(image: Image, at: Vector2i, seam: Color, rim: Color) -> void:
+    image.fill_rect(Rect2i(at.x-1,at.y-1,3,3),seam)
+    image.set_pixel(at.x,at.y,rim)
+
+
+func _nexus_front_panel_strip(image: Image, training: bool, seam: Color,
+        inset: Color, rim: Color) -> void:
+    # Independent shallow horizontal design, with end margins. Row 1
+    # and column 1 remain plain for the undecorated-face UV sample.
+    image.fill_rect(Rect2i(8,4,48,6),seam)
+    image.fill_rect(Rect2i(10,6,44,2),inset)
+    image.fill_rect(Rect2i(10,6,44,1),rim)
+    if training:
+        for x in [14,18,22,26]:
+            image.fill_rect(Rect2i(x,5,2,4),seam)
+        image.fill_rect(Rect2i(44,5,6,4),Color("#9aa5ac"))
+    else:
+        for x in [14,47]:
+            image.fill_rect(Rect2i(x,5,3,4),seam)
+
+
+# Rack and cartridge design: fewer, broader horizontal details survive
+# the more distant DATA ARCHIVE focus view.
 func _nexus_make_archive_panel_texture() -> Texture2D:
     var image := Image.create(64,64,false,Image.FORMAT_RGBA8)
-    image.fill(Color("#f1f2f2"))
-    var seam := Color("#7b8990")
-    var rim := Color("#ffffff")
-    image.fill_rect(Rect2i(10,15,44,1),seam)
-    image.fill_rect(Rect2i(10,16,1,33),seam)
-    image.fill_rect(Rect2i(53,16,1,33),seam)
-    image.fill_rect(Rect2i(10,49,44,1),seam)
-    image.fill_rect(Rect2i(12,16,40,1),rim)
-    image.fill_rect(Rect2i(14,32,36,1),Color("#aab5ba"))
-    image.fill_rect(Rect2i(14,33,36,1),rim)
-    image.fill_rect(Rect2i(16,21,12,3),Color("#b4c0c4"))
-    for x in [16,20,24]:
-        image.fill_rect(Rect2i(x,25,2,1),seam)
+    image.fill(Color("#f4f5f5"))
+    var seam := Color("#4e6268")
+    var inset := Color("#ced9d9")
+    var rim := Color.WHITE
+    _nexus_front_panel_strip(image,false,seam,inset,rim)
+    image.fill_rect(Rect2i(9,15,46,36),seam)
+    image.fill_rect(Rect2i(11,17,42,32),inset)
+    image.fill_rect(Rect2i(12,17,40,1),rim)
+    for y in [27,39]:
+        image.fill_rect(Rect2i(12,y,40,2),seam)
+        image.fill_rect(Rect2i(12,y+2,40,1),rim)
+    for y in [21,33,45]:
+        image.fill_rect(Rect2i(16,y,13,3),Color("#85989b"))
+        image.fill_rect(Rect2i(45,y,4,2),seam)
     image.generate_mipmaps()
     return ImageTexture.create_from_image(image)
 
 
-# Portal castings use a restrained long structural seam. The shutter's
-# recessed face uses a different sparse wear pattern clear of raised ribs.
+# Gate: do not add another fake physical frame. These thin inset seams,
+# wear and captive fixings are entirely in the existing front-face UVs.
 func _nexus_make_gate_panel_texture(leaf: bool) -> Texture2D:
     var image := Image.create(64,64,false,Image.FORMAT_RGBA8)
-    image.fill(Color("#f1f2f2"))
-    var seam := Color("#78858d")
-    var rim := Color("#ffffff")
+    image.fill(Color("#f4f5f5"))
+    var seam := Color("#53636e")
+    var rim := Color.WHITE
     if leaf:
-        for x in [9,54]:
-            image.fill_rect(Rect2i(x,8,1,48),seam)
-            image.fill_rect(Rect2i(x+1,8,1,48),rim)
-        image.fill_rect(Rect2i(17,9,10,1),Color("#b0bcc1"))
-        image.fill_rect(Rect2i(37,54,10,1),Color("#b0bcc1"))
+        for x in [8,54]:
+            image.fill_rect(Rect2i(x,7,2,50),seam)
+            image.fill_rect(Rect2i(x+2,7,1,50),rim)
+        # Two short wear clusters close to the edge, clear of raised ribs.
+        image.fill_rect(Rect2i(16,9,12,2),Color("#a4b0b8"))
+        image.fill_rect(Rect2i(36,54,11,2),Color("#a4b0b8"))
+        image.fill_rect(Rect2i(19,11,6,1),rim)
+        image.fill_rect(Rect2i(39,56,5,1),rim)
     else:
-        image.fill_rect(Rect2i(11,12,42,1),seam)
-        image.fill_rect(Rect2i(11,13,1,38),seam)
-        image.fill_rect(Rect2i(52,13,1,38),seam)
-        image.fill_rect(Rect2i(11,51,42,1),seam)
+        image.fill_rect(Rect2i(10,11,44,42),seam)
+        image.fill_rect(Rect2i(12,13,40,38),Color("#d6dce0"))
         image.fill_rect(Rect2i(13,13,38,1),rim)
         image.fill_rect(Rect2i(13,14,1,35),rim)
-        for at in [Vector2i(15,17),Vector2i(47,17),Vector2i(15,46),Vector2i(47,46)]:
-            image.fill_rect(Rect2i(at.x,at.y,2,2),Color("#a9b4ba"))
-            image.set_pixel(at.x,at.y,seam)
+        for at in [Vector2i(16,17),Vector2i(47,17),Vector2i(16,47),Vector2i(47,47)]:
+            _nexus_panel_fastener(image,at,seam,rim)
     image.generate_mipmaps()
     return ImageTexture.create_from_image(image)
 
@@ -3043,6 +3082,7 @@ func _on_display_size_changed() -> void:
 
 func _wall_mark() -> void:
     var logo := Label3D.new()
+    logo.name = "NexusRoomMarkLogo"
     logo.text = "///"
     logo.font = LaboSkin.display_font()
     logo.font_size = 120
@@ -3051,6 +3091,7 @@ func _wall_mark() -> void:
     logo.position = Vector3(0.0, 5.57, -11.33)
     add_child(logo)
     var name := Label3D.new()
+    name.name = "NexusRoomMarkName"
     name.text = "S E R A   /   N E X U S"
     name.font = LaboSkin.display_font()
     name.font_size = 80
@@ -3060,6 +3101,7 @@ func _wall_mark() -> void:
     name.set_meta("FX_NO_OUTLINE", true)
     add_child(name)
     var subtitle := Label3D.new()
+    subtitle.name = "NexusRoomMarkSubtitle"
     subtitle.text = "CENTRAL OPERATIONS  /  A1"
     subtitle.font = LaboSkin.display_font()
     subtitle.font_size = 54
@@ -3068,6 +3110,15 @@ func _wall_mark() -> void:
     subtitle.position = Vector3(0.0, 4.46, -11.32)
     subtitle.set_meta("FX_NO_OUTLINE", true)
     add_child(subtitle)
+
+# The room mark is near the overview camera, not painted on the gate.
+# Hide it during equipment closeups so it cannot obscure the machine.
+func _nexus_set_room_mark_visible(value: bool) -> void:
+    for label in ["NexusRoomMarkLogo","NexusRoomMarkName","NexusRoomMarkSubtitle"]:
+        var mark := get_node_or_null(label) as Label3D
+        if is_instance_valid(mark):
+            mark.visible = value
+
 
 # Outline geometry is derived from the actual visible 3D display/model meshes,
 # not approximate hand-authored screen-space hexagons or extra GPU geometry.
@@ -7171,6 +7222,7 @@ func _select_target(target_name: String) -> void:
     if in_transition or not focus_views.has(target_name):
         return
     focused_target = target_name
+    _nexus_set_room_mark_visible(false)
     if nexus_room_motion != null:
         nexus_room_motion.set_deployment_open(target_name == "DEPLOYMENT")
     # Show the bright contour in the initial press event, before camera tween.
@@ -7338,6 +7390,7 @@ func _overview_arrived() -> void:
     in_transition = false
     explore_panel.visible = true
     focused_target = ""
+    _nexus_set_room_mark_visible(true)
     outline.set("hide_customize_preview_outline", false)
     _update_projected_silhouettes()
     outline.queue_redraw()
