@@ -656,7 +656,7 @@ func _visual(g: Variant) -> Visual:
     _visuals.append(v)
     return v
 
-func _set(v: Visual, pose: Transform3D, shown: bool = true) -> void:
+func _apply_visual_pose(v: Visual, pose: Transform3D, shown: bool = true) -> void:
     if v == null:
         return
     if v.pose != pose or v.shown != shown:
@@ -844,7 +844,7 @@ func _make_truck_details(t: Truck) -> void:
             FreshDesign.storage_cargo(cargo, Vector3(0, 0.58 * 0.62 * 0.5, 0), 0.62, i, i)
         var cache_key: String = ("raw" if t.raw else "finished") + str(i)
         var v: Visual = _direct_visual(cargo, cache_key, "CarrierCargo_%02d_%d" % [t.id, i])
-        _set(v, Transform3D.IDENTITY, false)
+        _apply_visual_pose(v, Transform3D.IDENTITY, false)
         t.cargo.append(v)
         if v.node.mesh != null and v.node.mesh.get_surface_count() > 0:
             _cargo_count += 1
@@ -862,7 +862,7 @@ func _make_dock(d: Dock) -> void:
     for z in [-0.68, 0.0, 0.68]:
         fixed.box("LogisticsHatchGuide", Vector3(d.hatch_side * 0.58, 0.64, z), Vector3(1.14, 0.07, 0.045), "trim")
     fixed.box("LogisticsBufferStatus", Vector3(0, 0.40, 0.765), Vector3(0.28, 0.07, 0.035), "blue_light")
-    _set(_visual(fixed), _pose(_v3(d.stage), d.yaw))
+    _apply_visual_pose(_visual(fixed), _pose(_v3(d.stage), d.yaw))
     var lift: Variant = _template()
     lift.box("LogisticsBufferLift", Vector3(0, -0.035, 0), Vector3(0.62, 0.07, 0.60), "slate")
     var cover: Variant = _template()
@@ -876,7 +876,7 @@ func _make_dock(d: Dock) -> void:
     post.poly("LogisticsArmFoot", "octagonal_slew", Vector3(0, 0.09, 0), Vector3(0.44, 0.18, 0.44), "slate")
     post.poly("LogisticsArmColumn", "octagonal_slew", Vector3(0, 0.83, 0), Vector3(0.24, 1.45, 0.24), "armor")
     post.poly("LogisticsArmShoulder", "drum", Vector3(0, 1.60, 0), Vector3(0.36, 0.21, 0.36), "caution")
-    _set(_visual(post), _pose(_v3(d.pivot)))
+    _apply_visual_pose(_visual(post), _pose(_v3(d.pivot)))
     var arm_a: Variant = _template()
     arm_a.poly("LogisticsArmUpper", "octagonal_slew", Vector3.ZERO, Vector3(0.19, 1, 0.19), "caution")
     d.link_a = _visual(arm_a)
@@ -917,14 +917,14 @@ func _arm(d: Dock, payload_bottom: Vector3, jaw: float) -> void:
     var b: Vector3 = _v3(elbow, top)
     var c: Vector3 = _v3(target, top)
     var hand: Vector3 = payload_bottom + Vector3(0, 0.41, 0)
-    _set(d.link_a, _segment(a, b))
-    _set(d.link_b, _segment(b, c))
-    _set(d.elbow, _pose(b))
-    _set(d.wrist, _segment(c, hand))
-    _set(d.grip, _pose(hand, d.yaw))
+    _apply_visual_pose(d.link_a, _segment(a, b))
+    _apply_visual_pose(d.link_b, _segment(b, c))
+    _apply_visual_pose(d.elbow, _pose(b))
+    _apply_visual_pose(d.wrist, _segment(c, hand))
+    _apply_visual_pose(d.grip, _pose(hand, d.yaw))
     var turn := Basis(Vector3.UP, d.yaw)
-    _set(d.jaw_a, _pose(hand + turn * Vector3(-jaw, 0, 0), d.yaw))
-    _set(d.jaw_b, _pose(hand + turn * Vector3(jaw, 0, 0), d.yaw))
+    _apply_visual_pose(d.jaw_a, _pose(hand + turn * Vector3(-jaw, 0, 0), d.yaw))
+    _apply_visual_pose(d.jaw_b, _pose(hand + turn * Vector3(jaw, 0, 0), d.yaw))
 
 func _buffer_pose(d: Dock, i: int, y: float, opening: float) -> void:
     var rack: Vector3 = _rack_slot(d, i)
@@ -932,8 +932,8 @@ func _buffer_pose(d: Dock, i: int, y: float, opening: float) -> void:
     var lift_at := Vector3(rack.x, y, rack.z)
     # Hatch slides sideways into a raised external guide, never through cargo.
     var cover_at: Vector3 = rack + turn * Vector3(d.hatch_side * 0.73 * opening, 0.075, 0)
-    _set(d.lifts[i], _pose(lift_at, d.yaw))
-    _set(d.shutters[i], _pose(cover_at, d.yaw))
+    _apply_visual_pose(d.lifts[i], _pose(lift_at, d.yaw))
+    _apply_visual_pose(d.shutters[i], _pose(cover_at, d.yaw))
 
 
 func _deck_slot(t: Truck, i: int) -> Vector3:
@@ -944,16 +944,16 @@ func _rack_slot(d: Dock, i: int) -> Vector3:
 
 func _truck_pose(t: Truck) -> void:
     var p: Transform3D = _pose(_v3(t.pos, _ground_height(t.pos)), t.yaw)
-    _set(t.body, p)
+    _apply_visual_pose(t.body, p)
     var waiting: bool = t.mode in ["home", "unavailable"] or (t.mode == "approach" and t.waypoint > t.prefix_end)
-    _set(t.lamp_go, p, not waiting)
-    _set(t.lamp_wait, p, waiting)
+    _apply_visual_pose(t.lamp_go, p, not waiting)
+    _apply_visual_pose(t.lamp_wait, p, waiting)
     for i in range(t.treads.size()):
         var z: float = -0.56 + fposmod(float(i) * 0.14 - t.tread_distance, 1.12)
-        _set(t.treads[i], p * _pose(Vector3(0, 0, z)))
+        _apply_visual_pose(t.treads[i], p * _pose(Vector3(0, 0, z)))
     if t.mode not in ["load", "unload"]:
         for i in range(t.cargo.size()):
-            _set(t.cargo[i], _pose(_deck_slot(t, i), t.yaw), t.loaded)
+            _apply_visual_pose(t.cargo[i], _pose(_deck_slot(t, i), t.yaw), t.loaded)
 
 func _overlap(a: Dictionary, b: Dictionary) -> bool:
     for cell in a:
@@ -1120,13 +1120,13 @@ func _handle(t: Truck, d: Dock, dt: float) -> void:
         opening = 1.0 - smoothstep(3.62, BOX_TIME, phase)
     _buffer_pose(d, index, lift_y, opening)
     _arm(d, hand, jaw)
-    _set(t.cargo[index], _pose(cargo, d.yaw), visible_cargo)
+    _apply_visual_pose(t.cargo[index], _pose(cargo, d.yaw), visible_cargo)
     for i in range(2):
         if i == index:
             continue
         _buffer_pose(d, i, RACK_Y - 0.48, 0.0)
         var on_deck: bool = (i < index) if loading else (i > index)
-        _set(t.cargo[i], _pose(_deck_slot(t, i), t.yaw), on_deck)
+        _apply_visual_pose(t.cargo[i], _pose(_deck_slot(t, i), t.yaw), on_deck)
     if t.clock >= BOX_TIME * 2.0:
         for i in range(2):
             _buffer_pose(d, i, RACK_Y - 0.48, 0.0)
