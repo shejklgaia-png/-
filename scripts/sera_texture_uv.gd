@@ -3,7 +3,7 @@ extends RefCounted
 const MAX_TRIANGLES = 12000
 const PADDING = 2
 
-static func build(source: MeshInstance3D, density: int, preserve_shape: bool = true, balanced_shape: bool = false, exact_block: bool = true) -> Dictionary:
+static func build(source: MeshInstance3D, density: int, preserve_shape: bool = true, balanced_shape: bool = false, exact_block: bool = true, edge_directed: bool = true) -> Dictionary:
     var tris: Array[Dictionary] = []
     var charts: Array[Dictionary] = []
     var scale_basis: Basis = source.global_transform.basis if source.is_inside_tree() else source.transform.basis
@@ -111,6 +111,8 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
                 affine_report += " / "+_threshold_joint_search(tris,charts,density)
                 if exact_block:
                     affine_report += " / "+_exact_block_search(tris,charts,density,true)
+                    if edge_directed:
+                        affine_report += " / "+_edge_directed_search(tris,charts,density)
             else:
                 affine_report += " / 閾値連立 規模上限"
     else:
@@ -188,7 +190,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     arrays[Mesh.ARRAY_TEX_UV2] = diagnostic_uv
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":(("shape-affine-v20" if exact_block else "shape-affine-v19") if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
+    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":((("shape-affine-v21" if edge_directed else "shape-affine-v20") if exact_block else "shape-affine-v19") if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
 
 ## Group connected coplanar triangles, and the two halves of slightly
 ## warped authored quads. Never use an internal triangulation diagonal
@@ -4982,3 +4984,87 @@ static func _exact_block_search(tris: Array[Dictionary],charts: Array[Dictionary
                         score = _local_uv_metrics(tris,links,all_links)
                         break
     return "exact block %d/%d; bad %d->%d, max %.4f->%.4f, sum %.4f->%.4f" % [accepted,tested,int(base.y),int(score.y),base.x,score.x,base.z,score.z]
+
+# Rank-one affine perturbation: move the edge midpoint and change its
+# vector, with operator norm <= 0.06. A positive determinant preserves
+# internal winding and overlap. All other incident seams are still gated.
+static func _directed_delta(segment: PackedVector2Array,chart: Dictionary,edge_change: Vector2,mid_change: Vector2) -> Array:
+    var d: Vector2 = segment[1]-segment[0]
+    var length: float = d.length()
+    if length<0.000001:
+        return [Vector2.ZERO,Vector2.ZERO,Vector2.ZERO]
+    var change: Vector2 = edge_change.limit_length(length*0.06)
+    var dx: Vector2 = change*d.x/(length*length)
+    var dy: Vector2 = change*d.y/(length*length)
+    var from_pivot: Vector2 = (segment[0]+segment[1]-Vector2(chart.min)-Vector2(chart.max))*0.5
+    var shift: Vector2 = mid_change.limit_length(0.24)-dx*from_pivot.x-dy*from_pivot.y
+    return [shift,dx,dy]
+
+static func _edge_directed_search(tris: Array[Dictionary],charts: Array[Dictionary],density: int) -> String:
+    var links: Array[Dictionary] = _seam_segments(tris)
+    var all_links: Array = range(links.size())
+    var base: Vector3 = _local_uv_metrics(tris,links,all_links)
+    if base.y==0:
+        return "edge directed: within threshold"
+    var members: Array = []
+    var incident: Array = []
+    for ci in range(charts.size()):
+        members.append([])
+        incident.append([])
+    for ti in range(tris.size()):
+        (members[int(tris[ti].chart)] as Array).append(ti)
+    for li in all_links:
+        (incident[int(links[li].a)] as Array).append(li)
+        (incident[int(links[li].b)] as Array).append(li)
+    var shape: Vector3 = _topology_distortion(tris,density)
+    var capacity: int = _hinge_pack_side(charts)
+    var score: Vector3 = base
+    var tested: int = 0
+    var accepted: int = 0
+    for sweep in range(3):
+        var ranked: Array[int] = []
+        var errors: Array[float] = []
+        for li in all_links:
+            var e: float = _local_uv_link_error(tris,links[li])
+            errors.append(e)
+            if e>0.25:
+                ranked.append(li)
+        ranked.sort_custom(func(a: int,b: int) -> bool: return errors[a]>errors[b] if errors[a]!=errors[b] else a<b)
+        var start_accepted: int = accepted
+        for j in range(mini(48,ranked.size())):
+            var link: Dictionary = links[ranked[j]]
+            if _local_uv_link_error(tris,link)<=0.25:
+                continue
+            var ca: int = int(link.a)
+            var cb: int = int(link.b)
+            var a: PackedVector2Array = _segment_uv(tris[int(link.ta)],int(link.ea),float(link.a0),float(link.a1),"xy")
+            var b: PackedVector2Array = _segment_uv(tris[int(link.tb)],int(link.eb),float(link.b0),float(link.b1),"xy")
+            var da: Vector2 = a[1]-a[0]
+            var db: Vector2 = b[1]-b[0]
+            var quarter: float = roundf(db.angle_to(da)/(PI*0.5))*(PI*0.5)
+            var mismatch: Vector2 = da-db.rotated(quarter)
+            var e0: Vector2 = a[0]-b[0].rotated(quarter)
+            e0 -= e0.round()
+            var middle: Vector2 = e0+mismatch*0.5
+            var done: bool = false
+            for rate in [0.5,0.25,0.125]:
+                var f: float = float(rate)
+                # Try a symmetric correction, then either island separately
+                # where the adjacent seams constrain the other island.
+                for mode in range(3):
+                    var changes: Dictionary = {}
+                    if mode!=2:
+                        changes[ca] = _directed_delta(a,charts[ca],-mismatch*f,-middle*f)
+                    if mode!=1:
+                        changes[cb] = _directed_delta(b,charts[cb],mismatch.rotated(-quarter)*f,middle.rotated(-quarter)*f)
+                    tested += 1
+                    if _exact_block_trial(tris,charts,links,members,incident,changes,density,shape,capacity,score):
+                        accepted += 1
+                        score = _local_uv_metrics(tris,links,all_links)
+                        done = true
+                        break
+                if done:
+                    break
+        if accepted==start_accepted:
+            break
+    return "edge directed %d/%d; bad %d->%d, max %.4f->%.4f, sum %.4f->%.4f" % [accepted,tested,int(base.y),int(score.y),base.x,score.x,base.z,score.z]

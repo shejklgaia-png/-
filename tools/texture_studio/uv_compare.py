@@ -4,7 +4,7 @@ from math import isfinite
 
 root = Path(sys.argv[1])
 parts = ["H01","H02","H03","H04","T01","T02","A01","A02","L01","L02","L03","L04","B01","B02","WR01","WR02","WR03","WL01","WL02"]
-variants = ["baseline", "v20"]
+variants = ["baseline", "v21"]
 data = {}
 for f in root.rglob("*.json"):
     variant, part = f.stem.split("-", 1)
@@ -56,6 +56,6 @@ for v in variants[1:]:
         improved |= c["bad"] < b["bad"] or c["max"] < b["max"]-0.001 or c["sum_sq"] < b["sum_sq"]-0.001
     print(f"- {v}: " + ("eligible for further Android/visual review" if not reasons and improved else "not promoted; "+("; ".join(reasons) or "no material improvement")))
     if reasons or not improved:
-        raise SystemExit("V20 promotion gate failed")
+        raise SystemExit("V21 promotion gate failed")
 if len(data) != len(parts)*len(variants):
     raise SystemExit("Incomplete measurements")
