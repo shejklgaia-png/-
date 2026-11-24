@@ -289,6 +289,7 @@ func build(parent: Node3D,section: String,source: Vector3,destination: Vector3) 
             in_dock = Vector3(inlet.x,ground,-23.0)
             out_dock = Vector3(outlet.x,ground,14.0)
         "STORAGE":
+            ground = -0.35
             inlet = storage_pack_point
             outlet = storage_out_point
             in_dock = Vector3(inlet.x,ground,18.0)
@@ -298,6 +299,8 @@ func build(parent: Node3D,section: String,source: Vector3,destination: Vector3) 
     out_far = out_dock+Vector3(0,0,STORAGE_TRIP if key=="STORAGE" else 7.0)
     _lane(in_dock,in_far)
     _lane(out_dock,out_far)
+    if key=="STORAGE":
+        _storage_road()
     truck_in = _carrier("InboundCarrier")
     truck_out = _carrier("OutboundCarrier")
     if key!="STORAGE":
@@ -317,6 +320,21 @@ func build(parent: Node3D,section: String,source: Vector3,destination: Vector3) 
     truck_in.visible = false
     truck_out.visible = false
     raw.visible = false
+
+func _storage_road() -> void:
+    # Paint only, just above the exterior BASE deck; no raised obstruction.
+    var road := _node(root,"WarehouseTrafficMarkings")
+    var b = _batch(road)
+    for dock in [in_dock,out_dock]:
+        var p: Vector3 = dock
+        for side in [-1.0,1.0]:
+            _box(b,Vector3(p.x+float(side)*1.95,p.y+0.009,p.z+STORAGE_TRIP*0.5),Vector3(0.09,0.012,STORAGE_TRIP),"trim")
+        for j in range(10):
+            _box(b,Vector3(p.x,p.y+0.009,p.z+5.0+float(j)*5.8),Vector3(0.12,0.012,2.3),"caution")
+        for side in [-1.0,1.0]:
+            for dz in [-1.5,1.5]:
+                _box(b,Vector3(p.x+float(side)*1.65,p.y+0.011,p.z+float(dz)),Vector3(0.16,0.015,0.65),"gold")
+    _finish(b)
 
 func _room_position(n: Node3D) -> Vector3:
     return root.to_local(n.global_position)
@@ -455,7 +473,17 @@ func _build_storage() -> void:
     for i in range(7):
         var x: float = -9.3+float(i)*3.10
         for z in [-7.2,-3.6]:
-            _box(b,Vector3(x,6.25,z),Vector3(0.25,12.5,0.30),"slate")
+            _box(b,Vector3(x,6.25,z),Vector3(0.20,12.5,0.30),"slate")
+            _box(b,Vector3(x,0.12,z),Vector3(0.34,0.24,0.45),"edge")
+            for level in range(4):
+                var y: float = 0.65+float(level)*2.85
+                _box(b,Vector3(x,y,z),Vector3(0.23,0.26,0.34),"armor_light")
+    # Rear-only cross bracing cannot enter the fork or cargo envelope.
+    for col in range(6):
+        var left: float = -9.3+float(col)*3.10
+        for level in range(4):
+            var base_y: float = 0.78+float(level)*2.85
+            _rod(b,Vector3(left,base_y,-7.40),Vector3(left+3.10,base_y+2.45,-7.40),0.12,"trim")
     for level in range(4):
         var y: float = 0.65+float(level)*2.85
         # Two support rails per bay leave a real open channel for the forks.
@@ -464,6 +492,8 @@ func _build_storage() -> void:
             for side in [-1.0,1.0]:
                 _box(b,Vector3(center_x+float(side)*1.18,y,-5.4),Vector3(0.30,0.24,3.65),"armor")
                 _box(b,Vector3(center_x+float(side)*1.18,y,-3.51),Vector3(0.31,0.19,0.15),"gold")
+                _box(b,Vector3(center_x+float(side)*1.18,y-0.13,-3.52),Vector3(0.28,0.10,0.12),"edge")
+            _box(b,Vector3(center_x,y-0.27,-3.49),Vector3(0.60,0.12,0.08),"lab_cyan")
     _box(b,Vector3(0,12.45,-5.4),Vector3(18.9,0.25,3.9),"armor")
     _finish(b)
     for level in range(4):
@@ -481,6 +511,9 @@ func _build_storage() -> void:
     for z in [aisle_z-0.62,aisle_z+0.62]:
         _box(b,Vector3(0,0.08,z),Vector3(25.0,0.16,0.14),"edge")
     _box(b,Vector3(0,12.8,aisle_z),Vector3(25.0,0.28,0.50),"gold")
+    _box(b,Vector3(0,13.03,aisle_z),Vector3(25.0,0.20,0.72),"slate")
+    for j in range(16):
+        _box(b,Vector3(-11.7+float(j)*1.55,12.99,aisle_z+0.35),Vector3(0.12,0.24,0.09),"edge")
     for x in [-12.5,12.5]:
         _box(b,Vector3(x,6.4,aisle_z),Vector3(0.45,12.8,0.55),"slate")
     _finish(b)
@@ -517,6 +550,9 @@ func _build_storage() -> void:
         for side in [-1.0,1.0]:
             _poly(b,"bevel",Vector3(float(side)*1.25,0.48,0),Vector3(0.40,0.96,3.85),"slate")
             _box(b,Vector3(float(side)*1.18,1.02,0),Vector3(0.30,0.16,3.70),"armor_light")
+        for side in [-1.0,1.0]:
+            _box(b,Vector3(float(side)*1.43,0.54,1.70),Vector3(0.08,0.34,0.12),"gold")
+            _box(b,Vector3(float(side)*1.43,0.84,1.70),Vector3(0.08,0.12,0.12),"lab_cyan")
         _finish(b)
         reserves.append(AABB(station.position-Vector3(1.6,0,2.0),Vector3(3.2,2.4,4.0)))
     _stacker(Vector3(storage_pack_point.x,storage_pack_point.y,aisle_z),0.0)
