@@ -469,7 +469,7 @@ static func _nexus_command_bunker(g: Batch) -> void:
             Vector3(0, 0, side * 0.08))
         g.poly("NexusButtressFoot", "bevel", Vector3(side * 2.66, 0.65, 2.39),
             Vector3(0.76, 0.46, 0.86), "trim")
-        g.poly("NexusButtressShoulder", "bevel",
+        g.poly("NexusButtressShoulder", "nexus_shallow_bevel",
             Vector3(side * 2.60, 3.88, 2.24),
             Vector3(0.75, 0.42, 0.78), "armor_light")
         # Broad, mechanically plausible removable armor plates, not rivet noise.
@@ -502,7 +502,7 @@ static func _nexus_command_bunker(g: Batch) -> void:
             Vector3(side * 2.30, 2.52, 2.925),
             Vector3(0.28, 0.12, 0.035), "amber_light")
     # Layered lintel carries the roof across the recessed airlock.
-    g.poly("NexusGateLoadBearingLintel", "bevel", Vector3(0, 3.58, 1.71),
+    g.poly("NexusGateLoadBearingLintel", "nexus_shallow_bevel", Vector3(0, 3.58, 1.71),
         Vector3(2.74, 0.80, 1.87), "armor")
     g.poly("NexusAirlockBackplate", "bevel", Vector3(0, 1.72, 2.39),
         Vector3(2.45, 2.72, 0.24), "dark")
@@ -536,14 +536,14 @@ static func _nexus_command_bunker(g: Batch) -> void:
         Vector3(0.13, 0.26, 0.06), "edge")
     # Flat, low, overhanging armored roof. Three readable roof zones:
     # armored central deck, two accessible HVAC housings, and a rear mast.
-    g.poly("NexusRoofSlab", "bevel", Vector3(0, 4.25, -0.12),
+    g.poly("NexusRoofSlab", "nexus_shallow_bevel", Vector3(0, 4.25, -0.12),
         Vector3(6.08, 0.42, 5.17), "slate")
-    g.poly("NexusRoofCentralArmor", "bevel", Vector3(0, 4.52, -0.05),
+    g.poly("NexusRoofCentralArmor", "nexus_shallow_bevel", Vector3(0, 4.52, -0.05),
         Vector3(2.55, 0.26, 4.48), "armor")
-    g.poly("NexusRoofFrontFascia", "bevel", Vector3(0, 4.48, 2.35),
+    g.poly("NexusRoofFrontFascia", "nexus_shallow_bevel", Vector3(0, 4.48, 2.35),
         Vector3(5.76, 0.30, 0.36), "armor_light")
     for side in [-1.0, 1.0]:
-        g.poly("NexusRoofCoolingModule", "bevel",
+        g.poly("NexusRoofCoolingModule", "nexus_shallow_bevel",
             Vector3(side * 1.99, 4.62, 0.48),
             Vector3(1.35, 0.53, 2.13), "armor")
         g.poly_tilt("NexusRoofExhaustLouvers", "louver",
@@ -555,7 +555,7 @@ static func _nexus_command_bunker(g: Batch) -> void:
         g.rod("NexusRoofPipeElbow", Vector3(side * 2.73, 4.55, 1.68),
             Vector3(side * 2.43, 4.55, 1.68), 0.16, "gold")
     # Existing VFX beacon is at (2.42, 6.18, -1.78); support the housing.
-    g.poly("NexusAntennaPedestal", "bevel", Vector3(2.42, 4.58, -1.78),
+    g.poly("NexusAntennaPedestal", "nexus_shallow_bevel", Vector3(2.42, 4.58, -1.78),
         Vector3(0.66, 0.38, 0.66), "armor_light")
     g.rod("NexusCommunicationMast", Vector3(2.42, 4.76, -1.78),
         Vector3(2.42, 5.67, -1.78), 0.16, "trim")
