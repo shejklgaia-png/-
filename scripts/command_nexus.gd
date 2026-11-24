@@ -4,8 +4,7 @@ extends Node3D
 const Modules = preload("res://assets/base_command_modules.gd")
 const WorldMonitors = preload("res://scripts/sera_world_monitor_textures.gd")
 const NexusFloorPanels = preload("res://scripts/sera_nexus_floor_panels.gd")
-const NEXUS_WORN_STEEL_PATH: String = "res://textures/nexus_worn_steel.svg"
-var _nexus_worn_steel: Texture2D
+var _nexus_pixel_steel: Array[Texture2D] = []
 const NexusGeneratedArchitecture = preload("res://scripts/nexus_generated_architecture.gd")
 const NexusComplexMachining = preload("res://scripts/nexus_complex_machining.gd")
 const NexusSculptedFittings = preload("res://scripts/nexus_sculpted_fittings.gd")
@@ -1408,29 +1407,22 @@ func _nexus_tone_background_node(node: Node) -> void:
         _nexus_tone_background_node(child)
 
 
-# Optional decoration: a newly synced SVG may not have been imported yet.
-# Do not preload it from the scene script. The native deck and HUD appear
-# first; an absent or unreadable texture leaves the original scene usable.
+# Optional, native pixel art. No imported resource or script dependency.
+# Keep the proven HUD-first entry; generate two tiny images only once per room.
 func _nexus_apply_wear_after_entry() -> void:
     await get_tree().process_frame
     await get_tree().process_frame
     if not is_inside_tree():
         return
-    if ResourceLoader.exists(NEXUS_WORN_STEEL_PATH, "Texture2D"):
-        _nexus_worn_steel = ResourceLoader.load(NEXUS_WORN_STEEL_PATH, "Texture2D") as Texture2D
-    if _nexus_worn_steel == null and FileAccess.file_exists(NEXUS_WORN_STEEL_PATH):
-        var image := Image.new()
-        if image.load_svg_from_string(FileAccess.get_file_as_string(NEXUS_WORN_STEEL_PATH), 0.5) == OK:
-            image.generate_mipmaps()
-            _nexus_worn_steel = ImageTexture.create_from_image(image)
-    if _nexus_worn_steel == null:
-        push_warning("NEXUS: optional wear texture unavailable; native deck retained")
-        return
-    # Restrict the initial recovery to broad floor plates, avoiding the cost
-    # of triplanar sampling on all machinery and walls simultaneously.
     var deck := get_node_or_null("NexusDeckReferenceV3")
     if deck == null:
         return
+    for variant in range(2):
+        var texture: Texture2D = _nexus_make_pixel_steel(variant)
+        if texture == null:
+            return
+        _nexus_pixel_steel.append(texture)
+    var batch_index: int = 0
     for child in deck.get_children():
         if not (child is MultiMeshInstance3D):
             continue
@@ -1442,23 +1434,68 @@ func _nexus_apply_wear_after_entry() -> void:
         if source == null or source.albedo_texture != null:
             continue
         var worn := source.duplicate() as StandardMaterial3D
-        _nexus_worn_metal(worn, 0.30, 0.72, 0.30, 0.42)
+        worn.albedo_texture = _nexus_pixel_steel[batch_index % 2]
+        # Explicit plate-local UVs: one lookup, no blended world triplanar.
+        worn.uv1_triplanar = false
+        worn.uv1_world_triplanar = false
+        worn.uv1_scale = Vector3.ONE
+        worn.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST_WITH_MIPMAPS
+        worn.texture_repeat = false
+        worn.metallic = 0.12
+        worn.roughness = 0.86
+        worn.metallic_specular = 0.12
         geometry.material_override = worn
+        batch_index += 1
 
 
-func _nexus_worn_metal(mat: StandardMaterial3D, metal: float,
-        rough: float, specular: float, scale: float) -> void:
-    if mat.albedo_texture != null or _nexus_worn_steel == null:
-        return
-    mat.albedo_texture = _nexus_worn_steel
-    mat.uv1_triplanar = true
-    mat.uv1_world_triplanar = true
-    mat.uv1_scale = Vector3.ONE * scale
-    mat.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-    mat.texture_repeat = true
-    mat.metallic = metal
-    mat.roughness = rough
-    mat.metallic_specular = specular
+# Authored integer-pixel clusters, not a downsampled photo or random noise.
+# Neutral value ramp multiplies the existing blue-grey plate family colors.
+# Broad quiet fields keep the equipment visually dominant.
+func _nexus_make_pixel_steel(variant: int) -> Texture2D:
+    var image := Image.create(64, 64, false, Image.FORMAT_RGBA8)
+    var steel := Color("#ebedef")
+    var soft := Color("#d7dce0")
+    var shade := Color("#bbc4ca")
+    var dark := Color("#9ba7b0")
+    var rim := Color("#fafbfc")
+    image.fill(steel)
+    # Two asymmetrical factory finish planes, with stepped endpoints.
+    if variant == 0:
+        image.fill_rect(Rect2i(2, 3, 60, 7), soft)
+        image.fill_rect(Rect2i(2, 10, 37, 2), soft)
+        image.fill_rect(Rect2i(39, 10, 15, 1), soft)
+        image.fill_rect(Rect2i(8, 51, 54, 11), soft)
+        image.fill_rect(Rect2i(21, 49, 41, 2), soft)
+        image.fill_rect(Rect2i(36, 47, 26, 2), soft)
+    else:
+        image.fill_rect(Rect2i(2, 2, 13, 60), soft)
+        image.fill_rect(Rect2i(15, 12, 3, 40), soft)
+        image.fill_rect(Rect2i(18, 23, 2, 18), soft)
+        image.fill_rect(Rect2i(49, 2, 13, 60), soft)
+        image.fill_rect(Rect2i(46, 38, 3, 24), soft)
+    # Painted steel edge wear: broken segments with one crisp exposed lip.
+    image.fill_rect(Rect2i(4, 5, 18, 1), rim)
+    image.fill_rect(Rect2i(4, 6, 8, 1), shade)
+    image.fill_rect(Rect2i(44, 57, 14, 2), shade)
+    image.fill_rect(Rect2i(49, 56, 9, 1), rim)
+    image.fill_rect(Rect2i(5, 43, 1, 9), shade)
+    image.fill_rect(Rect2i(6, 47, 1, 5), rim)
+    # Just three compact scuff clusters, distinct sizes and no isolated grain.
+    var marks: Array[Vector2i] = [Vector2i(15, 20), Vector2i(37, 37), Vector2i(25, 53)]
+    if variant == 1:
+        marks = [Vector2i(34, 13), Vector2i(23, 31), Vector2i(42, 49)]
+    for index in range(marks.size()):
+        var p: Vector2i = marks[index]
+        var span: int = 5 + index * 2
+        image.fill_rect(Rect2i(p.x, p.y, span, 1), shade)
+        image.fill_rect(Rect2i(p.x + 2, p.y + 1, span - 2, 1), rim)
+        image.fill_rect(Rect2i(p.x, p.y, 2, 1), dark)
+        if index == 1:
+            image.fill_rect(Rect2i(p.x + 3, p.y - 2, 4, 1), soft)
+            image.fill_rect(Rect2i(p.x + 5, p.y - 1, 3, 1), soft)
+    # Keep distant grazing angles stable without bilinear filtering up close.
+    image.generate_mipmaps()
+    return ImageTexture.create_from_image(image)
 
 
 # Generated machine castings must not remain charcoal while their main

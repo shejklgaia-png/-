@@ -508,6 +508,11 @@ static func _chamfered_armor_mesh() -> ArrayMesh:
     arrays[Mesh.ARRAY_VERTEX] = vertices
     arrays[Mesh.ARRAY_NORMAL] = normals
     arrays[Mesh.ARRAY_COLOR] = colors
+    # Plate-local integer-art atlas coordinates; normalized mesh footprint.
+    var uv := PackedVector2Array()
+    for point in vertices:
+        uv.append(Vector2(point.x + 0.5, point.z + 0.5))
+    arrays[Mesh.ARRAY_TEX_UV] = uv
     var output := ArrayMesh.new()
     output.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
     return output
@@ -681,6 +686,11 @@ static func _wedge_armor_mesh() -> ArrayMesh:
     arrays[Mesh.ARRAY_VERTEX] = vertices
     arrays[Mesh.ARRAY_NORMAL] = normals
     arrays[Mesh.ARRAY_COLOR] = colors
+    # Plate-local integer-art atlas coordinates; normalized mesh footprint.
+    var uv := PackedVector2Array()
+    for point in vertices:
+        uv.append(Vector2(point.x + 0.5, point.z + 0.5))
+    arrays[Mesh.ARRAY_TEX_UV] = uv
     output.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
     return output
 
