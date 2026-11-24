@@ -5,7 +5,7 @@ const RebuiltScenes = preload("res://scripts/labo_rebuilt_scenes.gd")
 const CrateModel = preload("res://scripts/sera_crate_model.gd")
 const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
 const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
-## Close-up sets use the actual BASE machine geometry, not unrelated rooms.
+## Close-up sets are independent life-size industrial halls; BASE is iconography.
 ## Keep the existing viewport, model placement and angle editor APIs.
 var crate: Node3D
 var crate_route: Node3D
@@ -81,23 +81,23 @@ func set_section(section: String) -> void:
     crate.scale = Vector3.ONE
     match current_section:
         "LABO":
-            hero_camera.position = Vector3(4.7,5.0,15.0)
-            camera_look = Vector3(0.0,2.25,0.9)
-            hero_camera.fov = 55.0
+            hero_camera.position = Vector3(7.8,6.2,20.5)
+            camera_look = Vector3(0.0,4.0,-0.9)
+            hero_camera.fov = 38.0
         "SMELTER":
             # Left-front perspective shows the side charge inlet and hot throat.
-            hero_camera.position = Vector3(-5.3,4.8,16.0)
-            camera_look = Vector3(0,3.10,0.7)
-            hero_camera.fov = 54.0
+            hero_camera.position = Vector3(-7.5,6.2,21.5)
+            camera_look = Vector3(0,4.8,-0.6)
+            hero_camera.fov = 39.0
         "RECYCLER":
             # Higher front view reveals both cutter shafts and the feed path.
-            hero_camera.position = Vector3(5.0,5.8,14.0)
-            camera_look = Vector3(0,1.45,0.65)
-            hero_camera.fov = 54.0
+            hero_camera.position = Vector3(6.8,8.5,19.5)
+            camera_look = Vector3(0,3.1,-0.8)
+            hero_camera.fov = 38.0
         "STORAGE":
-            hero_camera.position = Vector3(-4.5,4.2,13.0)
-            camera_look = Vector3(0,2.05,0.45)
-            hero_camera.fov = 48.0
+            hero_camera.position = Vector3(-5.2,5.8,22.0)
+            camera_look = Vector3(0,4.6,-0.4)
+            hero_camera.fov = 39.0
     hero_camera.look_at(camera_look, Vector3.UP)
     var key: String = camera_section_id()
     crate_route.transform = crate_route_poses.get(key, Transform3D.IDENTITY)
@@ -121,7 +121,7 @@ func set_section(section: String) -> void:
 func camera_section_id() -> String:
     # New geometry has different bounds. Legacy camera/model coordinates from
     # the independent rooms must not overwrite the new initial composition.
-    return current_section + "_BASE_V2"
+    return current_section + "_INDUSTRIAL_V3"
 
 func apply_camera_preview(eye: Vector3, look: Vector3, fov: float) -> void:
     camera_look = look
@@ -131,10 +131,7 @@ func apply_camera_preview(eye: Vector3, look: Vector3, fov: float) -> void:
     camera_previews[camera_section_id()] = {"eye":eye,"look":look,"fov":fov}
 
 func placement_models() -> Array[Node3D]:
-    var targets: Array[Node3D] = []
-    var machine: Node3D = rebuilt_scenes.machine_for(current_section)
-    if is_instance_valid(machine):
-        targets.append(machine)
+    var targets: Array[Node3D] = rebuilt_scenes.placement_models(current_section)
     targets.append(crate_route)
     return targets
 
@@ -156,7 +153,6 @@ func _work_point(inspect: bool) -> Vector3:
     # editable CRATE route is applied afterwards as an intentional offset.
     var world: Vector3 = rebuilt_scenes.work_point(current_section,inspect)
     var local: Vector3 = to_local(world)
-    local.y = 0.0
     return local
 
 func _focus_point(inspect: bool) -> Vector3:
@@ -170,13 +166,13 @@ func _face_point(goal: Vector3, delta: float) -> void:
         crate.rotation.y = lerp_angle(crate.rotation.y,atan2(-diff.x,-diff.z),minf(1.0,delta*4.0))
 
 func _move_to(goal: Vector3, delta: float) -> bool:
-    var planar := Vector3(goal.x,crate.position.y,goal.z)
+    var planar := goal
     var diff: Vector3 = planar - crate.position
     if diff.length() <= 0.045:
         crate.position = planar
         return true
     _face_point(planar,delta)
-    crate.position = crate.position.move_toward(planar,minf(1.35*delta,0.22))
+    crate.position = crate.position.move_toward(planar,minf(2.0*delta,0.22))
     crate_head.rotation = crate_head.rotation.lerp(Vector3.ZERO,minf(1.0,delta*4.0))
     crate_arm.rotation = crate_arm.rotation.lerp(Vector3.ZERO,minf(1.0,delta*4.0))
     crate_left_arm.rotation = crate_left_arm.rotation.lerp(Vector3.ZERO,minf(1.0,delta*4.0))
