@@ -705,7 +705,7 @@ func _fabricated_part(b,i: int) -> void:
             _shape(b,"drum",Vector3(0,0.45,0),Vector3(0.88,0.65,0.88),"blue")
             _shape(b,"octagonal_slew",Vector3(0,0.75,0),Vector3(1.05,0.16,1.05),"edge")
             _shape(b,"drum",Vector3(0,0.94,0),Vector3(0.36,0.29,0.36),"armor_light")
-            b.poly_tilt("ActuatorClevis","drum",Vector3(0,1.15,0),Vector3(0.47,0.28,0.47),"slate",Vector3(PI*0.5,0,0))
+            b.poly_tilt("ActuatorClevis","drum",Vector3(0,1.065,0),Vector3(0.40,0.28,0.40),"slate",Vector3(PI*0.5,0,0))
             _box(b,Vector3(0,1.265,0),Vector3(0.52,0.07,0.38),"edge")
             for side in [-1.0,1.0]:
                 _pipe(b,Vector3(side*0.44,0.30,0),Vector3(side*0.70,0.30,0),0.16,"gold")
@@ -731,8 +731,8 @@ func _fabricated_part(b,i: int) -> void:
                 _shape(b,"gusset",Vector3(side*0.66,0.44,0),Vector3(0.32,0.74,1.20),"slate")
                 for j in range(12):
                     var theta: float = TAU*(float(j)+0.5)/12.0
-                    var pos := Vector3(side*0.66,0.72+cos(theta)*0.29,sin(theta)*0.29)
-                    b.box_tilt("BearingEarSegment",pos,Vector3(0.33,0.20,0.22),"edge",Vector3(theta,0,0))
+                    var pos := Vector3(side*0.66,0.65+cos(theta)*0.27,sin(theta)*0.27)
+                    b.box_tilt("BearingEarSegment",pos,Vector3(0.33,0.16,0.18),"edge",Vector3(theta,0,0))
             _box(b,Vector3(0,1.055,0),Vector3(1.58,0.09,0.36),"gold")
             for x in [-0.72,0.72]:
                 for z in [-0.54,0.54]:
@@ -757,6 +757,13 @@ func _labo(key: String) -> void:
     var b = _batch(frame)
     _skid(b,13.6,12.2)
     _shape(b,"deck",Vector3(0,0.72,0.65),Vector3(13.2,0.32,10.9),"armor")
+    # Recessed base service panels and visible hardware, outside the shuttle sweep.
+    for side in [-1.0,1.0]:
+        for z in [-3.5,-1.2,1.1,3.4]:
+            _box(b,Vector3(side*6.57,0.69,z),Vector3(0.07,0.19,1.68),"slate")
+            _box(b,Vector3(side*6.62,0.70,z),Vector3(0.04,0.055,0.45),"edge")
+        for z in [-3.9,4.8]:
+            _shape(b,"drum",Vector3(side*6.05,0.91,z),Vector3(0.22,0.09,0.22),"trim")
     _shape(b,"octagonal_slew",Vector3(1.10,1.10,2.0),Vector3(5.9,0.65,4.4),"dark")
     _shape(b,"deck",Vector3(1.10,1.56,2.0),Vector3(6.6,0.46,4.9),"armor_light")
     for side in [-1.0,1.0]:
@@ -830,6 +837,11 @@ func _labo(key: String) -> void:
     _shape(b,"drum",Vector3(0.98,4.7,0),Vector3(1.10,1.65,1.10),"blue")
     _shape(b,"gear",Vector3(0.98,5.62,0),Vector3(1.24,0.24,1.24),"gold")
     _shape(b,"roof",Vector3(0,7.25,-0.20),Vector3(4.5,0.22,2.8),"armor")
+    for y in [1.0,3.7,6.3]:
+        for x in [-1.45,1.45]:
+            _box(b,Vector3(x,y,1.19),Vector3(0.42,0.13,0.06),"gold")
+    for x in [-1.62,1.62]:
+        _box(b,Vector3(x,6.84,0.98),Vector3(0.18,0.55,0.11),"lab_cyan")
     _finish(b)
     var supply := _model(key,"ReceivingHopperAndFeed",Vector3(-9.0,0,2.8))
     _moving(key,"supply",supply)
@@ -849,6 +861,9 @@ func _labo(key: String) -> void:
     _shape(b,"vent_stack",Vector3(0,5.1,0),Vector3(2.0,10.2,2.0),"slate")
     _shape(b,"drum",Vector3(0,8.0,0),Vector3(2.6,0.64,2.6),"edge")
     _shape(b,"louver",Vector3(0,3.5,1.1),Vector3(1.45,1.7,0.25),"trim")
+    for y in [2.3,4.7,6.8]:
+        _shape(b,"gear",Vector3(0,y,0),Vector3(2.12,0.16,2.12),"edge")
+    _box(b,Vector3(0,4.65,1.13),Vector3(0.66,0.15,0.07),"lab_cyan")
     _shape(b,"hood",Vector3(-2.1,8.5,0.8),Vector3(3.7,0.9,2.6),"armor_light")
     _pipe(b,Vector3(0,8.5,0),Vector3(-2.1,8.5,0.8),0.82,"trim")
     _shape(b,"drum",Vector3(-0.4,2.0,2.2),Vector3(1.65,3.6,1.65),"blue")
@@ -910,6 +925,9 @@ func _labo(key: String) -> void:
     b = _batch(utility)
     _shape(b,"bevel",Vector3(0,1.0,0),Vector3(1.45,2.0,1.2),"slate")
     _panel_detail(b,0,1.12,0.65,1.1,1.5)
+    _shape(b,"louver",Vector3(0,0.46,0.68),Vector3(0.82,0.41,0.09),"trim")
+    for x in [-0.31,0.0,0.31]:
+        _box(b,Vector3(x,1.76,0.67),Vector3(0.13,0.08,0.05),"lab_cyan" if x==0.0 else "gold")
     _pipe(b,Vector3(0,1.9,0),Vector3(0,6.0,0),0.22,"trim")
     _pipe(b,Vector3(0,6.0,0),Vector3(-1.9,6.0,-0.4),0.22,"edge")
     _shape(b,"hood",Vector3(-1.9,6.0,-0.4),Vector3(1.1,0.35,0.7),"armor")
