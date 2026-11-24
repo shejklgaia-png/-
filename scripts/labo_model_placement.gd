@@ -1,6 +1,6 @@
 extends Control
 ## Editor of stable equipment roots, never individual batched geometry.
-const Skin = preload("res://scripts/sera_labo_round_skin.gd")
+const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 var host
 var stage: Node3D
 var camera: Camera3D
@@ -23,8 +23,8 @@ func configure(owner_node) -> void:
     mouse_filter = Control.MOUSE_FILTER_STOP
     set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     var panel := PanelContainer.new()
-    panel.theme = Skin.common_theme()
-    panel.add_theme_stylebox_override("panel", Skin.panel_style())
+    panel.theme = LaboSkin.common_theme()
+    panel.add_theme_stylebox_override("panel", LaboSkin.panel_style())
     add_child(panel)
     panel.anchor_left = 0.025
     panel.anchor_right = 0.975
@@ -38,14 +38,14 @@ func configure(owner_node) -> void:
     column.add_theme_constant_override("separation", 8)
     margin.add_child(column)
     status = Label.new()
-    status.add_theme_font_override("font", Skin.ui_font())
+    status.add_theme_font_override("font", LaboSkin.ui_font())
     status.add_theme_font_size_override("font_size", 19)
     status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
     column.add_child(status)
     var help := Label.new()
     help.text = "3Dモデルをタップして選択・ドラッグで水平移動\n矢印で回転・高さ調整。選択切替で画面外の設備も選択可能。"
     help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-    help.add_theme_font_override("font", Skin.ui_font())
+    help.add_theme_font_override("font", LaboSkin.ui_font())
     help.add_theme_font_size_override("font_size", 18)
     column.add_child(help)
     for pair in [["prev", "前のモデル", "next", "次のモデル"], ["left", "回転 ◀", "right", "回転 ▶"], ["up", "高さ ▲", "down", "高さ ▼"], ["exit", "編集終了", "copy", "配置コピー"]]:
@@ -80,7 +80,7 @@ func _notification(what: int) -> void:
 func _make_button(caption: String) -> Button:
     var button := Button.new()
     button.text = caption
-    button.add_theme_font_override("font", Skin.ui_font())
+    button.add_theme_font_override("font", LaboSkin.ui_font())
     button.add_theme_font_size_override("font_size", 20)
     host.call("_style_terminal_segment", button)
     return button
