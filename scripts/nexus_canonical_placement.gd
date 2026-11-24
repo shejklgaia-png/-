@@ -277,10 +277,14 @@ func _press(where: Vector2, finger: int, mouse: bool) -> void:
                     # right is +X. Do not change the selected model's Y/yaw.
                     var at: Vector3 = pose["position"]
                     match operation:
-                        "move_f": at.z -= TRANSLATE_STEP
-                        "move_b": at.z += TRANSLATE_STEP
-                        "move_l": at.x -= TRANSLATE_STEP
-                        "move_r": at.x += TRANSLATE_STEP
+                        "move_f":
+                            at.z -= TRANSLATE_STEP
+                        "move_b":
+                            at.z += TRANSLATE_STEP
+                        "move_l":
+                            at.x -= TRANSLATE_STEP
+                        "move_r":
+                            at.x += TRANSLATE_STEP
                     at.x = clampf(at.x, -10.0, 10.0)
                     at.z = clampf(at.z, -30.0, 11.0)
                     _set_pose(selected, at, float(pose["yaw"]))
