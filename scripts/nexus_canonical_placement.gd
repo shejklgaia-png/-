@@ -11,6 +11,9 @@ const HEIGHT_STEP := 0.10
 const SAFE_MARGIN := 10.0
 
 var host
+# Remains false if configure() aborts before its final binding stage.
+# The NEXUS launcher checks this instead of only is_inside_tree().
+var initialized := false
 var active := false
 var selected := ""
 var entries: Dictionary = {}
@@ -27,14 +30,19 @@ var _ui_signature := ""
 
 func configure(scene: Node3D, placements: Dictionary,
         source_refs: Dictionary, batches: Dictionary) -> void:
+    if initialized:
+        return
     host = scene
     name = "NexusCanonicalPlacement"
     mouse_filter = Control.MOUSE_FILTER_IGNORE
     set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     size = get_viewport_rect().size
-    resized.connect(_sync_ui)
-    _create_visible_controls()
+    if not resized.is_connected(_sync_ui):
+        resized.connect(_sync_ui)
+    if _buttons.is_empty():
+        _create_visible_controls()
     set_process(true)
+    entries.clear()
     for key_value in placements.keys():
         var key: String = str(key_value)
         var spec: Dictionary = placements[key]
@@ -113,6 +121,9 @@ func configure(scene: Node3D, placements: Dictionary,
     _bind_node("DEPLOYMENT", host.get_node_or_null(
         "DeploymentWallDock/DeploymentConsolePlacementAnchor"))
     _sync_ui()
+    initialized = entries.size() == placements.size() and not entries.is_empty()
+    if not initialized:
+        push_warning("NEXUS canonical placement: incomplete editor setup")
 
 
 func _bind_instance(key: String, multi: MultiMesh,
@@ -139,7 +150,7 @@ func _bind_node(key: String, obj: Node) -> void:
 func open_mode() -> bool:
     if active:
         return true
-    if not _can_open():
+    if not initialized or not _can_open():
         return false
     active = true
     selected = ""
