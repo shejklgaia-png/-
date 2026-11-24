@@ -183,10 +183,12 @@ func _screen_penalty(p: Vector2) -> float:
     return cost
 
 
-func _find_network_anchor() -> void:
+func _find_network_anchor(budget: Variant = null) -> void:
     if _free(_network_anchor):
         return
     for z in range(REGION.position.y + 1, REGION.end.y - 1):
+        if budget != null:
+            await budget.checkpoint("network anchor")
         for x in [REGION.position.x + 1, REGION.end.x - 2]:
             var c := Vector2i(x, z)
             if _free(c):
@@ -424,10 +426,12 @@ func _rounded(path: Array[Vector2i], budget: Variant = null) -> Array[Vector2]:
     return result
 
 
-func _record_leg(t: Truck, leg: Array[Vector2]) -> void:
+func _record_leg(t: Truck, leg: Array[Vector2], budget: Variant = null) -> void:
     var all: Dictionary = {}
     var segments: Array[Dictionary] = []
     for i in range(1, leg.size()):
+        if budget != null:
+            await budget.checkpoint("route swept reservation")
         var swept: Dictionary = {}
         for c in _trace(leg[i - 1], leg[i], false):
             _expand_cell(swept, c)
@@ -456,7 +460,11 @@ func _plan(t: Truck, commit_weights: bool = true, budget: Variant = null) -> boo
     var source: Dock = _docks[t.source]
     var destination: Dock = _docks[t.destination]
     var a: Array[Vector2i] = _grid.get_id_path(t.home, source.cell)
+    if budget != null:
+        await budget.checkpoint("AStar home to source")
     var b: Array[Vector2i] = _grid.get_id_path(source.cell, destination.cell)
+    if budget != null:
+        await budget.checkpoint("AStar source to facility")
     # Give the empty return its own lane when there is any sensible alternative.
     var previous_weights: Dictionary = {}
     for c in b:
@@ -465,7 +473,11 @@ func _plan(t: Truck, commit_weights: bool = true, budget: Variant = null) -> boo
             _grid.set_point_weight_scale(c, float(previous_weights[c]) + 0.35)
     var storage: Dock = _docks["STORAGE"]
     var c_path: Array[Vector2i] = _grid.get_id_path(destination.cell, storage.cell)
+    if budget != null:
+        await budget.checkpoint("AStar facility to storage")
     var d_path: Array[Vector2i] = _grid.get_id_path(storage.cell, t.home)
+    if budget != null:
+        await budget.checkpoint("AStar storage to home")
     for c in previous_weights:
         _grid.set_point_weight_scale(c, float(previous_weights[c]))
     var valid: bool = a.size() >= 2 and b.size() >= 2 and c_path.size() >= 2 and d_path.size() >= 2
@@ -477,20 +489,22 @@ func _plan(t: Truck, commit_weights: bool = true, budget: Variant = null) -> boo
             t.legs.append(rounded)
         for leg_value in t.legs:
             var leg: Array[Vector2] = leg_value
-            _record_leg(t, leg)
+            await _record_leg(t, leg, budget)
     for c in temporarily_blocked:
         _grid.set_point_solid(c, false)
     if not valid:
         return false
     if commit_weights:
-        _commit_road_weights(t)
+        await _commit_road_weights(t, budget)
     return true
 
 
-func _commit_road_weights(t: Truck) -> void:
+func _commit_road_weights(t: Truck, budget: Variant = null) -> void:
     # A modest preference for distinct streets, without lengthy detours.
     for leg in t.legs:
         for i in range(1, leg.size()):
+            if budget != null:
+                await budget.checkpoint("route weights")
             for c in _trace(leg[i - 1], leg[i], false):
                 if _free(c):
                     _grid.set_point_weight_scale(c, minf(1.6, _grid.get_point_weight_scale(c) + 0.07))
@@ -515,7 +529,7 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
     var sites: Array = [{"id": "NEXUS", "at": nexus_origin}]
     sites.append_array(specs)
     _obstacles(root, sites, power, crate_path)
-    _find_network_anchor()
+    await _find_network_anchor(budget)
     _phase = "DOCKS"
     var origins: Dictionary = {}
     for spec in specs:

@@ -266,6 +266,73 @@ static func _locate_device(key: String, all_sites: Array[Dictionary],
     return {}
 
 
+static func _locate_device_budgeted(key: String, all_sites: Array[Dictionary],
+        props: Array[Dictionary], placed: Array[Vector2],
+        camera: Camera3D, logistics: Node3D, budget: Variant) -> Dictionary:
+    var goal: Vector2 = SCREEN_SAFE_ANCHORS[key]
+    var rng := RandomNumberGenerator.new()
+    rng.seed = _seed_for("SERA_POWER_VISIBLE_" + key)
+    # Front terminals face the BASE camera while preserving +-45 degrees
+    # of stable per-unit random angle; ports no longer point into a wall.
+    var yaw: float = deg_to_rad(37.67 + rng.randf_range(-45.0, 45.0))
+    # Start at the screenshot-approved gap. Keep small random differences
+    # without jumping to the roof/behind another machine.
+    for attempt in range(160):
+        await budget.checkpoint("power unit candidates")
+        var turn: float = rng.randf_range(-PI, PI)
+        var radius: float = (
+            0.0 if attempt == 0 else (
+            0.25 + float(attempt / 16) * 0.38 +
+            rng.randf_range(0.0, 0.48)))
+        var test: Vector2 = goal + Vector2(cos(turn), sin(turn)) * radius
+        if is_instance_valid(logistics) and not bool(logistics.call("power_device_clear", test)):
+            continue
+        if not _open_location(test, all_sites, props, placed):
+            continue
+        if not _terminal_gates_open(key, test, yaw,
+                all_sites, props, placed):
+            continue
+        if not _visible_at_camera(test, yaw, camera, all_sites):
+            continue
+        var site: Dictionary = {}
+        for entry in all_sites:
+            if str(entry["id"]) == key:
+                site = entry
+                break
+        var world := Vector3(test.x, 0.0, test.y)
+        var local: Vector2 = _local_point(test, site)
+        return {"at": world, "local": Vector3(local.x, 0.0, local.y),
+            "yaw": yaw, "screen_center": camera.unproject_position(
+                world + Vector3.UP * 0.94) if is_instance_valid(camera)
+                else Vector2.ZERO}
+    # Never fall back inside machinery or off screen. Search a bounded
+    # expanded foreground arc; an unplaceable unit is reported, not hidden.
+    for ring in range(10, 30):
+        for sample in range(32):
+            await budget.checkpoint("power unit fallback")
+            var phi: float = TAU * float(sample) / 32.0
+            var test: Vector2 = goal + Vector2(cos(phi), sin(phi)) * (
+                float(ring) * 0.33)
+            if is_instance_valid(logistics) and not bool(logistics.call("power_device_clear", test)):
+                continue
+            if not _open_location(test, all_sites, props, placed):
+                continue
+            if not _terminal_gates_open(key, test, yaw,
+                    all_sites, props, placed):
+                continue
+            if not _visible_at_camera(test, yaw, camera, all_sites):
+                continue
+            for site in all_sites:
+                if str(site["id"]) != key:
+                    continue
+                var local: Vector2 = _local_point(test, site)
+                return {"at": Vector3(test.x, 0.0, test.y),
+                    "local": Vector3(local.x, 0.0, local.y),
+                    "yaw": yaw}
+    push_warning("BASE power unit cannot be placed safely for " + key)
+    return {}
+
+
 static func _device_port(items: Dictionary, color: String,
         origin: Vector3, basis: Basis, at: Vector3,
         dimensions: Vector3) -> void:
@@ -738,6 +805,65 @@ static func _routed_cable(grid: AStarGrid2D, from_at: Vector3,
     return points
 
 
+static func _routed_cable_budgeted(grid: AStarGrid2D, from_at: Vector3,
+        from_gate: Vector3, to_gate: Vector3,
+        to_at: Vector3, label: String, budget: Variant) -> PackedVector3Array:
+    var begin: Vector2i = _nearest_open(grid, from_gate)
+    var finish: Vector2i = _nearest_open(grid, to_gate)
+    if not ROUTE_BOUNDS.has_point(begin) or (
+            not ROUTE_BOUNDS.has_point(finish)):
+        push_warning("BASE power cable out of route bounds: " + label)
+        return PackedVector3Array()
+    if grid.is_point_solid(begin) or grid.is_point_solid(finish):
+        push_warning("BASE power cable gate blocked: " + label)
+        return PackedVector3Array()
+    var ids: Array[Vector2i] = grid.get_id_path(begin, finish)
+    await budget.checkpoint("power AStar")
+    if ids.is_empty():
+        push_warning("BASE power cable route blocked: " + label)
+        return PackedVector3Array()
+    # End sockets and their vertical exits stay exact; the safe ground
+    # path between the two outward-facing gates can bend and curve.
+    var floor_waypoints := PackedVector3Array()
+    _push_path_point(floor_waypoints, from_gate)
+    _push_path_point(floor_waypoints, _point_of(begin))
+    # Retain the original obstacle-aware line-of-sight simplification. Do
+    # not smooth raw A* cells into an unconstrained spline.
+    var cumulative: Array[float] = [0.0]
+    for j in range(1, ids.size()):
+        cumulative.append(cumulative[-1] + _point_of(ids[j - 1]).distance_to(_point_of(ids[j])) * (grid.get_point_weight_scale(ids[j - 1]) + grid.get_point_weight_scale(ids[j])) * 0.5)
+    var index: int = 0
+    while index < ids.size() - 1:
+        var next: int = ids.size() - 1
+        while next > index + 1:
+            await budget.checkpoint("power cable shortcut")
+            if _segment_open(grid, _point_of(ids[index]), _point_of(ids[next])) and _shortcut_cost(grid, _point_of(ids[index]), _point_of(ids[next])) <= (cumulative[next] - cumulative[index]) * 1.06:
+                break
+            next -= 1
+        _push_path_point(floor_waypoints, _point_of(ids[next]))
+        index = next
+    _push_path_point(floor_waypoints, to_gate)
+    var curved: PackedVector3Array = _smooth_floor_route(
+        grid, floor_waypoints, label)
+    await budget.checkpoint("power cable smoothing")
+    var points := PackedVector3Array()
+    # Start/end in the actual sockets; shallow, outward-curving drops are
+    # never deformed by the floor cable's obstacle-routing simplification.
+    for point in _socket_drop(from_at, from_gate):
+        _push_path_point(points, point)
+    for point in curved:
+        _push_path_point(points, point)
+    var landing: PackedVector3Array = _socket_drop(to_at, to_gate)
+    for j in range(landing.size() - 1, -1, -1):
+        _push_path_point(points, landing[j])
+    # A nonzero cell weight discourages later power lines from lying
+    # directly atop the same geometric cable (but permits intersections).
+    for id in ids:
+        if ROUTE_BOUNDS.has_point(id) and not grid.is_point_solid(id):
+            grid.set_point_weight_scale(id, 1.65)
+    return points
+
+
 static func _append_tube(mesh_arrays: Dictionary, points: PackedVector3Array,
         radius: float, y_lift: float) -> void:
     if points.size() < 2:
@@ -935,6 +1061,136 @@ static func build(parent: Node3D, nexus_origin: Vector3,
     return network
 
 
+static func build_budgeted(parent: Node3D, nexus_origin: Vector3,
+        specs: Array, camera: Camera3D, logistics: Node3D, budget: Variant) -> Node3D:
+    var network := Node3D.new()
+    network.name = "BasePowerDistribution"
+    network.set_meta("sera_outline_role", "clutter")
+    parent.add_child(network)
+    var items: Dictionary = {
+        "rubber": [], "metal": [], "rim": [],
+        "vent": [], "socket": [], "light": []}
+    var wires: Dictionary = _wire_data()
+    var traces: Dictionary = _wire_data()
+    var all_sites: Array[Dictionary] = [{
+        "id": "NEXUS", "at": nexus_origin}]
+    all_sites.append_array(specs)
+    var props: Array[Dictionary] = _prop_obstacles(all_sites)
+    for child in parent.get_children():
+        if child is Node3D and str(child.name).begins_with("ScrapPile_"):
+            var pile: Node3D = child
+            props.append({"at": _xz(pile.position), "radius": 1.15 * float(pile.get_meta("visual_scale", 1.26))})
+    if is_instance_valid(logistics):
+        props.append_array(logistics.call("cable_dock_obstacles"))
+    var cable_paths: Array[Dictionary] = []
+    var board_path := PackedVector3Array()
+    for i in range(PowerBoard.CABLE_SEGMENTS + 1):
+        board_path.append(PowerBoard.cable_point(float(i) / float(PowerBoard.CABLE_SEGMENTS)))
+    cable_paths.append({"points": board_path, "radius": 0.145})
+    var placed: Array[Vector2] = []
+    # In the screenshot, the old GRID plug was behind the generator housing.
+    # Move the visible seven-port manifold to the foreground gap, then
+    # route one short exposed lead FROM that original live cable endpoint.
+    var hub_pose: Dictionary = await _locate_device_budgeted(
+        "GENERATOR", all_sites, props, placed, camera, logistics, budget)
+    if hub_pose.is_empty():
+        await _build_crossing_ramps_budgeted(network, cable_paths, logistics, budget)
+        return network
+    var hub: Vector3 = hub_pose["at"]
+    var hub_turn := Basis(Vector3.UP, float(hub_pose["yaw"]))
+    placed.append(_xz(hub))
+    _device_port(items, "rubber", hub, hub_turn,
+        Vector3(0.0, 0.04, 0.0), Vector3(1.46, 0.12, 0.82))
+    _device_port(items, "metal", hub, hub_turn,
+        Vector3(0.0, 0.36, 0.0), Vector3(1.38, 0.62, 0.70))
+    _device_port(items, "rim", hub, hub_turn,
+        Vector3(0.0, 0.70, 0.0), Vector3(1.48, 0.10, 0.76))
+    _device_port(items, "socket", hub, hub_turn,
+        Vector3(0.0, 0.36, -0.405), Vector3(0.23, 0.19, 0.12))
+    for i in range(7):
+        _device_port(items, "socket", hub, hub_turn,
+            Vector3((float(i) - 3.0) * 0.18, 0.32, 0.405),
+            Vector3(0.15, 0.18, 0.09))
+    _device_port(items, "light", hub, hub_turn,
+        Vector3(0.0, 0.77, 0.0), Vector3(0.60, 0.025, 0.38))
+    var endpoints: Array[Dictionary] = []
+    for site in all_sites:
+        var key: String = str(site["id"])
+        if key == "GENERATOR":
+            continue
+        var origin: Vector3 = site["at"]
+        var pose: Dictionary = await _locate_device_budgeted(
+            key, all_sites, props, placed, camera, logistics, budget)
+        if pose.is_empty():
+            continue
+        var world_at: Vector3 = pose["at"]
+        placed.append(_xz(world_at))
+        var device: Dictionary = _make_substation(items,
+            world_at, float(pose["yaw"]), endpoints.size())
+        var receiver: Dictionary = _facility_socket(
+            items, key, origin, pose["local"], props)
+        endpoints.append({"key": key, "device": device,
+            "socket": receiver})
+    # All assets now exist in world space and the route grid reserves the
+    # rotated facilities, existing clutter AND new small power stations.
+    var route_grid: AStarGrid2D = _obstacle_grid(
+        all_sites, props, placed)
+    if is_instance_valid(logistics):
+        # Route cables outside the vehicle corridor wherever feasible;
+        # short transverse crossings remain possible.
+        for x in range(ROUTE_BOUNDS.position.x, ROUTE_BOUNDS.end.x):
+            await budget.checkpoint("power road weights")
+            for z in range(ROUTE_BOUNDS.position.y, ROUTE_BOUNDS.end.y):
+                var c := Vector2i(x, z)
+                if not route_grid.is_point_solid(c) and bool(logistics.call("road_at", _xz(_point_of(c)))):
+                    route_grid.set_point_weight_scale(c, 4.5)
+    var old_plug: Vector3 = PowerBoard.cable_point(0.0)
+    var board_gate: Vector3 = old_plug + Vector3(1.10, 0.0, 0.05)
+    board_gate.y = FLOOR_WIRE_Y
+    var hub_in: Vector3 = hub + hub_turn * Vector3(
+        0.0, 0.36, -0.49)
+    var hub_in_gate: Vector3 = hub + hub_turn * Vector3(
+        0.0, FLOOR_WIRE_Y, -1.48)
+    var junction: PackedVector3Array = await _routed_cable_budgeted(
+        route_grid, old_plug, board_gate, hub_in_gate,
+        hub_in, "GENERATOR TO MANIFOLD", budget)
+    cable_paths.append({"points": junction, "radius": 0.070})
+    _append_tube(wires, junction, 0.070, 0.0)
+    _append_tube(traces, junction, 0.019, 0.051)
+    for i in range(endpoints.size()):
+        await budget.checkpoint("power cable pair")
+        var record: Dictionary = endpoints[i]
+        var key: String = str(record["key"])
+        var device: Dictionary = record["device"]
+        var receiver: Dictionary = record["socket"]
+        var offset: float = (float(i) - 3.0) * 0.18
+        var feed_at: Vector3 = hub + hub_turn * Vector3(
+            offset, 0.32, 0.50)
+        var feed_gate: Vector3 = hub + hub_turn * Vector3(
+            offset, FLOOR_WIRE_Y, 1.48)
+        var feed: PackedVector3Array = await _routed_cable_budgeted(
+            route_grid, feed_at, feed_gate, device["input_gate"],
+            device["input"], key + " FEED", budget)
+        var delivery: PackedVector3Array = await _routed_cable_budgeted(
+            route_grid, device["output"], device["output_gate"],
+            receiver["gate"], receiver["port"], key + " DELIVERY", budget)
+        for cable in [feed, delivery]:
+            await budget.checkpoint("power tube mesh data")
+            cable_paths.append({"points": cable, "radius": 0.070})
+            _append_tube(wires, cable, 0.070, 0.0)
+            _append_tube(traces, cable, 0.019, 0.051)
+    # Stable occupied power-device centers for the outdoor logistics grid.
+    network.set_meta("logistics_obstacles", placed.duplicate())
+    _build_devices(network, items)
+    await budget.checkpoint("power device meshes")
+    _finish_cables(network, wires, traces)
+    await budget.checkpoint("power cable meshes")
+    await _build_crossing_ramps_budgeted(network, cable_paths, logistics, budget)
+    # Recomputed only at scene construction / user-requested layout reset:
+    # no pathfinding or coordinate randomization in the render loop.
+    return network
+
+
 static func _build_crossing_ramps(network: Node3D, paths: Array[Dictionary], logistics: Node3D) -> void:
     if not is_instance_valid(logistics):
         return
@@ -942,3 +1198,12 @@ static func _build_crossing_ramps(network: Node3D, paths: Array[Dictionary], log
     ramps.name = "CableCrossingRamps"
     network.add_child(ramps)
     ramps.build(paths, logistics)
+
+
+static func _build_crossing_ramps_budgeted(network: Node3D, paths: Array[Dictionary], logistics: Node3D, budget: Variant) -> void:
+    if not is_instance_valid(logistics):
+        return
+    var ramps := CrossingRamps.new()
+    ramps.name = "CableCrossingRamps"
+    network.add_child(ramps)
+    await ramps.build_budgeted(paths, logistics, budget)

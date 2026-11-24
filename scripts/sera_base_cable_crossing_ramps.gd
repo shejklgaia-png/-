@@ -135,6 +135,49 @@ func build(paths: Array[Dictionary], logistics: Node3D) -> void:
     print("SERA_BASE_LOGISTICS: compact cable protectors=", _pads.size())
 
 
+func build_budgeted(paths: Array[Dictionary], logistics: Node3D, budget: Variant) -> void:
+    var roads: Array = logistics.call("road_segments")
+    for path in paths:
+        var points: PackedVector3Array = path["points"]
+        var radius: float = float(path["radius"])
+        for i in range(1, points.size()):
+            await budget.checkpoint("cable crossing scan")
+            var a: Vector2 = _xz(points[i - 1])
+            var b: Vector2 = _xz(points[i])
+            if a.distance_squared_to(b) < 0.00001:
+                continue
+            var wire_dir: Vector2 = (b - a).normalized()
+            var wire_bounds := Rect2(a.min(b), (a - b).abs()).grow(0.02)
+            for road in roads:
+                await budget.checkpoint("cable crossing segment")
+                var c: Vector2 = road["a"]
+                var d: Vector2 = road["b"]
+                if c.distance_squared_to(d) < 0.00001:
+                    continue
+                if not wire_bounds.intersects(Rect2(c.min(d), (c - d).abs()).grow(0.02)):
+                    continue
+                var cross_point: Variant = Geometry2D.segment_intersects_segment(a, b, c, d)
+                if cross_point == null:
+                    continue
+                var p: Vector2 = cross_point
+                var fraction: float = clampf((p - a).dot(b - a) / a.distance_squared_to(b), 0.0, 1.0)
+                var top: float = lerpf(points[i - 1].y, points[i].y, fraction) + radius + 0.055
+                _add_crossing(p, (d - c).normalized(), wire_dir, top)
+    if _pads.is_empty():
+        return
+    var deck := SurfaceTool.new()
+    deck.begin(Mesh.PRIMITIVE_TRIANGLES)
+    var trim := SurfaceTool.new()
+    trim.begin(Mesh.PRIMITIVE_TRIANGLES)
+    for pad in _pads:
+        await budget.checkpoint("cable protector mesh")
+        _emit_pad(deck, trim, pad)
+    _finish(deck, "CableProtectorSteelDeck", Color("#41494f"))
+    await budget.checkpoint("cable protector deck")
+    _finish(trim, "CableProtectorSafetyEdges", Color("#b99b47"))
+    print("SERA_BASE_LOGISTICS: compact cable protectors=", _pads.size())
+
+
 func _emit_pad(deck: SurfaceTool, trim: SurfaceTool, pad: Dictionary) -> void:
     var width: float = float(pad["wide"])
     var flat: float = float(pad["flat"])
