@@ -1,15 +1,15 @@
 extends RefCounted
-## CRATE — reference-sheet reconstruction (2026-11-24).
+## CRATE — reference silhouette and mechanical armor refinement (2026-11-25).
 ## Shared production geometry for BASE and all three LABO backgrounds.
 ## Forward is -Z.  Keep HeadPivot/LeftArmPivot/RightArmPivot animation API.
 ## All detailed surfaces are welded into per-material meshes: no runtime CSG,
 ## per-frame rebuilding, textures, facial glyphs or independent light sources.
 
 const COLORS := {
-    "porcelain": "#e2e1df",
-    "shell": "#c6cccf",
+    "porcelain": "#e3ded9",
+    "shell": "#d2cdca",
     "warm_white": "#eee8df",
-    "armor": "#9ca8b3",
+    "armor": "#a5a4aa",
     "armor_shadow": "#7b8896",
     "steel": "#65717f",
     "trim": "#485461",
@@ -20,10 +20,10 @@ const COLORS := {
     "joint": "#3d4652",
     "hub": "#89939b",
     "chrome": "#b6c1c6",
-    "amber": "#db9436",
+    "amber": "#d88b32",
     "amber_edge": "#ffc277",
-    "visor": "#0d1a29",
-    "glass": "#122c3b",
+    "visor": "#111720",
+    "glass": "#17212b",
     "cyan": "#78eaff",
     "cyan_dim": "#3f9ba9",
 }
@@ -71,9 +71,11 @@ static func _mat(style: String) -> StandardMaterial3D:
     if style in ["porcelain", "warm_white", "shell"]:
         m.metallic = 0.18
         m.roughness = 0.61
-    elif style in ["rubber", "tread", "tread_edge", "visor", "glass"]:
+    elif style in ["rubber", "tread", "tread_edge"]:
         m.metallic = 0.06
         m.roughness = 0.76
+    elif style == "glass" or style == "visor":
+        m.roughness = 0.32
     elif style in ["chrome", "hub"]:
         m.metallic = 0.68
         m.roughness = 0.34
@@ -199,6 +201,92 @@ static func _bevel(b: Batch, style: String, p: Vector3,
                 Vector3(p.x + shape_hi[idx].x, p.y + shape_hi[idx].y, z1))
 
 
+# Explicit profile loft: each ring is [width, height, corner, center_y, z].
+# All profiles are CCW in XY. Batch converts outward geometry to Godot CW.
+static func _loft_armor(b: Batch, style: String, rings: Array,
+        front_cap: bool = true, back_cap: bool = true, inward: bool = false) -> void:
+    var points: Array = []
+    for r in rings:
+        var ring: Array[Vector3] = []
+        for p in _profile(float(r[0]), float(r[1]), float(r[2])):
+            ring.append(Vector3(p.x, p.y + float(r[3]), float(r[4])))
+        points.append(ring)
+    for j in range(points.size() - 1):
+        for i in range(8):
+            var k: int = (i + 1) % 8
+            if inward:
+                b.quad(style, points[j][i], points[j + 1][i],
+                    points[j + 1][k], points[j][k])
+            else:
+                b.quad(style, points[j][i], points[j][k],
+                    points[j + 1][k], points[j + 1][i])
+    for i in range(8):
+        var k: int = (i + 1) % 8
+        if front_cap:
+            b.triangle(style, Vector3(0, rings[0][3], rings[0][4]),
+                points[0][k], points[0][i])
+        if back_cap:
+            var last: int = points.size() - 1
+            b.triangle(style, Vector3(0, rings[last][3], rings[last][4]),
+                points[last][i], points[last][k])
+
+
+# Slope the actual chest plate; its lower edge retreats into the chassis.
+static func _chest_plate(b: Batch, style: String, outline: Array[Vector2],
+        offset: float, thickness: float) -> void:
+    var center := Vector2.ZERO
+    for p in outline:
+        center += p
+    center /= float(outline.size())
+    var cf := Vector3(center.x, center.y, -0.49 - (center.y - 0.65) * 0.28 + offset)
+    for i in range(outline.size()):
+        var p: Vector2 = outline[i]
+        var q: Vector2 = outline[(i + 1) % outline.size()]
+        var a := Vector3(p.x, p.y, -0.49 - (p.y - 0.65) * 0.28 + offset)
+        var c := Vector3(q.x, q.y, -0.49 - (q.y - 0.65) * 0.28 + offset)
+        var back := Vector3(0, 0, thickness)
+        b.triangle(style, cf, c, a)
+        b.triangle(style, cf + back, a + back, c + back)
+        b.quad(style, a, c, c + back, a + back)
+
+
+# Swept, faceted rectangular claw, not a chain of cylindrical rods.
+static func _finger(b: Batch, radial: Vector3) -> void:
+    var crosswise: Vector3 = Vector3.FORWARD.cross(radial).normalized()
+    var stations: Array[Vector2] = [
+        Vector2(0.105, -0.012), Vector2(0.162, -0.077),
+        Vector2(0.177, -0.145), Vector2(0.134, -0.218),
+        Vector2(0.081, -0.243), Vector2(0.060, -0.228)
+    ]
+    var rings: Array = []
+    for i in range(stations.size()):
+        var a: Vector2 = stations[maxi(i - 1, 0)]
+        var c: Vector2 = stations[mini(i + 1, stations.size() - 1)]
+        var tangent: Vector3 = (radial * (c.x - a.x) + Vector3(0, 0, c.y - a.y)).normalized()
+        var u: Vector3 = crosswise
+        var v: Vector3 = tangent.cross(u).normalized()
+        var center: Vector3 = radial * stations[i].x + Vector3(0, 0, stations[i].y)
+        var w: float = 0.058 if i < 4 else 0.048
+        var h: float = 0.048 if i < 4 else 0.037
+        var ring: Array[Vector3] = []
+        for p in _profile(w * 2.0, h * 2.0, 0.014):
+            ring.append(center + u * p.x + v * p.y)
+        rings.append(ring)
+    for j in range(rings.size() - 1):
+        var style: String = "porcelain" if j < 2 else ("trim" if j == 2 else "amber")
+        for i in range(8):
+            var k: int = (i + 1) % 8
+            b.quad(style, rings[j][i], rings[j][k],
+                rings[j + 1][k], rings[j + 1][i])
+    var last: int = rings.size() - 1
+    var start: Vector3 = radial * stations[0].x + Vector3(0, 0, stations[0].y)
+    var end: Vector3 = radial * stations[last].x + Vector3(0, 0, stations[last].y)
+    for i in range(8):
+        var k: int = (i + 1) % 8
+        b.triangle("joint", start, rings[0][k], rings[0][i])
+        b.triangle("trim", end, rings[last][i], rings[last][k])
+
+
 static func _disk_x(b: Batch, style: String, p: Vector3,
         radius: float, width: float, segments: int = 16) -> void:
     var x0: float = p.x - width * 0.5
@@ -276,6 +364,8 @@ static func _prism_yz(b: Batch, style: String,
 
 
 static func _tread(b: Batch, a: Vector2, c: Vector2) -> void:
+    if a.distance_squared_to(c) < 0.0001:
+        return
     var mid: Vector2 = (a + c) * 0.5
     var outside := Vector2(mid.x - clampf(mid.x, -0.36, 0.36),
         mid.y - 0.31).normalized()
@@ -296,7 +386,20 @@ static func _tread(b: Batch, a: Vector2, c: Vector2) -> void:
     var p5 := Vector3(x1, start.y + outer.y, start.x + outer.x)
     var p6 := Vector3(x1, finish.y + outer.y, finish.x + outer.x)
     var p7 := Vector3(x0, finish.y + outer.y, finish.x + outer.x)
-    b.quad("tread", p4, p5, p6, p7)
+    b.quad("rubber", p4, p5, p6, p7)
+    for lane in range(3):
+        var left: float = float(lane) / 3.0 + 0.012
+        var right: float = float(lane + 1) / 3.0 - 0.012
+        var lift := Vector3(0, outside.y, outside.x) * 0.009
+        var q0: Vector3 = p4.lerp(p5, left)
+        var q1: Vector3 = p4.lerp(p5, right)
+        var q2: Vector3 = p7.lerp(p6, right)
+        var q3: Vector3 = p7.lerp(p6, left)
+        b.quad("tread", q0 + lift, q1 + lift, q2 + lift, q3 + lift)
+        b.quad("tread", q0, q1, q1 + lift, q0 + lift)
+        b.quad("tread", q1, q2, q2 + lift, q1 + lift)
+        b.quad("tread", q2, q3, q3 + lift, q2 + lift)
+        b.quad("tread", q3, q0, q0 + lift, q3 + lift)
     b.quad("tread_edge", p0, p4, p7, p3)
     b.quad("tread_edge", p1, p2, p6, p5)
     b.quad("tread_edge", p0, p1, p5, p4)
@@ -329,11 +432,17 @@ static func _make_tracks(robot: Node3D) -> void:
             _disk_x(b, "chrome", Vector3(outside + s * 0.090, 0.31, z),
                 0.029, 0.015, 12)
         # Distinct high-contrast side maintenance panel from the drawing.
-        _bevel(b, "porcelain",
-            Vector3(s * 0.285, 0.255, 0.16),
-            Vector3(0.065, 0.16, 0.30), 0.035)
-        _box(b, "trim", Vector3(s * 0.327, 0.255, 0.16),
-            Vector3(0.007, 0.064, 0.12))
+        var panel: Array[Vector2] = [
+            Vector2(0.015, 0.18), Vector2(0.28, 0.18), Vector2(0.31, 0.21),
+            Vector2(0.31, 0.35), Vector2(0.28, 0.38), Vector2(0.015, 0.38),
+            Vector2(-0.015, 0.35), Vector2(-0.015, 0.21)
+        ]
+        var panel_x: float = s * 0.292
+        _prism_yz(b, "porcelain", panel, panel_x - 0.035, panel_x + 0.035)
+        _box(b, "trim", Vector3(s * 0.333, 0.28, 0.15),
+            Vector3(0.009, 0.045, 0.135))
+        for z in [0.035, 0.26]:
+            _disk_x(b, "joint", Vector3(s * 0.331, 0.33, z), 0.014, 0.009, 8)
         _box(b, "amber", Vector3(s * 0.327, 0.33, -0.26),
             Vector3(0.007, 0.035, 0.14))
         _emit(pivot, "LeftTrack" if side < 0 else "RightTrack", b)
@@ -345,33 +454,42 @@ static func _make_body(robot: Node3D) -> void:
         Vector3(0.90, 0.32, 0.78), 0.09)
     _bevel(b, "shell", Vector3(0, 0.705, 0.005),
         Vector3(0.95, 0.52, 0.83), 0.13)
-    _bevel(b, "armor", Vector3(0, 0.66, -0.397),
-        Vector3(0.81, 0.47, 0.115), 0.11)
-    # Trapezoidal, layered front chest armor with amber asymmetric seams.
-    _prism_xy(b, "warm_white", [
-        Vector2(-0.36, 0.86), Vector2(0.36, 0.86),
-        Vector2(0.34, 0.68), Vector2(0.23, 0.43),
-        Vector2(-0.23, 0.43), Vector2(-0.34, 0.68)
-    ], -0.502, -0.434)
-    _prism_xy(b, "steel", [
-        Vector2(-0.14, 0.47), Vector2(0.14, 0.47),
-        Vector2(0.17, 0.66), Vector2(0.11, 0.73),
-        Vector2(-0.11, 0.73), Vector2(-0.17, 0.66)
-    ], -0.514, -0.490)
-    _prism_xy(b, "amber", [
-        Vector2(-0.11, 0.68), Vector2(0.11, 0.68),
-        Vector2(0.09, 0.62), Vector2(-0.09, 0.62)
-    ], -0.533, -0.511)
+    # Broad shoulders, tapering chest and a separate dark lower keel.
+    _chest_plate(b, "armor", [
+        Vector2(-0.25, 0.43), Vector2(0.25, 0.43), Vector2(0.39, 0.73),
+        Vector2(0.35, 0.88), Vector2(-0.35, 0.88), Vector2(-0.39, 0.73)
+    ], -0.008, 0.085)
+    _chest_plate(b, "warm_white", [
+        Vector2(-0.20, 0.52), Vector2(0.20, 0.52), Vector2(0.31, 0.75),
+        Vector2(0.30, 0.87), Vector2(-0.30, 0.87), Vector2(-0.31, 0.75)
+    ], -0.026, 0.028)
+    _chest_plate(b, "steel", [
+        Vector2(-0.10, 0.46), Vector2(0.10, 0.46), Vector2(0.135, 0.65),
+        Vector2(-0.135, 0.65)
+    ], -0.043, 0.026)
+    _chest_plate(b, "amber", [
+        Vector2(-0.105, 0.62), Vector2(0.105, 0.62), Vector2(0.125, 0.68),
+        Vector2(-0.125, 0.68)
+    ], -0.057, 0.018)
+    for side in [-1, 1]:
+        var sign_x: float = float(side)
+        var seam: Array[Vector2] = [
+            Vector2(sign_x * 0.24, 0.57), Vector2(sign_x * 0.265, 0.57),
+            Vector2(sign_x * 0.34, 0.79), Vector2(sign_x * 0.315, 0.79)
+        ]
+        if side < 0:
+            seam.reverse()
+        _chest_plate(b, "amber", seam, -0.049, 0.009)
     for side in [-1, 1]:
         var s: float = float(side)
         _bevel(b, "porcelain", Vector3(s * 0.46, 0.81, 0.03),
             Vector3(0.23, 0.34, 0.64), 0.07)
         _box(b, "steel", Vector3(s * 0.552, 0.79, 0.16),
             Vector3(0.030, 0.22, 0.20))
-        _box(b, "amber", Vector3(s * 0.27, 0.858, -0.494),
-            Vector3(0.029, 0.12, 0.018))
-        _box(b, "cyan_dim", Vector3(s * 0.28, 0.51, -0.512),
-            Vector3(0.037, 0.047, 0.015))
+        _chest_plate(b, "cyan_dim", [
+            Vector2(s * 0.225 - 0.016, 0.52), Vector2(s * 0.225 + 0.016, 0.52),
+            Vector2(s * 0.225 + 0.016, 0.565), Vector2(s * 0.225 - 0.016, 0.565)
+        ], -0.052, 0.009)
         _disk_x(b, "black", Vector3(s * 0.55, 0.84, -0.14),
             0.125, 0.042)
         _disk_x(b, "steel", Vector3(s * 0.57, 0.84, -0.14),
@@ -401,6 +519,8 @@ static func _make_body(robot: Node3D) -> void:
         _box(b, "amber_edge", Vector3(s * 0.24, 0.99, 0.47),
             Vector3(0.061, 0.025, 0.17))
     for x in [-0.22, 0.22]:
+        _bevel(b, "amber", Vector3(x, 0.96, 0.55), Vector3(0.10, 0.08, 0.20), 0.02)
+        _bevel(b, "trim", Vector3(x, 0.61, 0.61), Vector3(0.08, 0.08, 0.08), 0.014)
         _box(b, "steel", Vector3(x, 0.94, 0.20),
             Vector3(0.052, 0.055, 0.25))
     _emit(robot, "Body", b)
@@ -416,27 +536,40 @@ static func _make_head(robot: Node3D) -> void:
         0.185, 0.40)
     _bevel(b, "joint", Vector3(0, 0.12, 0.02),
         Vector3(0.58, 0.20, 0.49), 0.065)
-    _bevel(b, "porcelain", Vector3(0.0, 0.34, 0.0),
-        Vector3(1.055, 0.58, 0.79), 0.16)
-    _bevel(b, "warm_white", Vector3(0, 0.592, -0.03),
-        Vector3(0.77, 0.073, 0.59), 0.026)
-    _bevel(b, "armor", Vector3(0, 0.295, -0.378),
-        Vector3(0.92, 0.36, 0.085), 0.077)
-    _bevel(b, "visor", Vector3(0, 0.30, -0.433),
-        Vector3(0.828, 0.287, 0.058), 0.079)
-    _bevel(b, "glass", Vector3(0, 0.295, -0.469),
-        Vector3(0.742, 0.19, 0.031), 0.065)
-    # A single thin cyan horizontal slit, intentionally no emoticon face.
-    _bevel(b, "cyan", Vector3(0, 0.294, -0.491),
-        Vector3(0.517, 0.047, 0.018), 0.016)
-    _box(b, "cyan_dim", Vector3(-0.34, 0.296, -0.493),
-        Vector3(0.037, 0.031, 0.014))
-    _box(b, "trim", Vector3(0.0, 0.454, -0.458),
-        Vector3(0.672, 0.022, 0.040))
-    _box(b, "amber_edge", Vector3(0.312, 0.600, -0.16),
-        Vector3(0.036, 0.017, 0.265))
-    _box(b, "steel", Vector3(-0.32, 0.603, 0.02),
-        Vector3(0.038, 0.018, 0.28))
+    # Recessed visor housing: silhouette follows the side-view sloping
+    # forehead rather than stacking plates on a closed rectangular head.
+    _loft_armor(b, "porcelain", [
+        [0.94, 0.40, 0.075, 0.30, -0.455],
+        [1.055, 0.53, 0.105, 0.345, -0.345],
+        [1.065, 0.60, 0.135, 0.375, -0.065],
+        [1.045, 0.57, 0.105, 0.36, 0.275],
+        [0.91, 0.48, 0.075, 0.35, 0.40]
+    ], false, true)
+    # Front lip, chamfer into screen well, dark inner wall, recessed glass.
+    _loft_armor(b, "armor", [
+        [0.94, 0.40, 0.075, 0.30, -0.455],
+        [0.83, 0.31, 0.054, 0.30, -0.458]
+    ], false, false, true)
+    _loft_armor(b, "visor", [
+        [0.83, 0.31, 0.054, 0.30, -0.458],
+        [0.77, 0.255, 0.035, 0.30, -0.412]
+    ], false, false, true)
+    _loft_armor(b, "glass", [
+        [0.77, 0.255, 0.035, 0.30, -0.412],
+        [0.77, 0.255, 0.035, 0.30, -0.409]
+    ], true, false)
+    # One continuous illuminated optical slit, no facial glyphs.
+    _bevel(b, "cyan_dim", Vector3(0, 0.297, -0.420),
+        Vector3(0.565, 0.061, 0.013), 0.021)
+    _bevel(b, "cyan", Vector3(0, 0.297, -0.430),
+        Vector3(0.525, 0.034, 0.012), 0.012)
+    _bevel(b, "warm_white", Vector3(0, 0.669, 0.037),
+        Vector3(0.48, 0.038, 0.32), 0.025)
+    _bevel(b, "armor_shadow", Vector3(0, 0.35, 0.413),
+        Vector3(0.33, 0.26, 0.05), 0.038)
+    for x in [-0.28, 0.28]:
+        _box(b, "amber", Vector3(x, 0.619, 0.23),
+            Vector3(0.043, 0.017, 0.13))
     for side in [-1, 1]:
         var s: float = float(side)
         # Bulky ear-mounted rotary servo, layered metallic hub and gold bezel.
@@ -452,19 +585,24 @@ static func _make_head(robot: Node3D) -> void:
             0.082, 0.021, 14)
         _box(b, "cyan_dim", Vector3(s * 0.515, 0.29, -0.233),
             Vector3(0.018, 0.055, 0.092))
-        # Twin tall, backward-leaning polygonal ears/antenna fins.
+        # Side-view swept antenna blades: upright in front view, raked
+        # backwards in side view. No sideways splay.
         var ear: Array[Vector2] = [
-            Vector2(s * 0.290, 0.596), Vector2(s * 0.425, 0.596),
-            Vector2(s * 0.589, 1.125), Vector2(s * 0.563, 1.174),
-            Vector2(s * 0.498, 1.164), Vector2(s * 0.274, 0.710)
+            Vector2(0.08, 0.58), Vector2(0.23, 0.58),
+            Vector2(0.43, 0.99), Vector2(0.41, 1.045),
+            Vector2(0.34, 1.04), Vector2(0.09, 0.71)
         ]
-        _prism_xy(b, "joint", ear, 0.103, 0.298)
-        _prism_xy(b, "amber", [
-            Vector2(s * 0.455, 0.714), Vector2(s * 0.487, 0.793),
-            Vector2(s * 0.554, 1.118), Vector2(s * 0.525, 1.124)
-        ], 0.088, 0.104)
-        _box(b, "steel", Vector3(s * 0.341, 0.625, 0.21),
-            Vector3(0.132, 0.073, 0.206))
+        var ear_x: float = s * 0.37
+        _prism_yz(b, "joint", ear, ear_x - 0.047, ear_x + 0.047)
+        var stripe: Array[Vector2] = [
+            Vector2(0.095, 0.70), Vector2(0.135, 0.70),
+            Vector2(0.385, 1.015), Vector2(0.346, 1.027)
+        ]
+        var stripe_x: float = ear_x + s * 0.048
+        _prism_yz(b, "amber", stripe, stripe_x - 0.006, stripe_x + 0.006)
+        _disk_x(b, "steel", Vector3(ear_x, 0.62, 0.18), 0.085, 0.11, 12)
+        _disk_x(b, "trim", Vector3(ear_x + s * 0.065, 0.62, 0.18),
+            0.035, 0.015, 10)
         _box(b, "amber_edge", Vector3(s * 0.40, 0.475, -0.302),
             Vector3(0.045, 0.16, 0.020))
     _emit(pivot, "Head", b)
@@ -496,7 +634,7 @@ static func _make_arms(robot: Node3D) -> void:
             0.058, 0.026)
         _rod(b, "joint", Vector3(s * 0.30, -0.065, -0.270),
             Vector3(s * 0.31, -0.065, -0.516), 0.112, 9)
-        _bevel(b, "shell", Vector3(s * 0.31, -0.061, -0.412),
+        _bevel(b, "porcelain", Vector3(s * 0.31, -0.061, -0.412),
             Vector3(0.24, 0.22, 0.31), 0.053)
         _box(b, "steel", Vector3(s * 0.310, 0.034, -0.415),
             Vector3(0.145, 0.029, 0.22))
@@ -512,28 +650,18 @@ static func _make_arms(robot: Node3D) -> void:
         wrist.position = Vector3(s*0.31,-0.065,-0.592)
         pivot.add_child(wrist)
         b = Batch.new()
-        # True three-finger C-hands: three independently arched prongs,
-        # with hooked, inward-facing tips and armored yellow ends.
-        var anchors: Array[Vector2] = [
-            Vector2(-0.134, 0.100),
-            Vector2(0.132, 0.094),
-            Vector2(0.0, -0.142)
+        # Three mechanically shaped hooked fingers; two upper fingers and
+        # a lower opposing thumb. Wrist origin and external API unchanged.
+        _bevel(b, "joint", Vector3(0, 0, -0.015),
+            Vector3(0.21, 0.20, 0.12), 0.045)
+        var directions: Array[Vector3] = [
+            Vector3(-0.70, 0.72, 0).normalized(),
+            Vector3(0.70, 0.72, 0).normalized(),
+            Vector3(0, -1, 0)
         ]
-        for k in range(3):
-            var off: Vector2 = anchors[k]
-            var start := Vector3(off.x,off.y,0.0)
-            var knuckle := Vector3(start.x + off.x * 0.28,
-                start.y + off.y * 0.34, -0.121)
-            var hook := Vector3(knuckle.x - off.x * 0.32,
-                knuckle.y - off.y * 0.32, -0.229)
-            var tip := Vector3(hook.x - off.x * 0.52,
-                hook.y - off.y * 0.51, -0.245)
-            _disk_x(b, "joint", start, 0.052, 0.076, 10)
-            _rod(b, "shell", start, knuckle, 0.070, 7)
-            _rod(b, "steel", knuckle, hook, 0.063, 7)
-            _rod(b, "amber", hook, tip, 0.059, 7)
-            _rod(b, "chrome", tip, tip + Vector3(0, 0, -0.018),
-                0.039, 7)
+        for radial in directions:
+            _disk_x(b, "joint", radial * 0.105, 0.052, 0.072, 10)
+            _finger(b, radial)
         _emit(wrist, "LeftHand" if side < 0 else "RightHand", b)
 
 
