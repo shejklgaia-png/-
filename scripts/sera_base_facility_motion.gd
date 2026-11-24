@@ -6,7 +6,7 @@ const CollectorConveyor = preload("res://scripts/sera_base_collector_conveyor.gd
 ## The already-restored archived NEXUS geometry is never replaced or reauthored.
 
 const MOTION_FEATURES: Dictionary = {
-    "NEXUS": ["NexusServiceAwning", "NexusFanBlade",
+    "NEXUS": ["NexusServiceAwning", "NexusAwningValance", "NexusFanBlade",
         "NexusDishAzimuthBearing", "NexusDishYoke", "NexusDishHinge",
         "NexusDishReflector", "NexusDishFeedArm", "NexusDishFeed",
         "NexusAntennaYagiBoom", "NexusAntennaYagiElement",
@@ -244,10 +244,19 @@ func _nexus_pose(feature: String, slot: int, rest: Transform3D, t: float,
     var pose: Transform3D = rest
     match feature:
         "NexusServiceAwning":
-            # Its actual mesh has a fixed zero-height perimeter, so the
-            # cloth billows without moving the frame or its outline source.
-            var billow: float = 0.78 + 0.30 * sin(t * 1.7) + 0.14 * sin(t * 3.1 + 0.8)
-            pose.basis = rest.basis.scaled_local(Vector3(1.0, billow, 1.0))
+            # Wind travels between the two bays. Their shared and outer
+            # edges remain fixed to the frame, even during the strongest gust.
+            var phase: float = t * 3.4 - float(slot) * 1.85
+            var gust: float = 0.5 + 0.5 * sin(t * 0.82)
+            var billow: float = 0.67 + (0.42 + 0.13 * gust) * sin(phase) + 0.12 * sin(phase * 2.0 + 0.6)
+            pose.basis = rest.basis.scaled_local(Vector3(1.0, maxf(0.10, billow), 1.0))
+        "NexusAwningValance":
+            # The pleated skirt visibly kicks out into the wind, then
+            # drops back. Rotate about the actual upper attachment line.
+            var phase: float = t * 3.4 - float(slot) * 1.85 + 0.7
+            var lift: float = 0.57 + 0.45 * sin(phase) + 0.16 * sin(phase * 2.0)
+            var hinge: Vector3 = rest.origin + rest.basis.y * 0.5
+            pose = _spin_about(rest, hinge, _axis(Vector3.RIGHT), -clampf(lift, 0.0, 1.18))
         "NexusFanBlade":
             var local: Vector3 = Basis(Vector3.UP, -_body_yaw) * rest.origin / _model_scale
             var side: float = -1.0 if local.x < 0.0 else 1.0
