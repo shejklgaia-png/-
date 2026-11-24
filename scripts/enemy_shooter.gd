@@ -46,10 +46,15 @@ var _pending_area: Node3D
 var _last_player_position: Vector3 = Vector3.ZERO
 var _measured_player_velocity: Vector3 = Vector3.ZERO
 var _has_player_sample: bool = false
+const PROJECTILE_PREWARM_COUNT: int = 6
+var _bullet_pool: Array[Area3D] = []
 
 func _ready() -> void:
     _remaining = maxf(0.0, first_shot_delay - warning_duration)
     _build_warning_marker()
+    if is_instance_valid(projectile_parent):
+        for i in range(PROJECTILE_PREWARM_COUNT):
+            _make_pooled_bullet()
 
 func set_head_destroyed(broken: bool) -> void:
     if head_destroyed == broken:
@@ -71,9 +76,7 @@ func set_attack_type(next_attack: int) -> void:
     selected_attack = next_attack
     _cancel_warning()
     # For an isolated debug test, discard previous attack's live hitboxes.
-    if is_instance_valid(projectile_parent):
-        for child in projectile_parent.get_children():
-            child.queue_free()
+    clear_live_attacks()
     _remaining = 0.0  # Selecting an AUTO mode prepares its next warning promptly.
 
 func set_auto_fire(enabled: bool) -> void:
@@ -239,12 +242,37 @@ func _fire_selected_attack() -> void:
 func _fire_projectile() -> void:
     if not is_instance_valid(projectile_parent) or not is_instance_valid(player_node):
         return
+    var projectile: Area3D
+    for bullet in _bullet_pool:
+        if is_instance_valid(bullet) and not bullet.is_queued_for_deletion() and bool(bullet.get("pool_available")):
+            projectile = bullet
+            break
+    if projectile == null:
+        # Grow only if all initial slots are genuinely live. Never drop a shot.
+        projectile = _make_pooled_bullet()
+    projectile.call("activate_pooled", player_node, _locked_direction, projectile_speed, _locked_attack, _warning_origin)
+
+func _make_pooled_bullet() -> Area3D:
     var projectile: Area3D = PROJECTILE_SCRIPT.new()
-    projectile.call("configure", player_node, _locked_direction, projectile_speed, _locked_attack)
+    projectile.set("pooled", true)
     projectile_parent.add_child(projectile)
-    projectile.global_position = _warning_origin
-    # Bind at spawn time: later debug selection cannot change this hit.
-    projectile.connect("player_hit", Callable(self, "_on_projectile_hit").bind(true, _locked_attack))
+    projectile.connect("player_hit", Callable(self, "_on_pooled_bullet_hit").bind(projectile))
+    _bullet_pool.append(projectile)
+    return projectile
+
+func _on_pooled_bullet_hit(world_position: Vector3, travel_direction: Vector3, bullet: Area3D) -> void:
+    # Per-activation variant is immutable until recycle; debug changes do not
+    # reinterpret a hit from an already launched bullet.
+    _on_projectile_hit(world_position, travel_direction, true, int(bullet.get("visual_variant")))
+
+func clear_live_attacks() -> void:
+    if not is_instance_valid(projectile_parent):
+        return
+    for child in projectile_parent.get_children():
+        if child in _bullet_pool:
+            child.call("retire")
+        else:
+            child.queue_free()
 
 func _cancel_warning() -> void:
     _phase = FirePhase.COOLDOWN

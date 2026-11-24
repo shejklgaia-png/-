@@ -17,12 +17,21 @@ var visual_variant: int = 0  # v91: 0=aimed/orange, 1=lead/cyan
 var _lifetime: float = 0.0
 var _travel_distance: float = 0.0
 var _hit_reported: bool = false
+var pooled: bool = false
+var pool_available: bool = false
+var _recycling: bool = false
+var _core_material: StandardMaterial3D
+var _tail: MeshInstance3D
 
 func configure(player: CharacterBody3D, direction: Vector3, speed: float, variant: int = 0) -> void:
     player_node = player
     travel_direction = direction.normalized() if direction.length_squared() > 0.000001 else Vector3.FORWARD
     travel_speed = maxf(0.1, speed)
     visual_variant = variant
+    if is_instance_valid(_core_material):
+        _core_material.albedo_color = Color("70e4ff") if variant == 1 else Color("ff7951")
+        _core_material.emission = Color("26a9e5") if variant == 1 else Color("ff4c27")
+        _tail.position = -travel_direction * 0.29
 
 func _ready() -> void:
     collision_layer = 0  # Does not block movement or other bullets.
@@ -69,7 +78,46 @@ func _ready() -> void:
     tail.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     add_child(tail)
 
+    _core_material = main_material
+    _tail = tail
     body_entered.connect(_on_body_entered)
+    if pooled:
+        monitoring = false
+        visible = false
+        set_physics_process(false)
+        pool_available = true
+
+func activate_pooled(player: CharacterBody3D, direction: Vector3, speed: float, variant: int, origin: Vector3) -> void:
+    pool_available = false
+    _recycling = false
+    _hit_reported = false
+    _lifetime = 0.0
+    _travel_distance = 0.0
+    configure(player, direction, speed, variant)
+    global_position = origin
+    reset_physics_interpolation()
+    visible = true
+    set_physics_process(true)
+    set_deferred("monitoring", true)
+
+func retire() -> void:
+    if not pooled:
+        queue_free()
+        return
+    if _recycling or pool_available:
+        return
+    _recycling = true
+    _hit_reported = true
+    visible = false
+    set_physics_process(false)
+    # Disable overlap outside the physics query flush. Do not allow reuse
+    # until the deferred disable has been applied to this activation.
+    set_deferred("monitoring", false)
+    call_deferred("_finish_recycle")
+
+func _finish_recycle() -> void:
+    _recycling = false
+    pool_available = true
 
 func _physics_process(delta: float) -> void:
     if _hit_reported:
@@ -90,10 +138,10 @@ func _physics_process(delta: float) -> void:
     global_position += movement
     _travel_distance += movement.length()
     if _lifetime >= MAX_LIFETIME or _travel_distance >= MAX_TRAVEL_DISTANCE:
-        queue_free()
+        retire()
 
 func _on_body_entered(body: Node3D) -> void:
-    if body == player_node:
+    if not pool_available and not _recycling and body == player_node:
         _report_hit(global_position)
 
 func _report_hit(hit_position: Vector3) -> void:
@@ -101,4 +149,4 @@ func _report_hit(hit_position: Vector3) -> void:
         return  # Area callback + swept ray must not double-count a hit.
     _hit_reported = true
     player_hit.emit(hit_position, travel_direction)
-    queue_free()
+    retire()
