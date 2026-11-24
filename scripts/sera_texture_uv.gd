@@ -68,6 +68,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
         return {"error":"描画可能な三角形がありません"}
     charts = _edge_aligned_charts(tris,density,preserve_shape)
     charts = _split_overlapping_charts(tris,charts)
+    var initial_chart_count: int = charts.size()
     if preserve_shape:
         charts = _connect_hinge_charts(tris,charts)
         # Keep an orthonormal projection for every chart. Phase alignment
@@ -149,7 +150,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     arrays[Mesh.ARRAY_TEX_UV2] = diagnostic_uv
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size()}
+    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"initial_charts":initial_chart_count,"unwrap_version":"shape-hinge-v1" if preserve_shape else "boundary-v1"}
 
 ## Group connected coplanar triangles, and the two halves of slightly
 ## warped authored quads. Never use an internal triangulation diagonal
