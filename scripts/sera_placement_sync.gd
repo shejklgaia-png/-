@@ -14,6 +14,8 @@ func _ready() -> void:
         return
     request = HTTPRequest.new()
     request.timeout = 5.0
+    request.use_threads = true
+    request.body_size_limit = 4096
     add_child(request)
     request.request_completed.connect(_completed)
     timer = Timer.new()
