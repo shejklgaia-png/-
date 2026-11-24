@@ -1023,6 +1023,7 @@ static func build(parent: Node3D, nexus_origin: Vector3,
     for i in range(PowerBoard.CABLE_SEGMENTS + 1):
         board_path.append(PowerBoard.cable_point(float(i) / float(PowerBoard.CABLE_SEGMENTS)))
     cable_paths.append({"points": board_path, "radius": 0.145})
+    network.set_meta("cable_paths", cable_paths)
     var placed: Array[Vector2] = []
     # In the screenshot, the old GRID plug was behind the generator housing.
     # Move the visible seven-port manifold to the foreground gap, then
@@ -1116,6 +1117,7 @@ static func build(parent: Node3D, nexus_origin: Vector3,
             _append_tube(traces, cable, 0.019, 0.051)
     # Stable occupied power-device centers for the outdoor logistics grid.
     network.set_meta("logistics_obstacles", placed.duplicate())
+    network.set_meta("cable_paths", cable_paths)
     _build_devices(network, items)
     _finish_cables(network, wires, traces)
     _record_cable_status(network, cable_paths, endpoints.size())
@@ -1151,6 +1153,7 @@ static func build_budgeted(parent: Node3D, nexus_origin: Vector3,
     for i in range(PowerBoard.CABLE_SEGMENTS + 1):
         board_path.append(PowerBoard.cable_point(float(i) / float(PowerBoard.CABLE_SEGMENTS)))
     cable_paths.append({"points": board_path, "radius": 0.145})
+    network.set_meta("cable_paths", cable_paths)
     var placed: Array[Vector2] = []
     # In the screenshot, the old GRID plug was behind the generator housing.
     # Move the visible seven-port manifold to the foreground gap, then
@@ -1247,6 +1250,7 @@ static func build_budgeted(parent: Node3D, nexus_origin: Vector3,
             _append_tube(traces, cable, 0.019, 0.051)
     # Stable occupied power-device centers for the outdoor logistics grid.
     network.set_meta("logistics_obstacles", placed.duplicate())
+    network.set_meta("cable_paths", cable_paths)
     _build_devices(network, items)
     await budget.checkpoint("power device meshes")
     _finish_cables(network, wires, traces)
@@ -1287,3 +1291,18 @@ static func _build_crossing_ramps_budgeted(network: Node3D, paths: Array[Diction
     ramps.name = "CableCrossingRamps"
     network.add_child(ramps)
     await ramps.build_budgeted(paths, logistics, budget)
+
+
+# Cable routes are immutable after power generation; only the protective
+# geometry is derived from the final logistics road centerlines.
+static func install_protectors_budgeted(network: Node3D, logistics: Node3D, budget: Variant) -> void:
+    if not is_instance_valid(network) or not is_instance_valid(logistics):
+        return
+    var old: Node = network.get_node_or_null("CableCrossingRamps")
+    if old != null:
+        old.free()
+    var paths: Array[Dictionary] = []
+    if network.has_meta("cable_paths"):
+        paths.assign(network.get_meta("cable_paths"))
+    await _build_crossing_ramps_budgeted(network, paths, logistics, budget)
+    logistics.call("set_ramp_surface", network.get_node_or_null("CableCrossingRamps"))
