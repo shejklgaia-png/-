@@ -7563,7 +7563,9 @@ func _select_target(target_name: String) -> void:
     if nexus_room_motion != null:
         nexus_room_motion.set_deployment_open(target_name == "DEPLOYMENT")
         nexus_room_motion.set_customize_scan_parked(target_name == "CUSTOMIZE")
-    # Show the bright contour in the initial press event, before camera tween.
+    # Blue-white selection ink belongs to the overview only. Keep its
+    # hit polygons available but hide the CanvasItem before camera movement.
+    outline.hide()
     outline.set("active_target", target_name)
     _update_projected_silhouettes()
     outline.queue_redraw()
@@ -7664,7 +7666,7 @@ func _return_to_overview() -> void:
         nexus_room_motion.set_deployment_open(false)
     _set_single_part_preview_fullscreen(false)
     _clear_customization_part_glow()
-    # Back immediately ends the bright selection, before camera return.
+    # Keep selection ink hidden throughout the return camera tween.
     outline.set("active_target", "")
     outline.queue_redraw()
     # Hide the matte blue-grey grid on the Back press itself,
@@ -7733,6 +7735,8 @@ func _overview_arrived() -> void:
     _nexus_set_room_mark_visible(true)
     outline.set("hide_customize_preview_outline", false)
     _update_projected_silhouettes()
+    _flush_selection_pose()
+    outline.show()
     outline.queue_redraw()
 
 func _move_camera(destination: Transform3D, next_fov: float, arrived: Callable) -> void:
