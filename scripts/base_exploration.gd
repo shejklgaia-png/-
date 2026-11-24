@@ -1060,13 +1060,19 @@ func _create_layout_tools() -> void:
     layout_tools.add_child(layout_status)
     logistics_status = Label.new()
     logistics_status.name = "LogisticsStatus"
-    logistics_status.text = str(logistics.call("diagnostic_text")) if is_instance_valid(logistics) else "物流 " + logistics_creation_status
+    logistics_status.text = _base_diagnostic_text()
     logistics_status.add_theme_font_override("font", LaboSkin.ui_font())
     logistics_status.add_theme_font_size_override("font_size", 13)
     logistics_status.add_theme_color_override("font_color", Color("#b9dbe8"))
     logistics_status.mouse_filter = Control.MOUSE_FILTER_IGNORE
     logistics_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
     layout_tools.add_child(logistics_status)
+
+
+func _base_diagnostic_text() -> String:
+    var report: String = str(logistics.call("diagnostic_text")) if is_instance_valid(logistics) else "物流 " + logistics_creation_status
+    var cable_status: String = str(power_distribution.get_meta("cable_status", "未生成")) if is_instance_valid(power_distribution) else "未生成"
+    return report + "\n配線 " + cable_status
 
 
 func _toggle_facility_names() -> void:
@@ -1717,7 +1723,7 @@ func _process(delta: float) -> void:
         if logistics_diagnostic_elapsed >= 1.0:
             logistics_diagnostic_elapsed = 0.0
             if is_instance_valid(logistics_status):
-                logistics_status.text = str(logistics.call("diagnostic_text"))
+                logistics_status.text = _base_diagnostic_text()
     # The outdoor BASE is a fixed isometric menu while SERA is disabled.
     # Preserve dormant player-follow logic only for a future controls re-enable.
     if cam != null and HUB_SERA_CONTROLS_ENABLED:
