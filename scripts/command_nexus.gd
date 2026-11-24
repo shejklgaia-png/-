@@ -301,8 +301,9 @@ const BOSS_ENTRIES = [{"name": "ビットタラン  /  BITTARAN", "scene": BITTA
 # Each entry holds world-space 3D vertex clusters, one per visible mesh.
 var target_parts: Dictionary = {}
 # Display-only geometry. Never overwrite the authored touch/placement clusters.
-var training_contour_sources: Array[Dictionary] = []
-var training_contour_faces: Dictionary = {}
+var selection_render_sources: Dictionary = {}
+var gate_render_refs: Array[Dictionary] = []
+var selection_contour_faces: Dictionary = {}
 var gate_closed_door_parts: Array = []
 # Canonical placement keeps exact source part instances in the shared render
 # batches so touching a console never drags the wall or another nearby model.
@@ -419,6 +420,7 @@ func _ready() -> void:
     SharedMaterialShading.apply_to_subtree(self)
     _nexus_apply_practical_shading(self, true)
     _nexus_practical_lights()
+    _enable_nexus_base_ink(self)
     _wall_mark()
     # Capture the visible room roots before adding the exhibit and preview renderer.
     # Source visibility also controls their copies in the shared RGB-ID pass.
@@ -435,7 +437,7 @@ func _ready() -> void:
     id_outline.name = "ViewEdges"
     # Architecture gets NEXUS 3/0/2 + convex1; the displayed SERA
     # retains its universal character 4/0/2 (no old 2px override).
-    id_outline.set_outline_profile(2)
+    id_outline.set_outline_profile(0)
     add_child(id_outline)
     if CUSTOMIZE_SPECIAL_PRESENTATION_ENABLED:
         _create_customization_glow()
@@ -1138,6 +1140,8 @@ func _module(name: String, at: Vector3, yaw: float = 0.0, scale_factor: float = 
             refs.append({"batch_key": batch_key, "index": instances.size() - 1,
                 "transform": transform})
             canonical_core_refs[selected_shape] = refs
+        elif selected_shape == "DEPLOYMENT" and part_hit:
+            gate_render_refs.append({"batch_key": batch_key, "index": instances.size() - 1})
         batch_data[batch_key] = instances
     if not selected_shape.is_empty():
         target_parts[selected_shape] = silhouette_parts
@@ -4879,55 +4883,67 @@ func _update_projected_silhouettes() -> void:
     # Clip POLYLINES rather than filled polygons to avoid artificial borders
     # where a nearer silhouette hides the portal.
     var visible_strokes: Dictionary = {}
-    var training_shapes: Array[PackedVector2Array] = []
-    if contours.has("TRAINING") or contours.has("DEPLOYMENT"):
-        training_shapes = _project_training_render_contour()
-    if contours.has("TRAINING"):
-        var training_strokes: Array[PackedVector2Array] = []
-        for shape in training_shapes:
-            var closed := PackedVector2Array(shape)
-            closed.append(shape[0])
-            training_strokes.append(closed)
-        visible_strokes["TRAINING"] = training_strokes
+    var render_shapes: Dictionary = {}
+    for target in ["SYSTEM", "TRAINING", "DATA ARCHIVE", "CUSTOMIZE"]:
+        if contours.has(target) or contours.has("DEPLOYMENT"):
+            var shapes: Array[PackedVector2Array] = _project_render_contour(target)
+            render_shapes[target] = shapes
+            if contours.has(target):
+                visible_strokes[target] = _clip_gate_strokes(shapes, [])
     if contours.has("DEPLOYMENT"):
         var gate_occluders: Array = []
-        for nearer in ["CUSTOMIZE", "SYSTEM", "TRAINING"]:
-            if nearer == "TRAINING":
-                gate_occluders.append_array(training_shapes)
-                continue
-            var projected: Array = contours.get(nearer, [])
-            if projected.is_empty():
-                projected = _project_model_contour(nearer)
-            gate_occluders.append_array(projected)
-        # The last authored cluster is the separately movable launch kiosk.
-        # Clip the arch against the closed door footprint, not the kiosk.
-        # Door animation never creates a selection line inside the aperture.
-        var gate_parts: Array = target_parts.get("DEPLOYMENT", [])
-        var arch_parts: Array = gate_parts.slice(0, maxi(0, gate_parts.size() - 1))
+        for nearer in ["CUSTOMIZE", "SYSTEM", "TRAINING", "DATA ARCHIVE"]:
+            gate_occluders.append_array(render_shapes.get(nearer, []))
         var arch_masks: Array = gate_occluders.duplicate()
         arch_masks.append_array(_project_selection_clusters(gate_closed_door_parts))
         var gate_strokes: Array[PackedVector2Array] = _clip_gate_strokes(
-            _project_selection_clusters(arch_parts), arch_masks)
-        if not gate_parts.is_empty():
-            gate_strokes.append_array(_clip_gate_strokes(
-                _project_selection_clusters([gate_parts.back()]), gate_occluders))
+            _project_render_contour("GATE_ARCH"), arch_masks)
+        gate_strokes.append_array(_clip_gate_strokes(
+            _project_render_contour("DEPLOYMENT"), gate_occluders))
         visible_strokes["DEPLOYMENT"] = gate_strokes
     outline.set("clipped_strokes", visible_strokes)
 
-# Discover the actual rendered instances once, BEFORE saved canonical poses
-# are restored. All later projections read their live transforms, not boxes
-# belonging to the removed TRAINING tower or its old placement.
+# Only actual physical room geometry receives BASE ink. Emitters, screens,
+# lettering, VFX and the sliding door remain depth-only, never outlined.
+func _enable_nexus_base_ink(node: Node) -> void:
+    if node.name == "DeploymentSlidingArmor":
+        return
+    if node is MeshInstance3D or node is MultiMeshInstance3D:
+        var geometry := node as GeometryInstance3D
+        var mesh: Mesh
+        if node is MeshInstance3D:
+            mesh = (node as MeshInstance3D).mesh
+        elif (node as MultiMeshInstance3D).multimesh != null:
+            mesh = (node as MultiMeshInstance3D).multimesh.mesh
+        var material := geometry.material_override as BaseMaterial3D
+        var physical: bool = mesh != null and not (mesh is QuadMesh) and not (mesh is PlaneMesh)
+        if material != null:
+            physical = physical and material.transparency == BaseMaterial3D.TRANSPARENCY_DISABLED and not material.emission_enabled and not material.no_depth_test
+        else:
+            # Generated opaque material shaders are handled by the common ID
+            # eligibility check; never opt in an explicitly excluded effect.
+            physical = physical and not bool(node.get_meta("FX_NO_OUTLINE", false))
+        if physical and not bool(node.get_meta("sera_outline_emissive_protect", false)) and not node.has_meta("monitor_id"):
+            geometry.set_meta("sera_nexus_physical_ink", true)
+            geometry.set_meta("sera_outline_role", "facility")
+            geometry.remove_meta("sera_outline_occluder_only")
+    for child in node.get_children():
+        _enable_nexus_base_ink(child)
+
+# Capture stable instance membership before canonical placement restoration.
+# Live transforms are read for all selections; the input polygons stay intact.
 func _capture_selection_render_sources() -> void:
-    training_contour_sources.clear()
+    selection_render_sources.clear()
     gate_closed_door_parts.clear()
-    for ref_value in canonical_core_refs.get("TRAINING", []):
-        var ref_data: Dictionary = ref_value
-        var multi: MultiMesh = canonical_render_batches.get(int(ref_data["batch_key"])) as MultiMesh
-        var index: int = int(ref_data["index"])
-        if multi != null and multi.mesh != null and index >= 0 and index < multi.instance_count:
-            training_contour_sources.append({"multi": multi, "index": index, "node": self})
-    # Match the canonical editor's original spatial ownership for shared
-    # accessory batches, so a later PLACE movement preserves the silhouette.
+    for key in ["SYSTEM", "TRAINING", "DATA ARCHIVE", "GATE_ARCH", "DEPLOYMENT"]:
+        selection_render_sources[key] = []
+        var refs: Array = gate_render_refs if key == "GATE_ARCH" else canonical_core_refs.get(key, [])
+        for ref_value in refs:
+            var ref_data: Dictionary = ref_value
+            var multi: MultiMesh = canonical_render_batches.get(int(ref_data["batch_key"])) as MultiMesh
+            var index: int = int(ref_data["index"])
+            if multi != null and multi.mesh != null and index >= 0 and index < multi.instance_count:
+                selection_render_sources[key].append({"multi": multi, "index": index, "node": self})
     for root_name in ["NexusProceduralArchitecture", "NexusComplexMachining", "NexusSculptedFittings"]:
         var root := get_node_or_null(root_name)
         if root == null:
@@ -4941,18 +4957,22 @@ func _capture_selection_render_sources() -> void:
                 continue
             for index in range(multi.instance_count):
                 var base: Transform3D = multi.get_instance_transform(index)
-                var delta: Vector3 = base.origin - TRAINING_CONSOLE_ORIGIN
-                if Vector2(delta.x, delta.z).length() <= 1.58 and absf(delta.y) <= 3.10:
-                    training_contour_sources.append({"multi": multi, "index": index, "node": draw})
-    var casting := get_node_or_null("TrainingServiceAssembly")
-    if casting != null:
-        _collect_training_contour_meshes(casting, true)
-    for monitor_name in ["MON_N03", "MON_N04"]:
-        var monitor := get_node_or_null(monitor_name)
-        if monitor != null:
-            _collect_training_contour_meshes(monitor, false)
-    # The shutters already have FX_NO_OUTLINE and depth-only ID metadata.
-    # Record their closed footprint once, independent of their sliding pose.
+                for key in ["SYSTEM", "TRAINING"]:
+                    var center: Vector3 = canonical_placement_specs[key]["position"]
+                    var delta: Vector3 = base.origin - center
+                    if Vector2(delta.x, delta.z).length() <= 1.58 and absf(delta.y) <= 3.10:
+                        selection_render_sources[key].append({"multi": multi, "index": index, "node": draw})
+                        break
+    _collect_selection_meshes(get_node_or_null("TrainingServiceAssembly"), "TRAINING", true)
+    for key in ["SYSTEM", "TRAINING", "DATA ARCHIVE"]:
+        var monitors: Array = {"SYSTEM": ["MON_N01", "MON_N02"], "TRAINING": ["MON_N03", "MON_N04"], "DATA ARCHIVE": ["MON_N05", "MON_N06"]}[key]
+        for monitor_name in monitors:
+            _collect_selection_meshes(get_node_or_null(monitor_name), key, false)
+    _collect_selection_meshes(get_node_or_null("DeploymentWallDock/DeploymentConsolePlacementAnchor"), "DEPLOYMENT", true)
+    # Include the static housing of animated console attachments, without
+    # making internal rotating mechanisms a per-frame contour dependency.
+    _collect_selection_meshes(get_node_or_null("NexusRoomWorkingHardware/SystemCabinetMotion/CoolingHubHousing"), "SYSTEM", false)
+    _collect_selection_meshes(get_node_or_null("NexusRoomWorkingHardware/TrainingSensorMotion/GimbalBase"), "TRAINING", false)
     var door := get_node_or_null("NexusRoomWorkingHardware/DeploymentSlidingArmor")
     if door != null:
         var closed_vertices := PackedVector3Array()
@@ -4965,24 +4985,35 @@ func _capture_selection_render_sources() -> void:
         if closed_vertices.size() >= 3:
             gate_closed_door_parts.append(closed_vertices)
 
-func _collect_training_contour_meshes(node: Node, exact_faces: bool) -> void:
+func _collect_selection_meshes(node: Node, target: String, exact_faces: bool) -> void:
+    if node == null:
+        return
     if node is MeshInstance3D:
         var piece := node as MeshInstance3D
         if piece.mesh != null and piece.is_visible_in_tree():
-            training_contour_sources.append({"node": piece, "exact_faces": exact_faces})
+            selection_render_sources[target].append({"node": piece, "exact_faces": exact_faces})
+    elif node is MultiMeshInstance3D:
+        var draw := node as MultiMeshInstance3D
+        var multi: MultiMesh = draw.multimesh
+        if multi != null and multi.mesh != null:
+            for i in range(multi.instance_count):
+                selection_render_sources[target].append({"node": draw, "multi": multi, "index": i})
     for child in node.get_children():
-        _collect_training_contour_meshes(child, exact_faces)
+        _collect_selection_meshes(child, target, exact_faces)
 
 func _selection_mesh_faces(mesh: Mesh) -> PackedVector3Array:
     var key: int = mesh.get_instance_id()
-    if not training_contour_faces.has(key):
-        training_contour_faces[key] = mesh.get_faces()
-    return training_contour_faces[key]
+    if not selection_contour_faces.has(key):
+        selection_contour_faces[key] = mesh.get_faces()
+    return selection_contour_faces[key]
 
-func _project_training_render_contour() -> Array[PackedVector2Array]:
+func _project_render_contour(target: String) -> Array[PackedVector2Array]:
+    # The character capture already uses actual visible rig mesh vertices.
+    if target == "CUSTOMIZE":
+        return _project_model_contour(target)
     var solid_clusters: Array = []
     var casting_faces: Array = []
-    for source in training_contour_sources:
+    for source in selection_render_sources.get(target, []):
         var node: Node3D = source["node"] as Node3D
         if not is_instance_valid(node) or not node.is_visible_in_tree():
             continue
