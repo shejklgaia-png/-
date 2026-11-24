@@ -1984,13 +1984,31 @@ static func seam_pixels(tris: Array, atlas_size: Vector2i) -> Dictionary:
         var ub: PackedVector2Array = b.uv
         var ca: Vector2 = (ua[0]+ua[1]+ua[2])*size/3.0
         var cb: Vector2 = (ub[0]+ub[1]+ub[2])*size/3.0
-        var steps: int = clampi(ceili(maxf(((sa[1]-sa[0])*size).length(),((sb[1]-sb[0])*size).length())*2.0),1,2048)
-        for i in range(steps+1):
-            var f: float = float(i)/float(steps)
-            var qa: Vector2 = sa[0].lerp(sa[1],f)*size
-            var qb: Vector2 = sb[0].lerp(sb[1],f)*size
-            var pa: Vector2i = Vector2i((qa+(ca-qa).normalized()*0.12).floor()).clamp(Vector2i.ZERO,atlas_size-Vector2i.ONE)
-            var pb: Vector2i = Vector2i((qb+(cb-qb).normalized()*0.12).floor()).clamp(Vector2i.ZERO,atlas_size-Vector2i.ONE)
+        # Partition the shared 3D edge at every texel grid crossing on
+        # either UV island. A midpoint of each interval identifies the
+        # exact pair sampled by nearest filtering, even for unequal or
+        # diagonal edges. A tiny perpendicular inset avoids rounding
+        # outward into atlas padding along integer-aligned edges.
+        var aa: Vector2 = sa[0]*size
+        var ab: Vector2 = sa[1]*size
+        var ba: Vector2 = sb[0]*size
+        var bb: Vector2 = sb[1]*size
+        var inset_a: Vector2 = _seam_pixel_inset(aa,ab,ca)
+        var inset_b: Vector2 = _seam_pixel_inset(ba,bb,cb)
+        aa += inset_a
+        ab += inset_a
+        ba += inset_b
+        bb += inset_b
+        var cuts: Array[float] = [0.0,1.0]
+        _append_texel_cuts(cuts,aa,ab)
+        _append_texel_cuts(cuts,ba,bb)
+        cuts.sort()
+        for i in range(cuts.size()-1):
+            if cuts[i+1]-cuts[i] <= 0.0000001:
+                continue
+            var f: float = (cuts[i]+cuts[i+1])*0.5
+            var pa: Vector2i = Vector2i(aa.lerp(ab,f).floor()).clamp(Vector2i.ZERO,atlas_size-Vector2i.ONE)
+            var pb: Vector2i = Vector2i(ba.lerp(bb,f).floor()).clamp(Vector2i.ZERO,atlas_size-Vector2i.ONE)
             if pa == pb:
                 continue
             if not result.has(pa):
@@ -2002,6 +2020,26 @@ static func seam_pixels(tris: Array, atlas_size: Vector2i) -> Dictionary:
             if not (result[pb] as Array).has(pa):
                 (result[pb] as Array).append(pa)
     return result
+
+static func _seam_pixel_inset(a: Vector2,b: Vector2,center: Vector2) -> Vector2:
+    var edge: Vector2 = b-a
+    if edge.length_squared() < 0.00000001:
+        return Vector2.ZERO
+    var normal := Vector2(-edge.y,edge.x).normalized()
+    var height: float = (center-a).dot(normal)
+    return normal*signf(height)*minf(0.002,absf(height)*0.1)
+
+static func _append_texel_cuts(cuts: Array[float],a: Vector2,b: Vector2) -> void:
+    for axis in range(2):
+        var delta: float = b[axis]-a[axis]
+        if absf(delta) < 0.0000001:
+            continue
+        var lo: int = floori(minf(a[axis],b[axis]))+1
+        var hi: int = ceili(maxf(a[axis],b[axis]))
+        for grid in range(lo,hi):
+            var t: float = (float(grid)-a[axis])/delta
+            if t > 0.0 and t < 1.0:
+                cuts.append(t)
 
 ## Return barycentric weights at the nearest point on a triangle edge.
 ## The conservative half-diagonal fringe covers all nearest-filter texels
