@@ -1035,7 +1035,7 @@ static func _relax_affine_islands(tris: Array[Dictionary],charts: Array[Dictiona
         (adjacency[int(link.a)] as Array).append(li)
         (adjacency[int(link.b)] as Array).append(li)
     if links.is_empty():
-        return
+        return "共有辺なし"
     var baseline: Vector3 = _affine_metrics(links,params,pivots)
     var best_score: Vector3 = baseline
     var best_params: Array = params.duplicate()
@@ -1070,8 +1070,9 @@ static func _relax_affine_islands(tris: Array[Dictionary],charts: Array[Dictiona
         if score.x <= baseline.x+0.00001 and score.y <= baseline.y and score.z < best_score.z-0.00001:
             best_score = score
             best_params = params.duplicate()
+    var summary: String = "候補 %d / 問題辺 %d→%d / 最大 %.3f→%.3fpx / 二乗和 %.3f→%.3f" % [accepted,int(baseline.y),int(best_score.y),baseline.x,best_score.x,baseline.z,best_score.z]
     if best_score.z >= baseline.z-0.00001:
-        return
+        return "不採用（残差条件） / "+summary
     # Calculate proposed bounds before committing; keep atlas size.
     var next_charts: Array[Dictionary] = []
     for chart in charts:
@@ -1095,8 +1096,10 @@ static func _relax_affine_islands(tris: Array[Dictionary],charts: Array[Dictiona
     for c in next_charts:
         var lo: Vector2 = c.min
         c.min = lo.floor()
-    if _hinge_pack_side(next_charts) > _hinge_pack_side(charts):
-        return
+    var old_side: int = _hinge_pack_side(charts)
+    var new_side: int = _hinge_pack_side(next_charts)
+    if new_side > mini(1024,old_side*2):
+        return "不採用（容量条件 %d→%d） / " % [old_side,new_side]+summary
     for i in range(tris.size()):
         tris[i].xy = next_xy[i]
     for ci in range(charts.size()):
