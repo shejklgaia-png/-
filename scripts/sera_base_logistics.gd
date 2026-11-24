@@ -112,10 +112,116 @@ var _vehicle_count: int = 0
 var _cargo_count: int = 0
 var _ready_for_motion: bool = false
 var _facility_motion: Dictionary = {}
+var _intakes: Dictionary = {}
+const INTAKE_ITEM_TIME: float = 5.0
 
 func bind_facility_motion(key: String, motion: Node) -> void:
     if is_instance_valid(motion):
         _facility_motion[key] = motion
+        if motion.has_method("material_intake_world") and _docks.has(key):
+            _build_intake(key, motion)
+
+# Fixed straight overhead shuttle, surveyed from the dock stage to the
+# real machine mouth. The hoist can slide across the two rack slots.
+func _build_intake(key: String, motion: Node) -> void:
+    var d: Dock = _docks[key]
+    var target: Vector3 = to_local(motion.call("material_intake_world"))
+    var rail_y: float = to_local(Vector3(0,float(motion.call("material_rail_world_y")),0)).y
+    var start := _v3(d.stage, rail_y)
+    var end := Vector3(target.x,rail_y,target.z)
+    var axis: Vector3 = (end-start).normalized()
+    var side := Vector3(-axis.z,0,axis.x)
+    var g: Variant = _template()
+    g.rod("IntakeRail",start-side*0.19,end-side*0.19,0.10,"trim")
+    g.rod("IntakeRail",start+side*0.19,end+side*0.19,0.10,"trim")
+    for point in [start,end]:
+        var p: Vector3 = point
+        g.rod("IntakeCrossmember",p-side*0.56,p+side*0.56,0.12,"edge")
+    # Dock mast, braced clear of the moving pallet and existing gripper.
+    var mast: Vector3 = start-axis*0.72+side*0.68
+    g.rod("IntakeMast",Vector3(mast.x,0.10,mast.z),mast,0.16,"slate")
+    g.rod("IntakeMastBrace",mast,start,0.14,"edge")
+    # Machine end is cantilevered from a side support outside the mouth.
+    var anchor: Vector3 = end+side*0.70
+    g.rod("IntakeEndBrace",end,anchor+Vector3.DOWN*0.65,0.14,"edge")
+    g.rod("IntakeEndSupport",anchor+Vector3.DOWN*0.65,anchor+Vector3.DOWN*1.30,0.15,"slate")
+    _direct_visual(g,"intake_rail_"+key,"MaterialIntakeRail_"+key)
+    var trolley_model: Variant = _template()
+    trolley_model.box("IntakeTrolley",Vector3.ZERO,Vector3(0.44,0.16,0.38),"slate")
+    var trolley: Visual = _direct_visual(trolley_model,"intake_trolley","IntakeTrolley_"+key)
+    var hoist_model: Variant = _template()
+    hoist_model.rod("IntakeHoistCable",Vector3(0,-0.5,0),Vector3(0,0.5,0),0.034,"edge")
+    var hoist: Visual = _direct_visual(hoist_model,"intake_hoist","IntakeHoist_"+key)
+    var grip_model: Variant = _template()
+    grip_model.box("IntakeGripBeam",Vector3(0,0.05,0),Vector3(0.61,0.10,0.13),"gold")
+    for sign in [-1.0,1.0]:
+        grip_model.box("IntakeGripJaw",Vector3(sign*0.30,-0.08,0),Vector3(0.06,0.24,0.21),"edge")
+    var grip: Visual = _direct_visual(grip_model,"intake_grip","IntakeGrip_"+key)
+    _intakes[key] = {"target":target,"rail_y":rail_y,"start":start,"end":end,
+        "trolley":trolley,"hoist":hoist,"grip":grip}
+    _apply_visual_pose(trolley,_pose(start),true)
+    _apply_visual_pose(hoist,Transform3D.IDENTITY,false)
+    _apply_visual_pose(grip,Transform3D.IDENTITY,false)
+
+func _intake_pose(record: Dictionary, cargo_at: Vector3, yaw: float, shown: bool) -> void:
+    var top := Vector3(cargo_at.x,float(record["rail_y"]),cargo_at.z)
+    var grip_at: Vector3 = cargo_at+Vector3.UP*0.37
+    _apply_visual_pose(record["trolley"],_pose(top,yaw),true)
+    _apply_visual_pose(record["hoist"],_segment(top,grip_at),shown)
+    _apply_visual_pose(record["grip"],_pose(grip_at,yaw),shown)
+
+func _feed_stock(t: Truck, dt: float) -> void:
+    var key: String = t.destination if t.leg == 1 else "STORAGE"
+    var d: Dock = _dock_for(t)
+    var r: Dictionary = _intakes[key]
+    t.clock += dt
+    var i: int = mini(1,floori(t.clock/INTAKE_ITEM_TIME))
+    var phase: float = minf(INTAKE_ITEM_TIME,t.clock-float(i)*INTAKE_ITEM_TIME)
+    var rack: Vector3 = _rack_slot(d,i)
+    var mouth: Vector3 = r["target"]
+    var high: float = float(r["rail_y"])-0.65
+    var above_rack := Vector3(rack.x,high,rack.z)
+    var above_mouth := Vector3(mouth.x,high,mouth.z)
+    var at: Vector3 = rack
+    var visible: bool = true
+    var lift: float = RACK_Y
+    if phase < 0.55:
+        lift = lerpf(RACK_Y-0.48,RACK_Y,smoothstep(0.0,0.55,phase))
+        at.y = lift
+    elif phase < 1.35:
+        at = rack.lerp(above_rack,smoothstep(0.55,1.35,phase))
+    elif phase < 2.45:
+        at = above_rack.lerp(above_mouth,smoothstep(1.35,2.45,phase))
+    elif phase < 3.15:
+        at = above_mouth.lerp(mouth,smoothstep(2.45,3.15,phase))
+    elif phase < 3.65:
+        at = mouth
+    elif phase < 4.1:
+        at = mouth.lerp(above_mouth,smoothstep(3.65,4.1,phase))
+        visible = false
+    else:
+        at = above_mouth.lerp(above_rack,smoothstep(4.1,5.0,phase))
+        visible = false
+    _buffer_pose(d,i,lift,1.0-smoothstep(0.55,1.35,phase))
+    var pose: Transform3D = _pose(at,d.yaw)
+    if key != "STORAGE" and phase >= 3.15 and phase < 3.65:
+        pose.basis = pose.basis * Basis(Vector3.RIGHT,1.1*smoothstep(3.15,3.55,phase))
+    _apply_visual_pose(t.cargo[i],pose,visible)
+    for j in range(t.cargo.size()):
+        if j != i:
+            _apply_visual_pose(t.cargo[j],_pose(_rack_slot(d,j),d.yaw),false)
+    _intake_pose(r,at,d.yaw,phase < 4.99)
+    if t.clock >= INTAKE_ITEM_TIME*2.0:
+        for j in range(2):
+            _buffer_pose(d,j,RACK_Y-0.48,0.0)
+            _apply_visual_pose(t.cargo[j],Transform3D.IDENTITY,false)
+        _intake_pose(r,Vector3(rack.x,high,rack.z),d.yaw,false)
+        var motion: Node = _facility_motion.get(key)
+        if is_instance_valid(motion):
+            motion.call("begin_material_cycle")
+        t.mode = "process_stock"
+        t.clock = 0.0
+
 
 func _xz(v: Vector3) -> Vector2:
     return Vector2(v.x, v.z)
@@ -709,7 +815,7 @@ func diagnostic_text() -> String:
             waiting += 1
         elif t.mode == "drive":
             driving += 1
-        elif t.mode in ["align","load","unload","process_stock"]:
+        elif t.mode in ["align","load","unload","feed_stock","process_stock"]:
             handling += 1
     return "物流 %s\n車体 %d/%d  経路 %d\n画面内 %d  貨物 %d\n走行 %d  荷役 %d  譲合 %d\nドック %d" % [
         _phase, _vehicle_count, FLEET_SIZE, _planned_count, projected, _cargo_count, driving, handling, waiting, _docks.size()]
@@ -1034,8 +1140,8 @@ func _make_truck_details(t: Truck) -> void:
             _cargo_count += 1
 
 
-func _cargo_mesh(raw: bool, i: int, destination: String) -> ArrayMesh:
-    var key: String = ("raw" if raw else destination) + str(i)
+func _cargo_mesh(raw: bool, i: int, destination: String, variant: int = 0) -> ArrayMesh:
+    var key: String = ("raw" if raw else destination+str(variant)) + str(i)
     if not _solid_meshes.has(key):
         var cargo: Variant = _template()
         if raw:
@@ -1067,16 +1173,23 @@ func _cargo_mesh(raw: bool, i: int, destination: String) -> ArrayMesh:
                     cargo.poly_tilt("RecoveredMotor", "drum", Vector3(0.12,0.21,-0.14),
                         Vector3(0.20,0.22,0.20), "armor_light", Vector3(0,0,PI*0.5))
                 _:
-                    cargo.poly("FabricatedShell", "vent_stack",Vector3(0,0.23,0),
-                        Vector3(0.44,0.31,0.43), "blue")
-                    cargo.poly("FabricatedCollar", "gear",Vector3(0,0.14,0),
-                        Vector3(0.47,0.10,0.46), "edge")
+                    var forms: Array[String] = ["vent_stack","gear","bevel","octagonal_slew"]
+                    var colors: Array[String] = ["blue","edge","armor_light","gold"]
+                    var k: int = posmod(variant,forms.size())
+                    cargo.poly("FabricatedPart",forms[k],Vector3(0,0.23,0),
+                        Vector3(0.44,0.31,0.43), colors[k])
         _solid_meshes[key] = _bake_mesh(cargo)
     return _solid_meshes[key]
 
 
 func _cargo_kind(t: Truck, raw: bool) -> void:
     t.raw = raw
+    if not raw and t.destination == "LABO" and _facility_motion.has("LABO"):
+        var motion: Node = _facility_motion["LABO"]
+        if is_instance_valid(motion) and motion.has_method("material_print_variant"):
+            var variant: int = int(motion.call("material_print_variant"))
+            for i in range(t.product_meshes.size()):
+                t.product_meshes[i] = _cargo_mesh(false,i,t.destination,variant)
     for i in range(t.cargo.size()):
         t.cargo[i].node.mesh = t.raw_meshes[i] if raw else t.product_meshes[i]
 
@@ -1212,7 +1325,7 @@ func _truck_pose(t: Truck) -> void:
     for i in range(t.treads.size()):
         var z: float = -0.56 + fposmod(float(i) * 0.14 - t.tread_distance, 1.12)
         _apply_visual_pose(t.treads[i], shell * _pose(Vector3(0, 0, z)))
-    if t.mode not in ["load", "unload"]:
+    if t.mode not in ["load", "unload", "feed_stock"]:
         for i in range(t.cargo.size()):
             _apply_visual_pose(t.cargo[i], Transform3D(p.basis, _deck_slot(t, i)), t.loaded)
 
@@ -1530,8 +1643,11 @@ func _handle(t: Truck, d: Dock, dt: float) -> void:
             var site: String = t.destination if t.leg == 1 else "STORAGE"
             var motion: Node = _facility_motion.get(site)
             if is_instance_valid(motion) and motion.has_method("begin_material_cycle"):
-                motion.call("begin_material_cycle")
-                t.mode = "process_stock"
+                if _intakes.has(site):
+                    t.mode = "feed_stock"
+                else:
+                    motion.call("begin_material_cycle")
+                    t.mode = "process_stock"
                 t.clock = 0.0
                 return
             if t.leg == 1:
@@ -1573,6 +1689,8 @@ func advance(delta: float) -> void:
                         t.clock = 0.0
                 "load", "unload":
                     _handle(t, _dock_for(t), STEP)
+                "feed_stock":
+                    _feed_stock(t, STEP)
                 "process_stock":
                     var site: String = t.destination if t.leg == 1 else "STORAGE"
                     var motion: Node = _facility_motion.get(site)
