@@ -38,6 +38,23 @@ static func deck_material(source: StandardMaterial3D) -> ShaderMaterial:
         Vector2(source.uv1_offset.x, source.uv1_offset.y))
     return output
 
+# One silver steel finish for the BASE site slabs and full-size work decks.
+const WORKSITE_SILVER := Color("#87939d")
+const WORKSITE_SILVER_ALT := Color("#76838e")
+const WORKSITE_TEXTURE := "res://assets/base/industrial_deck_wear.svg"
+
+static func worksite_material(alternate: bool = false, base_framing: bool = false) -> ShaderMaterial:
+    var source := StandardMaterial3D.new()
+    source.albedo_color = WORKSITE_SILVER_ALT if alternate else WORKSITE_SILVER
+    if ResourceLoader.exists(WORKSITE_TEXTURE):
+        source.albedo_texture = load(WORKSITE_TEXTURE) as Texture2D
+    var mat := deck_material(source)
+    # Keep the BASE-specific floor framing only in the BASE camera.
+    if not base_framing:
+        mat.set_shader_parameter("top_edge_darkness",0.0)
+        mat.set_shader_parameter("lower_corner_darkness",0.0)
+    return mat
+
 static func _make_patch_batch(root: Node3D, name: String,
         patches: Array[Dictionary], tint_strength: float) -> void:
     if patches.is_empty():

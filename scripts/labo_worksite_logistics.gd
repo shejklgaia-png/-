@@ -163,6 +163,8 @@ func _support_floor(p: Vector3) -> float:
         return 0.0 if Rect2(-15.2,-10.9,29.0,24.0).has_point(Vector2(p.x,p.z)) else -0.35
     if key=="STORAGE":
         return 0.0 if Rect2(-15.4,-10.0,30.0,25.0).has_point(Vector2(p.x,p.z)) else -0.35
+    if key=="SMELTER":
+        return 0.0 if Rect2(-18.5,-13.0,36.0,36.0).has_point(Vector2(p.x,p.z)) else -0.03
     return -0.03
 
 func _gantry(label: String,a: Vector3,z: Vector3,height: float,build_structure: bool = true,wide_travel: bool = false) -> Dictionary:
