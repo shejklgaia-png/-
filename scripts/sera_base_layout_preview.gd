@@ -309,6 +309,8 @@ static func reserve_props_budgeted(nexus_origin: Vector3, specs: Array,
             for ring in range(0, 10):
                 var samples: int = 1 if ring == 0 else 20
                 for j in range(samples):
+                    if budget != null:
+                        await budget.checkpoint("prop placement candidate")
                     var phi: float = TAU * float(j) / float(samples)
                     part["at"] = original + Vector2(cos(phi), sin(phi)) * float(ring) * 0.42
                     var local: Rect2 = prop_envelope(part)
@@ -362,6 +364,60 @@ static func reserve_salvage(preferred: Vector2, radius: float, nexus_origin: Vec
     for ring in range(0, 38):
         var samples: int = 1 if ring == 0 else 24
         for j in range(samples):
+            var phi: float = TAU * float(j) / float(samples)
+            var point: Vector2 = preferred + Vector2(cos(phi), sin(phi)) * float(ring) * 0.65
+            var rect := Rect2(point - Vector2.ONE * radius, Vector2.ONE * radius * 2.0)
+            if not bool(logistics.call("placement_clear", rect)):
+                continue
+            if rect.intersects(Rect2(-4.4, -7.7, 8.8, 13.7)):
+                continue
+            var blocked: bool = false
+            for site in sites:
+                var center: Vector2 = site["at"]
+                var half_size: Vector2 = site["minimum"] * 0.5
+                if rect.intersects(Rect2(center - half_size, half_size * 2.0).grow(0.22)):
+                    blocked = true
+                    break
+            if blocked:
+                continue
+            for prop_rect in prop_rects:
+                if rect.intersects(prop_rect):
+                    blocked = true
+                    break
+            if blocked:
+                continue
+            # The collector's long incoming belt extends beyond its pad.
+            var collector: Vector2 = Vector2.ZERO
+            for site in sites:
+                if str(site["id"]) == "SCRAP_COLLECTOR":
+                    collector = site["at"]
+                    break
+            var belt_turn := Basis(Vector3.UP, deg_to_rad(56.0))
+            var belt_local: Vector3 = belt_turn.inverse() * Vector3(point.x - collector.x, 0, point.y - collector.y)
+            if Rect2(-9.05, 0.33, 7.60, 3.30).grow(radius).has_point(Vector2(belt_local.x, belt_local.z)):
+                continue
+            for earlier in occupied:
+                if point.distance_to(earlier) < radius + 1.55:
+                    blocked = true
+                    break
+            if not blocked:
+                return point
+    return Vector2.INF
+
+
+static func reserve_salvage_budgeted(preferred: Vector2, radius: float, nexus_origin: Vector3,
+        specs: Array, logistics: Node3D, occupied: Array[Vector2], budget: Variant) -> Vector2:
+    var sites: Array[Dictionary] = Deck.facility_sites(nexus_origin, specs)
+    var prop_rects: Array[Rect2] = []
+    for site in sites:
+        var center: Vector2 = site["at"]
+        for prop in Clutter.props_for(str(site["id"])):
+            var local: Rect2 = prop_envelope(prop)
+            prop_rects.append(Rect2(local.position + center, local.size))
+    for ring in range(0, 38):
+        var samples: int = 1 if ring == 0 else 24
+        for j in range(samples):
+            await budget.checkpoint("scrap placement candidate")
             var phi: float = TAU * float(j) / float(samples)
             var point: Vector2 = preferred + Vector2(cos(phi), sin(phi)) * float(ring) * 0.65
             var rect := Rect2(point - Vector2.ONE * radius, Vector2.ONE * radius * 2.0)
