@@ -880,6 +880,8 @@ static func build(parent: Node3D, nexus_origin: Vector3,
         for cable in [feed, delivery]:
             _append_tube(wires, cable, 0.070, 0.0)
             _append_tube(traces, cable, 0.019, 0.051)
+    # Stable occupied power-device centers for the outdoor logistics grid.
+    network.set_meta("logistics_obstacles", placed.duplicate())
     _build_devices(network, items)
     _finish_cables(network, wires, traces)
     # Recomputed only at scene construction / user-requested layout reset:

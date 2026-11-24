@@ -23,6 +23,7 @@ const JunkGeometry = preload("res://scripts/sera_base_junk_geometry.gd")
 const BaseFloorDetail = preload("res://scripts/sera_base_floor_detail.gd")
 const BaseFloorLighting = preload("res://scripts/sera_base_floor_lighting.gd")
 const BaseDeckLayout = preload("res://scripts/sera_base_deck_layout.gd")
+const BaseLogistics = preload("res://scripts/sera_base_logistics.gd")
 const BasePolygon = preload("res://scripts/sera_base_polygon_meshes.gd")
 const WEATHERED_STEEL_PATH: String = "res://assets/base/industrial_steel_grunge.svg"
 const WEATHERED_DECK_PATH: String = "res://assets/base/industrial_deck_wear.svg"
@@ -114,6 +115,7 @@ var layout_seed: int = 0
 var layout_rerolls: int = 0
 var power_zone: Node3D
 var power_distribution: Node3D
+var logistics: Node3D
 var power_back_button: Button
 var power_view_active: bool = false
 var power_camera_tween: Tween
@@ -166,6 +168,7 @@ func _ready() -> void:
     await get_tree().process_frame
     await get_tree().process_frame
     _create_salvage()
+    _build_logistics()
     _startup_step("ARCHIVE / SALVAGE INDEXED", 79)
     await get_tree().process_frame
     await get_tree().process_frame
@@ -458,6 +461,17 @@ func _build_power_distribution() -> void:
         power_distribution.free()
     power_distribution = BasePowerDistribution.build(
         self, NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, cam)
+
+
+func _build_logistics() -> void:
+    if is_instance_valid(logistics):
+        logistics.free()
+    logistics = BaseLogistics.new()
+    logistics.name = "BaseLogistics"
+    logistics.set_meta("sera_outline_role", "clutter")
+    add_child(logistics)
+    logistics.call("setup", self, NEXUS_BUILDING_ORIGIN,
+        BaseFacilities.FACILITY_SPECS, power_distribution, CRATE_WAYPOINTS)
 
 
 func _create_grid_selection() -> void:
@@ -1101,6 +1115,7 @@ func _apply_layout_preview(selected: Dictionary) -> void:
         if pile != null:
             pile.free()
     _create_salvage(scrap)
+    _build_logistics()
     # Rerolled facility geometry is newly instantiated after initial shading.
     SharedMaterialShading.apply_to_subtree(self)
     layout_seed = int(selected["seed"])
@@ -1545,6 +1560,8 @@ func _process(delta: float) -> void:
         if rig != null:
             rig.call("set_moving", moving, false, Vector2(0, 1), false)
     _update_crate(delta)
+    if is_instance_valid(logistics) and not power_view_active:
+        logistics.call("advance", delta)
     # The outdoor BASE is a fixed isometric menu while SERA is disabled.
     # Preserve dormant player-follow logic only for a future controls re-enable.
     if cam != null and HUB_SERA_CONTROLS_ENABLED:
