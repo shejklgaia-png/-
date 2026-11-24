@@ -69,6 +69,7 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
     charts = _edge_aligned_charts(tris,density)
     charts = _split_overlapping_charts(tris,charts)
     _match_rectified_edge_counts(tris,charts)
+    _align_triangular_grids(tris,charts)
     _synchronize_chart_grids(tris,charts)
     var order: Array[int] = []
     for i in range(charts.size()):
@@ -406,9 +407,11 @@ static func _rectify_quad(tris: Array[Dictionary], members: Array, perimeter: Ar
     var best: float = INF
     for i in range(4):
         var direction: Vector2 = corners[(i+1)%4]-corners[i]
-        if direction.x <= 0.0 or absf(direction.y) > direction.x*0.35:
+        if direction.x <= 0.000001:
             continue
-        var score: float = (corners[i].y+corners[(i+1)%4].y)*0.5
+        # Prefer the bottom-facing edge, but do not reject tilted quads
+        # just because their lowest edge is not almost horizontal.
+        var score: float = (corners[i].y+corners[(i+1)%4].y)*0.5 + absf(direction.y)*0.25
         if score < best:
             bottom = i
             best = score
@@ -421,22 +424,36 @@ static func _rectify_quad(tris: Array[Dictionary], members: Array, perimeter: Ar
     var width: float = maxf(1.0,roundf((q0.distance_to(q1)+q2.distance_to(q3))*0.5))
     var height: float = maxf(1.0,roundf((q0.distance_to(q3)+q1.distance_to(q2))*0.5))
     var proposed: Array[PackedVector2Array] = []
+    var local_corners: Array[Vector2] = [q0,q1,q2,q3]
+    var grid_corners: Array[Vector2] = [Vector2.ZERO,Vector2(width,0),Vector2(width,height),Vector2(0,height)]
+    var short_face: bool = minf(width,height) <= 4.0
     for id in members:
         var t: Dictionary = tris[id]
         var old: PackedVector2Array = t.xy
         var mapped := PackedVector2Array()
         for point in old:
-            var st: Vector2 = _quad_coordinates(point,q0,q1,q2,q3)
-            if st.x < -0.001 or st.x > 1.001 or st.y < -0.001 or st.y > 1.001:
-                return
-            mapped.append(st.clamp(Vector2.ZERO,Vector2.ONE)*Vector2(width,height))
+            var corner_index: int = -1
+            for k in range(4):
+                if point.distance_squared_to(local_corners[k]) <= 0.00000001:
+                    corner_index = k
+                    break
+            if corner_index >= 0:
+                mapped.append(grid_corners[corner_index])
+            else:
+                var st: Vector2 = _quad_coordinates(point,q0,q1,q2,q3)
+                if st.x < -0.001 or st.x > 1.001 or st.y < -0.001 or st.y > 1.001:
+                    return
+                mapped.append(st.clamp(Vector2.ZERO,Vector2.ONE)*Vector2(width,height))
         var old_area: float = (old[1]-old[0]).cross(old[2]-old[0])
         var new_area: float = (mapped[1]-mapped[0]).cross(mapped[2]-mapped[0])
-        if absf(old_area) < 0.000001 or new_area/old_area < 0.45 or new_area/old_area > 1.9:
+        if absf(old_area) < 0.000001:
+            return
+        var area_ratio: float = new_area/old_area
+        if area_ratio < (0.20 if short_face else 0.35) or area_ratio > (3.0 if short_face else 2.3):
             return
         for k in range(3):
             var ratio: float = mapped[k].distance_to(mapped[(k+1)%3])/maxf(0.000001,old[k].distance_to(old[(k+1)%3]))
-            if ratio < 0.65 or ratio > 1.45:
+            if ratio < (0.35 if short_face else 0.50) or ratio > (2.5 if short_face else 1.75):
                 return
         proposed.append(mapped)
     for i in range(members.size()):
@@ -631,15 +648,31 @@ static func _segment_uv(t: Dictionary, edge: int, start: float, finish: float, f
 static func _match_rectified_edge_counts(tris: Array[Dictionary],charts: Array[Dictionary]) -> void:
     var parent := PackedInt32Array()
     parent.resize(charts.size()*2)
+    var lower := PackedInt32Array()
+    var upper := PackedInt32Array()
+    var totals := PackedFloat32Array()
+    var counts := PackedInt32Array()
+    lower.resize(parent.size())
+    upper.resize(parent.size())
+    totals.resize(parent.size())
+    counts.resize(parent.size())
     for i in range(parent.size()):
         parent[i] = i
-    var constraints: Array[Vector2i] = []
+        var chart: Dictionary = charts[i/2]
+        if bool(chart.get("rectified",false)):
+            var size: Vector2 = chart.max
+            var old: float = size[i%2]
+            # A one-pixel rounding tolerance is essential for 1–4px faces.
+            lower[i] = maxi(1,ceili(minf(old*0.75,old-1.0)))
+            upper[i] = maxi(lower[i],floori(maxf(old*1.33,old+1.0)))
+            totals[i] = old
+            counts[i] = 1
+    var constraints: Array[Dictionary] = []
     for link in _seam_segments(tris):
         var ca: int = int(link.a)
         var cb: int = int(link.b)
         if not bool(charts[ca].get("rectified",false)) or not bool(charts[cb].get("rectified",false)):
             continue
-        # Partial-edge links must not equate whole rectangle dimensions.
         if absf(float(link.a1)-float(link.a0)) < 0.9999 or absf(float(link.b1)-float(link.b0)) < 0.9999:
             continue
         var a: PackedVector2Array = _segment_uv(tris[link.ta],link.ea,link.a0,link.a1,"xy")
@@ -654,26 +687,32 @@ static func _match_rectified_edge_counts(tris: Array[Dictionary],charts: Array[D
         var size_b: Vector2 = charts[cb].max
         if absf(da[axis_a]-size_a[axis_a]) > 0.001 or absf(db[axis_b]-size_b[axis_b]) > 0.001:
             continue
-        if maxf(da[axis_a],db[axis_b])/maxf(1.0,minf(da[axis_a],db[axis_b])) > 1.4:
-            continue
-        constraints.append(Vector2i(ca*2+axis_a,cb*2+axis_b))
+        constraints.append({"a":ca*2+axis_a,"b":cb*2+axis_b,"weight":float(link.weight)})
+    constraints.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
+        if not is_equal_approx(float(a.weight),float(b.weight)):
+            return float(a.weight) > float(b.weight)
+        if int(a.a) != int(b.a):
+            return int(a.a) < int(b.a)
+        return int(a.b) < int(b.b))
+    # Merge only feasible groups, never discard all of a good component
+    # just because a later edge introduces an incompatible dimension.
     for pair in constraints:
-        _join(parent,pair.x,pair.y)
-    var totals: Dictionary = {}
-    for i in range(charts.size()):
-        if not bool(charts[i].get("rectified",false)):
+        var ra: int = _root(parent,int(pair.a))
+        var rb: int = _root(parent,int(pair.b))
+        if ra == rb:
             continue
-        var size: Vector2 = charts[i].max
-        for axis in range(2):
-            var root: int = _root(parent,i*2+axis)
-            var old: float = size[axis]
-            if not totals.has(root):
-                totals[root] = {"sum":0.0,"count":0,"min":old,"max":old}
-            var group: Dictionary = totals[root]
-            group.sum = float(group.sum)+old
-            group.count = int(group.count)+1
-            group.min = minf(float(group.min),old)
-            group.max = maxf(float(group.max),old)
+        var lo: int = maxi(lower[ra],lower[rb])
+        var hi: int = mini(upper[ra],upper[rb])
+        if lo > hi:
+            continue
+        var sum_value: float = totals[ra]+totals[rb]
+        var sum_count: int = counts[ra]+counts[rb]
+        _join(parent,ra,rb)
+        var root: int = _root(parent,ra)
+        lower[root] = lo
+        upper[root] = hi
+        totals[root] = sum_value
+        counts[root] = sum_count
     var scales := PackedVector2Array()
     scales.resize(charts.size())
     for i in range(charts.size()):
@@ -683,10 +722,8 @@ static func _match_rectified_edge_counts(tris: Array[Dictionary],charts: Array[D
         var old: Vector2 = charts[i].max
         var target: Vector2 = old
         for axis in range(2):
-            var group: Dictionary = totals[_root(parent,i*2+axis)]
-            var count: float = maxf(1.0,roundf(float(group.sum)/float(group.count)))
-            if count/float(group.min) <= 1.25 and count/float(group.max) >= 0.8:
-                target[axis] = count
+            var root: int = _root(parent,i*2+axis)
+            target[axis] = float(clampi(roundi(totals[root]/maxi(1,counts[root])),lower[root],upper[root]))
         scales[i] = target/old.max(Vector2.ONE)
         charts[i].max = target
     for t in tris:
@@ -695,6 +732,108 @@ static func _match_rectified_edge_counts(tris: Array[Dictionary],charts: Array[D
         for k in range(coords.size()):
             coords[k] *= scale
         t.xy = coords
+
+## A triangular face cannot have all three edges axis-aligned. Fit its
+## longest adjacent rectified edge exactly; if a second rectified edge
+## meets it at a corner, try both integer axes and retain a valid fit.
+static func _align_triangular_grids(tris: Array[Dictionary],charts: Array[Dictionary]) -> void:
+    var members: Array = []
+    var targets: Array = []
+    for i in range(charts.size()):
+        members.append([])
+        targets.append([])
+    for i in range(tris.size()):
+        (members[int(tris[i].chart)] as Array).append(i)
+    for link in _seam_segments(tris):
+        if absf(float(link.a1)-float(link.a0)) < 0.9999 or absf(float(link.b1)-float(link.b0)) < 0.9999:
+            continue
+        var ca: int = int(link.a)
+        var cb: int = int(link.b)
+        var a_rect: bool = bool(charts[ca].get("rectified",false))
+        var b_rect: bool = bool(charts[cb].get("rectified",false))
+        if a_rect == b_rect:
+            continue
+        var ci: int = cb if a_rect else ca
+        if members[ci].size() != 1:
+            continue
+        var rect_index: int = int(link.ta) if a_rect else int(link.tb)
+        var rect_edge: int = int(link.ea) if a_rect else int(link.eb)
+        var tri_edge: int = int(link.eb) if a_rect else int(link.ea)
+        var uv: PackedVector2Array = tris[rect_index].xy
+        var d: Vector2 = (uv[(rect_edge+1)%3]-uv[rect_edge]).abs()
+        if minf(d.x,d.y) > 0.001:
+            continue
+        var length: float = maxf(d.x,d.y)
+        if length >= 1.0:
+            (targets[ci] as Array).append({"edge":tri_edge,"length":length})
+    for ci in range(charts.size()):
+        if members[ci].size() != 1 or targets[ci].is_empty():
+            continue
+        var t: Dictionary = tris[members[ci][0]]
+        var old: PackedVector2Array = t.xy
+        var old_area: float = (old[1]-old[0]).cross(old[2]-old[0])
+        if absf(old_area) < 0.000001:
+            continue
+        var best: PackedVector2Array = PackedVector2Array()
+        var best_score: float = -INF
+        for target in targets[ci]:
+            var e: int = int(target.edge)
+            var n: int = (e+1)%3
+            var k: int = (e+2)%3
+            var d: Vector2 = old[n]-old[e]
+            if d.length() < 0.000001:
+                continue
+            var direction: Vector2 = Vector2.RIGHT if absf(d.x) >= absf(d.y) else Vector2.DOWN
+            if direction.dot(d) < 0:
+                direction = -direction
+            var base: Vector2 = direction*float(target.length)
+            var third: Vector2 = (old[k]-old[e]).rotated(d.angle_to(base))*base.length()/d.length()
+            var candidates: Array[Vector2] = [third.round()]
+            for other in targets[ci]:
+                var oe: int = int(other.edge)
+                if oe == e:
+                    continue
+                var origin: Vector2 = Vector2.ZERO if oe == k else base
+                var perpendicular: Vector2 = direction.orthogonal()*signf(old_area)
+                if perpendicular.dot(third-origin) < 0:
+                    perpendicular = -perpendicular
+                candidates.append(origin+perpendicular*float(other.length))
+            for q in candidates:
+                var mapped := PackedVector2Array([Vector2.ZERO,Vector2.ZERO,Vector2.ZERO])
+                mapped[e] = Vector2.ZERO
+                mapped[n] = base
+                mapped[k] = q
+                var area: float = (mapped[1]-mapped[0]).cross(mapped[2]-mapped[0])/old_area
+                if area < 0.25 or area > 3.0:
+                    continue
+                var distortion: float = 0.0
+                var valid: bool = true
+                for j in range(3):
+                    var ratio: float = mapped[j].distance_to(mapped[(j+1)%3])/maxf(0.000001,old[j].distance_to(old[(j+1)%3]))
+                    if ratio < 0.35 or ratio > 2.5:
+                        valid = false
+                        break
+                    distortion += absf(log(ratio))
+                if not valid:
+                    continue
+                var matched: float = 0.0
+                for other in targets[ci]:
+                    var j: int = int(other.edge)
+                    var v: Vector2 = (mapped[j]-mapped[(j+1)%3]).abs()
+                    if minf(v.x,v.y) < 0.001 and absf(maxf(v.x,v.y)-float(other.length)) < 0.001:
+                        matched += float(other.length)
+                var score: float = matched*4.0-distortion
+                if score > best_score:
+                    best_score = score
+                    best = mapped
+        if best.is_empty():
+            continue
+        var lo: Vector2 = best[0].min(best[1]).min(best[2])
+        var hi: Vector2 = best[0].max(best[1]).max(best[2])
+        t.xy = best
+        charts[ci].min = lo.floor()
+        charts[ci].max = hi
+        charts[ci].grid_fixed = true
 
 ## Global phase relaxation includes non-tree links. Preserve the
 ## face-aligned axes rather than rotating a rectangle away from its edges.
@@ -729,8 +868,8 @@ static func _synchronize_chart_grids(tris: Array[Dictionary],charts: Array[Dicti
         var next: PackedVector2Array = phase.duplicate()
         for i in range(charts.size()):
             var total := Vector2.ZERO
-            if bool(charts[i].get("rectified",false)):
-                # Its four boundaries already lie on integer grid lines.
+            if bool(charts[i].get("rectified",false)) or bool(charts[i].get("grid_fixed",false)):
+                # Its integer boundaries already lie on integer grid lines.
                 # A fractional phase shift would move every boundary off-grid.
                 next[i] = Vector2.ZERO
                 continue
