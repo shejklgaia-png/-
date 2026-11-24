@@ -128,6 +128,13 @@ var diag_icon_count: int = 0
 var diag_update_timer: float = 0.0
 var diag_header_taps: int = 0
 var diag_last_header_tap_ms: int = 0
+var hero_frame: Control
+var hero_reset_icon: Control
+var hero_rotate_icon: Control
+var hero_touches: Dictionary = {}
+var hero_reset_touches: Dictionary = {}
+var hero_mouse_drag: bool = false
+var hero_mouse_last: Vector2 = Vector2.ZERO
 var hero_host: SubViewportContainer
 var hero_viewport: SubViewport
 var hero_stage: Node3D
@@ -557,14 +564,34 @@ func attach_hud(hud: Control) -> void:
     padding.add_child(body)
     # 30% of the visible portrait viewport. The actual 3D stage is created
     # lazily once and shared by LABO / SMELTER / RECYCLER / STORAGE.
+    hero_frame = Control.new()
+    hero_frame.name = "WorksiteCameraFrame"
+    hero_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    hero_frame.custom_minimum_size.y = get_viewport().get_visible_rect().size.y * 0.30
+    hero_frame.visible = false
+    body.add_child(hero_frame)
     hero_host = SubViewportContainer.new()
     hero_host.name = "LaboHero3D"
     hero_host.stretch = true
     hero_host.stretch_shrink = 1
     hero_host.mouse_filter = Control.MOUSE_FILTER_IGNORE
-    hero_host.custom_minimum_size.y = get_viewport().get_visible_rect().size.y * 0.30
-    hero_host.visible = false
-    body.add_child(hero_host)
+    hero_frame.add_child(hero_host)
+    hero_host.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+    hero_rotate_icon = RotateMark.new()
+    hero_rotate_icon.name = "WorksiteRotateCue"
+    hero_frame.add_child(hero_rotate_icon)
+    hero_rotate_icon.position = Vector2(8, 8)
+    hero_rotate_icon.size = Vector2(28, 28)
+    hero_reset_icon = Control.new()
+    hero_reset_icon.name = "WorksiteCameraReset"
+    hero_reset_icon.mouse_filter = Control.MOUSE_FILTER_IGNORE
+    hero_frame.add_child(hero_reset_icon)
+    hero_reset_icon.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+    hero_reset_icon.offset_left = -44.0
+    hero_reset_icon.offset_right = -8.0
+    hero_reset_icon.offset_top = 8.0
+    hero_reset_icon.offset_bottom = 44.0
+    hero_reset_icon.draw.connect(_draw_hero_camera_reset)
     var header_row := HBoxContainer.new()
     header_row.name = "FacilityHeaderRow"
     header_row.add_theme_constant_override("separation", 10)
@@ -1368,6 +1395,8 @@ func _set_labo_hero(enabled: bool, section: String = "") -> void:
         return
     _close_hero_models()
     _close_hero_angle()
+    _clear_hero_camera_gesture()
+    hero_frame.visible = enabled
     hero_host.visible = enabled
     if is_instance_valid(texture_entry):
         texture_entry.visible = enabled and section == "LABO"
@@ -1380,7 +1409,7 @@ func _set_labo_hero(enabled: bool, section: String = "") -> void:
         _ensure_labo_hero(section)
         # The content area remains native Android Button rows. The hero owns
         # its dedicated 30%, with smaller cards below and no clipping/scroll.
-        hero_host.custom_minimum_size.y = get_viewport().get_visible_rect().size.y * 0.30
+        hero_frame.custom_minimum_size.y = get_viewport().get_visible_rect().size.y * 0.30
         modal_panel.anchor_top = 0.015
         modal_panel.anchor_bottom = 0.985
         # Read live canonical BASE placements after the user edits them.
@@ -1409,6 +1438,117 @@ func _set_labo_hero(enabled: bool, section: String = "") -> void:
 # 3D stage or render pass is created by this session-only editor.
 func _hero_angle_available() -> bool:
     return is_menu_open() and is_instance_valid(hero_stage) and is_instance_valid(hero_host) and hero_host.is_visible_in_tree() and active_key in ["LABO", "SMELTER", "RECYCLER", "STORAGE"] and not (confirmation_overlay != null and confirmation_overlay.visible) and not (warehouse_detail_popup != null and warehouse_detail_popup.is_open()) and not (font_diag_overlay != null and font_diag_overlay.visible)
+
+
+# The preview overlay is in the existing 2D GUI, not the SubViewport world.
+func _draw_hero_camera_reset() -> void:
+    var tint := Color("#93c1cc")
+    var frame := Rect2(Vector2(1, 1), hero_reset_icon.size - Vector2(2, 2))
+    hero_reset_icon.draw_rect(frame, Color(0.035, 0.09, 0.13, 0.82))
+    hero_reset_icon.draw_rect(frame, tint, false, 1.5)
+    var center: Vector2 = hero_reset_icon.size * 0.5
+    hero_reset_icon.draw_rect(Rect2(center + Vector2(-10, -5), Vector2(20, 14)), tint, false, 1.5)
+    hero_reset_icon.draw_rect(Rect2(center + Vector2(-5, -9), Vector2(8, 4)), tint, false, 1.5)
+    hero_reset_icon.draw_arc(center + Vector2(0, 2), 4.0, 0.0, TAU, 24, tint, 1.5, true)
+
+
+func _clear_hero_camera_gesture() -> void:
+    hero_touches.clear()
+    hero_reset_touches.clear()
+    hero_mouse_drag = false
+
+
+func _move_hero_camera(orbit: Vector2, pan: Vector2, zoom: float) -> void:
+    var camera := hero_stage.get("hero_camera") as Camera3D
+    if not is_instance_valid(camera):
+        return
+    var look: Vector3 = hero_stage.get("camera_look")
+    var offset: Vector3 = camera.position - look
+    var distance: float = maxf(0.5, offset.length())
+    var height: float = maxf(1.0, hero_host.size.y)
+    if not pan.is_zero_approx():
+        var scale: float = 2.0 * distance * tan(deg_to_rad(camera.fov * 0.5)) / height
+        look += (-camera.basis.x * pan.x + camera.basis.y * pan.y) * scale
+    var yaw: float = atan2(offset.x, offset.z)
+    var pitch: float = asin(clampf(offset.y / distance, -0.999, 0.999))
+    if not orbit.is_zero_approx():
+        yaw = wrapf(yaw - orbit.x * 1.8 / height, -PI, PI)
+        pitch = clampf(pitch + orbit.y * 1.8 / height, deg_to_rad(-75.0), deg_to_rad(79.0))
+    distance = clampf(distance * zoom, 2.0, 120.0)
+    var planar: float = cos(pitch)
+    var eye: Vector3 = look + Vector3(sin(yaw) * planar, sin(pitch), cos(yaw) * planar) * distance
+    hero_stage.call("apply_camera_view", eye, look, camera.fov)
+
+
+# Raw indexed touch events also work when Android mouse emulation is disabled.
+# Only contacts beginning inside the 3D preview are captured.
+func _route_hero_camera_input(event: InputEvent) -> bool:
+    if angle_active or (is_instance_valid(model_editor) and bool(model_editor.get("active"))) or not _hero_angle_available():
+        _clear_hero_camera_gesture()
+        return false
+    var region: Rect2 = hero_host.get_global_rect()
+    if event is InputEventScreenTouch:
+        if event.pressed:
+            if not region.has_point(event.position):
+                return false
+            if hero_reset_icon.get_global_rect().has_point(event.position):
+                hero_stage.call("reset_camera_to_default")
+                hero_touches.clear()
+                hero_reset_touches[event.index] = true
+            elif hero_touches.size() < 2:
+                hero_touches[event.index] = event.position
+            else:
+                hero_reset_touches[event.index] = true
+            return true
+        if hero_reset_touches.has(event.index):
+            hero_reset_touches.erase(event.index)
+            return true
+        if hero_touches.has(event.index):
+            hero_touches.erase(event.index)
+            return true
+    elif event is InputEventScreenDrag:
+        if hero_reset_touches.has(event.index):
+            return true
+        if not hero_touches.has(event.index):
+            return false
+        var previous: Vector2 = hero_touches[event.index]
+        hero_touches[event.index] = event.position
+        if hero_touches.size() == 1:
+            _move_hero_camera(event.position - previous, Vector2.ZERO, 1.0)
+        elif hero_touches.size() == 2:
+            var other: Vector2 = Vector2.ZERO
+            for index in hero_touches:
+                if index != event.index:
+                    other = hero_touches[index]
+                    break
+            var old_span: float = previous.distance_to(other)
+            var new_span: float = event.position.distance_to(other)
+            var ratio: float = old_span / new_span if old_span > 4.0 and new_span > 4.0 else 1.0
+            _move_hero_camera(Vector2.ZERO, (event.position - previous) * 0.5, ratio)
+        return true
+    elif event is InputEventMouseButton:
+        if event.device == InputEvent.DEVICE_ID_EMULATION:
+            return false
+        if event.button_index == MOUSE_BUTTON_LEFT:
+            if event.pressed and region.has_point(event.position):
+                if hero_reset_icon.get_global_rect().has_point(event.position):
+                    hero_stage.call("reset_camera_to_default")
+                else:
+                    hero_mouse_drag = true
+                    hero_mouse_last = event.position
+                return true
+            if not event.pressed and hero_mouse_drag:
+                hero_mouse_drag = false
+                return true
+        if event.pressed and region.has_point(event.position) and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+            _move_hero_camera(Vector2.ZERO, Vector2.ZERO, 0.90 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / 0.90)
+            return true
+    elif event is InputEventMouseMotion and hero_mouse_drag and event.device != InputEvent.DEVICE_ID_EMULATION:
+        var motion: Vector2 = event.position - hero_mouse_last
+        hero_mouse_last = event.position
+        _move_hero_camera(motion, Vector2.ZERO, 1.0)
+        return true
+    return false
 
 
 func _open_texture_studio() -> void:
@@ -1481,6 +1621,7 @@ func _texture_studio_closed() -> void:
 func _open_hero_models() -> void:
     if angle_active or not _hero_angle_available():
         return
+    _clear_hero_camera_gesture()
     if not is_instance_valid(model_editor):
         model_editor = ModelPlacement.new()
         modal.add_child(model_editor)
@@ -1581,6 +1722,7 @@ func _open_hero_angle() -> void:
     if camera == null:
         angle_entry.text = "ANGLE NOT READY"
         return
+    _clear_hero_camera_gesture()
     _make_hero_angle_overlay()
     angle_look = hero_stage.get("camera_look")
     var offset: Vector3 = camera.position - angle_look
@@ -1665,7 +1807,7 @@ func _hero_angle_action(id: String) -> void:
         "near":
             angle_distance = maxf(0.5, angle_distance - 0.25)
         "far":
-            angle_distance = minf(30.0, angle_distance + 0.25)
+            angle_distance = minf(120.0, angle_distance + 0.25)
         "up":
             angle_look.y = minf(12.0, angle_look.y + 0.12)
         "down":
@@ -3221,7 +3363,7 @@ func _input(event: InputEvent) -> void:
             _open_texture_studio()
             get_viewport().set_input_as_handled()
             return
-    if _route_hero_model_input(event) or _route_hero_angle_input(event):
+    if _route_hero_model_input(event) or _route_hero_angle_input(event) or _route_hero_camera_input(event):
         get_viewport().set_input_as_handled()
         return
     if (font_diag_overlay != null and font_diag_overlay.visible and (
