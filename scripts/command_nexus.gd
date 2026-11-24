@@ -5667,16 +5667,21 @@ func _union_outer_contours(contours: Array[PackedVector2Array],
         if not candidate_bounds.intersects(bounds[i]):
             i += 1
             continue
-        var overlap: Array[PackedVector2Array] = Geometry2D.intersect_polygons(
-            candidate, contours[i])
-        if overlap.is_empty():
-            i += 1
-            continue
+        # A single union component already establishes connectivity. Avoid
+        # running two Clipper operations on every ordinary overlapping face.
         var united: Array[PackedVector2Array] = Geometry2D.merge_polygons(
             candidate, contours[i])
         if united.is_empty():
             i += 1
             continue
+        if united.size() > 1:
+            # Multiple paths can mean a hole OR disconnected polygons. Keep
+            # the original intersection check for that ambiguous case only.
+            var overlap: Array[PackedVector2Array] = Geometry2D.intersect_polygons(
+                candidate, contours[i])
+            if overlap.is_empty():
+                i += 1
+                continue
         # A union can include interior holes. Trace its outermost boundary;
         # never draw per-cuboid internal seams on the selectable outline.
         var best: PackedVector2Array = united[0]
