@@ -1,0 +1,74 @@
+name: Modeling Studio - authoring render
+on:
+  workflow_dispatch:
+    inputs:
+      design:
+        description: JSON design under tools/modeling_studio
+        default: tools/modeling_studio/example.json
+        required: true
+        type: string
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'tools/modeling_studio/**'
+      - '.github/workflows/modeling_studio_render.yml'
+permissions:
+  contents: read
+jobs:
+  authoring:
+    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && (startsWith(github.head_ref, 'feat/modeling-studio-') || startsWith(github.head_ref, 'modeling/')))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      DESIGN: ${{ inputs.design || 'tools/modeling_studio/example.json' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Install Blender 4.5.3 LTS
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          archive=blender-4.5.3-linux-x64.tar.xz
+          base=https://download.blender.org/release/Blender4.5
+          curl --fail --location --retry 3 "$base/$archive" -o "$archive"
+          curl --fail --location --retry 3 "$base/blender-4.5.3.sha256" -o checksums.txt
+          awk -v a="$archive" '$2==a || $2=="*"a {print}' checksums.txt > selected.sha256
+          test "$(wc -l < selected.sha256)" -eq 1
+          sha256sum --check selected.sha256
+          tar -xf "$archive"
+          echo "$RUNNER_TEMP/blender-4.5.3-linux-x64" >> "$GITHUB_PATH"
+      - name: Generate model and review images
+        shell: bash
+        run: |
+          set -euo pipefail
+          design=$(realpath -- "$DESIGN")
+          root=$(realpath tools/modeling_studio)
+          [[ "$design" == "$root/"*.json && -f "$design" ]]
+          blender --background --factory-startup --python-exit-code 1 --python tools/modeling_studio/build.py -- "$design" "$RUNNER_TEMP/sera-model"
+          cp "$design" "$RUNNER_TEMP/sera-model/design.json"
+      - name: Prepare review bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m venv "$RUNNER_TEMP/review-venv"
+          "$RUNNER_TEMP/review-venv/bin/pip" install Pillow==11.3.0
+          "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/review_bundle.py "$RUNNER_TEMP/sera-model"
+          cat "$RUNNER_TEMP/sera-model/review.json" >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload model and review bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: sera-modeling-review
+          path: ${{ runner.temp }}/sera-model/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload partial results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sera-modeling-partial
+          path: ${{ runner.temp }}/sera-model/
+          if-no-files-found: ignore
+          retention-days: 7
