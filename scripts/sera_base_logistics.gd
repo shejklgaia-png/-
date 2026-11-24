@@ -14,8 +14,8 @@ const REGION := Rect2i(-46, -46, 93, 93)
 const CLEARANCE: float = 0.84
 const STEP: float = 1.0 / 30.0
 const SPEED: float = 2.35
-const TRAFFIC_GAP: float = 1.82
-const TRAFFIC_FORECAST_GAP: float = 2.05
+const TRAFFIC_GAP: float = 1.90
+const TRAFFIC_FORECAST_GAP: float = 2.15
 const TRAFFIC_HORIZON: float = 1.5
 const TRAFFIC_SAMPLE: float = 0.25
 const TRAFFIC_BRAKE: float = 5.0
@@ -67,7 +67,7 @@ class Truck:
     var segment_cells: Array = []
     var leg: int = 0
     var waypoint: int = 1
-    var traffic_limit: float = SPEED
+    var traffic_limit: float = INF
     var traffic_blocked: bool = false
     var yield_age: float = 0.0
     var mode: String = "home"
@@ -93,7 +93,7 @@ var _visuals: Array[Visual] = []
 var _draws: Dictionary = {}
 var _batch: Variant
 var _acc: float = 0.0
-var _traffic_elapsed: float = 0.0
+var _traffic_elapsed: float = 0.10
 var _camera: Camera3D
 var _network_anchor := Vector2i(0, 40)
 var _route_parking_exclusion: Dictionary = {}
@@ -1272,6 +1272,8 @@ func _begin_ready_vehicles() -> void:
         t.mode = "drive"
         t.wait = 0.0
         t.traffic_blocked = false
+        t.traffic_limit = SPEED
+        _traffic_elapsed = 0.10
 
 
 func _forecast_distance(t: Truck, seconds: float) -> float:
@@ -1309,7 +1311,7 @@ func _update_local_traffic() -> void:
         if t.mode != "drive":
             continue
         var samples: Array[Vector2] = []
-        for i in range(1, 7):
+        for i in range(1, ceili(TRAFFIC_HORIZON / TRAFFIC_SAMPLE) + 1):
             samples.append(_ahead_position(t, _forecast_distance(t, float(i) * TRAFFIC_SAMPLE)))
         predictions[t.id] = samples
     var active_pairs: Dictionary = {}
