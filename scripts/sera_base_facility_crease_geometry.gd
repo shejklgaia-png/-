@@ -1,8 +1,10 @@
 extends RefCounted
-## Shared 80-degree hard-edge extraction for BASE and NEXUS.
+## Shared hard-edge extraction: convex >=60 degrees, concave >=80 degrees.
 ## Buildings draw both convex and concave 1px corners; clutter retains
 ## convex-only 1px. Silhouettes and mesh contacts use the RGB12 ID pass.
-const CREASE_DEGREES: float = 80.0
+const CREASE_DEGREES: float = 80.0 # Legacy unsigned overlay threshold.
+const CONVEX_CREASE_DEGREES: float = 60.0
+const CONCAVE_CREASE_DEGREES: float = 80.0
 const MAX_EDGES_PER_MESH: int = 8000
 
 static func _position_key(p: Vector3) -> String:
@@ -151,12 +153,15 @@ static func build_corner_edges(mesh: Mesh, include_concave: bool) -> ArrayMesh:
     st.begin(Mesh.PRIMITIVE_TRIANGLES)
     st.set_custom_format(0, SurfaceTool.CUSTOM_RGBA_FLOAT)
     var emitted: int = 0
+    var convex_cosine: float = cos(deg_to_rad(CONVEX_CREASE_DEGREES))
+    var concave_cosine: float = cos(deg_to_rad(CONCAVE_CREASE_DEGREES))
     for edge_value in _extract_edges(mesh):
         if emitted >= MAX_EDGES_PER_MESH:
             break
         var edge: Dictionary = edge_value
-        if not bool(edge.get("crease", false)) or (
-                not edge.has("face_b")) or (
+        # Do not use the legacy unsigned 80-degree flag here: classify
+        # convex/concave first, then apply the corresponding threshold.
+        if (not edge.has("face_b")) or (
                 int(edge.get("count", 0)) != 2) or (
                 bool(edge.get("duplicate_triangle", false))):
             continue
@@ -171,6 +176,10 @@ static func build_corner_edges(mesh: Mesh, include_concave: bool) -> ArrayMesh:
         var signed_corner: float = tangent.dot(na.cross(nb)) * outward_sign
         if absf(signed_corner) <= 0.00001 or (
                 signed_corner < 0.0 and not include_concave):
+            continue
+        var cosine: float = clampf(na.dot(nb), -1.0, 1.0)
+        var threshold: float = convex_cosine if signed_corner > 0.0 else concave_cosine
+        if cosine > threshold + 0.000001:
             continue
         # Signed dihedral separates convex (+) and concave (-) corners.
         # Pass both outward normals for visibility-aware rasterization.
