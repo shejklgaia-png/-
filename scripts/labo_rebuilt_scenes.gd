@@ -154,6 +154,21 @@ func _build_outdoor_deck() -> void:
         groups[int(panel["tint"])].append(Transform3D(
             Basis.IDENTITY.scaled_local(Vector3(span.x,0.30,span.y)),
             Vector3(center.x,-0.18,center.y)))
+    # Beyond the detailed 147m deck, cover the horizon with larger steel
+    # plates. Four disjoint strips: no z-fighting and only ~300 instances.
+    for side in [-1,1]:
+        for ring in range(7):
+            var outer: float = float(side)*(79.5+12.0*ring)
+            for col in range(7):
+                var inner: float = -63.0+21.0*col
+                groups[posmod(ring+col+side,6)].append(Transform3D(
+                    Basis.IDENTITY.scaled_local(Vector3(20.94,0.30,11.94)),
+                    Vector3(inner,-0.18,outer)))
+            for row in range(15):
+                var along: float = -147.0+21.0*row
+                groups[posmod(ring+row+side+2,6)].append(Transform3D(
+                    Basis.IDENTITY.scaled_local(Vector3(11.94,0.30,20.94)),
+                    Vector3(outer,-0.18,along)))
     var plate_mesh: ArrayMesh = Polygon.make("deck")
     var deck_texture: Texture2D = load("res://assets/base/industrial_deck_wear.svg") as Texture2D
     for i in range(tints.size()):
@@ -163,7 +178,7 @@ func _build_outdoor_deck() -> void:
         multi.instance_count = groups[i].size()
         for j in range(multi.instance_count):
             multi.set_instance_transform(j,groups[i][j])
-        multi.custom_aabb = AABB(Vector3(-74,-0.4,-74),Vector3(148,0.8,148))
+        multi.custom_aabb = AABB(Vector3(-158,-0.4,-158),Vector3(316,0.8,316))
         var draw := MultiMeshInstance3D.new()
         draw.name = "OutdoorDeckBatch_"+str(i)
         draw.multimesh = multi
