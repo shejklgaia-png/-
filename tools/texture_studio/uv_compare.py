@@ -3,8 +3,8 @@ from pathlib import Path
 from math import isfinite
 
 root = Path(sys.argv[1])
-parts = ["H02","H01","L03","WR03","H03","H04","A02","T02"]
-variants = ["baseline", "paired", "cached"]
+parts = ["H01","H02","H03","H04","T01","T02","A01","A02","L01","L02","L03","L04","B01","B02","WR01","WR02","WR03","WL01","WL02"]
+variants = ["baseline", "v20"]
 data = {}
 for f in root.rglob("*.json"):
     variant, part = f.stem.split("-", 1)
@@ -47,11 +47,15 @@ for v in variants[1:]:
             reasons.append(p+": island residual regression")
         if b["overlap_pairs"] or c["overlap_pairs"] or b["overlap_unchecked"] or c["overlap_unchecked"]:
             reasons.append(p+": overlap present or validation incomplete")
+        if b["winding_signature"] != c["winding_signature"]:
+            reasons.append(p+": packed winding changed")
         if c["atlas"] > b["atlas"] or c["shape_max"] > b["shape_max"]+0.02 or c["shape_mean"] > b["shape_mean"]*1.05+1e-6 or c["area_max"] > b["area_max"]+0.02:
             reasons.append(p+": atlas or shape regression")
         if c["elapsed_ms"] > max(b["elapsed_ms"]*1.5, b["elapsed_ms"]+500):
             reasons.append(p+": runtime regression (provisional)")
         improved |= c["bad"] < b["bad"] or c["max"] < b["max"]-0.001 or c["sum_sq"] < b["sum_sq"]-0.001
     print(f"- {v}: " + ("eligible for further Android/visual review" if not reasons and improved else "not promoted; "+("; ".join(reasons) or "no material improvement")))
+    if reasons or not improved:
+        raise SystemExit("V20 promotion gate failed")
 if len(data) != len(parts)*len(variants):
     raise SystemExit("Incomplete measurements")

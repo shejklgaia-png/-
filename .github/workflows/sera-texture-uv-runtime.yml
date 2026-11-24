@@ -17,7 +17,7 @@ jobs:
       fail-fast: false
       max-parallel: 4
       matrix:
-        part: [H02, H01, L03, WR03, H03, H04, A02, T02]
+        part: [H01, H02, H03, H04, T01, T02, A01, A02, L01, L02, L03, L04, B01, B02, WR01, WR02, WR03, WL01, WL02]
     steps:
       - uses: actions/checkout@v4
       - name: Install same Godot version as equipment capture
@@ -32,12 +32,10 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p uv-results
-          for variant in baseline paired cached; do
-            git restore -- scripts/sera_texture_uv.gd
-            python3 tools/texture_studio/uv_candidate.py "$variant"
+          for variant in baseline v20; do
             "$GODOT_BIN" --headless --editor --path . --import --quit 2>&1 | tee "uv-results/$variant-import.log"
             if grep -E 'SCRIPT ERROR:|Parse Error:' "uv-results/$variant-import.log"; then exit 1; fi
-            "$GODOT_BIN" --headless --path . --script res://tools/texture_studio/uv_runtime_bench.gd -- "${{ matrix.part }}" "$GITHUB_WORKSPACE/uv-results/$variant-${{ matrix.part }}.json" 32 2>&1 | tee "uv-results/$variant-runtime.log"
+            "$GODOT_BIN" --headless --path . --script res://tools/texture_studio/uv_runtime_bench.gd -- "${{ matrix.part }}" "$GITHUB_WORKSPACE/uv-results/$variant-${{ matrix.part }}.json" 32 "$variant" 2>&1 | tee "uv-results/$variant-runtime.log"
             test -s "uv-results/$variant-${{ matrix.part }}.json"
             if grep -E 'SCRIPT ERROR:|Parse Error:' "uv-results/$variant-runtime.log"; then exit 1; fi
           done

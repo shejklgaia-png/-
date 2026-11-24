@@ -26,7 +26,8 @@ func _run() -> void:
     var source: MeshInstance3D = snapshot.source
     host.add_child(source)
     var begin := Time.get_ticks_msec()
-    var result: Dictionary = UV.build(source,density,true,true)
+    var variant: String = args[3] if args.size() > 3 else "v20"
+    var result: Dictionary = UV.build(source,density,true,true,variant!="baseline")
     var elapsed := Time.get_ticks_msec()-begin
     if result.has("error"):
         push_error(str(result.error))
@@ -68,6 +69,7 @@ func _run() -> void:
             bad += 1
         if r > 1.0:
             severe += 1
+    var winding_signature: String = ""
     for t in tris:
         var p: PackedVector3Array = t.p
         var uv: PackedVector2Array = t.uv
@@ -79,7 +81,9 @@ func _run() -> void:
                 var ratio: float = ((uv[i]-uv[(i+1)%3])*Vector2(side)).length()/length
                 min_ratio = minf(min_ratio,ratio)
                 max_ratio = maxf(max_ratio,ratio)
-        if absf((uv[1]-uv[0]).cross(uv[2]-uv[0])) < 0.000000000001:
+        var winding: float = (uv[1]-uv[0]).cross(uv[2]-uv[0])
+        winding_signature += "+" if winding>0.0 else "-"
+        if absf(winding) < 0.000000000001:
             invalid += 1
     # Validate positive-area overlap on the actual packed output, all islands.
     var entries: Array[Dictionary] = []
@@ -111,7 +115,7 @@ func _run() -> void:
                 overlap_pairs += 1
     var distortion: Vector3 = UV._topology_distortion(tris,density)
     var diagnostic: Dictionary = UV.diagnostic_report(tris,side,density)
-    var report: Dictionary = {"id":id,"density":density,"version":result.unwrap_version,"triangles":tris.size(),"charts":result.charts,"atlas":side.x,"physical_edges":counted,"island_edges":island_edges,"island_bad":island_bad,"island_severe":island_severe,"island_max":island_max,"island_sum_sq":island_sum,"bad":bad,"severe":severe,"max":max_res,"sum_sq":sum_sq,"invalid":invalid,"overlap_pairs":overlap_pairs,"overlap_unchecked":overlap_unchecked,"min_ratio":min_ratio,"max_ratio":max_ratio,"shape_max":distortion.x,"shape_mean":distortion.y,"area_max":distortion.z,"elapsed_ms":elapsed,"diagnostic":diagnostic.report,"solver":result.affine_report}
+    var report: Dictionary = {"id":id,"density":density,"version":result.unwrap_version,"triangles":tris.size(),"charts":result.charts,"atlas":side.x,"physical_edges":counted,"island_edges":island_edges,"island_bad":island_bad,"island_severe":island_severe,"island_max":island_max,"island_sum_sq":island_sum,"bad":bad,"severe":severe,"max":max_res,"sum_sq":sum_sq,"invalid":invalid,"winding_signature":winding_signature.sha256_text(),"overlap_pairs":overlap_pairs,"overlap_unchecked":overlap_unchecked,"min_ratio":min_ratio,"max_ratio":max_ratio,"shape_max":distortion.x,"shape_mean":distortion.y,"area_max":distortion.z,"elapsed_ms":elapsed,"diagnostic":diagnostic.report,"solver":result.affine_report}
     var file := FileAccess.open(dest,FileAccess.WRITE)
     if file == null:
         push_error("Cannot write UV report")
