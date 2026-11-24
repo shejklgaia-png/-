@@ -859,6 +859,7 @@ func _environment() -> void:
     key.rotation_degrees = Vector3(-48.0, -34.0, 0.0)
     key.light_color = Color("#c2d4e8")
     key.light_energy = 0.16
+    key.light_specular = 0.0
     key.shadow_enabled = false
     add_child(key)
 
@@ -904,60 +905,116 @@ func _nexus_apply_practical_shading(node: Node, enable: bool) -> void:
         _nexus_apply_practical_shading(child, enable)
 
 
-func _nexus_practical_omni(parent: Node3D, label: String, at: Vector3,
-        tint: Color, energy: float, radius: float) -> void:
-    var lamp := OmniLight3D.new()
+func _nexus_fixture_spot(parent: Node3D, label: String, at: Vector3,
+        direction: Vector3, tint: Color, energy: float, radius: float,
+        angle: float) -> void:
+    var lamp := SpotLight3D.new()
     lamp.name = label
-    lamp.position = at
+    var aim := direction.normalized()
+    var up := Vector3.UP if absf(aim.dot(Vector3.UP)) < 0.98 else Vector3.FORWARD
+    lamp.transform = Transform3D(Basis.looking_at(aim, up), at)
     lamp.light_color = tint
     lamp.light_energy = energy
-    lamp.omni_range = radius
-    lamp.omni_attenuation = 1.5
+    # Native deck and machinery materials still have glossy specular lobes.
+    # Practical illumination is diffuse only: no isolated camera-facing glints.
+    lamp.light_specular = 0.0
+    lamp.spot_range = radius
+    lamp.spot_attenuation = 0.7
+    lamp.spot_angle = angle
+    lamp.spot_angle_attenuation = 1.1
     lamp.shadow_enabled = false
     parent.add_child(lamp)
 
 
+func _nexus_fixture_center(part: Array) -> Vector3:
+    return (_vec(part[1]) + _vec(part[2])) * (Modules.UNIT * 0.5)
+
+
 func _nexus_practical_lights() -> void:
-    # Combine adjacent strip emitters into light pools on mobile. All authored
-    # luminous geometry remains emissive; no light per LED, shadow pass or fog.
     var fixtures := Node3D.new()
     fixtures.name = "NexusPracticalLights"
     add_child(fixtures)
     var cyan := Color("#79dfff")
     var ice := Color("#c5efff")
-    # One broad pool per paired overhead strip row, placed below the lenses.
-    for z in [-22.45, -15.0, -7.55, -0.10, 7.35, 14.8]:
-        _nexus_practical_omni(fixtures, "CeilingStripPool", Vector3(0.0, 8.35, z),
-            ice, 1.35, 11.5)
-    # Canopy, stage ring, stairs/rail and guide lights are separate local pools.
-    _nexus_practical_omni(fixtures, "CanopyOpticPool", Vector3(0, 6.80, -4.75),
-        cyan, 1.75, 8.0)
-    _nexus_practical_omni(fixtures, "StageRingPool", Vector3(0, 0.62, -4.75),
-        cyan, 0.85, 3.5)
-    _nexus_practical_omni(fixtures, "ArchiveStairPool", Vector3(-4.95, 1.65, -7.7),
-        cyan, 0.72, 4.5)
+    # Derive every major architectural light from the actual visible authored
+    # emitter. Never use a midpoint between two lamps or a guessed world point.
+    for part in Modules.MODULES["hangar_shell"]:
+        var label: String = str(part[0])
+        if NexusBulkheadRefit.suppresses_authored_part(label):
+            continue
+        var center := _nexus_fixture_center(part)
+        center.x = _expanded_hangar_x(center.x)
+        if label.begins_with("Recessed ceiling strip "):
+            _nexus_fixture_spot(fixtures, "CeilingStrip", center + Vector3(0, -0.10, 0),
+                Vector3.DOWN, ice, 1.15, 11.0, 66.0)
+        elif label.begins_with("Column cyan datum lamp "):
+            var inward := Vector3(-signf(center.x), 0, 0)
+            _nexus_fixture_spot(fixtures, "ColumnLamp", center + inward * 0.12,
+                inward, cyan, 0.46, 3.4, 65.0)
+    # The rotating ring uses two opposite emitter positions; the continuous
+    # luminous surface itself stays unchanged. The lights follow its rotor.
+    var rotor: Node3D = find_child("LeftRotatingCyanMaintenanceOptics", true, false) as Node3D
+    if rotor != null:
+        for part in Modules.MODULES["maintenance_canopy"]:
+            if str(part[0]) not in ["Overhead cyan maintenance optic 0",
+                    "Overhead cyan maintenance optic 6"]:
+                continue
+            var local_at: Vector3 = Vector3(0, 8.0, -8.95) + _nexus_fixture_center(part) - rotor.position
+            _nexus_fixture_spot(rotor, "CanopyOptic", local_at + Vector3(0, -0.10, 0),
+                Vector3(-local_at.x * 0.35, -1.0, -local_at.z * 0.35),
+                cyan, 0.95, 7.5, 62.0)
+    for part in Modules.MODULES["maintenance_pad"]:
+        if str(part[0]) not in ["Maintenance luminous blue outer perimeter 0",
+                "Maintenance luminous blue outer perimeter 6"]:
+            continue
+        var offset := _nexus_fixture_center(part)
+        _nexus_fixture_spot(fixtures, "StageRing", SERA_STAGE_ORIGIN + offset + Vector3(0, 0.09, 0),
+            Vector3(-offset.x * 0.5, 1.0, -offset.z * 0.5),
+            cyan, 0.60, 3.0, 63.0)
+    for part in Modules.MODULES["archive_mezzanine"]:
+        if str(part[0]) not in ["Archive stair navigation seam 1",
+                "Archive stair navigation seam 4"]:
+            continue
+        var at := Vector3(-4.95, 0, -9.90) + _nexus_fixture_center(part)
+        _nexus_fixture_spot(fixtures, "StairGuide", at + Vector3(0, 0.07, 0.06),
+            Vector3(0, 0.7, 1), cyan, 0.40, 1.9, 66.0)
+    # Only visible floor lenses cast an upward pool. Never aim at the deck
+    # from an arbitrary point in the walkway. Tiny LEDs remain self-emissive.
     for side in [-1.0, 1.0]:
-        _nexus_practical_omni(fixtures, "WallAndGuidePool", Vector3(side * 6.1, 2.5, -14.0),
-            cyan, 0.85, 6.0)
-        _nexus_practical_omni(fixtures, "ForecourtGuidePool", Vector3(side * 3.0, 0.65, 3.0),
-            cyan, 0.50, 4.0)
-    _nexus_practical_omni(fixtures, "GateWarningPool", GATE_ORIGIN + Vector3(0, 5.7, 1.4),
-        Color("#ffe2a0"), 0.60, 4.0)
+        for z in [-5.6, 2.4]:
+            _nexus_fixture_spot(fixtures, "DeckGuide", Vector3(side * 2.85, 0.20, z),
+                Vector3.UP, cyan, 0.32, 1.7, 65.0)
+    # Actual gate warning and cyan entrance emitters, in gate-local space.
+    var gate_basis := Basis(Vector3.UP, _gate_facing_yaw())
+    for part in Modules.MODULES["deployment_gate"]:
+        var label: String = str(part[0])
+        if label not in ["Gate hazard top insert 1", "Gate hazard top insert 4",
+                "Portal cyan vertical entrance blade -1", "Portal cyan vertical entrance blade 1"]:
+            continue
+        var at: Vector3 = GATE_ORIGIN + gate_basis * (_nexus_fixture_center(part) * GATE_SCALE)
+        var warning: bool = label.begins_with("Gate hazard")
+        var aim := gate_basis * Vector3(0, -0.85 if warning else 0.0, 1.0)
+        _nexus_fixture_spot(fixtures, "GateEmitter", at + gate_basis * Vector3(0, 0, 0.10),
+            aim, Color("#ffe2a0") if warning else cyan, 0.38 if warning else 0.60,
+            2.8, 64.0)
     _nexus_attach_monitor_spill(self)
 
 
 func _nexus_attach_monitor_spill(node: Node) -> void:
-    # Child lights follow the actual animated display and canonical placement.
     if node is MeshInstance3D:
         var monitor := node as MeshInstance3D
         if monitor.has_meta("monitor_id"):
             var screen := monitor.mesh as QuadMesh
             var width: float = screen.size.x if screen != null else 0.8
-            _nexus_practical_omni(monitor, "ScreenSpill", Vector3(0, -0.10, 0.25),
-                Color("#83ddff"), 0.75, clampf(width * 1.8, 1.6, 3.0))
+            # Project forward/down from the actual screen, onto the controls.
+            # A short range prevents light from leaking onto the distant floor.
+            _nexus_fixture_spot(monitor, "ScreenSpill", Vector3(0, -0.05, 0.05),
+                Vector3(0, -0.65, 1), Color("#83ddff"), 0.55,
+                clampf(width * 1.0, 0.8, 1.5), 62.0)
         elif monitor.name == "DeploymentReadoutReticleAndStatus":
-            _nexus_practical_omni(monitor, "ScreenSpill", Vector3(2.82, 1.25, 0.9),
-                Color("#83ddff"), 0.65, 2.2)
+            var center: Vector3 = monitor.get_aabb().get_center()
+            _nexus_fixture_spot(monitor, "ScreenSpill", center + Vector3(0, 0, 0.06),
+                Vector3(0, -0.55, 1), Color("#83ddff"), 0.48, 1.3, 62.0)
     for child in node.get_children():
         _nexus_attach_monitor_spill(child)
 
@@ -1141,8 +1198,9 @@ func _deployment_gate_lightspill() -> void:
     lamp.name = "GateInteriorFill"
     lamp.position = Vector3(0.0, 3.0, -0.75)
     lamp.light_color = Color(0.40, 0.81, 1.00)
-    lamp.light_energy = 1.25
-    lamp.omni_range = 5.5
+    lamp.light_energy = 0.65
+    lamp.light_specular = 0.0
+    lamp.omni_range = 3.5
     lamp.shadow_enabled = false
     portal.add_child(lamp)
 
