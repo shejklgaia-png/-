@@ -1510,10 +1510,11 @@ static func _relax_coupled_seam_clusters(tris: Array[Dictionary],charts: Array[D
             if seen.has(key):
                 continue
             seen[key] = true
-            var frames: Array[Dictionary] = _coherent_grid_frames(tris,links,ca,cb) if coherent else []
-            if coherent and frames.is_empty():
-                continue
+            var frames: Array[Dictionary] = []
             if coherent:
+                frames = _coherent_grid_frames(tris,links,ca,cb)
+                if frames.is_empty():
+                    continue
                 frame_pairs += 1
             var base: Array[PackedVector2Array] = []
             for t in tris:
