@@ -76,14 +76,31 @@ func _process(delta: float) -> void:
     _scanner.position.y = 2.11 + 0.44 * sin(_elapsed * 0.73)
     _scanner.rotation.y = 0.12 * sin(_elapsed * 0.41)
 
-    # Only small mechanical pivots change transform; the terminal displays
-    # retain their independently animated 24 fps monitor textures.
-    _system_fan.rotation.z = fposmod(_elapsed * 2.65, TAU)
-    _training_sensor.rotation.y = 0.28 * sin(_elapsed * 0.66)
-    _training_sensor.rotation.x = 0.08 * sin(_elapsed * 0.48)
+    # Small mechanical pivots may sleep offscreen. Their absolute phase
+    # still advances; a zoom or editor resumes all before camera movement.
+    var planes: Array[Plane] = []
+    var interior := Vector3.ZERO
+    var host: Node = get_parent()
+    var camera: Camera3D = get_viewport().get_camera_3d()
+    if is_instance_valid(camera) and is_instance_valid(host) and bool(host.get_meta("sera_nexus_room_budget", false)):
+        var moving: bool = bool(host.get("in_transition"))
+        for editor_name in ["placement_editor", "camera_angle_editor"]:
+            var editor: Node = host.get(editor_name) as Node
+            if is_instance_valid(editor) and bool(editor.get("active")):
+                moving = true
+        if not moving:
+            planes = camera.get_frustum()
+            interior = camera.project_position(get_viewport().get_visible_rect().size * 0.5,
+                (camera.near + camera.far) * 0.5)
+    if _motion_may_be_visible(_system_fan, 1.4, planes, interior):
+        _system_fan.rotation.z = fposmod(_elapsed * 2.65, TAU)
+    if _motion_may_be_visible(_training_sensor, 1.4, planes, interior):
+        _training_sensor.rotation.y = 0.28 * sin(_elapsed * 0.66)
+        _training_sensor.rotation.x = 0.08 * sin(_elapsed * 0.48)
     for i in range(_vent_rotors.size()):
-        _vent_rotors[i].rotation.z = fposmod(
-            _elapsed * (1.52 + float(i) * 0.22), TAU)
+        if _motion_may_be_visible(_vent_rotors[i], 1.4, planes, interior):
+            _vent_rotors[i].rotation.z = fposmod(
+                _elapsed * (1.52 + float(i) * 0.22), TAU)
 
     # Two armored leaves open within the existing full-size gate cheeks on
     # DEPLOYMENT selection, then retract on Back without camera/ID changes.
@@ -98,6 +115,18 @@ func _process(delta: float) -> void:
             var side: float = -1.0 if i == 0 else 1.0
             _gate_leaves[i].position.x = side * (0.84 + 1.15 * ease)
         deployment_pose_changed.emit()
+
+
+# Frustum-plane rejection of a padded sphere is conservative at all
+# camera angles. The moving light-bearing canopy and gate never use it.
+func _motion_may_be_visible(pivot: Node3D, radius: float, planes: Array[Plane], interior: Vector3) -> bool:
+    if not is_instance_valid(pivot):
+        return false
+    for plane in planes:
+        var side: float = signf(plane.distance_to(interior))
+        if side != 0.0 and plane.distance_to(pivot.global_position) * side < -radius:
+            return false
+    return true
 
 
 func _build_ceiling(metal: Material, edge: Material,
