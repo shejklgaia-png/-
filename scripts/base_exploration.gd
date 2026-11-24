@@ -378,13 +378,16 @@ func _create_grid_plates(floor: Node3D) -> Array[Dictionary]:
     var plate_mesh: ArrayMesh = BasePolygon.make("deck")
     var grid_extent: float = float(PLATE_GRID_RADIUS_CELLS) * PLATE_GRID_STEP + 1.50
     var grouped: Array = []
-    for index in range(tints.size()):
+    # One additional batch for the existing atomic facility site slabs.
+    # Leave all ordinary patchwork plates and their palette untouched.
+    var site_palette: int = tints.size()
+    for index in range(tints.size()+1):
         grouped.append([])
     for panel in panels:
         await _startup_budget.checkpoint("deck groups")
         var center: Vector2 = panel["center"]
         var size: Vector2 = panel["size"]
-        var palette_index: int = int(panel["tint"])
+        var palette_index: int = site_palette if not str(panel["site"]).is_empty() else int(panel["tint"])
         (grouped[palette_index] as Array).append(Transform3D(
             Basis.IDENTITY.scaled_local(Vector3(size.x, 0.30, size.y)),
             Vector3(center.x, -0.18, center.y)))
@@ -395,8 +398,10 @@ func _create_grid_plates(floor: Node3D) -> Array[Dictionary]:
     var deck_texture: Texture2D = null
     if ResourceLoader.exists(WEATHERED_DECK_PATH):
         deck_texture = load(WEATHERED_DECK_PATH) as Texture2D
-    for palette_index in range(tints.size()):
+    for palette_index in range(grouped.size()):
         var poses: Array = grouped[palette_index]
+        if poses.is_empty():
+            continue
         var multi := MultiMesh.new()
         multi.transform_format = MultiMesh.TRANSFORM_3D
         multi.mesh = plate_mesh
@@ -413,7 +418,7 @@ func _create_grid_plates(floor: Node3D) -> Array[Dictionary]:
         draw.name = "GridPlateBatch_%02d" % palette_index
         draw.multimesh = multi
         var mat := StandardMaterial3D.new()
-        mat.albedo_color = tints[palette_index]
+        mat.albedo_color = Color.WHITE if palette_index==site_palette else tints[palette_index]
         # Inexpensive precomputed bevel contrast on one shared steel mesh.
         mat.vertex_color_use_as_albedo = true
         mat.metallic = 0.12
@@ -431,7 +436,7 @@ func _create_grid_plates(floor: Node3D) -> Array[Dictionary]:
                 0.96 + 0.06 * float(palette_index / 3), 1.0)
         # Keep the six original draw batches and authored SVG/bevels, but
         # apply broad world-space illumination only to their floor surfaces.
-        draw.material_override = BaseFloorLighting.deck_material(mat)
+        draw.material_override = BaseFloorLighting.worksite_material(false,true) if palette_index==site_palette else BaseFloorLighting.deck_material(mat)
         draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
         floor.add_child(draw)
     return panels
