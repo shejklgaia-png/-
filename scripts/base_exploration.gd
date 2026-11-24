@@ -29,6 +29,7 @@ const WEATHERED_STEEL_PATH: String = "res://assets/base/industrial_steel_grunge.
 const WEATHERED_DECK_PATH: String = "res://assets/base/industrial_deck_wear.svg"
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const CrateModel = preload("res://scripts/sera_crate_model.gd")
+const NexusEntryTransition = preload("res://scripts/sera_nexus_entry_transition.gd")
 const NEXUS_SCENE: String = "res://scenes/command_nexus.tscn"
 const BASE_BGM_PATH: String = "res://BGM/scrap_sanctuary_seamless.ogg"
 # The 174 BPM track has a one-bar crossfade from 141.200 s into
@@ -1426,6 +1427,8 @@ func _power_camera_return_finished() -> void:
 
 
 func _on_android_back() -> void:
+    if scene_changing:
+        return
     if power_view_active:
         _power_back_pressed()
         return
@@ -1577,11 +1580,14 @@ func _process(delta: float) -> void:
             facility_system.call("is_menu_open"))
 
 func _enter_nexus() -> void:
-    if scene_changing:
+    if scene_changing or power_transition_busy or not is_instance_valid(nexus_building):
+        return
+    var model := nexus_building.get_node_or_null("NexusArchitecture") as Node3D
+    if model == null or not is_instance_valid(cam) or not is_instance_valid(hud):
         return
     scene_changing = true
     SeraSave.requested_nexus_target = ""
-    var error: Error = get_tree().change_scene_to_file(NEXUS_SCENE)
-    if error != OK:
-        scene_changing = false
-        push_error("SERA BASE -> NEXUS scene load failed (%d)" % error)
+    var transition := NexusEntryTransition.new()
+    transition.name = "NexusEntryTransition"
+    get_tree().root.add_child(transition)
+    transition.run(self, cam, model, hud, base_bgm_player, NEXUS_SCENE)

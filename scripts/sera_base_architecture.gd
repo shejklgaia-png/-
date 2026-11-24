@@ -421,7 +421,9 @@ static func build_nexus(parent: Node3D) -> void:
     parent.add_child(node)
     var g := Batch.new(node)
     g.yaw = facility_yaw_radians("NEXUS")
-    g.motion_names = BaseFacilityMotion.MOTION_FEATURES["NEXUS"] if ARCHIVED_NEXUS_MODEL else []
+    g.motion_names = BaseFacilityMotion.MOTION_FEATURES["NEXUS"].duplicate() if ARCHIVED_NEXUS_MODEL else []
+    if ARCHIVED_NEXUS_MODEL:
+        g.motion_names.append_array(["NexusBlastDoor", "NexusBlastShutterSlat"])
     g.outline_enabled = true
     # Broaden the hub silhouette without enlarging the surrounding clutter.
     g.detail_scale = 1.14
@@ -450,12 +452,35 @@ static func build_nexus(parent: Node3D) -> void:
     g.outline_enabled = false
     BaseClutter.decorate(g, "NEXUS")
     g.flush()
+    _build_nexus_entry_light(node)
     var archived_motion := BaseFacilityMotion.new()
     archived_motion.bind_to(node, "NEXUS")
     # A narrow shutter-gap fixture replaces the old exterior floodlight.
     var archived_vfx := BaseFacilityVfx.new()
     archived_vfx.setup(node, "NEXUS")
 
+
+# A physical, softly illuminated surface behind the rolling blast shutter.
+static func _build_nexus_entry_light(node: Node3D) -> void:
+    var glow := MeshInstance3D.new()
+    glow.name = "NexusEntryLight"
+    var slab := BoxMesh.new()
+    slab.size = Vector3(1.92, 2.44, 0.025)
+    glow.mesh = slab
+    var material := StandardMaterial3D.new()
+    material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    material.albedo_color = Color("#dce4e8")
+    glow.material_override = material
+    glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    glow.set_meta("sera_preserve_authored_material", true)
+    glow.set_meta("sera_outline_occluder_only", true)
+    glow.set_meta("sera_outline_emissive_protect", true)
+    var yaw := float(node.get_meta("body_yaw", 0.0))
+    var factor := float(node.get_meta("visual_model_scale", 1.0))
+    glow.position = Basis(Vector3.UP, yaw) * (Vector3(0, 1.65, 2.54) * factor)
+    glow.rotation.y = yaw
+    glow.scale = Vector3.ONE * factor
+    node.add_child(glow)
 
 static func _nexus_command_bunker(g: Batch) -> void:
     # All dimensions are in the established pre-scale local space. +Z is
