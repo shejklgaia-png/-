@@ -666,9 +666,12 @@ func _sync_placement_launchers() -> void:
 
 
 func _process(delta: float) -> void:
+    # Recover focus transitions BEFORE touching optional placement UI. If an
+    # editor is missing its script, a UI failure must not leave NEXUS consoles
+    # permanently blocked behind in_transition.
+    _recover_nexus_transition_if_stalled(delta)
     _sync_placement_launchers()
     SeraSave.record_game_time(delta)
-    _recover_nexus_transition_if_stalled(delta)
     _refresh_outline_debug(delta)
     _update_system_confirmation_blink(delta)
     _update_training_start_pulse(delta)
