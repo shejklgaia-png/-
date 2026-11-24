@@ -20,6 +20,9 @@ var _door_open_amount: float = 0.0
 var _canopy_rotor: Node3D
 var _canopy_cyan_rotor: Node3D
 var _scanner: Node3D
+var _launch_scan: Node3D
+var _launch_status: Label3D
+var _launch_indicator: MeshInstance3D
 var _arm_heads: Array[Node3D] = []
 var _system_fan: Node3D
 var _training_sensor: Node3D
@@ -40,6 +43,10 @@ func configure(system_at: Vector3, training_at: Vector3,
     var glow: StandardMaterial3D = _mat(FINISH_GLOW, true)
     _build_ceiling(metal, edge, glow)
     _build_scanner(metal, glow)
+    _build_floor_ring()
+    _launch_scan = get_parent().find_child("LaunchAnimatedScan", true, false) as Node3D
+    _launch_status = get_parent().find_child("LaunchAnimatedStatus", true, false) as Label3D
+    _launch_indicator = get_parent().find_child("LaunchAnimatedIndicator", true, false) as MeshInstance3D
     _build_system_fan(system_at, dark, edge)
     _build_training_sensor(training_at, dark, metal, glow)
     _build_wall_vents(dark, edge)
@@ -111,6 +118,16 @@ func _process(delta: float) -> void:
     var previous_open: float = _door_open_amount
     _door_open_amount = move_toward(
         _door_open_amount, target, step / 1.25)
+    if _motion_may_be_visible(_launch_scan, 1.5, planes, interior):
+        var scan_y: float = 0.05 + 0.36*fposmod(_elapsed*0.55,1.0)
+        _launch_scan.position.y = scan_y
+        _launch_scan.position.z = -scan_y*0.445
+        if is_instance_valid(_launch_status):
+            var next_status: String = "READY" if _door_open_amount >= 1.0 else ("UNLOCK" if _deployment_requested else ("STANDBY" if fposmod(_elapsed,3.0)<2.6 else "SYNC"))
+            if _launch_status.text != next_status:
+                _launch_status.text = next_status
+        if is_instance_valid(_launch_indicator):
+            _launch_indicator.visible = _deployment_requested or fposmod(_elapsed,1.6)<1.15
     if previous_open != _door_open_amount:
         var ease: float = _door_open_amount * _door_open_amount * (
             3.0 - 2.0 * _door_open_amount)
@@ -138,7 +155,19 @@ func _build_ceiling(metal: Material, edge: Material,
     _canopy_rotor.name = "CeilingDriveRotor"
     _canopy_rotor.position = Vector3(0.0, 6.92, -4.75)
     add_child(_canopy_rotor)
-    _ring(_canopy_rotor, "ServoBearing", 1.22, 1.34, metal)
+    _segmented_ring(_canopy_rotor,"ServoBearing", [Vector2(1.13,-0.13),
+        Vector2(1.33,-0.13),Vector2(1.42,-0.04),Vector2(1.42,0.18),
+        Vector2(1.21,0.18),Vector2(1.13,0.08)],12,0.025,Color("#8195a0"))
+    var fixed := Node3D.new()
+    fixed.name = "CeilingInspectionCastings"
+    fixed.position = Vector3(0,7.07,-4.75)
+    add_child(fixed)
+    _segmented_ring(fixed,"UpperLoadRing",[Vector2(1.48,0.08),
+        Vector2(2.07,0.08),Vector2(2.26,0.24),Vector2(2.26,0.48),
+        Vector2(2.07,0.59),Vector2(1.60,0.59),Vector2(1.48,0.40)],12,0.022,Color("#607987"))
+    _segmented_ring(fixed,"UpperServiceFlange",[Vector2(1.65,0.57),
+        Vector2(2.08,0.57),Vector2(2.12,0.67),Vector2(1.75,0.74),
+        Vector2(1.65,0.68)],6,0.045,Color("#465c6d"))
     _build_canopy_cyan_optics()
     for i in range(3):
         var angle: float = TAU * float(i) / 3.0
@@ -226,10 +255,19 @@ func _build_scanner(metal: Material, glow: Material) -> void:
     _scanner.name = "SeraContactlessScanner"
     _scanner.position = Vector3(0.0, 2.11, -4.75)
     add_child(_scanner)
-    _ring(_scanner, "ScannerTrack", 1.32, 1.385, metal)
-    for side in [-1.0, 1.0]:
-        _box(_scanner, "ScanEmitter", Vector3(side * 1.36, 0.0, 0.0),
-            Vector3(0.15, 0.10, 0.14), glow)
+    _segmented_ring(_scanner,"ScannerTrack",[Vector2(1.32,-0.075),
+        Vector2(1.46,-0.075),Vector2(1.52,-0.025),Vector2(1.52,0.055),
+        Vector2(1.45,0.11),Vector2(1.32,0.075)],8,0.025,Color("#708994"))
+    var optic_mat := _mat(Color("#72d9ed"),true)
+    for i in range(8):
+        var a: float = TAU*float(i)/8.0
+        var emitter := Node3D.new()
+        emitter.rotation.y = a
+        _scanner.add_child(emitter)
+        _box(emitter,"InwardScannerOptic",Vector3(0,0.018,1.315),
+            Vector3(0.19,0.065,0.025),optic_mat)
+        _box(emitter,"ScannerCartridge",Vector3(0,0.045,1.47),
+            Vector3(0.21,0.135,0.15),metal)
 
 
 func _build_system_fan(at: Vector3, dark: Material,
@@ -458,3 +496,60 @@ func _mat(tint: Color, lit: bool = false) -> StandardMaterial3D:
         result.emission = tint
         result.emission_energy_multiplier = 1.15
     return result
+
+
+func _build_floor_ring() -> void:
+    var base := Node3D.new()
+    base.name = "MaintenanceDeckCastings"
+    base.position = Vector3(0,0,-4.75)
+    add_child(base)
+    _segmented_ring(base,"DeckRadialArmor",[Vector2(1.35,0.055),
+        Vector2(1.83,0.055),Vector2(1.93,0.145),Vector2(1.93,0.25),
+        Vector2(1.80,0.31),Vector2(1.48,0.31),Vector2(1.35,0.23)],12,0.025,Color("#617987"))
+    _segmented_ring(base,"DeckLockingCollars",[Vector2(1.78,0.11),
+        Vector2(1.98,0.11),Vector2(2.02,0.18),Vector2(1.93,0.27),
+        Vector2(1.78,0.27)],6,0.31,Color("#8b9186"))
+    _segmented_ring(base,"DeckInnerRetainer",[Vector2(1.23,0.34),
+        Vector2(1.43,0.34),Vector2(1.46,0.40),Vector2(1.25,0.43),
+        Vector2(1.23,0.40)],12,0.02,Color("#445e6d"))
+
+
+# Faceted radial cross-section; bevels and seams are real geometry, one
+# vertex-colored mesh per assembly, with the aperture never capped.
+func _segmented_ring(parent: Node3D,label: String,profile: Array,
+        count: int,gap: float,tint: Color) -> void:
+    var tool := SurfaceTool.new()
+    tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+    var shades: Array[float] = [0.61,0.84,1.0,0.78,1.10,0.88,0.70]
+    for segment in range(count):
+        var start: float = TAU*float(segment)/float(count)+gap*0.5
+        var end: float = TAU*float(segment+1)/float(count)-gap*0.5
+        for step in range(3):
+            var a: float = lerpf(start,end,float(step)/3.0)
+            var b: float = lerpf(start,end,float(step+1)/3.0)
+            var radial := Vector3(cos((a+b)*0.5),0,sin((a+b)*0.5))
+            for j in range(profile.size()):
+                var p: Vector2 = profile[j]
+                var q: Vector2 = profile[(j+1)%profile.size()]
+                var n: Vector3 = radial*(q.y-p.y)+Vector3.UP*(p.x-q.x)
+                var color: Color = tint*shades[j%shades.size()]
+                color.a = 1.0
+                _portal_quad(tool,_ring_point(p,a),_ring_point(p,b),
+                    _ring_point(q,b),_ring_point(q,a),n,color)
+        for j in range(1,profile.size()-1):
+            _portal_tri(tool,_ring_point(profile[0],start),
+                _ring_point(profile[j],start),_ring_point(profile[j+1],start),
+                Vector3(sin(start),0,-cos(start)),tint.darkened(0.36))
+            _portal_tri(tool,_ring_point(profile[0],end),
+                _ring_point(profile[j],end),_ring_point(profile[j+1],end),
+                Vector3(-sin(end),0,cos(end)),tint.darkened(0.36))
+    var mat := _mat(Color.WHITE)
+    mat.vertex_color_use_as_albedo = true
+    mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+    mat.roughness = 0.79
+    var node := _mesh(parent,label,tool.commit(),mat)
+    node.set_meta("sera_preserve_authored_material",true)
+
+
+func _ring_point(p: Vector2,a: float) -> Vector3:
+    return Vector3(p.x*cos(a),p.y,p.x*sin(a))
