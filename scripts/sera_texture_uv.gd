@@ -149,7 +149,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     arrays[Mesh.ARRAY_TEX_UV2] = diagnostic_uv
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v2" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
+    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v3" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
 
 ## Group connected coplanar triangles, and the two halves of slightly
 ## warped authored quads. Never use an internal triangulation diagonal
@@ -1070,7 +1070,20 @@ static func _relax_affine_islands(tris: Array[Dictionary],charts: Array[Dictiona
         if score.x <= baseline.x+0.00001 and score.y <= baseline.y and score.z < best_score.z-0.00001:
             best_score = score
             best_params = params.duplicate()
-    var summary: String = "候補 %d / 問題辺 %d→%d / 最大 %.3f→%.3fpx / 二乗和 %.3f→%.3f" % [accepted,int(baseline.y),int(best_score.y),baseline.x,best_score.x,baseline.z,best_score.z]
+    var v2_score: Vector3 = best_score
+    var pair_params: Array = best_params.duplicate()
+    var pair_count: int = _refine_affine_pairs(links,adjacency,pair_params,pivots,limits)
+    var pair_score: Vector3 = _affine_metrics(links,pair_params,pivots)
+    var pair_note: String = " / ペア補正 不採用 (%d候補)" % pair_count
+    if pair_score.x <= best_score.x+0.00001 and pair_score.y <= best_score.y and pair_score.z < best_score.z-0.00001:
+        var pair_bounds: Array[Dictionary] = _affine_candidate_bounds(tris,charts,pivots,pair_params)
+        if _hinge_pack_side(pair_bounds) <= mini(1024,_hinge_pack_side(charts)*2):
+            best_params = pair_params
+            best_score = pair_score
+            pair_note = " / ペア補正 %d採用・最大 %.3f→%.3fpx・問題辺 %d→%d" % [pair_count,v2_score.x,best_score.x,int(v2_score.y),int(best_score.y)]
+        else:
+            pair_note = " / ペア補正 容量超過・V2維持"
+    var summary: String = "候補 %d / 問題辺 %d→%d / 最大 %.3f→%.3fpx / 二乗和 %.3f→%.3f" % [accepted,int(baseline.y),int(best_score.y),baseline.x,best_score.x,baseline.z,best_score.z]+pair_note
     if best_score.z >= baseline.z-0.00001:
         return "不採用（残差条件） / "+summary
     # Calculate proposed bounds before committing; keep atlas size.
@@ -1106,6 +1119,104 @@ static func _relax_affine_islands(tris: Array[Dictionary],charts: Array[Dictiona
         charts[ci].min = next_charts[ci].min
         charts[ci].max = next_charts[ci].max
     return "採用 / 容量 %d→%d / " % [old_side,new_side]+summary
+
+
+# Joint moves can improve a seam that cannot be improved by moving
+# either island alone. Preserve the accepted V2 result as a fallback.
+static func _refine_affine_pairs(links: Array[Dictionary],adjacency: Array,params: Array,pivots: PackedVector2Array,limits: PackedFloat32Array) -> int:
+    var count: int = 0
+    for sweep in range(4):
+        var ranking: Array[int] = []
+        var errors := PackedFloat32Array()
+        for i in range(links.size()):
+            errors.append(_affine_link_error(links[i],params,pivots))
+            ranking.append(i)
+        ranking.sort_custom(func(a: int,b: int) -> bool: return errors[a] > errors[b])
+        var peak: float = _affine_metrics(links,params,pivots).x
+        var seen: Dictionary = {}
+        for li in ranking:
+            var link: Dictionary = links[li]
+            if errors[li] < 0.5 or seen.size() >= 16:
+                break
+            var ca: int = int(link.a)
+            var cb: int = int(link.b)
+            var key := Vector2i(mini(ca,cb),maxi(ca,cb))
+            if seen.has(key):
+                continue
+            seen[key] = true
+            var incident: Array = adjacency[ca].duplicate()
+            for other in adjacency[cb]:
+                if not incident.has(other):
+                    incident.append(other)
+            var base_a: PackedFloat32Array = params[ca]
+            var base_b: PackedFloat32Array = params[cb]
+            var best_a: PackedFloat32Array = base_a
+            var best_b: PackedFloat32Array = base_b
+            var before: Vector3 = _affine_incident_metrics(links,incident,params,pivots)
+            var best: float = before.z + before.x*before.x*0.5
+            var accepted: bool = false
+            var step: float = deg_to_rad(5.0 if sweep < 2 else 2.5)
+            for da in [-2.0,-1.0,0.0,1.0,2.0]:
+                for db in [-2.0,-1.0,0.0,1.0,2.0]:
+                    var rot_a: PackedFloat32Array = base_a.duplicate()
+                    var rot_b: PackedFloat32Array = base_b.duplicate()
+                    rot_a[0] = clampf(base_a[0]+float(da)*step,-limits[0],limits[0])
+                    rot_b[0] = clampf(base_b[0]+float(db)*step,-limits[0],limits[0])
+                    var pa: PackedVector2Array = link.pa
+                    var pb: PackedVector2Array = link.pb
+                    var a0: Vector2 = _affine_grid_point(pa[0],pivots[ca],rot_a)
+                    var a1: Vector2 = _affine_grid_point(pa[1],pivots[ca],rot_a)
+                    var b0: Vector2 = _affine_grid_point(pb[0],pivots[cb],rot_b)
+                    var b1: Vector2 = _affine_grid_point(pb[1],pivots[cb],rot_b)
+                    var quarter: float = roundf((b1-b0).angle_to(a1-a0)/(PI*0.5))*(PI*0.5)
+                    var delta: Vector2 = (a0+a1)*0.5-((b0+b1)*0.5).rotated(quarter)
+                    delta -= delta.round()
+                    for blend in [0.0,0.5,1.0]:
+                        var a: PackedFloat32Array = rot_a.duplicate()
+                        var b: PackedFloat32Array = rot_b.duplicate()
+                        var ta: Vector2 = Vector2(a[5],a[6])-delta*0.5*float(blend)
+                        var tb: Vector2 = Vector2(b[5],b[6])+delta.rotated(-quarter)*0.5*float(blend)
+                        ta -= ta.round()
+                        tb -= tb.round()
+                        a[5] = ta.x
+                        a[6] = ta.y
+                        b[5] = tb.x
+                        b[6] = tb.y
+                        params[ca] = a
+                        params[cb] = b
+                        var after: Vector3 = _affine_incident_metrics(links,incident,params,pivots)
+                        var cost: float = after.z+after.x*after.x*0.5
+                        if after.x <= peak+0.00001 and after.y <= before.y and after.z < before.z-0.00001 and cost < best-0.00001:
+                            best = cost
+                            best_a = a
+                            best_b = b
+                            accepted = true
+            params[ca] = best_a
+            params[cb] = best_b
+            if accepted:
+                count += 1
+    return count
+
+static func _affine_candidate_bounds(tris: Array[Dictionary],charts: Array[Dictionary],pivots: PackedVector2Array,params: Array) -> Array[Dictionary]:
+    var result: Array[Dictionary] = []
+    for chart in charts:
+        var c: Dictionary = chart.duplicate()
+        c.min = Vector2(INF,INF)
+        c.max = Vector2(-INF,-INF)
+        result.append(c)
+    for t in tris:
+        var ci: int = int(t.chart)
+        var c: Dictionary = result[ci]
+        for point in t.xy:
+            var v: Vector2 = _affine_grid_point(point,pivots[ci],params[ci])
+            var lo: Vector2 = c.min
+            var hi: Vector2 = c.max
+            c.min = lo.min(v)
+            c.max = hi.max(v)
+    for c in result:
+        var lo: Vector2 = c.min
+        c.min = lo.floor()
+    return result
 
 static func _affine_incident_metrics(links: Array[Dictionary],incident: Array,params: Array,pivots: PackedVector2Array) -> Vector3:
     var score := Vector3.ZERO
