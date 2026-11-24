@@ -100,6 +100,11 @@ var original: Image
 var tex: ImageTexture
 var triangles: Array = []
 var seam_texels: Dictionary = {}
+var grid_mode: int = 0
+var grid_button: Button
+var diagnostic_text: String = ""
+var orthographic_view: bool = false
+var angle_picker: StudioChoice
 var undo_stack: Array[Image] = []
 var redo_stack: Array[Image] = []
 var points: Dictionary = {}
@@ -302,7 +307,16 @@ func _build_ui() -> void:
     _button(row,"Redo",_redo)
     row = _row(box)
     _button(row,"UV表示",_toggle_atlas)
+    grid_button = _button(row,"格子 OFF",_cycle_grid)
     _button(row,"保存",_save)
+    row = _row(box)
+    angle_picker = _new_choice("診断視点")
+    for label in ["自由視点","正面 −Z","背面 ＋Z","左側 −X","右側 ＋X","上面"]:
+        angle_picker.add_item(label)
+    angle_picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+    angle_picker.item_selected.connect(_set_diagnostic_angle)
+    row.add_child(angle_picker)
+    _button(row,"診断コピー",_copy_diagnostics)
     atlas_preview = TextureRect.new()
     atlas_preview.custom_minimum_size.y = 160
     atlas_preview.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -917,6 +931,8 @@ func _install_preview(mesh: ArrayMesh) -> void:
     tex = ImageTexture.create_from_image(img)
     preview.mesh = mesh
     preview.material_override = _atlas_material(tex)
+    _apply_grid()
+    diagnostic_text = ""
     preview.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
     atlas_preview.texture = tex
     var bounds := preview.mesh.get_aabb()
@@ -948,6 +964,8 @@ func _camera_pose() -> void:
     camera.look_at(Vector3.ZERO,Vector3.UP)
     camera.near = maxf(0.001,zoom*0.04)
     camera.far = maxf(1.0,zoom+radius*5.0)
+    if orthographic_view:
+        camera.size = maxf(0.001,zoom*1.1)
 
 func _rotate(delta: Vector2) -> void:
     yaw -= delta.x*0.008
@@ -997,7 +1015,7 @@ func _view_input(event: InputEvent) -> void:
         elif not multi_gesture:
             if rotation_mode:
                 _rotate(event.relative)
-            else:
+            elif grid_mode != 2:
                 if not stroke:
                     _begin_stroke()
                     _paint(before)
@@ -1026,7 +1044,12 @@ func _view_input(event: InputEvent) -> void:
         accept_event()
 
 func _begin_stroke() -> void:
-    if img == null or layers.is_empty() or not layer_visible[layer_index]:
+    if img == null:
+        return
+    if grid_mode == 2:
+        stroke = true
+        return
+    if layers.is_empty() or not layer_visible[layer_index]:
         return
     stroke = true
     last_hit = Vector2i(-1,-1)
@@ -1038,7 +1061,7 @@ func _begin_stroke() -> void:
     shape_base = null
     if tool_picker.selected in [7,8]:
         shape_base = layers[layer_index].duplicate() as Image
-    if tool_picker.selected != 2:
+    if grid_mode != 2 and tool_picker.selected != 2:
         undo_stack.append(layers[layer_index].duplicate() as Image)
         if undo_stack.size() > 12:
             undo_stack.pop_front()
@@ -1052,6 +1075,8 @@ func _end_stroke() -> void:
 
 func _paint_path(start: Vector2, finish: Vector2) -> void:
     if not stroke or img == null or tex == null:
+        return
+    if grid_mode == 2:
         return
     if tool_picker.selected in [2,3,7,8,11,12]:
         _paint(finish)
@@ -1073,6 +1098,9 @@ func _paint(at: Vector2, flush: bool = true) -> void:
     if hit.is_empty():
         last_hit = Vector2i(-1,-1)
         previous_mirror = Vector2i(-1,-1)
+        return
+    if grid_mode == 2:
+        _inspect_uv(int(hit.get("triangle",-1)))
         return
     var uv: Vector2 = hit.uv
     var p := Vector2i(clampi(floori(uv.x*img.get_width()),0,img.get_width()-1),clampi(floori(uv.y*img.get_height()),0,img.get_height()-1))
@@ -1270,6 +1298,65 @@ func _redo() -> void:
     layers[layer_index] = redo_stack.pop_back()
     _composite()
     tex.update(img)
+
+func _apply_grid() -> void:
+    if not is_instance_valid(preview) or img == null:
+        return
+    var material: ShaderMaterial = preview.material_override as ShaderMaterial
+    if material != null:
+        material.set_shader_parameter("grid_mode",grid_mode)
+        material.set_shader_parameter("atlas_dimensions",Vector2(img.get_size()))
+
+func _cycle_grid() -> void:
+    _end_stroke()
+    points.clear()
+    grid_mode = (grid_mode+1)%3
+    grid_button.text = ["格子 OFF","格子 ON","面診断"][grid_mode]
+    _apply_grid()
+    if grid_mode == 2:
+        _inspect_uv(-1)
+        _show_status("緑=矩形化 / 橙=投影 / 面をタップして診断")
+    elif grid_mode == 1:
+        _show_status("実UVの1px格子を表示（拡大すると見えます）")
+    else:
+        _show_status("格子表示 OFF")
+
+func _inspect_uv(triangle_index: int) -> void:
+    if img == null or triangles.is_empty():
+        return
+    var result: Dictionary = UV.diagnostic_report(triangles,img.get_size(),atlas_density,triangle_index)
+    diagnostic_text = selected_model_label.text+"\n"+str(result.report)
+    _show_status(str(result.summary))
+
+func _copy_diagnostics() -> void:
+    if img == null:
+        _show_status("モデルを選択してください")
+        return
+    if diagnostic_text.is_empty():
+        _inspect_uv(-1)
+    DisplayServer.clipboard_set(diagnostic_text)
+    _show_status("診断データをコピーしました")
+
+func _set_diagnostic_angle(index: int) -> void:
+    orthographic_view = index != 0
+    camera.projection = Camera3D.PROJECTION_ORTHOGONAL if orthographic_view else Camera3D.PROJECTION_PERSPECTIVE
+    match index:
+        1:
+            yaw = PI
+            pitch = 0.0
+        2:
+            yaw = 0.0
+            pitch = 0.0
+        3:
+            yaw = -PI*0.5
+            pitch = 0.0
+        4:
+            yaw = PI*0.5
+            pitch = 0.0
+        5:
+            yaw = 0.0
+            pitch = PI*0.5-0.0001
+    _camera_pose()
 
 func _toggle_atlas() -> void:
     atlas_preview.visible = not atlas_preview.visible

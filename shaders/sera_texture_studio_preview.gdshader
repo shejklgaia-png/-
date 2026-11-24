@@ -1,6 +1,12 @@
 shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_opaque;
 uniform sampler2D source_texture : source_color, filter_nearest_mipmap, repeat_disable;
+uniform int grid_mode = 0;
+uniform vec2 atlas_dimensions = vec2(256.0);
+varying vec2 face_diagnostic;
+void vertex() {
+    face_diagnostic = UV2;
+}
 void fragment() {
     // Binary per-triangle flags: red = cull front, green = cull back,
     // white = two-sided or a legacy atlas without flags.
@@ -17,5 +23,18 @@ void fragment() {
     vec3 world_normal = normalize((INV_VIEW_MATRIX * vec4(n, 0.0)).xyz);
     float lighting = clamp(dot(world_normal, normalize(vec3(-0.45, 0.65, 0.70))) * 0.5 + 0.5, 0.0, 1.0);
     float shade = mix(0.80, 1.0, floor(lighting * 7.0 + 0.5) / 7.0);
-    ALBEDO = texture(source_texture, UV).rgb * shade;
+    vec3 base = texture(source_texture, UV).rgb * shade;
+    if (grid_mode > 0) {
+        vec2 pixel = UV * atlas_dimensions;
+        vec2 distance_to_line = abs(fract(pixel + 0.5) - 0.5);
+        vec2 footprint = max(fwidth(pixel), vec2(0.0001));
+        vec2 lines = 1.0 - smoothstep(footprint * 0.35, footprint * 0.95, distance_to_line);
+        float line = max(lines.x, lines.y) * (1.0 - smoothstep(0.55, 1.3, max(footprint.x, footprint.y)));
+        if (grid_mode == 2) {
+            vec3 diagnostic = face_diagnostic.x > 0.75 ? vec3(0.17, 0.65, 0.45) : (face_diagnostic.x > 0.25 ? vec3(0.92, 0.50, 0.15) : vec3(0.4, 0.5, 0.65));
+            base = mix(base, diagnostic, 0.48);
+        }
+        base = mix(base, vec3(0.04, 0.13, 0.18), line * 0.8);
+    }
+    ALBEDO = base;
 }

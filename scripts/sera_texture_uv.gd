@@ -113,6 +113,7 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
     var normals_out := PackedVector3Array()
     var uvs := PackedVector2Array()
     var flags := PackedColorArray()
+    var diagnostic_uv := PackedVector2Array()
     for t in tris:
         var c: Dictionary = charts[t.chart]
         var uv := PackedVector2Array()
@@ -123,6 +124,7 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
             normals_out.append(t.n[k])
             uvs.append(uv[k])
             flags.append(_encode_cull(int(t.cull)))
+            diagnostic_uv.append(Vector2(1.0 if bool(c.get("rectified",false)) else 0.5,0.0))
         t.uv = uv
         _bake_triangle(img,t,distances)
     var arrays: Array = []
@@ -131,6 +133,7 @@ static func build(source: MeshInstance3D, density: int) -> Dictionary:
     arrays[Mesh.ARRAY_NORMAL] = normals_out
     arrays[Mesh.ARRAY_TEX_UV] = uvs
     arrays[Mesh.ARRAY_COLOR] = flags
+    arrays[Mesh.ARRAY_TEX_UV2] = diagnostic_uv
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
     return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size()}
@@ -874,7 +877,8 @@ static func _decode_cull(flag: Color) -> int:
 static func hit(tris: Array,origin: Vector3,direction: Vector3) -> Dictionary:
     var nearest := INF
     var result: Dictionary = {}
-    for t in tris:
+    for triangle_index in range(tris.size()):
+        var t: Dictionary = tris[triangle_index]
         var p: PackedVector3Array = t.p
         var e1 := p[1]-p[0]
         var e2 := p[2]-p[0]
@@ -897,8 +901,77 @@ static func hit(tris: Array,origin: Vector3,direction: Vector3) -> Dictionary:
         var depth := e2.dot(q.cross(e1))/det
         if depth > 0.0 and depth < nearest:
             nearest = depth
-            result = {"uv":t.uv[0]*(1-u-v)+t.uv[1]*u+t.uv[2]*v,"chart":t.chart,"position":origin+direction*depth}
+            result = {"uv":t.uv[0]*(1-u-v)+t.uv[1]*u+t.uv[2]*v,"chart":t.chart,"position":origin+direction*depth,"triangle":triangle_index}
     return result
+
+## Inspect the actual packed atlas rather than the original palette UV.
+## Reports distinguish geometry, UV distortion and incompatible seams.
+static func diagnostic_report(tris: Array, side: Vector2i, density: int, selected: int = -1) -> Dictionary:
+    var groups: Dictionary = {}
+    for i in range(tris.size()):
+        var t: Dictionary = tris[i]
+        var ci: int = int(t.chart)
+        if not groups.has(ci):
+            groups[ci] = []
+        (groups[ci] as Array).append(i)
+    var seam_count: int = 0
+    var unmatched: int = 0
+    var worst: float = 0.0
+    var selected_chart: int = -1
+    if selected >= 0 and selected < tris.size():
+        selected_chart = int(tris[selected].chart)
+    var selected_seams: Array[String] = []
+    for link in _seam_segments(tris):
+        var a: PackedVector2Array = _segment_uv(tris[link.ta],link.ea,link.a0,link.a1,"uv")
+        var b: PackedVector2Array = _segment_uv(tris[link.tb],link.eb,link.b0,link.b1,"uv")
+        var size: Vector2 = Vector2(side)
+        var da: Vector2 = (a[1]-a[0])*size
+        var db: Vector2 = (b[1]-b[0])*size
+        if minf(da.length(),db.length()) < 0.00001:
+            continue
+        var angle: float = db.angle_to(da)
+        var quarter: float = roundf(angle/(PI*0.5))*(PI*0.5)
+        var error0: Vector2 = a[0]*size-(b[0]*size).rotated(quarter)
+        error0 -= error0.round()
+        var error1: Vector2 = error0+da-db.rotated(quarter)
+        var residual: float = maxf(error0.length(),error1.length())
+        seam_count += 1
+        worst = maxf(worst,residual)
+        if residual > 0.25:
+            unmatched += 1
+        if selected_chart >= 0 and (int(link.a) == selected_chart or int(link.b) == selected_chart) and selected_seams.size() < 16:
+            selected_seams.append("島%d↔%d 長さ %.2f/%.2fpx 角度差 %.1f° 残差 %.2fpx" % [link.a,link.b,da.length(),db.length(),absf(rad_to_deg(angle-quarter)),residual])
+    var summary: String = "UV島 %d / 共有辺 %d / 残差>0.25px %d / 最大 %.2fpx" % [groups.size(),seam_count,unmatched,worst]
+    var lines: PackedStringArray = PackedStringArray([summary,"atlas=%dx%d density=%d" % [side.x,side.y,density]])
+    if selected_chart >= 0:
+        var t: Dictionary = tris[selected]
+        var members: Array = groups[selected_chart]
+        var p: PackedVector3Array = t.p
+        var normal: Vector3 = (p[1]-p[0]).cross(p[2]-p[0]).normalized()
+        var max_bend: float = 0.0
+        var max_plane: float = 0.0
+        var lo_ratio: float = INF
+        var hi_ratio: float = 0.0
+        for id in members:
+            var part: Dictionary = tris[id]
+            var pp: PackedVector3Array = part.p
+            var uv: PackedVector2Array = part.uv
+            var n: Vector3 = (pp[1]-pp[0]).cross(pp[2]-pp[0]).normalized()
+            max_bend = maxf(max_bend,rad_to_deg(acos(clampf(normal.dot(n),-1,1))))
+            for k in range(3):
+                max_plane = maxf(max_plane,absf((pp[k]-p[0]).dot(normal)))
+                var world_length: float = pp[k].distance_to(pp[(k+1)%3])
+                if world_length > 0.000001:
+                    var ratio: float = ((uv[k]-uv[(k+1)%3])*Vector2(side)).length()/maxf(0.000001,world_length*density)
+                    lo_ratio = minf(lo_ratio,ratio)
+                    hi_ratio = maxf(hi_ratio,ratio)
+        summary = "島%d / 原面%d / 曲がり %.1f° / 密度比 %.2f–%.2f" % [selected_chart,int(t.get("authored_face",-1)),max_bend,lo_ratio,hi_ratio]
+        lines.append(summary)
+        lines.append("surface=%d triangle=%d triangles=%d plane deviation=%.3f mm" % [int(t.get("surface",-1)),selected,members.size(),max_plane*1000.0])
+        lines.append("geometry="+str(p)+" / atlasUV="+str(t.uv))
+        for entry in selected_seams:
+            lines.append(entry)
+    return {"summary":summary,"report":"\n".join(lines)}
 
 ## Restore the exact saved atlas, without repartitioning or resampling.
 static func restore_triangles(mesh: ArrayMesh, chart_ids: Array) -> Array:
