@@ -52,104 +52,54 @@ static func build(room: Node3D) -> void:
     var alloy := _mat(Color("#7b92a3"))
     var glow := _mat(Color("#65d7f3"), true)
 
-    # Rear wall z=-27.7. True door cutout: x=3.1..9.15, y=0..8.4.
-    # The large right-side DEPLOYMENT machine can now be seen through it.
+    # Independent gate: leave a rectangular clearance for the whole
+    # rotated 1.35x portal, including cheeks, visor and tunnel.
+    # No room-side jamb, tie, column or runner may enter this opening.
     _cast(root, "LeftRearBulkheadWithGateCutout", [
-        Vector2(-10.05, -0.05), Vector2(3.04, -0.05),
-        Vector2(3.04, 7.55), Vector2(2.58, 8.42),
-        Vector2(-10.05, 8.42)], -28.10, -27.42, dark)
+        Vector2(-10.05, -0.05), Vector2(2.70, -0.05),
+        Vector2(2.70, 8.80), Vector2(-10.05, 8.80)],
+        -28.10, -27.42, dark)
     _cast(root, "RightRearBulkheadGateReturn", [
-        Vector2(9.20, -0.05), Vector2(10.05, -0.05),
-        Vector2(10.05, 8.42), Vector2(9.61, 8.42),
-        Vector2(9.20, 7.62)], -28.10, -27.42, dark)
+        Vector2(9.85, -0.05), Vector2(10.05, -0.05),
+        Vector2(10.05, 8.80), Vector2(9.85, 8.80)],
+        -28.10, -27.42, dark)
     _cast(root, "DeepGateHeaderOverClearOpening", [
-        Vector2(2.54, 8.42), Vector2(9.65, 8.42),
-        Vector2(10.02, 9.00), Vector2(10.02, 10.22),
-        Vector2(2.54, 10.22)], -28.10, -27.42, gunmetal)
+        Vector2(2.70, 8.80), Vector2(10.05, 8.80),
+        Vector2(10.05, 10.22), Vector2(2.70, 10.22)],
+        -28.10, -27.42, gunmetal)
 
-    # Rebuild the RIGHT side wall as three cast sections. Its former
-    # unbroken inner face ran through the gate's outer armor; recess ONLY the
-    # gate bay from x=8.94 to x=9.58. The near and far wall sections retain
-    # the original hangar envelope and the new right jamb provides continuity.
-    _cast(root, "RightWallBehindGate", [
-        Vector2(8.96, 0.0), Vector2(9.98, 0.0),
-        Vector2(9.98, 9.80), Vector2(8.96, 9.80)],
-        -28.50, -26.60, dark)
+    # The portal tunnel extends behind the rear wall. Recess the right
+    # wall across the ENTIRE tunnel/arch bay, not just its front half.
     _cast(root, "RightWallRecessedLaunchBay", [
-        Vector2(9.58, 0.0), Vector2(9.98, 0.0),
-        Vector2(9.98, 9.80), Vector2(9.58, 9.80)],
-        -26.60, -19.50, gunmetal)
+        Vector2(10.05, 0.0), Vector2(10.50, 0.0),
+        Vector2(10.50, 9.80), Vector2(10.05, 9.80)],
+        -31.00, -18.90, gunmetal)
     _cast(root, "RightWallForwardStation", [
-        Vector2(8.96, 0.0), Vector2(9.98, 0.0),
-        Vector2(9.98, 9.80), Vector2(8.96, 9.80)],
-        -19.50, 12.50, dark)
+        Vector2(8.96, 0.0), Vector2(10.50, 0.0),
+        Vector2(10.50, 9.80), Vector2(8.96, 9.80)],
+        -18.90, 12.50, dark)
 
-    # The wall's front-face vertical machinery tracks form angled chamfered
-    # reveals outside, not inside, the open departure tunnel.
-    _cast(root, "GateLeftMachinedDoorJamb", [
-        Vector2(2.65, 0.12), Vector2(3.07, 0.12),
-        Vector2(3.07, 7.42), Vector2(2.62, 8.28),
-        Vector2(2.30, 8.28), Vector2(2.65, 7.28)],
-        -27.37, -27.02, armor)
-    _cast(root, "GateRightMachinedDoorJamb", [
-        Vector2(9.25, 0.12), Vector2(9.65, 0.12),
-        Vector2(9.65, 7.30), Vector2(9.87, 8.28),
-        Vector2(9.53, 8.28), Vector2(9.25, 7.40)],
-        -27.37, -27.02, armor)
-    _cast(root, "GateLintelTriangulatedArmor", [
-        Vector2(2.66, 8.65), Vector2(9.45, 8.65),
-        Vector2(9.05, 9.18), Vector2(7.45, 9.35),
-        Vector2(4.00, 9.35), Vector2(2.66, 9.04)],
-        -27.02, -26.74, alloy)
-
-    # Split the former enormous uninterrupted rear mezzanine bridge at z=-20
-    # around the portal approach; the middle SERA tower remains untouched.
+    # Preserve the left bridge; stop the right bridge and structural
+    # supports short of the launch bay. The gate supplies its own armor.
     _cast(root, "BridgeLeftAnchoredSpan", [
-        Vector2(-9.96, 5.98), Vector2(2.83, 5.98),
-        Vector2(2.83, 6.55), Vector2(-9.96, 6.77)],
+        Vector2(-9.96, 5.98), Vector2(2.60, 5.98),
+        Vector2(2.60, 6.55), Vector2(-9.96, 6.77)],
         -20.75, -19.25, armor)
     _cast(root, "BridgeLeftUndersideTaper", [
         Vector2(-9.30, 5.78), Vector2(2.18, 5.78),
-        Vector2(2.62, 6.00), Vector2(-9.30, 6.08)],
+        Vector2(2.42, 6.00), Vector2(-9.30, 6.08)],
         -20.30, -19.17, gunmetal)
-    _cast(root, "BridgeRightGateSafeReturn", [
-        Vector2(9.45, 5.98), Vector2(9.94, 5.98),
-        Vector2(9.94, 6.76), Vector2(9.52, 6.76)],
-        -20.75, -19.25, armor)
-
-    # Replace the old right-most full-height column (which was inside the gate
-    # cheeks at z=-23) with a narrower, diagonal wall-coupled support.
-    _cast(root, "RightLaunchBayChamberJamb", [
-        Vector2(9.62, 0.12), Vector2(9.95, 0.12),
-        Vector2(9.95, 8.75), Vector2(9.72, 8.75),
-        Vector2(9.39, 7.92), Vector2(9.52, 2.13)],
-        -24.60, -23.22, armor)
-    _cast(root, "RightLaunchJambReinforcement", [
-        Vector2(9.53, 2.18), Vector2(9.83, 2.18),
-        Vector2(9.83, 7.02), Vector2(9.58, 7.42)],
-        -23.12, -22.83, alloy)
-
-    # Re-route the continuous right wall runner to the outside of the portal.
-    # Unlike its former protruding x=7.7 face, this clears the gate opening.
     _cast(root, "RightWallHighConduit", [
         Vector2(9.53, 7.98), Vector2(9.98, 7.98),
         Vector2(9.98, 8.44), Vector2(9.64, 8.44)],
-        -27.12, 11.00, gunmetal)
+        -18.85, 11.00, gunmetal)
     _cast(root, "RightWallMezzanineShortened", [
         Vector2(9.50, 5.68), Vector2(9.94, 5.68),
         Vector2(9.94, 6.34), Vector2(9.50, 6.34)],
         -16.85, 2.00, armor)
-
-    # The nearest (rear-most) crossing girder no longer cuts visually through
-    # the top of the gate. Tapered upper returns stop at the open bay.
     _cast(root, "RearGirderLeftHaunch", [
-        Vector2(-9.98, 8.76), Vector2(2.65, 8.76),
-        Vector2(2.92, 9.15), Vector2(2.92, 9.55),
-        Vector2(-9.98, 9.55)],
-        -25.36, -24.64, gunmetal)
-    _cast(root, "RearGirderRightHaunch", [
-        Vector2(9.57, 8.88), Vector2(10.02, 8.88),
-        Vector2(10.02, 9.55), Vector2(9.57, 9.55)],
+        Vector2(-9.98, 8.76), Vector2(2.60, 8.76),
+        Vector2(2.60, 9.55), Vector2(-9.98, 9.55)],
         -25.36, -24.64, gunmetal)
 
     # Keep the authored transverse girders continuous. The former independent
