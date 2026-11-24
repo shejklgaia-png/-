@@ -390,12 +390,14 @@ func _restore_saved_placements() -> void:
             focus["eye"] = PlacementStore.vec(angle["eye"])
             focus["look"] = PlacementStore.vec(angle["look"])
             focus["fov"] = float(angle["fov"])
+            focus["roll_deg"] = float(angle.get("roll_deg", 0.0))
             entry["focus"] = focus
             entries[key] = entry
             var view: Dictionary = host.focus_views[key]
             view["eye"] = focus["eye"]
             view["look"] = focus["look"]
             view["fov"] = focus["fov"]
+            view["roll_deg"] = focus["roll_deg"]
             host.focus_views[key] = view
         var record: Dictionary = PlacementStore.read("nexus/model/" + key)
         if record.has("position") and record.has("yaw_rad"):
@@ -407,7 +409,8 @@ func _restore_saved_placements() -> void:
     host.call("_update_projected_silhouettes")
 
 
-func record_camera_pose(key: String, eye: Vector3, look: Vector3, fov: float) -> void:
+func record_camera_pose(key: String, eye: Vector3, look: Vector3,
+        fov: float, roll_deg: float = 0.0) -> void:
     if not initialized or not entries.has(key):
         return
     var entry: Dictionary = entries[key]
@@ -421,12 +424,14 @@ func record_camera_pose(key: String, eye: Vector3, look: Vector3, fov: float) ->
     focus["eye"] = eye
     focus["look"] = look
     focus["fov"] = fov
+    focus["roll_deg"] = roll_deg
     entry["focus"] = focus
     entries[key] = entry
     PlacementStore.stage("nexus/camera/" + key, {
         "scene": SCENE_ID, "model_id": key,
         "space": "global" if key == "DEPLOYMENT" else "original_model_frame",
-        "eye": PlacementStore.array3(eye), "look": PlacementStore.array3(look), "fov": fov})
+        "eye": PlacementStore.array3(eye), "look": PlacementStore.array3(look),
+        "fov": fov, "roll_deg": roll_deg})
 
 
 func _set_pose(key: String, at: Vector3, yaw: float, persist: bool = true) -> void:
