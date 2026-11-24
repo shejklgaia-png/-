@@ -402,8 +402,8 @@ func _rounded(path: Array[Vector2i], budget: Variant = null) -> Array[Vector2]:
                 var steps: int = maxi(5, ceili(distance * 2.0 / 0.20))
                 var clear: bool = true
                 for j in range(1, steps + 1):
-                    var t: float = float(j) / float(steps)
-                    var point: Vector2 = entry.lerp(corner, t).lerp(corner.lerp(exit, t), t)
+                    var fraction: float = float(j) / float(steps)
+                    var point: Vector2 = entry.lerp(corner, fraction).lerp(corner.lerp(exit, fraction), fraction)
                     if _trace(samples[-1], point).is_empty():
                         clear = false
                         break
@@ -1007,8 +1007,8 @@ func _cargo_mesh(raw: bool, i: int) -> ArrayMesh:
             # Exactly the BASE boxed-scrap construction, scaled for the deck.
             cargo.pivot = Vector3(0, -0.16, 0)
             Clutter._make_scrap_crate(cargo, Vector2.ZERO, 0.62, i, 7)
-            for key in cargo.entries:
-                var pieces: Array = cargo.entries[key]
+            for bucket in cargo.entries:
+                var pieces: Array = cargo.entries[bucket]
                 for j in range(pieces.size()):
                     var p: Transform3D = pieces[j]
                     p.origin.y += 0.083
