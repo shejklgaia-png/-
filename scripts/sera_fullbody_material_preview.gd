@@ -253,7 +253,7 @@ static func _flat_native_mesh(source: Mesh) -> Mesh:
     if source == null or source is BoxMesh or source is QuadMesh or (
             source is PlaneMesh) or source is PointMesh or (
             not (source is ArrayMesh or source is PrimitiveMesh)) or (
-            source.get_blend_shape_count() > 0) or (
+            source is ArrayMesh and (source as ArrayMesh).get_blend_shape_count() > 0) or (
             source.get_meta("sera_flat_face_mesh", false)):
         return source
     var key: int = source.get_instance_id()
@@ -269,9 +269,10 @@ static func _flat_native_mesh(source: Mesh) -> Mesh:
         var primitive: int = Mesh.PRIMITIVE_TRIANGLES
         var flags: int = 0
         if source is ArrayMesh:
-            primitive = source.surface_get_primitive_type(surface)
+            var array_source: ArrayMesh = source as ArrayMesh
+            primitive = array_source.surface_get_primitive_type(surface)
             # Preserve custom channel format bits and 8-weight layout.
-            flags = source.surface_get_format(surface) & (
+            flags = array_source.surface_get_format(surface) & (
                 ((1 << 25) - (1 << 13)) | Mesh.ARRAY_FLAG_USE_8_BONE_WEIGHTS)
         var arrays: Array = source.surface_get_arrays(surface)
         if arrays.size() != Mesh.ARRAY_MAX or arrays[Mesh.ARRAY_VERTEX] == null:
@@ -351,9 +352,13 @@ static func _flat_native_mesh(source: Mesh) -> Mesh:
         if output.get_surface_count() != surface + 1:
             return source
         output.surface_set_material(surface, source.surface_get_material(surface))
+        if source is ArrayMesh:
+            output.surface_set_name(surface, (source as ArrayMesh).surface_get_name(surface))
     var result: Mesh = output if changed else source
     if changed:
         output.resource_name = source.resource_name
+        if source is ArrayMesh:
+            output.custom_aabb = (source as ArrayMesh).custom_aabb
         output.set_meta("sera_flat_face_mesh", true)
     if _native_flat_cache.size() >= 2048:
         # Bound the cache; nodes/multimeshes still own their converted resource.
