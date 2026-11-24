@@ -993,7 +993,8 @@ func animate(delta: float, time: float, key: String) -> void:
         for layer in fire_layers:
             FurnaceFlame.sample(layer,time)
         if is_instance_valid(fire_light):
-            fire_light.light_energy = 1.38+0.16*sin(time*3.13)+0.10*sin(time*7.71)
+            var energy: float = 0.50*FurnaceFlame.radiance(time)+0.32*FurnaceFlame.radiance(time,31)+0.18*FurnaceFlame.radiance(time,67)
+            fire_light.light_energy = 1.46*energy
     if cycle_running:
         elapsed = minf(10.0,elapsed+delta)
         _sample(key,elapsed/10.0)
