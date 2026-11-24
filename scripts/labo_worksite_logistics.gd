@@ -258,6 +258,7 @@ func _gantry(label: String,a: Vector3,z: Vector3,height: float,build_structure: 
         b = _batch(jaw)
         # Magnetic face contacts the upper surface; guide jaws never sink into cargo.
         _box(b,Vector3(0,0.25,0),Vector3(0.12,0.46,0.45),"edge")
+        _box(b,Vector3(0,0.035,0),Vector3(0.22,0.07,0.45),"slate")
         _finish(b)
         jaws.append(jaw)
     return {"trolley":trolley,"stem":stem,"grip":grip,"height":height,"jaws":jaws,"crossbar":crossbar,"sleeve":sleeve}
@@ -271,7 +272,7 @@ func _arm_pose(arm: Dictionary,p: Vector3,span: float = 0.75) -> void:
     var d: float = maxf(0.74,h-p.y)
     stem.scale.y = d+0.05
     grip.position.y = -d
-    span = minf(span,2.20)
+    span = minf(span,2.80)
     (arm["crossbar"] as Node3D).scale.x = maxf(1.0,(span+0.16)/0.95)
     var jaws: Array = arm["jaws"]
     (jaws[0] as Node3D).position.x = -span*0.5
@@ -924,11 +925,11 @@ func sample_refinery(t: float) -> void:
     if sec<8.0:
         _arm_pose(in_arm,Vector3(pick.x,in_h-0.75,pick.z))
     elif sec<10.0:
-        _arm_pose(in_arm,Vector3(pick.x,lerpf(in_h-0.75,pick.y+1.55,smoothstep(8.0,10.0,sec)),pick.z),2.0)
+        _arm_pose(in_arm,Vector3(pick.x,lerpf(in_h-0.75,pick.y+1.55,smoothstep(8.0,10.0,sec)),pick.z),2.70)
     elif sec<14.0:
         var p: Vector3 = _transfer(pick,inlet,in_h-2.5,smoothstep(10.0,14.0,sec))
         _refinery_box_pose(p,0.0)
-        _arm_pose(in_arm,p+Vector3.UP*1.55,2.0)
+        _arm_pose(in_arm,p+Vector3.UP*1.55,2.70)
     elif sec<22.0:
         # Cradle tilts about the fixed leading lip; gate opens only over the hopper.
         var tilt: float = -1.00*smoothstep(15.0,17.0,sec)*(1.0-smoothstep(20.0,22.0,sec))
@@ -938,18 +939,18 @@ func sample_refinery(t: float) -> void:
         var basis := Basis(Vector3.RIGHT,tilt)
         _refinery_box_pose(refinery_lip+basis*Vector3(0,0,1.75),tilt)
         var retract: float = smoothstep(14.0,15.0,sec)*(1.0-smoothstep(21.0,22.0,sec))
-        _arm_pose(in_arm,Vector3(inlet.x,lerpf(inlet.y+1.55,in_h-0.75,retract),inlet.z),2.0)
+        _arm_pose(in_arm,Vector3(inlet.x,lerpf(inlet.y+1.55,in_h-0.75,retract),inlet.z),2.70)
     elif sec<26.0:
         refinery_cradle.rotation.x = 0.0
         refinery_gate.rotation.x = 0.0
         var p: Vector3 = _transfer(inlet,pick,in_h-2.5,smoothstep(22.0,26.0,sec))
         _refinery_box_pose(p,0.0)
-        _arm_pose(in_arm,p+Vector3.UP*1.55,2.0)
+        _arm_pose(in_arm,p+Vector3.UP*1.55,2.70)
     else:
         if in_box.get_parent()!=truck_in:
             _attach_box(in_box,truck_in,Vector3.UP*DECK_Y)
             in_box.rotation.y = PI
-        _arm_pose(in_arm,Vector3(pick.x,lerpf(pick.y+1.55,in_h-0.75,smoothstep(26.0,27.0,sec)),pick.z),2.0)
+        _arm_pose(in_arm,Vector3(pick.x,lerpf(pick.y+1.55,in_h-0.75,smoothstep(26.0,27.0,sec)),pick.z),2.70)
     var poured: float = smoothstep(17.0,20.0,sec)
     for i in range(refinery_chunks.size()):
         var chunk: Node3D = refinery_chunks[i]
