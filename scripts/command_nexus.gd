@@ -440,9 +440,11 @@ func _ready() -> void:
     call_deferred("_start_nexus_bgm_if_direct")
 
 
-# Temporary NEXUS track; replace only this path when its own BGM is ready.
-const NEXUS_BGM_PATH := "res://BGM/scrap_sanctuary_seamless.ogg"
-const NEXUS_BGM_LOOP_OFFSET := 32.2343125
+# Dedicated NEXUS BGM; the intro plays once before a 64-second loop.
+const NEXUS_BGM_PATH := "res://BGM/nexus_mecha_sanctuary_seamless.ogg"
+const NEXUS_BGM_LOOP_OFFSET := 25.933333333333334
+const NEXUS_BGM_FALLBACK_PATH := "res://BGM/scrap_sanctuary_seamless.ogg"
+const NEXUS_BGM_FALLBACK_OFFSET := 32.2343125
 var _nexus_bgm_player: AudioStreamPlayer
 
 func _start_nexus_bgm_if_direct() -> void:
@@ -452,18 +454,18 @@ func _start_nexus_bgm_if_direct() -> void:
 func start_entry_bgm() -> void:
     if is_instance_valid(_nexus_bgm_player):
         return
-    var music: AudioStreamOggVorbis
-    if FileAccess.file_exists(NEXUS_BGM_PATH):
-        music = AudioStreamOggVorbis.load_from_file(NEXUS_BGM_PATH)
-    if music == null and ResourceLoader.exists(NEXUS_BGM_PATH):
-        music = ResourceLoader.load(NEXUS_BGM_PATH) as AudioStreamOggVorbis
-        if music != null:
-            music = music.duplicate() as AudioStreamOggVorbis
-    if music == null or music.get_length() <= NEXUS_BGM_LOOP_OFFSET:
+    var music := _load_nexus_music(NEXUS_BGM_PATH)
+    var loop_offset: float = NEXUS_BGM_LOOP_OFFSET
+    if music == null or music.get_length() <= loop_offset:
+        # Keep the previous music playable while the binary is being deployed.
+        push_warning("SERA NEXUS BGM: dedicated asset unavailable, using BASE track")
+        music = _load_nexus_music(NEXUS_BGM_FALLBACK_PATH)
+        loop_offset = NEXUS_BGM_FALLBACK_OFFSET
+    if music == null or music.get_length() <= loop_offset:
         push_warning("SERA NEXUS BGM unavailable")
         return
     music.loop = true
-    music.loop_offset = NEXUS_BGM_LOOP_OFFSET
+    music.loop_offset = loop_offset
     _nexus_bgm_player = AudioStreamPlayer.new()
     _nexus_bgm_player.name = "NexusBGM"
     _nexus_bgm_player.stream = music
@@ -472,6 +474,16 @@ func start_entry_bgm() -> void:
     _nexus_bgm_player.play()
     var fade := create_tween()
     fade.tween_property(_nexus_bgm_player, "volume_db", -9.0, 0.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
+func _load_nexus_music(path: String) -> AudioStreamOggVorbis:
+    var music: AudioStreamOggVorbis
+    if FileAccess.file_exists(path):
+        music = AudioStreamOggVorbis.load_from_file(path)
+    if music == null and ResourceLoader.exists(path):
+        music = ResourceLoader.load(path) as AudioStreamOggVorbis
+        if music != null:
+            music = music.duplicate() as AudioStreamOggVorbis
+    return music
 
 func _notification(what: int) -> void:
     # Android can be backgrounded while a drag is still in progress.
