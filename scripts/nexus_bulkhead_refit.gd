@@ -152,25 +152,8 @@ static func build(room: Node3D) -> void:
         Vector2(10.02, 9.55), Vector2(9.57, 9.55)],
         -25.36, -24.64, gunmetal)
 
-    # Three intentionally different reinforcing stations interrupt the long
-    # repeating girder cells. Real trapezoid/diagonal prisms, not box stacks.
-    for spec in [
-            {"z": -17.0, "span": 2.10, "drop": 8.60},
-            {"z": -2.35, "span": 2.65, "drop": 8.39},
-            {"z": 11.55, "span": 1.88, "drop": 8.67}]:
-        var station: float = float(spec["z"])
-        var span: float = float(spec["span"])
-        var low_y: float = float(spec["drop"])
-        _cast(root, "CenterGirderWedge%.1f" % station, [
-            Vector2(-span, 9.22), Vector2(span, 9.22),
-            Vector2(span - 0.31, low_y + 0.40),
-            Vector2(0.0, low_y),
-            Vector2(-span + 0.31, low_y + 0.40)],
-            station - 0.33, station + 0.33, armor)
-        _cast(root, "GirderMechanicalRib%.1f" % station, [
-            Vector2(-0.77, 8.77), Vector2(0.77, 8.77),
-            Vector2(0.51, 9.00), Vector2(-0.51, 9.00)],
-            station + 0.33, station + 0.43, alloy)
+    # Keep the authored transverse girders continuous. The former independent
+    # center wedges and ribs were not tied to a real load-bearing joint.
 
     # Staggered wall-side actuator rails add an identifiable mechanical
     # hierarchy to both long lateral surfaces without covering any consoles.

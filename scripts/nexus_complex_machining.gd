@@ -21,27 +21,18 @@ static func build(room: Node3D, system_at: Vector3, training_at: Vector3,
         _part(batches, "radial_brace", "steel",
             Vector3(cos(theta) * r, 7.00, -4.75 + sin(theta) * r),
             Vector3(0.26, 0.115, 0.38), -theta)
-    # System and training consoles remain visually and interactively distinct:
-    # recess-mounted support gussets and die-cast cable gland collars. Do not
-    # overlap the monitors, keyboard or the diagnostic sensor.
+    # Retain a low recessed grille on each console, not detached pipe collars.
     for spec in [
-        {"at": system_at, "yaw": deg_to_rad(18.0), "width": 0.76,
-            "z": 0.42, "height": 0.36},
-        {"at": training_at, "yaw": deg_to_rad(-14.0), "width": 0.54,
-            "z": 0.30, "height": 0.38}
+        {"at": system_at, "yaw": deg_to_rad(18.0),
+            "z": 0.42},
+        {"at": training_at, "yaw": deg_to_rad(-14.0),
+            "z": 0.30}
     ]:
         var anchor: Vector3 = spec["at"]
         var yaw: float = spec["yaw"]
-        var width: float = spec["width"]
         var depth: float = spec["z"]
-        var height: float = spec["height"]
-        for side in [-1.0, 1.0]:
-            _local_part(batches, "gusset", "steel", anchor, yaw,
-                Vector3(side * width, height, depth), Vector3(0.19, 0.55, 0.18),
-                0.0, side < 0.0)
-            _local_part(batches, "toothed_race", "pale", anchor, yaw,
-                Vector3(side * (width - 0.09), 0.27, depth + 0.10),
-                Vector3(0.11, 0.11, 0.11), PI * 0.5)
+        # Enclosed cabinet service trunks are authored with the console.
+        # No floating gussets or cable-gland rings on the front flanks.
         _local_part(batches, "hex_grille", "steel", anchor, yaw,
             Vector3(0, 0.32, depth + 0.22),
             Vector3(0.48, 0.24, 0.10))
