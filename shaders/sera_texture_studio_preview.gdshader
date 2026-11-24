@@ -2,9 +2,9 @@ shader_type spatial;
 render_mode unshaded, cull_disabled, depth_draw_opaque;
 uniform sampler2D source_texture : source_color, filter_nearest_mipmap, repeat_disable;
 uniform int grid_mode = 0;
-uniform float selected_chart = -1.0;
+uniform float selected_face = -1.0;
 uniform vec2 atlas_dimensions = vec2(256.0);
-varying vec2 face_diagnostic;
+varying flat vec2 face_diagnostic;
 void vertex() {
     face_diagnostic = UV2;
 }
@@ -34,7 +34,7 @@ void fragment() {
         if (grid_mode == 2) {
             vec3 diagnostic = face_diagnostic.x > 0.75 ? vec3(0.17, 0.65, 0.45) : (face_diagnostic.x > 0.25 ? vec3(0.92, 0.50, 0.15) : vec3(0.4, 0.5, 0.65));
             base = mix(base, diagnostic, 0.48);
-            if (selected_chart > 0.0 && abs(face_diagnostic.y - selected_chart) < 0.25) {
+            if (selected_face > 0.0 && abs(face_diagnostic.y - selected_face) < 0.25) {
                 base = mix(vec3(0.46, 0.78, 1.0), vec3(0.88, 0.97, 1.0), 0.5 + 0.5 * sin(TIME * 3.0));
             }
         }
