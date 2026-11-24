@@ -201,6 +201,30 @@ static func _visible_at_camera(at: Vector2, yaw: float, camera: Camera3D,
     return true
 
 
+# Last-resort placement: the camera visibility preference must not delete
+# a physical distribution network. Keep every collision/terminal constraint.
+static func _fallback_pose(key: String, test: Vector2, yaw: float,
+        all_sites: Array[Dictionary], props: Array[Dictionary],
+        placed: Array[Vector2], logistics: Node3D) -> Dictionary:
+    var cell: Vector2i = _cell_of(test)
+    if not ROUTE_BOUNDS.grow(-4).has_point(cell):
+        return {}
+    if is_instance_valid(logistics) and not bool(logistics.call("power_device_clear", test)):
+        return {}
+    if not _open_location(test, all_sites, props, placed):
+        return {}
+    for angle_offset in [0.0, PI * 0.5, -PI * 0.5, PI]:
+        var angle: float = yaw + float(angle_offset)
+        if not _terminal_gates_open(key, test, angle, all_sites, props, placed):
+            continue
+        for site in all_sites:
+            if str(site["id"]) == key:
+                var local: Vector2 = _local_point(test, site)
+                return {"at": Vector3(test.x, 0.0, test.y),
+                    "local": Vector3(local.x, 0.0, local.y), "yaw": angle}
+    return {}
+
+
 static func _locate_device(key: String, all_sites: Array[Dictionary],
         props: Array[Dictionary], placed: Array[Vector2],
         camera: Camera3D, logistics: Node3D = null) -> Dictionary:
@@ -262,6 +286,14 @@ static func _locate_device(key: String, all_sites: Array[Dictionary],
                 return {"at": Vector3(test.x, 0.0, test.y),
                     "local": Vector3(local.x, 0.0, local.y),
                     "yaw": yaw}
+    for ring in range(0, 46):
+        var count: int = 1 if ring == 0 else maxi(24, ring * 5)
+        for sample in range(count):
+            var phi: float = TAU * float(sample) / float(count)
+            var test: Vector2 = goal + Vector2(cos(phi), sin(phi)) * float(ring) * 0.60
+            var fallback: Dictionary = _fallback_pose(key, test, yaw, all_sites, props, placed, logistics)
+            if not fallback.is_empty():
+                return fallback
     push_warning("BASE power unit cannot be placed safely for " + key)
     return {}
 
@@ -329,6 +361,15 @@ static func _locate_device_budgeted(key: String, all_sites: Array[Dictionary],
                 return {"at": Vector3(test.x, 0.0, test.y),
                     "local": Vector3(local.x, 0.0, local.y),
                     "yaw": yaw}
+    for ring in range(0, 46):
+        var count: int = 1 if ring == 0 else maxi(24, ring * 5)
+        for sample in range(count):
+            await budget.checkpoint("power unit expanded fallback")
+            var phi: float = TAU * float(sample) / float(count)
+            var test: Vector2 = goal + Vector2(cos(phi), sin(phi)) * float(ring) * 0.60
+            var fallback: Dictionary = _fallback_pose(key, test, yaw, all_sites, props, placed, logistics)
+            if not fallback.is_empty():
+                return fallback
     push_warning("BASE power unit cannot be placed safely for " + key)
     return {}
 
@@ -586,14 +627,34 @@ static func _segment_open(grid: AStarGrid2D, a: Vector3,
     return true
 
 
+static func _gate_snap_open(grid: AStarGrid2D, gate: Vector3, endpoint: Vector3, initial: Vector2i) -> bool:
+    var distance: float = gate.distance_to(endpoint)
+    if distance > WIRE_GRID * 1.8:
+        return false
+    var count: int = maxi(1, ceili(distance / (WIRE_GRID * 0.18)))
+    var escaped: bool = false
+    for i in range(count + 1):
+        var cell: Vector2i = _cell_of(_xz(gate.lerp(endpoint, float(i) / float(count))))
+        if not ROUTE_BOUNDS.has_point(cell):
+            return false
+        if grid.is_point_solid(cell):
+            if cell != initial or escaped:
+                return false
+        else:
+            escaped = true
+    return escaped
+
+
 static func _nearest_open(grid: AStarGrid2D,
         point: Vector3) -> Vector2i:
     var wanted: Vector2i = _cell_of(_xz(point))
     if ROUTE_BOUNDS.has_point(wanted) and not grid.is_point_solid(wanted):
         return wanted
+    if not ROUTE_BOUNDS.has_point(wanted):
+        return wanted
     var best := Vector2i(100000, 100000)
     var best_dist: float = INF
-    for radius in range(1, 13):
+    for radius in range(1, 3):
         for x in range(wanted.x - radius, wanted.x + radius + 1):
             for z in range(wanted.y - radius, wanted.y + radius + 1):
                 var cell := Vector2i(x, z)
@@ -604,7 +665,7 @@ static func _nearest_open(grid: AStarGrid2D,
                         grid.is_point_solid(cell)):
                     continue
                 var position: Vector3 = _point_of(cell)
-                if not _segment_open(grid, point, position):
+                if not _gate_snap_open(grid, point, position, wanted):
                     continue
                 var dist: float = point.distance_squared_to(position)
                 if dist < best_dist:
@@ -801,7 +862,7 @@ static func _routed_cable(grid: AStarGrid2D, from_at: Vector3,
     # directly atop the same geometric cable (but permits intersections).
     for id in ids:
         if ROUTE_BOUNDS.has_point(id) and not grid.is_point_solid(id):
-            grid.set_point_weight_scale(id, 1.65)
+            grid.set_point_weight_scale(id, maxf(1.65, grid.get_point_weight_scale(id)))
     return points
 
 
@@ -860,7 +921,7 @@ static func _routed_cable_budgeted(grid: AStarGrid2D, from_at: Vector3,
     # directly atop the same geometric cable (but permits intersections).
     for id in ids:
         if ROUTE_BOUNDS.has_point(id) and not grid.is_point_solid(id):
-            grid.set_point_weight_scale(id, 1.65)
+            grid.set_point_weight_scale(id, maxf(1.65, grid.get_point_weight_scale(id)))
     return points
 
 
@@ -969,6 +1030,8 @@ static func build(parent: Node3D, nexus_origin: Vector3,
     var hub_pose: Dictionary = _locate_device(
         "GENERATOR", all_sites, props, placed, camera, logistics)
     if hub_pose.is_empty():
+        network.set_meta("cable_status", "MANIFOLD MISSING")
+        push_warning("BASE power: manifold placement exhausted")
         _build_crossing_ramps(network, cable_paths, logistics)
         return network
     var hub: Vector3 = hub_pose["at"]
@@ -1055,6 +1118,7 @@ static func build(parent: Node3D, nexus_origin: Vector3,
     network.set_meta("logistics_obstacles", placed.duplicate())
     _build_devices(network, items)
     _finish_cables(network, wires, traces)
+    _record_cable_status(network, cable_paths, endpoints.size())
     _build_crossing_ramps(network, cable_paths, logistics)
     # Recomputed only at scene construction / user-requested layout reset:
     # no pathfinding or coordinate randomization in the render loop.
@@ -1094,6 +1158,8 @@ static func build_budgeted(parent: Node3D, nexus_origin: Vector3,
     var hub_pose: Dictionary = await _locate_device_budgeted(
         "GENERATOR", all_sites, props, placed, camera, logistics, budget)
     if hub_pose.is_empty():
+        network.set_meta("cable_status", "MANIFOLD MISSING")
+        push_warning("BASE power: manifold placement exhausted")
         await _build_crossing_ramps_budgeted(network, cable_paths, logistics, budget)
         return network
     var hub: Vector3 = hub_pose["at"]
@@ -1184,11 +1250,25 @@ static func build_budgeted(parent: Node3D, nexus_origin: Vector3,
     _build_devices(network, items)
     await budget.checkpoint("power device meshes")
     _finish_cables(network, wires, traces)
+    _record_cable_status(network, cable_paths, endpoints.size())
     await budget.checkpoint("power cable meshes")
     await _build_crossing_ramps_budgeted(network, cable_paths, logistics, budget)
     # Recomputed only at scene construction / user-requested layout reset:
     # no pathfinding or coordinate randomization in the render loop.
     return network
+
+
+static func _record_cable_status(network: Node3D, paths: Array[Dictionary], endpoints: int) -> void:
+    var connected: int = 0
+    # First record is the already-authored GRID lead, not a new distribution wire.
+    for i in range(1, paths.size()):
+        var points: PackedVector3Array = paths[i]["points"]
+        if points.size() >= 2:
+            connected += 1
+    network.set_meta("cable_status", "%d/%d" % [connected, 15])
+    print("SERA_BASE_POWER: distribution cables=", connected, "/15, substations=", endpoints, "/7")
+    if connected < 1 + endpoints * 2 or endpoints < 7:
+        push_warning("BASE power: incomplete cable network; see gate/route warnings")
 
 
 static func _build_crossing_ramps(network: Node3D, paths: Array[Dictionary], logistics: Node3D) -> void:
