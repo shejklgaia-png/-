@@ -1485,6 +1485,7 @@ static func _finish_grid_refinement(tris: Array[Dictionary],charts: Array[Dictio
         for i in range(charts.size()):
             charts[i] = old_charts[i]
     _adapt_quad_boundaries(tris,charts,links,density)
+    _refine_paired_seams(tris,charts,links,density)
 
 ## Prefer rectangles, but do not require equal opposite edge lengths
 ## on every face. A one-corner shift creates a trapezoidal UV without
@@ -1592,6 +1593,173 @@ static func _adapt_one_quad(tris: Array[Dictionary],chart: Dictionary,ci: int,me
     chart.min = lo.floor()
     chart.max = hi
     chart.rectified = false
+    return true
+
+## Solve a shared boundary on both UV islands at once. The target is
+## expressed in the first island's texel coordinates modulo a quarter
+## rotation and integer translation; no geometric vertex is moved.
+static func _refine_paired_seams(tris: Array[Dictionary],charts: Array[Dictionary],links: Array[Dictionary],density: int) -> void:
+    var members: Array = []
+    var adjacency: Array = []
+    for ci in range(charts.size()):
+        members.append([])
+        adjacency.append([])
+    for ti in range(tris.size()):
+        (members[int(tris[ti].chart)] as Array).append(ti)
+    for li in range(links.size()):
+        var link: Dictionary = links[li]
+        (adjacency[int(link.a)] as Array).append(li)
+        (adjacency[int(link.b)] as Array).append(li)
+    for sweep in range(3):
+        var priority: Array[Dictionary] = []
+        for li in range(links.size()):
+            var link: Dictionary = links[li]
+            if members[int(link.a)].size() > 2 or members[int(link.b)].size() > 2:
+                continue
+            if absf(float(link.a1)-float(link.a0)) < 0.9999 or absf(float(link.b1)-float(link.b0)) < 0.9999:
+                continue
+            var residual: float = _local_edge_residual(tris,link,-1,{},PackedVector2Array())
+            if residual > 1.0:
+                priority.append({"id":li,"residual":residual})
+        priority.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
+            return int(a.id) < int(b.id) if float(a.residual) == float(b.residual) else float(a.residual) > float(b.residual))
+        var changed: bool = false
+        for i in range(mini(48,priority.size())):
+            var link: Dictionary = links[int(priority[i].id)]
+            var ca: int = int(link.a)
+            var cb: int = int(link.b)
+            if _local_edge_residual(tris,link,-1,{},PackedVector2Array()) <= 1.0:
+                continue
+            var local_ids: Dictionary = {}
+            for li in adjacency[ca]+adjacency[cb]:
+                local_ids[li] = true
+            var local: Array = []
+            for li in local_ids:
+                local.append(links[li])
+            if _try_paired_seam(tris,charts,link,members[ca],members[cb],local,density):
+                changed = true
+        if not changed:
+            break
+
+static func _paired_chart_data(tris: Array[Dictionary],members: Array) -> Dictionary:
+    var points := PackedVector2Array()
+    var world := PackedVector3Array()
+    var unique: Dictionary = {}
+    var indices: Dictionary = {}
+    for ti in members:
+        var t: Dictionary = tris[ti]
+        var ids := PackedInt32Array()
+        for k in range(3):
+            var key: String = _vertex_key(t.p[k])
+            if not unique.has(key):
+                unique[key] = points.size()
+                points.append(t.xy[k])
+                world.append(t.p[k])
+            var idx: int = int(unique[key])
+            if points[idx].distance_squared_to(t.xy[k]) > 0.000001:
+                return {}
+            ids.append(idx)
+        indices[ti] = ids
+    if points.size() != members.size()+2:
+        return {}
+    if members.size() == 2:
+        var first: PackedInt32Array = indices[members[0]]
+        var second: PackedInt32Array = indices[members[1]]
+        var count: int = 0
+        for idx in first:
+            if second.has(idx):
+                count += 1
+        if count != 2:
+            return {}
+    return {"points":points,"world":world,"indices":indices}
+
+static func _paired_move(points: PackedVector2Array,i0: int,i1: int,d0: Vector2,d1: Vector2,spread: bool) -> PackedVector2Array:
+    var q: PackedVector2Array = points.duplicate()
+    var edge: Vector2 = points[i1]-points[i0]
+    if spread and edge.length_squared() > 0.000001:
+        for k in range(points.size()):
+            var t: float = clampf((points[k]-points[i0]).dot(edge)/edge.length_squared(),0.0,1.0)
+            q[k] += d0.lerp(d1,t)
+    q[i0] = points[i0]+d0
+    q[i1] = points[i1]+d1
+    return q
+
+static func _paired_write(tris: Array[Dictionary],members: Array,indices: Dictionary,q: PackedVector2Array) -> void:
+    for ti in members:
+        var ids: PackedInt32Array = indices[ti]
+        tris[ti].xy = PackedVector2Array([q[ids[0]],q[ids[1]],q[ids[2]]])
+
+static func _paired_bounds(chart: Dictionary,q: PackedVector2Array) -> void:
+    var lo: Vector2 = q[0]
+    var hi: Vector2 = q[0]
+    for point in q:
+        lo = lo.min(point)
+        hi = hi.max(point)
+    chart.min = lo.floor()
+    chart.max = hi
+    if bool(chart.get("rectified",false)):
+        for point in q:
+            if minf(absf(point.x-lo.x),absf(point.x-hi.x)) > 0.001 or minf(absf(point.y-lo.y),absf(point.y-hi.y)) > 0.001:
+                chart.rectified = false
+                break
+
+static func _try_paired_seam(tris: Array[Dictionary],charts: Array[Dictionary],link: Dictionary,ma: Array,mb: Array,local: Array,density: int) -> bool:
+    var a: Dictionary = _paired_chart_data(tris,ma)
+    var b: Dictionary = _paired_chart_data(tris,mb)
+    if a.is_empty() or b.is_empty():
+        return false
+    var pa: PackedVector2Array = a.points
+    var pb: PackedVector2Array = b.points
+    var ia: PackedInt32Array = a.indices[int(link.ta)]
+    var ib: PackedInt32Array = b.indices[int(link.tb)]
+    var ea: int = int(link.ea)
+    var eb: int = int(link.eb)
+    var a0: int = ia[ea] if float(link.a0) < float(link.a1) else ia[(ea+1)%3]
+    var a1: int = ia[(ea+1)%3] if float(link.a0) < float(link.a1) else ia[ea]
+    var b0: int = ib[eb] if float(link.b0) < float(link.b1) else ib[(eb+1)%3]
+    var b1: int = ib[(eb+1)%3] if float(link.b0) < float(link.b1) else ib[eb]
+    var da: Vector2 = pa[a1]-pa[a0]
+    var db: Vector2 = pb[b1]-pb[b0]
+    if minf(da.length(),db.length()) < 0.00001:
+        return false
+    var quarter: float = roundf(db.angle_to(da)/(PI*0.5))*(PI*0.5)
+    var d0: Vector2 = pa[a0]-pb[b0].rotated(quarter)
+    d0 -= d0.round()
+    var d1: Vector2 = d0+da-db.rotated(quarter)
+    var before: Vector3 = _refinement_score(tris,-1,local,{},PackedVector2Array())
+    var density_before: float = _grid_density_cost(ma,a.indices,a.world,pa,density)+_grid_density_cost(mb,b.indices,b.world,pb,density)
+    var best_cost: float = before.z+density_before*0.5
+    var best_a: PackedVector2Array = pa
+    var best_b: PackedVector2Array = pb
+    var best_error: float = maxf(d0.length(),d1.length())
+    for weight in [0.0,0.25,0.5,0.75,1.0]:
+        for strength in [0.5,1.0]:
+            for spread in [false,true]:
+                var qa: PackedVector2Array = _paired_move(pa,a0,a1,-d0*float(weight)*float(strength),-d1*float(weight)*float(strength),spread)
+                var qb: PackedVector2Array = _paired_move(pb,b0,b1,d0.rotated(-quarter)*(1.0-float(weight))*float(strength),d1.rotated(-quarter)*(1.0-float(weight))*float(strength),spread)
+                if not _refinement_valid(ma,a.indices,a.world,pa,qa,density) or not _refinement_valid(mb,b.indices,b.world,pb,qb,density):
+                    continue
+                var density_cost: float = _grid_density_cost(ma,a.indices,a.world,qa,density)+_grid_density_cost(mb,b.indices,b.world,qb,density)
+                if density_cost > density_before+0.15:
+                    continue
+                _paired_write(tris,ma,a.indices,qa)
+                _paired_write(tris,mb,b.indices,qb)
+                var score: Vector3 = _refinement_score(tris,-1,local,{},PackedVector2Array())
+                var error: float = _local_edge_residual(tris,link,-1,{},PackedVector2Array())
+                var cost: float = score.z+density_cost*0.5
+                if score.x <= before.x+0.0001 and score.y <= before.y and score.z <= before.z+0.0001 and error < best_error-0.0001 and cost < best_cost-0.0001:
+                    best_a = qa
+                    best_b = qb
+                    best_cost = cost
+                    best_error = error
+                _paired_write(tris,ma,a.indices,pa)
+                _paired_write(tris,mb,b.indices,pb)
+    if best_cost >= before.z+density_before*0.5-0.0001:
+        return false
+    _paired_write(tris,ma,a.indices,best_a)
+    _paired_write(tris,mb,b.indices,best_b)
+    _paired_bounds(charts[int(link.a)],best_a)
+    _paired_bounds(charts[int(link.b)],best_b)
     return true
 
 static func _refinement_score(tris: Array[Dictionary],ci: int,links: Array,indices: Dictionary,points: PackedVector2Array) -> Vector3:
