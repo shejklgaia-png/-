@@ -76,6 +76,14 @@ const PRINT_FEATURES = ["FreshLabPrintedShell","LabPrintedGear","LabPrintedArmor
 func material_intake_world() -> Vector3:
     return _model.to_global(_at(INTAKE_LOCAL[facility_key]))
 
+func material_support_world() -> Vector3:
+    # Actual structural anchor, not a free-floating beam end.
+    var supports := {"SMELTER":Vector3(-1.12,0.75,0.69),
+        "RECYCLER":Vector3(1.12,1.57,0.22),
+        "LABO":Vector3(-2.30,0.0,1.45),
+        "STORAGE":Vector3(-1.20,2.55,1.02)}
+    return _model.to_global(_at(supports[facility_key]))
+
 func material_rail_world_y() -> float:
     return _model.to_global(_at(Vector3(0,float(INTAKE_CLEAR_HEIGHT[facility_key]),0))).y
 
