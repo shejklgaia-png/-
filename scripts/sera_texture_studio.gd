@@ -67,6 +67,9 @@ var choice_pressed_outside: bool = false
 var selected_model_label: Label
 var mesh_picker_row: HBoxContainer
 var density_picker: StudioChoice
+var uv_mode_button: Button
+var preserve_shape_requested: bool = true
+var atlas_preserve_shape: bool = true
 var tool_picker: StudioChoice
 var color_picker: Button
 var paint_color: Color = Color("#8daebd")
@@ -239,6 +242,7 @@ func _build_ui() -> void:
     density_picker.select(2)
     density_picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     row.add_child(density_picker)
+    uv_mode_button = _button(row,"形状優先",_toggle_uv_mode)
     _button(row,"UV再展開",_rebuild)
     host = SubViewportContainer.new()
     host.name = "TexturePaintView"
@@ -916,11 +920,16 @@ func _select_model(index: int) -> void:
     mesh_picker_row.hide()
     _rebuild()
 
+func _toggle_uv_mode() -> void:
+    preserve_shape_requested = not preserve_shape_requested
+    uv_mode_button.text = "形状優先" if preserve_shape_requested else "境界優先"
+    _show_status("次のUV再展開に適用します。再展開で描画レイヤーは初期化されます")
+
 func _rebuild() -> void:
     if not is_instance_valid(source):
         _show_status("復元プロジェクトのUVは固定です。元モデルを選択してください")
         return
-    var result: Dictionary = UV.build(source,density_picker.get_selected_id())
+    var result: Dictionary = UV.build(source,density_picker.get_selected_id(),preserve_shape_requested)
     if result.has("error"):
         preview.mesh = null
         img = null
@@ -940,6 +949,7 @@ func _rebuild() -> void:
     img = result.image
     original = img.duplicate() as Image
     atlas_density = density_picker.get_selected_id()
+    atlas_preserve_shape = preserve_shape_requested
     layers.clear()
     layer_visible.clear()
     layer_index = 0
@@ -1492,7 +1502,7 @@ func _copy_diagnostics() -> void:
         _show_status("モデルを選択してください")
         return
     var result: Dictionary = UV.diagnostic_report_faces(triangles,img.get_size(),atlas_density,selected_diagnostic_faces)
-    diagnostic_text = selected_model_label.text+"\n"+str(result.report)
+    diagnostic_text = selected_model_label.text+"\n"+str(result.report)+"\nUV方式: "+("形状優先" if atlas_preserve_shape else "境界優先")
     DisplayServer.clipboard_set(diagnostic_text)
     _show_status("選択 %d面の診断をコピーしました" % selected_diagnostic_faces.size() if not selected_diagnostic_faces.is_empty() else "モデル全体の診断をコピーしました")
 
@@ -1631,7 +1641,7 @@ func _save() -> void:
     if file == null:
         _show_status("合成保存済み・プロジェクト保存失敗")
         return
-    file.store_string(JSON.stringify({"version":1,"density":atlas_density,"charts":ids,"visible":layer_visible,"face_sources":face_sources}))
+    file.store_string(JSON.stringify({"version":1,"density":atlas_density,"preserve_shape":atlas_preserve_shape,"charts":ids,"visible":layer_visible,"face_sources":face_sources}))
     file.close()
     _show_status("編集プロジェクト保存済み: "+stem)
 
@@ -1683,6 +1693,9 @@ func _load_project(path: String) -> void:
     if atlas_density not in [8,16,32,64]:
         atlas_density = 32
     density_picker.select([8,16,32,64].find(atlas_density))
+    atlas_preserve_shape = bool(data.get("preserve_shape",false))
+    preserve_shape_requested = atlas_preserve_shape
+    uv_mode_button.text = "形状優先" if preserve_shape_requested else "境界優先"
     _install_preview(mesh)
     _show_status("編集プロジェクト復元済み: "+prefix.get_file())
 
