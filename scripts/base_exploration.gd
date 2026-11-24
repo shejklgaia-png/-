@@ -526,17 +526,6 @@ func _build_power_board() -> void:
     power_zone = PowerBoard.build(self)
 
 
-func _build_power_distribution() -> void:
-    # Distribution is a separate physical small-prop network; it does not
-    # affect GRID puzzle resources or the seven facility touch colliders.
-    if is_instance_valid(power_distribution):
-        power_distribution.free()
-    power_distribution = BasePowerDistribution.build(
-        self, NEXUS_BUILDING_ORIGIN, BaseFacilities.FACILITY_SPECS, cam, logistics)
-    if is_instance_valid(logistics):
-        logistics.call("set_ramp_surface", power_distribution.get_node_or_null("CableCrossingRamps"))
-
-
 func _build_power_distribution_startup() -> void:
     if is_instance_valid(power_distribution):
         power_distribution.free()
