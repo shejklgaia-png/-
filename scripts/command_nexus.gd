@@ -299,6 +299,10 @@ const BOSS_ENTRIES = [{"name": "ビットタラン  /  BITTARAN", "scene": BITTA
 # scene into a silhouette; no duplicated render meshes or additional 3D draw calls.
 # Each entry holds world-space 3D vertex clusters, one per visible mesh.
 var target_parts: Dictionary = {}
+# Display-only geometry. Never overwrite the authored touch/placement clusters.
+var training_contour_sources: Array[Dictionary] = []
+var training_contour_faces: Dictionary = {}
+var gate_closed_door_parts: Array = []
 # Canonical placement keeps exact source part instances in the shared render
 # batches so touching a console never drags the wall or another nearby model.
 var canonical_core_refs: Dictionary = {}
@@ -438,6 +442,7 @@ func _ready() -> void:
     # already exist in command_nexus_world.tscn; configure them on demand
     # after the working EXIT/PLACE/ANGLE HUD has been created.
     _prepare_canonical_placement_specs()
+    _capture_selection_render_sources()
     _hud()
     # Like the working LABO editors: initialize a placement tool only when
     # its launcher is pressed, after the interactive HUD exists. In particular
@@ -4835,16 +4840,152 @@ func _update_projected_silhouettes() -> void:
     # Clip POLYLINES rather than filled polygons to avoid artificial borders
     # where a nearer silhouette hides the portal.
     var visible_strokes: Dictionary = {}
+    var training_shapes: Array[PackedVector2Array] = []
+    if contours.has("TRAINING") or contours.has("DEPLOYMENT"):
+        training_shapes = _project_training_render_contour()
+    if contours.has("TRAINING"):
+        var training_strokes: Array[PackedVector2Array] = []
+        for shape in training_shapes:
+            var closed := PackedVector2Array(shape)
+            closed.append(shape[0])
+            training_strokes.append(closed)
+        visible_strokes["TRAINING"] = training_strokes
     if contours.has("DEPLOYMENT"):
         var gate_occluders: Array = []
         for nearer in ["CUSTOMIZE", "SYSTEM", "TRAINING"]:
+            if nearer == "TRAINING":
+                gate_occluders.append_array(training_shapes)
+                continue
             var projected: Array = contours.get(nearer, [])
             if projected.is_empty():
                 projected = _project_model_contour(nearer)
             gate_occluders.append_array(projected)
-        visible_strokes["DEPLOYMENT"] = _clip_gate_strokes(
-            contours["DEPLOYMENT"], gate_occluders)
+        # The last authored cluster is the separately movable launch kiosk.
+        # Clip the arch against the closed door footprint, not the kiosk.
+        # Door animation never creates a selection line inside the aperture.
+        var gate_parts: Array = target_parts.get("DEPLOYMENT", [])
+        var arch_parts: Array = gate_parts.slice(0, maxi(0, gate_parts.size() - 1))
+        var arch_masks: Array = gate_occluders.duplicate()
+        arch_masks.append_array(_project_selection_clusters(gate_closed_door_parts))
+        var gate_strokes: Array[PackedVector2Array] = _clip_gate_strokes(
+            _project_selection_clusters(arch_parts), arch_masks)
+        if not gate_parts.is_empty():
+            gate_strokes.append_array(_clip_gate_strokes(
+                _project_selection_clusters([gate_parts.back()]), gate_occluders))
+        visible_strokes["DEPLOYMENT"] = gate_strokes
     outline.set("clipped_strokes", visible_strokes)
+
+# Discover the actual rendered instances once, BEFORE saved canonical poses
+# are restored. All later projections read their live transforms, not boxes
+# belonging to the removed TRAINING tower or its old placement.
+func _capture_selection_render_sources() -> void:
+    training_contour_sources.clear()
+    gate_closed_door_parts.clear()
+    for ref_value in canonical_core_refs.get("TRAINING", []):
+        var ref_data: Dictionary = ref_value
+        var multi: MultiMesh = canonical_render_batches.get(int(ref_data["batch_key"])) as MultiMesh
+        var index: int = int(ref_data["index"])
+        if multi != null and multi.mesh != null and index >= 0 and index < multi.instance_count:
+            training_contour_sources.append({"multi": multi, "index": index, "node": self})
+    # Match the canonical editor's original spatial ownership for shared
+    # accessory batches, so a later PLACE movement preserves the silhouette.
+    for root_name in ["NexusProceduralArchitecture", "NexusComplexMachining", "NexusSculptedFittings"]:
+        var root := get_node_or_null(root_name)
+        if root == null:
+            continue
+        for child in root.get_children():
+            if not (child is MultiMeshInstance3D):
+                continue
+            var draw := child as MultiMeshInstance3D
+            var multi: MultiMesh = draw.multimesh
+            if multi == null or multi.mesh == null:
+                continue
+            for index in range(multi.instance_count):
+                var base: Transform3D = multi.get_instance_transform(index)
+                var delta: Vector3 = base.origin - TRAINING_CONSOLE_ORIGIN
+                if Vector2(delta.x, delta.z).length() <= 1.58 and absf(delta.y) <= 3.10:
+                    training_contour_sources.append({"multi": multi, "index": index, "node": draw})
+    var casting := get_node_or_null("TrainingServiceAssembly")
+    if casting != null:
+        _collect_training_contour_meshes(casting, true)
+    for monitor_name in ["MON_N03", "MON_N04"]:
+        var monitor := get_node_or_null(monitor_name)
+        if monitor != null:
+            _collect_training_contour_meshes(monitor, false)
+    # The shutters already have FX_NO_OUTLINE and depth-only ID metadata.
+    # Record their closed footprint once, independent of their sliding pose.
+    var door := get_node_or_null("NexusRoomWorkingHardware/DeploymentSlidingArmor")
+    if door != null:
+        var closed_vertices := PackedVector3Array()
+        for child in door.get_children():
+            if child is MeshInstance3D:
+                var leaf := child as MeshInstance3D
+                if leaf.mesh != null:
+                    for vertex in _selection_mesh_faces(leaf.mesh):
+                        closed_vertices.append(leaf.global_transform * vertex)
+        if closed_vertices.size() >= 3:
+            gate_closed_door_parts.append(closed_vertices)
+
+func _collect_training_contour_meshes(node: Node, exact_faces: bool) -> void:
+    if node is MeshInstance3D:
+        var piece := node as MeshInstance3D
+        if piece.mesh != null and piece.is_visible_in_tree():
+            training_contour_sources.append({"node": piece, "exact_faces": exact_faces})
+    for child in node.get_children():
+        _collect_training_contour_meshes(child, exact_faces)
+
+func _selection_mesh_faces(mesh: Mesh) -> PackedVector3Array:
+    var key: int = mesh.get_instance_id()
+    if not training_contour_faces.has(key):
+        training_contour_faces[key] = mesh.get_faces()
+    return training_contour_faces[key]
+
+func _project_training_render_contour() -> Array[PackedVector2Array]:
+    var solid_clusters: Array = []
+    var casting_faces: Array = []
+    for source in training_contour_sources:
+        var node: Node3D = source["node"] as Node3D
+        if not is_instance_valid(node) or not node.is_visible_in_tree():
+            continue
+        var mesh: Mesh
+        var pose: Transform3D = node.global_transform
+        if source.has("multi"):
+            var multi: MultiMesh = source["multi"] as MultiMesh
+            var index: int = int(source["index"])
+            if multi == null or index >= multi.instance_count:
+                continue
+            mesh = multi.mesh
+            pose = pose * multi.get_instance_transform(index)
+        elif node is MeshInstance3D:
+            mesh = (node as MeshInstance3D).mesh
+        if mesh == null:
+            continue
+        if bool(source.get("exact_faces", false)):
+            # The service casting is concave and contains separate features.
+            # Project actual triangles, rather than a hull around the whole
+            # tower which would bridge empty space between those features.
+            var faces: PackedVector3Array = _selection_mesh_faces(mesh)
+            for i in range(0, faces.size() - 2, 3):
+                casting_faces.append(PackedVector3Array([
+                    pose * faces[i], pose * faces[i + 1], pose * faces[i + 2]]))
+        else:
+            # These armor primitives are convex. Their true vertices preserve
+            # the beveled corners; the bounding-box proxy does not.
+            var points := PackedVector3Array()
+            for vertex in _mesh_outline_local_vertices(mesh):
+                points.append(pose * vertex)
+            solid_clusters.append(points)
+    # A tiny overlap joins shared triangle edges before the final 2px margin.
+    # No projection work is added to the per-frame pulse animation.
+    var raw: Array[PackedVector2Array] = _project_selection_clusters(solid_clusters, 0.15)
+    for face in _project_selection_clusters(casting_faces, 0.15):
+        _union_outer_contours(raw, face)
+    var result: Array[PackedVector2Array] = []
+    for shape in raw:
+        for expanded in Geometry2D.offset_polygon(shape, 1.85, Geometry2D.JOIN_MITER):
+            if expanded.size() >= 3:
+                _union_outer_contours(result, expanded)
+    return result
 
 func _clip_gate_strokes(gate_shapes: Array, occluders: Array) -> Array[PackedVector2Array]:
     var visible: Array[PackedVector2Array] = []
@@ -4877,8 +5018,10 @@ func _clip_gate_strokes(gate_shapes: Array, occluders: Array) -> Array[PackedVec
     return visible
 
 func _project_model_contour(target_name: String) -> Array[PackedVector2Array]:
+    return _project_selection_clusters(target_parts.get(target_name, []))
+
+func _project_selection_clusters(clusters: Array, margin: float = 2.0) -> Array[PackedVector2Array]:
     var result: Array[PackedVector2Array] = []
-    var clusters: Array = target_parts.get(target_name, [])
     for cluster in clusters:
         var screen_points := PackedVector2Array()
         var clipped := false
@@ -4897,7 +5040,7 @@ func _project_model_contour(target_name: String) -> Array[PackedVector2Array]:
         # Two pixels outside the mesh prevent coplanar joints from looking
         # broken and keep the contour distinct from the actual 3D silhouette.
         var expanded: Array[PackedVector2Array] = Geometry2D.offset_polygon(
-            hull, 2.0, Geometry2D.JOIN_MITER)
+            hull, margin, Geometry2D.JOIN_MITER)
         for poly in expanded:
             if poly.size() >= 3:
                 _union_outer_contours(result, poly)
