@@ -5,7 +5,7 @@ const RebuiltScenes = preload("res://scripts/labo_rebuilt_scenes.gd")
 const CrateModel = preload("res://scripts/sera_crate_model.gd")
 const SharedMaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
 const SeraViewEdges = preload("res://scripts/sera_view_edges.gd")
-## Close-up sets are independent life-size industrial halls; BASE is iconography.
+## Close-up sets are independent life-size outdoor worksites; BASE is iconography.
 ## Keep the existing viewport, model placement and angle editor APIs.
 var crate: Node3D
 var crate_route: Node3D
@@ -39,16 +39,16 @@ func _ready() -> void:
     world.name = "Environment"
     var environment := Environment.new()
     environment.background_mode = Environment.BG_COLOR
-    environment.background_color = Color("#101e2b")
+    environment.background_color = Color("#607d8f")
     environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-    environment.ambient_light_color = Color("#d4e0e6")
-    environment.ambient_light_energy = 0.96
+    environment.ambient_light_color = Color("#b7cadb")
+    environment.ambient_light_energy = 0.85
     world.environment = environment
     add_child(world)
     var sun := DirectionalLight3D.new()
     sun.name = "SofterIndustrialKeyLight"
-    sun.rotation_degrees = Vector3(-38.0, -24.0, 0.0)
-    sun.light_energy = 1.48
+    sun.rotation_degrees = Vector3(-56.0, -25.0, 0.0)
+    sun.light_energy = 1.15
     sun.shadow_enabled = false
     add_child(sun)
     # Every facility now has a separately generated open industrial worksite.
@@ -66,9 +66,13 @@ func _ready() -> void:
     add_child(hero_camera)
     hero_camera.current = true
     hero_camera.near = 0.10
-    hero_camera.far = 100.0
+    hero_camera.far = 220.0
     hero_camera.keep_aspect = Camera3D.KEEP_HEIGHT
     set_section(current_section)
+
+func set_base_context(sources: Dictionary) -> void:
+    if rebuilt_scenes != null:
+        rebuilt_scenes.set_base_context(sources)
 
 func set_section(section: String) -> void:
     current_section = section if section in ["LABO", "SMELTER", "RECYCLER", "STORAGE"] else "LABO"
@@ -122,7 +126,7 @@ func set_section(section: String) -> void:
 func camera_section_id() -> String:
     # New geometry has different bounds. Legacy camera/model coordinates from
     # the independent rooms must not overwrite the new initial composition.
-    return current_section + "_INDUSTRIAL_V4"
+    return current_section + "_OUTDOOR_V5"
 
 func apply_camera_preview(eye: Vector3, look: Vector3, fov: float) -> void:
     camera_look = look
