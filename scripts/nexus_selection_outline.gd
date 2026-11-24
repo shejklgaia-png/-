@@ -7,6 +7,10 @@ var clipped_strokes: Dictionary = {}
 var active_target: String = ""
 var hide_customize_preview_outline: bool = false
 var pulse_time: float = 0.0
+const OVERVIEW_STROKE_PX: float = 4.5
+const FOCUSED_STROKE_PX: float = 5.0
+const DIM_COLOR: Color = Color(0.35, 0.85, 0.98, 0.15)
+const BRIGHT_COLOR: Color = Color(1.0, 1.0, 1.0, 1.0)
 
 func _ready() -> void:
     mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -14,7 +18,9 @@ func _ready() -> void:
 func _process(delta: float) -> void:
     # Only color/opacity oscillates each frame. The expensive polygon contour
     # is cached by the scene and recomputed solely on camera/viewport changes.
-    pulse_time += delta
+    if not is_visible_in_tree():
+        return
+    pulse_time = fposmod(pulse_time + delta, TAU / 3.6)
     queue_redraw()
 
 func _draw() -> void:
@@ -25,9 +31,8 @@ func _draw() -> void:
         if hide_customize_preview_outline and name == "CUSTOMIZE":
             continue
         var selected: bool = name == active_target
-        var alpha := 0.98 if selected else 0.15 + 0.47 * blink
-        var stroke := Color(0.35, 0.85, 0.98, alpha)
-        var thickness := 5.0 if selected else 4.5
+        var stroke: Color = DIM_COLOR.lerp(BRIGHT_COLOR, blink)
+        var thickness: float = FOCUSED_STROKE_PX if selected else OVERVIEW_STROKE_PX
         if clipped_strokes.has(name):
             # Already segmented along SERA's silhouette; never re-close these
             # lines or a diagonal border would appear through the foreground.
