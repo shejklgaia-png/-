@@ -377,6 +377,7 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
             _docks[key] = dock
         else:
             push_warning("BASE logistics: no clear cargo dock for " + key)
+        await get_tree().process_frame
     _phase = "ROUTES"
     var moving_count: int = 0
     for route in ROUTES:
@@ -406,6 +407,8 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
                     if _plan(t):
                         planned = true
                         break
+                    if j % 4 == 3:
+                        await get_tree().process_frame
             if not planned:
                 t.mode = "unavailable"
                 if options.is_empty():
@@ -419,6 +422,7 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
             t.pos = _point(t.home)
             _homes.append(t.home)
             _trucks.append(t)
+            await get_tree().process_frame
     _planned_count = moving_count
     print("SERA_BASE_LOGISTICS: docks=", _docks.size(), " vehicles=", _trucks.size(), " routable=", moving_count, " parked=", _trucks.size() - moving_count)
     # The BASE represents an already operating yard. Seed nonconflicting
@@ -502,10 +506,14 @@ func build_carriers() -> void:
     for t in _trucks:
         _make_chassis(t)
         _truck_pose(t)
+        if t.id % 4 == 3:
+            await get_tree().process_frame
     _phase = "CARGO_DRAW"
     for t in _trucks:
         _make_truck_details(t)
         _truck_pose(t)
+        if t.id % 4 == 3:
+            await get_tree().process_frame
     _phase = "CARRIERS" if previous_phase == "PLANNED" else previous_phase + "/CARRIERS"
     print("SERA_BASE_LOGISTICS: direct chassis=", _vehicle_count, " cargo=", _cargo_count)
 
