@@ -72,6 +72,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
         # Keep an orthonormal projection for every chart. Phase alignment
         # translates the entire grid; never move individual UV vertices.
         _synchronize_chart_grids(tris,charts,true)
+        _align_rigid_chart_grids(tris,charts)
     else:
         _match_rectified_edge_counts(tris,charts)
         _align_triangular_grids(tris,charts)
@@ -957,6 +958,153 @@ static func _refine_residual_grids(tris: Array[Dictionary],charts: Array[Diction
                 changed = true
         if not changed:
             break
+
+## Shape-priority alignment: a chart is a rigid 2D object. Rotation and
+## translation cannot change its internal distances, angles, or winding.
+## Solve periodic grid alignment against every incident boundary.
+static func _align_rigid_chart_grids(tris: Array[Dictionary],charts: Array[Dictionary]) -> void:
+    var links: Array[Dictionary] = []
+    var adjacency: Array = []
+    var pivots := PackedVector2Array()
+    var angles := PackedFloat32Array()
+    var shifts := PackedVector2Array()
+    var extents := PackedFloat32Array()
+    angles.resize(charts.size())
+    shifts.resize(charts.size())
+    for chart in charts:
+        adjacency.append([])
+        var lo: Vector2 = chart.min
+        var hi: Vector2 = chart.max
+        pivots.append((lo+hi)*0.5)
+        extents.append(maxf(hi.x-lo.x,hi.y-lo.y))
+    for link in _seam_segments(tris):
+        var a: PackedVector2Array = _segment_uv(tris[link.ta],link.ea,link.a0,link.a1,"xy")
+        var b: PackedVector2Array = _segment_uv(tris[link.tb],link.eb,link.b0,link.b1,"xy")
+        var length: float = minf(a[0].distance_to(a[1]),b[0].distance_to(b[1]))
+        if length < 0.00001:
+            continue
+        var record: Dictionary = {"a":int(link.a),"b":int(link.b),"pa":a,"pb":b,"weight":1.0+minf(2.0,length*0.15)}
+        var li: int = links.size()
+        links.append(record)
+        (adjacency[int(link.a)] as Array).append(li)
+        (adjacency[int(link.b)] as Array).append(li)
+    if links.is_empty():
+        return
+    var priority: Array[Dictionary] = []
+    for ci in range(charts.size()):
+        if adjacency[ci].is_empty():
+            continue
+        var cost: float = _rigid_chart_cost(ci,0.0,Vector2.ZERO,links,adjacency[ci],pivots,angles,shifts,extents)
+        if cost > 0.0001:
+            priority.append({"id":ci,"cost":cost})
+    priority.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
+        return int(a.id) < int(b.id) if float(a.cost) == float(b.cost) else float(a.cost) > float(b.cost))
+    for sweep in range(5):
+        var changed: bool = false
+        for i in range(mini(256,priority.size())):
+            var ci: int = int(priority[i].id)
+            var best_angle: float = angles[ci]
+            var best_shift: Vector2 = shifts[ci]
+            var best: float = _rigid_chart_cost(ci,best_angle,best_shift,links,adjacency[ci],pivots,angles,shifts,extents)
+            var start: float = best
+            # Use the strongest neighboring boundaries as proposals, but
+            # evaluate each proposal against ALL incident boundaries.
+            var proposals: Array[Dictionary] = []
+            for li in adjacency[ci]:
+                var record: Dictionary = links[li]
+                var own_a: bool = int(record.a) == ci
+                var own: PackedVector2Array = record.pa if own_a else record.pb
+                var other: PackedVector2Array = record.pb if own_a else record.pa
+                var neighbor: int = int(record.b) if own_a else int(record.a)
+                var other_a: Vector2 = _rigid_grid_point(other[0],pivots[neighbor],angles[neighbor],shifts[neighbor])
+                var other_b: Vector2 = _rigid_grid_point(other[1],pivots[neighbor],angles[neighbor],shifts[neighbor])
+                var angle: float = (own[1]-own[0]).angle_to(other_b-other_a)
+                angle = _rigid_quarter_angle(angle)
+                # Larger planar islands remain closer to their original
+                # bottom alignment; very large charts are translation-only.
+                if extents[ci] > 128.0:
+                    angle = 0.0
+                proposals.append({"own":own,"a":other_a,"b":other_b,"angle":angle,"weight":record.weight})
+            proposals.sort_custom(func(a: Dictionary,b: Dictionary) -> bool: return float(a.weight) > float(b.weight))
+            for j in range(mini(16,proposals.size())):
+                var proposal: Dictionary = proposals[j]
+                var own: PackedVector2Array = proposal.own
+                var other_a: Vector2 = proposal.a
+                var other_b: Vector2 = proposal.b
+                var target: float = float(proposal.angle)
+                for angle in [0.0,float(angles[ci]),target,_rigid_quarter_angle(float(angles[ci])+_rigid_quarter_angle(target-float(angles[ci]))*0.5)]:
+                    var oa: Vector2 = _rigid_grid_point(own[0],pivots[ci],angle,Vector2.ZERO)
+                    var ob: Vector2 = _rigid_grid_point(own[1],pivots[ci],angle,Vector2.ZERO)
+                    var quarter: float = roundf((other_b-other_a).angle_to(ob-oa)/(PI*0.5))*(PI*0.5)
+                    var d0: Vector2 = other_a.rotated(quarter)-oa
+                    var d1: Vector2 = other_b.rotated(quarter)-ob
+                    for offset in [Vector2.ZERO,shifts[ci],d0,d1,(d0+d1)*0.5]:
+                        var shift: Vector2 = offset-offset.round()
+                        var score: float = _rigid_chart_cost(ci,angle,shift,links,adjacency[ci],pivots,angles,shifts,extents)
+                        if score < best-0.0001:
+                            best = score
+                            best_angle = angle
+                            best_shift = shift
+            if best < start-0.0001:
+                angles[ci] = best_angle
+                shifts[ci] = best_shift
+                changed = true
+        if not changed:
+            break
+    # Only rigid transforms are committed. Rebuild bounds using every
+    # vertex; integer packing translations preserve the resulting phase.
+    for chart in charts:
+        chart.min = Vector2(INF,INF)
+        chart.max = Vector2(-INF,-INF)
+    for t in tris:
+        var ci: int = int(t.chart)
+        var q: PackedVector2Array = t.xy
+        var chart: Dictionary = charts[ci]
+        for k in range(q.size()):
+            q[k] = _rigid_grid_point(q[k],pivots[ci],angles[ci],shifts[ci])
+            var lo: Vector2 = chart.min
+            var hi: Vector2 = chart.max
+            chart.min = lo.min(q[k])
+            chart.max = hi.max(q[k])
+        t.xy = q
+    for chart in charts:
+        var lo: Vector2 = chart.min
+        chart.min = lo.floor()
+
+static func _rigid_quarter_angle(angle: float) -> float:
+    return angle-roundf(angle/(PI*0.5))*(PI*0.5)
+
+static func _rigid_grid_point(p: Vector2,pivot: Vector2,angle: float,shift: Vector2) -> Vector2:
+    return (p-pivot).rotated(angle)+pivot+shift
+
+static func _rigid_chart_cost(ci: int,angle: float,shift: Vector2,links: Array[Dictionary],incident: Array,pivots: PackedVector2Array,angles: PackedFloat32Array,shifts: PackedVector2Array,extents: PackedFloat32Array) -> float:
+    var cost: float = 0.0
+    for li in incident:
+        var record: Dictionary = links[li]
+        var ca: int = int(record.a)
+        var cb: int = int(record.b)
+        var aa: float = angle if ca == ci else angles[ca]
+        var ab: float = angle if cb == ci else angles[cb]
+        var sa: Vector2 = shift if ca == ci else shifts[ca]
+        var sb: Vector2 = shift if cb == ci else shifts[cb]
+        var pa: PackedVector2Array = record.pa
+        var pb: PackedVector2Array = record.pb
+        var a0: Vector2 = _rigid_grid_point(pa[0],pivots[ca],aa,sa)
+        var a1: Vector2 = _rigid_grid_point(pa[1],pivots[ca],aa,sa)
+        var b0: Vector2 = _rigid_grid_point(pb[0],pivots[cb],ab,sb)
+        var b1: Vector2 = _rigid_grid_point(pb[1],pivots[cb],ab,sb)
+        var da: Vector2 = a1-a0
+        var db: Vector2 = b1-b0
+        var quarter: float = roundf(db.angle_to(da)/(PI*0.5))*(PI*0.5)
+        var e0: Vector2 = a0-b0.rotated(quarter)
+        e0 -= e0.round()
+        var e1: Vector2 = e0+da-db.rotated(quarter)
+        cost += float(record.weight)*(maxf(e0.length_squared(),e1.length_squared())+0.2*(e0.length_squared()+e1.length_squared()))
+    # The original bottom edge remains a preference, not a hard
+    # constraint when adjacent surface orientations are incompatible.
+    var span: float = clampf(extents[ci],1.0,24.0)
+    cost += 0.15*span*span*sin(angle)*sin(angle)+0.2*shift.y*shift.y
+    return cost
 
 static func _local_edge_residual(tris: Array[Dictionary],link: Dictionary,ci: int,indices: Dictionary,coords: PackedVector2Array) -> float:
     var segments: Array[PackedVector2Array] = []
