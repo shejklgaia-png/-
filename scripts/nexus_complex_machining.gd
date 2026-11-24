@@ -1,4 +1,5 @@
 extends RefCounted
+const StaticBake = preload("res://scripts/sera_static_bake.gd")
 ## NEXUS secondary machined detail. Each profile is one reusable ArrayMesh;
 ## instances are batched by profile/finish, not by individual decorative part.
 ## Opaque depth-tested geometry only. Never participates in selection/ID edges.
@@ -7,6 +8,18 @@ extends RefCounted
 ## changing Blockbench masters or their interaction silhouettes.
 
 static func build(room: Node3D, system_at: Vector3, training_at: Vector3,
+        gate_at: Vector3, gate_yaw: float, gate_scale: float = 1.0) -> void:
+    var bake_path := StaticBake.cache_path("nexusmachining", ["res://scripts/nexus_complex_machining.gd"], [system_at, training_at, gate_at, gate_yaw, gate_scale])
+    var baked := StaticBake.load_scene(bake_path, "NexusComplexMachining")
+    if baked != null:
+        room.add_child(baked)
+        return
+    _build_original(room, system_at, training_at, gate_at, gate_yaw, gate_scale)
+    var root := room.get_node_or_null("NexusComplexMachining") as Node3D
+    if root != null:
+        StaticBake.save_scene(bake_path, root)
+
+static func _build_original(room: Node3D, system_at: Vector3, training_at: Vector3,
         gate_at: Vector3, gate_yaw: float, gate_scale: float = 1.0) -> void:
     var batches: Dictionary = {}
     # A circular maintenance mechanism with separate serrated drive race,

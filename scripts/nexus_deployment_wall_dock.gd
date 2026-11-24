@@ -1,4 +1,5 @@
 extends RefCounted
+const StaticBake = preload("res://scripts/sera_static_bake.gd")
 ## Deployment wall dock: a fixed-cost, authored-scale access apron and bulkhead.
 ## The gate itself still comes from the original Blockbench module; this
 ## supplies an inclined entry deck, portal trim and a visible auxiliary
@@ -14,6 +15,18 @@ static func threshold_height(gate_scale: float) -> float:
 
 
 static func build(room: Node3D, gate_at: Vector3,
+        gate_yaw: float, _gate_scale: float) -> void:
+    var bake_path := StaticBake.cache_path("nexusdock", ["res://scripts/nexus_deployment_wall_dock.gd"], [gate_at, gate_yaw, _gate_scale])
+    var baked := StaticBake.load_scene(bake_path, "DeploymentWallDock")
+    if baked != null:
+        room.add_child(baked)
+        return
+    _build_original(room, gate_at, gate_yaw, _gate_scale)
+    var root := room.get_node_or_null("DeploymentWallDock") as Node3D
+    if root != null:
+        StaticBake.save_scene(bake_path, root)
+
+static func _build_original(room: Node3D, gate_at: Vector3,
         gate_yaw: float, _gate_scale: float) -> void:
     var root := Node3D.new()
     root.name = "DeploymentWallDock"

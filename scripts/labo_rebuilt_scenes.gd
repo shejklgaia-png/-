@@ -100,6 +100,7 @@ func _child(parent: Node3D, label: String, at: Vector3 = Vector3.ZERO) -> Node3D
 
 func _batch(n: Node3D):
     var b := Architecture.Batch.new(n)
+    b.bake_render_model = true
     b.outline_enabled = true
     return b
 

@@ -74,6 +74,9 @@ class Batch:
     # Architectural solid mask; FX is built later in separate nodes.
     var outline_enabled: bool = false
     var outline_entries: Array[Dictionary] = []
+    # Opt in only from known architectural/worksite builders. All other
+    # shared Batch users preserve their original construction behavior.
+    var bake_render_model: bool = false
 
     func _init(node: Node3D) -> void:
         host = node
@@ -205,7 +208,68 @@ class Batch:
         StaticBake.save_data(path, {"entries": entries, "features": features,
             "outline": outline_entries, "motion": motion_indices})
 
+    func _render_bake_path() -> String:
+        if not bake_render_model or not host.is_inside_tree() or host.get_child_count() != 0:
+            return ""
+        var count: int = 0
+        for poses in entries.values():
+            count += poses.size()
+        # Tiny components are cheaper to construct than to read from disk.
+        if count < 48:
+            return ""
+        var textures := [WEATHERED_STEEL_PATH, WEATHERED_CANVAS_PATH, WEATHERED_ARMOR_PATH, WEATHERED_OXIDE_PATH]
+        for texture in textures:
+            if not ResourceLoader.exists(texture):
+                return ""
+        var dependencies: Array = ["res://scripts/sera_base_architecture.gd",
+            "res://scripts/sera_base_polygon_meshes.gd"]
+        dependencies.append_array(textures)
+        var slot := "model" + str(host.get_path()).sha256_text().substr(0,24)
+        return StaticBake.cache_path(slot, dependencies,
+            [String(host.name), entries, outline_entries, motion_indices, features, motion_names])
+
+    func _restore_render_bake(path: String) -> bool:
+        var baked := StaticBake.load_scene(path, String(host.name))
+        if baked == null:
+            return false
+        var meshes: Dictionary = {}
+        # Check bucket names and instance counts before attaching any draw.
+        for key in entries:
+            var names: PackedStringArray = String(key).split("|")
+            var draw := baked.get_node_or_null("Architectural_" + names[0] + "_" + names[1]) as MultiMeshInstance3D
+            if draw == null or draw.multimesh == null or draw.multimesh.instance_count != entries[key].size():
+                baked.free()
+                return false
+            meshes[key] = draw.multimesh
+        if meshes.size() != baked.get_child_count():
+            baked.free()
+            return false
+        for child in baked.get_children():
+            baked.remove_child(child)
+            host.add_child(child)
+        baked.free()
+        if not outline_entries.is_empty():
+            host.set_meta("sera_outline_role", "facility")
+        _bind_output_metadata(meshes)
+        return true
+
+    func _save_render_bake(path: String) -> void:
+        if path.is_empty():
+            return
+        # Motion state is never stored. Reconstruct the runtime resource
+        # references from the newly loaded MultiMeshes and original slot map.
+        var had_motion: bool = host.has_meta("motion_entries")
+        var live: Variant = host.get_meta("motion_entries", null)
+        if had_motion:
+            host.remove_meta("motion_entries")
+        StaticBake.save_scene(path, host)
+        if had_motion:
+            host.set_meta("motion_entries", live)
+
     func flush(budget: Variant = null) -> void:
+        var render_bake_path := _render_bake_path()
+        if _restore_render_bake(render_bake_path):
+            return
         # Optional images are only usable once Godot's imported cache exists.
         var steel_texture: Texture2D = null
         var canvas_texture: Texture2D = null
@@ -417,6 +481,10 @@ class Batch:
                 draw.set_meta("sera_outline_emissive_protect", true)
             host.add_child(draw)
             # No second geometric contour pass or draw nodes are produced.
+        _bind_output_metadata(motion_multimeshes)
+        _save_render_bake(render_bake_path)
+
+    func _bind_output_metadata(motion_multimeshes: Dictionary) -> void:
         host.set_meta("unique_model_features", features.duplicate())
         if not outline_entries.is_empty():
             host.set_meta("outline_solid_entries", outline_entries.duplicate())
@@ -479,6 +547,7 @@ static func build_nexus(parent: Node3D, budget: Variant = null) -> void:
     node.name = "NexusArchitecture"
     parent.add_child(node)
     var g := Batch.new(node)
+    g.bake_render_model = true
     g.yaw = facility_yaw_radians("NEXUS")
     g.motion_names = BaseFacilityMotion.MOTION_FEATURES["NEXUS"].duplicate() if ARCHIVED_NEXUS_MODEL else []
     if ARCHIVED_NEXUS_MODEL:
@@ -1085,6 +1154,7 @@ static func build_facility(parent: Node3D, key: String, budget: Variant = null) 
     node.name = "IndustrialModel"
     parent.add_child(node)
     var g := Batch.new(node)
+    g.bake_render_model = true
     g.hard_edges = true
     g.motion_names = BaseFacilityMotion.animated_features_for(key)
     g.outline_enabled = true
