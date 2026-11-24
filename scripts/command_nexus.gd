@@ -486,9 +486,18 @@ func _open_canonical_placement() -> void:
     # Explicit recovery on press covers a deferred initialization that did
     # not finish. Never treat an unconfigured Control as a usable editor.
     if not _initialize_canonical_placement_editor():
-        _placement_launch_failure(placement_entry_button, "PLACE / INIT ERROR")
+        var phase := "NO NODE"
+        if is_instance_valid(placement_editor):
+            phase = str(placement_editor.get("initialization_stage"))
+            if not placement_editor.is_inside_tree():
+                phase = "NO TREE"
+        _placement_launch_failure(placement_entry_button, "PLACE / " + phase)
         return
     if placement_editor.open_mode():
+        var caption: Label = placement_entry_button.get_node_or_null(
+            "Caption") as Label
+        if caption != null:
+            caption.text = "正規配置 / PLACE"
         _sync_placement_launchers()
         get_viewport().set_input_as_handled()
     else:
