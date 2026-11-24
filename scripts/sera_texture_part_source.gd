@@ -15,6 +15,7 @@ static func create_rig(parent: Node3D) -> Node3D:
     if rig == null:
         return null
     rig.name = "TextureStudioSourceRig"
+    rig.set_meta("texture_studio_capture_faces",true)
     rig.visible = false
     rig.process_mode = Node.PROCESS_MODE_DISABLED
     parent.add_child(rig)
@@ -47,6 +48,7 @@ static func snapshot(rig: Node3D, blueprint: String) -> Dictionary:
     var set_parts: Dictionary = available.get(str(spec.rig_set),{})
     var pieces: Array = set_parts.get(str(spec.slot),[])
     var combined := ArrayMesh.new()
+    var authored_by_surface: Dictionary = {}
     var count := 0
     var inverse := rig.global_transform.affine_inverse()
     for candidate in pieces:
@@ -108,6 +110,11 @@ static func snapshot(rig: Node3D, blueprint: String) -> Dictionary:
                 arrays[Mesh.ARRAY_INDEX] = indices
             combined.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES,arrays)
             combined.surface_set_material(combined.get_surface_count()-1,material)
+            if s == 0 and piece.mesh.get_surface_count() == 1:
+                var face_ids: PackedInt32Array = piece.get_meta("texture_studio_authored_faces",PackedInt32Array())
+                var vertex_count: int = indices.size() if not indices.is_empty() else vertices.size()
+                if face_ids.size()*3 == vertex_count:
+                    authored_by_surface[combined.get_surface_count()-1] = face_ids
         count += 1
     if combined.get_surface_count() == 0:
         return {"error":"このパーツに描画可能なメッシュがありません"}
@@ -116,6 +123,7 @@ static func snapshot(rig: Node3D, blueprint: String) -> Dictionary:
     result.mesh = combined
     result.visible = false
     result.set_meta("texture_studio_blueprint",blueprint)
+    result.set_meta("texture_studio_authored_by_surface",authored_by_surface)
     return {"source":result,"pieces":count}
 
 static func _paint_material(source: Material) -> StandardMaterial3D:
