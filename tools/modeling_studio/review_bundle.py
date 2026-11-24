@@ -33,7 +33,7 @@ def main():
         sheet.paste(tile.convert("RGB"), (x+(300-tile.width)//2,y+20))
         draw.text((x+10,y+4),name,fill="white")
     sheet.save(root/"contact_sheet.jpg",quality=92)
-    paths = ["model.blend","model.glb","design.json","mesh_report.json","complete.json","projections.json","contact_sheet.jpg"] + [v+".png" for v in VIEWS]
+    paths = ["model.blend","model.glb","design.json","mesh_report.json","complete.json","projections.json","camera_fit.json","interference.json","contact_sheet.jpg"] + [v+".png" for v in VIEWS]
     if (root/"reference").is_dir():
         paths += [p.relative_to(root).as_posix() for p in sorted((root/"reference").glob("*")) if p.is_file()]
     files = {p:{"bytes":(root/p).stat().st_size,"sha256":hashlib.sha256((root/p).read_bytes()).hexdigest()} for p in paths}
