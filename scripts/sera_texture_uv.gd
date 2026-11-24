@@ -150,7 +150,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     arrays[Mesh.ARRAY_TEX_UV2] = diagnostic_uv
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v5" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
+    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v6" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
 
 ## Group connected coplanar triangles, and the two halves of slightly
 ## warped authored quads. Never use an internal triangulation diagonal
@@ -1260,7 +1260,8 @@ static func _relax_uv_boundary_vertices(tris: Array[Dictionary],charts: Array[Di
     for ci in range(charts.size()):
         charts[ci].min = next_charts[ci].min
         charts[ci].max = next_charts[ci].max
-    return note+" / 採用 / "+_relax_paired_uv_endpoints(tris,charts,original,members,nodes,corner_nodes,links,locked)
+    var paired_report: String = _relax_paired_uv_endpoints(tris,charts,original,members,nodes,corner_nodes,links,locked)
+    return note+" / 採用 / "+paired_report+" / "+_relax_global_uv_boundaries(tris,charts,original,members,nodes,corner_nodes,links,locked)
 
 
 # Try simultaneous moves of corresponding endpoints on both sides of
@@ -1376,6 +1377,127 @@ static func _relax_paired_uv_endpoints(tris: Array[Dictionary],charts: Array[Dic
         charts[ci].min = next_charts[ci].min
         charts[ci].max = next_charts[ci].max
     return note+" / 採用"
+
+
+# Jacobi-style coupled seam relaxation. A candidate is evaluated across
+# all seams, so an individual edge may temporarily get worse without
+# vetoing a useful globally valid move. Never change geometry.
+static func _relax_global_uv_boundaries(tris: Array[Dictionary],charts: Array[Dictionary],original: Array[PackedVector2Array],members: Array,nodes: Array[Dictionary],corner_nodes: Array[PackedInt32Array],links: Array[Dictionary],locked: Dictionary) -> String:
+    var all_links: Array = []
+    for li in range(links.size()):
+        all_links.append(li)
+    var baseline: Vector3 = _local_uv_metrics(tris,links,all_links)
+    var score: Vector3 = baseline
+    var shifts := PackedVector2Array()
+    var by_chart: Array = []
+    for ci in range(charts.size()):
+        by_chart.append([])
+    for ni in range(nodes.size()):
+        var ref: Vector2i = nodes[ni].refs[0]
+        shifts.append(tris[ref.x].xy[ref.y]-original[ref.x][ref.y])
+        (by_chart[int(nodes[ni].chart)] as Array).append(ni)
+    var capacity: int = _hinge_pack_side(charts)
+    var accepted: int = 0
+    var tested: int = 0
+    for sweep in range(8):
+        var best_score: Vector3 = score
+        var best: PackedVector2Array = shifts.duplicate()
+        var found: bool = false
+        for power in [1.0,3.0]:
+            var sums := PackedVector2Array()
+            var weights := PackedFloat32Array()
+            sums.resize(nodes.size())
+            weights.resize(nodes.size())
+            # Always linearize at the last accepted layout.
+            for ni in range(nodes.size()):
+                _set_local_uv_shift(tris,original,nodes[ni].refs,shifts[ni])
+            for link in links:
+                var ta: int = int(link.ta)
+                var tb: int = int(link.tb)
+                var ea: int = int(link.ea)
+                var eb: int = int(link.eb)
+                var a: PackedVector2Array = _segment_uv(tris[ta],ea,float(link.a0),float(link.a1),"xy")
+                var b: PackedVector2Array = _segment_uv(tris[tb],eb,float(link.b0),float(link.b1),"xy")
+                var da: Vector2 = a[1]-a[0]
+                var db: Vector2 = b[1]-b[0]
+                var quarter: float = roundf(db.angle_to(da)/(PI*0.5))*(PI*0.5)
+                var e0: Vector2 = a[0]-b[0].rotated(quarter)
+                e0 -= e0.round()
+                var e1: Vector2 = e0+da-db.rotated(quarter)
+                var w: float = pow(maxf(0.25,maxf(e0.length(),e1.length())),float(power))
+                var ids := PackedInt32Array([corner_nodes[ta][ea],corner_nodes[ta][(ea+1)%3],corner_nodes[tb][eb],corner_nodes[tb][(eb+1)%3]])
+                for endpoint in range(2):
+                    var err: Vector2 = e0 if endpoint == 0 else e1
+                    var fa: float = float(link.a0) if endpoint == 0 else float(link.a1)
+                    var fb: float = float(link.b0) if endpoint == 0 else float(link.b1)
+                    var coefficients := PackedFloat32Array([1.0-fa,fa,1.0-fb,fb])
+                    for k in range(4):
+                        var ni: int = ids[k]
+                        if locked.has(ni):
+                            continue
+                        var coef: float = coefficients[k]
+                        var direction: Vector2 = -err if k < 2 else err.rotated(-quarter)
+                        sums[ni] += direction*coef*w
+                        weights[ni] += coef*coef*w
+            for step in [0.5,0.25,0.125,0.0625]:
+                var candidate: PackedVector2Array = shifts.duplicate()
+                for ni in range(nodes.size()):
+                    if weights[ni] > 0.000001 and not locked.has(ni):
+                        var delta: Vector2 = (sums[ni]/weights[ni]*float(step)).limit_length(0.2)
+                        candidate[ni] = (shifts[ni]+delta).limit_length(0.75)
+                    _set_local_uv_shift(tris,original,nodes[ni].refs,candidate[ni])
+                # Reject a whole island's candidate if any triangle fails.
+                for ci in range(charts.size()):
+                    var changed: Dictionary = {}
+                    for ni in by_chart[ci]:
+                        if candidate[int(ni)].distance_squared_to(shifts[int(ni)]) > 0.00000001:
+                            for ref in nodes[int(ni)].refs:
+                                changed[int(ref.x)] = true
+                    if not changed.is_empty() and not _valid_local_uv_shift(tris,original,changed,members[ci]):
+                        for ni in by_chart[ci]:
+                            candidate[int(ni)] = shifts[int(ni)]
+                            _set_local_uv_shift(tris,original,nodes[int(ni)].refs,shifts[int(ni)])
+                tested += 1
+                var next_score: Vector3 = _local_uv_metrics(tris,links,all_links)
+                if next_score.x > score.x+0.000001 or next_score.y > score.y or next_score.z >= score.z-0.000001:
+                    continue
+                var improves_best: bool = next_score.x < best_score.x-0.000001 or (absf(next_score.x-best_score.x) <= 0.000001 and next_score.z < best_score.z-0.000001)
+                if not improves_best:
+                    continue
+                var bounds: Array[Dictionary] = _global_uv_chart_bounds(tris,charts,members)
+                if _hinge_pack_side(bounds) > capacity:
+                    continue
+                best = candidate
+                best_score = next_score
+                found = true
+        shifts = best
+        for ni in range(nodes.size()):
+            _set_local_uv_shift(tris,original,nodes[ni].refs,shifts[ni])
+        if not found:
+            break
+        score = best_score
+        accepted += 1
+    if accepted > 0:
+        var bounds: Array[Dictionary] = _global_uv_chart_bounds(tris,charts,members)
+        for ci in range(charts.size()):
+            charts[ci].min = bounds[ci].min
+            charts[ci].max = bounds[ci].max
+    return "全境界補正 %d採用/%d試行・問題辺 %d→%d・最大 %.3f→%.3fpx・二乗和 %.3f→%.3f / %s" % [accepted,tested,int(baseline.y),int(score.y),baseline.x,score.x,baseline.z,score.z,"採用" if accepted > 0 else "不採用・V5維持"]
+
+static func _global_uv_chart_bounds(tris: Array[Dictionary],charts: Array[Dictionary],members: Array) -> Array[Dictionary]:
+    var result: Array[Dictionary] = []
+    for ci in range(charts.size()):
+        var chart: Dictionary = charts[ci].duplicate()
+        var lo := Vector2(INF,INF)
+        var hi := Vector2(-INF,-INF)
+        for ti in members[ci]:
+            for point in tris[int(ti)].xy:
+                lo = lo.min(point)
+                hi = hi.max(point)
+        chart.min = lo.floor()
+        chart.max = hi
+        result.append(chart)
+    return result
 
 static func _set_local_uv_shift(tris: Array[Dictionary],original: Array[PackedVector2Array],refs: Array,shift: Vector2) -> void:
     for ref in refs:
