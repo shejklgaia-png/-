@@ -20,7 +20,7 @@ const MOTION_FEATURES: Dictionary = {
         "FreshCollectorJawHinge", "FreshCollectorOpenGrip",
         "FreshCollectorConveyorFlight", "FreshCollectorPickupScrap"],
     "SMELTER": ["SmelterFeedScrap", "SmelterMoltenPour", "SmelterCastIngot", "SmelterChargeGate"],
-    "RECYCLER": ["FreshRecyclerRoller", "FreshRecyclerTooth", "RecyclerIntactPart", "RecyclerRecoveredPart"],
+    "RECYCLER": ["FreshRecyclerRoller", "FreshRecyclerTooth", "RecyclerRecoveredPart"],
     "GENERATOR": ["FreshGeneratorRotorBlade", "FreshGeneratorMeterRow"],
     "STORAGE": ["FreshStorageLoadingLift", "StorageMovingCase", "StorageMovingLock", "StorageTransferFork", "StorageStoredCase", "StorageStoredLock"],
     "BUILD_TERMINAL": ["FreshBuildModuleLock", "FreshBuildArmForelink", "FreshBuildArmToolChuck", "FreshBuildArmClampJaw"],
@@ -67,7 +67,7 @@ var _intake_preparing: bool = false
 var _intake_received: int = 0
 const INTAKE_LOCAL = {
     "SMELTER": Vector3(-1.66,1.58,0.86),
-    "RECYCLER": Vector3(0.0,2.68,0.22),
+    "RECYCLER": Vector3(0.0,2.68,-0.62),
     "LABO": Vector3(-2.05,1.28,1.45),
     "STORAGE": Vector3(-1.20,1.09,1.18)}
 const INTAKE_CLEAR_HEIGHT = {"SMELTER":3.4,"RECYCLER":3.35,"LABO":4.05,"STORAGE":3.25}
@@ -75,6 +75,17 @@ const PRINT_FEATURES = ["FreshLabPrintedShell","LabPrintedGear","LabPrintedArmor
 
 func material_intake_world() -> Vector3:
     return _model.to_global(_at(INTAKE_LOCAL[facility_key]))
+
+# Raw salvage is released onto the actual rear gravity feed and then
+# slides into the center line of the two cutter shafts.
+func recycler_salvage_drop_world(slot: int) -> Vector3:
+    return _model.to_global(_at(Vector3(-0.40+0.80*float(slot),2.68,-0.62)))
+
+func recycler_salvage_world(slot: int, progress: float) -> Vector3:
+    var x: float = -0.40+0.80*float(slot)
+    var staged := Vector3(x,2.02,-0.62)
+    var throat := Vector3(x,1.10,0.22)
+    return _model.to_global(_at(staged.lerp(throat,clampf(progress,0.0,1.0))))
 
 func material_support_world() -> Vector3:
     # Actual structural anchor, not a free-floating beam end.
@@ -542,11 +553,6 @@ func sample_at(seconds: float) -> void:
                         var side: float = 1.0 if local.z > 0.22 else -1.0
                         var center: Vector3 = _at(Vector3(0.0, 1.37, 0.22 + side * 0.39))
                         pose = _spin_about(rest, center, _axis(Vector3.RIGHT), t * 2.0 * side)
-                    elif feature == "RecyclerIntactPart":
-                        var feed: float = smoothstep(0.35 + i*0.35, 2.5 + i*0.35, t)
-                        pose.origin += _at(Vector3(0, -1.13*feed, 0))
-                        if feed >= 0.97:
-                            pose.basis = rest.basis.scaled_local(Vector3.ONE * 0.0001)
                     elif feature == "RecyclerRecoveredPart":
                         var slide: float = smoothstep(2.6+i*0.4, 4.6+i*0.4, t)
                         pose.origin += _at(Vector3(0, -0.25*slide, 0.76*slide))
@@ -592,7 +598,7 @@ func sample_at(seconds: float) -> void:
                 if feature == "SmelterChargeGate":
                     pose = rest
                     pose.origin += _at(Vector3(-0.66,0,0))
-                elif feature in ["SmelterFeedScrap","RecyclerIntactPart","LabInputPellet"]:
+                elif feature in ["SmelterFeedScrap","LabInputPellet"]:
                     pose = rest
                     if _intake_received == 0 or (i > 0 and _intake_received == 1):
                         pose.basis = rest.basis.scaled_local(Vector3.ONE*0.0001)
