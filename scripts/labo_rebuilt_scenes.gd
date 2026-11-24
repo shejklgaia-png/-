@@ -1438,7 +1438,7 @@ func animate(delta: float, time: float, key: String) -> void:
             return
         var duration: float = logistics[key].duration()
         # Do not skip a reserved stock handoff after a long app/frame pause.
-        var advance: float = minf(delta,0.25) if key in ["STORAGE","SMELTER"] else delta
+        var advance: float = minf(delta,0.10)
         elapsed = minf(duration,elapsed+advance)
         _sample(key,elapsed/duration)
         cycle_running = elapsed < duration
@@ -1450,7 +1450,7 @@ func animate(delta: float, time: float, key: String) -> void:
     if key=="LABO":
         _animate_print_idle(delta)
 
-func _sample_machine(key: String, t: float) -> void:
+func _sample_machine(key: String, t: float, update_printer_arms: bool = true) -> void:
     var m: Dictionary = motion_parts[key]
     match key:
         "LABO":
@@ -1461,8 +1461,9 @@ func _sample_machine(key: String, t: float) -> void:
             var grow: float = smoothstep(0.10,0.46,t)
             # All three heads work from independent radial sectors and retract
             # before the shuttle starts its forward travel at t=0.60.
-            for i in range(3):
-                _sample_print_arm(m["print_arms"][i],i,t,product_height,grow)
+            if update_printer_arms:
+                for i in range(3):
+                    _sample_print_arm(m["print_arms"][i],i,t,product_height,grow)
             shuttle.position.z = 3.7*smoothstep(0.60,0.76,t)
             # Roll the completed product onto the fixed outfeed before the shuttle returns.
             if t>=0.91:
@@ -1521,17 +1522,19 @@ func _sample(key: String,t: float) -> void:
         return
     var m: Dictionary = motion_parts[key]
     if t<0.29:
-        _sample_machine(key,0.0)
+        # Idle poses belong to the independent printer idle animator.
+        _sample_machine(key,0.0,false)
         _hide_machine_payloads(key)
         var input: Node3D = null if key=="LABO" else m["feed"] as Node3D
         flow.sample_in(t,input)
         return
     flow.truck_in.visible = false
     flow.raw.visible = false
+    flow.sample_in_return(t)
     if t<0.72:
         _sample_machine(key,clampf((t-0.29)/0.43,0.0,1.0))
         return
-    _sample_machine(key,1.0)
+    _sample_machine(key,1.0,false)
     var output: Node3D
     var payload_height: float = 0.90
     var payload_width: float = 1.0
