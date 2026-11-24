@@ -38,6 +38,7 @@ var shelf_beam: Node3D
 var rng := RandomNumberGenerator.new()
 var storage_committed := false
 var storage_removed := false
+var input_finished := false
 var storage_pack_point := Vector3(-9.0,1.10,7.7)
 var storage_out_point := Vector3(8.8,1.10,7.7)
 var aisle_z: float = 0.8
@@ -144,12 +145,17 @@ func _gantry(label: String,a: Vector3,z: Vector3,height: float) -> Dictionary:
     var grip := _node(trolley,"Gripper")
     b = _batch(grip)
     _box(b,Vector3(0,0.12,0),Vector3(0.95,0.20,0.48),"gold")
-    for side_value in [-1.0,1.0]:
-        _box(b,Vector3(float(side_value)*0.40,-0.12,0),Vector3(0.12,0.48,0.45),"edge")
     _finish(b)
-    return {"trolley":trolley,"stem":stem,"grip":grip,"height":height}
+    var jaws: Array[Node3D] = []
+    for side_value in [-1.0,1.0]:
+        var jaw := _node(grip,"JawLeft" if float(side_value)<0 else "JawRight")
+        b = _batch(jaw)
+        _box(b,Vector3(0,-0.12,0),Vector3(0.12,0.48,0.45),"edge")
+        _finish(b)
+        jaws.append(jaw)
+    return {"trolley":trolley,"stem":stem,"grip":grip,"height":height,"jaws":jaws}
 
-func _arm_pose(arm: Dictionary,p: Vector3) -> void:
+func _arm_pose(arm: Dictionary,p: Vector3,span: float = 0.75) -> void:
     var trolley: Node3D = arm["trolley"]
     var stem: Node3D = arm["stem"]
     var grip: Node3D = arm["grip"]
@@ -158,6 +164,9 @@ func _arm_pose(arm: Dictionary,p: Vector3) -> void:
     var d: float = maxf(0.20,h-p.y)
     stem.scale.y = d
     grip.position.y = -d
+    var jaws: Array = arm["jaws"]
+    (jaws[0] as Node3D).position.x = -span*0.5
+    (jaws[1] as Node3D).position.x = span*0.5
 
 func _transfer(a: Vector3,b: Vector3,h: float,u: float) -> Vector3:
     # Lift, horizontal transfer, then lower. No diagonal shortcuts through stock.
@@ -222,7 +231,7 @@ func build(parent: Node3D,section: String,source: Vector3,destination: Vector3) 
     in_arm = _gantry("InboundTransferArm",in_dock,inlet,h_in)
     out_arm = _gantry("OutboundTransferArm",out_dock,outlet,h_out)
     _arm_pose(in_arm,Vector3(in_dock.x,h_in-0.55,in_dock.z))
-    _arm_pose(out_arm,Vector3(out_dock.x,h_out-0.55,out_dock.z))
+    _arm_pose(out_arm,Vector3(outlet.x,h_out-0.55,outlet.z))
     _truck_pose(truck_in,in_far,in_dock,0.0)
     _truck_pose(truck_out,out_far,out_dock,0.0)
     truck_in.visible = false
@@ -245,6 +254,8 @@ func duration() -> float:
     return 48.0 if key=="STORAGE" else 26.0
 
 func begin() -> void:
+    input_finished = false
+    reset()
     if key!="STORAGE":
         return
     var empty: Array[int] = []
@@ -263,6 +274,9 @@ func reset() -> void:
     truck_in.visible = false
     truck_out.visible = false
     raw.visible = false
+    raw.scale = Vector3.ONE
+    _arm_pose(in_arm,Vector3(in_dock.x,float(in_arm["height"])-0.55,in_dock.z))
+    _arm_pose(out_arm,Vector3(outlet.x,float(out_arm["height"])-0.55,outlet.z))
     if key=="STORAGE":
         pack.visible = false
         shelf_box.visible = false
@@ -289,8 +303,15 @@ func sample_in(t: float,payload: Node3D = null) -> void:
         _arm_pose(in_arm,Vector3(pick.x,lerpf(float(in_arm["height"])-0.5,pick.y,smoothstep(0.09,0.12,t)),pick.z))
     if t>=0.23:
         _arm_pose(in_arm,inlet+Vector3.UP*lerpf(0.8,float(in_arm["height"])-inlet.y-0.5,smoothstep(0.23,0.29,t)))
+        if key=="LABO":
+            # Drop the raw batch through the genuine open hopper mouth.
+            var fall: float = smoothstep(0.23,0.29,t)
+            _place(load,inlet-Vector3.UP*0.68*fall)
+            load.scale = Vector3.ONE*(1.0-0.82*smoothstep(0.25,0.29,t))
+    if t>=0.29:
+        input_finished = true
 
-func sample_out(t: float,payload: Node3D) -> void:
+func sample_out(t: float,payload: Node3D,payload_height: float = 1.35,payload_width: float = 1.0) -> void:
     truck_out.visible = t>=0.72 and t<1.0
     _truck_pose(truck_out,out_far,out_dock,smoothstep(0.72,0.81,t))
     if t>=0.94:
@@ -298,18 +319,18 @@ func sample_out(t: float,payload: Node3D) -> void:
     if payload==null:
         return
     if t>=0.81:
-        var p: Vector3 = _transfer(outlet,_out_drop(),float(out_arm["height"])-2.2,smoothstep(0.83,0.93,t))
+        var p: Vector3 = _transfer(outlet,_out_drop(),float(out_arm["height"])-payload_height-0.75,smoothstep(0.82,0.92,t))
         if t>=0.94:
             p = _room_position(truck_out)+Vector3.UP*(DECK_Y+0.14)
         _place(payload,p)
         payload.visible = t<1.0
-        _arm_pose(out_arm,p+Vector3.UP*1.35)
+        _arm_pose(out_arm,p+Vector3.UP*payload_height,payload_width)
     else:
-        var h: float = lerpf(float(out_arm["height"])-0.5,outlet.y+1.35,smoothstep(0.72,0.81,t))
-        _arm_pose(out_arm,Vector3(outlet.x,h,outlet.z))
-    if t>=0.93:
+        var h: float = lerpf(float(out_arm["height"])-0.5,outlet.y+payload_height,smoothstep(0.72,0.81,t))
+        _arm_pose(out_arm,Vector3(outlet.x,h,outlet.z),payload_width)
+    if t>=0.92:
         var drop := _out_drop()
-        _arm_pose(out_arm,Vector3(drop.x,lerpf(drop.y+1.35,float(out_arm["height"])-0.5,smoothstep(0.93,0.94,t)),drop.z))
+        _arm_pose(out_arm,Vector3(drop.x,lerpf(drop.y+payload_height,float(out_arm["height"])-0.5,smoothstep(0.92,0.94,t)),drop.z),payload_width)
 
 func _build_storage() -> void:
     # Six independent bays, four levels. Front aisle is clear for the stacker.
@@ -321,8 +342,12 @@ func _build_storage() -> void:
             _box(b,Vector3(x,6.25,z),Vector3(0.25,12.5,0.30),"slate")
     for level in range(4):
         var y: float = 0.65+float(level)*2.85
-        _box(b,Vector3(0,y,-5.4),Vector3(18.6,0.24,3.65),"armor")
-        _box(b,Vector3(0,y,-3.51),Vector3(18.6,0.19,0.15),"gold")
+        # Two support rails per bay leave a real open channel for the forks.
+        for col in range(6):
+            var center_x: float = -7.75+float(col)*3.10
+            for side in [-1.0,1.0]:
+                _box(b,Vector3(center_x+float(side)*1.18,y,-5.4),Vector3(0.30,0.24,3.65),"armor")
+                _box(b,Vector3(center_x+float(side)*1.18,y,-3.51),Vector3(0.31,0.19,0.15),"gold")
     _box(b,Vector3(0,12.45,-5.4),Vector3(18.9,0.25,3.9),"armor")
     _finish(b)
     for level in range(4):
@@ -365,8 +390,9 @@ func _build_storage() -> void:
     var dispatch := _node(root,"DispatchStation",storage_out_point-Vector3.UP*1.10)
     for station in [packing,dispatch]:
         b = _batch(station)
-        _poly(b,"bevel",Vector3(0,0.48,0),Vector3(3.10,0.96,3.85),"slate")
-        _box(b,Vector3(0,1.02,0),Vector3(2.90,0.16,3.70),"armor_light")
+        for side in [-1.0,1.0]:
+            _poly(b,"bevel",Vector3(float(side)*1.25,0.48,0),Vector3(0.40,0.96,3.85),"slate")
+            _box(b,Vector3(float(side)*1.18,1.02,0),Vector3(0.30,0.16,3.70),"armor_light")
         _finish(b)
         reserves.append(AABB(station.position-Vector3(1.6,0,2.0),Vector3(3.2,2.4,4.0)))
     pack = _container(root,"PackingContainer",false)
@@ -380,8 +406,8 @@ func _build_storage() -> void:
 func _stacker(p: Vector3,reach: float) -> void:
     shelf_mast.position = Vector3(p.x,0,aisle_z)
     shelf_carriage.position = Vector3(0,p.y,0)
-    shelf_fork.position.z = reach
-    shelf_fork.scale.z = maxf(1.0,absf(reach)/1.8)
+    shelf_fork.position.z = reach*0.5
+    shelf_fork.scale.z = maxf(0.42,(absf(reach)+1.70)/3.60)
 
 func _shelf_transfer(a: Vector3,b: Vector3,t: float) -> Vector3:
     # Retract to the clear aisle, then travel horizontally, raise and insert.
@@ -419,9 +445,11 @@ func sample_storage(t: float) -> void:
         storage_slots[store_index].visible = true
         storage_committed = true
     if t>=0.51 and t<0.58:
-        var retract: Vector3 = target.lerp(Vector3(target.x,target.y,aisle_z),smoothstep(0.51,0.54,t))
-        var move: Vector3 = retract.lerp(Vector3(source.x,source.y,aisle_z),smoothstep(0.54,0.57,t))
-        _stacker(move,0.0)
+        var retract: float = 1.0-smoothstep(0.51,0.54,t)
+        var move := Vector3(target.x,target.y,aisle_z)
+        if t>=0.54:
+            move = move.lerp(Vector3(source.x,source.y,aisle_z),smoothstep(0.54,0.58,t))
+        _stacker(move,(target.z-aisle_z)*retract)
     if t>=0.58 and t<0.63:
         _stacker(source,(source.z-aisle_z)*smoothstep(0.58,0.63,t))
     if t>=0.63 and t<0.82:
@@ -436,7 +464,7 @@ func sample_storage(t: float) -> void:
     if t>=0.82:
         shelf_box.position = storage_out_point
         shelf_box.visible = t<1.0
-        _stacker(Vector3(storage_out_point.x,storage_out_point.y,aisle_z),0.0)
+        _stacker(Vector3(storage_out_point.x,storage_out_point.y,aisle_z),(storage_out_point.z-aisle_z)*(1.0-smoothstep(0.82,0.86,t)))
         # Outbound carrier picks up the packed box itself; its shell is hidden.
         out_box.visible = false
-        sample_out(0.72+0.28*smoothstep(0.82,1.0,t),shelf_box)
+        sample_out(0.72+0.28*smoothstep(0.82,1.0,t),shelf_box,1.82,0.92)
