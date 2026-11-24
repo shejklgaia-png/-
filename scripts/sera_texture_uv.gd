@@ -69,10 +69,11 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     charts = _edge_aligned_charts(tris,density,preserve_shape)
     charts = _split_overlapping_charts(tris,charts)
     var initial_chart_count: int = charts.size()
+    var affine_report: String = ""
     if preserve_shape:
         charts = _choose_hinge_layout(tris,charts)
         if balanced_shape:
-            _relax_affine_islands(tris,charts)
+            affine_report = _relax_affine_islands(tris,charts)
     else:
         _match_rectified_edge_counts(tris,charts)
         _align_triangular_grids(tris,charts)
@@ -148,7 +149,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     arrays[Mesh.ARRAY_TEX_UV2] = diagnostic_uv
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v1" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
+    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v2" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
 
 ## Group connected coplanar triangles, and the two halves of slightly
 ## warped authored quads. Never use an internal triangulation diagonal
@@ -1011,9 +1012,9 @@ static func _affine_local_cost(ci: int,links: Array[Dictionary],incident: Array,
         cost += p[k]*p[k]*2.0
     return cost
 
-static func _relax_affine_islands(tris: Array[Dictionary],charts: Array[Dictionary]) -> void:
+static func _relax_affine_islands(tris: Array[Dictionary],charts: Array[Dictionary]) -> String:
     if charts.size() > 256 or tris.size() > 2000:
-        return
+        return "対象規模上限超過"
     var links: Array[Dictionary] = []
     var adjacency: Array = []
     var pivots := PackedVector2Array()
@@ -1038,9 +1039,10 @@ static func _relax_affine_islands(tris: Array[Dictionary],charts: Array[Dictiona
     var baseline: Vector3 = _affine_metrics(links,params,pivots)
     var best_score: Vector3 = baseline
     var best_params: Array = params.duplicate()
+    var accepted: int = 0
     var limits := PackedFloat32Array([0.2617994,0.1,0.1,0.12,0.12,0.5,0.5])
     var steps := PackedFloat32Array([0.0872665,0.05,0.05,0.06,0.06,0.25,0.25])
-    for sweep in range(8):
+    for sweep in range(12):
         for i in range(charts.size()):
             var ci: int = i if sweep%2 == 0 else charts.size()-1-i
             if adjacency[ci].is_empty():
@@ -1049,15 +1051,19 @@ static func _relax_affine_islands(tris: Array[Dictionary],charts: Array[Dictiona
             var best: float = _affine_local_cost(ci,links,adjacency[ci],params,pivots)
             for k in range(7):
                 var chosen: PackedFloat32Array = current
-                var step: float = steps[k]*(0.5 if sweep >= 4 else 1.0)
+                var local_before: Vector3 = _affine_incident_metrics(links,adjacency[ci],params,pivots)
+                var step: float = steps[k]*(0.25 if sweep >= 8 else (0.5 if sweep >= 4 else 1.0))
                 for sign_value in [-1.0,1.0]:
                     var candidate: PackedFloat32Array = current.duplicate()
                     candidate[k] = clampf(current[k]+step*float(sign_value),-limits[k],limits[k])
                     params[ci] = candidate
                     var cost: float = _affine_local_cost(ci,links,adjacency[ci],params,pivots)
-                    if cost < best-0.000001:
+                    var local_after: Vector3 = _affine_incident_metrics(links,adjacency[ci],params,pivots)
+                    if local_after.x <= maxf(baseline.x,local_before.x)+0.00001 and local_after.y <= local_before.y and local_after.z <= local_before.z+0.00001 and cost < best-0.000001:
                         best = cost
                         chosen = candidate
+                if chosen != current:
+                    accepted += 1
                 current = chosen
                 params[ci] = current
         var score: Vector3 = _affine_metrics(links,params,pivots)
@@ -1096,6 +1102,16 @@ static func _relax_affine_islands(tris: Array[Dictionary],charts: Array[Dictiona
     for ci in range(charts.size()):
         charts[ci].min = next_charts[ci].min
         charts[ci].max = next_charts[ci].max
+    return "採用 / 容量 %d→%d / " % [old_side,new_side]+summary
+
+static func _affine_incident_metrics(links: Array[Dictionary],incident: Array,params: Array,pivots: PackedVector2Array) -> Vector3:
+    var score := Vector3.ZERO
+    for li in incident:
+        var error: float = _affine_link_error(links[int(li)],params,pivots)
+        score.x = maxf(score.x,error)
+        score.y += 1.0 if error > 0.25 else 0.0
+        score.z += error*error
+    return score
 
 static func _choose_hinge_layout(tris: Array[Dictionary],charts: Array[Dictionary]) -> Array[Dictionary]:
     var trial_tris: Array[Dictionary] = []
