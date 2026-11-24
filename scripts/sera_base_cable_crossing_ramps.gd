@@ -61,9 +61,9 @@ func _emit_fixed(deck: SurfaceTool, trim: SurfaceTool, crossing: Dictionary) -> 
     var wire: Vector2 = crossing["wire"]
     var radius: float = float(crossing["radius"])
     var y: float = float(crossing["y"])
-    # Length along cable: 1.48m (vehicle width 0.94m), always fixed.
-    var pa: PackedVector3Array = _fixed_profile(center,wire,-0.74,radius,y)
-    var pb: PackedVector3Array = _fixed_profile(center,wire,0.74,radius,y)
+    # Fixed 1.68m span for the widened 1.13m vehicle; no automatic growth.
+    var pa: PackedVector3Array = _fixed_profile(center,wire,-0.84,radius,y)
+    var pb: PackedVector3Array = _fixed_profile(center,wire,0.84,radius,y)
     for j in range(3):
         _quad(deck,pa[j],pb[j],pb[j+1],pa[j+1])
     # Short yellow edge caps on each end; dark steel in the main tread.
