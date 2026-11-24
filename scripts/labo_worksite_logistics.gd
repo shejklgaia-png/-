@@ -1077,5 +1077,5 @@ func sample_refinery(t: float) -> void:
             # Fixed stopped dock; never follow the departing truck with the arm.
             var slot: Vector3 = _packed_position(INGOT_COUNT-1)
             var last: Vector3 = out_dock+Vector3.UP*DECK_Y+Vector3(-slot.x,slot.y,-slot.z)
-            parked = Vector3(last.x,6.29,last.z).lerp(parked,smoothstep(94.8,95.0,sec))
+            parked = Vector3(last.x,6.29,last.z).lerp(parked,smoothstep(94.8,97.0,sec))
         _refinery_arm(out_arm,parked,outlet.x)
