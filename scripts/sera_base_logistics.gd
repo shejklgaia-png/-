@@ -14,14 +14,13 @@ const CLEARANCE: float = 0.84
 const STEP: float = 1.0 / 30.0
 const SPEED: float = 2.35
 const VEHICLES_PER_ROUTE: int = 1
-const FLEET_SIZE: int = 6
+const FLEET_SIZE: int = 3
 const BOX_TIME: float = 3.8
 const DECK_Y: float = 0.39
 const RACK_Y: float = 0.61
 const ROUTES = [
     ["SCRAP_COLLECTOR", "LABO"], ["SCRAP_COLLECTOR", "SMELTER"],
-    ["SCRAP_COLLECTOR", "RECYCLER"], ["LABO", "STORAGE"],
-    ["SMELTER", "STORAGE"], ["RECYCLER", "STORAGE"]
+    ["SCRAP_COLLECTOR", "RECYCLER"]
 ]
 
 class Visual:
@@ -69,6 +68,8 @@ class Truck:
     var tread_distance: float = 0.0
     var body: Visual
     var cargo: Array[Visual] = []
+    var raw_meshes: Array[ArrayMesh] = []
+    var product_meshes: Array[ArrayMesh] = []
     var lamp_go: Visual
     var lamp_wait: Visual
     var treads: Array[Visual] = []
@@ -104,8 +105,8 @@ func _xz(v: Vector3) -> Vector2:
 func _v3(v: Vector2, y: float = 0.0) -> Vector3:
     return Vector3(v.x, y, v.y)
 
-func _point(cell: Vector2i) -> Vector2:
-    return Vector2(cell) * CELL
+func _point(cell: Variant) -> Vector2:
+    return cell if cell is Vector2 else Vector2(cell) * CELL
 
 func _cell(p: Vector2) -> Vector2i:
     return Vector2i(roundi(p.x / CELL), roundi(p.y / CELL))
@@ -328,12 +329,12 @@ func _expand_cell(target: Dictionary, c: Vector2i) -> void:
 # Greedy line-of-sight shortcutting on the already inflated obstacle grid.
 # Sample the full segment, including diagonal corner crossings, before
 # accepting it. Reservations are generated from these same swept segments.
-func _trace(a: Vector2i, b: Vector2i, require_clear: bool = true) -> Array[Vector2i]:
+func _trace(a: Variant, b: Variant, require_clear: bool = true) -> Array[Vector2i]:
     var result: Array[Vector2i] = []
     var start_point: Vector2 = _point(a)
     var end_point: Vector2 = _point(b)
     var steps: int = maxi(1, ceili(start_point.distance_to(end_point) / (CELL * 0.20)))
-    var previous: Vector2i = a
+    var previous: Vector2i = _cell(start_point)
     for i in range(steps + 1):
         var c: Vector2i = _cell(start_point.lerp(end_point, float(i) / float(steps)))
         if require_clear and not _free(c):
@@ -367,7 +368,53 @@ func _straighten(path: Array[Vector2i]) -> Array[Vector2i]:
     return output
 
 
-func _record_leg(t: Truck, leg: Array[Vector2i]) -> void:
+# Check each generated bend and retry with smaller radii before accepting.
+func _rounded(path: Array[Vector2i]) -> Array[Vector2]:
+    var result: Array[Vector2] = [_point(path[0])]
+    for i in range(1, path.size() - 1):
+        var prev: Vector2 = _point(path[i - 1])
+        var corner: Vector2 = _point(path[i])
+        var next: Vector2 = _point(path[i + 1])
+        var incoming: Vector2 = (corner - prev).normalized()
+        var outgoing: Vector2 = (next - corner).normalized()
+        var radius: float = minf(2.6, minf(prev.distance_to(corner), corner.distance_to(next)) * 0.42)
+        var accepted: bool = false
+        if incoming.dot(outgoing) < 0.995:
+            for factor in [1.0, 0.75, 0.5, 0.25]:
+                var distance: float = radius * float(factor)
+                if distance < 0.09:
+                    continue
+                var entry: Vector2 = corner - incoming * distance
+                var exit: Vector2 = corner + outgoing * distance
+                if _trace(result[-1], entry).is_empty():
+                    continue
+                var samples: Array[Vector2] = [entry]
+                var steps: int = maxi(5, ceili(distance * 2.0 / 0.20))
+                var clear: bool = true
+                for j in range(1, steps + 1):
+                    var t: float = float(j) / float(steps)
+                    var point: Vector2 = entry.lerp(corner, t).lerp(corner.lerp(exit, t), t)
+                    if _trace(samples[-1], point).is_empty():
+                        clear = false
+                        break
+                    samples.append(point)
+                if clear and not _trace(exit, next).is_empty():
+                    result.append_array(samples)
+                    accepted = true
+                    break
+        if not accepted:
+            result.append(corner)
+    result.append(_point(path[-1]))
+    for i in range(1, result.size()):
+        if _trace(result[i - 1], result[i]).is_empty():
+            result.clear()
+            for cell in path:
+                result.append(_point(cell))
+            break
+    return result
+
+
+func _record_leg(t: Truck, leg: Array[Vector2]) -> void:
     var all: Dictionary = {}
     var segments: Array[Dictionary] = []
     for i in range(1, leg.size()):
@@ -402,15 +449,17 @@ func _plan(t: Truck) -> bool:
         if c != source.cell and c != destination.cell:
             previous_weights[c] = _grid.get_point_weight_scale(c)
             _grid.set_point_weight_scale(c, float(previous_weights[c]) + 0.35)
-    var c_path: Array[Vector2i] = _grid.get_id_path(destination.cell, t.home)
+    var storage: Dock = _docks["STORAGE"]
+    var c_path: Array[Vector2i] = _grid.get_id_path(destination.cell, storage.cell)
+    var d_path: Array[Vector2i] = _grid.get_id_path(storage.cell, t.home)
     for c in previous_weights:
         _grid.set_point_weight_scale(c, float(previous_weights[c]))
-    var valid: bool = a.size() >= 2 and b.size() >= 2 and c_path.size() >= 2
+    var valid: bool = a.size() >= 2 and b.size() >= 2 and c_path.size() >= 2 and d_path.size() >= 2
     if valid:
         # Keep the parking obstacles active during shortcutting as well.
-        t.legs = [_straighten(a), _straighten(b), _straighten(c_path)]
+        t.legs = [_rounded(_straighten(a)), _rounded(_straighten(b)), _rounded(_straighten(c_path)), _rounded(_straighten(d_path))]
         for leg_value in t.legs:
-            var leg: Array[Vector2i] = leg_value
+            var leg: Array[Vector2] = leg_value
             _record_leg(t, leg)
     for c in temporarily_blocked:
         _grid.set_point_solid(c, false)
@@ -452,7 +501,7 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
         var destination: String = route[1]
         var source_at: Vector2 = origins[source]
         var destination_at: Vector2 = origins[destination]
-        var docks_ready: bool = _docks.has(source) and _docks.has(destination)
+        var docks_ready: bool = _docks.has(source) and _docks.has(destination) and _docks.has("STORAGE")
         if docks_ready:
             var sd: Dock = _docks[source]
             var dd: Dock = _docks[destination]
@@ -477,15 +526,10 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
                     if j % 4 == 3:
                         await get_tree().process_frame
             if not planned:
-                t.mode = "unavailable"
-                if options.is_empty():
-                    push_warning("BASE logistics: no collision-free parking for " + source + " -> " + destination)
-                    continue
-                t.home = options[0]["cell"]
-                push_warning("BASE logistics: parked; no route " + source + " -> " + destination)
-            else:
-                moving_count += 1
-                _keep_parking_clear(t)
+                push_warning("BASE logistics: no complete operating loop for " + destination)
+                continue
+            moving_count += 1
+            _keep_parking_clear(t)
             t.pos = _point(t.home)
             _homes.append(t.home)
             _trucks.append(t)
@@ -502,66 +546,8 @@ func setup(root: Node3D, nexus_origin: Vector3, specs: Array, power: Node3D, cra
 
 # Separate public entrypoints: if the routing call terminates early, the
 # BASE can still draw the successfully allocated vehicles and report why.
-func ensure_parked_fleet(specs: Array) -> void:
-    # A real parked truck is still part of the fleet. Allocate a safe place
-    # for any missing route member without pretending its route succeeded.
-    if _trucks.size() >= FLEET_SIZE:
-        return
-    if _grid.is_dirty():
-        return
-    var origins: Dictionary = {}
-    for spec in specs:
-        origins[str(spec["id"])] = _xz(spec["at"])
-    for route in ROUTES:
-        var source: String = route[0]
-        var destination: String = route[1]
-        var count: int = 0
-        for t in _trucks:
-            if t.source == source and t.destination == destination:
-                count += 1
-        for i in range(count, VEHICLES_PER_ROUTE):
-            var origin: Vector2 = origins[source]
-            var best: float = INF
-            var found: bool = false
-            var parking := Vector2i.ZERO
-            for x in range(REGION.position.x + 1, REGION.end.x - 1):
-                for z in range(REGION.position.y + 1, REGION.end.y - 1):
-                    var c := Vector2i(x, z)
-                    if not _free(c) or _route_parking_exclusion.has(c):
-                        continue
-                    var p: Vector2 = _point(c)
-                    var clear: bool = true
-                    for home in _homes:
-                        if p.distance_squared_to(_point(home)) < 5.5225:
-                            clear = false
-                            break
-                    if not clear:
-                        continue
-                    for value in _docks.values():
-                        var d: Dock = value
-                        if p.distance_squared_to(_point(d.cell)) < 7.29:
-                            clear = false
-                            break
-                    if not clear:
-                        continue
-                    var score: float = p.distance_to(origin) + _screen_penalty(p)
-                    if score < best:
-                        best = score
-                        parking = c
-                        found = true
-            if not found:
-                continue
-            var t := Truck.new()
-            t.id = _trucks.size()
-            t.source = source
-            t.destination = destination
-            t.raw = source == "SCRAP_COLLECTOR"
-            t.home = parking
-            t.pos = _point(parking)
-            t.yaw = Architecture.facility_yaw_radians(source)
-            t.mode = "unavailable"
-            _homes.append(parking)
-            _trucks.append(t)
+func ensure_parked_fleet(_specs: Array) -> void:
+    # Admit only complete operating loops, not permanently parked props.
     _capture_reservations()
 
 
@@ -666,6 +652,15 @@ func placement_clear(bounds: Rect2) -> bool:
     return not _rect_hits(_reserved, bounds.grow(0.12))
 
 
+func road_segments() -> Array[Dictionary]:
+    var result: Array[Dictionary] = []
+    for t in _trucks:
+        for leg in t.legs:
+            for i in range(1, leg.size()):
+                result.append({"a": _point(leg[i - 1]), "b": _point(leg[i])})
+    return result
+
+
 func road_at(p: Vector2) -> bool:
     return _rect_hits(_road_cells, Rect2(p - Vector2.ONE * 0.22, Vector2.ONE * 0.44))
 
@@ -694,33 +689,39 @@ func _ground_height(p: Vector2) -> float:
 
 
 func _seed_active_deliveries() -> void:
-    # Start with real non-conflicting deliveries, not a row of parked trucks.
     for t in _trucks:
         if t.mode != "home":
             continue
-        var path: Array = t.legs[1]
         var best: float = INF
         var chosen: int = -1
+        var chosen_leg: int = 1
         var seed_pos: Vector2 = t.pos
-        for i in range(1, path.size()):
-            var mid: Vector2 = (_point(path[i - 1]) + _point(path[i])) * 0.5
-            var score: float = _screen_penalty(mid) + absf(float(i) / float(path.size()) - 0.5) * 6.0
-            var claim: Dictionary = _leg_remainder(t, 1, i)
-            if score < best and not _conflict(claim, t.id) and _safe_completion(t, 1, claim):
-                best = score
-                chosen = i
-                seed_pos = mid
-        if chosen < 0 or best >= 25.0:
+        # Compare actual phase candidates across all four legs.
+        for leg in [1, 2, 3, 0]:
+            var path: Array = t.legs[leg]
+            for i in range(1, path.size()):
+                var mid: Vector2 = (_point(path[i - 1]) + _point(path[i])) * 0.5
+                var score: float = _screen_penalty(mid) + absf(float(i) / float(path.size()) - 0.5) * 3.0
+                score += 0.0 if leg in [1, 2] else 4.0
+                var claim: Dictionary = _leg_remainder(t, leg, i)
+                if score < best and not _conflict(claim, t.id) and _safe_completion(t, leg, claim):
+                    best = score
+                    chosen = i
+                    chosen_leg = leg
+                    seed_pos = mid
+        if chosen < 0:
             continue
-        t.leg = 1
+        t.leg = chosen_leg
+        var path: Array = t.legs[chosen_leg]
         t.waypoint = chosen
         t.pos = seed_pos
         var direction: Vector2 = _point(path[chosen]) - t.pos
         t.yaw = atan2(direction.x, direction.y)
-        t.loaded = true
+        t.loaded = chosen_leg in [1, 2]
+        t.raw = chosen_leg != 2
         t.mode = "drive"
         t.wait = 0.0
-        _held[t.id] = _leg_remainder(t, 1, chosen)
+        _held[t.id] = _leg_remainder(t, chosen_leg, chosen)
 
 
 func _template() -> Variant:
@@ -910,9 +911,34 @@ func _make_truck_details(t: Truck) -> void:
     var wait: Variant = _template()
     wait.box("TrafficYield", Vector3(0.0, 0.36, -0.66), Vector3(0.16, 0.06, 0.035), "amber_light")
     t.lamp_wait = _visual(wait)
+    for raw in [true, false]:
+        for i in range(2):
+            var mesh: ArrayMesh = _cargo_mesh(bool(raw), i)
+            if raw:
+                t.raw_meshes.append(mesh)
+            else:
+                t.product_meshes.append(mesh)
     for i in range(2):
+        var v := Visual.new()
+        var draw := MeshInstance3D.new()
+        draw.name = "CarrierCargo_%02d_%d" % [t.id, i]
+        draw.mesh = t.raw_meshes[i] if t.raw else t.product_meshes[i]
+        draw.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+        draw.set_meta("sera_outline_role", "clutter")
+        draw.set_meta("sera_preserve_authored_material", true)
+        add_child(draw)
+        v.node = draw
+        _apply_visual_pose(v, Transform3D.IDENTITY, false)
+        t.cargo.append(v)
+        if draw.mesh != null and draw.mesh.get_surface_count() > 0:
+            _cargo_count += 1
+
+
+func _cargo_mesh(raw: bool, i: int) -> ArrayMesh:
+    var key: String = ("raw" if raw else "finished") + str(i)
+    if not _solid_meshes.has(key):
         var cargo: Variant = _template()
-        if t.raw:
+        if raw:
             # Exactly the BASE boxed-scrap construction, scaled for the deck.
             cargo.pivot = Vector3(0, -0.16, 0)
             Clutter._make_scrap_crate(cargo, Vector2.ZERO, 0.62, i, 7)
@@ -925,12 +951,14 @@ func _make_truck_details(t: Truck) -> void:
         else:
             # Use the actual warehouse builder, not a second lookalike.
             FreshDesign.storage_cargo(cargo, Vector3(0, 0.58 * 0.62 * 0.5, 0), 0.62, i, i)
-        var cache_key: String = ("raw" if t.raw else "finished") + str(i)
-        var v: Visual = _direct_visual(cargo, cache_key, "CarrierCargo_%02d_%d" % [t.id, i])
-        _apply_visual_pose(v, Transform3D.IDENTITY, false)
-        t.cargo.append(v)
-        if v.node.mesh != null and v.node.mesh.get_surface_count() > 0:
-            _cargo_count += 1
+        _solid_meshes[key] = _bake_mesh(cargo)
+    return _solid_meshes[key]
+
+
+func _cargo_kind(t: Truck, raw: bool) -> void:
+    t.raw = raw
+    for i in range(t.cargo.size()):
+        t.cargo[i].node.mesh = t.raw_meshes[i] if raw else t.product_meshes[i]
 
 func _make_dock(d: Dock) -> void:
     var fixed: Variant = _template()
@@ -1056,7 +1084,7 @@ func _leg_remainder(t: Truck, leg: int, waypoint: int) -> Dictionary:
     for i in range(maxi(0, waypoint - 1), segments.size()):
         result.merge(segments[i], true)
     if result.is_empty():
-        _expand_cell(result, t.legs[leg][-1])
+        _expand_cell(result, _cell(_point(t.legs[leg][-1])))
     return result
 
 
@@ -1141,11 +1169,12 @@ func _drive(t: Truck, dt: float) -> void:
     var last: int = path.size() - 1
     if t.waypoint > last:
         t.speed = 0.0
-        if t.leg == 2:
+        if t.leg == 3:
             _held.erase(t.id)
             t.mode = "home"
-            t.wait = -0.15
+            t.wait = 0.0
             t.loaded = false
+            _cargo_kind(t, true)
             return
         t.mode = "align"
         return
@@ -1180,7 +1209,11 @@ func _drive(t: Truck, dt: float) -> void:
 
 
 func _dock_for(t: Truck) -> Dock:
-    return _docks[t.source] if t.leg == 0 else _docks[t.destination]
+    if t.leg == 0:
+        return _docks[t.source]
+    if t.leg == 1:
+        return _docks[t.destination]
+    return _docks["STORAGE"]
 
 func _handle(t: Truck, d: Dock, dt: float) -> void:
     var loading: bool = t.mode == "load"
@@ -1257,6 +1290,11 @@ func _handle(t: Truck, d: Dock, dt: float) -> void:
             _buffer_pose(d, i, RACK_Y - 0.48, 0.0)
         t.loaded = loading
         _arm(d, idle, 0.37)
+        if t.leg == 1 and not loading:
+            _cargo_kind(t, false)
+            t.mode = "load"
+            t.clock = 0.0
+            return
         t.leg += 1
         t.waypoint = 1
         t.mode = "leg_wait"
