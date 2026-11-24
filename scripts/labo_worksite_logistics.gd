@@ -1,7 +1,7 @@
 extends RefCounted
 ## Room-local industrial logistics. All visible handoffs use one payload node.
 const Architecture = preload("res://scripts/sera_base_architecture.gd")
-const BOX_SIZE := Vector3(2.70,1.55,3.50)
+const BOX_SIZE := Vector3(2.78,1.55,3.50)
 const DECK_Y := 1.17
 const IN_END := 0.29
 const OUT_START := 0.72
@@ -92,16 +92,16 @@ func _container(parent: Node3D,label: String,closed: bool) -> Node3D:
     var b = _batch(n)
     _box(b,Vector3(0,0.07,0),Vector3(BOX_SIZE.x,0.14,BOX_SIZE.z),"slate")
     for side in [-1.0,1.0]:
-        _box(b,Vector3(side*1.30,0.80,0),Vector3(0.10,1.46,3.50),"armor")
-        _box(b,Vector3(0,0.80,side*1.70),Vector3(2.50,1.46,0.10),"armor")
+        _box(b,Vector3(side*1.34,0.80,0),Vector3(0.10,1.46,3.50),"armor")
+        _box(b,Vector3(0,0.80,side*1.70),Vector3(2.58,1.46,0.10),"armor")
         for z in [-1.55,1.55]:
-            _box(b,Vector3(side*1.31,0.78,z),Vector3(0.14,1.55,0.14),"edge")
-        _box(b,Vector3(side*1.31,1.49,0),Vector3(0.15,0.12,3.50),"gold")
+            _box(b,Vector3(side*1.35,0.78,z),Vector3(0.14,1.55,0.14),"edge")
+        _box(b,Vector3(side*1.35,1.49,0),Vector3(0.15,0.12,3.50),"gold")
     _box(b,Vector3(0,0.83,1.76),Vector3(0.65,0.24,0.08),"lab_cyan")
     _finish(b)
     var lid := _node(n,"Lid")
     b = _batch(lid)
-    _poly(b,"deck",Vector3(0,0.08,0),Vector3(2.70,0.16,3.50),"armor_light")
+    _poly(b,"deck",Vector3(0,0.08,0),Vector3(2.78,0.16,3.50),"armor_light")
     _box(b,Vector3(0,0.18,0),Vector3(0.85,0.06,0.18),"gold")
     _finish(b)
     lid.position.y = 1.55
@@ -143,7 +143,8 @@ func _gantry(label: String,a: Vector3,z: Vector3,height: float) -> Dictionary:
     _box(b,Vector3(0,-0.5,0),Vector3(0.22,1.0,0.22),"edge")
     _finish(b)
     var grip := _node(trolley,"Gripper")
-    b = _batch(grip)
+    var crossbar := _node(grip,"AdjustableCrossbar")
+    b = _batch(crossbar)
     _box(b,Vector3(0,0.12,0),Vector3(0.95,0.20,0.48),"gold")
     _finish(b)
     var jaws: Array[Node3D] = []
@@ -153,7 +154,7 @@ func _gantry(label: String,a: Vector3,z: Vector3,height: float) -> Dictionary:
         _box(b,Vector3(0,-0.12,0),Vector3(0.12,0.48,0.45),"edge")
         _finish(b)
         jaws.append(jaw)
-    return {"trolley":trolley,"stem":stem,"grip":grip,"height":height,"jaws":jaws}
+    return {"trolley":trolley,"stem":stem,"grip":grip,"height":height,"jaws":jaws,"crossbar":crossbar}
 
 func _arm_pose(arm: Dictionary,p: Vector3,span: float = 0.75) -> void:
     var trolley: Node3D = arm["trolley"]
@@ -164,6 +165,7 @@ func _arm_pose(arm: Dictionary,p: Vector3,span: float = 0.75) -> void:
     var d: float = maxf(0.20,h-p.y)
     stem.scale.y = d
     grip.position.y = -d
+    (arm["crossbar"] as Node3D).scale.x = maxf(1.0,(span+0.16)/0.95)
     var jaws: Array = arm["jaws"]
     (jaws[0] as Node3D).position.x = -span*0.5
     (jaws[1] as Node3D).position.x = span*0.5
@@ -226,8 +228,8 @@ func build(parent: Node3D,section: String,source: Vector3,destination: Vector3) 
     in_box.position.y = DECK_Y
     out_box.position.y = DECK_Y
     raw = _material(root,"InboundRawMaterial")
-    var h_in: float = maxf(7.8,inlet.y+3.6)
-    var h_out: float = maxf(7.8,outlet.y+3.6)
+    var h_in: float = maxf(8.5,inlet.y+4.0)
+    var h_out: float = maxf(8.5,outlet.y+4.0)
     in_arm = _gantry("InboundTransferArm",in_dock,inlet,h_in)
     out_arm = _gantry("OutboundTransferArm",out_dock,outlet,h_out)
     _arm_pose(in_arm,Vector3(in_dock.x,h_in-0.55,in_dock.z))
@@ -290,6 +292,7 @@ func sample_in(t: float,payload: Node3D = null) -> void:
     if t>=0.23:
         _truck_pose(truck_in,in_dock,in_far,smoothstep(0.23,0.29,t),true)
     var load: Node3D = payload if payload!=null else raw
+    var grasp_height: float = 0.95 if key=="RECYCLER" else 0.80
     load.visible = t<IN_END
     if t<0.10:
         _place(load,_room_position(truck_in)+Vector3.UP*(DECK_Y+0.14))
@@ -297,12 +300,12 @@ func sample_in(t: float,payload: Node3D = null) -> void:
         var u: float = smoothstep(0.12,0.23,t)
         var p: Vector3 = _transfer(_in_pick(),inlet,float(in_arm["height"])-2.2,u)
         _place(load,p)
-        _arm_pose(in_arm,p+Vector3.UP*0.80)
+        _arm_pose(in_arm,p+Vector3.UP*grasp_height)
     if t<0.12:
-        var pick: Vector3 = _in_pick()+Vector3.UP*0.80
+        var pick: Vector3 = _in_pick()+Vector3.UP*grasp_height
         _arm_pose(in_arm,Vector3(pick.x,lerpf(float(in_arm["height"])-0.5,pick.y,smoothstep(0.09,0.12,t)),pick.z))
     if t>=0.23:
-        _arm_pose(in_arm,inlet+Vector3.UP*lerpf(0.8,float(in_arm["height"])-inlet.y-0.5,smoothstep(0.23,0.29,t)))
+        _arm_pose(in_arm,inlet+Vector3.UP*lerpf(grasp_height,float(in_arm["height"])-inlet.y-0.5,smoothstep(0.23,0.29,t)))
         if key=="LABO":
             # Drop the raw batch through the genuine open hopper mouth.
             var fall: float = smoothstep(0.23,0.29,t)
@@ -424,7 +427,8 @@ func _shelf_transfer(a: Vector3,b: Vector3,t: float) -> Vector3:
 func sample_storage(t: float) -> void:
     if store_index<0 or take_index<0:
         return
-    sample_in(t*1.45)
+    if not input_finished:
+        sample_in(t*1.45)
     pack.visible = t>=0.07 and t<0.26
     pack_lid.visible = t>=0.21
     pack_raw.visible = t>=0.16 and t<0.21
@@ -435,6 +439,12 @@ func sample_storage(t: float) -> void:
     var target: Vector3 = _room_position(storage_slots[store_index])
     var source: Vector3 = _room_position(storage_slots[take_index])
     shelf_box.visible = false
+    if t<0.22:
+        var approach := Vector3(storage_pack_point.x,storage_pack_point.y,aisle_z)
+        var current := Vector3(shelf_mast.position.x,shelf_carriage.position.y,aisle_z)
+        _stacker(current.lerp(approach,minf(1.0,0.04+0.4*smoothstep(0.0,0.20,t))),0.0)
+    elif t<0.26:
+        _stacker(Vector3(storage_pack_point.x,storage_pack_point.y,aisle_z),(storage_pack_point.z-aisle_z)*smoothstep(0.22,0.26,t))
     if t>=0.26 and t<0.51:
         var p: Vector3 = _shelf_transfer(storage_pack_point,target,smoothstep(0.26,0.51,t))
         shelf_box.position = p
