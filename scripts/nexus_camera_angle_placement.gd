@@ -8,7 +8,7 @@ const PlacementStore = preload("res://scripts/sera_placement_store.gd")
 
 const DisplayProfile = preload("res://scripts/sera_display_profile.gd")
 const SCENE_ID := "res://scenes/command_nexus.tscn"
-const TARGETS := ["SYSTEM", "TRAINING", "DATA ARCHIVE", "DEPLOYMENT"]
+const TARGETS := ["SYSTEM", "TRAINING", "DATA ARCHIVE", "DEPLOYMENT", "CUSTOMIZE"]
 const ORBIT_RATE := 0.0045
 const ROLL_STEP_DEG := 5.0  # Twist about the camera's optical axis.
 
@@ -378,7 +378,7 @@ func _apply_pose() -> void:
     # Camera editing must never initialize the separate model-placement editor.
     # Doing so on the first drag can block Android input while MultiMesh
     # bindings / saved model poses are being restored.
-    if is_instance_valid(host.placement_editor) and (
+    if target_id != "CUSTOMIZE" and is_instance_valid(host.placement_editor) and (
             host.placement_editor.has_method("record_camera_pose")
             and bool(host.placement_editor.get("initialized"))):
         host.placement_editor.call("record_camera_pose",
@@ -389,7 +389,7 @@ func _apply_pose() -> void:
         var relative_eye: Vector3 = eye
         var relative_look: Vector3 = look_at_point
         var space_id: String = "global"
-        if target_id != "DEPLOYMENT":
+        if target_id not in ["DEPLOYMENT", "CUSTOMIZE"]:
             space_id = "original_model_frame"
             var original_spec: Dictionary = host.canonical_placement_specs.get(
                 target_id, {})

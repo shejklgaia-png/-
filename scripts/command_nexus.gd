@@ -262,6 +262,9 @@ var customize_mouse_last_x: float = 0.0
 var customize_mouse_last_y: float = 0.0
 var customize_mouse_last: Vector2 = Vector2.ZERO
 
+# Temporary world-space customization mode. Retain the authored
+# camera-relative entrance/retraction, fit, drag and grid for reactivation.
+const CUSTOMIZE_SPECIAL_PRESENTATION_ENABLED: bool = false
 const CUSTOMIZE_PREVIEW_DISTANCE: float = 3.25
 const CUSTOMIZE_GLOW_DEPTH_OFFSET: float = 1.80
 const CUSTOMIZE_GLOW_SCREEN_WIDTH: float = 1.0
@@ -321,8 +324,10 @@ var focus_views: Dictionary = {
         "look": TRAINING_CONSOLE_ORIGIN + Vector3(0.0, 1.34, 0.0), "fov": 68.0},
     "SYSTEM": {"eye": Vector3(-2.30, 3.05, 7.35),
         "look": SYSTEM_CONSOLE_ORIGIN + Vector3(0.0, 1.25, 0.0), "fov": 68.0},
-    "CUSTOMIZE": {"eye": Vector3(-4.50, 3.80, 5.00),
-        "look": Vector3(-1.70, 2.00, -4.75),
+    "CUSTOMIZE": {"eye": (Vector3(-4.50, 3.80, 5.00) if
+        CUSTOMIZE_SPECIAL_PRESENTATION_ENABLED else Vector3(0.0, 2.60, 0.20)),
+        "look": (Vector3(-1.70, 2.00, -4.75) if
+        CUSTOMIZE_SPECIAL_PRESENTATION_ENABLED else Vector3(1.30, 2.00, -4.75)),
         "fov": DisplayProfile.COMBAT_REFERENCE_VERTICAL_FOV},
     "DATA ARCHIVE": {"eye": Vector3(-4.75, 4.18, 0.65),
         "look": Vector3(-4.95, 3.90, -12.10), "fov": 61.0},
@@ -425,7 +430,8 @@ func _ready() -> void:
     # retains its universal character 4/0/2 (no old 2px override).
     id_outline.set_outline_profile(2)
     add_child(id_outline)
-    _create_customization_glow()
+    if CUSTOMIZE_SPECIAL_PRESENTATION_ENABLED:
+        _create_customization_glow()
     # Keep editor startup out of this complex scene build. The editor nodes
     # already exist in command_nexus_world.tscn; configure them on demand
     # after the working EXIT/PLACE/ANGLE HUD has been created.
@@ -507,12 +513,15 @@ func _restore_nexus_placement_previews(route: String) -> void:
     if not is_inside_tree():
         return
     var has_saved_model: bool = false
-    for key_value in canonical_placement_specs.keys():
+    for key_value in focus_views.keys():
         var key: String = str(key_value)
-        var model_record: Dictionary = NexusPlacementStore.read(
-            "nexus/model/" + key)
-        if model_record.has("position") and model_record.has("yaw_rad"):
-            has_saved_model = true
+        if key == "CUSTOMIZE" and CUSTOMIZE_SPECIAL_PRESENTATION_ENABLED:
+            continue
+        var model_record: Dictionary = {}
+        if canonical_placement_specs.has(key):
+            model_record = NexusPlacementStore.read("nexus/model/" + key)
+            if model_record.has("position") and model_record.has("yaw_rad"):
+                has_saved_model = true
         var camera_record: Dictionary = NexusPlacementStore.read(
             "nexus/camera/" + key)
         if not (camera_record.has("eye") and camera_record.has("look")
@@ -737,6 +746,10 @@ func _open_camera_angle_placement() -> void:
         var phase: String = _placement_editor_failure("ANGLE", camera_angle_editor)
         _placement_launch_failure(angle_entry_button, "ANGLE / " + phase)
         return
+    if focused_target == "CUSTOMIZE" and not CUSTOMIZE_SPECIAL_PRESENTATION_ENABLED:
+        _close_customization_part_picker()
+        _set_single_part_preview_fullscreen(false)
+        _set_customize_mode(0)
     if bool(camera_angle_editor.call("open_mode")):
         var caption: Label = angle_entry_button.get_node_or_null(
             "Caption") as Label
@@ -803,7 +816,10 @@ func _sync_placement_launchers() -> void:
     # Show the camera launcher for every supported focused menu, even when
     # its controller has not yet been created. No tween visibility dependency.
     angle_entry_button.visible = (
-        focused_target in ["SYSTEM", "TRAINING", "DATA ARCHIVE", "DEPLOYMENT"]
+        (focused_target in ["SYSTEM", "TRAINING", "DATA ARCHIVE", "DEPLOYMENT"]
+        or (focused_target == "CUSTOMIZE" and not CUSTOMIZE_SPECIAL_PRESENTATION_ENABLED
+            and not customize_part_preview_fullscreen_active
+            and (customize_part_picker == null or not customize_part_picker.visible)))
         and not editor_open)
 
 
@@ -1871,8 +1887,9 @@ func _set_customize_mode(mode: int) -> void:
     if in_transition:
         _layout_hud()
         return
-    for room_visual in nexus_room_visuals:
-        room_visual.hide()
+    if CUSTOMIZE_SPECIAL_PRESENTATION_ENABLED:
+        for room_visual in nexus_room_visuals:
+            room_visual.hide()
     if mode == 0:
         if is_instance_valid(sera_display_rig):
             sera_display_rig.visible = true
@@ -2700,8 +2717,8 @@ func _layout_single_part_preview() -> void:
     customize_single_part_preview.size = focus_panel.size
     var area: Rect2 = _customize_model_area(view)
     customize_body_rotate_cue.position = area.position + Vector2(8, 8)
-    customize_body_rotate_cue.visible = (focused_target == "CUSTOMIZE" and
-        customize_display_mode == 0)
+    customize_body_rotate_cue.visible = (CUSTOMIZE_SPECIAL_PRESENTATION_ENABLED
+        and focused_target == "CUSTOMIZE" and customize_display_mode == 0)
     customize_part_preview_frame.visible = (focused_target == "CUSTOMIZE" and
         customize_display_mode == 1)
 
@@ -2929,7 +2946,8 @@ func _sync_customization_part_glow() -> void:
     _clear_customization_part_glow()
     customize_selection_blink_elapsed = 0.0
     customize_selection_blink_on = true
-    if not customize_preview_active or focused_target != "CUSTOMIZE" or (
+    if (CUSTOMIZE_SPECIAL_PRESENTATION_ENABLED and not customize_preview_active
+            ) or focused_target != "CUSTOMIZE" or (
             customize_display_mode != 0) or (
             sera_display_rig == null or not bool(sera_display_rig.get("loading_ok"))):
         return
@@ -2960,7 +2978,8 @@ func _sync_customization_part_glow() -> void:
 func _update_customization_part_blink(delta: float) -> void:
     if focused_target != "CUSTOMIZE" or in_transition or (
             customize_display_mode != 0) or (
-            not customize_preview_active or customize_highlighted_meshes.is_empty()):
+            (CUSTOMIZE_SPECIAL_PRESENTATION_ENABLED and not customize_preview_active)
+            or customize_highlighted_meshes.is_empty()):
         return
     customize_selection_blink_elapsed = fposmod(
         customize_selection_blink_elapsed + maxf(delta, 0.0),
@@ -4119,7 +4138,8 @@ func _layout_hud() -> void:
             customize_fullbody_preview_frame.position = square.position
             customize_fullbody_preview_frame.size = square.size
             customize_fullbody_preview_frame.visible = (
-                customize_display_mode == 0 and not in_transition)
+                CUSTOMIZE_SPECIAL_PRESENTATION_ENABLED
+                and customize_display_mode == 0 and not in_transition)
     elif customize_fullbody_preview_frame != null:
         customize_fullbody_preview_frame.visible = false
     # The opaque top stripe belongs to the focus panel; rest stays blue/clear.
@@ -5108,7 +5128,7 @@ func _select_target(target_name: String) -> void:
     # Unlike orbital position, optical-axis roll cannot be inferred from
     # eye/look alone. Restore it for each visit, without loading/model editing.
     var roll_deg: float = float(view.get("roll_deg", 0.0))
-    if not view.has("roll_deg"):
+    if not view.has("roll_deg") and not (target_name == "CUSTOMIZE" and CUSTOMIZE_SPECIAL_PRESENTATION_ENABLED):
         var saved_camera: Dictionary = NexusPlacementStore.read(
             "nexus/camera/" + target_name)
         roll_deg = float(saved_camera.get("roll_deg", roll_deg))
@@ -5117,7 +5137,10 @@ func _select_target(target_name: String) -> void:
     var focus_basis: Basis = Basis.looking_at(look - eye, Vector3.UP)
     focus_basis = focus_basis * Basis(Vector3.FORWARD, deg_to_rad(roll_deg))
     var aim_pose := Transform3D(focus_basis, eye)
-    if target_name == "CUSTOMIZE":
+    if target_name == "CUSTOMIZE" and not CUSTOMIZE_SPECIAL_PRESENTATION_ENABLED:
+        customize_display_mode = 0
+        _refresh_customize_mode_tabs()
+    if target_name == "CUSTOMIZE" and CUSTOMIZE_SPECIAL_PRESENTATION_ENABLED:
         # The model needs its fitted target in the *destination* camera frame.
         # Temporarily use that frame only for geometry calculations, then
         # restore the real camera before either Tween starts this same tap.
