@@ -847,7 +847,6 @@ func _sync_placement_launchers() -> void:
 
 func _process(delta: float) -> void:
     _advance_nexus_render_tweens(delta)
-    _flush_selection_pose()
     # Recover focus transitions BEFORE touching optional placement UI. If an
     # editor is missing its script, a UI failure must not leave NEXUS consoles
     # permanently blocked behind in_transition.
@@ -863,6 +862,7 @@ func _process(delta: float) -> void:
         if archive_refresh_elapsed >= 1.0:
             archive_refresh_elapsed = 0.0
             _refresh_archive_records()
+    _flush_selection_pose()
 
 # Idle Tweens normally advance AFTER every Node._process, including the ID
 # compositor. Pause automatic stepping and advance both from this one phase.
@@ -4678,8 +4678,9 @@ func _show_customization_preview() -> void:
         start_camera_local, end_camera_local,
         customize_transition_start_camera_fov, cam.fov), 0.0, 1.0,
         CUSTOMIZE_ENTRANCE_SECONDS)
-    customize_entrance_tween.finished.connect(
-        _customization_entrance_arrived.bind(final_world))
+    customize_entrance_tween.finished.connect(func() -> void:
+        customize_entrance_tween = null
+        _customization_entrance_arrived(final_world))
 
 # Model and camera Tweens can advance in either frame order. Cache model
 # progress and both endpoints so camera updates can correct the model pose.
@@ -4833,7 +4834,9 @@ func _begin_customization_retraction() -> void:
         start_camera_local, stowed_camera_local,
         cam.fov, overview_fov), 0.0, 1.0,
         CUSTOMIZE_RETRACTION_SECONDS)
-    customize_entrance_tween.finished.connect(_customization_retraction_arrived)
+    customize_entrance_tween.finished.connect(func() -> void:
+        customize_entrance_tween = null
+        _customization_retraction_arrived())
 
 func _customization_retraction_arrived() -> void:
     if not customize_preview_active or focused_target != "CUSTOMIZE":
@@ -5888,7 +5891,9 @@ func _move_camera(destination: Transform3D, next_fov: float, arrived: Callable) 
     focus_tween.set_ease(Tween.EASE_OUT)
     focus_tween.tween_method(_apply_camera_transition.bind(start_pose, destination,
         start_fov, next_fov), 0.0, 1.0, CAMERA_TRANSITION_SECONDS)
-    focus_tween.finished.connect(arrived)
+    focus_tween.finished.connect(func() -> void:
+        focus_tween = null
+        arrived.call())
 
 func _apply_camera_transition(progress: float, from_pose: Transform3D,
         to_pose: Transform3D, from_fov: float, to_fov: float) -> void:
