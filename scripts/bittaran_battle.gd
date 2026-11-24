@@ -207,6 +207,9 @@ const BITTARAN_BGM_PATH: String = "res://assets/neural_flow_loop.ogg"
 const BITTARAN_BGM_USER_PATH: String = "user://neural_flow_loop.ogg"
 const BITTARAN_BGM_DURATION_SECONDS: float = 187.586207
 var bittaran_bgm: AudioStreamPlayer
+const BATTLE_BGM_CUE_DELAY := 0.55
+var _mission_entry_pending: bool = false
+var _battle_bgm_cued: bool = false
 var impact_shake_strength: float = 0.0
 var impact_shake_time: float = 0.0
 var impact_shake_decay_rate: float = 11.0
@@ -224,7 +227,10 @@ func _ready() -> void:
     # no topological convex/hard-angle ribbons are drawn here.
     set_meta("sera_bittaran_id_outline", true)
     super._ready()
-    _start_neural_flow_bgm()
+    _mission_entry_pending = get_tree().root.get_node_or_null("NexusMissionTransition") != null
+    _prepare_neural_flow_bgm()
+    if not _mission_entry_pending:
+        begin_mission_battle.call_deferred()
     _initialize_bittaran_sfx()
     _initialize_bittaran_sweep_loop_audio()
     # Dedicated boss locomotion is not controlled by training-room settings.
@@ -417,6 +423,9 @@ func _debug_break_leg(id: String) -> bool:
 
 
 func _input(event: InputEvent) -> void:
+    if _mission_entry_pending:
+        get_viewport().set_input_as_handled()
+        return
     if event is InputEventScreenTouch and event.pressed:
         var id: String = _debug_leg_button_at(event.position)
         if not id.is_empty():
@@ -444,7 +453,7 @@ func _input(event: InputEvent) -> void:
 ## sync can leave an .ogg source present before the editor finishes
 ## generating the .godot imported cache; load the raw Vorbis bytes
 ## in that case instead of silently skipping music.
-func _start_neural_flow_bgm() -> void:
+func _prepare_neural_flow_bgm() -> void:
     var music: AudioStream = null
     var loaded_via: String = ""
     if ResourceLoader.exists(BITTARAN_BGM_PATH):
@@ -482,12 +491,21 @@ func _start_neural_flow_bgm() -> void:
     bittaran_bgm.volume_db = -8.0
     bittaran_bgm.stream = music
     add_child(bittaran_bgm)
-    bittaran_bgm.play()
-    print("SERA_BGM_STARTED: ", loaded_via,
-        " length=", music.get_length(),
-        " playing=", bittaran_bgm.playing)
-    # On some Android startup paths the first audio mixer tick occurs
-    # after _ready. Verify on the next idle step and retry once.
+    print("SERA_BGM_PREPARED: ", loaded_via, " length=", music.get_length())
+
+# The reveal is complete before gameplay starts. Direct battle launches
+# also receive the same short cue delay, without waiting for an overlay.
+func begin_mission_battle() -> void:
+    _mission_entry_pending = false
+    if _battle_bgm_cued:
+        return
+    _battle_bgm_cued = true
+    await get_tree().create_timer(BATTLE_BGM_CUE_DELAY, false).timeout
+    if not is_inside_tree() or not is_instance_valid(bittaran_bgm):
+        return
+    # Start at the normal mix level immediately; no fade-in or crossfade.
+    bittaran_bgm.play(0.0)
+    print("SERA_BGM_STARTED: playing=", bittaran_bgm.playing)
     call_deferred("_verify_neural_flow_bgm")
 
 
@@ -2199,6 +2217,8 @@ func _target_fully_in_frame() -> bool:
     return true
 
 func _physics_process(delta: float) -> void:
+    if _mission_entry_pending:
+        return
     # Provide the policy *before* base AUTO/MANUAL selection, then refresh
     # after IK finishes its fall/recovery tick. Do not allow a one-frame leak.
     _update_bittaran_lock_permissions()
@@ -2750,6 +2770,8 @@ func _reset_target_after_respawn() -> void:
     _sync_debug_leg_buttons()
 
 func _process(delta: float) -> void:
+    if _mission_entry_pending:
+        return
     super._process(delta)
     # Engine FPS is the rendered frame rate, not the physics tick rate.
     # Update four times per second to avoid per-frame text layout work.
