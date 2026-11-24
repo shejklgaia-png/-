@@ -95,6 +95,7 @@ var joystick: Vector2 = Vector2.ZERO
 var mouse_steering: bool = false
 var scene_changing: bool = false
 var base_bgm_player: AudioStreamPlayer
+var _nexus_shutter_clip: AudioStreamMP3
 var elapsed: float = 0.0
 var crate: Node3D
 var batches: Dictionary = {}
@@ -193,6 +194,8 @@ func _ready() -> void:
     var name_config := ConfigFile.new()
     if name_config.load(FACILITY_NAME_CONFIG) == OK:
         facility_names_enabled = bool(name_config.get_value("base", "names", true))
+    # Read the small shutter clip during BASE boot, never on the normal tap path.
+    _nexus_shutter_clip = NexusEntryTransition.load_shutter_clip()
     _create_hud()
     _startup_step("OS / INTERFACE ONLINE", 99)
     SeraSave.mark_location("BASE")
@@ -1614,4 +1617,4 @@ func _enter_nexus() -> void:
     var transition := NexusEntryTransition.new()
     transition.name = "NexusEntryTransition"
     get_tree().root.add_child(transition)
-    transition.run(self, cam, model, hud, base_bgm_player, NEXUS_SCENE)
+    transition.run(self, cam, model, hud, base_bgm_player, NEXUS_SCENE, _nexus_shutter_clip)

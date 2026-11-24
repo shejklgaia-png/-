@@ -8,6 +8,8 @@ const SOFT_WHITE := Color("#dce4e8")
 const SHUTTER_FEATURES := ["NexusBlastDoor", "NexusBlastShutterSlat"]
 const SHUTTER_SFX_PATH := "res://BGM/巨大シャッターが開く.mp3"
 const SHUTTER_SFX_VOLUME_DB := -6.0
+# Waveform: 0.00s RMS -61dBFS, 0.23s RMS -18.7dBFS.
+const SHUTTER_SFX_START_SECONDS := 0.23
 const SHUTTER_SFX_FADE_SECONDS := 0.35
 var _cover: ColorRect
 var _model: Node3D
@@ -23,7 +25,7 @@ var _hud_visible: bool
 var _started_ms: int
 
 func run(base: Node3D, camera: Camera3D, model: Node3D, hud: Control,
-        music: AudioStreamPlayer, scene_path: String) -> void:
+        music: AudioStreamPlayer, scene_path: String, shutter_clip: AudioStreamMP3 = null) -> void:
     _base = base
     _camera = camera
     _model = model
@@ -45,7 +47,7 @@ func run(base: Node3D, camera: Camera3D, model: Node3D, hud: Control,
         _start_volume = _music.volume_db
         var audio_fade := create_tween()
         audio_fade.tween_property(_music, "volume_db", -60.0, 1.4).set_trans(Tween.TRANS_SINE)
-    _play_shutter_sfx()
+    _play_shutter_sfx(shutter_clip)
     var opening := create_tween()
     opening.tween_method(_set_shutter, 0.0, 1.0, OPEN_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
     await opening.finished
@@ -105,7 +107,7 @@ func run(base: Node3D, camera: Camera3D, model: Node3D, hud: Control,
     await reveal.finished
     queue_free()
 
-func _play_shutter_sfx() -> void:
+static func load_shutter_clip() -> AudioStreamMP3:
     # Raw MP3 for GitSync before import, imported resource for exported APKs.
     var clip: AudioStreamMP3
     if FileAccess.file_exists(SHUTTER_SFX_PATH):
@@ -114,16 +116,23 @@ func _play_shutter_sfx() -> void:
         clip = ResourceLoader.load(SHUTTER_SFX_PATH) as AudioStreamMP3
         if clip != null:
             clip = clip.duplicate() as AudioStreamMP3
+    if clip != null:
+        clip.loop = false
+    return clip
+
+func _play_shutter_sfx(prepared_clip: AudioStreamMP3) -> void:
+    var clip: AudioStreamMP3 = prepared_clip
+    if clip == null:
+        clip = load_shutter_clip()
     if clip == null:
         push_warning("SERA: NEXUS shutter SFX unavailable")
         return
-    clip.loop = false
     _shutter_sfx = AudioStreamPlayer.new()
     _shutter_sfx.name = "NexusShutterOpenSFX"
     _shutter_sfx.stream = clip
     _shutter_sfx.volume_db = SHUTTER_SFX_VOLUME_DB
     add_child(_shutter_sfx)
-    _shutter_sfx.play()
+    _shutter_sfx.play(SHUTTER_SFX_START_SECONDS)
 
 func _stop_shutter_sfx() -> void:
     if is_instance_valid(_shutter_sfx):
