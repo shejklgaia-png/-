@@ -150,7 +150,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     arrays[Mesh.ARRAY_TEX_UV2] = diagnostic_uv
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v9" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
+    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"unwrap_version":("shape-affine-v10" if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
 
 ## Group connected coplanar triangles, and the two halves of slightly
 ## warped authored quads. Never use an internal triangulation diagonal
@@ -1265,7 +1265,8 @@ static func _relax_uv_boundary_vertices(tris: Array[Dictionary],charts: Array[Di
     var convergence_report: String = _relax_global_uv_boundaries(tris,charts,original,members,nodes,corner_nodes,links,locked,true)
     var rigid_report: String = _relax_rigid_uv_islands(tris,charts,members,links)
     var coupled_report: String = _relax_coupled_seam_clusters(tris,charts,original,members,nodes,corner_nodes,links,locked)
-    return note+" / 採用 / "+paired_report+" / "+global_report+" / "+convergence_report+" / "+rigid_report+" / "+coupled_report
+    var adaptive_report: String = _relax_coupled_seam_clusters(tris,charts,original,members,nodes,corner_nodes,links,locked,true)
+    return note+" / 採用 / "+paired_report+" / "+global_report+" / "+convergence_report+" / "+rigid_report+" / "+coupled_report+" / "+adaptive_report
 
 
 # Try simultaneous moves of corresponding endpoints on both sides of
@@ -1395,7 +1396,7 @@ static func _relax_paired_uv_endpoints(tris: Array[Dictionary],charts: Array[Dic
 # Freeze quarter-turn and integer phase choices during the linear solve.
 # Intermediate iterates need not pass the discrete global edge-count gate;
 # only actual committed layouts do. This lets coupled moves cross plateaus.
-static func _relax_coupled_seam_clusters(tris: Array[Dictionary],charts: Array[Dictionary],original: Array[PackedVector2Array],members: Array,nodes: Array[Dictionary],corner_nodes: Array[PackedInt32Array],links: Array[Dictionary],locked: Dictionary) -> String:
+static func _relax_coupled_seam_clusters(tris: Array[Dictionary],charts: Array[Dictionary],original: Array[PackedVector2Array],members: Array,nodes: Array[Dictionary],corner_nodes: Array[PackedInt32Array],links: Array[Dictionary],locked: Dictionary,adaptive: bool = false) -> String:
     var all_links: Array = []
     var incident: Array = []
     var chart_nodes: Array = []
@@ -1415,6 +1416,8 @@ static func _relax_coupled_seam_clusters(tris: Array[Dictionary],charts: Array[D
     var tested: int = 0
     var rejected_shape: int = 0
     var rejected_capacity: int = 0
+    var reasons := PackedInt32Array([0,0,0,0])
+    var relaxed_accepted: int = 0
     for sweep in range(3):
         var ranking: Array = all_links.duplicate()
         ranking.sort_custom(func(a: int,b: int) -> bool:
@@ -1440,8 +1443,25 @@ static func _relax_coupled_seam_clusters(tris: Array[Dictionary],charts: Array[D
             var best_score: Vector3 = score
             var best_xy: Array[PackedVector2Array] = []
             var found: bool = false
-            # Try a smaller island by itself and both connected islands.
-            for group in [[ca],[cb],[ca,cb]]:
+            var best_relaxed: bool = false
+            var groups: Array = [[ca],[cb],[ca,cb]]
+            if adaptive:
+                # Include the strongest neighboring constraint of either island.
+                var third: int = -1
+                var third_error: float = -1.0
+                for ci in [ca,cb]:
+                    for ei in incident[ci]:
+                        var other_link: Dictionary = links[int(ei)]
+                        var other: int = int(other_link.b) if int(other_link.a)==ci else int(other_link.a)
+                        if other == ca or other == cb:
+                            continue
+                        var e: float = _local_uv_link_error(tris,other_link)
+                        if e > third_error:
+                            third_error = e
+                            third = other
+                if third >= 0:
+                    groups.append([ca,cb,third])
+            for group in groups:
                 var active: Array[int] = []
                 var active_set: Dictionary = {}
                 var edge_set: Dictionary = {}
@@ -1484,7 +1504,7 @@ static func _relax_coupled_seam_clusters(tris: Array[Dictionary],charts: Array[D
                         var fa: float = float(link.a0) if endpoint == 0 else float(link.a1)
                         var fb: float = float(link.b0) if endpoint == 0 else float(link.b1)
                         equations.append({"ids":ids,"coef":PackedFloat32Array([1.0-fa,fa,1.0-fb,fb]),"quarter":quarter,"error":err0 if endpoint == 0 else err1,"severity":error,"seed":is_seed_pair})
-                for boost in [2.0,6.0,16.0]:
+                for boost in ([2.0,6.0,16.0,32.0] if adaptive else [2.0,6.0,16.0]):
                     var delta := PackedVector2Array()
                     delta.resize(nodes.size())
                     # Damped Jacobi solution of the fixed linear equations.
@@ -1513,7 +1533,7 @@ static func _relax_coupled_seam_clusters(tris: Array[Dictionary],charts: Array[D
                         for ni in active:
                             var correction: Vector2 = (sums[ni]-delta[ni]*0.2)/(weights[ni]+0.2)
                             delta[ni] = (delta[ni]+correction*0.3).limit_length(0.65)
-                    for fraction in [1.0,0.75,0.5,0.25,0.125]:
+                    for fraction in ([1.0,0.75,0.5,0.25,0.125,0.0625,0.03125] if adaptive else [1.0,0.75,0.5,0.25,0.125]):
                         # All copies of a welded UV vertex get the same delta.
                         for ni in active:
                             _set_local_uv_shift(tris,base,nodes[ni].refs,delta[ni]*float(fraction))
@@ -1523,8 +1543,23 @@ static func _relax_coupled_seam_clusters(tris: Array[Dictionary],charts: Array[D
                             var better: bool = not found or candidate.x < best_score.x-0.000001 or (absf(candidate.x-best_score.x) <= 0.000001 and candidate.z < best_score.z-0.000001)
                             if better:
                                 var valid: bool = true
+                                var used_relaxed: bool = false
                                 for ci in group:
-                                    if not _valid_local_uv_shift(tris,original,changed_by_chart[int(ci)],members[int(ci)]):
+                                    if not adaptive:
+                                        if not _valid_local_uv_shift(tris,original,changed_by_chart[int(ci)],members[int(ci)]):
+                                            valid = false
+                                            break
+                                        continue
+                                    var reason: int = _adaptive_uv_shape_reason(tris,original,base,changed_by_chart[int(ci)],members[int(ci)],false)
+                                    if reason != 0 and candidate.x < score.x-0.02 and reason in [2,3]:
+                                        var relaxed_reason: int = _adaptive_uv_shape_reason(tris,original,base,changed_by_chart[int(ci)],members[int(ci)],true)
+                                        if relaxed_reason == 0:
+                                            used_relaxed = true
+                                            reason = 0
+                                        else:
+                                            reason = relaxed_reason
+                                    if reason != 0:
+                                        reasons[reason-1] += 1
                                         valid = false
                                         break
                                 if not valid:
@@ -1538,6 +1573,7 @@ static func _relax_coupled_seam_clusters(tris: Array[Dictionary],charts: Array[D
                                             best_xy.append(xy.duplicate())
                                         best_score = candidate
                                         found = true
+                                        best_relaxed = used_relaxed
                                     else:
                                         rejected_capacity += 1
                         for ni in active:
@@ -1551,9 +1587,13 @@ static func _relax_coupled_seam_clusters(tris: Array[Dictionary],charts: Array[D
                     charts[ci].max = bounds[ci].max
                 score = best_score
                 accepted += 1
+                if best_relaxed:
+                    relaxed_accepted += 1
                 improved = true
         if not improved:
             break
+    if adaptive:
+        return "段階形状補正 %d採用/%d試行・追加変形%d・反転/退化拒否%d・面積拒否%d・辺長拒否%d・重複拒否%d・容量拒否%d・問題辺 %d→%d・最大 %.3f→%.3fpx・二乗和 %.3f→%.3f / %s" % [accepted,tested,relaxed_accepted,reasons[0],reasons[1],reasons[2],reasons[3],rejected_capacity,int(baseline.y),int(score.y),baseline.x,score.x,baseline.z,score.z,"採用" if accepted > 0 else "不採用・V9維持"]
     return "連立境界補正 %d採用/%d試行・形状拒否%d・容量拒否%d・問題辺 %d→%d・最大 %.3f→%.3fpx・二乗和 %.3f→%.3f / %s" % [accepted,tested,rejected_shape,rejected_capacity,int(baseline.y),int(score.y),baseline.x,score.x,baseline.z,score.z,"採用" if accepted > 0 else "不採用・V8維持"]
 
 
@@ -1831,6 +1871,58 @@ static func _local_uv_metrics(tris: Array[Dictionary],links: Array[Dictionary],i
         result.y += 1.0 if e > 0.25 else 0.0
         result.z += e*e
     return result
+
+
+# Validate only actual changes. Preserve existing distortion without allowing
+# its violation to worsen. Relaxed limits are reserved for max-error gains.
+# Return first rejection: 1 winding/degeneracy, 2 area, 3 edge, 4 overlap.
+static func _adaptive_uv_shape_reason(tris: Array[Dictionary],original: Array[PackedVector2Array],base: Array[PackedVector2Array],changed: Dictionary,members: Array,relaxed: bool) -> int:
+    var area_lo: float = 0.65 if relaxed else 0.75
+    var area_hi: float = 1.4 if relaxed else 1.25
+    var edge_lo: float = 0.78 if relaxed else 0.85
+    var edge_hi: float = 1.28 if relaxed else 1.18
+    for ti in changed:
+        var i: int = int(ti)
+        var a: PackedVector2Array = tris[i].xy
+        var old: PackedVector2Array = original[i]
+        var prev: PackedVector2Array = base[i]
+        var moved: bool = false
+        for k in range(3):
+            if a[k].distance_squared_to(prev[k]) > 0.000000000001:
+                moved = true
+        if not moved:
+            continue
+        var old_area: float = (old[1]-old[0]).cross(old[2]-old[0])
+        var prev_area: float = (prev[1]-prev[0]).cross(prev[2]-prev[0])
+        var area: float = (a[1]-a[0]).cross(a[2]-a[0])
+        if absf(old_area) < 0.000001 or absf(area) < 0.000001 or area*old_area <= 0.0 or area*prev_area <= 0.0:
+            return 1
+        var ratio: float = area/old_area
+        var prev_ratio: float = prev_area/old_area
+        if ratio < minf(area_lo,prev_ratio)-0.000001 or ratio > maxf(area_hi,prev_ratio)+0.000001:
+            return 2
+        for k in range(3):
+            var length: float = old[k].distance_to(old[(k+1)%3])
+            var new_length: float = a[k].distance_to(a[(k+1)%3])
+            if length < 0.000001 or new_length < 0.000001:
+                return 1
+            var edge_ratio: float = new_length/length
+            var prev_edge: float = prev[k].distance_to(prev[(k+1)%3])/length
+            if edge_ratio < minf(edge_lo,prev_edge)-0.000001 or edge_ratio > maxf(edge_hi,prev_edge)+0.000001:
+                return 3
+        var lo: Vector2 = a[0].min(a[1]).min(a[2])
+        var hi: Vector2 = a[0].max(a[1]).max(a[2])
+        for other in members:
+            if int(other)==i:
+                continue
+            var b: PackedVector2Array = tris[int(other)].xy
+            var bl: Vector2 = b[0].min(b[1]).min(b[2])
+            var bh: Vector2 = b[0].max(b[1]).max(b[2])
+            if minf(hi.x,bh.x)-maxf(lo.x,bl.x) <= 0.0001 or minf(hi.y,bh.y)-maxf(lo.y,bl.y) <= 0.0001:
+                continue
+            if _overlaps(a,b):
+                return 4
+    return 0
 
 static func _valid_local_uv_shift(tris: Array[Dictionary],original: Array[PackedVector2Array],changed: Dictionary,members: Array) -> bool:
     for ti in changed:
