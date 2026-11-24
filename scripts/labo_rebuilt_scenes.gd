@@ -485,7 +485,25 @@ func _smelter(key: String) -> void:
     var b = _batch(furnace)
     _shape(b,"deck",Vector3(0,0.4,0),Vector3(10.0,0.8,7.0),"slate")
     _shape(b,"octagonal_slew",Vector3(0,4.0,-0.7),Vector3(7.4,6.4,6.0),"armor")
-    _shape(b,"bevel",Vector3(0,7.0,-0.7),Vector3(7.8,1.1,6.2),"slate")
+    _shape(b,"gear",Vector3(0,1.15,-0.7),Vector3(8.05,0.46,6.5),"trim")
+    _shape(b,"gear",Vector3(0,7.28,-0.7),Vector3(8.05,0.48,6.6),"edge")
+    _shape(b,"drum",Vector3(0,7.78,-0.7),Vector3(6.9,0.48,5.6),"blue_light")
+    _shape(b,"octagonal_slew",Vector3(0,8.25,-0.7),Vector3(7.4,0.45,6.0),"slate")
+    _shape(b,"hood",Vector3(0,8.78,-0.7),Vector3(6.2,0.65,5.3),"armor_light")
+    for side in [-1.0,1.0]:
+        var x: float = side*4.15
+        _shape(b,"drum",Vector3(x,3.45,-0.55),Vector3(1.75,4.8,1.75),"blue")
+        for y in [1.25,5.65]:
+            _shape(b,"gear",Vector3(x,y,-0.55),Vector3(2.05,0.32,2.05),"edge")
+        _pipe(b,Vector3(x,5.85,-0.55),Vector3(x,7.15,-0.55),0.38,"gold")
+        _pipe(b,Vector3(x,7.15,-0.55),Vector3(side*2.85,7.15,-0.55),0.38,"gold")
+        _pipe(b,Vector3(x,1.1,-0.55),Vector3(side*2.95,0.9,-0.55),0.48,"trim")
+        _shape(b,"louver",Vector3(x,3.2,0.42),Vector3(1.25,2.1,0.25),"armor_light")
+        _panel_detail(b,x,2.0,0.59,0.84,0.9)
+        _shape(b,"gusset",Vector3(x,0.72,-0.55),Vector3(1.4,1.2,1.5),"slate")
+        _pipe(b,Vector3(side*2.7,7.8,-1.5),Vector3(side*2.65,8.65,-2.7),0.85,"trim")
+    for x in [-2.4,2.4]:
+        _panel_detail(b,x,4.9,2.32,1.8,1.8)
     # Separate refractory throat in front of the sealed vessel; unobstructed window.
     _box(b,Vector3(0,3.0,3.55),Vector3(4.8,4.2,0.42),"void")
     for x in [-2.7,2.7]:
@@ -533,16 +551,24 @@ func _smelter(key: String) -> void:
         _box(b,Vector3(side*2.33,3.18,4.04),Vector3(0.24,4.13,0.85),"rust")
         _box(b,Vector3(side*1.85,3.19,4.51),Vector3(0.085,4.05,0.15),"trim")
     _box(b,Vector3(0,0.99,4.0),Vector3(4.55,0.20,0.86),"rust")
+    for x in [-1.35,1.35]:
+        _box(b,Vector3(x,3.18,4.56),Vector3(0.10,4.05,0.13),"trim")
+        for y in [1.20,5.12]:
+            _shape(b,"bevel",Vector3(x,y,4.54),Vector3(0.30,0.20,0.27),"edge")
     for i in range(7):
         _shape(b,"gear",Vector3(-1.80+i*0.60,1.12,4.0),Vector3(0.32,0.12,0.32),"edge")
     _finish(b)
     for i in range(2):
         var stack := _model(key,"ExhaustStack"+str(i),Vector3(-2.1+i*4.2,0,-4.7))
         b = _batch(stack)
-        _pipe(b,Vector3(0,6.8,0),Vector3(0,10.3,0),1.32,"slate")
+        _shape(b,"vent_stack",Vector3(0,10.2,0),Vector3(1.65,8.3,1.65),"slate")
+        _pipe(b,Vector3(0,6.05,0),Vector3(0,5.0,1.25),0.96,"trim")
+        _shape(b,"drum",Vector3(0,8.15,0),Vector3(2.1,0.64,2.1),"rust")
+        for y in [9.3,11.5,13.45]:
+            _shape(b,"gear",Vector3(0,y,0),Vector3(2.15,0.29,2.15),"edge")
         for y in [7.1,8.5,9.9]:
             _shape(b,"octagonal_slew",Vector3(0,y,0),Vector3(1.65,0.24,1.65),"edge")
-        _shape(b,"hood",Vector3(0,10.45,0),Vector3(1.9,0.42,1.9),"trim")
+        _shape(b,"vent_stack",Vector3(0,14.25,0),Vector3(2.0,0.46,2.0),"edge")
         _finish(b)
     var feed := _model(key,"SideChargeHopper",Vector3(-6.6,0,-0.6))
     b = _batch(feed)
@@ -551,6 +577,9 @@ func _smelter(key: String) -> void:
         for z in [-1.1,1.1]:
             _shape(b,"gusset",Vector3(x,1.8,z),Vector3(0.45,3.6,0.48),"slate")
     _pipe(b,Vector3(0,3.5,0),Vector3(3.4,3.5,0),1.20,"armor")
+    _shape(b,"tray",Vector3(0,1.18,2.25),Vector3(2.5,0.32,2.4),"slate")
+    _pipe(b,Vector3(-1.1,1.1,-0.9),Vector3(-1.1,3.7,-0.9),0.20,"edge")
+    _panel_detail(b,0,1.72,1.02,1.05,0.9)
     _finish(b)
     var conveyor := _conveyor(key,"ChargeConveyor",Vector3(-6.6,0,3.5),2.4,5.0)
     var feed_mount := _child(conveyor,"FeedChargePlacement",Vector3(0,1.12,0))
@@ -566,7 +595,17 @@ func _smelter(key: String) -> void:
     _box(b,Vector3(0,0.64,0),Vector3(1.55,0.07,0.9),"amber_light")
     _finish(b)
     _moving(key,"output",ingot)
-    _console(key,Vector3(-3.3,0,5.7),2)
+    var cooling := _model(key,"CastingSpoutAndCoolingService",Vector3(3.7,0,1.2))
+    b = _batch(cooling)
+    _shape(b,"tray",Vector3(0,1.35,0.35),Vector3(2.7,0.45,2.8),"rust")
+    _pipe(b,Vector3(-1.3,1.65,-0.45),Vector3(-0.15,1.40,0.35),0.36,"rust")
+    _shape(b,"deck",Vector3(0.25,1.60,0.65),Vector3(1.2,0.07,1.30),"amber")
+    _shape(b,"bevel",Vector3(1.55,1.2,-1.25),Vector3(1.3,2.4,1.4),"slate")
+    _shape(b,"louver",Vector3(1.55,1.3,-0.50),Vector3(0.96,1.65,0.15),"edge")
+    _pipe(b,Vector3(1.55,2.45,-1.25),Vector3(0.3,2.45,-1.25),0.23,"gold")
+    _floor_cable(b,[Vector3(1.55,0.1,-0.7),Vector3(1.55,0.1,0.85),Vector3(0,0.1,2.0)])
+    _finish(b)
+    _console(key,Vector3(-3.3,0,6.7),2)
 
 func _recycler(key: String) -> void:
     var base := _model(key,"TwinShaftCrusherHousing",Vector3(0,0,-1.7))
@@ -579,7 +618,22 @@ func _recycler(key: String) -> void:
             _box(b,Vector3(x,1.2+i*0.48,3.36),Vector3(1.05,0.13,0.13),"edge")
     _box(b,Vector3(0,1.5,-2.8),Vector3(6.2,2.2,0.5),"trim")
     _box(b,Vector3(0,0.95,1.2),Vector3(6.0,0.4,4.0),"void")
-    _shape(b,"hood",Vector3(0,5.4,-1.8),Vector3(6.3,2.1,3.1),"slate")
+    for side in [-1.0,1.0]:
+        b.box_tilt("FlaredHopperCheek",Vector3(side*3.45,5.3,-0.25),
+            Vector3(0.37,4.1,6.4),"armor_light",Vector3(0,0,-side*0.34))
+        _pipe(b,Vector3(side*4.1,7.18,-3.4),Vector3(side*4.1,7.18,2.9),0.24,"caution")
+        _shape(b,"vent_stack",Vector3(side*4.3,2.1,-1.35),Vector3(1.25,2.2,1.25),"slate")
+        for line in [-0.9,0.85]:
+            b.poly_tilt("ShaftBearing","drum",Vector3(side*3.72,3.6,line),
+                Vector3(1.7,0.64,1.7),"edge",Vector3(0,0,PI*0.5))
+        _panel_detail(b,side*3.7,1.9,3.42,1.0,1.45)
+    b.box_tilt("RearGravityChute",Vector3(0,5.9,-2.7),Vector3(6.2,0.28,4.1),
+        "slate",Vector3(0.70,0,0))
+    b.box_tilt("DischargeChute",Vector3(0,1.64,2.75),Vector3(5.8,0.34,3.45),
+        "armor",Vector3(0.26,0,0))
+    for side in [-1.0,1.0]:
+        b.box_tilt("OutletCheek",Vector3(side*2.9,1.98,2.75),Vector3(0.24,0.60,3.45),
+            "slate",Vector3(0.26,0,0))
     for x in [-3.0,3.0]:
         _box(b,Vector3(x,4.4,2.2),Vector3(0.24,0.18,2.0),"caution")
     _finish(b)
@@ -590,9 +644,11 @@ func _recycler(key: String) -> void:
         b = _batch(shaft)
         _pipe(b,Vector3(-3.1,0,0),Vector3(3.1,0,0),0.80,"edge")
         for x in range(-4,5):
-            for j in range(6):
-                var a: float = TAU*j/6.0+x*0.24
-                b.box_tilt("CutterTooth",Vector3(x*0.58,cos(a)*0.66,sin(a)*0.66),Vector3(0.34,0.75,0.37),"armor",Vector3(a,0,0))
+            b.poly_tilt("InterleavedCutterDisk","gear",Vector3(x*0.65+float(i)*0.325,0,0),
+                Vector3(2.10,0.28,2.10),"armor_light",Vector3(0,0,PI*0.5))
+        for x in [-3.05,3.05]:
+            b.poly_tilt("ShaftCollar","drum",Vector3(x,0,0),
+                Vector3(1.22,0.38,1.22),"edge",Vector3(0,0,PI*0.5))
         _finish(b)
         _moving(key,"shaft"+str(i),shaft)
     var feed := _conveyor(key,"ScrapFeedLine",Vector3(0,0,-6.3),4.5,5.6)
