@@ -79,26 +79,51 @@ static func _append(result: Array[Vector2], p: Vector2) -> void:
         result.append(p)
 
 
-static func _line(result: Array[Vector2], end: Vector2, sway: float, locks: Array[Vector2]) -> void:
+# Sample a shallow slack wave with a zero lateral tangent at both ends.
+static func _line_piece(result: Array[Vector2], end: Vector2, sway: float) -> void:
     var start: Vector2 = result[-1]
     var delta: Vector2 = end - start
     var length: float = delta.length()
     if length < 0.001:
         return
-    if sway <= 0.0:
-        _append(result, end)
+    var amplitude: float = minf(sway,length*0.045) if length > 2.5 else 0.0
+    var normal := Vector2(-delta.y,delta.x).normalized()
+    var steps: int = maxi(1,ceili(length/0.24))
+    for i in range(1,steps+1):
+        var t: float = float(i)/float(steps)
+        var envelope: float = sin(PI*t)
+        _append(result,start.lerp(end,t)+normal*amplitude*sin(TAU*t)*envelope*envelope)
+
+
+static func _line(result: Array[Vector2], end: Vector2, sway: float, locks: Array[Vector2]) -> void:
+    var start: Vector2 = result[-1]
+    var delta: Vector2 = end-start
+    var length: float = delta.length()
+    if length < 0.001:
         return
-    var amplitude: float = minf(sway, length * 0.045) if length > 2.5 else 0.0
+    if sway <= 0.0:
+        _append(result,end)
+        return
+    var axis: Vector2 = delta/length
+    var spans: Array[Vector2] = []
     for p in locks:
-        if Geometry2D.get_closest_point_to_segment(p, start, end).distance_to(p) < 0.03:
-            amplitude = 0.0
-            break
-    var normal := Vector2(-delta.y, delta.x).normalized()
-    var steps: int = maxi(1, ceili(length / 0.24))
-    for i in range(1, steps + 1):
-        var t: float = float(i) / float(steps)
-        var envelope: float = sin(PI * t)
-        _append(result, start.lerp(end,t) + normal * amplitude * sin(TAU*t) * envelope * envelope)
+        if Geometry2D.get_closest_point_to_segment(p,start,end).distance_to(p) >= 0.03:
+            continue
+        var along: float = (p-start).dot(axis)
+        # A 1.48m protector has a 0.74m cable half-span. Keep a further
+        # 0.31m straight on both sides before resuming the slack wave.
+        spans.append(Vector2(maxf(0.0,along-1.05),minf(length,along+1.05)))
+    spans.sort_custom(func(a: Vector2,b: Vector2) -> bool: return a.x < b.x)
+    var cursor: float = 0.0
+    for span in spans:
+        if span.y <= cursor:
+            continue
+        if span.x > cursor:
+            _line_piece(result,start+axis*span.x,sway)
+        _line_piece(result,start+axis*span.y,0.0)
+        cursor = span.y
+    if cursor < length:
+        _line_piece(result,end,sway)
 
 
 static func curve(points: Array, radius: float, sway: float = 0.0, locks: Array[Vector2] = []) -> Array[Vector2]:
