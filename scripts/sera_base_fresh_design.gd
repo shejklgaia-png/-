@@ -388,73 +388,87 @@ static func _smelter(g: Variant) -> void:
 
 
 static func _recycler(g: Variant) -> void:
-    # An industrial shredder with naked contra-rotating cutting teeth.
+    # Open gravity feed -> twin cutter shafts -> low discharge chute.
+    # The shafts stay at the exact existing motion pivots.
     _pad(g, 2.50, 2.45)
-    g.poly("FreshRecyclerLowerBody", "bevel",
-        Vector3(0, 0.72, -0.25),
-        Vector3(2.35, 0.77, 2.06), "slate")
-    g.box("FreshRecyclerBlackFeedBed",
-        Vector3(0, 1.19, 0.11),
-        Vector3(2.04, 0.11, 1.83), "dark")
     for side in [-1.0, 1.0]:
-        g.poly_tilt("FreshRecyclerOpenVJaws", "bevel",
-            Vector3(side * 1.05, 1.76, 0.20),
-            Vector3(0.27, 1.11, 2.14), "armor",
-            Vector3(0.0, 0.0, side * 0.25))
-        g.box("FreshRecyclerCautionJawEdge",
-            Vector3(side * 1.12, 2.18, 0.95),
-            Vector3(0.16, 0.16, 0.34), "caution")
-        g.poly("FreshRecyclerSideDrive", "bevel",
-            Vector3(side * 1.21, 1.23, -0.22),
-            Vector3(0.30, 1.22, 0.96), "armor_light")
-        g.poly("FreshRecyclerDriveIntake", "louver",
-            Vector3(side * 1.21, 1.13, 0.33),
-            Vector3(0.25, 0.63, 0.18), "trim")
-        for i in range(3):
-            g.box("FreshRecyclerMotorCoolingFin",
-                Vector3(side * 1.41, 0.85 + i * 0.26, -0.23),
-                Vector3(0.13, 0.10, 0.69), "trim")
-    # Horizontal cutter cylinders and coarse teeth readable from above.
+        g.poly("FreshRecyclerLoadBearingSkid", "deck",
+            Vector3(side * 0.87, 0.58, -0.12),
+            Vector3(0.48, 0.32, 2.08), "edge")
+        g.poly("FreshRecyclerCastBearingHousing", "octagonal_slew",
+            Vector3(side * 1.12, 1.37, 0.22),
+            Vector3(0.86, 0.40, 1.70), "armor")
+        # The side plates rise and flare outward, leaving the two cutters visible.
+        g.box_tilt("FreshRecyclerHopperWall",
+            Vector3(side * 1.07, 1.95, 0.22),
+            Vector3(0.15, 1.10, 1.93), "armor_light",
+            Vector3(0, 0, -side * 0.34))
+        g.rod("FreshRecyclerHopperLip",
+            Vector3(side * 1.25, 2.47, -0.76),
+            Vector3(side * 1.25, 2.47, 1.20), 0.15, "caution")
+        g.poly("FreshRecyclerWebReinforcement", "gusset",
+            Vector3(side * 1.20, 1.62, -0.45),
+            Vector3(0.36, 0.73, 0.19), "trim", PI if side < 0.0 else 0.0)
+        g.poly("FreshRecyclerMotorCoolingShell", "vent_stack",
+            Vector3(side * 1.12, 0.90, -0.72),
+            Vector3(0.50, 0.65, 0.50), "slate")
+        for line in [-1.0, 1.0]:
+            g.poly_tilt("FreshRecyclerShaftBearing", "drum",
+                Vector3(side * 1.13, 1.37, 0.22 + line * 0.39),
+                Vector3(0.61, 0.29, 0.61), "edge", Vector3(0, 0, PI * 0.5))
+    g.box_tilt("FreshRecyclerRearGravityFeed",
+        Vector3(0, 1.98, -0.79), Vector3(2.03, 0.14, 0.98),
+        "slate", Vector3(0.73, 0, 0))
+    g.box("FreshRecyclerRearFeedLip",
+        Vector3(0, 2.30, -1.12), Vector3(2.22, 0.15, 0.15), "caution")
     for line in [-1.0, 1.0]:
+        var z: float = 0.22 + line * 0.39
         g.poly_tilt("FreshRecyclerRoller", "drum",
-            Vector3(0, 1.37, 0.22 + line * 0.39),
-            Vector3(0.56, 2.11, 0.56), "edge",
+            Vector3(0, 1.37, z), Vector3(0.48, 2.11, 0.48), "edge",
             Vector3(0, 0, PI * 0.5))
-        for i in range(7):
-            var x: float = -0.80 + i * 0.27
+        # Staggered disks on the opposing shafts interleave axially.
+        for i in range(6):
+            var x: float = -0.88 + float(i) * 0.29 + (0.145 if line > 0.0 else 0.0)
             g.poly_tilt("FreshRecyclerTooth", "gear",
-                Vector3(x, 1.40, 0.22 + line * 0.39),
-                Vector3(0.65, 0.17, 0.65), "armor_light",
-                Vector3(0, 0, PI * 0.5))
-    g.poly_tilt("FreshRecyclerFeedRamp", "bevel",
-        Vector3(0, 0.62, 1.10), Vector3(2.14, 0.13, 0.82),
-        "slate", Vector3(-0.13, 0, 0))
-    for i in range(5):
-        g.box("FreshRecyclerExitCaution",
-            Vector3(-0.74 + i * 0.37, 0.69, 1.48),
-            Vector3(0.16, 0.09, 0.21), "caution")
-    g.poly("FreshRecyclerRearGearbox", "bevel",
-        Vector3(0, 1.84, -1.05),
-        Vector3(1.31, 0.61, 0.39), "armor")
-    g.box("FreshRecyclerRearAccessLamp",
-        Vector3(0, 1.93, -0.81),
-        Vector3(0.64, 0.14, 0.06), "amber_light")
+                Vector3(x, 1.37, z), Vector3(0.78, 0.13, 0.78),
+                "armor_light", Vector3(0, 0, PI * 0.5))
+    # A dark lower throat and an open outlet, not a solid decorative block.
+    g.box("FreshRecyclerThroatShadow",
+        Vector3(0, 0.89, -0.43), Vector3(1.50, 0.47, 0.13), "void")
+    g.box_tilt("FreshRecyclerDischargeChute",
+        Vector3(0, 0.82, 0.80), Vector3(1.52, 0.13, 1.41),
+        "slate", Vector3(0.34, 0, 0))
+    for side in [-1.0, 1.0]:
+        g.box_tilt("FreshRecyclerDischargeSidewall",
+            Vector3(side * 0.80, 0.94, 0.80),
+            Vector3(0.13, 0.30, 1.43), "armor", Vector3(0.34, 0, 0))
+    g.box("FreshRecyclerOutletWearEdge",
+        Vector3(0, 0.59, 1.48), Vector3(1.72, 0.11, 0.13), "gold")
+    g.poly("FreshRecyclerControlInterlock", "deck",
+        Vector3(1.08, 1.03, 1.12), Vector3(0.35, 0.44, 0.33), "armor")
+    g.box("FreshRecyclerInterlockLamp",
+        Vector3(1.08, 1.12, 1.30), Vector3(0.20, 0.11, 0.07), "amber_light")
 
 
 static func _generator(g: Variant) -> void:
-    # Horizontal exposed electric turbine, cool blue core, isolated right cabinet.
+    # Power regulation: a suspended horizontal rotor, transformer bank,
+    # a separate switching cabinet and physically connected cooling loop.
     _pad(g, 2.55, 2.38)
-    g.poly("FreshGeneratorMotorFrame", "bevel",
-        Vector3(-0.20, 0.63, -0.23),
-        Vector3(2.39, 0.59, 1.92), "slate")
+    for z in [-0.73, 0.71]:
+        g.poly("FreshGeneratorIsolationSkid", "deck",
+            Vector3(-0.21, 0.57, z), Vector3(2.34, 0.30, 0.39), "edge")
     for side in [-1.0, 1.0]:
-        g.rod("FreshGeneratorSideSupport",
-            Vector3(side * 0.91 - 0.25, 0.60, 0.76),
-            Vector3(side * 0.91 - 0.25, 2.32, 0.76),
-            0.16, "armor_light")
-        g.poly("FreshGeneratorBearing",
-            "bevel", Vector3(side * 1.00 - 0.25, 1.45, 0.31),
-            Vector3(0.33, 1.26, 1.28), "armor")
+        var x: float = side * 0.91 - 0.25
+        g.poly("FreshGeneratorBearingPedestal", "gusset",
+            Vector3(x, 0.88, 0.30), Vector3(0.50, 0.71, 0.88), "armor")
+        g.poly_tilt("FreshGeneratorBearing", "octagonal_slew",
+            Vector3(x, 1.43, 0.29), Vector3(1.37, 0.32, 1.37),
+            "armor_light", Vector3(0, 0, PI * 0.5))
+        g.rod("FreshGeneratorLoadBrace",
+            Vector3(x, 0.67, -0.72), Vector3(x, 1.43, 0.29), 0.16, "trim")
+    # Bus duct from the right-hand bearing to the isolated switching cabinet.
+    g.rod("FreshGeneratorCopperBus",
+        Vector3(0.77, 1.43, 0.29), Vector3(1.22, 1.43, 0.29), 0.19, "gold")
     # Rotor axis is horizontal and the near-side ribs show true cylindrical depth.
     g.poly_tilt("FreshGeneratorFrontRotor", "vent_stack",
         Vector3(-0.27, 1.43, 0.29),
@@ -511,12 +525,25 @@ static func _generator(g: Variant) -> void:
             Vector3(-0.27 + cos(phase) * 0.47,
                 1.43 + sin(phase) * 0.47, 1.16),
             0.11, "edge")
-    g.box("FreshGeneratorHousingUpper",
-        Vector3(-0.21, 2.25, -0.25),
-        Vector3(2.40, 0.24, 1.11), "armor_light")
-    g.poly("FreshGeneratorPowerCabinet", "bevel",
-        Vector3(1.22, 1.58, -0.29),
-        Vector3(0.78, 2.18, 1.31), "armor")
+    # An open top frame exposes the rotor and the voltage-regulation coils.
+    g.rod("FreshGeneratorUpperRail",
+        Vector3(-1.19, 2.19, -0.57), Vector3(0.71, 2.19, -0.57), 0.16, "armor_light")
+    for x in [-0.76, -0.14, 0.48]:
+        g.poly("FreshGeneratorRegulatorCore", "drum",
+            Vector3(x, 2.36, -0.61), Vector3(0.44, 0.47, 0.44), "slate")
+        for y in [2.24, 2.39, 2.53]:
+            g.poly("FreshGeneratorCoilTurn", "drum",
+                Vector3(x, y, -0.61), Vector3(0.52, 0.10, 0.52), "gold")
+        g.box("FreshGeneratorInsulatedTerminal",
+            Vector3(x, 2.65, -0.61), Vector3(0.16, 0.15, 0.16), "edge")
+    g.rod("FreshGeneratorHighVoltageBus",
+        Vector3(-0.76, 2.73, -0.61), Vector3(1.22, 2.73, -0.61), 0.12, "gold")
+    g.poly("FreshGeneratorPowerCabinet", "deck",
+        Vector3(1.22, 1.58, -0.29), Vector3(0.78, 2.18, 1.31), "armor")
+    g.poly("FreshGeneratorCabinetCoolingIntake", "louver",
+        Vector3(1.22, 0.92, 0.40), Vector3(0.54, 0.48, 0.12), "edge")
+    g.poly("FreshGeneratorSwitchIsolator", "octagonal_slew",
+        Vector3(1.22, 2.74, -0.61), Vector3(0.40, 0.23, 0.40), "edge")
     g.box("FreshGeneratorCabinetGlass",
         Vector3(1.22, 1.88, 0.41),
         Vector3(0.52, 0.55, 0.09), "glass")
@@ -534,9 +561,12 @@ static func _generator(g: Variant) -> void:
                     1.70 + float(row) * 0.125 + filament * 0.017,
                     0.517),
                 Vector3(0.36, 0.010, 0.014), "generator_emitter")
-    g.poly("FreshGeneratorCoolingPod", "drum",
-        Vector3(-1.20, 2.60, -0.57),
-        Vector3(0.55, 0.89, 0.55), "slate")
+    g.poly("FreshGeneratorCoolingPod", "vent_stack",
+        Vector3(-1.20, 2.60, -0.57), Vector3(0.55, 0.89, 0.55), "slate")
+    g.rod("FreshGeneratorCoolantReturn",
+        Vector3(-1.20, 2.22, -0.57), Vector3(-1.20, 1.43, 0.29), 0.16, "trim")
+    g.poly("FreshGeneratorCoolantPump", "drum",
+        Vector3(-1.20, 1.00, -0.57), Vector3(0.38, 0.38, 0.38), "edge")
     for i in range(3):
         g.box("FreshGeneratorHeatSink",
             Vector3(-1.20, 2.90 + i * 0.16, -0.57),
@@ -552,116 +582,139 @@ static func _generator(g: Variant) -> void:
 
 
 static func _storage(g: Variant) -> void:
-    # Freight yard: separate stacked metal cases on a rear rack, open in front.
+    # Rear storage rack and clear forward loading apron, with rail-guided lift.
     _pad(g, 2.61, 2.36)
-    g.poly("FreshStorageLoadPallet", "bevel",
-        Vector3(0, 0.54, 0.04),
-        Vector3(2.41, 0.29, 2.05), "slate")
+    g.poly("FreshStorageLoadingDeck", "deck",
+        Vector3(0, 0.52, 0.02), Vector3(2.45, 0.25, 2.16), "slate")
     for side in [-1.0, 1.0]:
-        for z in [-0.93, 0.98]:
-            g.rod("FreshStorageRackUpright",
-                Vector3(side * 1.15, 0.57, z),
-                Vector3(side * 1.15, 2.65, z), 0.12, "edge")
-    for y in [1.21, 2.09]:
-        g.box("FreshStorageRackBeam",
-            Vector3(0, y, -0.88),
-            Vector3(2.44, 0.12, 0.16), "gold")
-    var stacks: Array[Vector3] = [
-        Vector3(-0.55, 0.91, 0.42),
-        Vector3(0.49, 0.85, 0.43),
-        Vector3(-0.55, 1.61, 0.28),
-        Vector3(0.49, 1.50, 0.10),
-        Vector3(-0.55, 2.48, -0.14),
-    ]
-    for i in range(stacks.size()):
-        var p: Vector3 = stacks[i]
-        g.poly("FreshStorageOffsetStacks", "cargo_case", p,
-            Vector3(0.93, 0.59, 0.79),
-            "crate" if i % 3 else "armor_light")
-        g.box("FreshStorageCaseHandle",
-            p + Vector3(0, -0.04, 0.45),
-            Vector3(0.37, 0.09, 0.06), "slate")
-        # Case lip and welded corner guards now share the body mesh.
-        g.box("FreshStorageCargoPlate",
-            p + Vector3(0, 0.13, 0.45),
-            Vector3(0.57, 0.14, 0.055), "caution" if i % 2 else "blue")
+        for z in [-1.00, 0.22]:
+            g.rod("FreshStorageRackColumn",
+                Vector3(side * 1.13, 0.64, z),
+                Vector3(side * 1.13, 2.65, z), 0.16, "edge")
+        g.rod("FreshStorageDiagonalBrace",
+            Vector3(side * 1.13, 0.66, -1.00),
+            Vector3(side * 1.13, 2.59, 0.22), 0.11, "trim")
+        g.rod("FreshStorageForwardLampSupport",
+            Vector3(side * 1.11, 2.61, 0.22),
+            Vector3(side * 1.11, 2.79, 1.11), 0.13, "edge")
+    for y in [0.68, 1.59]:
+        g.poly("FreshStorageLoadRatedShelf", "deck",
+            Vector3(0, y, -0.39), Vector3(2.26, 0.14, 1.20), "trim")
+        g.box("FreshStorageShelfFrontBeam",
+            Vector3(0, y, 0.26), Vector3(2.37, 0.16, 0.12), "gold")
+        for x in [-0.73, 0.0, 0.73]:
+            g.box("FreshStoragePalletStop",
+                Vector3(x, y + 0.10, -0.91), Vector3(0.12, 0.14, 0.16), "edge")
+    # Four cargo cases rest directly on their shelves. No floating boxes.
+    for row in range(2):
+        for col in range(2):
+            var p := Vector3(-0.55 + float(col) * 1.10,
+                1.04 + float(row) * 0.91, -0.38)
+            g.poly("FreshStorageCargoCase", "cargo_case", p,
+                Vector3(0.94, 0.58, 0.90), "crate" if col == 0 else "armor_light")
+            g.box("FreshStorageCargoLock",
+                p + Vector3(0, -0.07, 0.47),
+                Vector3(0.32, 0.13, 0.07), "edge")
+            g.box("FreshStorageCargoID",
+                p + Vector3(0.19, 0.14, 0.47),
+                Vector3(0.32, 0.15, 0.06), "caution" if row == 0 else "blue")
+    g.rod("FreshStorageRearCrossBrace",
+        Vector3(-1.13, 0.67, -1.03),
+        Vector3(1.13, 2.61, -1.03), 0.11, "edge")
+    g.rod("FreshStorageRearCrossBrace",
+        Vector3(1.13, 0.67, -1.03),
+        Vector3(-1.13, 2.61, -1.03), 0.11, "edge")
+    g.poly_tilt("FreshStorageWeatherCanopy", "roof",
+        Vector3(0, 2.64, -0.81), Vector3(2.45, 0.19, 0.62),
+        "armor", Vector3(-0.13, 0, 0))
+    # Lift has a dedicated shaft, motor, and moving load tray.
     for side in [-1.0, 1.0]:
         g.rod("FreshStorageLiftGuide",
-            Vector3(-1.20 + side * 0.12, 0.48, 1.02),
-            Vector3(-1.20 + side * 0.12, 2.48, 1.02), 0.095, "edge")
+            Vector3(-1.20 + side * 0.15, 0.60, 1.02),
+            Vector3(-1.20 + side * 0.15, 2.48, 1.02), 0.10, "edge")
+    g.poly("FreshStorageLiftDrive", "drum",
+        Vector3(-1.20, 2.46, 1.02), Vector3(0.39, 0.30, 0.39), "slate")
     g.poly("FreshStorageLiftDriveVent", "louver",
-        Vector3(-1.20, 2.46, 1.29), Vector3(0.31, 0.18, 0.12), "edge")
-    g.poly("FreshStorageLoadingLift", "bevel",
-        Vector3(-1.20, 1.01, 1.18),
-        Vector3(0.55, 0.18, 0.58), "gold")
-    g.box("FreshStorageLiftPower",
-        Vector3(-1.20, 2.46, 1.02),
-        Vector3(0.43, 0.27, 0.47), "slate")
-    # Rear weather strip only; cargo must remain BELOW the edge in screen space.
-    g.poly_tilt("FreshStorageShortRearTarp", "canvas",
-        Vector3(0, 2.63, -1.03), Vector3(2.13, 0.12, 0.63),
-        "cloth", Vector3(-0.13, 0, 0))
+        Vector3(-1.20, 2.46, 1.26), Vector3(0.31, 0.18, 0.12), "edge")
+    g.poly("FreshStorageLoadingLift", "tray",
+        Vector3(-1.20, 1.01, 1.18), Vector3(0.60, 0.16, 0.65), "gold")
+    # Empty pallet lanes in front of the cases indicate the loading route.
+    for x in [-0.38, 0.70]:
+        g.box("FreshStorageLoadingLane",
+            Vector3(x, 0.66, 0.79), Vector3(0.075, 0.025, 0.71), "caution")
+    g.box("FreshStorageDockBumper",
+        Vector3(0.25, 0.65, 1.13), Vector3(1.50, 0.13, 0.12), "rubber")
 
 
 static func _terminal(g: Variant) -> void:
-    # Slanted blueprint station; oversized readable luminous screen + keys.
+    # Construction control station: armored planning monitor, physical
+    # survey projector, and an open service deck. Keep monitor mapping fixed.
     _pad(g, 2.16, 2.12)
-    g.poly("FreshTerminalConsoleBase", "bevel",
-        Vector3(0, 0.66, -0.20),
-        Vector3(1.81, 0.75, 1.54), "slate")
-    g.poly("FreshTerminalSignalBody", "bevel",
-        Vector3(0, 1.79, -0.47),
-        Vector3(1.97, 1.62, 0.71), "armor")
+    g.poly("FreshTerminalDeck", "deck",
+        Vector3(0, 0.53, 0.0), Vector3(2.04, 0.27, 1.94), "slate")
     for side in [-1.0, 1.0]:
-        g.rod("FreshTerminalMonitorUpright",
-            Vector3(side * 0.90, 0.60, -0.48),
-            Vector3(side * 0.90, 2.73, -0.48), 0.13, "edge")
-        g.box("FreshTerminalEdgeLight",
-            Vector3(side * 0.88, 1.86, 0.01),
-            Vector3(0.075, 0.88, 0.07), "blue_light")
-    g.poly_tilt("FreshTerminalMonitorVisor", "roof",
-        Vector3(0, 2.73, -0.24),
-        Vector3(2.08, 0.18, 0.71), "armor_light",
-        Vector3(-0.16, 0, 0))
-    g.poly("FreshTerminalDisplayFrame", "bevel",
-        Vector3(0, 1.91, 0.13),
-        Vector3(1.90, 1.36, 0.39), "armor_light")
+        g.poly("FreshTerminalConsolePedestal", "gusset",
+            Vector3(side * 0.67, 0.88, -0.13),
+            Vector3(0.32, 0.86, 0.85), "armor")
+        g.rod("FreshTerminalDisplayLoadStrut",
+            Vector3(side * 0.74, 0.67, -0.59),
+            Vector3(side * 0.74, 2.58, -0.40), 0.16, "edge")
+        g.rod("FreshTerminalRearDiagonalBrace",
+            Vector3(side * 0.74, 0.67, 0.12),
+            Vector3(side * 0.74, 2.35, -0.40), 0.12, "trim")
+        g.poly("FreshTerminalDataLinkHousing", "vent_stack",
+            Vector3(side * 0.86, 1.67, -0.46),
+            Vector3(0.32, 0.93, 0.32), "slate")
+    # Sloped structural hood and deeply recessed monitor frame.
+    g.poly("FreshTerminalDisplayBack", "deck",
+        Vector3(0, 1.94, -0.03), Vector3(1.92, 1.43, 0.36), "armor")
     g.box("FreshTerminalWideScreen",
-        Vector3(0, 1.94, 0.37),
-        Vector3(1.64, 1.13, 0.10), "void")
-    # This is the screen itself, not just the bright blueprint strokes:
-    # emissive RGB material is preserved on the opaque front glass.
+        Vector3(0, 1.94, 0.37), Vector3(1.64, 1.13, 0.10), "void")
     g.box("FreshTerminalLiveDisplay",
-        Vector3(0, 1.94, 0.46),
-        Vector3(1.49, 0.99, 0.09), "terminal_monitor")
+        Vector3(0, 1.94, 0.46), Vector3(1.49, 0.99, 0.09), "terminal_monitor")
+    for side in [-1.0, 1.0]:
+        g.box("FreshTerminalScreenSideFrame",
+            Vector3(side * 0.86, 1.94, 0.30), Vector3(0.18, 1.37, 0.43), "armor_light")
+        g.box("FreshTerminalScreenStatusLight",
+            Vector3(side * 0.86, 1.94, 0.53), Vector3(0.07, 0.72, 0.07), "blue_light")
+    for y in [1.30, 2.58]:
+        g.box("FreshTerminalScreenCrossFrame",
+            Vector3(0, y, 0.30), Vector3(1.88, 0.17, 0.43), "armor_light")
+    g.poly_tilt("FreshTerminalMonitorVisor", "roof",
+        Vector3(0, 2.71, -0.06), Vector3(2.07, 0.20, 0.86),
+        "armor_light", Vector3(-0.16, 0, 0))
     for i in range(4):
         g.box("FreshTerminalBlueprintRows",
-            Vector3(0, 1.60 + i * 0.23, 0.53),
+            Vector3(0, 1.60 + float(i) * 0.23, 0.53),
             Vector3(1.27, 0.032, 0.031), "blue_light")
-        g.box("FreshTerminalBlueprintCols",
-            Vector3(-0.45 + i * 0.30, 1.94, 0.53),
-            Vector3(0.028, 0.85, 0.031), "blue")
-    g.poly_tilt("FreshTerminalKeypadPlate", "tray",
-        Vector3(0, 1.05, 0.66),
-        Vector3(1.83, 0.19, 0.80), "slate", Vector3(-0.24, 0, 0))
-    for row in range(2):
-        for col in range(5):
-            g.box("FreshTerminalTactileKey",
-                Vector3(-0.58 + col * 0.28, 1.14,
-                    0.50 + row * 0.21),
-                Vector3(0.19, 0.06, 0.12),
-                "blue" if col % 3 == 0 else "edge")
-    g.poly("FreshTerminalChassisLouver", "louver",
-        Vector3(0, 0.74, 0.68), Vector3(0.88, 0.29, 0.14), "trim")
+    # Physical construction controls sit below the map, within reach.
+    g.poly_tilt("FreshTerminalControlDeck", "deck",
+        Vector3(0, 1.04, 0.64), Vector3(1.85, 0.20, 0.81),
+        "armor", Vector3(-0.24, 0, 0))
+    for col in range(4):
+        g.box("FreshTerminalTactileKey",
+            Vector3(-0.67 + float(col) * 0.22, 1.17, 0.67),
+            Vector3(0.16, 0.075, 0.16), "edge")
+    g.poly("FreshTerminalEmergencySelector", "octagonal_slew",
+        Vector3(0.35, 1.19, 0.70), Vector3(0.28, 0.17, 0.28), "caution")
+    g.poly("FreshTerminalPlanJogDial", "gear",
+        Vector3(0.69, 1.20, 0.68), Vector3(0.31, 0.13, 0.31), "edge")
+    # Survey mast connects the blueprint station to the construction field.
+    g.poly("FreshTerminalMastFoot", "octagonal_slew",
+        Vector3(0.85, 0.76, -0.77), Vector3(0.42, 0.38, 0.42), "slate")
     g.rod("FreshTerminalSignalMast",
-        Vector3(0.85, 2.57, -0.74),
-        Vector3(0.85, 3.81, -0.74), 0.10, "gold")
+        Vector3(0.85, 0.92, -0.77), Vector3(0.85, 3.68, -0.77), 0.15, "gold")
+    g.poly("FreshTerminalSurveyHead", "drum",
+        Vector3(0.85, 3.66, -0.77), Vector3(0.42, 0.30, 0.42), "armor")
+    g.poly_tilt("FreshTerminalSurveyOptics", "vent_stack",
+        Vector3(0.85, 3.65, -0.51), Vector3(0.25, 0.23, 0.25),
+        "edge", Vector3(PI * 0.5, 0, 0))
+    g.box("FreshTerminalSurveyLens",
+        Vector3(0.85, 3.65, -0.39), Vector3(0.15, 0.15, 0.045), "blue_light")
     g.box("FreshTerminalMastLamp",
-        Vector3(0.85, 3.87, -0.74),
-        Vector3(0.22, 0.22, 0.22), "amber_light")
+        Vector3(0.85, 3.87, -0.77), Vector3(0.22, 0.22, 0.22), "amber_light")
     g.poly("FreshTerminalSideBattery", "cargo_case",
-        Vector3(-1.00, 0.70, -0.43),
-        Vector3(0.46, 0.76, 0.65), "crate")
+        Vector3(-0.96, 0.85, -0.47), Vector3(0.42, 0.56, 0.68), "crate")
 
 
 static func add_details(g: Variant, key: String) -> void:
