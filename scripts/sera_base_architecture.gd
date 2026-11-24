@@ -259,7 +259,7 @@ class Batch:
         # Motion state is never stored. Reconstruct the runtime resource
         # references from the newly loaded MultiMeshes and original slot map.
         var had_motion: bool = host.has_meta("motion_entries")
-        var live: Variant = host.get_meta("motion_entries", null)
+        var live: Variant = host.get_meta("motion_entries") if had_motion else null
         if had_motion:
             host.remove_meta("motion_entries")
         StaticBake.save_scene(path, host)

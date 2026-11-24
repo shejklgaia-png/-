@@ -57,6 +57,8 @@ static func _render_only(node: Node) -> bool:
         return false
     if not (node.get_class() in ["Node3D", "MeshInstance3D", "MultiMeshInstance3D", "Label3D"]):
         return false
+    if node is MeshInstance3D and node.mesh == null:
+        return false
     if node is MultiMeshInstance3D:
         var multi: MultiMesh = node.multimesh
         if multi == null or multi.mesh == null or multi.instance_count <= 0:
@@ -168,7 +170,7 @@ static func save_data(path: String, data: Variant) -> void:
 static func fill_static_transforms(multi: MultiMesh, poses: Array) -> void:
     if poses.is_empty():
         return
-    if multi.use_colors or multi.use_custom_data or multi.transform_format != MultiMesh.TRANSFORM_3D:
+    if DisplayServer.get_name() == "headless" or multi.use_colors or multi.use_custom_data or multi.transform_format != MultiMesh.TRANSFORM_3D:
         for i in range(poses.size()):
             multi.set_instance_transform(i, poses[i])
         return
