@@ -12,6 +12,12 @@ const BaseFacilityVfx = preload("res://scripts/sera_base_facility_vfx.gd")
 const ACTIVE_BASE_MODEL: String = "FRESH_20261122"
 # Keep the established command-bunker design family rather than the FRESH alternative.
 const ARCHIVED_NEXUS_MODEL: bool = true
+const NEXUS_SHUTTER_WIDTH: float = 1.96
+const NEXUS_SHUTTER_ROW_PITCH: float = 0.504
+const NEXUS_SHUTTER_FIRST_Y: float = 0.642
+const NEXUS_SHUTTER_STORE_Y: float = 3.34
+const NEXUS_SHUTTER_TRAVEL: float = 2.75
+const NEXUS_SHUTTER_STACK_DEPTH: float = 0.20
 const BasePolygon = preload("res://scripts/sera_base_polygon_meshes.gd")
 const WEATHERED_STEEL_PATH: String = "res://assets/base/industrial_steel_grunge.svg"
 const WEATHERED_CANVAS_PATH: String = "res://assets/base/aged_canvas_weave.svg"
@@ -447,6 +453,11 @@ static func build_nexus(parent: Node3D) -> void:
     # Reinterpret the archived command bunker as one coherent architectural
     # assembly. Keep its flat roof, V insignia, blast gate and service mast.
     node.set_meta("base_design", "NEXUS_COMMAND_BUNKER_20261124")
+    node.set_meta("nexus_shutter_width", NEXUS_SHUTTER_WIDTH)
+    node.set_meta("nexus_shutter_geometry", {
+        "first_y": NEXUS_SHUTTER_FIRST_Y, "pitch": NEXUS_SHUTTER_ROW_PITCH,
+        "store_y": NEXUS_SHUTTER_STORE_Y, "travel": NEXUS_SHUTTER_TRAVEL,
+        "stack_depth": NEXUS_SHUTTER_STACK_DEPTH})
     _nexus_command_bunker(g)
     g.detail_scale = 1.0
     g.outline_enabled = false
@@ -465,7 +476,7 @@ static func _build_nexus_entry_light(node: Node3D) -> void:
     var glow := MeshInstance3D.new()
     glow.name = "NexusEntryLight"
     var slab := BoxMesh.new()
-    slab.size = Vector3(1.92, 2.44, 0.025)
+    slab.size = Vector3(NEXUS_SHUTTER_WIDTH, 2.44, 0.025)
     glow.mesh = slab
     var material := StandardMaterial3D.new()
     material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -533,19 +544,30 @@ static func _nexus_command_bunker(g: Batch) -> void:
         g.box("NexusStatusWindow",
             Vector3(side * 2.30, 2.52, 2.925),
             Vector3(0.28, 0.12, 0.035), "amber_light")
-    # Layered lintel carries the roof across the recessed airlock.
-    g.poly("NexusGateLoadBearingLintel", "nexus_shallow_bevel", Vector3(0, 3.58, 1.71),
-        Vector3(2.74, 0.80, 1.87), "armor")
+    # A hollow upper cassette stores five rigid sections behind the lintel.
+    # The cassette's lower edge (2.98) clears the visible portal. Its roof
+    # (3.68) is above every stored section (max 3.596), below the bunker roof.
+    g.poly("NexusGateLoadBearingLintel", "nexus_shallow_bevel", Vector3(0, 3.58, 0.95),
+        Vector3(2.74, 0.80, 1.55), "armor")
+    g.box("NexusShutterCassetteFront", Vector3(0, 3.33, 3.08),
+        Vector3(2.22, 0.70, 0.10), "slate")
+    g.box("NexusShutterCassetteRoof", Vector3(0, 3.64, 2.43),
+        Vector3(2.22, 0.08, 1.40), "armor")
+    g.box("NexusShutterCassetteRear", Vector3(0, 3.33, 1.75),
+        Vector3(2.22, 0.70, 0.08), "dark")
+    for side in [-1.0, 1.0]:
+        g.box("NexusShutterCassetteSide", Vector3(side * 1.07, 3.33, 2.43),
+            Vector3(0.08, 0.70, 1.40), "trim")
     g.poly("NexusAirlockBackplate", "bevel", Vector3(0, 1.72, 2.39),
         Vector3(2.45, 2.72, 0.24), "dark")
-    g.poly("NexusBlastDoor", "bevel", Vector3(0, 1.65, 2.63),
-        Vector3(1.96, 2.52, 0.24), "slate")
-    # Four overlapping shutter slats and visible guides, with open lower gap
-    # facing the existing VFX lamp at (0, 0.34, 2.97).
-    for row in range(4):
-        var y: float = 0.70 + float(row) * 0.62
-        g.poly("NexusBlastShutterSlat", "bevel", Vector3(0, y, 2.78),
-            Vector3(1.83, 0.55, 0.11), "armor" if row % 2 == 0 else "slate")
+    # Each backing and facing share the same row, move without any scaling,
+    # and travel rearward only after fully entering the covered upper pocket.
+    for row in range(5):
+        var y: float = NEXUS_SHUTTER_FIRST_Y + float(row) * NEXUS_SHUTTER_ROW_PITCH
+        g.box("NexusBlastDoor", Vector3(0, y, 2.64),
+            Vector3(NEXUS_SHUTTER_WIDTH, 0.508, 0.10), "slate")
+        g.poly("NexusBlastShutterSlat", "bevel", Vector3(0, y, 2.72),
+            Vector3(NEXUS_SHUTTER_WIDTH - 0.10, 0.46, 0.06), "armor" if row % 2 == 0 else "slate")
     # Single U-frame with clean planar chamfers. No overlapping diagonal
     # blocks, exposed intersections, or discontinuous header/column seams.
     g.poly("NexusIntegratedAirlockPortal", "nexus_portal",

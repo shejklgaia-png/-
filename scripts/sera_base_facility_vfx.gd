@@ -66,7 +66,7 @@ void fragment() {
     // incorrectly illuminated the far tip and dimmed the entrance.
     float longitudinal = clamp(UV.y, 0.0, 1.0);
     float side = abs(UV.x - 0.5) * 2.0;
-    float transverse = 1.0 - smoothstep(0.61, 0.99, side);
+    float transverse = 1.0 - smoothstep(0.90, 1.0, side);
     float reach = 1.0 - smoothstep(0.09, 1.0, longitudinal);
     float band = transverse * pow(reach, 1.20);
     ALBEDO = beam_tint.rgb;
@@ -911,25 +911,26 @@ func _add_practical_lighting(key: String) -> void:
     match key:
         "NEXUS":
             _antenna_beacon()
+            var shutter_width: float = float(_model.get_meta("nexus_shutter_width", 1.96))
             # The original shutter gap remains a narrow architectural emitter.
             # A proper high-mounted projector now illuminates the apron,
             # rather than a fake spotlight emerging from floor level.
             _slot_lamp("ShutterLowerGapEmitter",
                 Vector3(0.0, 0.34, 2.97),
-                Vector3(1.68, 0.050, 0.06), Color("#bbecff"))
+                Vector3(shutter_width, 0.050, 0.06), Color("#bbecff"))
             _directed_searchlight("GateApronSearchlight",
-                Vector3(0.0, 3.48, 2.93),
+                Vector3(0.0, 3.48, 3.25),
                 Vector3(0.0, 0.37, 4.76),
                 Vector3(0.68, 0.28, 0.43), Color("#c5edff"),
-                1.80, 5.25, 37.0, 1.50, 0.29)
+                1.80, 5.25, 18.0, shutter_width / 1.68, 0.29)
             # Keep the independently animated-looking spill geometry at
             # the shutter; it no longer stands in for the aimed projector.
             _make_surface("ShutterLowerGapSpill",
-                Vector3(0.0, 0.34, 5.89), Vector2(1.42, 5.80),
+                Vector3(0.0, 0.34, 5.89), Vector2(shutter_width, 5.80),
                 Vector3(-PI * 0.5, 0.0, 0.0),
                 NEXUS_SHUTTER_BEAM_SHADER, Color("#bbecff"), false)
             _queue_soft_halo(Vector3(0.0, 0.39, 3.065),
-                Vector2(2.28, 0.63), Color("#bceaff"), 0.24)
+                Vector2(shutter_width, 0.63), Color("#bceaff"), 0.24)
         "RECYCLER":
             # Two jaws, two actual aimed lamps. The old central spotlight
             # used a different origin than both visible lamp housings.
