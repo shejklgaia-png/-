@@ -142,6 +142,7 @@ var last_hit := Vector2i(-1,-1)
 var last_chart := -1
 var previous_mirror := Vector2i(-1,-1)
 var previous_mirror_chart := -1
+var previous_mirror_surface: Dictionary = {}
 var stroke := false
 var rotation_mode := false
 var multi_gesture := false
@@ -1172,6 +1173,7 @@ func _begin_stroke() -> void:
     last_chart = -1
     previous_mirror = Vector2i(-1,-1)
     previous_mirror_chart = -1
+    previous_mirror_surface.clear()
     shape_start = Vector2i(-1,-1)
     shape_chart = -1
     shape_base = null
@@ -1244,16 +1246,25 @@ func _trace_paint_interval(start: Vector2,finish: Vector2,a: Dictionary,b: Dicti
         var hit: Dictionary = _pick_paint_surface(mid)
         budget = _trace_paint_interval(start,mid,a,hit,budget-1,depth+1)
         return _trace_paint_interval(mid,finish,hit,b,budget,depth+1)
-    if atlas_face_paint and tool_picker.selected in [0,1] and not a.is_empty() and not b.is_empty():
-        var bridge: Dictionary = UV.face_bridge(triangles,face_bridges,a,b,img.get_size(),atlas_density)
-        if not bridge.is_empty():
-            var size: Vector2 = Vector2(img.get_size())
-            var from: Vector2i = Vector2i((Vector2(a.uv)*size).floor()).clamp(Vector2i.ZERO,img.get_size()-Vector2i.ONE)
-            var to: Vector2i = Vector2i((Vector2(b.uv)*size).floor()).clamp(Vector2i.ZERO,img.get_size()-Vector2i.ONE)
-            _line_pixels(from,bridge.a)
-            _line_pixels(bridge.b,to)
+    if atlas_face_paint and tool_picker.selected in [0,1]:
+        _paint_face_bridge(a,b)
     _paint(finish,false,b)
     return budget
+
+# Same physical edge interpolation for ordinary and mirrored samples.
+# Never draw a straight line between unrelated packed atlas islands.
+func _paint_face_bridge(a: Dictionary,b: Dictionary) -> bool:
+    if a.is_empty() or b.is_empty():
+        return false
+    var bridge: Dictionary = UV.face_bridge(triangles,face_bridges,a,b,img.get_size(),atlas_density)
+    if bridge.is_empty():
+        return false
+    var size: Vector2 = Vector2(img.get_size())
+    var from: Vector2i = Vector2i((Vector2(a.uv)*size).floor()).clamp(Vector2i.ZERO,img.get_size()-Vector2i.ONE)
+    var to: Vector2i = Vector2i((Vector2(b.uv)*size).floor()).clamp(Vector2i.ZERO,img.get_size()-Vector2i.ONE)
+    _line_pixels(from,bridge.a)
+    _line_pixels(bridge.b,to)
+    return true
 
 func _paint(at: Vector2, flush: bool = true, picked: Variant = null) -> void:
     if img == null or not stroke or host.size.x <= 0 or host.size.y <= 0:
@@ -1266,7 +1277,14 @@ func _paint(at: Vector2, flush: bool = true, picked: Variant = null) -> void:
         if grid_mode == 2:
             return
         last_hit = Vector2i(-1,-1)
+        last_chart = -1
         previous_mirror = Vector2i(-1,-1)
+        previous_mirror_chart = -1
+        previous_mirror_surface.clear()
+        # Journal v1 has no explicit pen-up sample. Do not claim exact replay
+        # when a stroke leaves and re-enters the model.
+        if not current_surface_stroke.is_empty() and not (current_surface_stroke.samples as Array).is_empty():
+            surface_history_complete = false
         return
     if grid_mode == 2:
         _inspect_uv(int(hit.get("triangle",-1)))
@@ -1320,12 +1338,22 @@ func _paint(at: Vector2, flush: bool = true, picked: Variant = null) -> void:
             if mp != p:
                 if previous_mirror.x >= 0 and previous_mirror_chart == int(mirrored.chart):
                     _line_pixels(previous_mirror,mp)
+                elif atlas_face_paint and tool_picker.selected in [0,1] and _paint_face_bridge(previous_mirror_surface,mirrored):
+                    pass
                 else:
                     _dab(mp)
                 previous_mirror = mp
                 previous_mirror_chart = int(mirrored.chart)
+                previous_mirror_surface = mirrored
+            elif atlas_face_paint:
+                # Primary stroke already painted the symmetry plane.
+                previous_mirror = Vector2i(-1,-1)
+                previous_mirror_chart = -1
+                previous_mirror_surface.clear()
         else:
             previous_mirror = Vector2i(-1,-1)
+            previous_mirror_chart = -1
+            previous_mirror_surface.clear()
     last_hit = p
     last_chart = chart
     if flush:
