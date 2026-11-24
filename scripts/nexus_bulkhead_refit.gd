@@ -45,7 +45,7 @@ static func suppresses_authored_part(label: String) -> bool:
     return false
 
 
-static func build(room: Node3D) -> void:
+static func build(room: Node3D, gate_at: Vector3, gate_yaw: float, gate_scale: float) -> void:
     var root := Node3D.new()
     root.name = "NexusBulkheadRebuild"
     root.set_meta("FX_NO_OUTLINE", true)
@@ -158,6 +158,8 @@ static func build(room: Node3D) -> void:
     _build_industrial_services(root)
     _build_command_spine(root)
     _build_bridge_service_faces(root)
+    _build_launch_architecture(root, gate_at, gate_yaw, gate_scale)
+    _build_wall_service_bays(root)
 
 
 # The old narrow front plate is replaced by a sculpted central structural
@@ -421,6 +423,131 @@ static func _bay_panel_texture() -> ImageTexture:
             image.set_pixel(x+2,y+2,Color("#717b80"))
     image.generate_mipmaps()
     return ImageTexture.create_from_image(image)
+
+
+# An independent architectural socket for the DEPLOYMENT machine. Use the
+# same coordinate system as the portal, but never parent to its moving
+# doors or kiosk. The old rectangular wall aperture remains the safety
+# envelope. The machine's maximum fitted half-width is about 2.41*scale.
+static func _build_launch_architecture(root: Node3D, gate_at: Vector3,
+        gate_yaw: float, gate_scale: float) -> void:
+    var pivot := Node3D.new()
+    pivot.name = "LaunchBayArchitecture"
+    pivot.position = gate_at
+    pivot.rotation.y = gate_yaw
+    root.add_child(pivot)
+    var shell := SurfaceTool.new()
+    var trim := SurfaceTool.new()
+    var recess := SurfaceTool.new()
+    for tool in [shell, trim, recess]:
+        tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+        tool.set_smooth_group(-1)
+    # Local distances are scaled from the actual gate, not the room grid.
+    # Inner jamb edge >= 2.53*scale, above the widest actuator.
+    # Header underside >= 5.65*scale, above the highest hazard trim.
+    var outer_x: float = 2.78*gate_scale
+    var shoulder_x: float = 2.62*gate_scale
+    var spring_y: float = 5.12*gate_scale
+    var header_y: float = 5.93*gate_scale
+    var z: float = -0.86*gate_scale
+    var profile: Array = [Vector3(-outer_x,-0.54,z),
+        Vector3(-outer_x,spring_y,z),Vector3(-shoulder_x,header_y,z),
+        Vector3(shoulder_x,header_y,z),Vector3(outer_x,spring_y,z),
+        Vector3(outer_x,-0.54,z)]
+    _service_sweep(shell,profile,Vector3.BACK,
+        _service_section(0.52*gate_scale,0.22*gate_scale,0.11*gate_scale))
+    # A second inner fascia is inset into the casting, not in the opening.
+    # At the upper corners stay above the machine's shoulder envelope.
+    var face_z: float = z+0.46*gate_scale
+    for side in [-1.0,1.0]:
+        _service_sweep(trim,[Vector3(side*outer_x,0.15,face_z),
+            Vector3(side*outer_x,4.72*gate_scale,face_z)],
+            Vector3.BACK,_service_section(0.085*gate_scale,0.12*gate_scale,0.04*gate_scale))
+        # Heavy angled base shoe meets the room deck.
+        _service_sweep(shell,[Vector3(side*outer_x,-0.54,z),
+            Vector3(side*outer_x,0.56*gate_scale,z)],Vector3.RIGHT,
+            _service_section(0.24*gate_scale,0.57*gate_scale,0.12*gate_scale))
+        # Narrow service channel sits within the outside jamb face.
+        for k in range(3):
+            var y: float = (1.0+float(k)*1.19)*gate_scale
+            _service_sweep(recess,[Vector3(side*outer_x,y,face_z),
+                Vector3(side*outer_x,y+0.46*gate_scale,face_z)],
+                Vector3.BACK,_service_section(0.075*gate_scale,0.09*gate_scale,0.035*gate_scale))
+    # The roof collar runs from the new socket to the existing ceiling.
+    # It stays above the moving doors, visor, sign and entrance lighting.
+    var roof_y: float = 9.65-gate_at.y
+    for x in [-1.65*gate_scale,1.65*gate_scale]:
+        _service_sweep(shell,[Vector3(x,header_y,z),
+            Vector3(x,roof_y,z-0.26)],Vector3.RIGHT,
+            _service_section(0.34,0.40,0.11))
+    _service_sweep(trim,[Vector3(-shoulder_x,header_y,face_z),
+        Vector3(shoulder_x,header_y,face_z)],Vector3.BACK,
+        _service_section(0.10,0.12,0.05))
+    # Rear side wings fold away from the front cheek fittings. Right wing
+    # terminates in the recessed right wall; left wing meets the rear shell.
+    # They are never permitted to extend inward into the protected tunnel.
+    for side in [-1.0,1.0]:
+        _service_sweep(shell,[Vector3(side*outer_x,3.25,z-0.24),
+            Vector3(side*outer_x,3.25,z-1.7),
+            Vector3(side*(outer_x+0.36),3.25,z-2.15)],
+            Vector3.UP,_service_section(2.70,0.18,0.10))
+    _service_submit(pivot,"WallLaunchSocketCastings",shell,Color("#687986"),_bay_panel_texture())
+    _service_submit(pivot,"WallLaunchSocketMachinedTrim",trim,Color("#939184"),_service_texture(1))
+    _service_submit(pivot,"WallLaunchSocketServiceInsets",recess,Color("#273c4a"),_service_texture(2))
+
+    # Flush approach graphics continue the actual rotated ramp. No geometry
+    # on the ramp, threshold or kiosk footprint, and no raised obstacles.
+    var guidance := SurfaceTool.new()
+    guidance.begin(Mesh.PRIMITIVE_TRIANGLES)
+    guidance.set_smooth_group(-1)
+    var floor_y: float = 0.179-gate_at.y
+    for side in [-1.0,1.0]:
+        for k in range(3):
+            var z0: float = 7.32+float(k)*0.48
+            var x0: float = side*1.52
+            var x1: float = side*1.80
+            var a := Vector3(x0,floor_y,z0)
+            var b := Vector3(x1,floor_y,z0+0.12)
+            var d := Vector3(x0,floor_y,z0+0.14)
+            var e := Vector3(x1,floor_y,z0+0.26)
+            _service_triangle(guidance,a,b,e,Vector2.ZERO,Vector2.RIGHT,Vector2.ONE)
+            _service_triangle(guidance,a,e,d,Vector2.ZERO,Vector2.ONE,Vector2.DOWN)
+    _service_submit(pivot,"LaunchApronGuidance",guidance,Color("#a39873"),_service_texture(1))
+
+
+# Give the remaining long wall bays the same chamfered socket vocabulary.
+# Panels are shallow and attached to the existing wall, well outside the
+# overview's interactive objects. Opposite sides use different arrangements.
+static func _build_wall_service_bays(root: Node3D) -> void:
+    var shell := SurfaceTool.new()
+    var inner := SurfaceTool.new()
+    var trim := SurfaceTool.new()
+    for tool in [shell,inner,trim]:
+        tool.begin(Mesh.PRIMITIVE_TRIANGLES)
+        tool.set_smooth_group(-1)
+    for spec in [Vector4(-1,-13.45,2.80,1.30),
+            Vector4(-1,-6.80,3.65,0.90),Vector4(-1,0.0,2.20,1.40),
+            Vector4(1,-13.20,3.25,1.10),Vector4(1,-6.65,2.45,0.90),
+            Vector4(1,6.05,2.70,1.15)]:
+        var s: Vector4 = spec
+        var x: float = s.x*8.90
+        var bottom: float = 1.05
+        var top: float = s.z+1.05
+        _service_sweep(shell,[Vector3(x,bottom,s.y),
+            Vector3(x,top,s.y)],Vector3.RIGHT,
+            _service_section(0.22,s.w,0.14))
+        var face: float = x-s.x*0.23
+        _service_sweep(inner,[Vector3(face,bottom+0.27,s.y),
+            Vector3(face,top-0.26,s.y)],Vector3.RIGHT,
+            _service_section(0.07,s.w-0.19,0.10))
+        for k in range(3):
+            var y: float = top-0.46-float(k)*0.32
+            _service_sweep(trim,[Vector3(face-s.x*0.055,y,s.y-s.w+0.36),
+                Vector3(face-s.x*0.055,y,s.y+s.w-0.36)],Vector3.RIGHT,
+                _service_section(0.035,0.065,0.025))
+    _service_submit(root,"WallServiceBayCastings",shell,Color("#627786"),_bay_panel_texture())
+    _service_submit(root,"WallServiceBayRecesses",inner,Color("#334650"),_service_texture(2))
+    _service_submit(root,"WallServiceBayTrim",trim,Color("#929285"),_service_texture(1))
 
 
 static func _service_section(w: float, h: float, bevel: float) -> Array:
