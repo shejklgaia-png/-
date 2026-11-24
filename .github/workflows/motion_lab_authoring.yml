@@ -1,0 +1,94 @@
+name: Motion Lab - authoring render
+on:
+  workflow_dispatch:
+    inputs:
+      design:
+        description: Motion design JSON under tools/motion_lab
+        default: tools/motion_lab/example.json
+        required: true
+        type: string
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - 'tools/motion_lab/**'
+      - '.github/workflows/motion_lab_authoring.yml'
+permissions:
+  contents: read
+jobs:
+  authoring:
+    if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.head_ref, 'motion-lab/'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      DESIGN: ${{ inputs.design || 'tools/motion_lab/example.json' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Install Blender 4.5.3 LTS
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          archive=blender-4.5.3-linux-x64.tar.xz
+          ok=0
+          for base in https://download.blender.org/release/Blender4.5 https://mirror.blender.org/release/Blender4.5; do
+            rm -f "$archive" checksums.txt selected.sha256
+            if curl -fL --retry 2 --connect-timeout 20 --max-time 240 "$base/blender-4.5.3.sha256" -o checksums.txt &&
+               awk -v a="$archive" '$2==a || $2=="*"a {print}' checksums.txt > selected.sha256 &&
+               test "$(wc -l < selected.sha256)" -eq 1 &&
+               curl -fL --retry 2 --connect-timeout 20 --max-time 300 "$base/$archive" -o "$archive" &&
+               sha256sum --check selected.sha256; then
+              ok=1
+              break
+            fi
+          done
+          test "$ok" -eq 1
+          tar -xf "$archive"
+          echo "$RUNNER_TEMP/blender-4.5.3-linux-x64" >> "$GITHUB_PATH"
+      - name: Author and render motion
+        shell: bash
+        run: |
+          set -euo pipefail
+          design=$(realpath -- "$DESIGN")
+          root=$(realpath tools/motion_lab)
+          [[ "$design" == "$root/"*.json && -f "$design" ]]
+          out="$RUNNER_TEMP/sera-motion"
+          xvfb-run -a blender --background --factory-startup --python-exit-code 1 --python tools/motion_lab/build.py -- "$design" "$out"
+          cp "$design" "$out/design.json"
+      - name: Godot isolated animated GLB rendering
+        shell: bash
+        run: |
+          set -euo pipefail
+          g="$RUNNER_TEMP/godot-motion-review"
+          mkdir -p "$g/project"
+          archive=Godot_v4.7.2-stable_linux.x86_64.zip
+          curl -fL --retry 3 --connect-timeout 20 --max-time 240 "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/$archive" -o "$g/$archive"
+          unzip -q "$g/$archive" -d "$g"
+          printf 'config_version=5\n[application]\nconfig/name="Motion Lab isolated review"\n[display]\nwindow/size/viewport_width=640\nwindow/size/viewport_height=640\n[rendering]\nrenderer/rendering_method="gl_compatibility"\n' > "$g/project/project.godot"
+          cp tools/motion_lab/review.gd "$g/project/"
+          timeout 180 xvfb-run -a "$g/Godot_v4.7.2-stable_linux.x86_64" --path "$g/project" --audio-driver Dummy --script res://review.gd -- "$RUNNER_TEMP/sera-motion"
+          test -s "$RUNNER_TEMP/sera-motion/godot_review.json"
+      - name: Bundle actual rendered images
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/sera-motion"
+          python3 -m venv "$RUNNER_TEMP/motion-review-venv"
+          "$RUNNER_TEMP/motion-review-venv/bin/pip" install Pillow==11.3.0
+          "$RUNNER_TEMP/motion-review-venv/bin/python" "$GITHUB_WORKSPACE/tools/motion_lab/bundle.py" .
+          git -C "$GITHUB_WORKSPACE" rev-parse HEAD > source_commit.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sera-motion-review
+          path: ${{ runner.temp }}/sera-motion/
+          if-no-files-found: error
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: sera-motion-partial
+          path: ${{ runner.temp }}/sera-motion/
+          if-no-files-found: ignore
+          retention-days: 7
