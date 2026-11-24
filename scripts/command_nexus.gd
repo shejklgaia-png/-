@@ -436,7 +436,41 @@ func _ready() -> void:
     # Only instantiate the model editor on startup if a saved model pose
     # exists, protecting the normal HUD and ANGLE from needless heavy setup.
     call_deferred("_restore_nexus_placement_previews", route)
+    call_deferred("_start_nexus_bgm_if_direct")
 
+
+# Temporary NEXUS track; replace only this path when its own BGM is ready.
+const NEXUS_BGM_PATH := "res://BGM/scrap_sanctuary_seamless.ogg"
+const NEXUS_BGM_LOOP_OFFSET := 32.2343125
+var _nexus_bgm_player: AudioStreamPlayer
+
+func _start_nexus_bgm_if_direct() -> void:
+    if get_tree().root.get_node_or_null("NexusEntryTransition") == null:
+        start_entry_bgm()
+
+func start_entry_bgm() -> void:
+    if is_instance_valid(_nexus_bgm_player):
+        return
+    var music: AudioStreamOggVorbis
+    if FileAccess.file_exists(NEXUS_BGM_PATH):
+        music = AudioStreamOggVorbis.load_from_file(NEXUS_BGM_PATH)
+    if music == null and ResourceLoader.exists(NEXUS_BGM_PATH):
+        music = ResourceLoader.load(NEXUS_BGM_PATH) as AudioStreamOggVorbis
+        if music != null:
+            music = music.duplicate() as AudioStreamOggVorbis
+    if music == null or music.get_length() <= NEXUS_BGM_LOOP_OFFSET:
+        push_warning("SERA NEXUS BGM unavailable")
+        return
+    music.loop = true
+    music.loop_offset = NEXUS_BGM_LOOP_OFFSET
+    _nexus_bgm_player = AudioStreamPlayer.new()
+    _nexus_bgm_player.name = "NexusBGM"
+    _nexus_bgm_player.stream = music
+    _nexus_bgm_player.volume_db = -60.0
+    add_child(_nexus_bgm_player)
+    _nexus_bgm_player.play()
+    var fade := create_tween()
+    fade.tween_property(_nexus_bgm_player, "volume_db", -9.0, 0.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 
 func _notification(what: int) -> void:
     # Android can be backgrounded while a drag is still in progress.
@@ -4560,6 +4594,8 @@ func _polygon_area(poly: PackedVector2Array) -> float:
 # Raw touch support intentionally does not change the training scene's global
 # Input.emulate_mouse_from_touch=false setting. PC mouse taps also work.
 func _on_android_back() -> void:
+    if get_tree().root.get_node_or_null("NexusEntryTransition") != null:
+        return
     _navigate_back()
 
 func _navigate_back() -> void:
@@ -4586,6 +4622,8 @@ func _navigate_back() -> void:
         _return_to_overview()
 
 func _input(event: InputEvent) -> void:
+    if get_tree().root.get_node_or_null("NexusEntryTransition") != null:
+        return
     # Once an editor is active, it exclusively owns the viewport's pointer.
     # Inactive editors must not consume launcher taps before the host sees them.
     if is_instance_valid(camera_angle_editor) and camera_angle_editor.has_method("open_mode") and bool(camera_angle_editor.get("active")):
