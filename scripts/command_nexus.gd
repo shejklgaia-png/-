@@ -2480,8 +2480,23 @@ func _nexus_tone_background_node(node: Node, is_deck: bool) -> void:
             # Keep the original ceiling/wall value hierarchy, but let the
             # new structural ribs and spine read as distinct metal surfaces.
             if label == "CeilingVaultRibs":
-                darkness = 0.68
+                darkness = 0.78
                 dark_tint = Color("#101924")
+            elif label == "CeilingBayCastRims":
+                darkness = 0.66
+                dark_tint = Color("#141e26")
+            elif label == "CeilingBayRecessedLids":
+                darkness = 0.76
+                dark_tint = Color("#101923")
+            elif label == "CeilingBayLouvers":
+                darkness = 0.58
+                dark_tint = Color("#15222a")
+            elif label in ["CeilingBayMachinedEdges", "CeilingTrussInlays"]:
+                darkness = 0.67
+                dark_tint = Color("#17212a")
+            elif label.begins_with("WallBridgeService"):
+                darkness = 0.53
+                dark_tint = Color("#15232d")
             elif label == "CeilingDuctMesh":
                 darkness = 0.80
                 dark_tint = Color("#0a131c")
@@ -2564,7 +2579,7 @@ func _nexus_apply_wear_after_entry() -> void:
         worn.metallic = 0.12
         worn.roughness = 0.86
         worn.metallic_specular = 0.12
-        worn.albedo_color = _nexus_finish_tint(source.albedo_color, 1.19 if tread_plate else 1.12)
+        worn.albedo_color = _nexus_finish_tint(source.albedo_color, 1.19 if (tread_plate or command_plate) else 1.12)
         geometry.material_override = worn
     # Only the already-built room roots, not editor, HUD or later preview
     # nodes. Yield between material groups so entry never waits for texture.
