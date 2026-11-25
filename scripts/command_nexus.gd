@@ -5870,7 +5870,8 @@ func _archive_view_layout() -> void:
     _archive_view_place(archive_view_frame, m, view_top, w-2*m, view_h)
     _archive_view_place(archive_view_cue, m+7, view_top+7, 28, 28)
     _archive_view_place(archive_view_buttons["reset"], w-m-38, view_top+6, 32, 32)
-    _archive_view_place(archive_view_caption, m, view_top+view_h, w-2*m, 32)
+    var caption_y: float = view_top + (view_h - 32.0) * 0.5 if archive_view_selected.is_empty() else view_top + view_h
+    _archive_view_place(archive_view_caption, m, caption_y, w-2*m, 32)
     for i in range(ARCHIVE_VIEW_ROWS):
         _archive_view_place(archive_view_buttons["row%d" % i], m, list_top+i*(row_h+4), w-2*m, row_h)
     _archive_view_place(archive_view_buttons["prev"], m, h-98, 48, 40)
@@ -5913,8 +5914,9 @@ func _archive_view_set_category(value: int) -> void:
     archive_view_generation += 1
     _archive_view_drop_view()
     archive_view_selected = ""
-    archive_view_caption.text = "モデルを選択 / SELECT MODEL"
+    archive_view_caption.text = "SelectModel"
     _archive_view_refresh_rows()
+    _archive_view_layout()
 
 func _archive_view_style_button(id: String, active: bool) -> void:
     var p: Panel = archive_view_buttons[id]
@@ -5957,6 +5959,7 @@ func _archive_view_select(index: int) -> void:
     archive_view_generation += 1
     _archive_view_drop_view()
     archive_view_caption.text += "  /  LOADING"
+    _archive_view_layout()
     _archive_view_load_selected.call_deferred(archive_view_generation, archive_view_category, archive_view_selected)
 
 func _archive_view_load_selected(request: int, kind: int, id: String) -> void:
