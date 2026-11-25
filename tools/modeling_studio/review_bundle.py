@@ -131,6 +131,8 @@ def main():
             raise ValueError("grouped export triangle mismatch")
         if got["model_grouped.glb"]["meshes"]!=grouped["mesh_groups"]:
             raise ValueError("grouped export mesh count mismatch")
+    if (root/"wireframe_guides.json").is_file():
+        paths += ["wireframe_guides.json","wireframe_guides.obj"]
     paths += compare_candidates(root)
     files = {p:{"bytes":(root/p).stat().st_size,"sha256":sha256_file(root/p)} for p in paths}
     if any(v["bytes"]==0 for v in files.values()):
