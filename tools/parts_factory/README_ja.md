@@ -1,5 +1,5 @@
-# PARTS FACTORY（パーファク）V4 — テクスタ直接連携
-2026-11-25 Vesper V1失敗への是正。V1/V2/V3のジョブは互換なし。旧データを破壊せず、新規V4作業ディレクトリに再登録する。単なる箱・円柱の組立を完成扱いしない。設計画が視覚的な正本。全身セットは先にセット全体のデザインを比較・確定し、その後6部位を独立制作する。ゲーム本体/既存モデル/無関係CIを変更しない。
+# PARTS FACTORY（パーファク）V5 — 設計知識ライブラリ
+2026-11-25 Vesper V1失敗への是正。V1/V2/V3/V4のジョブは互換なし。旧データを破壊せず、新規V5作業ディレクトリに再登録する。単なる箱・円柱の組立を完成扱いしない。設計画が視覚的な正本。全身セットは先にセット全体のデザインを比較・確定し、その後6部位を独立制作する。ゲーム本体/既存モデル/無関係CIを変更しない。
 
 ## V3追加：設定画解析ブリッジ（必須）
 - `python -m pip install numpy opencv-python-headless` は解析専用環境に導入。ゲーム依存には追加しない。
@@ -7,17 +7,17 @@
 - `python tools/parts_factory/reference_bridge.py analyze <accepted_blueprint_dir> <calibration.json> <out>` → analysis.json、10方向正規化マスク/画像/既存モデスタstructure_analysisの領域・内部線・隣接・候補画像、multiview_partsの対応候補、断面包絡、対応ランドマークの3D最小二乗推定と残差。`factory.py accept <work> analysis <out> --producer ...`。曖昧な関連は候補のまま。矩形断面包絡は奥行きの上限の概算であり、正確な断面/凹部の復元ではない。
 - planにはanalysis.jsonの完全コピーをanalysis_snapshot.jsonとして同梱し、structure_plan.jsonへreference_sha256、ambiguity_resolution、section_strategy、componentsごとのanalysis_evidence（view,kind=region/line/landmark/section/inferred,reference,interpretation）を追加。design.jsonはreview_resolutionを一致させ、review_camerasのfront/right/back/left/top/bottomを共通target/ortho_scaleと固定directionで設定（それぞれ[0,-1,0],[1,0,0],[0,1,0],[-1,0,0],[0,0,1],[0,0,-1]）。roll/quaternion/カメラfit禁止。landmarksに解析点名を既存モデスタの{node,local}形式で割り当てる。
 - model許可にreference_sha256を付与。実制作ZIPのprojections.jsonも必ず保存。`reference_bridge.py compare <accepted_analysis_dir> <actual_model_dir> <out>` は実カメラとモデルの解析ハッシュを確認し6方向の輪郭IoU、不足/過剰ピクセル、最大距離、色分け重ね画像、ランドマーク投影残差、低IoU優先順位を出す。自動造形変更・自動審美評価はしない。
-- geometry受理フォルダにcomparison.jsonと6方向overlayをコピーし、geometry_review.jsonのoverlaysをそのパスと一致させ、reference_limits（各方向→{min_iou:0.5..1,reason}）、landmark_disposition、correction_priorityを追加。閾値は対象別の設計意図に基づき明記。不合格ならplanへ戻る（元図面不整合ならblueprint/analysisへ）。閾値の後付け緩和を合格理由にしない。V4ストックのみ新規セットに採用可。
+- geometry受理フォルダにcomparison.jsonと6方向overlayをコピーし、geometry_review.jsonのoverlaysをそのパスと一致させ、reference_limits（各方向→{min_iou:0.5..1,reason}）、landmark_disposition、correction_priorityを追加。閾値は対象別の設計意図に基づき明記。不合格ならplanへ戻る（元図面不整合ならblueprint/analysisへ）。閾値の後付け緩和を合格理由にしない。V5ストックのみ新規セットに採用可。
 - 参考: Blender orthographic cameras https://docs.blender.org/manual/en/3.5/render/cameras.html ; Laurentini visual hull https://ieeexplore.ieee.org/abstract/document/273735/ 。輪郭一致と見栄えを分けて評価する。
 
 ## 作業順（強制ゲート）
 各段階は実ファイルを別ディレクトリに置き、`python tools/parts_factory/factory.py accept <work> <stage> <source> --producer "<tool/version; provenance>"` で登録。新規ジョブは `init <work> PF-H003 head`。status / handoff で次の作業・入力ハッシュ確認。各工程のJSON契約は quality_gates.py / factory.py が正本。レビューは自己評価であり、画像/美観の自動認識ではない。
 
-1. concept: concept.json に id, slot, name, lore, mechanism, references, rig_target, proposed_stats。セット所属時は共通コンセプトの set_art_sha256 を追加。外部資料は公式・技術者・企業・実例から調査。正式性能値・新規効果は既存装備承認規約に従う。
+1. concept: V5のdesign_brief.jsonも必須（下記）。concept.json に id, slot, name, lore, mechanism, references, rig_target, proposed_stats。セット所属時は共通コンセプトの set_art_sha256 を追加。外部資料は公式・技術者・企業・実例から調査。正式性能値・新規効果は既存装備承認規約に従う。
 2. art: 別台帳の明示画像生成作業で最低3つの異なるコンセプト画像。art_review.json に image_task_id, reviewer, selected, selection_reason, candidates（id/file/sha256/design_direction/rubric）。各rubricは appeal, identity, silhouette, mechanism, cohesion, readability の {score:1..5,reason:具体的記述}。選定画像は全項目4以上。selected.png は選定候補と完全一致。合格なしなら画像を再制作。スコアだけで審美性を保証しない。
 3. blueprint: blueprint.png と独立PNG10方向（水平45度8方向＋上下）。blueprint_review.json に selected_art_sha256, image_task_id, reviewer, views（front/front_right/right/back_right/back/back_left/left/front_left/top/bottom → {file,sha256,notes}）, scale_and_axes, resolved_inconsistencies, rubric（projection_consistency, proportions, palette, mechanism, assembly_interface）。別画像生成工程として明示された依頼のみ行う。多方向の構造不整合は修正してから進む。
 3a. analysis: 上記V3解析ゲートを受理。
-4. plan: design.json はモデスタ形式。structure_plan.json に blueprint_key, reviewer, rig_interface, silhouette_targets, detail_budget, components（feature, method_reason, mechanical_role, reference_coordinates, views, nodes）。各造形ノードを2方向以上の参照へ関連付ける。輪郭・内部構造線・断面・可動部・装甲分割の順。wireframe/loft/mechanism graphなどから対象に適した手法を選び、使用しない方式の理由も記録。部品数を品質の指標にしない。
+4. plan: V5のdesign_brief_snapshot.jsonと知識適用判断も必須（下記）。design.json はモデスタ形式。structure_plan.json に blueprint_key, reviewer, rig_interface, silhouette_targets, detail_budget, components（feature, method_reason, mechanical_role, reference_coordinates, views, nodes）。各造形ノードを2方向以上の参照へ関連付ける。輪郭・内部構造線・断面・可動部・装甲分割の順。wireframe/loft/mechanism graphなどから対象に適した手法を選び、使用しない方式の理由も記録。部品数を品質の指標にしない。
 5. model: `authorize-model <work> tools/modeling_studio/pf_<id-lower>.json` を実行し許可付き入力を生成。既存モデスタの専用PRブランチ `modeling/parts-factory/<id-lower>` へそのJSONをコミットしてPR作成、または既存専用workflow_dispatchで指定。CRATE特化反復禁止。モデスタbuild.pyはpf_ファイルまたはparts_factoryマーカーの許可・入力整合を検査。実成果物ZIPを回収し、BLEND/GLB/設計/mesh_report/complete/review/godot_import/interference/8方向PNGと、provenance.json（tool="Modeling Studio - authoring render", commit, run_id, artifact_id, glb_sha256）を受け入れる。証跡は実runから記録する。
 6. geometry: 実モデルと正投影設計図の重ね合わせ（前後左右上下）と全8実レンダーを確認。geometry_review.json: model_glb_sha256, blueprint_key, reviewer, views（front/front_3q/right/back_3q/back/left/top/bottom → {file,sha256,notes}）, overlays（前後左右上下のview名→比較画像パス）, rubric（appeal/silhouette/proportions/armor_language/mechanism/rig_clearance/detail_balance）, blocking_issues=[], comparison_notes, iteration_notes, unresolved_interference=0, interference_notes。意図的接合と問題干渉を分類し、寸法/可動域/武器接地等を実評価する。すべて4以上かつ阻害要因なしが必要。
 7. uv: テクスタAI手動の実成果物。uv.json（method=AI_MANUAL_FACE, source_glb_sha256, reviewer, rubric=quad_orientation/shared_edges/texel_density/padding）、uv_model.glb。面基準と境界整合を確認。
@@ -48,3 +48,15 @@
 7. `texture_bridge.py export WORK HANDOFF UV_ACCEPT PAINT_ACCEPT --baked BAKED --size 1024 --blender blender` — 元BLENDへ受理済UVを再適用し、元材質のコピーにテクスチャを結線、GLBへ内蔵。実GLB全プリミティブのbaseColorTexture/TEXCOORD_0を確認し、埋込画像をデコードして採用PNGとRGB画素完全一致を要求する。painted.blendと3解像度PNG、報告を出力。paint.jsonのreviewer/rubricは実塗装確認後に記録。factory.py accept paint へ。その後も実8方向レビュー、正式HTML、ストックを省略不可。動的光とベイク光の重複、ミップ、性能は別評価。
 8. 画像やモデルが未取得・工程が未承認の場合は停止。不合格時はUVまたは塗装へ戻る。正式リリースと候補共有を混同しない。
 参考：Blender Mesh loops https://docs.blender.org/api/current/bpy.types.Mesh.html ; Substance 3D Painter 3D Space Neighbor https://experienceleague.adobe.com/en/docs/substance-3d-painter/using/interface/texture-set/texture-set-settings ; Shapely STRtree https://shapely.readthedocs.io/en/stable/strtree.html 。V4通し制作未確認、外部アプリの自動操作ではなくCLI連携。
+
+## V5：SERA設計知識ライブラリ（必須）
+design_library/seed.json は初期12件。設計原則4、構造・塗装参考6、失敗1、技術改善証拠1。装甲/関節/機構/センサー/推進器/塗装/接続/制作原則/失敗のカテゴリを持つ。完成品モデルの自動複製ではなく、機能・適用方法・検査項目・禁止事項・資料・限界・確認水準を保存する。referenceは参考、technical_evidenceは特定事例の技術的観測、failureは不採用知見、guidelineは制作ルール、candidateは未採用の知識候補。参考や技術改善を完成品承認と混同しない。
+
+- `python tools/parts_factory/design_knowledge.py list --slot head` で現行知識を表示。
+- `python tools/parts_factory/design_knowledge.py brief head "角張った 装甲 バイザー 関節" CONCEPT/design_brief.json` で部位適用可能な最新リビジョンを検索。スペース/読点で検索語を区切る。全必須ルール・失敗知見を常に含め、タグ/名称/説明への部分一致で参考を上位にする。候補知識は除外。参考件数は--limit（既定8）。意味検索や類似画像検索ではない。
+- concept受理時は、必須項目の欠落、旧版/不明な参照、内容ハッシュの改変を拒否。ライブラリの全文スナップショットを工程ハッシュに含める。受理後にライブラリが更新されても、進行中ジョブの過去の判断は勝手に変えない。最新規約の取り込みが必要ならconceptから再受理する。
+- planでは受理済みdesign_brief.jsonをバイト一致でdesign_brief_snapshot.jsonへコピー。structure_plan.jsonのknowledge_dispositionに全参照キー（例 JOINT-HOLLOW@1）を `{"decision":"applied|not_applicable|avoid","reason":"具体的理由"}` で記録。必須guidelineはapplied、failureはavoidまたは根拠付きnot_applicable。各componentへknowledge_refs（適用したID@revision配列）とoriginal_design_reasonを記載。少なくとも一つの参考を実部品へ対応させる。原画と知識が矛盾する場合は原画・最新ユーザー仕様を優先し理由を記録。失敗の形状を流用しない。
+- 既存モデスタのレシピ/テクスタのレイヤー関数を適切に選ぶための資料。自動形状注入、既存モデルの無断コピー、未検証の寸法・性能値の転用は行わない。部品別の設計図、実形状/塗装レビューは従来通り必要。
+- 学習候補: `design_knowledge.py learn WORK failure NEW-ID armor lesson.json --source WORK/rejections/<hash>.json --reason "具体的な再発防止理由"` または `learn WORK success NEW-ID paint lesson.json --reason "再利用できる技術と適用条件"`。成功は全承認かつストック整合を要求、失敗は実ジョブの拒否記録を要求。候補には元制作ID・成果物revision/レビューSHAまたは拒否SHA/内容を記録する。生成先はライブラリ外。自動昇格禁止。
+- キュレーション: 作者が候補の証拠・適用範囲・限界を確認し、design_library配下へ新しいJSON（format=SERA_DESIGN_LIBRARY_V5, entries=[...]）を追加してGitHubへコミット。seedと同じスキーマ（id,revision,category,state,slots,mandatory,title,tags,intent,application,checks,avoid,sources,limitations,review）。修正は同一IDのrevisionを増やし旧記録を保存。ID@revision重複は禁止。採用技術と作品承認は別。自動学習・自動承認・自動メッシュ生成は未実装。
+- 参考: Blender Studio modeling https://studio.blender.org/tools/artist-guide/asset-creation/modeling ; Adobe Texture Set settings https://experienceleague.adobe.com/en/docs/substance-3d-painter/using/interface/texture-set/texture-set-settings ; HONPINE hollow shaft actuator公式資料（seed内）。V5実ジョブ通し制作未実施。ゲーム・正本・無関係CI無変更。
