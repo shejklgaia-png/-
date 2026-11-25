@@ -39,7 +39,7 @@ def main():
             "limits":"Imported material batches are not separate mechanical solids. Hard-edge vertex splits affect manifold counts. Review excludes game shaders, outlines, animation and actual Android rendering."}
     (out/"blender_source.json").write_text(json.dumps(report,indent=2))
     bpy.ops.wm.save_as_mainfile(filepath=str(out/"crate_current.blend"))
-    render_views(objects,out,768,{}, {})
+    render_views(objects,out,768,{},{},{})
     print("CRATE production baseline render PASS",total)
 if __name__=="__main__":
     main()
