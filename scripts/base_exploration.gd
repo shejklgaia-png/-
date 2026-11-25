@@ -1670,6 +1670,7 @@ func _grid_sync_handles() -> void:
 
 
 func _grid_show_selected() -> void:
+    grid_ui.call("set_rated_overview", grid_draft.rated_overview())
     var code: String = grid_draft.selected_code()
     if not code.is_empty():
         grid_ui.call("show_node_description", code)
@@ -1886,6 +1887,7 @@ func _enter_grid_placement() -> void:
     _frame_budget.set_grid_zoomed(true)
     power_transition_busy = true
     hint.visible = false
+    grid_ui.call("set_rated_overview", grid_draft.rated_overview())
     grid_ui.call("set_edit", true, true)
     # One direct, uninterrupted approach to the 90° overhead view.
     # The camera never pauses at a midpoint or turns in separate phases.
