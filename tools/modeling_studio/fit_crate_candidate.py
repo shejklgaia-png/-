@@ -1,6 +1,7 @@
 """Reference-fitted CRATE candidate; never overwrites production or baseline."""
 import bpy
 import json
+import math
 import sys
 from pathlib import Path
 from mathutils import Matrix, Vector
@@ -57,15 +58,33 @@ def main():
     bpy.ops.wm.save_as_mainfile(filepath=str(out/"crate_candidate.blend"))
     bpy.ops.object.select_all(action="DESELECT")
     for obj in objects: obj.select_set(True)
-    bpy.ops.export_scene.gltf(filepath=str(out/"crate_candidate.glb"),export_format="GLB",use_selection=True,export_yup=True,export_animations=False)
+    # Restore Godot's production forward -Z only for V2 export; keep the
+    # Blender review orientation unchanged. V1 files remain comparable.
+    variant=(source/"variant_source.txt").is_file()
+    roots=[o for o in objects if o.parent is None]
+    saved={o.name:o.matrix_world.copy() for o in roots}
+    try:
+        if variant:
+            turn=Matrix.Rotation(math.pi,4,"Z")
+            for o in roots: o.matrix_world=turn@saved[o.name]
+            bpy.context.view_layer.update()
+        bpy.ops.export_scene.gltf(filepath=str(out/"crate_candidate.glb"),export_format="GLB",use_selection=True,export_yup=True,export_animations=False)
+    finally:
+        for o in roots: o.matrix_world=saved[o.name]
+        bpy.context.view_layer.update()
     render_views(objects,out,768,{},{},{})
     report={"format":"SERA_CRATE_PROPORTION_CANDIDATE_V1",
             "source_commit":(source/"source_commit.txt").read_text().strip(),
             "source_blob":(source/"source_blob.txt").read_text().strip(),
             "transforms":transforms,"triangles":sum(x["triangles"] for x in after),
             "reference":"クレート・コンパニオンロボット三面図.png",
-            "projected_estimate_iou":{"front":.80772,"right":.88374,"back":.83212},
+            "projected_estimate_iou":None if variant else {"front":.80772,"right":.88374,"back":.83212},
+            "variant":"local_detail_v2" if variant else "proportion_v1",
+            "godot_forward_restored":variant,
             "limits":"Estimated IoU from low-resolution group projection, not actual candidate render. Group scaling changes pivots and may alter articulation. No game replacement. Need actual image comparison and motion compatibility review."}
+    if variant:
+        report["variant_source_hash"]=(source/"variant_source.txt").read_text().strip()
+        report["limits"]="Local geometry differs from V1; no inherited IoU estimate. Joint scale and motion require review; no game replacement."
     (out/"candidate_report.json").write_text(json.dumps(report,indent=2,ensure_ascii=False))
 if __name__=="__main__":
     main()
