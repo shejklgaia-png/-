@@ -1,5 +1,5 @@
-# PARTS FACTORY（パーファク）V5 — 設計知識ライブラリ
-2026-11-25 Vesper V1失敗への是正。V1/V2/V3/V4のジョブは互換なし。旧データを破壊せず、新規V5作業ディレクトリに再登録する。単なる箱・円柱の組立を完成扱いしない。設計画が視覚的な正本。全身セットは先にセット全体のデザインを比較・確定し、その後6部位を独立制作する。ゲーム本体/既存モデル/無関係CIを変更しない。
+# PARTS FACTORY（パーファク）V6 — 制作と評価の役割分離
+2026-11-25 Vesper V1失敗への是正。V1/V2/V3/V4/V5のジョブは互換なし。旧データを破壊せず、新規V6作業ディレクトリに再登録する。単なる箱・円柱の組立を完成扱いしない。設計画が視覚的な正本。全身セットは先にセット全体のデザインを比較・確定し、その後6部位を独立制作する。ゲーム本体/既存モデル/無関係CIを変更しない。
 
 ## V3追加：設定画解析ブリッジ（必須）
 - `python -m pip install numpy opencv-python-headless` は解析専用環境に導入。ゲーム依存には追加しない。
@@ -7,7 +7,7 @@
 - `python tools/parts_factory/reference_bridge.py analyze <accepted_blueprint_dir> <calibration.json> <out>` → analysis.json、10方向正規化マスク/画像/既存モデスタstructure_analysisの領域・内部線・隣接・候補画像、multiview_partsの対応候補、断面包絡、対応ランドマークの3D最小二乗推定と残差。`factory.py accept <work> analysis <out> --producer ...`。曖昧な関連は候補のまま。矩形断面包絡は奥行きの上限の概算であり、正確な断面/凹部の復元ではない。
 - planにはanalysis.jsonの完全コピーをanalysis_snapshot.jsonとして同梱し、structure_plan.jsonへreference_sha256、ambiguity_resolution、section_strategy、componentsごとのanalysis_evidence（view,kind=region/line/landmark/section/inferred,reference,interpretation）を追加。design.jsonはreview_resolutionを一致させ、review_camerasのfront/right/back/left/top/bottomを共通target/ortho_scaleと固定directionで設定（それぞれ[0,-1,0],[1,0,0],[0,1,0],[-1,0,0],[0,0,1],[0,0,-1]）。roll/quaternion/カメラfit禁止。landmarksに解析点名を既存モデスタの{node,local}形式で割り当てる。
 - model許可にreference_sha256を付与。実制作ZIPのprojections.jsonも必ず保存。`reference_bridge.py compare <accepted_analysis_dir> <actual_model_dir> <out>` は実カメラとモデルの解析ハッシュを確認し6方向の輪郭IoU、不足/過剰ピクセル、最大距離、色分け重ね画像、ランドマーク投影残差、低IoU優先順位を出す。自動造形変更・自動審美評価はしない。
-- geometry受理フォルダにcomparison.jsonと6方向overlayをコピーし、geometry_review.jsonのoverlaysをそのパスと一致させ、reference_limits（各方向→{min_iou:0.5..1,reason}）、landmark_disposition、correction_priorityを追加。閾値は対象別の設計意図に基づき明記。不合格ならplanへ戻る（元図面不整合ならblueprint/analysisへ）。閾値の後付け緩和を合格理由にしない。V5ストックのみ新規セットに採用可。
+- geometry受理フォルダにcomparison.jsonと6方向overlayをコピーし、geometry_review.jsonのoverlaysをそのパスと一致させ、reference_limits（各方向→{min_iou:0.5..1,reason}）、landmark_disposition、correction_priorityを追加。閾値は対象別の設計意図に基づき明記。不合格ならplanへ戻る（元図面不整合ならblueprint/analysisへ）。閾値の後付け緩和を合格理由にしない。V6ストックのみ新規セットに採用可。
 - 参考: Blender orthographic cameras https://docs.blender.org/manual/en/3.5/render/cameras.html ; Laurentini visual hull https://ieeexplore.ieee.org/abstract/document/273735/ 。輪郭一致と見栄えを分けて評価する。
 
 ## 作業順（強制ゲート）
@@ -60,3 +60,16 @@ design_library/seed.json は初期12件。設計原則4、構造・塗装参考6
 - 学習候補: `design_knowledge.py learn WORK failure NEW-ID armor lesson.json --source WORK/rejections/<hash>.json --reason "具体的な再発防止理由"` または `learn WORK success NEW-ID paint lesson.json --reason "再利用できる技術と適用条件"`。成功は全承認かつストック整合を要求、失敗は実ジョブの拒否記録を要求。候補には元制作ID・成果物revision/レビューSHAまたは拒否SHA/内容を記録する。生成先はライブラリ外。自動昇格禁止。
 - キュレーション: 作者が候補の証拠・適用範囲・限界を確認し、design_library配下へ新しいJSON（format=SERA_DESIGN_LIBRARY_V5, entries=[...]）を追加してGitHubへコミット。seedと同じスキーマ（id,revision,category,state,slots,mandatory,title,tags,intent,application,checks,avoid,sources,limitations,review）。修正は同一IDのrevisionを増やし旧記録を保存。ID@revision重複は禁止。採用技術と作品承認は別。自動学習・自動承認・自動メッシュ生成は未実装。
 - 参考: Blender Studio modeling https://studio.blender.org/tools/artist-guide/asset-creation/modeling ; Adobe Texture Set settings https://experienceleague.adobe.com/en/docs/substance-3d-painter/using/interface/texture-set/texture-set-settings ; HONPINE hollow shaft actuator公式資料（seed内）。V5実ジョブ通し制作未実施。ゲーム・正本・無関係CI無変更。
+
+## V6：制作・評価コンテキストの分離（必須）
+制作担当: designer（concept/art/blueprint）、engineer（analysis/plan）、modeler（model/geometry）、texture_artist（uv/paint）、production_coordinator（review/viewer）、assembly_artist（set）。全工程の受理ディレクトリにauthor.jsonを置く。{"format":"SERA_PF_REVIEW_V6","stage":"geometry","role":"modeler","actor":"実担当ID","context_id":"実制作チャット/セッション識別子","kind":"ai"}（人ならhuman）。架空のセッションIDを発行して独立審査を装わない。
+
+- アートディレクター(art_director)：魅力、独自性、シルエット、プロポーション、意匠の主従、塗装の視認性を評価。
+- 技術監査(technical_auditor)：設計根拠、形状、接続、UV、実GLB、描画予算、実操作・配布などを評価。
+- art/blueprint/plan/geometry/paint/review/setは両方の承認必須。uv/viewerは技術監査必須。concept/analysis/modelは作者記録と既存の技術ゲート、後続で独立審査。既存自己評価・数値ゲートも維持し、独立レビューで上書きしない。
+- 作者は全成果物（自己レビューJSONを含む）を固定してから `python tools/parts_factory/review_roles.py packet WORK geometry SOURCE PACKET_ART --role art_director` および別ディレクトリへ `--role technical_auditor` を作る。setは `set-packet SOURCE PACKET --role ...`。allowlistに従って実画像・GLB・必要な上流資料/数値報告をコピーする。候補画はSHA順の匿名ファイル名とし、作者選定・自己採点JSONを含めない。構造計画のトップレベル自己評価情報も除去。素材自体に作者の説明等が残る可能性があるため完全匿名ではない。
+- 各担当は別チャット/独立コンテキストへそれぞれのPACKETのみ渡す。request.jsonと実証拠ファイルを確認、response_template.jsonを埋める。reviewer.actor/context_id/kindは実在する担当・実際の文脈IDを記録。独立性を確認した場合だけindependent_context_attested=true。verdict=approve/reject/unverified。全criteriaのscore(1..5)、具体的reason、evidence（requestのpacket内相対パス）、blocking_issues、revision_adviceを記載。artは承認時に選んだ候補画像のSHAを記載。別の案を選んだ場合、作者選定と合わなければ再審査。承認には全項目4以上かつ阻害要因0。未確認はunverified。レビュー時に作者や他評価者の採点を見ない。
+- 回収した応答をSOURCE/independent_reviews/art_director.json、technical_auditor.jsonへ置き、factory.py acceptで既存チェックと独立審査を同時適用。各応答は候補一式・上流revision・パケット証拠SHAと紐付く。作者/上流制作担当/他審査者とのactor・context ID重複を拒否する。変更後は旧応答を使えない。setも承認済6部位GLBと作者記録を参照する。
+- 不合格/未確認時は `review_roles.py veto WORK STAGE SOURCE` で未受理候補の評価をreview_vetoesへ保存。両審査が必要な段階では両方の応答を揃える。明示rejectがある場合、同じ上流・同じ公開証拠の再承認を拒否する（記録済vetoのみ）。既存factory rejectと併用して根本工程へ戻る。未確認は追加確認により再評価可能。status/handoffで役割、未完了工程、veto履歴を確認できる。ストックへvetoを保存。
+- 技術境界：別AIや別チャットの自動起動は未接続。名前・context ID・独立性は申告と運用に依存し、署名・認証・別モデル強制ではない。独立審査の実行が不可能なら承認を捏造せず未完了とする。評価の正しさ・審美性は自動保証しない。V6実制作・実行検証は未実施。
+- 参考: Blender Studio review/approval https://studio.blender.org/blog/asset-pipeline-update-2022/ ; Kitsu role workflow https://studio.blender.org/tools/pipeline/operations/kitsu ; NASA dual-anonymous review https://science.nasa.gov/researchers/dual-anonymous-peer-review/ 。制作・承認の分離と、先入観を減らすための証拠中心の審査に応用。異分野の審査結果をゲーム品質の保証に使わない。
