@@ -29,8 +29,11 @@ static func _model(mesh: ArrayMesh, image: Image) -> Dictionary:
             var uv: Vector2 = coords[index]
             if not p.is_finite() or not uv.is_finite():
                 return {}
-            positions.append_array([p.x,p.y,p.z])
-            uvs.append_array([uv.x,uv.y])
+            positions.append(p.x)
+            positions.append(p.y)
+            positions.append(p.z)
+            uvs.append(uv.x)
+            uvs.append(uv.y)
     var png: PackedByteArray = image.save_png_to_buffer()
     if positions.is_empty() or png.is_empty():
         return {}
@@ -42,7 +45,7 @@ static func write(path: String, label: String, before_mesh: ArrayMesh, before_im
     if before.is_empty() or after.is_empty():
         return ERR_INVALID_DATA
     # Escape opening tags so an authored name cannot close the JSON element.
-    var payload: String = JSON.stringify({"label":label,"models":[before,after]}).replace("<","\\u003c")
+    var payload: String = JSON.stringify({"label":label,"models":[before,after]},"",true,true).replace("<","\\u003c")
     var file := FileAccess.open(path,FileAccess.WRITE)
     if file == null:
         return FileAccess.get_open_error()
