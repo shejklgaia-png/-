@@ -158,3 +158,10 @@ shape: wireframe を部品に指定。wireframe_example.json が動作確認用�
 - structure_metrics.py output_directory は既知の3部品ラベルと照明勾配を持つ合成評価図でV1/V2を比較。任意の独立16bitラベルマップは structure_metrics.py evaluation.json --truth truth.png --prediction labels.png で評価。ペア適合率（誤統合）、ペア再現率（過分割・未割当）、F1、部品別best IoU、背景誤検出を出力。best IoUは1対1対応ではない。実設定画の正解ラベルは別途必要。
 - 専用制作経路で正面/右/背面/斜めの実Blender画像についてV1/V2を同一入力で比較し、合成正解ラベル評価も成果物に含める。全候補は未承認のまま。V2も明示レビューhandoffに対応。ゲームモデルは変更しない。
 参考: https://docs.opencv.org/4.x/d3/dc0/group__imgproc__shape.html / https://scikit-image.org/docs/stable/auto_examples/segmentation/plot_metrics.html
+
+## 設定画解析 V3：実モデル部品IDと保護付き閾値探索
+- part_id_review.py は保存済みmodel.blendの実メッシュからBVHを構築し、projections.jsonの正投影カメラの各画素中心光線で最前面オブジェクトIDを求める。正面・右・背面・斜めの独立正解マスクとID対応表を出力。アンチエイリアスや透過は再現せず、メッシュ単位を正解とする。
+- structure_calibration.py は実レンダリングのαマスクとIDマスクのIoUが0.97以上であることを確認。正面・右のみでV2既定値を含む17候補を探索し、適合率・部品IoU・F1の悪化許容範囲を制限して選択。背面と斜めは選択後に評価。結果は同一モデル内の別視点であり別モデルへの汎化評価ではない。
+- 選択値・全候補の比較・V1/V2/候補の実モデル評価・ID画像・領域画像・曲線候補を出力。V1円候補を保持するが機械的意味は未承認。ホールドアウト悪化時はV2既定値維持と記録。既定値は自動変更しない。反復構造の認識は未実装。
+- modeling/structure-analysis-v3-* の専用制作経路で実行し、既存成果物ハッシュに含める。Android実機負荷・クレート設定画への適用は別途。
+参考: https://docs.blender.org/api/current/mathutils.bvhtree.html / https://scikit-image.org/docs/stable/auto_examples/segmentation/plot_metrics.html
