@@ -1,0 +1,140 @@
+{
+  "format": "SERA_MOTION_LAB_V1",
+  "fps": 60,
+  "end_frame": 121,
+  "parts": [
+    {
+      "id": "root",
+      "location": [
+        0,
+        0,
+        0.15
+      ]
+    },
+    {
+      "id": "payload",
+      "parent": "root",
+      "size": [
+        0.6,
+        0.4,
+        0.3
+      ],
+      "rgb": [
+        0.7,
+        0.5,
+        0.2
+      ]
+    }
+  ],
+  "tracks": {
+    "root": {
+      "location": [
+        {
+          "frame": 1,
+          "value": [
+            0,
+            0,
+            0.15
+          ]
+        },
+        {
+          "frame": 25,
+          "value": [
+            0.2,
+            0,
+            0.35
+          ]
+        },
+        {
+          "frame": 61,
+          "value": [
+            0.5,
+            0,
+            0.03
+          ]
+        },
+        {
+          "frame": 97,
+          "value": [
+            0.8,
+            0,
+            0.35
+          ]
+        },
+        {
+          "frame": 121,
+          "value": [
+            1,
+            0,
+            0.15
+          ]
+        }
+      ]
+    }
+  },
+  "markers": {
+    "sole": {
+      "node": "payload",
+      "local": [
+        0,
+        0,
+        -0.15
+      ]
+    }
+  },
+  "contacts": [
+    {
+      "marker": "sole",
+      "frames": [
+        1,
+        1
+      ],
+      "target": [
+        0,
+        0,
+        0
+      ],
+      "tolerance_m": 0.002
+    },
+    {
+      "marker": "sole",
+      "frames": [
+        121,
+        121
+      ],
+      "target": [
+        1,
+        0,
+        0
+      ],
+      "tolerance_m": 0.002
+    }
+  ],
+  "require_contacts": true,
+  "spatial": {
+    "floor": {
+      "z": 0,
+      "tolerance_m": 0.002,
+      "meshes": [
+        "payload"
+      ]
+    }
+  },
+  "optimize": {
+    "root": "root",
+    "max_lift_m": 0.2,
+    "require_improvement": true
+  },
+  "review": {
+    "target": [
+      0.5,
+      0,
+      0.25
+    ],
+    "scale": 2.5
+  },
+  "events": {
+    "lowest_authored_pose": 61
+  },
+  "roundtrip_tolerance_m": 0.002
+}
