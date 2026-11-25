@@ -1,0 +1,90 @@
+{
+  "format": "SERA_MOTION_LAB_V1",
+  "source_bbmodel": "models/bosses/Bittaran.bbmodel",
+  "bb_unit_m": 0.145,
+  "fps": 60,
+  "end_frame": 154,
+  "tracks": {},
+  "markers": {
+    "Body": {
+      "node": "a5760e7c-7b7a-2f1b-786b-7b49fe981d28",
+      "local": [
+        0,
+        0,
+        0
+      ]
+    },
+    "Head": {
+      "node": "348b6623-ba71-b4b5-958a-5f3ce1bf9a05",
+      "local": [
+        0,
+        0,
+        0
+      ]
+    },
+    "FrontLeg_L": {
+      "node": "452934e7-122c-205e-7b0b-4b638c2b633d",
+      "local": [
+        0,
+        0,
+        0
+      ]
+    },
+    "FrontLowerLeg_L": {
+      "node": "bd5d90cf-5893-77b8-e01b-6673f242da40",
+      "local": [
+        0,
+        0,
+        0
+      ]
+    },
+    "FrontFoot_L": {
+      "node": "8b340000-0000-4000-8000-000000000002",
+      "local": [
+        0,
+        0,
+        0
+      ]
+    },
+    "FrontFoot_R": {
+      "node": "8b340000-0000-4000-8000-000000000001",
+      "local": [
+        0,
+        0,
+        0
+      ]
+    },
+    "RearFoot_L": {
+      "node": "ed084c2d-5f2e-2efe-2aa0-a18c69aecc0c",
+      "local": [
+        0,
+        0,
+        0
+      ]
+    },
+    "RearFoot_R": {
+      "node": "2201984b-aab1-afb1-10bd-65d9f5a1479d",
+      "local": [
+        0,
+        0,
+        0
+      ]
+    }
+  },
+  "events": {},
+  "bb_clip": {
+    "name": "踏みつけ_L",
+    "mode": "baseline",
+    "entry_frames": 24,
+    "exit_frames": 24
+  },
+  "review": {
+    "target": [
+      0,
+      0,
+      1.35
+    ],
+    "scale": 8.8
+  },
+  "roundtrip_tolerance_m": 0.002
+}
