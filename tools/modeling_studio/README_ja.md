@@ -262,3 +262,10 @@ shape: wireframe を部品に指定。wireframe_example.json が動作確認用�
 - 6種類の組合せと、最良再設計候補を起点とした4種類の異なる寸法再試行。80離散姿勢、露出、階層、トポロジー、三角形上限を検査。輪郭は参考値のみ。接触の免除、可動範囲の縮小を行わない。再設計候補と基準を含む技術ガード合格候補を別保存し、外観は別途実画像で確認する。
 - 調査資料：Harmonic Drive FHA Mini https://www.harmonicdrive.net/products/miniature-products/miniature-actuators/fha-mini 、Cat足回り https://www.cat.com/en_US/products/new/parts/undercarriage/undercarriage-compact-track-multi-terrain-loaders.html 、張力調整部 https://parts.cat.com/en/catcorp/product/560-6422 。資料の寸法を転用せず、架空機械の形状と部品構成に反映。
 - 全10候補の実GLB・HTML・多方向レンダー・arm_pair_review.json・寸法設定を保存。ゲームモデルは未置換。
+
+## 10回反復制作 V7：V6独立案の修復・詳細化
+- iteration_mode=true / assembly_repair_mode=true、または modeling/crate-blockout-loop-v7-* で実行。V6 10_assembly10の寸法・構造を再現し、中空履帯と胴体寄りの肩を維持する。V5へ戻さない。
+- V6の実データでは首旋回・傾斜時にHeadと左右の肩固定フランジに新規接触候補。腕では下爪と履帯に集中。首支持台と軸の高さ、フランジ径、肘支持フォークと段付きカバー、前腕装甲、下爪、面取り履帯片、内側ガイドと溝付き車輪、車体支持ブリッジとスキッドプレートを順に試す。
+- neck_pair_review.jsonに首の関節別・姿勢別表面干渉ペアを記録。首と腕の候補悪化を保護し、全関節の候補とメッシュ品質も評価。輪郭一致は参考のみ。可動範囲縮小、干渉免除なし。数値改善とガード付き詳細化探索を区別し、全体最良と探索候補を別保存。
+- 履帯片は既存の等間隔経路から面取り断面を直接生成する。内側ガイドと溝付き車輪は造形仮説であり、実際の張力・駆動・荷重評価ではない。姿勢は16関節×5サンプル、連続衝突や複合関節姿勢は未保証。既存ゲームモデルは未置換。
+- 外部資料：Harmonic Drive FHA Mini https://www.harmonicdrive.net/products/miniature-products/miniature-actuators/fha-mini 、igus関節部品 https://www.igus.com/robot-components 、Cat履帯パターン https://www.cat.com/en_US/support/maintenance/undercarriage/rubber-track/selection-guide.html 、Cat鋼芯入り履帯 https://www.cat.com/en_US/blog/rubber-tracks-for-cat-equipment.html 。形状と寸法は作者が補完し、各候補に根拠URLを記録する。
