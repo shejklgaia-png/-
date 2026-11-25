@@ -247,24 +247,29 @@
         0,
         0.78
       ],
-      "cuts": [
-        {
-          "shape": "box",
-          "size": [
-            0.64,
-            0.2,
-            0.25
-          ],
-          "location": [
-            0,
-            -0.32,
-            0.02
-          ],
-          "bevel": 0
-        }
-      ],
       "material": "armor",
-      "bevel": 0.025
+      "bevel": 0,
+      "refinements": {
+        "3": {
+          "cuts": [
+            {
+              "shape": "box",
+              "size": [
+                0.64,
+                0.2,
+                0.25
+              ],
+              "location": [
+                0,
+                -0.32,
+                0.02
+              ],
+              "bevel": 0
+            }
+          ],
+          "bevel": 0.025
+        }
+      }
     },
     {
       "name": "ArmPivot",
