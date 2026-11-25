@@ -275,3 +275,12 @@ shape: wireframe を部品に指定。wireframe_example.json が動作確認用�
 - 10試行：履帯片の中間断面削減、内側ガイドの微小面取り省略、溝付き転輪の20→16分割、車体支持ブリッジ/底面保護、胸部装甲の段差と広い面、肩下部補強、固定首外装のテーパー、収納上端の傾斜、手首と前腕の連動調整、下爪の輪郭/パッド調整。
 - 履帯片は閉じた面構成と外周の面取り輪郭を保つ直接再構築。全候補の実メッシュ三角形数、干渉、可視性、階層、トポロジーを検査し、基準からの削減量を記録する。80離散姿勢、輪郭は参考値、干渉免除なし。技術評価上の選択と造形探索候補を別保存し、視覚承認は実レンダリングで行う。軽量化による実機速度改善は未保証。
 - 参考資料：Blender Decimate https://docs.blender.org/manual/en/5.0/modeling/modifiers/generate/decimate.html 、Cat足回り支持構造公開特許 https://patents.google.com/patent/US20090321152A1/en 、産業用ロボットの筐体/補強構造 https://patents.google.com/patent/US10933540B2/ja 。実製品の寸法や機構を再現せず、造形の構造とポリゴン配分に反映。ゲーム本体は未置換。
+
+## 恒久制作原則：接続状態と表面情報
+- モデスタは実際の厚み・外形・可動・支持・開口・大きな装甲形状を作り、パネルライン、浅い溝、小さな固定具、マーキング、表面陰影は原則テクスタの面別描画/ベイクで表現する。必要な物理部品の例外は設計意図を記録する。
+- attachment_checks に部品名 part、意図した支持部品 support、許容隙間 max_gap_m、必要に応じ each_island と expected_islands を記録する。Blender評価メッシュのBVH表面重なりまたは両方向頂点から表面への近接を測定し attachment_review.json を生成。近接サンプルは厳密な最短距離ではなく中立姿勢の診断であり、荷重・接着・動作の証明ではない。干渉検査とは別で、免除は行わない。
+- texture_handoff に元の表面装飾形状と描画先を記録し texture_handoff.json として出力する。これは未塗装の引き継ぎで、UV/テクスチャ生成自体ではない。
+## CRATE V9 接続修正
+- modeling/crate-blockout-attachment-* でV8 10_claw_clearanceを再現し、履帯側面カバー支持ボス、転輪軸、端部軸受支持、リムの接続位置を修正。履帯片・内側ガイドを各島単位でチェックする。
+- 頭部側面・胸部の浅いパネル凹部を元の主形状に戻し、細線・固定具をテクスチャ引き継ぎに移す。中空履帯、バイザー開口、主要カバー、関節を維持。単発の問題修正制作として実モデル・HTMLと監査結果を保存し、監査不合格時にも成果物を残す。
+- 資料: Cat track roller frame https://parts.cat.com/en/catcorp/product/654-4447 ; Blender baking https://docs.blender.org/manual/en/4.5/render/cycles/baking.html 。ゲーム本体、テクスタ実装、既存ゲームCIは変更しない。

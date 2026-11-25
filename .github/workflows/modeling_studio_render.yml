@@ -69,7 +69,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: ${{ (inputs.iteration_mode == true || startsWith(github.head_ref, 'modeling/crate-blockout-loop-')) && 120 || 25 }}
     env:
-      DESIGN: ${{ ((inputs.iteration_mode == true || startsWith(github.head_ref, 'modeling/crate-blockout-loop-')) && 'tools/modeling_studio/crate_blockout_v10.json') || inputs.design || (startsWith(github.head_ref, 'modeling/crate-blockout-v10-') && 'tools/modeling_studio/crate_blockout_v10.json') || (startsWith(github.head_ref, 'modeling/crate-blockout-v9-') && 'tools/modeling_studio/crate_blockout_v9.json') || (startsWith(github.head_ref, 'modeling/crate-blockout-v8-') && 'tools/modeling_studio/crate_blockout_v8.json') || (startsWith(github.head_ref, 'modeling/crate-blockout-') && 'tools/modeling_studio/crate_blockout_v7.json') || (startsWith(github.head_ref, 'modeling/structure-analysis-v6-') && 'tools/modeling_studio/mechanism_crate_study.json') || (startsWith(github.head_ref, 'modeling/structure-analysis-') && 'tools/modeling_studio/hard_surface_example.json') || (startsWith(github.head_ref, 'modeling/hard-surface-') && 'tools/modeling_studio/hard_surface_example.json') || (startsWith(github.head_ref, 'modeling/wireframe-guides-') && 'tools/modeling_studio/wireframe_example.json') || (startsWith(github.head_ref, 'modeling/crate-threeview-refine-v2-') && 'tools/modeling_studio/crate_threeview_v2.json') || (startsWith(github.head_ref, 'modeling/crate-threeview-') && 'tools/modeling_studio/crate_threeview_v1.json') || 'tools/modeling_studio/example.json' }}
+      DESIGN: ${{ (startsWith(github.head_ref, 'modeling/crate-blockout-attachment-') && 'tools/modeling_studio/crate_blockout_v10.json') || ((inputs.iteration_mode == true || startsWith(github.head_ref, 'modeling/crate-blockout-loop-')) && 'tools/modeling_studio/crate_blockout_v10.json') || inputs.design || (startsWith(github.head_ref, 'modeling/crate-blockout-v10-') && 'tools/modeling_studio/crate_blockout_v10.json') || (startsWith(github.head_ref, 'modeling/crate-blockout-v9-') && 'tools/modeling_studio/crate_blockout_v9.json') || (startsWith(github.head_ref, 'modeling/crate-blockout-v8-') && 'tools/modeling_studio/crate_blockout_v8.json') || (startsWith(github.head_ref, 'modeling/crate-blockout-') && 'tools/modeling_studio/crate_blockout_v7.json') || (startsWith(github.head_ref, 'modeling/structure-analysis-v6-') && 'tools/modeling_studio/mechanism_crate_study.json') || (startsWith(github.head_ref, 'modeling/structure-analysis-') && 'tools/modeling_studio/hard_surface_example.json') || (startsWith(github.head_ref, 'modeling/hard-surface-') && 'tools/modeling_studio/hard_surface_example.json') || (startsWith(github.head_ref, 'modeling/wireframe-guides-') && 'tools/modeling_studio/wireframe_example.json') || (startsWith(github.head_ref, 'modeling/crate-threeview-refine-v2-') && 'tools/modeling_studio/crate_threeview_v2.json') || (startsWith(github.head_ref, 'modeling/crate-threeview-') && 'tools/modeling_studio/crate_threeview_v1.json') || 'tools/modeling_studio/example.json' }}
       STRUCTURAL_MODE: ${{ startsWith(github.head_ref, 'modeling/crate-blockout-loop-v2-') || (inputs.iteration_mode == true && inputs.structural_mode == true) }}
       REFERENCE_DESIGN_MODE: ${{ startsWith(github.head_ref, 'modeling/crate-blockout-loop-v3-') || (inputs.iteration_mode == true && inputs.structural_mode == true && inputs.reference_design_mode == true) }}
       INDUSTRIAL_DESIGN_MODE: ${{ startsWith(github.head_ref, 'modeling/crate-blockout-loop-v4-') || (inputs.iteration_mode == true && inputs.structural_mode == true && inputs.reference_design_mode == true && inputs.industrial_design_mode == true) }}
@@ -77,6 +77,7 @@ jobs:
       SHOULDER_TRACK_MODE: ${{ startsWith(github.head_ref, 'modeling/crate-blockout-loop-v6-') || (inputs.iteration_mode == true && inputs.shoulder_track_mode == true) }}
       ASSEMBLY_REPAIR_MODE: ${{ startsWith(github.head_ref, 'modeling/crate-blockout-loop-v7-') || (inputs.iteration_mode == true && inputs.assembly_repair_mode == true) }}
       BUDGET_REPAIR_MODE: ${{ startsWith(github.head_ref, 'modeling/crate-blockout-loop-v8-') || (inputs.iteration_mode == true && inputs.budget_repair_mode == true) }}
+      ATTACHMENT_MODE: ${{ startsWith(github.head_ref, 'modeling/crate-blockout-attachment-') }}
       REFERENCE_MANIFEST: ${{ inputs.reference_manifest || '' }}
     steps:
       - uses: actions/checkout@v4
@@ -128,7 +129,11 @@ jobs:
           design=$(realpath -- "$DESIGN")
           root=$(realpath tools/modeling_studio)
           [[ "$design" == "$root/"*.json && -f "$design" ]]
-          if [[ "$BUDGET_REPAIR_MODE" == true ]]; then
+          if [[ "$ATTACHMENT_MODE" == true ]]; then
+            "$RUNNER_TEMP/review-venv/bin/pip" install numpy==2.2.6
+            "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/attachment_repair.py "$design" "$RUNNER_TEMP/crate-attachment-seed.json"
+            design="$RUNNER_TEMP/crate-attachment-seed.json"
+          elif [[ "$BUDGET_REPAIR_MODE" == true ]]; then
             "$RUNNER_TEMP/review-venv/bin/pip" install numpy==2.2.6
             "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/budget_repair.py prepare "$design" "$RUNNER_TEMP/crate-v8-seed.json"
             design="$RUNNER_TEMP/crate-v8-seed.json"
@@ -242,6 +247,14 @@ jobs:
         if: inputs.iteration_mode == true || startsWith(github.head_ref, 'modeling/crate-blockout-')
         run: |
           "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/blockout_review.py "$RUNNER_TEMP/sera-model"
+      - name: Create attachment repair HTML and report
+        if: env.ATTACHMENT_MODE == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/review-venv/bin/python" -c 'import sys; sys.path.insert(0,"tools/modeling_studio"); from offline_viewer import make_viewer; make_viewer(sys.argv[1])' "$RUNNER_TEMP/sera-model"
+          test -s "$RUNNER_TEMP/sera-model/attachment_review.json"
+          test -s "$RUNNER_TEMP/sera-model/texture_handoff.json"
       - name: Prepare review bundle
         shell: bash
         run: |
@@ -262,6 +275,9 @@ jobs:
           path: ${{ runner.temp }}/sera-model/
           if-no-files-found: error
           retention-days: 14
+      - name: Verify attachment audit result after artifact upload
+        if: env.ATTACHMENT_MODE == 'true'
+        run: python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); print(json.dumps(r,indent=2)); sys.exit(0 if r["all_passed"] else 1)' "$RUNNER_TEMP/sera-model/attachment_review.json"
       - name: Run ten feedback-prioritized modeling iterations
         if: inputs.iteration_mode == true || startsWith(github.head_ref, 'modeling/crate-blockout-loop-')
         shell: bash

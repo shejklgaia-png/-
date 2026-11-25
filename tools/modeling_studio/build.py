@@ -499,6 +499,11 @@ def main():
     if spec.get('visibility_checks'):
         visibility = review_visibility(spec['visibility_checks'])
         (out/'visibility_review.json').write_text(json.dumps(visibility,indent=2),encoding='utf-8')
+    if spec.get('attachment_checks'):
+        from attachment_review import review as review_attachments
+        review_attachments(objects,spec['attachment_checks'],out)
+    if spec.get('texture_handoff'):
+        (out/'texture_handoff.json').write_text(json.dumps(spec['texture_handoff'],indent=2),encoding='utf-8')
     report = mesh_report(objects)
     interference = mesh_interference(objects,spec.get("intentional_overlaps",[]))
     motion = motion_review(objects,spec.get("motion_sweeps",[]),spec.get("intentional_overlaps",[]))
