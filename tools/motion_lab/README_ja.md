@@ -114,3 +114,8 @@ V18 GLBの実メッシュ形状を用いた独立SciPyプレビューを生成�
 
 ## V23: 成功事例の標準化と着地固定
 標準制作フロー・考え方・資料・V22評価とV23実験は [SUCCESS_WORKFLOW_V22_ja.md](SUCCESS_WORKFLOW_V22_ja.md) を参照。`bittaran_fk_v23.json` はV22のFKキーを保持し、`contact_policy=post_impact_v23` で75〜92Fのみ攻撃脚の接地を追加。別出力で `--preview-ik`。独立ビューワーで比較済み。ゲーム原本・既存CI未変更。
+
+## V24: 重量級踏みつけ・着地後の跳ね返り禁止
+重い機械生命体では着地時の衝撃を攻撃脚の跳ね返りではなく、胴体・支持脚の圧縮と遅延反動で表現する。V22のFK、振りかぶり、胴体、頭部、支持3脚の原本を維持。V23の着地IK解除で攻撃脚が浮く問題に対し、heavy_landing.pyで攻撃脚の着地以降の回転のみを独立ベイクする。着地75F→意図的戻し開始102Fまで27区間・0.45秒固定、102→124Fは単一の低い戻し（暫定最大7.5cm、2.2秒/133Fの尺維持）、124→133Fは基本接地を維持。実足裏最低頂点を基準にし、水平移動は五次smoothstep、垂直は64u^3(1-u)^3、足向きはSLERP。両端速度・加速度0の目標軌道。既存の解析二リンクIKをオフラインの接地/戻し軌道作成だけに使用、実行時支持IKは三脚のみ。到達残差または固定誤差5mm超は出力拒否。heavy_landing_report.jsonに全サンプルを記録。既存ゲームモーション未置換。
+`blender -b --python-exit-code 1 --python tools/motion_lab/build.py -- tools/motion_lab/bittaran_fk_v24.json /tmp/mlab_v24 --variant chain`、別出力で `--preview-ik`。
+実形状を用いる独立SciPy比較で戻し高さ4.5/7.5/10cmを検査。7.5cm案では接地固定中の高さ・水平移動は数値誤差、戻し水平距離0.57946m、足上昇4.10760m維持、最大床突出IK後0.0005972m、終端メッシュ差は数値誤差。戻し高さ・尺は暫定。V23との実HTML比較で3方向×6主要フレーム×2案=36枚、通常/半速再生、IK切替、JSエラー0を確認。圧縮と回復中の攻撃脚浮きを解消、胴体の反動は維持。独立プレビューでありBlender/Godot直接出力、Android、連続衝突・物理可動限界は未確認。参考: https://research.cs.wisc.edu/graphics/Gallery/kovar.vol/Cleanup/ ; https://github.khronos.org/Vulkan-Site/tutorial/latest/Advanced_glTF/Procedural_Animation_IK/04_foot_placement.html
