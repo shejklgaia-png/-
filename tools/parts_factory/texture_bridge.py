@@ -97,13 +97,62 @@ def bake(uvdir,planpath,out):
         "layout_sha256":uv["layout_sha256"],"mesh_sha256":uv["mesh_sha256"],"surface_plan_sha256":f.digest(out/"surface_plan.json"),
         "textures":textures,"reports":reports,"visual_approval":"pending","tool":"Texture Studio ai_pipeline"})
 
+
+def export(work,handoff,uvdir,out,blender,baked=None,size=1024):
+    import struct,io
+    from PIL import Image,ImageChops
+    d=f.state(work);valid,_=f.verify(work,d)
+    q.need("geometry" in valid,"geometry approval required")
+    h=f.read(handoff/"handoff.json")
+    q.need(h["id"]==d["id"] and h["geometry_key"]==d["stages"]["geometry"]["key"],"stale handoff")
+    model=work/"objects"/d["stages"]["model"]["key"]
+    q.need(h["source_blend_sha256"]==d["stages"]["model"]["files"]["model.blend"],"source mismatch")
+    args=[blender,"-b",str(model/"model.blend"),"--python-exit-code","1","--python",str(Path(__file__).with_name("blender_texture.py")),"--","apply",str(handoff),str(uvdir),str(out)]
+    if baked:
+        q.need("uv" in valid,"accepted UV required for paint export")
+        q.need(f.digest(uvdir/"uv_layout.json")==d["stages"]["uv"]["files"]["uv_layout.json"] and f.digest(uvdir/"uv_metrics.json")==d["stages"]["uv"]["files"]["uv_metrics.json"],"unaccepted UV revision")
+        atlas=baked/f"texture_{size}.png"
+        args.append(str(atlas))
+    subprocess.run(args,check=True)
+    if not baked:
+        for name in ("face_geometry.json","handoff.json"):shutil.copy2(handoff/name,out/name)
+        for name in ("uv_layout.json","uv_metrics.json","mesh.json"):shutil.copy2(uvdir/name,out/name)
+        f.write(out/"uv.json",{"method":"AI_MANUAL_FACE","source_glb_sha256":h["source_glb_sha256"],"reviewer":"","rubric":{}})
+        return
+    for name in ("bake_manifest.json","surface_plan.json","texture_512.png","texture_1024.png","texture_2048.png"):shutil.copy2(baked/name,out/name)
+    for n in (512,1024,2048):
+        (out/str(n)).mkdir();shutil.copy2(baked/str(n)/"report.json",out/str(n)/"report.json")
+    glb=out/"model.glb";g=f.glb(glb)
+    with glb.open("rb") as z:
+        z.seek(12);ln,kind=struct.unpack("<I4s",z.read(8));z.seek(ln,1)
+        sizebin,kind=struct.unpack("<I4s",z.read(8));q.need(kind==b"BIN\x00","missing binary chunk")
+        binary=z.read(sizebin)
+    ref=Image.open(atlas).convert("RGB");used=set()
+    for mesh in g["meshes"]:
+        for prim in mesh["primitives"]:
+            q.need("TEXCOORD_0" in prim["attributes"],"missing UV")
+            info=g["materials"][prim["material"]]["pbrMetallicRoughness"]["baseColorTexture"]
+            q.need(info.get("texCoord",0)==0 and not info.get("extensions"),"unsupported UV transform")
+            used.add(g["textures"][info["index"]]["source"])
+    q.need(bool(used),"no textured primitives")
+    for idx in used:
+        image=g["images"][idx];v=g["bufferViews"][image["bufferView"]]
+        q.need(v["buffer"]==0,"external image")
+        start=v.get("byteOffset",0);raw=binary[start:start+v["byteLength"]]
+        actual=Image.open(io.BytesIO(raw)).convert("RGB")
+        q.need(actual.size==ref.size and ImageChops.difference(actual,ref).getbbox() is None,"embedded pixels differ")
+    f.write(out/"embedded_review.json",{"format":"SERA_PF_EMBEDDED_REVIEW_V4","glb_sha256":f.digest(glb),"atlas_sha256":f.digest(atlas),"all_primitives_match":True,"images":len(used)})
+    f.write(out/"paint.json",{"source_uv_glb_sha256":d["stages"]["uv"]["files"]["uv_model.glb"],"painted_glb_sha256":f.digest(glb),"reviewer":"","rubric":{}})
+
 def main():
     p=argparse.ArgumentParser(description=__doc__);s=p.add_subparsers(dest="cmd",required=True)
     a=s.add_parser("prepare");a.add_argument("work",type=Path);a.add_argument("out",type=Path);a.add_argument("--blender",default="blender")
     a=s.add_parser("validate");a.add_argument("handoff",type=Path);a.add_argument("layout",type=Path);a.add_argument("out",type=Path)
     a=s.add_parser("bake");a.add_argument("uv",type=Path);a.add_argument("plan",type=Path);a.add_argument("out",type=Path)
+    a=s.add_parser("export");a.add_argument("work",type=Path);a.add_argument("handoff",type=Path);a.add_argument("uv",type=Path);a.add_argument("out",type=Path);a.add_argument("--blender",default="blender");a.add_argument("--baked",type=Path);a.add_argument("--size",type=int,choices=(512,1024,2048),default=1024)
     a=p.parse_args()
-    if a.cmd=="prepare":prepare(a.work.resolve(),a.out.resolve(),a.blender)
+    if a.cmd=="export":export(a.work.resolve(),a.handoff.resolve(),a.uv.resolve(),a.out.resolve(),a.blender,a.baked.resolve() if a.baked else None,a.size)
+    elif a.cmd=="prepare":prepare(a.work.resolve(),a.out.resolve(),a.blender)
     elif a.cmd=="validate":validate(a.handoff.resolve(),a.layout.resolve(),a.out.resolve())
     else:bake(a.uv.resolve(),a.plan.resolve(),a.out.resolve())
 if __name__=="__main__":main()
