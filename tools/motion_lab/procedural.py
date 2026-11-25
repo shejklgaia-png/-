@@ -79,6 +79,23 @@ def plan(action,root,feet,forward,span,strike,performance=False):
         add(.53,"down_hold",root+Vector((0,0,-.10*span)),tilt=math.radians(7),nod=5.)
         add(.78,"rise",root+Vector((0,0,-.035*span)),tilt=math.radians(2),nod=2.)
         add(1.,"recovered")
+    if performance and action=="sweep":
+        # Add intermediate world-space goals, preserving the broad swing and
+        # preventing Euler interpolation from twisting planted support chains.
+        expanded=[]
+        for a,b in zip(keys,keys[1:]):
+            expanded.append(a)
+            if (a["event"],b["event"]) in (("hold_end","sweep_pass"),("sweep_pass","impact")):
+                for j in (1,2):
+                    u=j/3
+                    def blend(x,y):return x+(y-x)*u
+                    expanded.append(dict(t=blend(a["t"],b["t"]),event=f'{b["event"]}_approach_{j}',
+                        body=blend(a["body"],b["body"]),feet={n:blend(a["feet"][n],b["feet"][n]) for n in ROLES},
+                        support=[n for n in ROLES if n in a["support"] and n in b["support"]],
+                        yaw=blend(a["yaw"],b["yaw"]),tilt=blend(a["tilt"],b["tilt"]),head=blend(a["head"],b["head"]),
+                        foot_yaws={n:blend(a["foot_yaws"][n],b["foot_yaws"][n]) for n in ROLES},
+                        foot_pitch=blend(a["foot_pitch"],b["foot_pitch"])))
+        expanded.append(keys[-1]);keys=expanded
     return keys
 
 def compile_procedural(d,nodes,end,out):
