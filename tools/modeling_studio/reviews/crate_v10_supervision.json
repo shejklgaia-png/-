@@ -1,0 +1,84 @@
+{
+  "format": "SERA_STAGED_MODEL_REVIEW_V1",
+  "asset": "CRATE",
+  "stage": "detail_review",
+  "source_commit": "0842f24f0fb4f314becda6205a8d63da68530059",
+  "artifact_id": 15069919165,
+  "reference_sources": [
+    "https://parts.cat.com/en/catcorp/product/199-5421",
+    "https://support.zivid.com/en/latest/camera/reference-articles/mechanical-considerations-for-robot-mounting.html"
+  ],
+  "reviewed_render_files": [
+    "contact_sheet.jpg",
+    "front_3q.png"
+  ],
+  "technical_checks": {
+    "status": "failed",
+    "report_files": [
+      "attachment_review.json",
+      "attachment_graph.json",
+      "complete.json",
+      "design.json"
+    ],
+    "findings": [
+      "71/73 declared pairs pass; skid plates each about 3.992 mm sampled surface distance",
+      "342/350 islands root-connected at 1 mm; disconnected visor group of 6 and 2 skid plates",
+      "Visor to Head sampled gap 1.000002 mm",
+      "Godot import succeeded"
+    ]
+  },
+  "visual_review": {
+    "status": "revision_required",
+    "reviewer": "ChatGPT",
+    "findings": [
+      {
+        "part": "TrackSkidPlateL/R",
+        "view": "bottom / side",
+        "observation": "Bottom protection lacks readable external seating; surface gap audit fails",
+        "cause_hypothesis": "Plate is contained within chassis after upward shift; chassis lower ring z=0.04937 m",
+        "requested_change": "Seat plate center at z=.045 m, retaining thickness and shape",
+        "preserve": [
+          "track geometry",
+          "chassis"
+        ],
+        "priority": "high"
+      },
+      {
+        "part": "Visor",
+        "view": "front / front_3q",
+        "observation": "Visible face is readable; optical assembly is disconnected in proximity graph",
+        "cause_hypothesis": "Rear visor face is 1 mm short of head recess",
+        "requested_change": "Extend rear by 4 mm while preserving front and emitter; explicitly audit Visor/Head",
+        "preserve": [
+          "cyan emission",
+          "face opening",
+          "head silhouette"
+        ],
+        "priority": "high"
+      },
+      {
+        "part": "Chest",
+        "view": "front_3q / side",
+        "observation": "Broad simple front shell reads as a block",
+        "cause_hypothesis": "Primary cross section and front slope have too little variation",
+        "requested_change": "Widen chamfered side surfaces and add one angular transition in primary shell; no shallow panel meshes",
+        "preserve": [
+          "neck seat",
+          "lower mounts",
+          "arm pivots"
+        ],
+        "priority": "medium"
+      }
+    ]
+  },
+  "next_stage": "detail_remodel",
+  "decision": "revision_required",
+  "unverified": [
+    "V11 actual render",
+    "V11 attachment and motion checks",
+    "Android performance"
+  ],
+  "texture_handoff": [
+    "Maintain existing unpainted texture handoff"
+  ]
+}
