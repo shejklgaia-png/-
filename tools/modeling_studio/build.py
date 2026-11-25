@@ -14,6 +14,7 @@ from mathutils import Vector, Quaternion
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from geometry_review import fit_camera, mesh_interference
 from wireframe_guides import solve as solve_wireframe
+from hard_surface import compile_design, repeat_closed_path, positive
 from motion_lod import motion_review, export_lod
 from bpy_extras.object_utils import world_to_camera_view
 
@@ -168,6 +169,43 @@ def tube(name, path, radius, sides=12):
     return loft(name, rings)
 
 
+def sweep(name, spec):
+    points=[Vector(p) for p in spec["path"]]
+    sections=spec["sections"]
+    sides=int(spec.get("sides",8))
+    if len(points)<2 or len(points)!=len(sections) or not 3<=sides<=128:
+        raise ValueError("sweep path and sections must correspond")
+    rings=[]
+    previous=None
+    for i,p in enumerate(points):
+        t=points[min(i+1,len(points)-1)]-points[max(i-1,0)]
+        if t.length<1e-8 or (i and (p-points[i-1]).length<1e-8):
+            raise ValueError("degenerate sweep path")
+        t.normalize()
+        u=previous-t*previous.dot(t) if previous is not None else Vector(spec.get("up",(0,0,1))).cross(t)
+        if u.length<1e-8:
+            axis=min((Vector((1,0,0)),Vector((0,1,0)),Vector((0,0,1))),key=lambda a:abs(a.dot(t)))
+            u=axis.cross(t)
+        u.normalize()
+        v=t.cross(u).normalized()
+        rx,ry=map(positive,sections[i])
+        rings.append([tuple(p+u*rx*math.cos(2*math.pi*j/sides)+v*ry*math.sin(2*math.pi*j/sides)) for j in range(sides)])
+        previous=u
+    return loft(name,rings)
+
+
+def revolve(name, spec):
+    # Closed radial/axial profile with nonzero radii; useful for rings and flanged joints.
+    profile=[(positive(r),float(z)) for r,z in spec["profile"]]
+    sides=int(spec.get("sides",24))
+    if len(profile)<3 or len(set(profile))!=len(profile) or not 3<=sides<=256 or not all(math.isfinite(z) for r,z in profile):
+        raise ValueError("invalid closed radial profile")
+    n=len(profile)
+    verts=[(r*math.cos(2*math.pi*i/sides),r*math.sin(2*math.pi*i/sides),z) for i in range(sides) for r,z in profile]
+    faces=[(i*n+j,i*n+(j+1)%n,((i+1)%sides)*n+(j+1)%n,((i+1)%sides)*n+j) for i in range(sides) for j in range(n)]
+    return mesh(name,verts,faces)
+
+
 def shape(name, spec):
     kind = spec["shape"]
     if kind == "box":
@@ -180,6 +218,13 @@ def shape(name, spec):
         obj = cylinder(name, spec["radius"], spec["depth"], spec.get("sides",24))
     elif kind == "tube":
         obj = tube(name, spec["path"], spec["radius"], spec.get("sides",12))
+    elif kind == "sweep":
+        obj = sweep(name, spec)
+    elif kind == "revolve":
+        obj = revolve(name, spec)
+    elif kind == "repeat_path":
+        verts, faces = repeat_closed_path(spec)
+        obj = mesh(name, verts, faces)
     elif kind == "wireframe":
         verts, faces, guide = solve_wireframe(spec)
         obj = wireframe_surface(name, verts, faces)
@@ -283,7 +328,7 @@ def aim(obj, target):
     obj.rotation_euler = (Vector(target)-obj.location).to_track_quat('-Z','Y').to_euler()
 
 
-def render_views(objects, out, resolution, landmarks, cameras, camera_fits):
+def render_views(objects, out, resolution, landmarks, cameras, camera_fits, part_targets=None):
     corners = [obj.matrix_world @ Vector(c) for obj in objects if obj.type=='MESH' for c in obj.bound_box]
     if not corners:
         raise ValueError("model contains no mesh")
@@ -365,7 +410,17 @@ def render_views(objects, out, resolution, landmarks, cameras, camera_fits):
             world = nodes[point["node"]].matrix_world @ Vector(point["local"])
             ndc = world_to_camera_view(scene, camera, world)
             points[label] = [ndc.x * resolution, (1-ndc.y) * resolution]
-        projections[name] = {"landmarks": points, "resolution": resolution,
+        part_bounds={}
+        for part_name in (part_targets or {}):
+            obj=nodes[part_name]
+            if obj.type!='MESH':
+                raise ValueError('part projection requires mesh: '+part_name)
+            coords=[world_to_camera_view(scene,camera,obj.matrix_world@v.co) for v in obj.data.vertices]
+            if not coords:
+                raise ValueError('empty part mesh: '+part_name)
+            part_bounds[part_name]=[min(v.x for v in coords)*resolution,min(1-v.y for v in coords)*resolution,
+                                    max(v.x for v in coords)*resolution,max(1-v.y for v in coords)*resolution]
+        projections[name] = {"landmarks": points, "part_bounds_px":part_bounds, "resolution": resolution,
                              "ortho_scale": camera_data.ortho_scale, "camera_location": list(camera.location),
                              "camera_rotation": list(camera.rotation_euler), "target": list(target)}
         scene.render.filepath = str(out/(name+".png"))
@@ -419,7 +474,11 @@ def main():
         raise ValueError("unsupported design format")
     # Refuse reuse, avoiding stale images or overwriting existing assets.
     out.mkdir(parents=True,exist_ok=False)
+    spec, authoring = compile_design(spec)
     objects = build(spec)
+    if authoring is not None:
+        (out/'hard_surface_plan.json').write_text(json.dumps(authoring,indent=2),encoding='utf-8')
+        (out/'compiled_design.json').write_text(json.dumps(spec,indent=2),encoding='utf-8')
     write_wireframe_guides(spec, objects, out)
     report = mesh_report(objects)
     interference = mesh_interference(objects,spec.get("intentional_overlaps",[]))
@@ -442,7 +501,7 @@ def main():
     resolution = int(spec.get("review_resolution",768))
     if not 128<=resolution<=2048:
         raise ValueError("review_resolution must be 128..2048")
-    render_views(objects,out,resolution,spec.get("landmarks", {}),spec.get("review_cameras", {}),spec.get("camera_fits", {}))
+    render_views(objects,out,resolution,spec.get("landmarks", {}),spec.get("review_cameras", {}),spec.get("camera_fits", {}), authoring.get("part_targets", {}) if authoring else {})
     (out/"complete.json").write_text(json.dumps(dict(format=spec["format"],views=list(VIEWS),
         triangles=sum(row["triangles"] for row in report)),indent=2),encoding="utf-8")
 
