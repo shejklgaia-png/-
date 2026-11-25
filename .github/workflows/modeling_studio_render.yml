@@ -145,6 +145,10 @@ jobs:
             "$py" tools/modeling_studio/structure_analysis_v2.py "$root/$view.png" "$root/structure_analysis/${view}_mask.png" "$root/structure_analysis/$view" "$root/structure_analysis/${view}_v2"
           done
           "$py" tools/modeling_studio/structure_metrics.py "$root/structure_analysis/labeled_fixture"
+          if [[ "$GITHUB_HEAD_REF" == modeling/structure-analysis-v3-* ]]; then
+            blender --background "$root/model.blend" --python-exit-code 1 --python tools/modeling_studio/part_id_review.py -- "$root"
+            "$py" tools/modeling_studio/structure_calibration.py "$root"
+          fi
       - name: Prepare review bundle
         shell: bash
         run: |
