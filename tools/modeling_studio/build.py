@@ -13,6 +13,7 @@ import bmesh
 from mathutils import Vector, Quaternion
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from geometry_review import fit_camera, mesh_interference
+from wireframe_guides import solve as solve_wireframe
 from motion_lod import motion_review, export_lod
 from bpy_extras.object_utils import world_to_camera_view
 
@@ -59,6 +60,56 @@ def mesh(name, verts, faces):
     obj = bpy.data.objects.new(name, data)
     bpy.context.collection.objects.link(obj)
     return obj
+
+
+def wireframe_surface(name, verts, faces):
+    # Construct a genuine edge mesh first, then populate its explicitly authored faces.
+    edges = sorted({tuple(sorted((a,b))) for f in faces for a,b in zip(f,f[1:]+f[:1])})
+    data = bpy.data.meshes.new(name)
+    data.from_pydata(verts, edges, [])
+    data.update()
+    bm = bmesh.new()
+    try:
+        bm.from_mesh(data)
+        bm.verts.ensure_lookup_table()
+        for f in faces:
+            bm.faces.new([bm.verts[i] for i in f])
+        bmesh.ops.recalc_face_normals(bm, faces=list(bm.faces))
+        if any(not e.is_manifold for e in bm.edges) or any(f.calc_area()<1e-12 for f in bm.faces):
+            raise ValueError("invalid reconstructed surface: "+name)
+        bm.to_mesh(data)
+    finally:
+        bm.free()
+    data.update()
+    obj = bpy.data.objects.new(name, data)
+    bpy.context.collection.objects.link(obj)
+    return obj
+
+
+def write_wireframe_guides(spec, objects, out):
+    nodes = {obj.name: obj for obj in objects}
+    reports = {}
+    # OBJ is a portable line-only mesh in world-space, before surface finishing.
+    lines = ["# SERA wireframe guides; Blender XYZ metres; no faces"]
+    offset = 1
+    for part in spec["parts"]:
+        if part["shape"] != "wireframe":
+            continue
+        verts, faces, guide = solve_wireframe(part)
+        name = part["name"]
+        reports[name] = guide
+        matrix = nodes[name].matrix_world
+        ids = {label: i+offset for i,label in enumerate(guide["points"])}
+        lines.append("o "+name.replace(" ","_").replace("\n","_").replace("\r","_"))
+        for v in verts:
+            world = matrix @ Vector(v)
+            lines.append("v %.9g %.9g %.9g"%tuple(world))
+        for a,b in guide["edges"]:
+            lines.append("l %d %d"%(ids[a],ids[b]))
+        offset += len(verts)
+    if reports:
+        (out/"wireframe_guides.json").write_text(json.dumps(reports,indent=2),encoding="utf-8")
+        (out/"wireframe_guides.obj").write_text("\n".join(lines)+"\n",encoding="utf-8")
 
 
 def loft(name, rings):
@@ -129,6 +180,9 @@ def shape(name, spec):
         obj = cylinder(name, spec["radius"], spec["depth"], spec.get("sides",24))
     elif kind == "tube":
         obj = tube(name, spec["path"], spec["radius"], spec.get("sides",12))
+    elif kind == "wireframe":
+        verts, faces, guide = solve_wireframe(spec)
+        obj = wireframe_surface(name, verts, faces)
     elif kind == "mesh":
         obj = mesh(name, spec["vertices"], spec["faces"])
     else:
@@ -366,6 +420,7 @@ def main():
     # Refuse reuse, avoiding stale images or overwriting existing assets.
     out.mkdir(parents=True,exist_ok=False)
     objects = build(spec)
+    write_wireframe_guides(spec, objects, out)
     report = mesh_report(objects)
     interference = mesh_interference(objects,spec.get("intentional_overlaps",[]))
     motion = motion_review(objects,spec.get("motion_sweeps",[]),spec.get("intentional_overlaps",[]))
