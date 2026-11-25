@@ -199,3 +199,11 @@ retarget_rigid.py は既存build.pyから独立した NumPy/SciPy 用オフラ�
 - MotionLab_V30_Structure_Gait.html: 元形状からの独立Canvas投影プレビュー、4方向各4姿勢×3機体=48枚実描画、通常・半速の全尺再生6回成功、JS例外0。四足は振出し中の姿勢も確認。標準/鳥脚の足運び、四足の脚位相は成立したが、視覚的な歩幅・重量感・鳥脚専用演技は要改善。全モデルの歩行は制作候補であり採用承認ではない。実験は再構成済みメッシュ入力で生成/検査関数を直接実行。GitHub CLIの生BBファイルからの一貫実行、最新四足BBとV18メッシュ一致、Blender/Godot/Android、実当たり判定、連続衝突未検証。
 - 再現: python tools/motion_lab/gait_v30.py models/core/Standard.bbmodel /tmp/v30_std --unit .065 --period 1.2 (BirdLeg同様、Bittaranは --unit .145 --period 1.7)。review.json と合格時 gait_world.npz を出力。既存ゲーム戦闘/歩行、CI、既存build.py未変更。
 参考: https://dev.epicgames.com/community/learning/tutorials/EkxO/unreal-engine-procedural-animation-with-a-locomotor ; https://locomotion.pablopx.com/docs/introduction.html
+
+## V31: 二足の全身連動・前進・踏み込み・左右旋回
+biped_v31.py はV30の読み込み/役割推定を再利用する独立CLI。左右の足の振出し・着地を明示時刻で計画し、五次補間・滑らかな足上げ・足の世界座標と方位固定を用いる。足を上げる前後に支持側へ荷重を移すための重みを変化させ、支持点と両足中点、初期足裏オフセットから腰の位置を計算。腰/胸の傾き・捻り、肩と腕の反対位相、踏み込み時の沈み込み・腕の構え、旋回時の段階的な足方位更新と胴体ヨーを生成。二リンクIKで脚を追従。支持点は腰位置の近似指標であり、質量分布・重心力学・ZMPを解いたものではない。歩行は有限2歩の前進クリップで、定常歩行の品質やループ接続は未保証。
+- 4動作×5振幅候補の120Hz生成/240Hz局所SLERP標本検査。床2mm・接地誤差5mm・非隣接OBB5cm・最低支持脚1本を暫定条件。初期案の後脚の到達距離不足を確認し、腰高と足裏中点からの初期オフセットを変更。最終全4動作は最大振幅候補を選択。標準機体の現行BB実頂点と階層をV30で再構成した形状（武器除外、単位.065m/BB暫定）で検証。
+- 前進/踏み込み/左旋回/右旋回の周期1.30/1.45/1.70/1.70秒、前進距離.472954/.472954m、旋回±90度。240Hz最大床突出.9588/.7585/.1682/.1682mm、支持誤差.9766/.7868/.1570/.1570mm、非隣接OBB.5932/4.3163/1.1191/1.1191cm。腰の高さ変動1.455/3.274/1.455/1.455cm。支持点と腰水平距離は最大26.4/26.4/19.0/19.0cmであり物理バランスを保証しない。踏み込みの腰と脛の重なりと深い膝曲げ、演技の緩急は要改善。
+- MotionLab_V31_Biped_Wholebody.html: 4動作×4方向×4姿勢=64枚を実形状Canvas投影で描画し視認。通常4回、半速3回の全尺終了を確認。最後の右旋回半速の全尺検査は処理タイムアウトで結果未確認。実行は再構成形状から生成・評価関数を呼んだ独立検証。BB読み込みからのCLI一貫実行、Blender/Godot/Android、厳密表面衝突/可動限界、物理バランスは未確認。
+- 再現: python tools/motion_lab/biped_v31.py models/core/Standard.bbmodel /tmp/v31_step --unit .065 --action step (walk/turn_left/turn_rightも選択可能)。review.json と合格時 biped_world.npz を出力。ゲーム既存モーション、CI、既存build.py未変更。
+参考: https://www.frontiersin.org/journals/virtual-reality/articles/10.3389/frvir.2022.801856/full ; https://www.snakehillgames.com/category/programming/ ; https://github.khronos.org/Vulkan-Site/tutorial/latest/Advanced_glTF/Procedural_Animation_IK/01_introduction.html
