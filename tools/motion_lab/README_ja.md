@@ -127,3 +127,8 @@ V18 GLBの実メッシュ形状を用いた独立SciPyプレビューを生成�
 - HTML MotionLab_V25_Ground_Attacks.htmlで正面・側面・斜め・真上の6主要姿勢×2動作＝48枚を描画確認。通常/半速再生・IK切替・JSエラー0。低い軌道を確認したが、実SERAモデルと当たり判定、地形への追従、部品干渉、Blender/Godot直接出力・Android実機は未検証。既存ゲームモーションは未置換。寸法・タイミングは暫定値。
 - 再現: blender -b --python-exit-code 1 --python tools/motion_lab/build.py -- tools/motion_lab/bittaran_sweep_v25.json /tmp/mlab_v25_sweep --variant sweep （kickはbittaran_kick_v25.jsonと--variant kick）。別出力で--preview-ik。
 参考: https://www.gamedeveloper.com/production/the-12-principles-of-animation-in-video-games ; https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.PchipInterpolator.html
+
+## V25再改: 足裏全面を地表に揃える高速攻撃
+ユーザー指摘「もっと派手に、なぎ払いが地面を這ってない」に対応。V25の最低頂点のみの高さ基準では足裏が傾いて見えるため、ground_drag.pyで足裏の接触面全体を水平に揃え、攻撃脚だけをオフラインで新しい極座標軌道へベイク。胴体と支持脚のFK原本は維持。支持脚IKは別段、滑走させる攻撃脚を実行時固定しない。なぎ払いは股関節基準-35〜108度、弾きは深い折り畳みから0.10秒で伸展、主要攻撃期間の足裏高さ1mm、復帰時のみ最大7.5cmの持ち上げ。半径・方位・高さをPCHIPで補間、到達境界では半径だけ縮小。実メッシュ接触面全頂点の高さ、終端の固定、到達残差を出力拒否条件に追加。
+独立SciPy実形状プレビューの100/109F検査: なぎ払い32〜54（0始まり）、弾き41〜53で全足裏頂点1mm、面内高低差数値誤差。攻撃軌道長5.8961m/1.8632m、最大水平速度33.1677/27.7608m/s、IK後床突出数値誤差、最終姿勢差・終端滑り数値誤差。なぎ払い半径縮小最大3.64cm、後脚メッシュとの最小頂点間距離12.60cmは衝突なしの証明ではない。4方向×6姿勢×2動作48枚をChromium Canvas 2Dの実3D投影で描画確認、通常/半速再生・IK切替・JSエラー0。HTML MotionLab_V25_Ground_Drag.html。足裏接地の見え方・振り幅・速さ改善。ゲーム内当たり判定・干渉・地形対応・Blender/Godot直接出力・Android未検証。既存ゲーム戦闘モーションは未置換。既存V25原本キーは維持、contact_policy=support_onlyで旧方式を選択可。
+参考: https://research.cs.wisc.edu/graphics/Gallery/kovar.vol/Cleanup/ ; https://github.khronos.org/Vulkan-Site/tutorial/latest/Advanced_glTF/Procedural_Animation_IK/04_foot_placement.html
