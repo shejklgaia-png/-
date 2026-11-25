@@ -105,3 +105,9 @@ V20の視覚評価不合格を受け、足先目標の逆算ではなく各リ�
 - HTMLビューワーで初期案を正面/側面/斜めから確認、支持脚補正上限超過と貫通を発見。胴体移動・角度と着地キーを再設計。最終2案の主要6フレーム×3方向を実際のChromium Canvas描画で再確認し、1倍/0.5倍再生とIK切替も実行（JS例外0）。Aは正面、Bは側面で攻撃脚の輪郭が明瞭になったが、斜めでは機体と重なる、着地・支持脚の重量感が不足。**ゲーム採用としては視覚不合格**。実Blender/Godot直接出力・Android未検証。HTMLは独立プレビューで、実行時APIの実測ではない。
 - 今後は実3D HTML作成・再生・複数方向の描画確認・修正後再確認を必須とし、数値/操作確認だけで視覚合格にしない。既存ゲームモーションを置換しない。
 参考: https://www.gameanim.com/2019/05/15/the-12-principles-of-animation-in-video-games/ ; https://www.gamedeveloper.com/game-platforms/12-principles-for-game-animation
+
+## V22: 全身連動・荷重移動・着地後の反動
+V21に対し、前左脚の踏みつけ1案を追加。21キー・2.20秒・60fps/133サンプル。演技を先に設計し、胴体を支持側へ移動、ロール最大14度、ピッチ+12/-12度、頭部遅延反応最大15度、着地後胴体沈み込み0.13m（impact→compression）。支持3脚のローカル回転をキーごとに明示し、姿勢間のPCHIP補間でFK原本を作成、後段IKは固定誤差のみ補正する。支持キーは中立姿勢の接地基準に合わせてオフライン作成。攻撃脚には接地IKを適用しない。
+`blender -b --python-exit-code 1 --python tools/motion_lab/build.py -- tools/motion_lab/bittaran_fk_v22.json /tmp/mlab_v22 --variant chain`、別出力で `--preview-ik`。V21既存デザイン互換。
+V18 GLBの実メッシュ形状を用いた独立SciPyプレビューを生成し、初回正面/側面/斜め描画で過大な振りかぶりと約9cmの貫通を発見。振りかぶり角度・着地・圧縮・復帰キーを再設計。最終133F: 攻撃脚上昇4.10760m、水平変位2.00127m、支持3脚最大誤差OFF0.04979m→ON数値誤差、床最大突出OFF0.04401m→ON0.003109m、胴体上下幅0.28489m。V21 A案との同一ビューワー比較で等倍・半速再生・IK切替・3方向主要6フレーム×2案の実描画を確認、JSエラー0。斜め（攻撃脚側）で振りかぶり輪郭、胴体傾き、支持脚屈伸が改善。残課題: 振り上げがまだ大きく、打撃の重さと着地後の攻撃脚接触位置の固定が十分ではない。ゲーム採用未承認。Blender/Godot実出力、Android、関節制約・干渉・動力学は未確認。既存ゲームモーション・CI定義変更なし。
+参考: https://www.gamedeveloper.com/production/the-12-principles-of-animation-in-video-games ; https://www.animationmentor.com/blog/animation-tips-tricks-what-makes-or-breaks-a-good-body-mechanics-shot/
