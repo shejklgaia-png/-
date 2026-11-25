@@ -62,7 +62,7 @@ def panelize(d,p,face_key,name,material,inset=.12,depth=.005):
     prev=face
     for ring in (rim,floor):
         ids=list(range(len(verts),len(verts)+4));verts.extend(ring)
-        faces.extend([[prev[i],prev[(i+1)%4],ids[(i+1)%4],ids[i]] for i in range(4));prev=ids
+        faces.extend([[prev[i],prev[(i+1)%4],ids[(i+1)%4],ids[i]] for i in range(4)]);prev=ids
     faces.append(prev)
     # Insert sits below original surface, separated from the recess walls.
     center=mean(floor);bottom=[add(center,scale(vec(v,center),.94)) for v in floor]
