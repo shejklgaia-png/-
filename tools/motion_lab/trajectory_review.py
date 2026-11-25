@@ -223,6 +223,10 @@ def refine_trajectory(d,nodes,end,out,geom):
             "review_status":"visual_review_required",
             "scope":"sampled Euler track BVH triangle overlap, OBB and floor/contact; not containment, CCD, dynamics, runtime or artistic approval"
         },indent=2))
+        if spec.get("contact_bake_v28"):
+            if not guard:raise ValueError("V28 requires V27 subframe guard")
+            from contact_bake import bake_contact
+            bake_contact(d,nodes,end,out,geom,selected,pose,update,anchors,striker)
         d["tracks"]=selected
     finally:
         for uid,(pos,rot) in saved.items():nodes[uid].location=pos;nodes[uid].rotation_euler=rot
