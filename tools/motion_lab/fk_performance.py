@@ -44,10 +44,15 @@ def compile_fk(d,nodes,end,out):
     spec=d["fk_performance"]
     if d.get("tracks") or d.get("bb_clip") or d.get("pose_sequence") or d.get("procedural_motion") or d.get("events"):
         raise ValueError("FK authoring requires exclusive new pose data")
-    lib=json.loads((Path(__file__).resolve().parent/"fk_stomp_poses_v21.json").read_text())
-    if lib["format"]!="SERA_FK_PERFORMANCE_V1" or d["source_bbmodel"]!="models/bosses/Bittaran.bbmodel":
+    version=int(spec.get("version",21))
+    if version not in (21,22):raise ValueError("unsupported FK performance version")
+    lib=json.loads((Path(__file__).resolve().parent/f"fk_stomp_poses_v{version}.json").read_text())
+    if lib["format"]!=f"SERA_FK_PERFORMANCE_V{version-20}" or d["source_bbmodel"]!="models/bosses/Bittaran.bbmodel":
         raise ValueError("V21 only supports the calibrated Bittaran geometry")
-    variant=spec.get("variant","extended");keys=lib["variants"][variant]["keys"]
+    variant=spec.get("variant","chain" if version==22 else "extended");keys=lib["variants"][variant]["keys"]
+    support_order=lib.get("support_order",[])
+    if version==22 and support_order!=["FrontFoot_R","RearFoot_L","RearFoot_R"]:raise ValueError("invalid support role order")
+    if version==22 and any(len(k)!=7 or len(k[6])!=9 or any(len(v)!=3 for v in k[6]) for k in keys):raise ValueError("invalid authored support keys")
     fps=int(d["fps"])
     if fps!=lib["fps"] or end!=round(lib["duration"]*fps)+1:raise ValueError("V21 sample range mismatch")
     stance=d["support_lock"];chains=d["multifoot_ik"]["chains"]
@@ -63,16 +68,25 @@ def compile_fk(d,nodes,end,out):
     geom={};feet={};previous={}
     def update():bpy.context.view_layer.update()
     def low(o):return min((o.matrix_world@v.co).z for v in o.data.vertices)
-    def flat(row):return [*row[2],*row[3],row[4],*[x for pair in row[5] for x in pair]]
+    def flat(row):
+        v=[*row[2],*row[3],row[4],*[x for pair in row[5] for x in pair]]
+        if version==22:v.extend(x for triple in row[6] for x in triple)
+        if not all(math.isfinite(x) for x in v):raise ValueError("nonfinite pose key")
+        return v
     t=[row[0] for row in keys];columns=list(zip(*(flat(row) for row in keys)))
     base=0.;rb=saved[root.name][0].copy()
-    def apply(row):
+    def apply(row,neutral_support=False):
         root.location=Vector((rb.x+row[0],rb.y+row[1],base+row[2]))
         root.rotation_euler=rotation(row[3:6]).to_euler("XYZ")
         head.rotation_euler=rotation((row[6],0,0)).to_euler("XYZ")
         for n,c in chains.items():
             hip,knee,foot=[nodes[u] for u in c];mesh=nodes[stance["sole_meshes"][n]]
             if hip.parent!=root or knee.parent!=hip or foot.parent!=knee or mesh.parent!=foot:raise ValueError("unsupported chain")
+            if version==22 and n in support_order and not neutral_support:
+                j=13+9*support_order.index(n)
+                for i,o in enumerate((hip,knee,foot)):
+                    o.rotation_euler=rotation(row[j+3*i:j+3*i+3]).to_euler("XYZ")
+                continue
             sign=-1 if n.endswith("_L") else 1;front=1 if n.startswith("Front") else -1
             angles=[row[7:9],row[9:11],row[11:13]] if n=="FrontFoot_L" else lib["neutral"]
             # Explicit link orientations relative to Body, NOT a target-point solve.
@@ -85,7 +99,7 @@ def compile_fk(d,nodes,end,out):
             foot.rotation_euler=(q2.inverted()@q3).to_euler("XYZ")
         update()
     try:
-        apply(flat(keys[0]));base=-min(low(o) for o in meshes);apply(flat(keys[0]))
+        apply(flat(keys[0]),neutral_support=True);base=-min(low(o) for o in meshes);apply(flat(keys[0]))
         for n,c in chains.items():
             hip,knee,foot=[nodes[u] for u in c];mesh=nodes[stance["sole_meshes"][n]]
             verts=[mesh.matrix_world@v.co for v in mesh.data.vertices];z=min(v.z for v in verts)
@@ -119,4 +133,4 @@ def compile_fk(d,nodes,end,out):
     d["procedural_motion"]={"action":"stomp","max_contact_offset_m":.30,"preview_ik":bool(spec.get("preview_ik",False))}
     try:compile_contact_layer(d,nodes,end,out,[phase,phase],[1,end],geom,5.539)
     finally:del d["procedural_motion"]
-    (out/"fk_performance_report.json").write_text(json.dumps({"version":21,"variant":variant,"keys":keys,"source_animation_used":False,"neutral_root_z_m":base,"authored_tracks":tracks,"review_status":"review_required","scope":"explicit body-relative link directions and shape-preserving time curves; three support legs optional IK; no physical joint limits or collision approval"},indent=2,ensure_ascii=False))
+    (out/"fk_performance_report.json").write_text(json.dumps({"version":version,"variant":variant,"keys":keys,"source_animation_used":False,"neutral_root_z_m":base,"authored_tracks":tracks,"review_status":"review_required","scope":"explicit body-relative link directions, V22 authored support-local rotation keys, and shape-preserving time curves; three support legs optional IK; no physical joint limits or collision approval"},indent=2,ensure_ascii=False))
