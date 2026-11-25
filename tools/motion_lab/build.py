@@ -7,9 +7,13 @@ from mathutils import Vector
 def main():
     p=argparse.ArgumentParser()
     p.add_argument("design",type=Path); p.add_argument("out",type=Path)
+    p.add_argument("--action",help="Override procedural action for the V19 design")
     a=p.parse_args(sys.argv[sys.argv.index("--")+1:])
     d=json.loads(a.design.read_text()); out=a.out.resolve()
     if d["format"]!="SERA_MOTION_LAB_V1": raise ValueError("format")
+    if a.action:
+        if not d.get("procedural_motion"): raise ValueError("--action requires procedural design")
+        d["procedural_motion"]["action"]=a.action
     fps=int(d.get("fps",60)); end=int(d["end_frame"])
     if fps not in (30,60) or not 2<=end<=601: raise ValueError("fps/frame limit")
     out.mkdir(parents=True,exist_ok=False)
@@ -57,6 +61,9 @@ def main():
     sys.path.insert(0,str(Path(__file__).resolve().parent))
     from rig_discovery import configure
     configure(d,nodes,out)
+    if d.get("procedural_motion"):
+        from procedural import compile_procedural
+        compile_procedural(d,nodes,end,out)
     from bbclip import compile_clip
     compile_clip(scene,d,nodes,end,out)
     from poses import compile_poses, export_poses
