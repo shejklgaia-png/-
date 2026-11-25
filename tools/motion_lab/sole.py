@@ -63,6 +63,7 @@ class SoleReview:
         # A fixed Wait-derived patch tracks material points, not a sliding minimum.
         self.rows.append({"offset_m":list(offset),"drifts_m":drift,"com_m":list(com),
                           "support_margin_m":m,"support_polygon_xy":polygon,
+                          "support_centers_m":{n:list(centers[n]) for n in self.planted},
                           "support_low_delta_m":{n:lows[n]-self.wait_lows[n] for n in self.planted},
                           "strike_center_m":list(centers[self.strike]),
                           "strike_low_delta_m":lows[self.strike]-self.wait_lows[self.strike]})
