@@ -6400,3 +6400,136 @@ func planted_foot_count() -> int:
         if not bool(leg["stepping"]):
             count += 1
     return count
+
+# Motion Lab V20 opt-in review adapter. Call only after applying a fresh
+# authored pose, instead of advance_source_ground_ik for that preview tick.
+# No production attack dispatch or original animation is changed.
+var motion_lab_contact_packet: Dictionary = {}
+var motion_lab_contact_anchors: Dictionary = {}
+var motion_lab_contact_frame: int = 0
+var motion_lab_last_actor_position: Vector3 = Vector3.ZERO
+
+func clear_motion_lab_contact_layer() -> void:
+    motion_lab_contact_packet.clear()
+    motion_lab_contact_anchors.clear()
+    motion_lab_contact_frame = 0
+
+func configure_motion_lab_contact_layer(packet: Dictionary) -> bool:
+    clear_motion_lab_contact_layer()
+    if str(packet.get("format", "")) != "SERA_MOTION_CONTACT_V1":
+        return false
+    if not packet.get("legs", null) is Dictionary:
+        return false
+    var last_frame: int = int(packet.get("end_frame", 0))
+    var fps: int = int(packet.get("fps", 0))
+    var cap: float = float(packet.get("max_contact_offset_m", 0.0))
+    if last_frame < 2 or last_frame > 601 or not [30, 60].has(fps) \
+            or not is_finite(cap) or cap < 0.01 or cap > 0.60:
+        return false
+    var data: Dictionary = packet["legs"]
+    if data.size() != LEG_PART_IDS.size():
+        return false
+    for id in LEG_PART_IDS:
+        if not data.get(id, null) is Array:
+            return false
+        var previous_end: int = 0
+        var previous_id: int = 0
+        for item in data[id]:
+            if not item is Dictionary:
+                return false
+            var row: Dictionary = item
+            var lo: int = int(row.get("start_frame", 0))
+            var hi: int = int(row.get("end_frame", 0))
+            var ramp: int = int(row.get("ramp_frames", 0))
+            var interval_id: int = int(row.get("id", 0))
+            if lo <= previous_end or hi <= lo or hi > last_frame \
+                    or ramp < 1 or ramp > 4 or ramp > (hi - lo) / 2.0 \
+                    or interval_id <= previous_id:
+                return false
+            previous_end = hi
+            previous_id = interval_id
+    motion_lab_contact_packet = packet.duplicate(true)
+    return true
+
+func _motion_lab_contact_smooth(value: float) -> float:
+    var t: float = clampf(value, 0.0, 1.0)
+    return t * t * (3.0 - 2.0 * t)
+
+# The caller supplies an integer clip sample (one-based, 30/60fps).
+# Capture contacts in real game world coordinates, not Blender Z-up.
+# Return residuals for diagnostics; an out-of-reach goal is never "passed".
+func apply_motion_lab_contact_layer(frame_index: int,
+        enabled: bool = true) -> Dictionary:
+    var report: Dictionary = {}
+    if motion_lab_contact_packet.is_empty() or not ready \
+            or not is_instance_valid(actor) or legs.size() != 4:
+        return report
+    var last_frame: int = int(motion_lab_contact_packet["end_frame"])
+    if frame_index < 1 or frame_index > last_frame:
+        return report
+    if frame_index < motion_lab_contact_frame \
+            or frame_index > motion_lab_contact_frame + 1 \
+            or actor.global_position.distance_to(
+                motion_lab_last_actor_position) > 0.75:
+        motion_lab_contact_anchors.clear()
+    motion_lab_contact_frame = frame_index
+    motion_lab_last_actor_position = actor.global_position
+    var data: Dictionary = motion_lab_contact_packet["legs"]
+    var cap: float = float(motion_lab_contact_packet["max_contact_offset_m"])
+    for index in range(legs.size()):
+        var id: String = LEG_PART_IDS[index]
+        var limb: Dictionary = legs[index]
+        var active: Dictionary = {}
+        for item in data[id]:
+            if frame_index >= int(item["start_frame"]) \
+                    and frame_index <= int(item["end_frame"]):
+                active = item
+                break
+        if active.is_empty():
+            motion_lab_contact_anchors.erase(id)
+            report[id] = {"weight": 0.0, "state": "free"}
+            continue
+        var lo: int = int(active["start_frame"])
+        var hi: int = int(active["end_frame"])
+        var ramp: float = float(active["ramp_frames"])
+        var fade_in: float = 1.0 if lo == 1 else (
+            _motion_lab_contact_smooth((frame_index - lo) / ramp))
+        var fade_out: float = 1.0 if hi == last_frame else (
+            _motion_lab_contact_smooth((hi - frame_index) / ramp))
+        var weight: float = minf(fade_in, fade_out)
+        var foot: Node3D = limb["foot"]
+        var local: Vector3 = limb["source_sole_local"]
+        var sole: Vector3 = foot.to_global(local)
+        var rot: Quaternion = foot.global_basis.get_rotation_quaternion()
+        var lock: Dictionary = motion_lab_contact_anchors.get(id, {})
+        if int(lock.get("interval_id", -1)) != int(active["id"]):
+            var target: Vector3 = sole
+            var bottom: float = _source_ik_limb_lowest_world_y(limb)
+            if is_finite(bottom):
+                target.y += FLOOR_Y - bottom
+            lock = {"interval_id": int(active["id"]),
+                "target": target, "rotation": rot}
+            motion_lab_contact_anchors[id] = lock
+        var anchor: Vector3 = lock["target"]
+        var anchor_rot: Quaternion = lock["rotation"]
+        var wanted_offset: Vector3 = (anchor - sole) * weight
+        var offset: Vector3 = wanted_offset.limit_length(cap)
+        var residual: float = 0.0
+        if enabled and weight > 0.0:
+            var upper: Node3D = limb["upper"]
+            var lower: Node3D = limb["lower"]
+            var old_upper: Quaternion = upper.quaternion
+            var old_lower: Quaternion = lower.quaternion
+            var old_foot: Quaternion = foot.quaternion
+            residual = _source_ik_solve_striker(limb, sole + offset,
+                rot.slerp(anchor_rot, weight), local)
+            if not is_finite(residual):
+                upper.quaternion = old_upper
+                lower.quaternion = old_lower
+                foot.quaternion = old_foot
+        report[id] = {"weight": weight, "enabled": enabled,
+            "before_m": sole.distance_to(anchor),
+            "after_m": foot.to_global(local).distance_to(anchor),
+            "solver_failed": not is_finite(residual),
+            "capped": wanted_offset.length() > cap}
+    return report

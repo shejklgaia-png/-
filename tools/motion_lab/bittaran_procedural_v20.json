@@ -1,0 +1,40 @@
+{
+  "format": "SERA_MOTION_LAB_V1",
+  "source_bbmodel": "models/bosses/Bittaran.bbmodel",
+  "bb_unit_m": 0.145,
+  "fps": 60,
+  "end_frame": 121,
+  "tracks": {},
+  "events": {},
+  "markers": {},
+  "rig_discovery": {
+    "mode": "quadruped",
+    "apply": "generate",
+    "roles": {
+      "Body": "Body",
+      "Head": "Head",
+      "FrontFoot_L": "FrontFoot_L",
+      "FrontFoot_R": "FrontFoot_R",
+      "RearFoot_L": "RearFoot_L",
+      "RearFoot_R": "RearFoot_R"
+    },
+    "strike_role": "FrontFoot_L",
+    "reference_span_m": 5.539
+  },
+  "procedural_motion": {
+    "action": "stomp",
+    "profile": "performance_v20",
+    "auto_duration": true,
+    "max_contact_offset_m": 0.3,
+    "preview_ik": false
+  },
+  "review": {
+    "target": [
+      0,
+      0,
+      1.4
+    ],
+    "scale": 8.8
+  },
+  "roundtrip_tolerance_m": 0.002
+}

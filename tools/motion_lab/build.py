@@ -7,14 +7,23 @@ from mathutils import Vector
 def main():
     p=argparse.ArgumentParser()
     p.add_argument("design",type=Path); p.add_argument("out",type=Path)
-    p.add_argument("--action",help="Override procedural action for the V19 design")
+    p.add_argument("--action",help="Override procedural action for the procedural design")
+    p.add_argument("--preview-ik",action="store_true",help="Bake V20 runtime-like contact preview, not source animation")
     a=p.parse_args(sys.argv[sys.argv.index("--")+1:])
     d=json.loads(a.design.read_text()); out=a.out.resolve()
     if d["format"]!="SERA_MOTION_LAB_V1": raise ValueError("format")
     if a.action:
         if not d.get("procedural_motion"): raise ValueError("--action requires procedural design")
         d["procedural_motion"]["action"]=a.action
-    fps=int(d.get("fps",60)); end=int(d["end_frame"])
+    fps=int(d.get("fps",60))
+    spec=d.get("procedural_motion",{})
+    if a.preview_ik:
+        if spec.get("profile")!="performance_v20": raise ValueError("--preview-ik requires V20")
+        spec["preview_ik"]=True
+    if spec.get("profile")=="performance_v20" and spec.get("auto_duration",False):
+        durations={"idle":3.0,"walk_forward":1.8,"walk_backward":1.8,"turn_left":1.6,"turn_right":1.6,"stomp":2.0,"sweep":1.8,"hit":0.85,"down_recover":3.5}
+        d["end_frame"]=1+round(durations[spec["action"]]*fps)
+    end=int(d["end_frame"])
     if fps not in (30,60) or not 2<=end<=601: raise ValueError("fps/frame limit")
     out.mkdir(parents=True,exist_ok=False)
     bpy.ops.wm.read_factory_settings(use_empty=True)
