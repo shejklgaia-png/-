@@ -42,6 +42,11 @@ on:
         required: false
         type: boolean
         default: false
+      budget_repair_mode:
+        description: With iteration mode, refine V7 assemblies within its triangle budget
+        required: false
+        type: boolean
+        default: false
       reference_manifest:
         description: Optional independent orthographic mask manifest under tools/modeling_studio
         required: false
@@ -71,6 +76,7 @@ jobs:
       ARM_SEARCH_MODE: ${{ startsWith(github.head_ref, 'modeling/crate-blockout-loop-v4-arm-search-') || (inputs.iteration_mode == true && inputs.structural_mode == true && inputs.reference_design_mode == true && inputs.industrial_design_mode == true && inputs.arm_search_mode == true) }}
       SHOULDER_TRACK_MODE: ${{ startsWith(github.head_ref, 'modeling/crate-blockout-loop-v6-') || (inputs.iteration_mode == true && inputs.shoulder_track_mode == true) }}
       ASSEMBLY_REPAIR_MODE: ${{ startsWith(github.head_ref, 'modeling/crate-blockout-loop-v7-') || (inputs.iteration_mode == true && inputs.assembly_repair_mode == true) }}
+      BUDGET_REPAIR_MODE: ${{ startsWith(github.head_ref, 'modeling/crate-blockout-loop-v8-') || (inputs.iteration_mode == true && inputs.budget_repair_mode == true) }}
       REFERENCE_MANIFEST: ${{ inputs.reference_manifest || '' }}
     steps:
       - uses: actions/checkout@v4
@@ -122,7 +128,11 @@ jobs:
           design=$(realpath -- "$DESIGN")
           root=$(realpath tools/modeling_studio)
           [[ "$design" == "$root/"*.json && -f "$design" ]]
-          if [[ "$ASSEMBLY_REPAIR_MODE" == true ]]; then
+          if [[ "$BUDGET_REPAIR_MODE" == true ]]; then
+            "$RUNNER_TEMP/review-venv/bin/pip" install numpy==2.2.6
+            "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/budget_repair.py prepare "$design" "$RUNNER_TEMP/crate-v8-seed.json"
+            design="$RUNNER_TEMP/crate-v8-seed.json"
+          elif [[ "$ASSEMBLY_REPAIR_MODE" == true ]]; then
             "$RUNNER_TEMP/review-venv/bin/pip" install numpy==2.2.6
             "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/assembly_repair.py prepare "$design" "$RUNNER_TEMP/crate-v7-seed.json"
             design="$RUNNER_TEMP/crate-v7-seed.json"
@@ -257,6 +267,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [[ "$BUDGET_REPAIR_MODE" == true ]]; then
+            "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/budget_repair.py run "$RUNNER_TEMP/sera-model" "$RUNNER_TEMP/sera-iterations"
+            exit 0
+          fi
           if [[ "$ASSEMBLY_REPAIR_MODE" == true ]]; then
             "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/assembly_repair.py run "$RUNNER_TEMP/sera-model" "$RUNNER_TEMP/sera-iterations"
             exit 0
