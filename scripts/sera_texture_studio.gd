@@ -76,6 +76,7 @@ var face_paint_requested: bool = true
 var axis_face_requested: bool = false
 var atlas_face_paint: bool = false
 var atlas_axis_face: bool = false
+var atlas_source_id: int = 0
 var face_bridges: Dictionary = {}
 var face_brush_owners := PackedInt32Array()
 var face_brush_edges: Dictionary = {}
@@ -995,10 +996,11 @@ func _rebuild() -> void:
     if result.has("error"):
         # The experimental chart generator must not erase an existing
         # valid atlas/layer set if the proposed layout fails its limits.
-        if axis_face_requested and img!=null:
+        if axis_face_requested and img!=null and atlas_source_id==source.get_instance_id():
             _refresh_uv_mode_state()
             _show_status(str(result.error)+" / 既存の塗装を維持")
             return
+        atlas_source_id = 0
         preview.mesh = null
         img = null
         original = null
@@ -1022,6 +1024,7 @@ func _rebuild() -> void:
     atlas_balanced_shape = bool(result.get("balanced_shape",false))
     atlas_face_paint = bool(result.get("face_paint",false))
     atlas_axis_face = str(result.unwrap_version)=="face-paint-v34"
+    atlas_source_id = source.get_instance_id()
     surface_history.clear()
     current_surface_stroke.clear()
     surface_history_complete = true
@@ -2022,6 +2025,7 @@ func _load_project(path: String) -> void:
         restored_layers.append(layer)
         restored_visibility.append(bool(vis[i]))
     source = null
+    atlas_source_id = 0
     picker.select(-1)
     selected_model_label.text = prefix.get_file()
     triangles = restored
