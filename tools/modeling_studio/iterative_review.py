@@ -138,8 +138,14 @@ def main():
     ap.add_argument("baseline",type=Path);ap.add_argument("out",type=Path)
     ap.add_argument("--blender",default="blender")
     ap.add_argument("--structural",action="store_true")
+    ap.add_argument("--reference-design",action="store_true")
     a=ap.parse_args()
-    if a.structural:
+    if a.reference_design:
+        import reference_design_variants as rv
+        import structural_variants as sv
+        recipes,change,order,check,rank=rv.RECIPES,rv.mutate_structural,rv.priority,rv.guard,rv.score
+        def measure(p):return rv.local_metrics(p,sv.cross_metrics(p,metrics(p)),a.blender)
+    elif a.structural:
         import structural_variants as sv
         recipes,change,order,check,rank=sv.RECIPES,sv.mutate_structural,sv.priority,sv.guard,sv.score
         def measure(p):return sv.cross_metrics(p,metrics(p))
@@ -152,11 +158,11 @@ def main():
     initial=measure(baseline);winner=baseline;best=initial
     remaining=list(recipes);rows=[]
     def publish():
-        report={"format":"SERA_ITERATION_REVIEW_V2" if a.structural else "SERA_ITERATION_REVIEW_V1","target_rounds":10,"attempts":len(rows),
+        report={"format":"SERA_ITERATION_REVIEW_V3" if a.reference_design else ("SERA_ITERATION_REVIEW_V2" if a.structural else "SERA_ITERATION_REVIEW_V1"),"target_rounds":10,"attempts":len(rows),
                 "successful":sum(r.get("status")=="rendered" for r in rows),
                 "selected":winner.name,"baseline":initial,"selected_metrics":best,"rounds":rows,
                 "visual_acceptance":"pending human/assistant visual review",
-                "limits":"Contact candidates are proxies, not physical collision certification. No range reduction, no contact whitelisting, no game asset changes. Selection is numeric only. Each successful round retains actual GLB, eight Blender renders and HTML."}
+                "limits":"Contact candidates are proxies, not physical collision certification. No range reduction, no contact whitelisting, no game asset changes. Selection uses numeric guards and, in V3, guarded authored design hypotheses; aesthetic approval remains separate. Each successful round retains actual GLB, eight Blender renders and HTML."}
         write(root/"iteration_report.json",report)
     publish()
     for i in range(1,11):
@@ -176,18 +182,20 @@ def main():
             make_viewer(candidate)
             m=measure(candidate)
             reasons=check(m,best,initial)
-            if a.structural:
+            if a.structural or a.reference_design:
                 row["image_change_vs_parent"]=sv.image_delta(candidate,winner)
                 row["image_change_vs_baseline"]=sv.image_delta(candidate,baseline)
-            accepted=not reasons and rank(m)>rank(best)
+            improved=not reasons and rank(m)>rank(best)
+            explore=a.reference_design and not improved and rv.exploratory(key,m,best,reasons)
+            accepted=improved or explore
             row.update(status="rendered",metrics=m,accepted=accepted,guard_reasons=reasons,
-                       decision="numeric improvement" if accepted else "retain previous candidate")
+                       decision="numeric improvement" if improved else ("guarded design hypothesis; visual approval pending" if explore else "retain previous candidate"))
             if accepted:winner=candidate;best=m
             write(candidate/"round_review.json",row)
         except Exception as e:
             row.update(status="failed",accepted=False,error=str(e))
         rows.append(row);publish()
-    if a.structural:
+    if a.structural or a.reference_design:
         sv.sheet(root,rows)
     shutil.copy2(winner/"viewer.html",root/"best_viewer.html")
     shutil.copy2(winner/"model.glb",root/"best_model.glb")
