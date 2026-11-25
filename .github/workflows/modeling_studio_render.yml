@@ -109,6 +109,27 @@ jobs:
         run: |
           set -euo pipefail
           blender --background --factory-startup --python-exit-code 1 --python tools/modeling_studio/fit_crate_candidate.py -- "$RUNNER_TEMP/sera-model/crate_baseline" "$RUNNER_TEMP/sera-model/crate_candidate"
+      - name: Produce and inspect CRATE detail V2
+        if: startsWith(github.head_ref, 'modeling/crate-baseline-proportion-detail-')
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot_dir="$RUNNER_TEMP/godot-model-review"
+          root="$RUNNER_TEMP/sera-model"
+          variant="$root/crate_detail_source"
+          out="$root/crate_detail_v2"
+          mkdir -p "$variant"
+          python3 tools/modeling_studio/crate_detail_variant.py scripts/sera_crate_model.gd "$godot_dir/project/sera_crate_model.gd"
+          git hash-object "$godot_dir/project/sera_crate_model.gd" > "$variant/variant_source.txt"
+          cp "$godot_dir/project/sera_crate_model.gd" "$variant/variant.gd"
+          cp "$root/crate_baseline/source_commit.txt" "$root/crate_baseline/source_blob.txt" "$variant/"
+          "$godot_dir/Godot_v4.7.2-stable_linux.x86_64" --headless --path "$godot_dir/project" --script res://export_crate_baseline.gd -- "$variant"
+          blender --background --factory-startup --python-exit-code 1 --python tools/modeling_studio/render_crate_baseline.py -- "$variant"
+          blender --background --factory-startup --python-exit-code 1 --python tools/modeling_studio/fit_crate_candidate.py -- "$variant" "$out"
+          blender --background --factory-startup --python-exit-code 1 --python tools/modeling_studio/check_crate_articulation.py -- "$out"
+          cp tools/modeling_studio/check_crate_import.gd "$godot_dir/project/"
+          "$godot_dir/Godot_v4.7.2-stable_linux.x86_64" --headless --path "$godot_dir/project" --script res://check_crate_import.gd -- "$out"
+          test -s "$out/crate_godot_review.json"
       - name: Prepare review bundle
         shell: bash
         run: |
