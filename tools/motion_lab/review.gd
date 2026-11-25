@@ -86,7 +86,10 @@ func _run() -> void:
 	var max_error := 0.0
 	var marker_errors: Dictionary = {}
 	var worst_frame := 1
-	var capture: Array = report["capture_frames"]
+	var capture: Dictionary = {}
+	for raw_frame in report["capture_frames"]:
+		capture[int(raw_frame)] = true
+	var saved: Array[int] = []
 	p.play(clip)
 	p.pause()
 	for sample in report["samples"]:
@@ -110,13 +113,15 @@ func _run() -> void:
 		if img == null or img.is_empty() or img.save_png(dir.path_join("godot_%04d.png" % frame)) != OK:
 			quit(7)
 			return
+		saved.append(frame)
 	var f := FileAccess.open(dir.path_join("godot_review.json"), FileAccess.WRITE)
 	if f == null:
 		quit(8)
 		return
 	var duration_error := absf(length - expected_length)
 	var tolerance := float(spec.get("roundtrip_tolerance_m", 0.002))
+	var image_pass := saved.size() == capture.size() and not saved.is_empty()
 	var passed := duration_error <= 0.0002 and max_error <= tolerance and not markers.is_empty()
-	f.store_string(JSON.stringify({"animations":Array(names),"clip":clip,"length_seconds":length,"expected_length_seconds":expected_length,"duration_error_s":duration_error,"frames":capture.size(),"import_bake_fps":fps,"evaluated_frames":report["samples"].size(),"marker_max_errors_m":marker_errors,"max_error_m":max_error,"worst_frame":worst_frame,"tolerance_m":tolerance,"roundtrip_pass":passed,"renderer":"gl_compatibility","scope":"isolated GLB preview; not game or Android"}, "\t"))
+	f.store_string(JSON.stringify({"animations":Array(names),"clip":clip,"length_seconds":length,"expected_length_seconds":expected_length,"duration_error_s":duration_error,"frames":saved.size(),"expected_frames":capture.size(),"saved_frames":saved,"capture_pass":image_pass,"import_bake_fps":fps,"evaluated_frames":report["samples"].size(),"marker_max_errors_m":marker_errors,"max_error_m":max_error,"worst_frame":worst_frame,"tolerance_m":tolerance,"roundtrip_pass":passed,"renderer":"gl_compatibility","scope":"isolated GLB preview; not game or Android"}, "\t"))
 	f.close()
-	quit(0 if passed else 12)
+	quit(0 if passed and image_pass else 12)

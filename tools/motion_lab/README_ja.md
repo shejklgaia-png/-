@@ -25,3 +25,8 @@ V1 run 45512877274 は工程成功だが、Godotが肘クリップのみを再�
 V2の出力は単一clip・121サンプル・2秒で正しかったがGodot指定点最大13.10mmで不合格。Godot GLTFDocument.generate_scene の既定30fpsを制作fps明示に変更し、2mm閾値維持。PRの専用制作は従来腕demoとBittaran正本の二ケースを独立実行。
 `source_bbmodel` は models/manifest.json に登録された正本のみ、`bb_unit_m` を明示する。Blockbench 5 free-model mesh/outliner/groupsの剛体階層に限定。グループUUIDでトラック・マーカー指定、重複や未参照UUIDは拒否。Blender Z上の軸とローカル絶対値を使用（BBのキーフレーム値そのままではない）。rig_report.jsonで原本SHA、UUID、親、Pivot、回転・変換位置を記録。Bittaranの試験は頭のヨー運動。0.065m/単位はプレビュー用仮設定、ゲームの倍率・接地オフセット・装備差・既存クリップ・テクスチャ・ゲームシェーダーは再現しない。原本、ゲーム実装を変更しない。BB mesh頂点の基準と回転整合性は実画像と既存ゲーム描画を比較するまで確定扱いしない。
 参考: https://docs.godotengine.org/en/latest/classes/class_gltfdocument.html
+
+## V4: 撮影実数・制限付きIK
+V3成果物の全121フレーム指定点照合は腕0.000506mm、Bittaran 0.000065mmで合格。しかしGodot PNGが0枚。JSON数値の型差を考慮して整数フレーム辞書へ変換し、撮影実数・フレーム一覧を記録、期待数との一致を成功条件にする。
+`ik` は独立剛体チェーンのオフライン位置IK。各項目に marker、target_marker または world target、frames、blend_frames、joints（node、limits_deg の XYZ軸別範囲）を指定。FKを毎フレーム初期値とし、減衰最小二乗法・有限差分Jacobian・軸制限・短い線探索で補正し、全フレーム回転キーへベイク。指定区間外はFK。共有関節・向き制約・衝突・全身IKは未対応、局所解であり到達保証なし。ik_report.json に初期/最終残差・角度・重みを保存。require_contacts=true で指定接触の誤差超過を失敗扱いにする。PR専用ケースはdemo、bittaran、ikの3種。Bittaranは原本の展開バインド姿勢でありゲーム内立ち姿・材質は未再現。
+参考: https://mathweb.ucsd.edu/~sbuss/ResearchWeb/ikmethods/ ; https://motion.cs.illinois.edu/RoboticSystems/InverseKinematics.html ; https://docs.godotengine.org/en/latest/classes/class_json.html

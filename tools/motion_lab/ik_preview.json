@@ -1,0 +1,289 @@
+{
+  "format": "SERA_MOTION_LAB_V1",
+  "fps": 60,
+  "end_frame": 121,
+  "parts": [
+    {
+      "id": "base",
+      "size": [
+        1.4,
+        1.2,
+        0.3
+      ],
+      "location": [
+        0,
+        0,
+        0.15
+      ],
+      "rgb": [
+        0.2,
+        0.25,
+        0.32
+      ]
+    },
+    {
+      "id": "shoulder",
+      "location": [
+        0,
+        0,
+        0.3
+      ]
+    },
+    {
+      "id": "upper",
+      "parent": "shoulder",
+      "size": [
+        0.23,
+        0.25,
+        1.1
+      ],
+      "location": [
+        0,
+        0,
+        0.55
+      ],
+      "rgb": [
+        0.35,
+        0.65,
+        0.78
+      ]
+    },
+    {
+      "id": "elbow",
+      "parent": "shoulder",
+      "location": [
+        0,
+        0,
+        1.1
+      ]
+    },
+    {
+      "id": "forearm",
+      "parent": "elbow",
+      "size": [
+        0.2,
+        0.22,
+        0.85
+      ],
+      "location": [
+        0,
+        0,
+        0.425
+      ],
+      "rgb": [
+        0.6,
+        0.66,
+        0.72
+      ]
+    },
+    {
+      "id": "tool",
+      "parent": "elbow",
+      "size": [
+        0.38,
+        0.3,
+        0.2
+      ],
+      "location": [
+        0,
+        0,
+        0.95
+      ],
+      "rgb": [
+        0.9,
+        0.6,
+        0.2
+      ]
+    },
+    {
+      "id": "contact_target",
+      "location": [
+        1.7644203136722703,
+        0,
+        0.8327290744234407
+      ]
+    }
+  ],
+  "tracks": {
+    "shoulder": {
+      "rotation_deg": [
+        {
+          "frame": 1,
+          "value": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "frame": 22,
+          "value": [
+            0,
+            -18,
+            0
+          ]
+        },
+        {
+          "frame": 53,
+          "value": [
+            0,
+            35,
+            0
+          ]
+        },
+        {
+          "frame": 70,
+          "value": [
+            0,
+            35,
+            0
+          ]
+        },
+        {
+          "frame": 121,
+          "value": [
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    },
+    "elbow": {
+      "rotation_deg": [
+        {
+          "frame": 1,
+          "value": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "frame": 28,
+          "value": [
+            0,
+            -35,
+            0
+          ]
+        },
+        {
+          "frame": 53,
+          "value": [
+            0,
+            45,
+            0
+          ]
+        },
+        {
+          "frame": 70,
+          "value": [
+            0,
+            45,
+            0
+          ]
+        },
+        {
+          "frame": 121,
+          "value": [
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    }
+  },
+  "markers": {
+    "tip": {
+      "node": "tool",
+      "local": [
+        0,
+        0,
+        0.1
+      ]
+    },
+    "target": {
+      "node": "contact_target",
+      "local": [
+        0,
+        0,
+        0
+      ]
+    }
+  },
+  "contacts": [
+    {
+      "marker": "tip",
+      "frames": [
+        1,
+        1
+      ],
+      "target": [
+        0,
+        0,
+        2.45
+      ],
+      "tolerance_m": 0.01
+    },
+    {
+      "marker": "tip",
+      "target_marker": "target",
+      "frames": [
+        53,
+        70
+      ],
+      "tolerance_m": 0.002
+    }
+  ],
+  "review": {
+    "target": [
+      0,
+      0,
+      1.25
+    ],
+    "scale": 5
+  },
+  "events": {
+    "anticipation": 22,
+    "elbow_anticipation": 28,
+    "contact_start": 53,
+    "contact_end": 70,
+    "recovery": 121,
+    "ik_start": 43,
+    "ik_end": 80
+  },
+  "roundtrip_tolerance_m": 0.002,
+  "ik": [
+    {
+      "marker": "tip",
+      "target_marker": "target",
+      "frames": [
+        43,
+        80
+      ],
+      "blend_frames": 10,
+      "joints": [
+        {
+          "node": "shoulder",
+          "limits_deg": {
+            "Y": [
+              -80,
+              80
+            ]
+          }
+        },
+        {
+          "node": "elbow",
+          "limits_deg": {
+            "Y": [
+              -100,
+              100
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "require_contacts": true
+}

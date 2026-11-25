@@ -22,9 +22,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        case: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '["custom"]' || '["demo","bittaran"]') }}
+        case: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '["custom"]' || '["demo","bittaran","ik"]') }}
     env:
-      DESIGN: ${{ matrix.case == 'bittaran' && 'tools/motion_lab/bittaran_preview.json' || inputs.design || 'tools/motion_lab/example.json' }}
+      DESIGN: ${{ matrix.case == 'bittaran' && 'tools/motion_lab/bittaran_preview.json' || matrix.case == 'ik' && 'tools/motion_lab/ik_preview.json' || inputs.design || 'tools/motion_lab/example.json' }}
     steps:
       - uses: actions/checkout@v4
         with:
