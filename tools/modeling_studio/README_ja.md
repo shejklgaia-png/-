@@ -130,3 +130,15 @@ shape: wireframe を部品に指定。wireframe_example.json が動作確認用�
 - wireframe_projection/ に各部品・方向の線重ね合わせ画像とreport.jsonを出力。シアンは復元線、橙は観測点同士の接続、マゼンタは点残差、白/赤/青は投影輪郭の一致/不足/過剰。隠れ線消去・透視補正・実レンダリング評価とは別。すべて成果物ハッシュに追加。
 - wireframe_example.json は意図的に3pxの設定画矛盾と隠れ頂点を持つ合成資料。クレート設定画・ゲーム本体には未適用。
 参考: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.lsq_linear.html / https://docs.blender.org/manual/en/4.5/modeling/meshes/structure.html
+
+## 汎用ハードサーフェス制作パイプライン V1（2026-11-25）
+正式方針: 部品分解→外周/内部構造線の意味付け→部品別レシピ→正投影・斜め投影→段階評価→局所修正。クレート限定にしない。
+- hard_surface.level (1..5) で比率・基本装甲・凹凸/関節・細部・材質/発光の段階を指定。各partのlevelで登場段階、refinementsの段階別辞書で既存部品の形状/面取り/切り抜き/材質等を更新。名前・親・関節階層は固定。省略したランドマークを用いるカメラfitは拒否。motion_sweepsは段階別の入力が必要。
+- role と method で部品構造と造形方法を明示。outline=wireframe、section=loft、solid=box、extrusion=prism、joint=cylinder、revolution=revolve（非ゼロ半径の閉断面）、variable_section=sweep（pathとsectionsの楕円半径ペア）、repeat=repeat_path（xy/yzの閉じた折線を等弧長間隔でブロック配置）、explicit=mesh、fixed_tube=tube、pivot=pivot。既存shapeと共存。履帯の角部干渉は別途確認。
+- lines のkind: silhouette/panel_boundary/chamfer/recess/circular/curve/scratch/pattern/shadow/unknown。処理先の記録（形状、分割、面取り、切削、回転体、掃引、テクスチャ、無視、要確認）。自動意味認識・線からの直接造形・傷のテクスチャベイクではない。
+- reference_lines.py image.png mask.png output_directory は OpenCV の輪郭抽出・近似、Canny/Houghで候補線を出す独立CLI。別途 opencv-python-headless が必要。マスクは独立作成の前景二値画像、内部線はunknownとする。斜め図の透視補正・遮蔽・意味分類・多方向対応は人またはChatGPTが明示する。
+- dimension_fit はboxのx/y/z・cylinderのdiameter/depthだけに適用できる局所パラメータ調整。target_mとbounds_mを指定し、許容範囲内で最も近い値を採用、前後誤差を記録。実レンダリング最適化ではない。
+- part_targets: 部品名→ビュー→{resolution,bounds_px,min_iou}。実Blender仕上げ済みメッシュの各頂点を実レンダリングカメラで投影、矩形IoU・各辺誤差・修正優先順位を出す。遮蔽前の全頂点範囲で、シルエットや線・材質一致率とは区別。45度方向にはfront_3qを使い、review_cameras / camera_fitsで視点を固定・推定する。独立した参照目標と同じ姿勢・投影が必要。
+- hard_surface_plan.json / compiled_design.json / hard_surface_review.json を成果物に追加。hard_surface_example.jsonは合成の機械部品組立例、クレートではない。外周25・内部線25・配置20・斜め20・材質10の総合評価は独立した各評価が揃うまで算出しない。品質/可動/負荷の採否は別途。
+- 未実装: 自動部品分割・線の意味認識・多方向対応付け・輪郭/構造線/材質の自動反復最適化・実機負荷計測。既存LOD・メッシュ/関節検査と連携し、未計測項目を合格扱いしない。
+参考: https://studio.blender.org/tools/pipeline-overview/asset-creation/modeling / https://docs.opencv.org/4.x/df/d0d/tutorial_find_contours.html / https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html
