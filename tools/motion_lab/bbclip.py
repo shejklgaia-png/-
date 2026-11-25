@@ -100,7 +100,7 @@ def _compile_clip(scene,d,nodes,end,out,blend=None):
     (out/"source_clip_report.json").write_text(json.dumps({"clip":spec["name"],"mode":spec["mode"],"blend":smooth,"unit_m":unit,"source_duration":duration,"entry_frames":entry,"exit_frames":exit,"source_sha256":json.loads((out/"rig_report.json").read_text())["sha256"],"scope":"authored local pose + preview entry/exit; no runtime battle IK, aim, collision or gameplay timing; candidate not approved"},indent=2,ensure_ascii=False))
 
 
-def _evaluate_tracks(d,nodes,end):
+def _evaluate_tracks(d,nodes,end,*,dynamic=False):
     """Read-only rigid FK sampling before animation insertion; restore bind pose."""
     fps=int(d["fps"])
     tracks=d["tracks"]
@@ -112,6 +112,11 @@ def _evaluate_tracks(d,nodes,end):
     if d.get("support_lock",{}).get("sole_meshes"):
         from sole import SoleReview
         sole=SoleReview(nodes,d["support_lock"],meshes)
+    interference=None
+    if dynamic:
+        from dynamics import Interference
+        if sole is None: raise ValueError("dynamic review requires sole geometry")
+        interference=Interference(meshes)
     try:
         for i in range(end):
             for uid,channels in tracks.items():
@@ -128,6 +133,7 @@ def _evaluate_tracks(d,nodes,end):
             # Exact minimum of rigid preview mesh vertices, not a bounding box.
             minima.append(min((o.matrix_world @ v.co).z for o in meshes for v in o.data.vertices))
             if sole: sole.sample()
+            if interference: interference.sample()
     finally:
         for uid,(p,q) in saved.items():
             nodes[uid].location=p; nodes[uid].rotation_euler=q
@@ -167,6 +173,10 @@ def _evaluate_tracks(d,nodes,end):
                            "min_body_proxy_margin_m":min(margins),"offsets_m":offsets,
                            "strike_positions_m":[list(v) for v in points[strike]]}
     if sole: result["sole"]=sole.report()
+    if interference:
+        from dynamics import support_dynamics
+        result["interference"]=interference.report()
+        result["dynamics"]=support_dynamics(result["sole"],fps,minima[0])
     return result
 
 
@@ -221,6 +231,8 @@ def compile_clip(scene,d,nodes,end,out):
         _lock_support(d,nodes,end,out)
     if d.get("multifoot_ik"):
         _refine_multifoot(d,nodes,end,out)
+        if d.get("dynamic_refinement"):
+            _refine_multifoot(d,nodes,end,out,dynamic=True)
 
 
 def _lock_support(d,nodes,end,out):
@@ -299,10 +311,11 @@ def _lock_support(d,nodes,end,out):
     },indent=2,ensure_ascii=False))
 
 
-def _refine_multifoot(d,nodes,end,out):
+def _refine_multifoot(d,nodes,end,out,*,dynamic=False):
     from multifoot_ik import propose
-    spec=d["multifoot_ik"]
-    base_tracks=d["tracks"]; base=_evaluate_tracks(d,nodes,end)
+    spec=dict(d["multifoot_ik"])
+    if dynamic: spec.update(d["dynamic_refinement"])
+    base_tracks=d["tracks"]; base=_evaluate_tracks(d,nodes,end,dynamic=dynamic)
     candidates,diagnostics=propose(nodes,d,end,base,spec)
     b=base["sole"]; impact=d["events"]["impact_authored"]-1
     def strike_error(r):
@@ -312,7 +325,7 @@ def _refine_multifoot(d,nodes,end,out):
     selected=(0.,0,base_tracks,base); rows=[]
     for strength,radius,track,max_angle in candidates:
         d["tracks"]=track
-        e=_evaluate_tracks(d,nodes,end); q=e["sole"];reasons,_=_compare(base,e)
+        e=_evaluate_tracks(d,nodes,end,dynamic=dynamic); q=e["sole"];reasons,_=_compare(base,e)
         for field in ("max_drift_m","mean_drift_m","max_support_low_error_m"):
             if q[field]>b[field]+.0001: reasons.append("sole_"+field)
         if q["min_com_margin_m"]<min(0.,b["min_com_margin_m"])-.0001:
@@ -323,7 +336,15 @@ def _refine_multifoot(d,nodes,end,out):
         if abs(q["frames"][impact]["strike_low_delta_m"])>abs(b["frames"][impact]["strike_low_delta_m"])+.0001:
             reasons.append("strike_impact_height")
         if strike_error(e)>strike_error(base)+.0001: reasons.append("strike_floor")
-        rows.append({"strength":strength,"smooth_radius":radius,"max_joint_delta_deg":max_angle,
+        extra={}
+        if dynamic:
+            from dynamics import regressions
+            failures=regressions(base,e)
+            reasons.extend(sorted(set(x["kind"] for x in failures)))
+            extra={"dynamic_rejections":failures,"invalid_load_frames":e["dynamics"]["invalid_load_frames"],
+                   "min_zmp_margin_m":e["dynamics"]["min_zmp_margin_m"],"max_friction_ratio_proxy":e["dynamics"]["max_friction_ratio_proxy"],
+                   "interference_frame_pairs":e["interference"]["candidate_frame_pairs"]}
+        rows.append({"strength":strength,"smooth_radius":radius,**extra,"max_joint_delta_deg":max_angle,
                      "strike_depth_m":strike_error(e),"support_drift_m":q["max_drift_m"],
                      "support_mean_drift_m":q["mean_drift_m"],"impact_xy_shift_m":xy,
                      "min_com_margin_m":q["min_com_margin_m"],"metrics":e["markers"],"rejections":reasons})
@@ -331,11 +352,14 @@ def _refine_multifoot(d,nodes,end,out):
         if not reasons and any(new[i]<old[i]-.0001 and all(new[j]<=old[j]+.0001 for j in range(i)) for i in range(len(old))):
             selected=(strength,radius,track,e)
     strength,radius,track,chosen=selected;d["tracks"]=track
-    actual=_evaluate_tracks(d,nodes,end)
+    actual=_evaluate_tracks(d,nodes,end,dynamic=dynamic)
+    if dynamic:
+        from dynamics import regressions
+        if regressions(chosen,actual): raise ValueError("dynamic reevaluation mismatch")
     if any(abs(x-y)>1e-6 for x,y in zip(score(actual),score(chosen))):
         raise ValueError("multifoot selected track reevaluation mismatch")
-    (out/"multifoot_ik_report.json").write_text(json.dumps({
-        "version":14,"selected_strength":strength,"selected_smooth_radius":radius,
+    (out/("dynamic_refinement_report.json" if dynamic else "multifoot_ik_report.json")).write_text(json.dumps({
+        "version":15 if dynamic else 14,"selected_strength":strength,"selected_smooth_radius":radius,
         "baseline":base,"selected":actual,"candidates":rows,"solver_frames":diagnostics,
-        "scope":"bounded sampled four-foot position/orientation IK on authored preview; no real joint limits, swept collision, dynamics or gameplay adoption"
+        "scope":"bounded sampled four-foot position/orientation IK; optional point-mass dynamic and discrete interference guards; no real joint limits, swept collision or gameplay adoption"
     },indent=2,ensure_ascii=False))
