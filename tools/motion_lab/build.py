@@ -91,6 +91,9 @@ def main():
         obj=bpy.data.objects.new(label,None); scene.collection.objects.link(obj)
         obj.parent=nodes[point["node"]]; obj.location=point.get("local",[0,0,0])
         marker_nodes[name]=obj
+    sys.path.insert(0,str(Path(__file__).resolve().parent))
+    from ik import bake_ik
+    ik_dynamic=bake_ik(scene,nodes,marker_nodes,d.get("ik",[]),end,out)
     # Evaluate every authored frame, not just key poses. Contacts use world positions.
     samples=[]; contacts=[]
     for f in range(1,end+1):
@@ -132,6 +135,8 @@ def main():
     (out/"motion_report.json").write_text(json.dumps({"fps":fps,"end_frame":end,"samples":samples,
         "contacts":contacts,"marker_nodes":{k:v.name for k,v in marker_nodes.items()},"metrics":metrics,
         "capture_frames":capture,"events":events,"limitations":["contact markers only; no full collision or IK solve","visual quality not auto-approved"]},indent=2))
+    if d.get("require_contacts",False) and not all(c["within_tolerance"] for c in contacts):
+        raise ValueError("authored contact tolerance exceeded; see motion_report.json")
     scene.frame_set(1)
     bpy.ops.wm.save_as_mainfile(filepath=str(out/"motion.blend"))
     bpy.ops.export_scene.gltf(filepath=str(out/"motion.glb"),export_format="GLB",export_animations=True,export_animation_mode="SCENE",export_anim_scene_split_object=False,export_anim_slide_to_zero=True,export_frame_range=True,export_force_sampling=True)
@@ -145,6 +150,7 @@ def main():
     if len(clips)!=1: raise ValueError("expected exactly one complete GLB clip")
     actual={(gltf["nodes"][c["target"]["node"]].get("name"),c["target"]["path"]) for c in clips[0]["channels"]}
     expected={(nodes[name].name,{"location":"translation","rotation_deg":"rotation"}[prop]) for name,channels in d["tracks"].items() for prop,keys in channels.items() if any(k["value"]!=keys[0]["value"] for k in keys[1:])}
+    expected.update((name,"rotation") for name in ik_dynamic)
     (out/"clip_report.json").write_text(json.dumps({"clip":clips[0].get("name"),"channels":sorted(actual),"required":sorted(expected),"missing":sorted(expected-actual)},indent=2))
     if expected-actual: raise ValueError("missing animated node channels: "+str(expected-actual))
     # Render actual animated geometry, using fixed framing for all samples.
