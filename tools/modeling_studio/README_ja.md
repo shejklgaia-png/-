@@ -180,3 +180,13 @@ shape: wireframe を部品に指定。wireframe_example.json が動作確認用�
 - multiview_review.py: V4の保護条件を満たしたマップ（満たさなければV3候補）を固定入力にし、曲線グループ別の部品IoUと保護判定を出す。対応候補は曲線処理前の固定入力から生成し、後で独立部品IDに対する優勢IDの一致を評価（純度70%以上、曖昧は別集計）。一致率は未対応領域を除くため再現率ではない。合成12個の円列fixtureも報告。すべて候補であり形状自動変更なし。
 - modeling/structure-analysis-v5-* 専用制作に追加。正確でない設定画は設計意図の参考資料として柔らかく扱い、無理に対応させず作者判断で補完する。CRATE資料適用、意味推定・レシピ自動選択・実モデル造形は後続。
 参考: https://docs.opencv.org/4.x/da/de9/tutorial_py_epipolar_geometry.html / https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.linear_sum_assignment.html
+
+## V6：機構設計グラフと意図に基づく補完
+- mechanism.nodes は部品名・role・親子・親ローカル位置・形状パラメータ・reason・provenance・evidenceを記述。referenceは資料由来の特徴であり寸法の正解ではない。inferredは作者の補完、explicitは明示仕様。画像由来の候補領域は直接自動確定しない。
+- roleと利用可能な形状パラメータから既存のwireframe/loft/box/cylinder/revolve/sweep/repeat/pivotレシピを決定する。methodによる明示上書きも互換性を検査。親の欠落や循環は拒否。従来parts方式とは排他で既存設計は変更しない。
+- mirror_xは指定部品を親ローカルXで反転し、親も指定されていれば反対側の親に接続。共有親は中心・軸整列が必要。box/cylinder/revolve/YZ repeat/pivot/sweepのみ対応、切削・段階refinementの反転は拒否。形状や役割の自動認識ではなく作者が対称関係を判断する。
+- pivotのjointはrevolute、axis_local、range_deg。対称部品の軸は軸性ベクトルとして反転。joint_review_samplesを指定すると既存の離散姿勢干渉レビューを生成する。実行時関節制約・連続衝突検出ではない。
+- mechanism_graph.jsonに選択レシピ候補、推定/参照の由来、親子・軸、反転元、造形理由を出力して成果物ハッシュへ追加。
+- mechanism_crate_study.json は2026-11-25のユーザー提供CRATE回転図面から作者が共通特徴を読み取った独立した機構造形例。広い頭部、青色ライン、側面円形ユニット、二本アンテナ、三本爪、左右履帯、背面収納を参照し、内部フレーム・関節位置/範囲・寸法を推定。設定画の画像認識結果からの自動変換ではない。既存ゲーム内CRATEや確定デザインを置換しない。
+- modeling/structure-analysis-v6-* 専用制作でこの例をレンダリング、GLB/Godot読込、干渉候補、V1/V2画像解析を出力する。見栄え、可動、描画負荷の採否は実成果物レビュー後。複数領域の機構単位への自動統合・未知機構の意味推定・参考図の自動対応は残課題。
+参考: https://studio.blender.org/tools/pipeline-overview/asset-creation/modeling / https://docs.blender.org/manual/en/4.5/modeling/modifiers/generate/mirror.html
