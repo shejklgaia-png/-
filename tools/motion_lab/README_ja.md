@@ -97,3 +97,11 @@ V17実artifact15010185986を取得。6候補中3候補合格、heavy/平滑0を�
 - コマンド例: `blender -b --python-exit-code 1 --python tools/motion_lab/build.py -- tools/motion_lab/bittaran_procedural_v20.json /tmp/mlab_v20_stomp --action stomp`。別出力ディレクトリで `--preview-ik` を追加すると補正後プレビュー。専用既存Actionsのworkflow_dispatch design入力でも原本とsidecarを生成可能（当該新規デザインのActions実行は未確認、既存ゲームCI変更なし）。
 - V18実成果物の形状・バインドから独立SciPy再計算した1086サンプル（9動作）。踏みつけ上昇2.6587mをOFF/ONとも維持。全9動作の完全固定区間では補正前最大0.23296m、補正後数値誤差範囲。上限超過/到達不能0。キーポーズ到達誤差最大0.00215m。全体の床突出は補正後も最大0.03383m（後退）。ON/OFFのHTML独立プレビューをChromiumモバイル幅Canvas2Dで操作確認（9動作、同一フレーム切替、速度/再生/視点、JS例外/外部通信0）。これは実Blender出力やGodot本体の実行検証ではない。既存ゲームモーション・AI・既存ゲームCIは変更なし。
 参考: https://dev.epicgames.com/documentation/unreal-engine/fix-foot-sliding-with-ik-retargeter-in-unreal-engine ; https://dev.epicgames.com/documentation/unreal-engine/game-animation-sample-project-in-unreal-engine ; https://docs.godotengine.org/en/stable/classes/class_node3d.html
+
+## V21: FK演技先行・踏みつけ比較
+V20の視覚評価不合格を受け、足先目標の逆算ではなく各リンクのBody相対仰角・方位角を明示した新規キーポーズを先に設計する。Bittaran前左脚専用の試作。旧モーションを読まず、V18由来の実形状と正本BBの剛体階層を使用。2案とも2.05秒・60fps・124サンプル、11ポーズ。形状保持の区分三次Hermite（PCHIP）で時間曲線を生成。脚3リンクの方向をFKで設定、後段の既存runtime_contactは支持3脚に限り適用し、攻撃脚の演技を変更しない。
+- `blender -b --python-exit-code 1 --python tools/motion_lab/build.py -- tools/motion_lab/bittaran_fk_v21.json /tmp/mlab_v21_a --variant extended`。別ディレクトリで `--variant spear` または `--preview-ik`。FK原本・sidecar・独立IK評価出力を維持。
+- V18実GLBの静的メッシュ形状から独立SciPy評価を実施（アニメーションチャネル未読）。A足先上昇3.30385m、水平変位1.58615m、B上昇2.88602m、水平変位2.51015m。支持脚最大誤差0.23222m→数値誤差、補正上限超過0。最大床突出OFF0.13797m、ON A0.03514m/B0.03754m。暫定角度/尺であり関節機構・干渉・動力学未検証。
+- HTMLビューワーで初期案を正面/側面/斜めから確認、支持脚補正上限超過と貫通を発見。胴体移動・角度と着地キーを再設計。最終2案の主要6フレーム×3方向を実際のChromium Canvas描画で再確認し、1倍/0.5倍再生とIK切替も実行（JS例外0）。Aは正面、Bは側面で攻撃脚の輪郭が明瞭になったが、斜めでは機体と重なる、着地・支持脚の重量感が不足。**ゲーム採用としては視覚不合格**。実Blender/Godot直接出力・Android未検証。HTMLは独立プレビューで、実行時APIの実測ではない。
+- 今後は実3D HTML作成・再生・複数方向の描画確認・修正後再確認を必須とし、数値/操作確認だけで視覚合格にしない。既存ゲームモーションを置換しない。
+参考: https://www.gameanim.com/2019/05/15/the-12-principles-of-animation-in-video-games/ ; https://www.gamedeveloper.com/game-platforms/12-principles-for-game-animation
