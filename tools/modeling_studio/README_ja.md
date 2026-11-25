@@ -85,3 +85,7 @@ Actions手動起動時に reference_manifest を指定するか、成果物を�
 - lod: {"shaft":{"ratio":0.6,"max_bounds_error":0.03}} のように選択した部品だけDecimate Collapseを適用した別GLBを生成。三角形削減、境界箱の変化、非多様体・ゼロ面積・UV層数を確認し不適合部品を元に戻す。元BLEND/GLBは保持。輪郭・UV・陰影の品質は別途目視確認が必要。自動LOD切替は行わない。
 - 専用ActionsでGodot 4.7.2の独立プロジェクトを使い、GLTFDocumentで元GLBと軽量版GLBの読み込み・シーン生成・メッシュ/三角形/階層情報を記録する。ゲーム本体の描画やAndroid性能を保証するものではない。
 - 成果物: motion_review.json、lod_report.json、model_lod.glb（LOD指定時）、godot_import.json。
+
+## V7 現行CRATEの比較基準
+
+専用Actionsのcrate_baselineを有効化、またはmodeling/crate-baseline-*のPRを作成すると、現行のscripts/sera_crate_model.gdを独立Godotにコピーしcreate_model()を実行、材質・階層を含むGLBへ書き出す。Blenderへ読み込み、元三角形数と一致することを確認し、編集用BLENDと8方向画像、一覧画像、メッシュ情報、ソースコミット/ブロブをcrate_baselineフォルダに保存する。Blenderレビュー用にZ軸180度回転するが、元のGodot出力GLBは変更しない。既存ゲームのモデル・モーション・シェーダーは変更しない。ゲームの枠線や実機描画、設定画一致はこの基準画像では保証しない。材質バッチのメッシュは独立した機械部品とは限らず、法線分割を含む非多様体数の評価には注意する。
