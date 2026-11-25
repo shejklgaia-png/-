@@ -160,3 +160,12 @@ V18 GLBの実メッシュ形状を用いた独立SciPyプレビューを生成�
 - 独立実メッシュ60fps/117サンプル検査：溜め時の脚先から付け根距離約136→105cm、伸展後3サンプル間隔で約30.9cm上昇、最大足先速度33.23m/s、非隣接最大OBB重なり4.21cm。OBBは表面の貫通深さではない。5cm要確認・10cm超出力停止の暫定ガードを維持。
 - MotionLab_V25_Flick_Snap.html の実描画で深い丸め、伸展、上方フォロースルー、回復の姿勢を視認。通常/半速再生のフレーム進行を確認。Blender/Godot直接出力、Android、厳密な連続衝突・ゲーム当たり判定は未確認。
 - 再現：bittaran_kick_snap_v25.json を build.py に指定。既存ゲームCIは変更しない。
+
+## V26: 全時間軸の回転最適化と候補比較（オフライン、明示的に有効化）
+V25再改5/6の成功演技は保持する。--trajectory-review heavy を指定した別出力のみ、trajectory_refine.py / trajectory_review.py を使用。主要イベント・開始終端・settle以降を固定し、符号連続な単位クォータニオン（XYZW）の埋め込み空間で参照誤差、二階・三階差分を含む全時間軸の正則化最小二乗問題を解き、正規化する。物理力学や厳密なSO(3)非線形制約解法ではない。NumPyのみで3強度と原本を生成。SciPyがBlender環境に存在する場合はRotationSplineの別候補も比較（未導入環境はスキップ）。heavy/medium/lightは攻撃期間の参照忠実度5/3/2の初期設定であり、重量・慣性・予備動作自体の生成は未実装。
+- 攻撃脚の候補選択後、支持3脚を別の全時間軸候補として生成し、非固定フレームで解析二リンク接地を再適用。元の膝平面を維持する方向。角ジャークRMSと元形状からの最大変位で順位付け。床2mm（60Hz）、支持点5mm、非隣接OBB5cm以内かつ原本+5mm以内、姿勢変位12cm/10cm、攻撃速度±10%、軌道長±5%、終端姿勢、詳細交差ペアの非増加をゲートにする。120Hz中間床は2mmまたは原本+1mmを上限とする回帰抑制。原本を超える候補がなければ原本維持。原本は合格保証ではない。
+- 詳細検査は非隣接メッシュのAABB→BVHTree三角形overlap。60Hzの各フレームと中間を検査（Blender側はEulerキー線形補間、独立プレビューはクォータニオン中間補間）。隣接接合部除外。表面交差のサンプリングであり完全包含、厳密な貫通深さ、連続衝突、物理可動限界は未保証。独立検査ではAABB→三角形SAT（交差/非交差/同一面の合成ケース確認）。
+- 独立SciPy実GLB形状比較: 各動作で攻撃5候補、支持4候補（段階別、原本含む）。正薙ぎ/逆薙ぎ/弾きの攻撃脚離散角ジャークRMS 900.16→631.05 / 613.89→432.93 / 1482.89→1070.93 rad/s^3、29.90/29.48/27.78%減。選択λ2.4/2.4/0.6。強い弾きλ2.4案とRotationSpline案は床基準で棄却。支持脚は全3動作で原本維持。支持脚の接地誤差は数値誤差。60Hz最大床突出0.138/0/0.638mm、120Hz中間を含む最大0.326/0.153/8.047mm（弾き原本8.532mm。2mm未達、改善継続が必要）。弾きの上向き余韻30.87cm維持。非隣接表面交差三角形ペアは全3動作で原本/選択とも0（217/217/233サンプル）。OBBは最大3.83/3.69/4.21cm。原本の主要ポーズは固定、攻撃区間最大速度25.50/30.04/32.26m/s。
+- HTML MotionLab_V26_Trajectory_Compare.html: 3動作×原本/候補×4方向×5姿勢=120枚の実描画を視認。原本/候補・通常/半速の12再生がループOFFで最終フレーム到達、JS例外0。主要姿勢・振り抜き・跳ね上げの見た目を維持する微調整。独立プレビューであり、Blenderの新アダプタの実行結果との一致、Godot/Android、実機当たり判定、完全包含・連続衝突は未検証。V25以前のゲーム原本、CI、デフォルトビルドを変更しない。
+- 再現: `blender -b --python-exit-code 1 --python tools/motion_lab/build.py -- tools/motion_lab/bittaran_kick_snap_v25.json /tmp/mlab_v26_kick --trajectory-review heavy`。正逆はbittaran_sweep_clearance_v25.json/bittaran_sweep_reverse_clearance_v25.json。出力trajectory_source_tracks.json（原本）/trajectory_review.json（候補とゲート）。次は120Hz中間床、支持膝平面の動的計画法、重量演技パラメータ・別リグ適用の検証。
+参考: https://publications.ri.cmu.edu/spacetime-constraints ; https://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.transform.RotationSpline.html ; https://docs.blender.org/api/current/mathutils.bvhtree.html

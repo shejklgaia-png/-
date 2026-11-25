@@ -150,6 +150,10 @@ def compile_fk(d,nodes,end,out):
         if version!=25:raise ValueError("ground drag requires V25 attack library")
         from ground_drag import bake_ground_drag
         bake_ground_drag(d,nodes,end,out,geom)
+    if spec.get("trajectory_refine"):
+        from trajectory_review import refine_trajectory
+        refine_trajectory(d,nodes,end,out,geom)
+        tracks=d["tracks"]
     d["export_poses"]=[{"id":n,"frame":f} for n,f in d["events"].items()]
     d["pose_export_channels"]={uid:list(ch) for uid,ch in tracks.items()}
     d.setdefault("spatial",{}).setdefault("floor",{"z":0.,"tolerance_m":.002,"meshes":[uid for uid,o in nodes.items() if o.type=="MESH"]})
