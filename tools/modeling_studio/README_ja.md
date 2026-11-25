@@ -232,3 +232,11 @@ shape: wireframe を部品に指定。wireframe_example.json が動作確認用�
 - 部位別評価の低いグループから未試行レシピを優先。三本爪の断面、爪先、肘フォーク、頭頂面、頭部側面、胸部主装甲・上装甲、二列履帯片、側面ハブ、背面収納を試す。装甲は既存四角面に連続したリム・凹部・床面を構築し、別体のインサートを配置。凹部と部品の接続は実画像・メッシュで別評価する。
 - V2の関節跨ぎ候補・可視性・階層・全体輪郭・ポリゴン保護に加え、部位別IoUの悪化を基準比3.5ポイント/直前比2ポイント以内に制限。これらは試行用の作者判断。数値優位候補に加え、ガード合格で平均部位IoUの低下0.1ポイント以内の装甲/履帯等の作者提案を探索候補として引き継ぐ。これは審美的承認ではない。既存ゲームCRATEは未置換。
 - 調査資料: Blender Studio Modeling https://studio.blender.org/tools/pipeline-overview/asset-creation/modeling ; Blender Inset Faces https://docs.blender.org/manual/en/5.0/modeling/meshes/editing/face/inset_faces.html ; Bevel Modifier https://docs.blender.org/manual/en/4.0/modeling/modifiers/generate/bevel.html ; gripper mechanism https://www.mdpi.com/2218-6581/11/6/155 ; https://www.mdpi.com/2076-3417/9/24/5266 。研究の機構をそのまま再現せず、関節と外装の分離、輪郭・面構成の段階化を採用する。
+
+## 恒久制作原則：部品単位の実物資料調査
+新規・改修モデルは造形前に設定画の意図と部品構成を分解し、各部品の役割に応じたメーカー公式写真、製品図、公開断面・分解図、技術資料を調査する。参考URL、確認できた特徴、採用する構造・形状・材質、原画との矛盾と作者の補完を記録し、メッシュ設計へ対応付ける。資料不足は推定として明示し、設定画のキャラクター性とゲーム性能を優先する。産業機械および軍用機械の汎用機構、非武装車体、整備性を参考にし、実製品の寸法や機構の完全再現を前提としない。資料調査は作者が行い、コードが自動でWeb調査する機能ではない。
+## 10回反復制作 V4：外部部品資料に基づく造形
+- iteration_mode=true / structural_mode=true / reference_design_mode=true / industrial_design_mode=true、または modeling/crate-blockout-loop-v4-* を選択。V3の採用7変更を再現した基準を使う。
+- industrial_design_variants.py の SOURCES に外部資料URL、確認特徴、採用範囲を記録。各候補の design.json に research_sources と research_adaptations を保存し、変更レシピと根拠を追跡可能にする。
+- Harmonic Driveの同軸アクチュエーターを肩・肘・手首、ABB公開特許の機構分離を腕、Robotiqの独立指と接触部を爪、Catの転輪・履帯を中空ベルトと支持ローラー、Milrem THeMIS Cargoのモジュール性を収納支持部、Rittalのカバー構造を整備用外装、Baslerの保護筐体をバイザー内周の形状に反映。寸法と形状は作者のフィクション設計で、機械としての実用性は保証しない。
+- 10仮説の全候補を保存し、従来の部位別輪郭、関節跨ぎ干渉候補、可視性、階層、トポロジー、ポリゴン上限を維持。外観承認とは分離し、16関節・可動範囲を変えず、既存ゲームモデルを置換しない。
