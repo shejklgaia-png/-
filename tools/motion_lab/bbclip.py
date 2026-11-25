@@ -245,6 +245,8 @@ def _lock_support(d,nodes,end,out):
             delta=offset*strength
             if delta.length>cap: delta=delta.normalized()*cap
             new.append({"frame":i+1,"value":[round(x,7) for x in v+delta],"interpolation":"LINEAR"})
+        if max((Vector(k["value"])-Vector(new[0]["value"])).length for k in new)<1e-6:
+            new=[new[0],dict(new[-1],value=new[0]["value"])]
         channels["location"]=new;track[root]=channels
         d["tracks"]=track
         evaluated=_evaluate_tracks(d,nodes,end)
