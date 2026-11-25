@@ -65,6 +65,14 @@ for part in parts:
         print(f"  {part} V32 -> V33: charts {v33['previous_charts']} -> {v33['current_charts']}; single triangles {p['single_triangle_charts']} -> {n['single_triangle_charts']}; tilted {p['axis_tilted_faces']} -> {n['axis_tilted_faces']}; angle>10deg {p['angular_bad']} -> {n['angular_bad']}; axis energy {p['axis_energy']:.9f} -> {n['axis_energy']:.9f}; UV gaps {p['same_chart_gaps']} -> {n['same_chart_gaps']}; bad {p['bad']} -> {n['bad']}; severe {p['severe']} -> {n['severe']}; max {p['worst']:.5f} -> {n['worst']:.5f}; time {v33['previous_us']/1000:.3f} -> {v33['current_ms']}ms")
         if p['edges']!=n['edges'] or n['bad']>p['bad'] or n['severe']>p['severe'] or n['worst']>p['worst']+0.0002 or n['sum_sq']>p['sum_sq']+0.005 or v33['current_atlas']>v33['previous_atlas'] or n['coplanar_bad']>p['coplanar_bad'] or n['single_triangle_charts']>p['single_triangle_charts'] or n['axis_tilted_faces']>p['axis_tilted_faces'] or n['angular_bad']>p['angular_bad'] or n['axis_energy']>p['axis_energy']+1e-7 or n['same_chart_gaps']>p['same_chart_gaps']:
             issues.append(part+":V33 regression")
+    experiment=g.get('v34_experiment',{})
+    if not experiment or experiment.get('error'):
+        print(f"  {part} V34 experimental: {experiment.get('error','missing report')}")
+    else:
+        p,n=experiment['previous'],experiment['current']
+        geom=experiment['shape']
+        brush=experiment['footprints']
+        print(f"  {part} V34 experimental (not a replacement gate): islands {experiment['previous_charts']} -> {experiment['current_charts']}; singleton {p['single_triangle_charts']} -> {n['single_triangle_charts']}; tilted {p['axis_tilted_faces']} -> {n['axis_tilted_faces']}; bad {p['bad']} -> {n['bad']}; severe {p['severe']} -> {n['severe']}; max {p['worst']:.4f} -> {n['worst']:.4f}; overlap {geom['overlap']}; invalid {geom['invalid']}; erase failures {brush.get('erase_failures')}; export {experiment['artifact_ok']}")
     if c['bridge_count'] and c['bridge_ok']!=c['bridge_count']:
         issues.append(part+":bridge coverage")
     if c['atlas']>b['atlas']*2 or c['shape_max']>b['shape_max']+0.02 or c['shape_mean']>b['shape_mean']*1.05+1e-6 or c['area_max']>b['area_max']+0.02:
