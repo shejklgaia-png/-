@@ -94,6 +94,8 @@ def main():
     sys.path.insert(0,str(Path(__file__).resolve().parent))
     from ik import bake_ik
     ik_dynamic=bake_ik(scene,nodes,marker_nodes,d.get("ik",[]),end,out)
+    from optimize import optimize
+    optimized_dynamic=optimize(scene,nodes,marker_nodes,d,end,out)
     # Evaluate every authored frame, not just key poses. Contacts use world positions.
     samples=[]; contacts=[]
     for f in range(1,end+1):
@@ -158,6 +160,7 @@ def main():
     actual={(gltf["nodes"][c["target"]["node"]].get("name"),c["target"]["path"]) for c in clips[0]["channels"]}
     expected={(nodes[name].name,{"location":"translation","rotation_deg":"rotation"}[prop]) for name,channels in d["tracks"].items() for prop,keys in channels.items() if any(k["value"]!=keys[0]["value"] for k in keys[1:])}
     expected.update((name,"rotation") for name in ik_dynamic)
+    expected.update(optimized_dynamic)
     (out/"clip_report.json").write_text(json.dumps({"clip":clips[0].get("name"),"channels":sorted(actual),"required":sorted(expected),"missing":sorted(expected-actual)},indent=2))
     if expected-actual: raise ValueError("missing animated node channels: "+str(expected-actual))
     # Render actual animated geometry, using fixed framing for all samples.
