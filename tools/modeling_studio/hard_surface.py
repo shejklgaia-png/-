@@ -75,6 +75,18 @@ def compile_design(source):
         if stage>level:
             report["excluded"].append(name)
             continue
+        # Preserve identity and joint hierarchy while refining geometry by level.
+        applied=[]
+        refinements=part.pop("refinements",{})
+        allowed={"size","radius","depth","sides","rings","path","sections","profile","vertices",
+                 "faces","wireframe","cuts","bevel","bevel_segments","weighted_normals","uv","material","count"}
+        for step,changes in sorted(refinements.items(),key=lambda item:int(item[0])):
+            n=int(step)
+            if not stage<n<=5 or not set(changes)<=allowed:
+                raise ValueError("invalid refinement stage or field: "+name)
+            if n<=level:
+                part.update(changes)
+                applied.append(n)
         method=part.get("method")
         if method:
             selected=METHODS[method]
@@ -86,7 +98,7 @@ def compile_design(source):
         if part.get("parent") is not None and part["parent"] not in {p["name"] for p in active}:
             raise ValueError("active part parent must precede it and be active: "+name)
         row={"role":part.get("role","unspecified"),"level":stage,"shape":part["shape"],
-             "method":method,"dimension_fit":fit_dimensions(part)}
+             "method":method,"refinement_levels":applied,"dimension_fit":fit_dimensions(part)}
         report["parts"][name]=row
         active.append(part)
     if not active:
