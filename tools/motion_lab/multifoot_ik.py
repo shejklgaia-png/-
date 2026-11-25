@@ -32,9 +32,12 @@ def propose(nodes,d,end,base,spec):
                 raise ValueError("expected disjoint articulated foot chains")
             owned.add(uid)
             for axis in range(3): axes.append((uid,o,axis))
-    cap=math.radians(float(spec.get("max_delta_deg",12.)))
+    default_cap=float(spec.get("max_delta_deg",12.))
+    limits=spec.get("joint_delta_deg",{})
+    if set(limits)-owned or any(len(v)!=3 for v in limits.values()): raise ValueError("invalid joint profile")
+    cap=np.radians([float(limits.get(uid,[default_cap]*3)[axis]) for uid,_,axis in axes])
     orient=float(spec.get("orientation_weight_m",.2))
-    if not (0<cap<=math.pi/4 and 0<orient<=1): raise ValueError("invalid IK settings")
+    if not (np.isfinite(cap).all() and np.all((cap>0)&(cap<=math.pi/4)) and 0<orient<=1): raise ValueError("invalid IK settings")
     fps=int(d["fps"]); rows=base["sole"]["frames"]; strike=stance["strike_marker"]
     # Raise the striking sole only where it goes below its own Wait level.
     lift=np.array([max(0.,-r["strike_low_delta_m"]) for r in rows])
@@ -86,8 +89,8 @@ def propose(nodes,d,end,base,spec):
                     if np.linalg.norm(err)<.0002: break
                     jac=np.zeros((len(y),len(x))); h=1e-4
                     for k in range(len(x)):
-                        t=x.copy(); t[k]=min(cap,x[k]+h)
-                        if t[k]==x[k]: t[k]=max(-cap,x[k]-h)
+                        t=x.copy(); t[k]=min(cap[k],x[k]+h)
+                        if t[k]==x[k]: t[k]=max(-cap[k],x[k]-h)
                         apply(t);jac[:,k]=(feature()-y)/(t[k]-x[k])
                     apply(x)
                     step=np.linalg.solve(jac.T@jac+.003**2*np.eye(len(x)),jac.T@err-.003**2*x)
