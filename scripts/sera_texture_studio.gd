@@ -75,6 +75,8 @@ var atlas_balanced_shape: bool = false
 var face_paint_requested: bool = true
 var atlas_face_paint: bool = false
 var face_bridges: Dictionary = {}
+var face_brush_owners := PackedInt32Array()
+var face_brush_edges: Dictionary = {}
 var surface_history: Array = []
 var current_surface_stroke: Dictionary = {}
 var surface_history_complete: bool = true
@@ -1025,6 +1027,8 @@ func _install_preview(mesh: ArrayMesh) -> void:
     _composite()
     seam_texels = UV.seam_pixels(triangles,img.get_size())
     face_bridges = UV.face_bridge_index(triangles) if atlas_face_paint else {}
+    face_brush_owners = UV.face_brush_owners(triangles,img.get_size()) if atlas_face_paint else PackedInt32Array()
+    face_brush_edges = UV.face_brush_edges(triangles,face_bridges,img.get_size()) if atlas_face_paint else {}
     tex = ImageTexture.create_from_image(img)
     selected_diagnostic_faces.clear()
     residual_ready = false
@@ -1300,8 +1304,8 @@ func _paint_face_bridge(a: Dictionary,b: Dictionary) -> bool:
     var size: Vector2 = Vector2(img.get_size())
     var from: Vector2i = Vector2i((Vector2(a.uv)*size).floor()).clamp(Vector2i.ZERO,img.get_size()-Vector2i.ONE)
     var to: Vector2i = Vector2i((Vector2(b.uv)*size).floor()).clamp(Vector2i.ZERO,img.get_size()-Vector2i.ONE)
-    _line_pixels(from,bridge.a)
-    _line_pixels(bridge.b,to)
+    _line_pixels(from,bridge.a,int(a.chart))
+    _line_pixels(bridge.b,to,int(b.chart))
     return true
 
 func _paint(at: Vector2, flush: bool = true, picked: Variant = null) -> void:
@@ -1365,9 +1369,9 @@ func _paint(at: Vector2, flush: bool = true, picked: Variant = null) -> void:
             var steps := maxi(absi(p.x-last_hit.x),absi(p.y-last_hit.y))
             for i in range(steps+1):
                 var q := Vector2i(Vector2(last_hit).lerp(Vector2(p),float(i)/maxf(1.0,steps)).round())
-                _dab(q)
+                _dab(q,chart)
         else:
-            _dab(p)
+            _dab(p,chart)
     if symmetric.button_pressed and tool_picker.selected in [0,1,4,5,6,9,10]:
         var mirrored: Dictionary = UV.mirror_hit(triangles,origin,direction,hit.position,center.x,1.5/float(atlas_density))
         if not mirrored.is_empty():
@@ -1375,11 +1379,11 @@ func _paint(at: Vector2, flush: bool = true, picked: Variant = null) -> void:
             var mp := Vector2i(clampi(floori(muv.x*img.get_width()),0,img.get_width()-1),clampi(floori(muv.y*img.get_height()),0,img.get_height()-1))
             if mp != p:
                 if previous_mirror.x >= 0 and previous_mirror_chart == int(mirrored.chart) and (not atlas_face_paint or tool_picker.selected not in [0,1] or _face_same_chart_continuous(previous_mirror_surface,mirrored)):
-                    _line_pixels(previous_mirror,mp)
+                    _line_pixels(previous_mirror,mp,int(mirrored.chart))
                 elif atlas_face_paint and tool_picker.selected in [0,1] and _paint_face_bridge(previous_mirror_surface,mirrored):
                     pass
                 else:
-                    _dab(mp)
+                    _dab(mp,int(mirrored.chart))
                 previous_mirror = mp
                 previous_mirror_chart = int(mirrored.chart)
                 previous_mirror_surface = mirrored
@@ -1398,21 +1402,85 @@ func _paint(at: Vector2, flush: bool = true, picked: Variant = null) -> void:
         _composite()
         tex.update(img)
 
-func _line_pixels(a: Vector2i,b: Vector2i) -> void:
+func _line_pixels(a: Vector2i,b: Vector2i,chart: int = -1) -> void:
     var steps := maxi(absi(b.x-a.x),absi(b.y-a.y))
     for i in range(steps+1):
-        _dab(Vector2i(Vector2(a).lerp(Vector2(b),float(i)/maxf(1.0,steps)).round()))
+        _dab(Vector2i(Vector2(a).lerp(Vector2(b),float(i)/maxf(1.0,steps)).round()),chart)
 
 func _inside(p: Vector2i) -> bool:
     return Rect2i(Vector2i.ZERO,original.get_size()).has_point(p) and original.get_pixelv(p).a >= 0.5
 
-func _dab(p: Vector2i) -> void:
+func _dab(p: Vector2i,chart: int = -1) -> void:
     var reach := floori(float(brush_size)/2.0)
+    # Keep one-pixel and legacy tools unchanged. Wider face pens are
+    # restricted to the touched chart plus verified physical neighbors.
+    var spread: bool = atlas_face_paint and chart>=0 and reach>0 and tool_picker.selected in [0,1] and face_brush_owners.size()==img.get_width()*img.get_height()
     for y in range(-reach,reach+1):
         for x in range(-reach,reach+1):
             if x*x+y*y > reach*reach+1:
                 continue
-            _dab_one(p+Vector2i(x,y))
+            var q: Vector2i = p+Vector2i(x,y)
+            if not spread or _face_brush_owned(q,chart):
+                _dab_one(q)
+    if spread:
+        _spread_face_brush(p,chart,sqrt(float(reach*reach+1)))
+
+func _face_brush_owned(p: Vector2i,chart: int) -> bool:
+    if not Rect2i(Vector2i.ZERO,img.get_size()).has_point(p):
+        return false
+    return face_brush_owners[p.y*img.get_width()+p.x]==chart
+
+# Unfold the brush circle across a single physical seam. A candidate
+# pixel must belong to the destination chart AND its path from the
+# brush center must cross the finite shared segment, not its extension.
+# No recursive dabs: corners can reach immediate neighbors only.
+func _spread_face_brush(p: Vector2i,chart: int,reach: float) -> void:
+    if not face_brush_edges.has(chart):
+        return
+    var center: Vector2 = Vector2(p)+Vector2(0.5,0.5)
+    var color: Color = Color.TRANSPARENT if tool_picker.selected==1 else Color(paint_color.r,paint_color.g,paint_color.b,1.0)
+    for edge in face_brush_edges[chart]:
+        var src: Dictionary = edge.src
+        var dst: Dictionary = edge.dst
+        var s_start: Vector2 = src.start
+        var s_axis: Vector2 = src.axis
+        var s_in: Vector2 = src.inward
+        var d_start: Vector2 = dst.start
+        var d_axis: Vector2 = dst.axis
+        var d_in: Vector2 = dst.inward
+        var s_len: float = src.length
+        var d_len: float = dst.length
+        var along: float = (center-s_start).dot(s_axis)
+        var height: float = (center-s_start).dot(s_in)
+        var nearest: float = clampf(along,0.0,s_len)
+        if height < -0.71 or Vector2(along-nearest,height).length_squared()>reach*reach:
+            continue
+        var scale: float = d_len/s_len
+        # V24 is metric; reject pathological UV ratios and cap work.
+        if scale<0.5 or scale>2.0:
+            continue
+        height = maxf(0.0,height)
+        var projected: Vector2 = d_start+d_axis*(along*scale)-d_in*(height*scale)
+        var extent: float = reach*scale
+        var lo := Vector2i((projected-Vector2.ONE*extent).floor()).max(Vector2i.ZERO)
+        var hi := Vector2i((projected+Vector2.ONE*extent).ceil()).min(img.get_size()-Vector2i.ONE)
+        for y in range(lo.y,hi.y+1):
+            for x in range(lo.x,hi.x+1):
+                var q := Vector2i(x,y)
+                if not _face_brush_owned(q,int(dst.chart)) or not _inside(q):
+                    continue
+                var pixel: Vector2 = Vector2(q)+Vector2(0.5,0.5)
+                if pixel.distance_squared_to(projected)>extent*extent+0.00001:
+                    continue
+                var dx: float = (pixel-d_start).dot(d_axis)/scale
+                var dy: float = (pixel-d_start).dot(d_in)/scale
+                if dy < -0.71/scale:
+                    continue
+                dy = maxf(0.0,dy)
+                var crossing: float = (along*dy+dx*height)/(height+dy) if height+dy>0.00001 else dx
+                if crossing < -0.0001 or crossing > s_len+0.0001:
+                    continue
+                layers[layer_index].set_pixelv(q,color)
 
 func _dab_one(p: Vector2i) -> void:
     if not _inside(p):

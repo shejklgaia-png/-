@@ -5004,6 +5004,79 @@ static func face_bridge_index(tris: Array) -> Dictionary:
         (index[key] as Array).append(link)
     return index
 
+# V26: cache UV ownership using the same nearest-texel coverage rule as
+# baking. Never allow a wide dab to land on an unrelated packed chart.
+static func face_brush_owners(tris: Array,side: Vector2i) -> PackedInt32Array:
+    var owners := PackedInt32Array()
+    var distances := PackedFloat32Array()
+    owners.resize(side.x*side.y)
+    owners.fill(-1)
+    distances.resize(owners.size())
+    distances.fill(INF)
+    var scale := Vector2(side)
+    for t in tris:
+        var a: Vector2 = t.uv[0]*scale
+        var b: Vector2 = t.uv[1]*scale
+        var c: Vector2 = t.uv[2]*scale
+        var d: float = (b-a).cross(c-a)
+        if absf(d)<0.0000001:
+            continue
+        var lo := Vector2i(floori(minf(a.x,minf(b.x,c.x))-1.0),floori(minf(a.y,minf(b.y,c.y))-1.0))
+        var hi := Vector2i(ceili(maxf(a.x,maxf(b.x,c.x))+1.0),ceili(maxf(a.y,maxf(b.y,c.y))+1.0))
+        for y in range(maxi(0,lo.y),mini(side.y,hi.y+1)):
+            for x in range(maxi(0,lo.x),mini(side.x,hi.x+1)):
+                var p := Vector2(x+0.5,y+0.5)
+                var v: float = (p-a).cross(c-a)/d
+                var w: float = (b-a).cross(p-a)/d
+                var dist: float = 0.0
+                if 1.0-v-w < -0.000001 or v < -0.000001 or w < -0.000001:
+                    var weights: Vector3 = _nearest_weights(p,a,b,c)
+                    dist = p.distance_squared_to(a*weights.x+b*weights.y+c*weights.z)
+                    if dist>0.50001:
+                        continue
+                var i: int = y*side.x+x
+                if dist<distances[i]:
+                    distances[i] = dist
+                    owners[i] = int(t.chart)
+    return owners
+
+# Cache directional edge frames in packed pixel coordinates. Shared
+# physical edge endpoints have identical orientation on both frames.
+static func face_brush_edges(tris: Array,bridges: Dictionary,side: Vector2i) -> Dictionary:
+    var result: Dictionary = {}
+    var scale := Vector2(side)
+    for group in bridges.values():
+        for link in group:
+            var a: Dictionary = tris[int(link.ta)]
+            var b: Dictionary = tris[int(link.tb)]
+            var sa: PackedVector2Array = _segment_uv(a,int(link.ea),float(link.a0),float(link.a1),"uv")
+            var sb: PackedVector2Array = _segment_uv(b,int(link.eb),float(link.b0),float(link.b1),"uv")
+            var fa: Dictionary = _face_brush_frame(a,sa,scale)
+            var fb: Dictionary = _face_brush_frame(b,sb,scale)
+            if fa.is_empty() or fb.is_empty():
+                continue
+            for pair in [[fa,fb],[fb,fa]]:
+                var src: Dictionary = pair[0]
+                var dst: Dictionary = pair[1]
+                var chart: int = int(src.chart)
+                if not result.has(chart):
+                    result[chart] = []
+                (result[chart] as Array).append({"src":src,"dst":dst})
+    return result
+
+static func _face_brush_frame(t: Dictionary,segment: PackedVector2Array,scale: Vector2) -> Dictionary:
+    var start: Vector2 = segment[0]*scale
+    var edge: Vector2 = segment[1]*scale-start
+    var length: float = edge.length()
+    if length<0.00001:
+        return {}
+    var axis: Vector2 = edge/length
+    var inward := Vector2(-axis.y,axis.x)
+    var center: Vector2 = (t.uv[0]+t.uv[1]+t.uv[2])*scale/3.0
+    if (center-start).dot(inward)<0.0:
+        inward = -inward
+    return {"start":start,"axis":axis,"inward":inward,"length":length,"chart":int(t.chart)}
+
 # Develop two triangles around their common edge. Intersect the straight
 # local stroke with that edge in metric space, then map the same physical
 # parameter into both independent pixel canvases.
