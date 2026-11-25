@@ -30,6 +30,13 @@ def main(root):
         Image.merge("RGB",(ImageChops.lighter(both,missing),both,ImageChops.lighter(both,extra))).save(out/(view+"_overlay.png"))
         results[view]={"iou":count(both)/union,"reference_bounds":mask.getbbox(),"render_bounds":actual.getbbox(),
                        "missing_px":count(missing),"extra_px":count(extra)}
+    for view,row in results.items():
+        if view in cfg.get("baseline_iou",{}):
+            row["baseline_iou"]=float(cfg["baseline_iou"][view])
+            row["delta_iou"]=row["iou"]-row["baseline_iou"]
+        if view in cfg.get("minimum_iou",{}):
+            row["minimum_iou"]=float(cfg["minimum_iou"][view])
+            row["meets_outline_guard"]=row["iou"]>=row["minimum_iou"]
     (out/"evaluation.json").write_text(json.dumps({"format":"SERA_BLOCKOUT_REVIEW_V1","source":cfg["source"],"views":results,
         "limits":"Rough hand traced contours; fixed scale and ground, no independent rescaling. Does not measure 45 degree fidelity or aesthetics; manual acceptance required. No detail stage approval."},indent=2))
 if __name__=="__main__":
