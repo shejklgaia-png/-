@@ -96,6 +96,14 @@
     ],
     "body_marker": "Body",
     "strike_marker": "FrontFoot_L",
-    "max_shift_m": 0.25
+    "max_shift_m": 0.25,
+    "sole_meshes": {
+      "FrontFoot_R": "fe1de7e7-0546-517b-1e8c-c81de2ee99f6",
+      "RearFoot_R": "74f86e05-9f34-6a6f-e30c-791bdcde9ea9",
+      "RearFoot_L": "170d67ff-837b-0141-b104-3cbdd15f77b6",
+      "FrontFoot_L": "db1e4d84-e854-ed70-a480-d5094b17d993"
+    },
+    "sole_band_m": 0.005,
+    "impact_xy_tolerance_m": 0.01
   }
 }

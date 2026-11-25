@@ -108,6 +108,10 @@ def _evaluate_tracks(d,nodes,end):
     meshes=[o for o in nodes.values() if o.type=="MESH"]
     if not meshes or not d.get("markers"): raise ValueError("guard needs geometry and markers")
     points={name:[] for name in d["markers"]}; minima=[]
+    sole=None
+    if d.get("support_lock",{}).get("sole_meshes"):
+        from sole import SoleReview
+        sole=SoleReview(nodes,d["support_lock"],meshes)
     try:
         for i in range(end):
             for uid,channels in tracks.items():
@@ -123,6 +127,7 @@ def _evaluate_tracks(d,nodes,end):
                 points[name].append(nodes[point["node"]].matrix_world @ Vector(point.get("local",[0,0,0])))
             # Exact minimum of rigid preview mesh vertices, not a bounding box.
             minima.append(min((o.matrix_world @ v.co).z for o in meshes for v in o.data.vertices))
+            if sole: sole.sample()
     finally:
         for uid,(p,q) in saved.items():
             nodes[uid].location=p; nodes[uid].rotation_euler=q
@@ -161,6 +166,7 @@ def _evaluate_tracks(d,nodes,end):
         result["support"]={"max_drift_m":max(drift),"mean_drift_m":sum(drift)/len(drift),
                            "min_body_proxy_margin_m":min(margins),"offsets_m":offsets,
                            "strike_positions_m":[list(v) for v in points[strike]]}
+    if sole: result["sole"]=sole.report()
     return result
 
 
@@ -230,19 +236,24 @@ def _lock_support(d,nodes,end,out):
     if not math.isfinite(cap) or not 0<cap<=1: raise ValueError("invalid support correction cap")
     base_tracks=d["tracks"]
     base=_evaluate_tracks(d,nodes,end)
-    offsets=[Vector(v) for v in base["support"]["offsets_m"]]
+    offsets=[Vector(v) for v in ( [r["offset_m"] for r in base["sole"]["frames"]] if "sole" in base else base["support"]["offsets_m"])]
     # Do not move the first or final Wait pose. A non-returning source is not
     # silently corrected; candidate is still judged by residual drift.
     offsets[0]=Vector((0,0,0));offsets[-1]=Vector((0,0,0))
     keys=base_tracks[root]["location"]
     if len(keys)!=end and not (len(keys)==2 and keys[0]["value"]==keys[-1]["value"]):
         raise ValueError("unsupported root location track")
-    initial=base["support"]; selected=(0.,base_tracks,base); rows=[]
-    for strength in (0.,.25,.5,.75,1.):
+    initial=base["support"]; selected=(0.,0,base_tracks,base); rows=[]
+    def drift(report): return report.get("sole",report["support"])["max_drift_m"]
+    tapers=(0,4,8,12,24) if "sole" in base else (0,)
+    trials=[(0.,0)]+[(strength,taper) for strength in (.25,.5,.75,1.) for taper in tapers]
+    for strength,taper in trials:
         track=dict(base_tracks); channels=dict(base_tracks[root]); new=[]
         for i,offset in enumerate(offsets):
             v=Vector(keys[i if len(keys)==end else 0]["value"])
-            delta=offset*strength
+            # Preserve the first and last velocity samples exactly; then ease in/out.
+            u=max(0.,min(1.,(i-1)/taper,(end-2-i)/taper)) if taper else 1.
+            delta=offset*(strength*u*u*(3-2*u))
             if delta.length>cap: delta=delta.normalized()*cap
             new.append({"frame":i+1,"value":[round(x,7) for x in v+delta],"interpolation":"LINEAR"})
         if max((Vector(k["value"])-Vector(new[0]["value"])).length for k in new)<1e-6:
@@ -258,17 +269,29 @@ def _lock_support(d,nodes,end,out):
             reasons.append("body_proxy_outside_support")
         impact=d["events"]["impact_authored"]-1
         impact_shift=(Vector(support["strike_positions_m"][impact])-Vector(initial["strike_positions_m"][impact])).length
-        rows.append({"strength":strength,"max_drift_m":support["max_drift_m"],
+        extra={}
+        if "sole" in base:
+            b,e=base["sole"],evaluated["sole"]
+            for field in ("max_drift_m","mean_drift_m","max_support_low_error_m"):
+                if e[field]>b[field]+.0001: reasons.append("sole_"+field)
+            if e["min_com_margin_m"]<min(0.,b["min_com_margin_m"])-.0001: reasons.append("com_outside_support")
+            before,after=b["frames"][impact],e["frames"][impact]
+            p,q=before["strike_center_m"],after["strike_center_m"]
+            xy=math.hypot(q[0]-p[0],q[1]-p[1]); z0=before["strike_low_delta_m"]; z1=after["strike_low_delta_m"]
+            if xy>float(spec.get("impact_xy_tolerance_m",.01)): reasons.append("strike_xy_shift")
+            if abs(z1)>abs(z0)+.0001: reasons.append("strike_height_regression")
+            extra={"sole_max_drift_m":e["max_drift_m"],"sole_mean_drift_m":e["mean_drift_m"],"min_com_margin_m":e["min_com_margin_m"],"impact_xy_shift_m":xy,"impact_sole_height_delta_m":z1}
+        rows.append({"strength":strength,"taper_frames":taper,**extra,"max_drift_m":support["max_drift_m"],
                      "mean_drift_m":support["mean_drift_m"],"min_body_proxy_margin_m":support["min_body_proxy_margin_m"],
                      "max_relative_floor_depth_m":evaluated["max_relative_floor_depth_m"],
                      "mean_relative_floor_depth_m":evaluated["mean_relative_floor_depth_m"],
                      "world_impact_shift_m":impact_shift,"rejections":reasons})
-        if not reasons and support["max_drift_m"]<selected[2]["support"]["max_drift_m"]-.0001:
-            selected=(strength,track,evaluated)
-    strength,track,chosen=selected
+        if not reasons and drift(evaluated)<drift(selected[3])-.0001:
+            selected=(strength,taper,track,evaluated)
+    strength,taper,track,chosen=selected
     d["tracks"]=track
     (out/"support_lock_report.json").write_text(json.dumps({
-        "version":12,"selected_strength":strength,"baseline":base,
+        "version":13 if "sole" in base else 12,"selected_strength":strength,"selected_taper_frames":taper,"baseline":base,
         "selected":chosen,"candidates":rows,"max_shift_m":cap,
-        "scope":"explicit three-foot pivot anchors; body pivot proxy, not physical COM; relative strike geometry unchanged, world impact may shift; no gameplay adoption"
+        "scope":"rigid preview; sole geometry and uniform-density proxies when configured, not physical COM; root translation only; no gameplay adoption"
     },indent=2,ensure_ascii=False))
