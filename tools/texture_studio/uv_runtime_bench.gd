@@ -293,6 +293,7 @@ func _measure_face_footprints(tris: Array,atlas: Image,density: int,dest: String
     studio.seam_texels = UV.seam_pixels(tris,size)
     studio.face_brush_owners = UV.face_brush_owners(tris,size)
     studio.face_brush_edges = UV.face_brush_edges(tris,studio.face_bridges,size)
+    studio.face_brush_samples = UV.face_brush_surface_samples(tris,size,studio.face_brush_owners)
     var setup_us: int = Time.get_ticks_usec()-started
     studio.tool_picker = Studio.StudioChoice.new()
     studio.paint_color = Color8(231,57,103,255)
@@ -300,15 +301,23 @@ func _measure_face_footprints(tris: Array,atlas: Image,density: int,dest: String
     studio.layers.append(ink)
     var links: Array = UV._seam_segments(tris)
     var count: int = mini(24,links.size())
-    var metrics: Dictionary = {"seams_total":links.size(),"seams_sampled":count,"setup_us":setup_us,"owner_bytes":studio.face_brush_owners.size()*4,"attempted":0,"skipped_invalid_center":0,"gained_cases":0,"gained_neighbor_pixels":0,"unexpected_pixels":0,"missing_source_pixels":0,"erase_failures":0,"legacy_us":0,"v26_us":0,"artifact_ok":false,"widths":{}}
+    var metrics: Dictionary = {"seams_total":links.size(),"seams_sampled":count,"setup_us":setup_us,"owner_bytes":studio.face_brush_owners.size()*4,"surface_sample_bytes":studio.face_brush_samples.size()*4,"surface_gained_pixels":0,"surface_gained_area":0.0,"padding_gain_pixels":0,"attempted":0,"skipped_invalid_center":0,"gained_cases":0,"gained_neighbor_pixels":0,"unexpected_pixels":0,"missing_source_pixels":0,"erase_failures":0,"legacy_us":0,"v26_us":0,"artifact_ok":false,"widths":{}}
     var best_gain: int = -1
+    var best_surface_area: float = -1.0
+    var chart_tris: Dictionary = {}
+    var area_cache: Dictionary = {}
+    for t in tris:
+        var chart_id: int = int(t.chart)
+        if not chart_tris.has(chart_id):
+            chart_tris[chart_id] = []
+        (chart_tris[chart_id] as Array).append(t)
     var best_old: Image
     var best_new: Image
     var best_erased: Image
     var best_case: Dictionary = {}
     for width in [1,3,5]:
         studio.brush_size = width
-        var stats: Dictionary = {"attempted":0,"gained_cases":0,"gained_neighbor_pixels":0,"unexpected_pixels":0,"missing_source_pixels":0,"erase_failures":0,"legacy_us":0,"v26_us":0}
+        var stats: Dictionary = {"attempted":0,"surface_gained_pixels":0,"surface_gained_area":0.0,"padding_gain_pixels":0,"gained_cases":0,"gained_neighbor_pixels":0,"unexpected_pixels":0,"missing_source_pixels":0,"erase_failures":0,"legacy_us":0,"v26_us":0}
         for i in range(count):
             var link: Dictionary = links[floori(float(i)*links.size()/count)]
             for reverse in [false,true]:
@@ -341,6 +350,7 @@ func _measure_face_footprints(tris: Array,atlas: Image,density: int,dest: String
                     stats.v26_us += Time.get_ticks_usec()-tick
                     var bounds: Rect2i = old.get_used_rect().merge(ink.get_used_rect())
                     var gained: int = 0
+                    var gained_area: float = 0.0
                     for y in range(bounds.position.y,bounds.end.y):
                         for x in range(bounds.position.x,bounds.end.x):
                             var p := Vector2i(x,y)
@@ -353,15 +363,26 @@ func _measure_face_footprints(tris: Array,atlas: Image,density: int,dest: String
                                 stats.missing_source_pixels += 1
                             if now and not was and owner==neighbor:
                                 gained += 1
+                                var key := Vector3i(x,y,neighbor)
+                                if not area_cache.has(key):
+                                    area_cache[key] = _footprint_surface_area(p,chart_tris[neighbor],size)
+                                var covered_area: float = area_cache[key]
+                                if covered_area>0.0:
+                                    gained_area += covered_area
+                                    stats.surface_gained_pixels += 1
+                                else:
+                                    stats.padding_gain_pixels += 1
                     if gained>0:
                         stats.gained_cases += 1
                         stats.gained_neighbor_pixels += gained
-                    var keep: bool = width>1 and gained>best_gain
+                    stats.surface_gained_area += gained_area
+                    var keep: bool = width>1 and (gained_area>best_surface_area or (is_equal_approx(gained_area,best_surface_area) and gained>best_gain))
                     if keep:
+                        best_surface_area = gained_area
                         best_gain = gained
                         best_old = old
                         best_new = ink.duplicate() as Image
-                        best_case = {"width":width,"source_triangle":ti,"neighbor_triangle":ni,"source_chart":chart,"neighbor_chart":neighbor,"center":[q.x,q.y],"gain":gained}
+                        best_case = {"width":width,"source_triangle":ti,"neighbor_triangle":ni,"source_chart":chart,"neighbor_chart":neighbor,"center":[q.x,q.y],"gain":gained,"surface_gain_m2":gained_area}
                     studio.tool_picker.selected = 1
                     studio._dab(q,chart)
                     if ink.get_used_rect().size!=Vector2i.ZERO:
@@ -413,3 +434,31 @@ func _export_footprint_mesh(tris: Array,prefix: String,example: Dictionary) -> b
     var ok: bool = file.get_error()==OK
     file.close()
     return ok
+
+
+# Independently measure positive intersection area against the actual
+# triangle UVs, converted back to model-space area. Do not consult the
+# runtime representative-point cache for the quality metric.
+func _footprint_surface_area(pixel: Vector2i,tris: Array,side: Vector2i) -> float:
+    var total: float = 0.0
+    var origin := Vector2(pixel)
+    var cell := PackedVector2Array([Vector2.ZERO,Vector2.RIGHT,Vector2.ONE,Vector2.DOWN])
+    for t in tris:
+        var a: Vector2 = t.uv[0]*Vector2(side)-origin
+        var b: Vector2 = t.uv[1]*Vector2(side)-origin
+        var c: Vector2 = t.uv[2]*Vector2(side)-origin
+        var lo: Vector2 = a.min(b).min(c)
+        var hi: Vector2 = a.max(b).max(c)
+        if hi.x<=0.0 or hi.y<=0.0 or lo.x>=1.0 or lo.y>=1.0:
+            continue
+        var uv_area: float = absf((b-a).cross(c-a))
+        if uv_area<=0.00000001:
+            continue
+        var world_area: float = (Vector3(t.p[1])-Vector3(t.p[0])).cross(Vector3(t.p[2])-Vector3(t.p[0])).length()
+        for poly in Geometry2D.intersect_polygons(PackedVector2Array([a,b,c]),cell):
+            var twice_area: float = 0.0
+            for i in range(poly.size()):
+                twice_area += poly[i].cross(poly[(i+1)%poly.size()])
+            if absf(twice_area)>0.00000001:
+                total += absf(twice_area)*0.5*world_area/uv_area
+    return total
