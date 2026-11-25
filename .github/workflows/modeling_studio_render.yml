@@ -103,6 +103,12 @@ jobs:
           blender --background --factory-startup --python-exit-code 1 --python tools/modeling_studio/render_crate_baseline.py -- "$out"
           git rev-parse HEAD > "$out/source_commit.txt"
           git hash-object scripts/sera_crate_model.gd > "$out/source_blob.txt"
+      - name: Render reference-fitted CRATE candidate
+        if: startsWith(github.head_ref, 'modeling/crate-baseline-proportion-')
+        shell: bash
+        run: |
+          set -euo pipefail
+          blender --background --factory-startup --python-exit-code 1 --python tools/modeling_studio/fit_crate_candidate.py -- "$RUNNER_TEMP/sera-model/crate_baseline" "$RUNNER_TEMP/sera-model/crate_candidate"
       - name: Prepare review bundle
         shell: bash
         run: |
