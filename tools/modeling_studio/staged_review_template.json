@@ -1,0 +1,33 @@
+{
+  "format": "SERA_STAGED_MODEL_REVIEW_V1",
+  "asset": "",
+  "stage": "blockout",
+  "source_commit": null,
+  "artifact_id": null,
+  "reference_sources": [],
+  "reviewed_render_files": [],
+  "technical_checks": {
+    "status": "pending",
+    "report_files": [],
+    "findings": []
+  },
+  "visual_review": {
+    "status": "pending",
+    "reviewer": null,
+    "findings": [
+      {
+        "part": "",
+        "view": "",
+        "observation": "",
+        "cause_hypothesis": "",
+        "requested_change": "",
+        "preserve": [],
+        "priority": ""
+      }
+    ]
+  },
+  "next_stage": null,
+  "decision": "pending",
+  "unverified": [],
+  "texture_handoff": []
+}
