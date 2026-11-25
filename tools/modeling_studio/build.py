@@ -502,6 +502,9 @@ def main():
     if spec.get('attachment_checks'):
         from attachment_review import review as review_attachments
         review_attachments(objects,spec['attachment_checks'],out)
+    if spec.get('attachment_graph'):
+        from attachment_review import graph_review
+        graph_review(objects,spec['attachment_graph'],out)
     if spec.get('texture_handoff'):
         (out/'texture_handoff.json').write_text(json.dumps(spec['texture_handoff'],indent=2),encoding='utf-8')
     report = mesh_report(objects)
