@@ -77,6 +77,9 @@ var atlas_face_paint: bool = false
 var face_bridges: Dictionary = {}
 var face_brush_owners := PackedInt32Array()
 var face_brush_edges: Dictionary = {}
+var face_brush_samples := PackedInt32Array()
+var face_brush_footprints: Dictionary = {}
+const FACE_BRUSH_CACHE_LIMIT = 512
 var surface_history: Array = []
 var current_surface_stroke: Dictionary = {}
 var surface_history_complete: bool = true
@@ -1029,6 +1032,8 @@ func _install_preview(mesh: ArrayMesh) -> void:
     face_bridges = UV.face_bridge_index(triangles) if atlas_face_paint else {}
     face_brush_owners = UV.face_brush_owners(triangles,img.get_size()) if atlas_face_paint else PackedInt32Array()
     face_brush_edges = UV.face_brush_edges(triangles,face_bridges,img.get_size()) if atlas_face_paint else {}
+    face_brush_samples = UV.face_brush_surface_samples(triangles,img.get_size(),face_brush_owners) if atlas_face_paint else PackedInt32Array()
+    face_brush_footprints.clear()
     tex = ImageTexture.create_from_image(img)
     selected_diagnostic_faces.clear()
     residual_ready = false
@@ -1437,8 +1442,29 @@ func _face_brush_owned(p: Vector2i,chart: int) -> bool:
 func _spread_face_brush(p: Vector2i,chart: int,reach: float) -> void:
     if not face_brush_edges.has(chart):
         return
-    var center: Vector2 = Vector2(p)+Vector2(0.5,0.5)
     var color: Color = Color.TRANSPARENT if tool_picker.selected==1 else Color(paint_color.r,paint_color.g,paint_color.b,1.0)
+    var key := Vector3i(p.x,p.y,chart*4+floori(float(brush_size)/2.0))
+    if not face_brush_footprints.has(key):
+        if face_brush_footprints.size()>=FACE_BRUSH_CACHE_LIMIT:
+            face_brush_footprints.clear()
+        face_brush_footprints[key] = _collect_face_brush_pixels(p,chart,reach)
+    for q in face_brush_footprints[key]:
+        layers[layer_index].set_pixelv(q,color)
+
+# Geometry is independent of ink, eraser, layer and undo. Reuse the
+# exact footprint for repeated samples, and discard it on UV rebuild.
+func _collect_face_brush_pixels(p: Vector2i,chart: int,reach: float) -> Array[Vector2i]:
+    var result: Array[Vector2i] = []
+    var seen: Dictionary = {}
+    var surface_aware: bool = face_brush_samples.size()==img.get_width()*img.get_height()
+    var center: Vector2 = Vector2(p)+Vector2(0.5,0.5)
+    if surface_aware:
+        if not _face_brush_owned(p,chart):
+            return result
+        var source_code: int = face_brush_samples[p.y*img.get_width()+p.x]
+        if source_code==0:
+            return result
+        center = Vector2(p)+UV.face_brush_sample(source_code)
     for edge in face_brush_edges[chart]:
         var src: Dictionary = edge.src
         var dst: Dictionary = edge.dst
@@ -1462,14 +1488,20 @@ func _spread_face_brush(p: Vector2i,chart: int,reach: float) -> void:
         height = maxf(0.0,height)
         var projected: Vector2 = d_start+d_axis*(along*scale)-d_in*(height*scale)
         var extent: float = reach*scale
-        var lo := Vector2i((projected-Vector2.ONE*extent).floor()).max(Vector2i.ZERO)
-        var hi := Vector2i((projected+Vector2.ONE*extent).ceil()).min(img.get_size()-Vector2i.ONE)
+        var bounds_extent: float = extent+0.5 if surface_aware else extent
+        var lo := Vector2i((projected-Vector2.ONE*bounds_extent).floor()).max(Vector2i.ZERO)
+        var hi := Vector2i((projected+Vector2.ONE*bounds_extent).ceil()).min(img.get_size()-Vector2i.ONE)
         for y in range(lo.y,hi.y+1):
             for x in range(lo.x,hi.x+1):
                 var q := Vector2i(x,y)
-                if not _face_brush_owned(q,int(dst.chart)) or not _inside(q):
+                if seen.has(q) or not _face_brush_owned(q,int(dst.chart)) or not _inside(q):
                     continue
                 var pixel: Vector2 = Vector2(q)+Vector2(0.5,0.5)
+                if surface_aware:
+                    var code: int = face_brush_samples[q.y*img.get_width()+q.x]
+                    if code==0:
+                        continue
+                    pixel = Vector2(q)+UV.face_brush_sample(code)
                 if pixel.distance_squared_to(projected)>extent*extent+0.00001:
                     continue
                 var dx: float = (pixel-d_start).dot(d_axis)/scale
@@ -1480,7 +1512,9 @@ func _spread_face_brush(p: Vector2i,chart: int,reach: float) -> void:
                 var crossing: float = (along*dy+dx*height)/(height+dy) if height+dy>0.00001 else dx
                 if crossing < -0.0001 or crossing > s_len+0.0001:
                     continue
-                layers[layer_index].set_pixelv(q,color)
+                seen[q] = true
+                result.append(q)
+    return result
 
 func _dab_one(p: Vector2i) -> void:
     if not _inside(p):
