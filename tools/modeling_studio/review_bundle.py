@@ -7,12 +7,7 @@ from PIL import Image, ImageDraw
 
 VIEWS = ("front", "back", "left", "right", "top", "bottom", "front_3q", "back_3q")
 
-def main():
-    root = Path(sys.argv[1]).resolve()
-    complete = json.loads((root/"complete.json").read_text())
-    if set(complete["views"]) != set(VIEWS):
-        raise ValueError("incomplete view set")
-    mesh = json.loads((root/"mesh_report.json").read_text())
+def contact_sheet(root):
     sheet = Image.new("RGB", (1200, 660), (32, 38, 46))
     draw = ImageDraw.Draw(sheet)
     views = {}
@@ -33,12 +28,27 @@ def main():
         sheet.paste(tile.convert("RGB"), (x+(300-tile.width)//2,y+20))
         draw.text((x+10,y+4),name,fill="white")
     sheet.save(root/"contact_sheet.jpg",quality=92)
+    return views
+
+def main():
+    root = Path(sys.argv[1]).resolve()
+    complete = json.loads((root/"complete.json").read_text())
+    if set(complete["views"]) != set(VIEWS):
+        raise ValueError("incomplete view set")
+    mesh = json.loads((root/"mesh_report.json").read_text())
+    views = contact_sheet(root)
     paths = ["model.blend","model.glb","design.json","mesh_report.json","complete.json","projections.json","camera_fit.json","interference.json","motion_review.json","godot_import.json","contact_sheet.jpg"] + [v+".png" for v in VIEWS]
     if (root/"reference").is_dir():
         paths += [p.relative_to(root).as_posix() for p in sorted((root/"reference").glob("*")) if p.is_file()]
     for optional in ("model_lod.glb","lod_report.json"):
         if (root/optional).is_file():
             paths.append(optional)
+    if (root/"crate_baseline").is_dir():
+        baseline = root/"crate_baseline"
+        contact_sheet(baseline)
+        required = ["crate_current.glb","crate_current.blend","godot_source.json","blender_source.json",
+                    "projections.json","camera_fit.json","source_commit.txt","source_blob.txt","contact_sheet.jpg"] + [v+".png" for v in VIEWS]
+        paths += ["crate_baseline/"+p for p in required]
     files = {p:{"bytes":(root/p).stat().st_size,"sha256":hashlib.sha256((root/p).read_bytes()).hexdigest()} for p in paths}
     if any(v["bytes"]==0 for v in files.values()):
         raise ValueError("empty artifact")
