@@ -50,3 +50,6 @@ V8全5ケース成功、pose成果物15004940418を取得。接触は0.000834mm�
 
 ## V10: Bittaran実モデル・前左脚踏みつけ候補（未採用）
 `bb_clip` はBittaran原本のWait/踏みつけ_Lを読み、runtimeのUNIT=0.145m、ローカルPivot差、ZYX回転、bind quaternion×アニメーション回転を再現する。既存ゲームの戦闘IK/頭追従/接地補正/ヒット判定は実行しない。原本clipの各チャンネルを時刻順に並べ、baselineは線形補間、candidateは単調3次Hermite補間（キー値とタイミングを保持、端点接線0）、Waitとの24フレーム入退場を候補のみsmoothstepにする。60fps154サンプル、原本1.75秒+前後0.4秒。候補はゲームに採用しない。2ケースの実GLB・動画・数値を比較。プレビュー材質は簡易、ゲーム内表現とは異なる。参考: https://docs.blender.org/api/4.5/mathutils.html ; https://www.gamedeveloper.com/production/the-12-principles-of-animation-in-video-games
+
+## V11: 速度・床突出保護付き補間探索
+Bittaran候補の `bb_clip.mode=guarded` は線形と単調Hermiteの混合率0〜1を0.125刻みで比較する。既存キー時刻・値と入退場時間を保持。各候補の全制作フレームで全指定マーカーの世界速度・加速度・jerk・ループ速度差、および全剛体メッシュ頂点のWait最低点からの下方突出最大/平均を評価する。線形基準に対し各指標の増加を許容誤差（速度0.001m/s、加速度0.05m/s²、jerk3m/s³、ループ速度差0.001m/s、突出0.1mm）以内に制限し、基準比平均が改善した候補だけ選択する。該当なしは線形へ戻す。選択トラック再評価と全候補の棄却理由をclip_guard_report.jsonへ保存。既存baseline/candidateモードも使用可能。床はWait相対の幾何診断であり実ゲーム接地IKではない。補正で原本キーを変えないため既存突出を解消する保証はない。ゲーム内モーションは置換しない。参考: https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.PchipInterpolator.html ; https://docs.blender.org/api/4.5/bpy.types.Depsgraph.html
