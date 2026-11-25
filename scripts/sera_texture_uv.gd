@@ -3,7 +3,7 @@ extends RefCounted
 const MAX_TRIANGLES = 12000
 const PADDING = 2
 
-static func build(source: MeshInstance3D, density: int, preserve_shape: bool = true, balanced_shape: bool = false, exact_block: bool = true, face_paint: bool = false, coherent_face: bool = true, cycle_grid: bool = true) -> Dictionary:
+static func build(source: MeshInstance3D, density: int, preserve_shape: bool = true, balanced_shape: bool = false, exact_block: bool = true, face_paint: bool = false, coherent_face: bool = true, cycle_grid: bool = true, fast_cycle: bool = true) -> Dictionary:
     var tris: Array[Dictionary] = []
     var charts: Array[Dictionary] = []
     var scale_basis: Basis = source.global_transform.basis if source.is_inside_tree() else source.transform.basis
@@ -80,7 +80,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
             coherent_applied = bool(coherent.applied)
             affine_report = str(coherent.report)
             if cycle_grid:
-                var cycle: Dictionary = _cycle_face_layout(tris,charts,density)
+                var cycle: Dictionary = _cycle_face_layout(tris,charts,density,fast_cycle)
                 charts = cycle.charts
                 cycle_applied = bool(cycle.applied)
                 affine_report += " / "+str(cycle.report)
@@ -202,7 +202,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     arrays[Mesh.ARRAY_TEX_UV2] = diagnostic_uv
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"face_paint":face_paint,"unwrap_version":("face-paint-v30" if cycle_applied else ("face-paint-v29" if coherent_applied else "face-paint-v24")) if face_paint else (("shape-affine-v20" if exact_block else "shape-affine-v19") if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
+    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"face_paint":face_paint,"unwrap_version":(("face-paint-v31" if fast_cycle else "face-paint-v30") if cycle_applied else ("face-paint-v29" if coherent_applied else "face-paint-v24")) if face_paint else (("shape-affine-v20" if exact_block else "shape-affine-v19") if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
 
 ## Group connected coplanar triangles, and the two halves of slightly
 ## warped authored quads. Never use an internal triangulation diagonal
@@ -640,7 +640,7 @@ static func _transport_face_grid(tris: Array[Dictionary],charts: Array[Dictionar
 # including non-tree constraints. All changes are rigid chart transforms.
 # The V29 result is retained unless the actual packed layout can improve
 # without increasing the worst residual, problem count or atlas size.
-static func _cycle_face_layout(tris: Array[Dictionary],charts: Array[Dictionary],density: int) -> Dictionary:
+static func _cycle_face_layout(tris: Array[Dictionary],charts: Array[Dictionary],density: int,cached: bool = true,phase_only: bool = false) -> Dictionary:
     if charts.size()<2 or charts.size()>512 or tris.size()>2000:
         return {"charts":charts,"applied":false,"report":"V30 規模上限"}
     var physical: Array[Dictionary] = _seam_segments(tris,true)
@@ -684,7 +684,7 @@ static func _cycle_face_layout(tris: Array[Dictionary],charts: Array[Dictionary]
     var best: Vector3 = before
     var best_tris: Array[Dictionary] = []
     var best_charts: Array[Dictionary] = []
-    for sweep in range(4):
+    for sweep in range(2 if phase_only else 4):
         var priority: Array[Dictionary] = []
         for ci in range(charts.size()):
             if incident[ci].is_empty():
@@ -722,7 +722,16 @@ static func _cycle_face_layout(tris: Array[Dictionary],charts: Array[Dictionary]
             var angle_choices: Array[float] = [start_angle,mean,_rigid_quarter_angle(start_angle+delta),_rigid_quarter_angle(start_angle-delta)]
             for proposal in proposals.slice(0,mini(3,proposals.size())):
                 angle_choices.append(float(proposal.angle))
+            if phase_only:
+                angle_choices = [start_angle]
+            var tested_angles: Dictionary = {}
             for angle in angle_choices:
+                if cached and tested_angles.has(angle):
+                    continue
+                tested_angles[angle] = true
+                var prepared := PackedVector2Array()
+                if cached:
+                    prepared = _cycle_prepare(ci,angle,links,incident[ci],pivots,angles,shifts)
                 var phase_choices: Array[Vector2] = [start_shift]
                 for proposal in proposals.slice(0,mini(4,proposals.size())):
                     var own: PackedVector2Array = proposal.own
@@ -737,8 +746,12 @@ static func _cycle_face_layout(tris: Array[Dictionary],charts: Array[Dictionary]
                 for off in [Vector2.RIGHT,Vector2.LEFT,Vector2.UP,Vector2.DOWN]:
                     var shift: Vector2 = start_shift+Vector2(off)*step
                     phase_choices.append(shift-shift.round())
+                var tested_phases: Dictionary = {}
                 for shift in phase_choices:
-                    var score: Vector3 = _cycle_local_metric(ci,angle,shift,links,incident[ci],pivots,angles,shifts)
+                    if cached and tested_phases.has(shift):
+                        continue
+                    tested_phases[shift] = true
+                    var score: Vector3 = _cycle_cached_metric(prepared,shift) if cached else _cycle_local_metric(ci,angle,shift,links,incident[ci],pivots,angles,shifts)
                     if score.x>maxf(local.x,before.x)+0.000001 or score.y>best_local.y:
                         continue
                     if score.y<best_local.y or score.z<best_local.z-0.000001:
@@ -781,10 +794,60 @@ static func _cycle_face_layout(tris: Array[Dictionary],charts: Array[Dictionary]
             best_tris = ct
             best_charts = cc
     if best_tris.is_empty():
-        return {"charts":charts,"applied":false,"report":"V30 旧配置維持"}
+        if cached and not phase_only:
+            # Rotation can increase the packing footprint or upset a
+            # coplanar seam. Retry only phase changes on the untouched
+            # input; the exact same acceptance gates still apply.
+            return _cycle_face_layout(tris,charts,density,true,true)
+        return {"charts":charts,"applied":false,"report":"V31 旧配置維持" if cached else "V30 旧配置維持"}
     for i in range(tris.size()):
         tris[i].xy = best_tris[i].xy
-    return {"charts":best_charts,"applied":true,"report":"V30 閉路整合 / 問題辺 %d→%d / 最大 %.4f→%.4fpx" % [int(before.y),int(best.y),before.x,best.x]}
+    return {"charts":best_charts,"applied":true,"report":"%s / 問題辺 %d→%d / 最大 %.4f→%.4fpx" % ["V31 位相限定" if phase_only else ("V31 閉路整合・計算再利用" if cached else "V30 閉路整合"),int(before.y),int(best.y),before.x,best.x]}
+
+# V31: fixed neighbor endpoints and own rotated (zero-phase) endpoints
+# are invariant over the phase loop. Keep the V30 arithmetic order
+# (including per-point translation before edge subtraction).
+static func _cycle_prepare(ci: int,angle: float,links: Array[Dictionary],incident: Array,pivots: PackedVector2Array,angles: PackedFloat32Array,shifts: PackedVector2Array) -> PackedVector2Array:
+    var out := PackedVector2Array()
+    out.resize(incident.size()*5)
+    var i: int = 0
+    for li in incident:
+        var e: Dictionary = links[int(li)]
+        var a: int = int(e.a)
+        var b: int = int(e.b)
+        var pa: PackedVector2Array = e.pa
+        var pb: PackedVector2Array = e.pb
+        out[i] = _rigid_grid_point(pa[0],pivots[a],angle if a==ci else angles[a],Vector2.ZERO if a==ci else shifts[a])
+        out[i+1] = _rigid_grid_point(pa[1],pivots[a],angle if a==ci else angles[a],Vector2.ZERO if a==ci else shifts[a])
+        out[i+2] = _rigid_grid_point(pb[0],pivots[b],angle if b==ci else angles[b],Vector2.ZERO if b==ci else shifts[b])
+        out[i+3] = _rigid_grid_point(pb[1],pivots[b],angle if b==ci else angles[b],Vector2.ZERO if b==ci else shifts[b])
+        out[i+4] = Vector2(1.0,0.0) if a==ci else Vector2.ZERO
+        i += 5
+    return out
+
+static func _cycle_cached_metric(prepared: PackedVector2Array,shift: Vector2) -> Vector3:
+    var result := Vector3.ZERO
+    for i in range(0,prepared.size(),5):
+        var a0: Vector2 = prepared[i]
+        var a1: Vector2 = prepared[i+1]
+        var b0: Vector2 = prepared[i+2]
+        var b1: Vector2 = prepared[i+3]
+        if prepared[i+4].x>0.5:
+            a0 += shift
+            a1 += shift
+        else:
+            b0 += shift
+            b1 += shift
+        var da: Vector2 = a1-a0
+        var db: Vector2 = b1-b0
+        var quarter: float = roundf(db.angle_to(da)/(PI*0.5))*(PI*0.5)
+        var error: Vector2 = a0-b0.rotated(quarter)
+        error -= error.round()
+        var residual: float = maxf(error.length(),(error+da-db.rotated(quarter)).length())
+        result.x = maxf(result.x,residual)
+        result.y += 1.0 if residual>0.25 else 0.0
+        result.z += residual*residual
+    return result
 
 static func _cycle_local_metric(ci: int,angle: float,shift: Vector2,links: Array[Dictionary],incident: Array,pivots: PackedVector2Array,angles: PackedFloat32Array,shifts: PackedVector2Array) -> Vector3:
     var result := Vector3.ZERO
