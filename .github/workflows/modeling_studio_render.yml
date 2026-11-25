@@ -12,6 +12,11 @@ on:
         required: false
         type: boolean
         default: false
+      structural_mode:
+        description: With iteration_mode, use part-level structural redesign instead of small offsets
+        required: false
+        type: boolean
+        default: true
       reference_manifest:
         description: Optional independent orthographic mask manifest under tools/modeling_studio
         required: false
@@ -35,6 +40,7 @@ jobs:
     timeout-minutes: ${{ (inputs.iteration_mode == true || startsWith(github.head_ref, 'modeling/crate-blockout-loop-')) && 120 || 25 }}
     env:
       DESIGN: ${{ ((inputs.iteration_mode == true || startsWith(github.head_ref, 'modeling/crate-blockout-loop-')) && 'tools/modeling_studio/crate_blockout_v10.json') || inputs.design || (startsWith(github.head_ref, 'modeling/crate-blockout-v10-') && 'tools/modeling_studio/crate_blockout_v10.json') || (startsWith(github.head_ref, 'modeling/crate-blockout-v9-') && 'tools/modeling_studio/crate_blockout_v9.json') || (startsWith(github.head_ref, 'modeling/crate-blockout-v8-') && 'tools/modeling_studio/crate_blockout_v8.json') || (startsWith(github.head_ref, 'modeling/crate-blockout-') && 'tools/modeling_studio/crate_blockout_v7.json') || (startsWith(github.head_ref, 'modeling/structure-analysis-v6-') && 'tools/modeling_studio/mechanism_crate_study.json') || (startsWith(github.head_ref, 'modeling/structure-analysis-') && 'tools/modeling_studio/hard_surface_example.json') || (startsWith(github.head_ref, 'modeling/hard-surface-') && 'tools/modeling_studio/hard_surface_example.json') || (startsWith(github.head_ref, 'modeling/wireframe-guides-') && 'tools/modeling_studio/wireframe_example.json') || (startsWith(github.head_ref, 'modeling/crate-threeview-refine-v2-') && 'tools/modeling_studio/crate_threeview_v2.json') || (startsWith(github.head_ref, 'modeling/crate-threeview-') && 'tools/modeling_studio/crate_threeview_v1.json') || 'tools/modeling_studio/example.json' }}
+      STRUCTURAL_MODE: ${{ startsWith(github.head_ref, 'modeling/crate-blockout-loop-v2-') || (inputs.iteration_mode == true && inputs.structural_mode == true) }}
       REFERENCE_MANIFEST: ${{ inputs.reference_manifest || '' }}
     steps:
       - uses: actions/checkout@v4
@@ -79,6 +85,10 @@ jobs:
           design=$(realpath -- "$DESIGN")
           root=$(realpath tools/modeling_studio)
           [[ "$design" == "$root/"*.json && -f "$design" ]]
+          if [[ "$STRUCTURAL_MODE" == true ]]; then
+            "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/structural_variants.py "$design" "$RUNNER_TEMP/crate-structural-seed.json"
+            design="$RUNNER_TEMP/crate-structural-seed.json"
+          fi
           blender --background --factory-startup --python-exit-code 1 --python tools/modeling_studio/build.py -- "$design" "$RUNNER_TEMP/sera-model"
           cp "$design" "$RUNNER_TEMP/sera-model/design.json"
       - name: Inspect GLBs with Godot 4.7.2 in isolated project
@@ -190,7 +200,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/iterative_review.py "$RUNNER_TEMP/sera-model" "$RUNNER_TEMP/sera-iterations"
+          flags=()
+          if [[ "$STRUCTURAL_MODE" == true ]]; then flags+=(--structural); fi
+          "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/iterative_review.py "$RUNNER_TEMP/sera-model" "$RUNNER_TEMP/sera-iterations" "${flags[@]}"
       - name: Upload all iteration models, renders and offline viewers
         if: always() && (inputs.iteration_mode == true || startsWith(github.head_ref, 'modeling/crate-blockout-loop-'))
         uses: actions/upload-artifact@v4
