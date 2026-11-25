@@ -269,3 +269,9 @@ shape: wireframe を部品に指定。wireframe_example.json が動作確認用�
 - neck_pair_review.jsonに首の関節別・姿勢別表面干渉ペアを記録。首と腕の候補悪化を保護し、全関節の候補とメッシュ品質も評価。輪郭一致は参考のみ。可動範囲縮小、干渉免除なし。数値改善とガード付き詳細化探索を区別し、全体最良と探索候補を別保存。
 - 履帯片は既存の等間隔経路から面取り断面を直接生成する。内側ガイドと溝付き車輪は造形仮説であり、実際の張力・駆動・荷重評価ではない。姿勢は16関節×5サンプル、連続衝突や複合関節姿勢は未保証。既存ゲームモデルは未置換。
 - 外部資料：Harmonic Drive FHA Mini https://www.harmonicdrive.net/products/miniature-products/miniature-actuators/fha-mini 、igus関節部品 https://www.igus.com/robot-components 、Cat履帯パターン https://www.cat.com/en_US/support/maintenance/undercarriage/rubber-track/selection-guide.html 、Cat鋼芯入り履帯 https://www.cat.com/en_US/blog/rubber-tracks-for-cat-equipment.html 。形状と寸法は作者が補完し、各候補に根拠URLを記録する。
+
+## 10回反復制作 V8：造形予算再配分
+- iteration_mode=true / budget_repair_mode=true、または modeling/crate-blockout-loop-v8-* で実行。V7 09_inner_guidesの採用8変更を再現した基準を使い、中空履帯・肩位置・関節可動範囲を維持する。再生成したV7の三角形数（前回42924）を上限とする。
+- 10試行：履帯片の中間断面削減、内側ガイドの微小面取り省略、溝付き転輪の20→16分割、車体支持ブリッジ/底面保護、胸部装甲の段差と広い面、肩下部補強、固定首外装のテーパー、収納上端の傾斜、手首と前腕の連動調整、下爪の輪郭/パッド調整。
+- 履帯片は閉じた面構成と外周の面取り輪郭を保つ直接再構築。全候補の実メッシュ三角形数、干渉、可視性、階層、トポロジーを検査し、基準からの削減量を記録する。80離散姿勢、輪郭は参考値、干渉免除なし。技術評価上の選択と造形探索候補を別保存し、視覚承認は実レンダリングで行う。軽量化による実機速度改善は未保証。
+- 参考資料：Blender Decimate https://docs.blender.org/manual/en/5.0/modeling/modifiers/generate/decimate.html 、Cat足回り支持構造公開特許 https://patents.google.com/patent/US20090321152A1/en 、産業用ロボットの筐体/補強構造 https://patents.google.com/patent/US10933540B2/ja 。実製品の寸法や機構を再現せず、造形の構造とポリゴン配分に反映。ゲーム本体は未置換。
