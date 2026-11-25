@@ -3,7 +3,7 @@ extends RefCounted
 const MAX_TRIANGLES = 12000
 const PADDING = 2
 
-static func build(source: MeshInstance3D, density: int, preserve_shape: bool = true, balanced_shape: bool = false, exact_block: bool = true, face_paint: bool = false, coherent_face: bool = true, cycle_grid: bool = true, fast_cycle: bool = true, bounded_cycle: bool = true, continuous_face: bool = true) -> Dictionary:
+static func build(source: MeshInstance3D, density: int, preserve_shape: bool = true, balanced_shape: bool = false, exact_block: bool = true, face_paint: bool = false, coherent_face: bool = true, cycle_grid: bool = true, fast_cycle: bool = true, bounded_cycle: bool = true, continuous_face: bool = true, axis_first: bool = false) -> Dictionary:
     var tris: Array[Dictionary] = []
     var charts: Array[Dictionary] = []
     var scale_basis: Basis = source.global_transform.basis if source.is_inside_tree() else source.transform.basis
@@ -73,7 +73,15 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     var coherent_applied: bool = false
     var cycle_applied: bool = false
     var continuous_applied: bool = false
-    if face_paint:
+    var axis_applied: bool = false
+    if face_paint and axis_first:
+        var axis_layout: Dictionary = _axis_first_layout(tris,charts,density)
+        if not bool(axis_layout.applied):
+            return {"error":str(axis_layout.report)}
+        charts = axis_layout.charts
+        axis_applied = true
+        affine_report = str(axis_layout.report)
+    elif face_paint:
         affine_report = "面別計量キャンバス / 大域グリッド拘束なし / 整数配置"
         if coherent_face:
             var coherent: Dictionary = _coherent_face_layout(tris,charts,density)
@@ -212,7 +220,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     arrays[Mesh.ARRAY_TEX_UV2] = diagnostic_uv
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"face_paint":face_paint,"unwrap_version":("face-paint-v33" if continuous_applied else ((("face-paint-v32" if bounded_cycle else "face-paint-v31") if fast_cycle else "face-paint-v30") if cycle_applied else ("face-paint-v29" if coherent_applied else "face-paint-v24"))) if face_paint else (("shape-affine-v20" if exact_block else "shape-affine-v19") if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
+    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"face_paint":face_paint,"unwrap_version":("face-paint-v34" if axis_applied else ("face-paint-v33" if continuous_applied else ((("face-paint-v32" if bounded_cycle else "face-paint-v31") if fast_cycle else "face-paint-v30") if cycle_applied else ("face-paint-v29" if coherent_applied else "face-paint-v24")))) if face_paint else (("shape-affine-v20" if exact_block else "shape-affine-v19") if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
 
 ## Group connected coplanar triangles, and the two halves of slightly
 ## warped authored quads. Never use an internal triangulation diagonal
@@ -1200,6 +1208,184 @@ static func _continuous_face_layout(tris: Array[Dictionary],charts: Array[Dictio
         current = best.score
         aligned += 1
     return {"charts":charts,"applied":welded>0 or aligned>0,"report":"V33 面統合 %d/%d・軸補正 %d・島 %d→%d・単三角島 %d→%d・方向差10度超 %d→%d・軸傾き5度超 %d→%d" % [welded,tested,aligned,initial_charts,charts.size(),int(before.singletons),int(current.singletons),int(before.angular),int(current.angular),int(before.tilted),int(current.tilted)]}
+
+# V34 independent axis-first layout: largest connected surface seeds
+# define one fixed metric plane. Grow only through verified physical
+# neighbors, with a hard 15 degree normal cone and no UV overlap.
+# Never rotate individual triangles or optimize the grid direction away
+# from the seed's model-space axes.
+static func _axis_first_layout(tris: Array[Dictionary],charts: Array[Dictionary],density: int) -> Dictionary:
+    if tris.size()>2000:
+        return {"applied":false,"report":"面連続・試作: 三角形2000枚上限"}
+    var physical: Array[Dictionary] = _seam_segments(tris,true)
+    var adjacency: Array = []
+    var areas := PackedFloat32Array()
+    var assigned := PackedInt32Array()
+    var order: Array[int] = []
+    assigned.resize(tris.size())
+    assigned.fill(-1)
+    for i in range(tris.size()):
+        adjacency.append([])
+        var p: PackedVector3Array = tris[i].p
+        areas.append((p[1]-p[0]).cross(p[2]-p[0]).length())
+        order.append(i)
+    for link in physical:
+        var a: int = int(link.ta)
+        var b: int = int(link.tb)
+        (adjacency[a] as Array).append(b)
+        (adjacency[b] as Array).append(a)
+    order.sort_custom(func(a: int,b: int) -> bool:
+        return areas[a]>areas[b] if areas[a]!=areas[b] else a<b)
+    var scratch: Dictionary = _joint_copy(tris,charts)
+    var ct: Array[Dictionary] = scratch.tris
+    var cc: Array[Dictionary] = []
+    var cosine: float = cos(deg_to_rad(15.0))
+    for root in order:
+        if assigned[root]>=0:
+            continue
+        var normal: Vector3 = ct[root].face_normal
+        var axes: Array[Vector3] = _face_axis_basis(normal)
+        var ci: int = cc.size()
+        var members: Array = [root]
+        var frontier: Dictionary = {}
+        var considered: Dictionary = {root:true}
+        assigned[root] = ci
+        ct[root].chart = ci
+        ct[root].xy = _axis_first_project(ct[root],axes,density)
+        for ni in adjacency[root]:
+            frontier[int(ni)] = true
+        while not frontier.is_empty() and members.size()<96:
+            var selected: int = -1
+            var best: float = -INF
+            for ni in frontier:
+                var score: float = normal.dot(Vector3(ct[int(ni)].face_normal))
+                if score>best or (score==best and (selected<0 or areas[int(ni)]>areas[selected] or (areas[int(ni)]==areas[selected] and int(ni)<selected))):
+                    selected = int(ni)
+                    best = score
+            frontier.erase(selected)
+            if selected<0 or considered.has(selected):
+                continue
+            considered[selected] = true
+            if assigned[selected]>=0 or best<cosine:
+                continue
+            var xy: PackedVector2Array = _axis_first_project(ct[selected],axes,density)
+            if (xy[1]-xy[0]).cross(xy[2]-xy[0])<=0.000001:
+                continue
+            var collision: bool = false
+            for ti in members:
+                if _overlaps(xy,ct[int(ti)].xy):
+                    collision = true
+                    break
+            if collision:
+                continue
+            assigned[selected] = ci
+            ct[selected].chart = ci
+            ct[selected].xy = xy
+            members.append(selected)
+            for ni in adjacency[selected]:
+                if assigned[int(ni)]<0 and not considered.has(int(ni)):
+                    frontier[int(ni)] = true
+        cc.append(_face_chart_bounds(ct,members))
+    var shape: Vector3 = _topology_distortion(ct,density)
+    # cos(15 degrees) gives at most 3.41% metric projection compression.
+    # Reject beyond a small numerical tolerance, never permit a fold.
+    if not shape.is_finite() or shape.x>0.036 or shape.z>0.036:
+        return {"applied":false,"report":"面連続・試作: 投影歪み上限"}
+    if _hinge_pack_side(cc)>1024:
+        return {"applied":false,"report":"面連続・試作: アトラス容量上限"}
+    var before: Dictionary = _face_visual_metrics(ct,physical)
+    _axis_first_phase(ct,cc,physical)
+    # Phase correction changes only translations; preserve chart topology.
+    var after: Dictionary = _face_visual_metrics(ct,physical)
+    if _hinge_pack_side(cc)>1024:
+        return {"applied":false,"report":"面連続・試作: 位相補正後の容量上限"}
+    for i in range(tris.size()):
+        tris[i].xy = ct[i].xy
+        tris[i].chart = ct[i].chart
+    return {"applied":true,"charts":cc,"report":"V34 軸基準連続面 / 島 %d / 単三角島 %d / 軸傾き5度超 %d / 位相問題辺 %d→%d / 重大 %d→%d" % [cc.size(),int(after.singletons),int(after.tilted),int(before.grid.y),int(after.grid.y),int(before.severe),int(after.severe)]}
+
+static func _axis_first_project(t: Dictionary,axes: Array[Vector3],density: int) -> PackedVector2Array:
+    var result := PackedVector2Array()
+    for point in t.p:
+        var p: Vector3 = point
+        result.append(Vector2(p.dot(axes[0]),p.dot(axes[1]))*float(density))
+    return result
+
+# Fixed-axis, periodic phase descent. Penalize severe residuals first;
+# preserve the model-space direction field and connected chart topology.
+static func _axis_first_phase(tris: Array[Dictionary],charts: Array[Dictionary],physical: Array[Dictionary]) -> void:
+    var incident: Array = []
+    var links: Array[Dictionary] = []
+    var shifts := PackedVector2Array()
+    shifts.resize(charts.size())
+    for ci in range(charts.size()):
+        incident.append([])
+    for link in physical:
+        var a: int = int(tris[int(link.ta)].chart)
+        var b: int = int(tris[int(link.tb)].chart)
+        if a==b:
+            continue
+        var pa: PackedVector2Array = _segment_uv(tris[int(link.ta)],int(link.ea),float(link.a0),float(link.a1),"xy")
+        var pb: PackedVector2Array = _segment_uv(tris[int(link.tb)],int(link.eb),float(link.b0),float(link.b1),"xy")
+        var da: Vector2 = pa[1]-pa[0]
+        var db: Vector2 = pb[1]-pb[0]
+        var quarter: float = roundf(db.angle_to(da)/(PI*0.5))*(PI*0.5)
+        var li: int = links.size()
+        links.append({"a":a,"b":b,"quarter":quarter,"offset":pa[0]-pb[0].rotated(quarter),"delta":da-db.rotated(quarter)})
+        (incident[a] as Array).append(li)
+        (incident[b] as Array).append(li)
+    for sweep in range(4):
+        var ranking: Array[Dictionary] = []
+        for ci in range(charts.size()):
+            if not incident[ci].is_empty():
+                ranking.append({"id":ci,"cost":_axis_phase_score(ci,shifts[ci],shifts,links,incident[ci])})
+        ranking.sort_custom(func(a: Dictionary,b: Dictionary) -> bool:
+            return float(a.cost)>float(b.cost) if a.cost!=b.cost else int(a.id)<int(b.id))
+        for item in ranking:
+            var ci: int = int(item.id)
+            var start: Vector2 = shifts[ci]
+            var best: Vector2 = start
+            var score: float = _axis_phase_score(ci,start,shifts,links,incident[ci])
+            var candidates: Array[Vector2] = []
+            for li in incident[ci]:
+                var e: Dictionary = links[int(li)]
+                var base: Vector2 = e.offset+shifts[int(e.a)]-shifts[int(e.b)].rotated(float(e.quarter))
+                var target: Vector2 = -base-Vector2(e.delta)*0.5
+                if int(e.b)==ci:
+                    target = -target.rotated(-float(e.quarter))
+                candidates.append(start+target)
+            for x in [-0.25,-0.125,0.0,0.125,0.25]:
+                for y in [-0.25,-0.125,0.0,0.125,0.25]:
+                    candidates.append(start+Vector2(x,y))
+            for candidate in candidates:
+                var shift: Vector2 = candidate-candidate.round()
+                var cost: float = _axis_phase_score(ci,shift,shifts,links,incident[ci])
+                if cost<score-0.000001:
+                    score = cost
+                    best = shift
+            shifts[ci] = best
+    var members: Array = _face_chart_members(tris,charts.size())
+    for t in tris:
+        var q: PackedVector2Array = t.xy
+        for k in range(q.size()):
+            q[k] += shifts[int(t.chart)]
+        t.xy = q
+    for ci in range(charts.size()):
+        charts[ci] = _face_chart_bounds(tris,members[ci])
+
+static func _axis_phase_score(ci: int,shift: Vector2,shifts: PackedVector2Array,links: Array[Dictionary],incident: Array) -> float:
+    var result: float = 0.0
+    for li in incident:
+        var e: Dictionary = links[int(li)]
+        var a: int = int(e.a)
+        var b: int = int(e.b)
+        var sa: Vector2 = shift if a==ci else shifts[a]
+        var sb: Vector2 = shift if b==ci else shifts[b]
+        var error: Vector2 = e.offset+sa-sb.rotated(float(e.quarter))
+        error -= error.round()
+        var residual: float = maxf(error.length(),(error+Vector2(e.delta)).length())
+        result += (10.0 if residual>1.0 else 0.0)+(1.0 if residual>0.25 else 0.0)+0.1*residual*residual
+    return result
 
 ## Reconstruct convex four-corner boundaries, including collinear
 ## subdivided sides. Keep the mesh itself unchanged. Accept a rectangular

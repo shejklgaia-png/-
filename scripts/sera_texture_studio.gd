@@ -73,7 +73,10 @@ var atlas_preserve_shape: bool = true
 var balanced_shape_requested: bool = false
 var atlas_balanced_shape: bool = false
 var face_paint_requested: bool = true
+var axis_face_requested: bool = false
 var atlas_face_paint: bool = false
+var atlas_axis_face: bool = false
+var atlas_source_id: int = 0
 var face_bridges: Dictionary = {}
 var face_brush_owners := PackedInt32Array()
 var face_brush_edges: Dictionary = {}
@@ -264,7 +267,7 @@ func _build_ui() -> void:
     density_picker.select(2)
     density_picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     row.add_child(density_picker)
-    uv_mode_button = _button(row,_uv_mode_name(preserve_shape_requested,balanced_shape_requested,face_paint_requested),_toggle_uv_mode)
+    uv_mode_button = _button(row,_uv_mode_name(preserve_shape_requested,balanced_shape_requested,face_paint_requested,axis_face_requested),_toggle_uv_mode)
     _button(row,"UV再展開",_rebuild)
     uv_applied_label = Label.new()
     uv_applied_label.add_theme_font_size_override("font_size",17)
@@ -948,27 +951,30 @@ func _select_model(index: int) -> void:
     mesh_picker_row.hide()
     _rebuild()
 
-func _uv_mode_name(shape: bool,balanced: bool = false,face: bool = false) -> String:
+func _uv_mode_name(shape: bool,balanced: bool = false,face: bool = false,axis_face: bool = false) -> String:
     if face:
-        return "面別塗装"
+        return "面連続・試作" if axis_face else "面別塗装"
     return "均衡優先" if shape and balanced else ("形状優先" if shape else "境界優先")
 
 func _refresh_uv_mode_state() -> void:
     if not is_instance_valid(uv_applied_label):
         return
-    var pending: bool = img != null and (preserve_shape_requested != atlas_preserve_shape or balanced_shape_requested != atlas_balanced_shape or face_paint_requested != atlas_face_paint or density_picker.get_selected_id() != atlas_density)
-    uv_mode_button.text = ("次: " if pending else "")+_uv_mode_name(preserve_shape_requested,balanced_shape_requested,face_paint_requested)
+    var pending: bool = img != null and (preserve_shape_requested != atlas_preserve_shape or balanced_shape_requested != atlas_balanced_shape or face_paint_requested != atlas_face_paint or axis_face_requested != atlas_axis_face or density_picker.get_selected_id() != atlas_density)
+    uv_mode_button.text = ("次: " if pending else "")+_uv_mode_name(preserve_shape_requested,balanced_shape_requested,face_paint_requested,axis_face_requested)
     if img == null:
         uv_applied_label.text = "適用中: 未展開"
         return
-    uv_applied_label.text = "適用中: %s / %dpx/m / UV#%d%s" % [_uv_mode_name(atlas_preserve_shape,atlas_balanced_shape,atlas_face_paint),atlas_density,uv_generation," / 未適用設定あり" if pending else ""]
+    uv_applied_label.text = "適用中: %s / %dpx/m / UV#%d%s" % [_uv_mode_name(atlas_preserve_shape,atlas_balanced_shape,atlas_face_paint,atlas_axis_face),atlas_density,uv_generation," / 未適用設定あり" if pending else ""]
 
 func _on_density_requested(_index: int) -> void:
     _refresh_uv_mode_state()
     _show_status("密度変更はUV再展開で適用します（描画レイヤー初期化）")
 
 func _toggle_uv_mode() -> void:
-    if face_paint_requested:
+    if face_paint_requested and not axis_face_requested:
+        axis_face_requested = true
+    elif face_paint_requested:
+        axis_face_requested = false
         face_paint_requested = false
         preserve_shape_requested = false
         balanced_shape_requested = false
@@ -986,8 +992,15 @@ func _rebuild() -> void:
     if not is_instance_valid(source):
         _show_status("復元プロジェクトのUVは固定です。元モデルを選択してください")
         return
-    var result: Dictionary = UV.build(source,density_picker.get_selected_id(),preserve_shape_requested,balanced_shape_requested,true,face_paint_requested)
+    var result: Dictionary = UV.build(source,density_picker.get_selected_id(),preserve_shape_requested,balanced_shape_requested,true,face_paint_requested,true,true,true,true,false,axis_face_requested)
     if result.has("error"):
+        # The experimental chart generator must not erase an existing
+        # valid atlas/layer set if the proposed layout fails its limits.
+        if axis_face_requested and img!=null and atlas_source_id==source.get_instance_id():
+            _refresh_uv_mode_state()
+            _show_status(str(result.error)+" / 既存の塗装を維持")
+            return
+        atlas_source_id = 0
         preview.mesh = null
         img = null
         original = null
@@ -1010,6 +1023,8 @@ func _rebuild() -> void:
     atlas_preserve_shape = bool(result.preserve_shape)
     atlas_balanced_shape = bool(result.get("balanced_shape",false))
     atlas_face_paint = bool(result.get("face_paint",false))
+    atlas_axis_face = str(result.unwrap_version)=="face-paint-v34"
+    atlas_source_id = source.get_instance_id()
     surface_history.clear()
     current_surface_stroke.clear()
     surface_history_complete = true
@@ -1022,7 +1037,7 @@ func _rebuild() -> void:
     layer_index = 0
     _add_layer()
     _install_preview(result.mesh)
-    _show_status("%s / UV島 %d→%d / %d×%d px" % [_uv_mode_name(atlas_preserve_shape,atlas_balanced_shape,atlas_face_paint),uv_initial_charts,uv_final_charts,img.get_width(),img.get_height()])
+    _show_status("%s / UV島 %d→%d / %d×%d px" % [_uv_mode_name(atlas_preserve_shape,atlas_balanced_shape,atlas_face_paint,atlas_axis_face),uv_initial_charts,uv_final_charts,img.get_width(),img.get_height()])
 
 func _install_preview(mesh: ArrayMesh) -> void:
     uv_generation += 1
@@ -1807,16 +1822,16 @@ func _copy_diagnostics() -> void:
         _show_status("モデルを選択してください")
         return
     var result: Dictionary = UV.diagnostic_report_faces(triangles,img.get_size(),atlas_density,selected_diagnostic_faces)
-    var header: String = "%s\nUV方式: %s / UV#%d / %s\n" % [selected_model_label.text,_uv_mode_name(atlas_preserve_shape,atlas_balanced_shape,atlas_face_paint),uv_generation,uv_unwrap_version]
+    var header: String = "%s\nUV方式: %s / UV#%d / %s\n" % [selected_model_label.text,_uv_mode_name(atlas_preserve_shape,atlas_balanced_shape,atlas_face_paint,atlas_axis_face),uv_generation,uv_unwrap_version]
     if not uv_affine_report.is_empty():
         header += "均衡補正: "+uv_affine_report+"\n"
     if uv_initial_charts >= 0:
         header += "折り開き前後の島数: %d → %d\n" % [uv_initial_charts,uv_final_charts]
-    if preserve_shape_requested != atlas_preserve_shape or balanced_shape_requested != atlas_balanced_shape or face_paint_requested != atlas_face_paint or density_picker.get_selected_id() != atlas_density:
-        header += "未適用設定: %s / %dpx/m\n" % [_uv_mode_name(preserve_shape_requested,balanced_shape_requested,face_paint_requested),density_picker.get_selected_id()]
+    if preserve_shape_requested != atlas_preserve_shape or balanced_shape_requested != atlas_balanced_shape or face_paint_requested != atlas_face_paint or axis_face_requested != atlas_axis_face or density_picker.get_selected_id() != atlas_density:
+        header += "未適用設定: %s / %dpx/m\n" % [_uv_mode_name(preserve_shape_requested,balanced_shape_requested,face_paint_requested,axis_face_requested),density_picker.get_selected_id()]
     diagnostic_text = header+str(result.report)
     DisplayServer.clipboard_set(diagnostic_text)
-    _show_status("%s / UV#%d / %d面選択の診断をコピーしました" % [_uv_mode_name(atlas_preserve_shape,atlas_balanced_shape,atlas_face_paint),uv_generation,selected_diagnostic_faces.size()])
+    _show_status("%s / UV#%d / %d面選択の診断をコピーしました" % [_uv_mode_name(atlas_preserve_shape,atlas_balanced_shape,atlas_face_paint,atlas_axis_face),uv_generation,selected_diagnostic_faces.size()])
 
 func _set_diagnostic_angle(index: int) -> void:
     orthographic_view = index != 0
@@ -2010,6 +2025,7 @@ func _load_project(path: String) -> void:
         restored_layers.append(layer)
         restored_visibility.append(bool(vis[i]))
     source = null
+    atlas_source_id = 0
     picker.select(-1)
     selected_model_label.text = prefix.get_file()
     triangles = restored
@@ -2030,12 +2046,14 @@ func _load_project(path: String) -> void:
     surface_history = (raw_history as Array).slice(0,128) if raw_history is Array else []
     surface_history_complete = bool(data.get("surface_history_complete",false))
     uv_unwrap_version = str(data.get("unwrap_version","旧保存"))
+    atlas_axis_face = atlas_face_paint and uv_unwrap_version=="face-paint-v34"
+    axis_face_requested = atlas_axis_face
     uv_affine_report = str(data.get("affine_report",""))
     uv_initial_charts = int(data.get("initial_charts",-1))
     uv_final_charts = int(data.get("final_charts",-1))
     preserve_shape_requested = atlas_preserve_shape
     balanced_shape_requested = atlas_balanced_shape
-    uv_mode_button.text = _uv_mode_name(preserve_shape_requested,balanced_shape_requested,face_paint_requested)
+    uv_mode_button.text = _uv_mode_name(preserve_shape_requested,balanced_shape_requested,face_paint_requested,axis_face_requested)
     _install_preview(mesh)
     _show_status("編集プロジェクト復元済み: "+prefix.get_file())
 

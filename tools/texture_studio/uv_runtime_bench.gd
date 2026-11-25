@@ -117,6 +117,22 @@ func _run() -> void:
         var v33_mesh_ok: bool = _export_footprint_mesh(tris,grid_prefix+"-v33",{})
         grid_comparison.v33_comparison = {"previous":v32_grid,"current":grid_comparison.current,"previous_charts":v32.charts,"current_charts":result.charts,"previous_atlas":v32_image.get_width(),"current_atlas":new_atlas.get_width(),"previous_us":v32_us,"current_ms":elapsed,"version":result.unwrap_version,"report":result.affine_report,"artifact_ok":v32_reference_ok and v33_mesh_ok and v32_image.save_png(grid_prefix+"-previous-v32.png")==OK and new_atlas.save_png(grid_prefix+"-v33.png")==OK}
         print("GRID_V33 ",JSON.stringify(grid_comparison.v33_comparison))
+        # Experimental mode is intentionally separate from the standard
+        # face-paint nonregression gate. Report tradeoffs, not false passes.
+        var axis_start: int = Time.get_ticks_usec()
+        var axis: Dictionary = UV.build(source,density,true,true,true,true,true,true,true,true,false,true)
+        var axis_us: int = Time.get_ticks_usec()-axis_start
+        var axis_prefix: String = dest.get_basename()+"-axis-v34"
+        if axis.has("error"):
+            grid_comparison.v34_experiment = {"error":axis.error,"us":axis_us}
+        else:
+            var axis_image: Image = axis.image
+            var axis_triangles: Array = axis.triangles
+            var axis_side: Vector2i = axis_image.get_size()
+            var axis_metrics: Dictionary = _measure_grid(axis_triangles,axis_side)
+            var axis_footprints: Dictionary = _measure_face_footprints(axis_triangles,axis_image,density,axis_prefix+".txt")
+            grid_comparison.v34_experiment = {"previous":v32_grid,"current":axis_metrics,"previous_charts":v32.charts,"current_charts":axis.charts,"previous_atlas":v32_image.get_width(),"current_atlas":axis_side.x,"previous_us":v32_us,"current_us":axis_us,"report":axis.affine_report,"shape":_axis_experiment_geometry(axis_triangles,axis_side,density),"footprints":axis_footprints,"artifact_ok":_export_footprint_mesh(axis_triangles,axis_prefix,{}) and axis_image.save_png(axis_prefix+".png")==OK}
+        print("GRID_V34_EXPERIMENT ",JSON.stringify(grid_comparison.v34_experiment))
     var atlas: Image = result.image
     var side := atlas.get_size()
     var max_res: float = 0.0
@@ -705,3 +721,45 @@ func _measure_grid(tris: Array,side: Vector2i) -> Dictionary:
             result.coplanar_worst = maxf(result.coplanar_worst,e)
             result.coplanar_welded += 1 if int(a.chart)==int(b.chart) else 0
     return result
+
+
+# Inspect final packed experimental atlas independently of its chart
+# generator; report failures separately from the stable mode.
+func _axis_experiment_geometry(tris: Array,side: Vector2i,density: int) -> Dictionary:
+    var invalid: int = 0
+    var entries: Array[Dictionary] = []
+    var max_log_length: float = 0.0
+    var max_log_area: float = 0.0
+    for t in tris:
+        var q := PackedVector2Array()
+        var p: PackedVector3Array = t.p
+        for uv in t.uv:
+            var v: Vector2 = uv
+            if not v.is_finite() or v.x<0.0 or v.y<0.0 or v.x>1.0 or v.y>1.0:
+                invalid += 1
+            q.append(v*Vector2(side))
+        var area: float = (q[1]-q[0]).cross(q[2]-q[0])
+        var ref_area: float = (p[1]-p[0]).cross(p[2]-p[0]).length()*float(density*density)
+        if area<=0.000001 or ref_area<=0.000001:
+            invalid += 1
+        else:
+            max_log_area = maxf(max_log_area,absf(log(area/ref_area)))
+        for k in range(3):
+            var world: float = p[k].distance_to(p[(k+1)%3])*float(density)
+            var uv: float = q[k].distance_to(q[(k+1)%3])
+            if world>0.000001 and uv>0.000001:
+                max_log_length = maxf(max_log_length,absf(log(uv/world)))
+        entries.append({"q":q,"lo":q[0].min(q[1]).min(q[2]),"hi":q[0].max(q[1]).max(q[2])})
+    entries.sort_custom(func(a: Dictionary,b: Dictionary) -> bool: return a.lo.x<b.lo.x)
+    var overlap: int = 0
+    for i in range(entries.size()):
+        var a: Dictionary = entries[i]
+        for j in range(i+1,entries.size()):
+            var b: Dictionary = entries[j]
+            if b.lo.x>=a.hi.x-0.0001:
+                break
+            if minf(a.hi.y,b.hi.y)-maxf(a.lo.y,b.lo.y)<=0.0001:
+                continue
+            if UV._overlaps(a.q,b.q):
+                overlap += 1
+    return {"invalid":invalid,"overlap":overlap,"max_log_length":max_log_length,"max_log_area":max_log_area}
