@@ -17,7 +17,19 @@ def main():
     scene=bpy.context.scene
     scene.render.fps=fps; scene.frame_start=1; scene.frame_end=end
     nodes={}
-    if d.get("source_glb"):
+    if d.get("source_bbmodel"):
+        # Only canonical repo model sources; no writes or path traversal.
+        repo=Path(__file__).resolve().parents[2]
+        src=(repo/d["source_bbmodel"]).resolve()
+        manifest=json.loads((repo/"models/manifest.json").read_text())
+        allowed={manifest["body_rig"],*manifest["variants"].values(),*manifest["parts"].values(),*manifest["bosses"].values()}
+        if src not in {(repo/p).resolve() for p in allowed}: raise ValueError("not a canonical model")
+        unit=float(d["bb_unit_m"])
+        if not math.isfinite(unit) or not 0<unit<=1: raise ValueError("invalid BB unit")
+        sys.path.insert(0,str(Path(__file__).resolve().parent))
+        from bbmodel import load_bbmodel
+        nodes=load_bbmodel(src,unit,scene,out)
+    elif d.get("source_glb"):
         src=(a.design.parent/d["source_glb"]).resolve()
         if src.suffix.lower()!=".glb": raise ValueError("GLB only")
         bpy.ops.import_scene.gltf(filepath=str(src))
@@ -132,7 +144,7 @@ def main():
     clips=gltf.get("animations",[])
     if len(clips)!=1: raise ValueError("expected exactly one complete GLB clip")
     actual={(gltf["nodes"][c["target"]["node"]].get("name"),c["target"]["path"]) for c in clips[0]["channels"]}
-    expected={(name,{"location":"translation","rotation_deg":"rotation"}[prop]) for name,channels in d["tracks"].items() for prop,keys in channels.items() if any(k["value"]!=keys[0]["value"] for k in keys[1:])}
+    expected={(nodes[name].name,{"location":"translation","rotation_deg":"rotation"}[prop]) for name,channels in d["tracks"].items() for prop,keys in channels.items() if any(k["value"]!=keys[0]["value"] for k in keys[1:])}
     (out/"clip_report.json").write_text(json.dumps({"clip":clips[0].get("name"),"channels":sorted(actual),"required":sorted(expected),"missing":sorted(expected-actual)},indent=2))
     if expected-actual: raise ValueError("missing animated node channels: "+str(expected-actual))
     # Render actual animated geometry, using fixed framing for all samples.
