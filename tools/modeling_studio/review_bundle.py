@@ -49,6 +49,12 @@ def main():
         required = ["crate_current.glb","crate_current.blend","godot_source.json","blender_source.json",
                     "projections.json","camera_fit.json","source_commit.txt","source_blob.txt","contact_sheet.jpg"] + [v+".png" for v in VIEWS]
         paths += ["crate_baseline/"+p for p in required]
+    if (root/"crate_candidate").is_dir():
+        candidate = root/"crate_candidate"
+        contact_sheet(candidate)
+        required = ["crate_candidate.glb","crate_candidate.blend","candidate_report.json",
+                    "projections.json","camera_fit.json","contact_sheet.jpg"]+[v+".png" for v in VIEWS]
+        paths += ["crate_candidate/"+p for p in required]
     files = {p:{"bytes":(root/p).stat().st_size,"sha256":hashlib.sha256((root/p).read_bytes()).hexdigest()} for p in paths}
     if any(v["bytes"]==0 for v in files.values()):
         raise ValueError("empty artifact")
