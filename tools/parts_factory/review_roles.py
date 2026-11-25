@@ -40,10 +40,10 @@ RAW={
  "model":("model.glb","mesh_report.json","godot_import.json","interference.json","provenance.json","projections.json",*tuple(v+".png" for v in q.RENDER_VIEWS)),
  "art":(), "blueprint":("blueprint.png",),
  "plan":("design.json","structure_plan.json"),
- "geometry":("comparison.json",*tuple(v+".png" for v in q.RENDER_VIEWS)),
+ "geometry":("comparison.json","geometry_review.json",*tuple(v+".png" for v in q.RENDER_VIEWS)),
  "uv":("uv_model.glb","uv_layout.json","uv_metrics.json","face_geometry.json"),
  "paint":("model.glb","texture_512.png","texture_1024.png","texture_2048.png","surface_plan.json","embedded_review.json","bake_manifest.json",*tuple(v+".png" for v in q.RENDER_VIEWS)),
- "review":tuple(v+".png" for v in q.RENDER_VIEWS),
+ "review":("review.json",*tuple(v+".png" for v in q.RENDER_VIEWS)),
  "viewer":("viewer.html",),
  "set":("assembly.glb","viewer.html",*tuple(v+".png" for v in q.RENDER_VIEWS))
 }
@@ -141,6 +141,15 @@ def packet_data(src,stage,job_id,upstream,work=None):
                 digest=q.sha(p);need(digest==rec["files"][name],"upstream evidence changed")
                 items["upstream/"+st+"/"+name]=(p,digest)
     if stage=="set":items.update(set_inputs(src)[0])
+    draft=src/"supervision"/"draft"
+    if draft.is_dir():
+        need(not (draft/"supervision").exists(),"nested draft forbidden")
+        for original,dst in public_files(draft,stage):
+            p=q.evidence(draft,original)
+            need("independent_reviews" not in Path(original).parts and "supervision" not in Path(original).parts,"draft review files cannot be evidence")
+            label="draft/"+dst
+            need(label not in items,"duplicate draft packet path")
+            items[label]=(p,q.sha(p))
     manifest={k:hashlib.sha256(view_payload(v[0],stage)).hexdigest() for k,v in sorted(items.items())}
     binding={"format":FORMAT,"job_id":job_id,"stage":stage,
         "candidate_sha256":q.canonical(private),
@@ -150,9 +159,9 @@ def packet_data(src,stage,job_id,upstream,work=None):
 
 def view_payload(p,stage):
     # Structure plan contains authored design rationale, not self-score; omit reviewer and scoring metadata.
-    if p.name=="structure_plan.json":
+    if p.name in ("structure_plan.json","geometry_review.json","review.json"):
         r=q.load(p)
-        for k in ("reviewer","rubric","score","approval","blocking_issues"):r.pop(k,None)
+        for k in ("reviewer","rubric","score","approval","blocking_issues","checks"):r.pop(k,None)
         return json.dumps(r,ensure_ascii=False,sort_keys=True,indent=2).encode()
     return p.read_bytes()
 
@@ -310,7 +319,26 @@ def check_cycle(src,stage,job_id,upstream,work=None):
             q.evidence(src,n)
     # Fresh final review is bound to the rebuilt files and the archived draft.
     final=check(src,stage,job_id,upstream,work)
+    final_author=author(src,stage)
+    for producer,reviews in ((a,final),(final_author,first)):
+        for review in reviews:
+            i=review["reviewer"]
+            need(i["context_id"]!=producer["context_id"] and i["actor"].strip().casefold()!=producer["actor"].strip().casefold(),"reviewer overlaps draft or rebuilt producer")
     return {"format":CYCLE,"draft_binding_sha256":q.canonical(binding),"reconstruction_sha256":q.sha(src/"supervision"/"reconstruction.json"),"final_review_sha256":{role:q.sha(src/"independent_reviews"/(role+".json")) for role in CRITERIA[stage]}}
+
+def cycle_template(src,stage,job_id,upstream,work=None):
+    draft=src/"supervision"/"draft"
+    _,_,binding=packet_data(draft,stage,job_id,upstream,work)
+    first=check(draft,stage,job_id,upstream,work,allow_reject=True)
+    changed=sorted(n for n in PRIMARY[stage] if material_digest(draft,n)!=material_digest(src,n))
+    obj={"format":CYCLE,"stage":stage,"draft_binding_sha256":q.canonical(binding),
+        "draft_review_sha256":{role:q.sha(draft/"independent_reviews"/(role+".json")) for role in CRITERIA[stage]},
+        "changed_primary_files":changed,
+        "actions":{role:{"response":"","method":"","resolved_issues":{x:"" for x in r["blocking_issues"]},"evidence":[]} for role,r in zip(CRITERIA[stage],first)}}
+    p=src/"supervision"/"reconstruction.json"
+    need(not p.exists(),"refuse to overwrite reconstruction record")
+    p.write_text(json.dumps(obj,ensure_ascii=False,indent=2),encoding="utf-8")
+    print(p)
 
 def record_veto(work,stage,src):
     import factory as f
@@ -330,8 +358,17 @@ if __name__=="__main__":
     a=s.add_parser("packet");a.add_argument("work",type=Path);a.add_argument("stage",choices=tuple(k for k in CRITERIA if k!="set"));a.add_argument("source",type=Path);a.add_argument("out",type=Path);a.add_argument("--role",choices=(ART,TECH),required=True)
     a=s.add_parser("veto");a.add_argument("work",type=Path);a.add_argument("stage",choices=tuple(k for k in CRITERIA if k!="set"));a.add_argument("source",type=Path)
     a=s.add_parser("set-packet");a.add_argument("source",type=Path);a.add_argument("out",type=Path);a.add_argument("--role",choices=(ART,TECH),required=True)
+    a=s.add_parser("cycle-template");a.add_argument("work",type=Path);a.add_argument("stage",choices=tuple(k for k in CRITERIA if k!="set"));a.add_argument("source",type=Path)
+    a=s.add_parser("set-cycle-template");a.add_argument("source",type=Path)
     a=p.parse_args()
-    if a.cmd=="packet":make_packet(a.work.resolve(),a.stage,a.source.resolve(),a.out.resolve(),a.role)
+    if a.cmd=="cycle-template":
+        import factory as f
+        work=a.work.resolve();d=f.state(work);f.verify(work,d)
+        idx=f.ORDER.index(a.stage);up={k:d["stages"][k] for k in f.ORDER[:idx]}
+        cycle_template(a.source.resolve(),a.stage,d["id"],up,work)
+    elif a.cmd=="set-cycle-template":
+        src=a.source.resolve();cycle_template(src,"set",q.load(src/"set.json")["id"],{})
+    elif a.cmd=="packet":make_packet(a.work.resolve(),a.stage,a.source.resolve(),a.out.resolve(),a.role)
     elif a.cmd=="veto":record_veto(a.work.resolve(),a.stage,a.source.resolve())
     else:
         src=a.source.resolve();_,items,binding=packet_data(src,"set",q.load(src/"set.json")["id"],{})
