@@ -1,4 +1,4 @@
-# PARTS FACTORY（パーファク）V6 — 制作と評価の役割分離
+# PARTS FACTORY（パーファク）V6.1 — 全工程AI監修・再構築
 2026-11-25 Vesper V1失敗への是正。V1/V2/V3/V4/V5のジョブは互換なし。旧データを破壊せず、新規V6作業ディレクトリに再登録する。単なる箱・円柱の組立を完成扱いしない。設計画が視覚的な正本。全身セットは先にセット全体のデザインを比較・確定し、その後6部位を独立制作する。ゲーム本体/既存モデル/無関係CIを変更しない。
 
 ## V3追加：設定画解析ブリッジ（必須）
@@ -73,3 +73,17 @@ design_library/seed.json は初期12件。設計原則4、構造・塗装参考6
 - 不合格/未確認時は `review_roles.py veto WORK STAGE SOURCE` で未受理候補の評価をreview_vetoesへ保存。両審査が必要な段階では両方の応答を揃える。明示rejectがある場合、同じ上流・同じ公開証拠の再承認を拒否する（記録済vetoのみ）。既存factory rejectと併用して根本工程へ戻る。未確認は追加確認により再評価可能。status/handoffで役割、未完了工程、veto履歴を確認できる。ストックへvetoを保存。
 - 技術境界：別AIや別チャットの自動起動は未接続。名前・context ID・独立性は申告と運用に依存し、署名・認証・別モデル強制ではない。独立審査の実行が不可能なら承認を捏造せず未完了とする。評価の正しさ・審美性は自動保証しない。V6実制作・実行検証は未実施。
 - 参考: Blender Studio review/approval https://studio.blender.org/blog/asset-pipeline-update-2022/ ; Kitsu role workflow https://studio.blender.org/tools/pipeline/operations/kitsu ; NASA dual-anonymous review https://science.nasa.gov/researchers/dual-anonymous-peer-review/ 。制作・承認の分離と、先入観を減らすための証拠中心の審査に応用。異分野の審査結果をゲーム品質の保証に使わない。
+
+
+## V6.1（最優先）：全工程で初稿→AI監修→再構築→再審査
+V6の記述と矛盾する場合は本節を優先。concept/art/blueprint/analysis/plan/model/geometry/uv/paint/review/viewerの全11工程とset組立に適用。concept/analysis/modelにも独立審査を追加。従来の審査担当・技術ゲートを残し、全審査担当はAIかつ実際の独立コンテキストを使用する。初回承認だけでは受理不可。未確認・審査未実施は停止する。
+
+1. DRAFTに初稿とauthor.jsonを用意し、review_roles.py packet WORK STAGE DRAFT OUT --role ROLE（セットはset-packet）で必要な役割ごとに独立審査。初稿の良い点・欠点・改善指示・根拠を記録。実画像・実GLB・UV・HTMLは実際に開いて確認する。採点だけで合格としない。paintも塗装済GLBの8方向実画像を必須とする。
+2. 初稿のindependent_reviewsに実際のAI応答を保存。評価を制作担当へ渡し、外観・構造・機能・効率の根本的改善を優先して実ファイルを再制作。必要なら元のコンセプト・図面・計画へ戻し、以降を失効させる。初稿の採点変更・再命名・形式的微修正を再構築としない。
+3. FINAL/supervision/draft に初稿と初回審査の完全コピーを置く。初稿の中に別のsupervisionを入れない。FINAL直下に再構築した成果物、author.jsonを用意。review_roles.py cycle-template WORK STAGE FINAL（セットはset-cycle-template FINAL）で reconstruction.json のテンプレートを作成。各監修担当へのresponse/method/resolved_issues/evidenceを具体的に記入し、すべての阻害要因に対処した根拠を最終成果物のパスで指定する。
+4. FINALに対するpacketを新たに作成し、独立AIに最終審査を依頼。前後の実資料がパケットに含まれ、初稿の採点・評価回答は原則含まれない。制作担当と審査担当のコンテキスト・担当の重複を禁止。最終審査は全基準4以上かつ阻害要因0。前回の審査JSONの流用不可。再不合格は別の候補を制作し直す。初稿・途中の不合格は別途保管する。
+5. factory accept / set_release で初稿と最終審査、差分、上流、再構築記録のハッシュ整合を強制。主成果物の意味ある変更が必要。geometry/reviewのような検査工程では検査内容と根拠の再構成を対象とし、実モデルに問題があればplan/model/paint等へ戻る。モデルの決定的生成だけは、初稿が全承認で実行runとartifactのIDが異なる実再ビルド記録があるときに同一GLBを許容する。ハッシュ差分だけで改善を保証しない。
+6. V6.1以前に受理した工程は新規ジョブから再制作。旧ストックを削除しないが新規セットには使えない。初稿を含むためストック容量増加に注意。全工程と組立を通過してから正式配布。ゲーム登録は別指示。
+
+技術境界：審査応答・run IDは申告された証跡であり認証や実行の自動検証ではない。独立AIの起動、実アプリ操作は未接続。実行できない場合は未完了として報告し、架空レビュー・再制作を禁止。CI/既存ゲーム/既存モデルには手を加えない。V6.1の通し実制作は未検証。
+参考：Blender Studio Kitsu https://studio.blender.org/tools/pipeline/operations/kitsu ; Asset Pipeline https://studio.blender.org/blog/asset-pipeline-update-2022/ ; Pixar制作レビュー事例 https://review.firstround.com/lessons-from-pixar-why-software-developers-should-be-storytellers/
