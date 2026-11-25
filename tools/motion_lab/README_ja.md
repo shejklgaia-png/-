@@ -30,3 +30,6 @@ V2の出力は単一clip・121サンプル・2秒で正しかったがGodot指�
 V3成果物の全121フレーム指定点照合は腕0.000506mm、Bittaran 0.000065mmで合格。しかしGodot PNGが0枚。JSON数値の型差を考慮して整数フレーム辞書へ変換し、撮影実数・フレーム一覧を記録、期待数との一致を成功条件にする。
 `ik` は独立剛体チェーンのオフライン位置IK。各項目に marker、target_marker または world target、frames、blend_frames、joints（node、limits_deg の XYZ軸別範囲）を指定。FKを毎フレーム初期値とし、減衰最小二乗法・有限差分Jacobian・軸制限・短い線探索で補正し、全フレーム回転キーへベイク。指定区間外はFK。共有関節・向き制約・衝突・全身IKは未対応、局所解であり到達保証なし。ik_report.json に初期/最終残差・角度・重みを保存。require_contacts=true で指定接触の誤差超過を失敗扱いにする。PR専用ケースはdemo、bittaran、ikの3種。Bittaranは原本の展開バインド姿勢でありゲーム内立ち姿・材質は未再現。
 参考: https://mathweb.ucsd.edu/~sbuss/ResearchWeb/ikmethods/ ; https://motion.cs.illinois.edu/RoboticSystems/InverseKinematics.html ; https://docs.godotengine.org/en/latest/classes/class_json.html
+
+## V5: 空間診断
+V4の専用3ジョブが成功、IK実成果物で接触誤差8.35e-7m、Godot誤差6.08e-7m、撮影15/15枚を確認。`spatial` はベイク後全フレームの診断。floor.z/tolerance_m/meshes は水平床に対する評価済みメッシュ最低点。pairs は明示メッシュID二つ、intentional=trueで意図的な接合を候補から分離（記録は残す）。世界座標AABB→BVH三角形交差、AABB包含候補。接触・貫通体積の厳密区別はしない。support.contacts はマーカーと固定接地フレーム区間、masses は node/local/mass_kg で明示した仮想質量点。接地高さ・区間開始からの水平滑り・重心投影・支持点凸包・静的余裕距離（外側負）を計測。支持点3点未満/共線はnull、動的安定性・実質量推定・摩擦・連続衝突・自動回避は未対応。診断候補の先頭/末尾を撮影に追加。spatial_report.json の指標は自動合格ではなく判断材料。IKデモの質量は仮値、Bittaranゲーム姿勢は未再現。参考: https://docs.blender.org/api/current/mathutils.bvhtree.html ; https://motion.cs.illinois.edu/RoboticSystems/AdvancedTopicsInPlanning.html

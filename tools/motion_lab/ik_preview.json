@@ -210,6 +210,38 @@
         0,
         0
       ]
+    },
+    "support_1": {
+      "node": "base",
+      "local": [
+        -0.65,
+        -0.55,
+        -0.15
+      ]
+    },
+    "support_2": {
+      "node": "base",
+      "local": [
+        0.65,
+        -0.55,
+        -0.15
+      ]
+    },
+    "support_3": {
+      "node": "base",
+      "local": [
+        0.65,
+        0.55,
+        -0.15
+      ]
+    },
+    "support_4": {
+      "node": "base",
+      "local": [
+        -0.65,
+        0.55,
+        -0.15
+      ]
     }
   },
   "contacts": [
@@ -285,5 +317,90 @@
       ]
     }
   ],
-  "require_contacts": true
+  "require_contacts": true,
+  "spatial": {
+    "floor": {
+      "z": 0,
+      "tolerance_m": 0.002,
+      "meshes": [
+        "base",
+        "upper",
+        "forearm",
+        "tool"
+      ]
+    },
+    "pairs": [
+      {
+        "nodes": [
+          "upper",
+          "tool"
+        ]
+      },
+      {
+        "nodes": [
+          "base",
+          "forearm"
+        ]
+      },
+      {
+        "nodes": [
+          "upper",
+          "forearm"
+        ],
+        "intentional": true
+      }
+    ],
+    "support": {
+      "ground_tolerance_m": 0.002,
+      "slip_tolerance_m": 0.005,
+      "contacts": [
+        {
+          "marker": "support_1",
+          "frames": [
+            1,
+            121
+          ]
+        },
+        {
+          "marker": "support_2",
+          "frames": [
+            1,
+            121
+          ]
+        },
+        {
+          "marker": "support_3",
+          "frames": [
+            1,
+            121
+          ]
+        },
+        {
+          "marker": "support_4",
+          "frames": [
+            1,
+            121
+          ]
+        }
+      ],
+      "masses": [
+        {
+          "node": "base",
+          "mass_kg": 20
+        },
+        {
+          "node": "upper",
+          "mass_kg": 3
+        },
+        {
+          "node": "forearm",
+          "mass_kg": 2
+        },
+        {
+          "node": "tool",
+          "mass_kg": 1
+        }
+      ]
+    }
+  }
 }
