@@ -7,6 +7,11 @@ on:
         default: tools/modeling_studio/example.json
         required: true
         type: string
+      iteration_mode:
+        description: Run ten guarded CRATE V10 iterations (overrides design)
+        required: false
+        type: boolean
+        default: false
       reference_manifest:
         description: Optional independent orthographic mask manifest under tools/modeling_studio
         required: false
@@ -27,9 +32,9 @@ jobs:
   authoring:
     if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && (startsWith(github.head_ref, 'feat/modeling-studio-') || startsWith(github.head_ref, 'modeling/')))
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: ${{ (inputs.iteration_mode == true || startsWith(github.head_ref, 'modeling/crate-blockout-loop-')) && 120 || 25 }}
     env:
-      DESIGN: ${{ inputs.design || (startsWith(github.head_ref, 'modeling/crate-blockout-v10-') && 'tools/modeling_studio/crate_blockout_v10.json') || (startsWith(github.head_ref, 'modeling/crate-blockout-v9-') && 'tools/modeling_studio/crate_blockout_v9.json') || (startsWith(github.head_ref, 'modeling/crate-blockout-v8-') && 'tools/modeling_studio/crate_blockout_v8.json') || (startsWith(github.head_ref, 'modeling/crate-blockout-') && 'tools/modeling_studio/crate_blockout_v7.json') || (startsWith(github.head_ref, 'modeling/structure-analysis-v6-') && 'tools/modeling_studio/mechanism_crate_study.json') || (startsWith(github.head_ref, 'modeling/structure-analysis-') && 'tools/modeling_studio/hard_surface_example.json') || (startsWith(github.head_ref, 'modeling/hard-surface-') && 'tools/modeling_studio/hard_surface_example.json') || (startsWith(github.head_ref, 'modeling/wireframe-guides-') && 'tools/modeling_studio/wireframe_example.json') || (startsWith(github.head_ref, 'modeling/crate-threeview-refine-v2-') && 'tools/modeling_studio/crate_threeview_v2.json') || (startsWith(github.head_ref, 'modeling/crate-threeview-') && 'tools/modeling_studio/crate_threeview_v1.json') || 'tools/modeling_studio/example.json' }}
+      DESIGN: ${{ ((inputs.iteration_mode == true || startsWith(github.head_ref, 'modeling/crate-blockout-loop-')) && 'tools/modeling_studio/crate_blockout_v10.json') || inputs.design || (startsWith(github.head_ref, 'modeling/crate-blockout-v10-') && 'tools/modeling_studio/crate_blockout_v10.json') || (startsWith(github.head_ref, 'modeling/crate-blockout-v9-') && 'tools/modeling_studio/crate_blockout_v9.json') || (startsWith(github.head_ref, 'modeling/crate-blockout-v8-') && 'tools/modeling_studio/crate_blockout_v8.json') || (startsWith(github.head_ref, 'modeling/crate-blockout-') && 'tools/modeling_studio/crate_blockout_v7.json') || (startsWith(github.head_ref, 'modeling/structure-analysis-v6-') && 'tools/modeling_studio/mechanism_crate_study.json') || (startsWith(github.head_ref, 'modeling/structure-analysis-') && 'tools/modeling_studio/hard_surface_example.json') || (startsWith(github.head_ref, 'modeling/hard-surface-') && 'tools/modeling_studio/hard_surface_example.json') || (startsWith(github.head_ref, 'modeling/wireframe-guides-') && 'tools/modeling_studio/wireframe_example.json') || (startsWith(github.head_ref, 'modeling/crate-threeview-refine-v2-') && 'tools/modeling_studio/crate_threeview_v2.json') || (startsWith(github.head_ref, 'modeling/crate-threeview-') && 'tools/modeling_studio/crate_threeview_v1.json') || 'tools/modeling_studio/example.json' }}
       REFERENCE_MANIFEST: ${{ inputs.reference_manifest || '' }}
     steps:
       - uses: actions/checkout@v4
@@ -157,7 +162,7 @@ jobs:
             "$py" tools/modeling_studio/multiview_review.py "$root"
           fi
       - name: Review primary blockout silhouette
-        if: startsWith(github.head_ref, 'modeling/crate-blockout-')
+        if: inputs.iteration_mode == true || startsWith(github.head_ref, 'modeling/crate-blockout-')
         run: |
           "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/blockout_review.py "$RUNNER_TEMP/sera-model"
       - name: Prepare review bundle
@@ -179,6 +184,20 @@ jobs:
           name: sera-modeling-review
           path: ${{ runner.temp }}/sera-model/
           if-no-files-found: error
+          retention-days: 14
+      - name: Run ten feedback-prioritized modeling iterations
+        if: inputs.iteration_mode == true || startsWith(github.head_ref, 'modeling/crate-blockout-loop-')
+        shell: bash
+        run: |
+          set -euo pipefail
+          "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/iterative_review.py "$RUNNER_TEMP/sera-model" "$RUNNER_TEMP/sera-iterations"
+      - name: Upload all iteration models, renders and offline viewers
+        if: always() && (inputs.iteration_mode == true || startsWith(github.head_ref, 'modeling/crate-blockout-loop-'))
+        uses: actions/upload-artifact@v4
+        with:
+          name: sera-modeling-iterations
+          path: ${{ runner.temp }}/sera-iterations/
+          if-no-files-found: warn
           retention-days: 14
       - name: Upload partial results on failure
         if: failure()
