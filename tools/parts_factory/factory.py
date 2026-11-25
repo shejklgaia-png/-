@@ -12,9 +12,9 @@ STOCK = ROOT / "parts_stock"
 STAGES = {
     "concept": ("concept.json",),
     "blueprint": ("blueprint.png", "design.json"),
-    "model": ("model.blend", "model.glb", "mesh_report.json", "complete.json", "review.json"),
+    "model": ("model.blend", "model.glb", "mesh_report.json", "complete.json", "review.json", "design.json"),
     "uv": ("uv.json", "uv_model.glb"),
-    "paint": ("texture_512.png", "texture_1024.png", "texture_2048.png", "model.glb"),
+    "paint": ("texture_512.png", "texture_1024.png", "texture_2048.png", "model.glb", "paint.json"),
     "review": ("review.json", "front.png", "front_3q.png", "right.png", "back_3q.png", "back.png", "left.png", "top.png", "bottom.png"),
     "viewer": ("viewer.html", "viewer_review.json"),
 }
@@ -68,6 +68,7 @@ def verify(work, d):
         if not item:
             break
         folder = work / "objects" / item["key"]
+        require(re.fullmatch(r"[0-9a-f]{64}", item["key"]), "invalid cache key")
         require(item["upstream"] == previous, "stale upstream: " + name)
         require(files(folder) == item["files"], "changed or missing files: " + name)
         require(signature({k:v for k,v in item.items() if k != "key"}) == item["key"], "record mismatch")
@@ -105,6 +106,7 @@ def check_stage(name, src, d):
         png_size(src / "blueprint.png")
         require(read(src / "design.json").get("format") == "SERA_MODELING_STUDIO_V1", "bad modeling design")
     if name == "model":
+        require(digest(src / "design.json") == d["stages"]["blueprint"]["files"]["design.json"], "model design mismatch")
         glb(src / "model.glb")
         require(isinstance(read(src / "mesh_report.json"),list) and bool(read(src / "mesh_report.json")), "empty mesh report")
         require(bool(read(src / "complete.json").get("views")), "no completion views")
