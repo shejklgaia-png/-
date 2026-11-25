@@ -199,5 +199,39 @@
   },
   "performance_refinement": {
     "enabled": true
+  },
+  "secondary_refinement": {
+    "head_axis": 0,
+    "max_support_path_error_m": 0.002,
+    "max_strike_path_error_m": 0.002,
+    "profiles": [
+      {
+        "name": "light",
+        "sink_m": 0.005,
+        "head_deg": 0.5,
+        "compression_s": 0.12,
+        "rebound_s": 0.18,
+        "head_delay_s": 0.033,
+        "rebound_ratio": 0.2
+      },
+      {
+        "name": "medium",
+        "sink_m": 0.01,
+        "head_deg": 1,
+        "compression_s": 0.17,
+        "rebound_s": 0.23,
+        "head_delay_s": 0.05,
+        "rebound_ratio": 0.25
+      },
+      {
+        "name": "heavy",
+        "sink_m": 0.02,
+        "head_deg": 2,
+        "compression_s": 0.22,
+        "rebound_s": 0.28,
+        "head_delay_s": 0.067,
+        "rebound_ratio": 0.3
+      }
+    ]
   }
 }
