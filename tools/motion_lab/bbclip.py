@@ -219,6 +219,8 @@ def compile_clip(scene,d,nodes,end,out):
 
     if d.get("support_lock"):
         _lock_support(d,nodes,end,out)
+    if d.get("multifoot_ik"):
+        _refine_multifoot(d,nodes,end,out)
 
 
 def _lock_support(d,nodes,end,out):
@@ -294,4 +296,46 @@ def _lock_support(d,nodes,end,out):
         "version":13 if "sole" in base else 12,"selected_strength":strength,"selected_taper_frames":taper,"baseline":base,
         "selected":chosen,"candidates":rows,"max_shift_m":cap,
         "scope":"rigid preview; sole geometry and uniform-density proxies when configured, not physical COM; root translation only; no gameplay adoption"
+    },indent=2,ensure_ascii=False))
+
+
+def _refine_multifoot(d,nodes,end,out):
+    from multifoot_ik import propose
+    spec=d["multifoot_ik"]
+    base_tracks=d["tracks"]; base=_evaluate_tracks(d,nodes,end)
+    candidates,diagnostics=propose(nodes,d,end,base,spec)
+    b=base["sole"]; impact=d["events"]["impact_authored"]-1
+    def strike_error(r):
+        return max(abs(min(0.,x["strike_low_delta_m"])) for x in r["sole"]["frames"])
+    def score(r):
+        return (strike_error(r),r["sole"]["max_drift_m"],r["sole"]["mean_drift_m"])
+    selected=(0.,0,base_tracks,base); rows=[]
+    for strength,radius,track,max_angle in candidates:
+        d["tracks"]=track
+        e=_evaluate_tracks(d,nodes,end); q=e["sole"];reasons,_=_compare(base,e)
+        for field in ("max_drift_m","mean_drift_m","max_support_low_error_m"):
+            if q[field]>b[field]+.0001: reasons.append("sole_"+field)
+        if q["min_com_margin_m"]<min(0.,b["min_com_margin_m"])-.0001:
+            reasons.append("com_outside_support")
+        p0=b["frames"][impact]["strike_center_m"];p1=q["frames"][impact]["strike_center_m"]
+        xy=math.hypot(p1[0]-p0[0],p1[1]-p0[1])
+        if xy>float(d["support_lock"]["impact_xy_tolerance_m"]): reasons.append("strike_xy")
+        if abs(q["frames"][impact]["strike_low_delta_m"])>abs(b["frames"][impact]["strike_low_delta_m"])+.0001:
+            reasons.append("strike_impact_height")
+        if strike_error(e)>strike_error(base)+.0001: reasons.append("strike_floor")
+        rows.append({"strength":strength,"smooth_radius":radius,"max_joint_delta_deg":max_angle,
+                     "strike_depth_m":strike_error(e),"support_drift_m":q["max_drift_m"],
+                     "support_mean_drift_m":q["mean_drift_m"],"impact_xy_shift_m":xy,
+                     "min_com_margin_m":q["min_com_margin_m"],"metrics":e["markers"],"rejections":reasons})
+        old=score(selected[3]);new=score(e)
+        if not reasons and any(new[i]<old[i]-.0001 and all(new[j]<=old[j]+.0001 for j in range(i)) for i in range(len(old))):
+            selected=(strength,radius,track,e)
+    strength,radius,track,chosen=selected;d["tracks"]=track
+    actual=_evaluate_tracks(d,nodes,end)
+    if any(abs(x-y)>1e-6 for x,y in zip(score(actual),score(chosen))):
+        raise ValueError("multifoot selected track reevaluation mismatch")
+    (out/"multifoot_ik_report.json").write_text(json.dumps({
+        "version":14,"selected_strength":strength,"selected_smooth_radius":radius,
+        "baseline":base,"selected":actual,"candidates":rows,"solver_frames":diagnostics,
+        "scope":"bounded sampled four-foot position/orientation IK on authored preview; no real joint limits, swept collision, dynamics or gameplay adoption"
     },indent=2,ensure_ascii=False))
