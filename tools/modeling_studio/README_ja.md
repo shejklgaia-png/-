@@ -284,3 +284,8 @@ shape: wireframe を部品に指定。wireframe_example.json が動作確認用�
 - modeling/crate-blockout-attachment-* でV8 10_claw_clearanceを再現し、履帯側面カバー支持ボス、転輪軸、端部軸受支持、リムの接続位置を修正。履帯片・内側ガイドを各島単位でチェックする。
 - 頭部側面・胸部の浅いパネル凹部を元の主形状に戻し、細線・固定具をテクスチャ引き継ぎに移す。中空履帯、バイザー開口、主要カバー、関節を維持。単発の問題修正制作として実モデル・HTMLと監査結果を保存し、監査不合格時にも成果物を残す。
 - 資料: Cat track roller frame https://parts.cat.com/en/catcorp/product/654-4447 ; Blender baking https://docs.blender.org/manual/en/4.5/render/cycles/baking.html 。ゲーム本体、テクスタ実装、既存ゲームCIは変更しない。
+
+## CRATE V10：全体接続グラフ
+- V9の指定62組は合格したが、実GLBのスキッドプレート/車体間に約2.5mmのサンプル隙間を確認。底面板を5mm上へ移動、車体支持ブリッジと発光部の接続先も明示検査する。
+- attachment_graph の roots と max_gap_m で全評価メッシュの島単位の接続経路を検査する。AABB下限で候補を絞り、BVH表面重なり/双方向頂点近接を辺として車体根から到達性を調べる。近接とゼロ隙間を分け、孤立群と最も近い接続候補を attachment_graph.json に記録。基準は暫定1mm。実際の荷重支持や連続可動、完全包含、意図的な隙間を保証しない。
+- 既存指定接続検査も維持。テクスチャ引き継ぎ14部品は未塗装のまま。パネルラインを再メッシュ化しない。専用制作の成果物は合否にかかわらず保存し、実画像を確認する。参考: https://docs.blender.org/api/current/mathutils.bvhtree.html 、https://parts.cat.com/en/catcorp/by-industry-building-construction 。
