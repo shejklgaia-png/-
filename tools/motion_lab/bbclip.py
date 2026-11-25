@@ -64,7 +64,7 @@ def compile_clip(scene,d,nodes,end,out):
         def pose(r,p,t,s):
             return bind_q @ rot(sample(r,t,s)).to_quaternion(),bind_p+vec(sample(p,t,s),unit)
         q0,p0=pose(wr,wp,0,False);qa,pa=pose(ar,ap,0,smooth);qb,pb=pose(ar,ap,duration,smooth)
-        previous=None;rk=[];pk=[]
+        previous=None;rk=[];pk=[];rotations=[]
         for f in range(1,end+1):
             k=f-1
             if k<entry:
@@ -75,6 +75,7 @@ def compile_clip(scene,d,nodes,end,out):
             else:
                 u=(k-entry-middle)/exit;u=u*u*(3-2*u) if smooth else u
                 q=qb.slerp(q0,u);p=pb.lerp(p0,u)
+            q=q.normalized();rotations.append(tuple(q))
             e=q.to_euler("XYZ",previous) if previous is not None else q.to_euler("XYZ")
             previous=e.copy()
             rk.append({"frame":f,"value":[round(math.degrees(v),6) for v in e],"interpolation":"LINEAR"})
@@ -83,7 +84,13 @@ def compile_clip(scene,d,nodes,end,out):
         # avoid spurious dynamic channels from floating-point noise.
         tracks[uid]={}
         for name,keys in (("rotation_deg",rk),("location",pk)):
-            if max((Vector(k["value"])-Vector(keys[0]["value"])).length for k in keys)<1e-5:
+            if name=="rotation_deg":
+                # Euler-compatible representations can vary for identical orientations.
+                first=Vector(rotations[0])
+                static=all(min((Vector(q)-first).length,(Vector(q)+first).length)<1e-6 for q in rotations)
+            else:
+                static=max((Vector(k["value"])-Vector(keys[0]["value"])).length for k in keys)<1e-6
+            if static:
                 keys=[keys[0],dict(keys[-1],value=keys[0]["value"])]
             tracks[uid][name]=keys
     d["tracks"]=tracks
