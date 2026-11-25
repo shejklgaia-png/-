@@ -209,3 +209,6 @@ biped_v31.py はV30の読み込み/役割推定を再利用する独立CLI。左
 - MotionLab_V31_Biped_Wholebody.html: 4動作×4方向×4姿勢=64枚を実形状Canvas投影で描画し視認。通常4回、半速3回の全尺終了を確認。最後の右旋回半速の全尺検査は処理タイムアウトで結果未確認。実行は再構成形状から生成・評価関数を呼んだ独立検証。BB読み込みからのCLI一貫実行、Blender/Godot/Android、厳密表面衝突/可動限界、物理バランスは未確認。
 - 再現: python tools/motion_lab/biped_v31.py models/core/Standard.bbmodel /tmp/v31_step --unit .065 --action step (walk/turn_left/turn_rightも選択可能)。review.json と合格時 biped_world.npz を出力。ゲーム既存モーション、CI、既存build.py未変更。
 参考: https://www.frontiersin.org/journals/virtual-reality/articles/10.3389/frvir.2022.801856/full ; https://www.snakehillgames.com/category/programming/ ; https://github.khronos.org/Vulkan-Site/tutorial/latest/Advanced_glTF/Procedural_Animation_IK/01_introduction.html
+
+## V31R: AI監修・判断・修正の役割分離
+[AI監修型制作フロー](SUPERVISED_WORKFLOW_ja.md) を適用する。役割別の引き渡しと不合格棄却を明示し、絶対運用ルールを維持。supervised_review.py の独立完了ゲート、reference_pose_repair.py の試験修正関数を追加。3動作9案は全て不合格、既存ゲーム・CI未変更。
