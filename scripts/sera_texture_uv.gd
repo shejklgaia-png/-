@@ -3,7 +3,7 @@ extends RefCounted
 const MAX_TRIANGLES = 12000
 const PADDING = 2
 
-static func build(source: MeshInstance3D, density: int, preserve_shape: bool = true, balanced_shape: bool = false, exact_block: bool = true, face_paint: bool = false, coherent_face: bool = true) -> Dictionary:
+static func build(source: MeshInstance3D, density: int, preserve_shape: bool = true, balanced_shape: bool = false, exact_block: bool = true, face_paint: bool = false, coherent_face: bool = true, cycle_grid: bool = true) -> Dictionary:
     var tris: Array[Dictionary] = []
     var charts: Array[Dictionary] = []
     var scale_basis: Basis = source.global_transform.basis if source.is_inside_tree() else source.transform.basis
@@ -71,6 +71,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     var initial_chart_count: int = charts.size()
     var affine_report: String = ""
     var coherent_applied: bool = false
+    var cycle_applied: bool = false
     if face_paint:
         affine_report = "面別計量キャンバス / 大域グリッド拘束なし / 整数配置"
         if coherent_face:
@@ -78,6 +79,11 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
             charts = coherent.charts
             coherent_applied = bool(coherent.applied)
             affine_report = str(coherent.report)
+            if cycle_grid:
+                var cycle: Dictionary = _cycle_face_layout(tris,charts,density)
+                charts = cycle.charts
+                cycle_applied = bool(cycle.applied)
+                affine_report += " / "+str(cycle.report)
     elif preserve_shape:
         var topology_tris: Array[Dictionary] = []
         var topology_charts: Array[Dictionary] = []
@@ -196,7 +202,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     arrays[Mesh.ARRAY_TEX_UV2] = diagnostic_uv
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"face_paint":face_paint,"unwrap_version":("face-paint-v29" if coherent_applied else "face-paint-v24") if face_paint else (("shape-affine-v20" if exact_block else "shape-affine-v19") if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
+    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"face_paint":face_paint,"unwrap_version":("face-paint-v30" if cycle_applied else ("face-paint-v29" if coherent_applied else "face-paint-v24")) if face_paint else (("shape-affine-v20" if exact_block else "shape-affine-v19") if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
 
 ## Group connected coplanar triangles, and the two halves of slightly
 ## warped authored quads. Never use an internal triangulation diagonal
@@ -629,6 +635,179 @@ static func _transport_face_grid(tris: Array[Dictionary],charts: Array[Dictionar
     for chart in charts:
         var lo: Vector2 = chart.min
         chart.min = lo.floor()
+
+# V30: bounded coordinate optimization on the complete seam graph,
+# including non-tree constraints. All changes are rigid chart transforms.
+# The V29 result is retained unless the actual packed layout can improve
+# without increasing the worst residual, problem count or atlas size.
+static func _cycle_face_layout(tris: Array[Dictionary],charts: Array[Dictionary],density: int) -> Dictionary:
+    if charts.size()<2 or charts.size()>512 or tris.size()>2000:
+        return {"charts":charts,"applied":false,"report":"V30 規模上限"}
+    var physical: Array[Dictionary] = _seam_segments(tris,true)
+    var before: Vector3 = _face_grid_metrics(tris,physical)
+    var coplanar: Array[Dictionary] = []
+    for link in physical:
+        var a: Dictionary = tris[int(link.ta)]
+        var b: Dictionary = tris[int(link.tb)]
+        var na: Vector3 = a.face_normal
+        var nb: Vector3 = b.face_normal
+        if na.dot(nb)>0.0 and na.cross(nb).length_squared()<=0.0000000001 and absf(na.dot(Vector3(b.p[0])-Vector3(a.p[0])))<=0.00001:
+            coplanar.append(link)
+    var plane_before: Vector3 = _face_grid_metrics(tris,coplanar)
+    var shape: Vector3 = _topology_distortion(tris,density)
+    var capacity: int = _hinge_pack_side(charts)
+    var links: Array[Dictionary] = []
+    var incident: Array = []
+    var pivots := PackedVector2Array()
+    var angles := PackedFloat32Array()
+    var shifts := PackedVector2Array()
+    angles.resize(charts.size())
+    shifts.resize(charts.size())
+    for chart in charts:
+        incident.append([])
+        pivots.append((Vector2(chart.min)+Vector2(chart.max))*0.5)
+    for link in physical:
+        var a: int = int(tris[int(link.ta)].chart)
+        var b: int = int(tris[int(link.tb)].chart)
+        if a==b:
+            continue
+        var pa: PackedVector2Array = _segment_uv(tris[int(link.ta)],int(link.ea),float(link.a0),float(link.a1),"xy")
+        var pb: PackedVector2Array = _segment_uv(tris[int(link.tb)],int(link.eb),float(link.b0),float(link.b1),"xy")
+        if minf(pa[0].distance_to(pa[1]),pb[0].distance_to(pb[1]))<0.00001:
+            continue
+        var li: int = links.size()
+        links.append({"a":a,"b":b,"pa":pa,"pb":pb,"weight":maxf(0.00001,float(link.weight))})
+        (incident[a] as Array).append(li)
+        (incident[b] as Array).append(li)
+    if links.is_empty():
+        return {"charts":charts,"applied":false,"report":"V30 共有境界なし"}
+    var best: Vector3 = before
+    var best_tris: Array[Dictionary] = []
+    var best_charts: Array[Dictionary] = []
+    for sweep in range(4):
+        var priority: Array[Dictionary] = []
+        for ci in range(charts.size()):
+            if incident[ci].is_empty():
+                continue
+            var local: Vector3 = _cycle_local_metric(ci,angles[ci],shifts[ci],links,incident[ci],pivots,angles,shifts)
+            if local.z>0.0000001:
+                priority.append({"id":ci,"cost":local.z+local.y})
+        priority.sort_custom(func(a: Dictionary,b: Dictionary) -> bool: return float(a.cost)>float(b.cost))
+        var changed: bool = false
+        for item in priority.slice(0,mini(256,priority.size())):
+            var ci: int = int(item.id)
+            var start_angle: float = angles[ci]
+            var start_shift: Vector2 = shifts[ci]
+            var local: Vector3 = _cycle_local_metric(ci,start_angle,start_shift,links,incident[ci],pivots,angles,shifts)
+            var best_local: Vector3 = local
+            var best_angle: float = start_angle
+            var best_shift: Vector2 = start_shift
+            var proposals: Array[Dictionary] = []
+            var direction := Vector2.ZERO
+            for li in incident[ci]:
+                var edge: Dictionary = links[int(li)]
+                var own_a: bool = ci==int(edge.a)
+                var ni: int = int(edge.b) if own_a else int(edge.a)
+                var own: PackedVector2Array = edge.pa if own_a else edge.pb
+                var other: PackedVector2Array = edge.pb if own_a else edge.pa
+                var a: Vector2 = _rigid_grid_point(other[0],pivots[ni],angles[ni],shifts[ni])
+                var b: Vector2 = _rigid_grid_point(other[1],pivots[ni],angles[ni],shifts[ni])
+                var theta: float = _rigid_quarter_angle((own[1]-own[0]).angle_to(b-a))
+                var weight: float = float(edge.weight)
+                direction += Vector2(cos(4.0*theta),sin(4.0*theta))*weight
+                proposals.append({"own":own,"a":a,"b":b,"angle":theta,"weight":weight})
+            proposals.sort_custom(func(a: Dictionary,b: Dictionary) -> bool: return float(a.weight)>float(b.weight))
+            var mean: float = direction.angle()*0.25 if direction.length_squared()>0.0000001 else start_angle
+            var delta: float = deg_to_rad(4.0 if sweep<2 else 1.5)
+            var angle_choices: Array[float] = [start_angle,mean,_rigid_quarter_angle(start_angle+delta),_rigid_quarter_angle(start_angle-delta)]
+            for proposal in proposals.slice(0,mini(3,proposals.size())):
+                angle_choices.append(float(proposal.angle))
+            for angle in angle_choices:
+                var phase_choices: Array[Vector2] = [start_shift]
+                for proposal in proposals.slice(0,mini(4,proposals.size())):
+                    var own: PackedVector2Array = proposal.own
+                    var a: Vector2 = proposal.a
+                    var b: Vector2 = proposal.b
+                    var oa: Vector2 = _rigid_grid_point(own[0],pivots[ci],angle,Vector2.ZERO)
+                    var ob: Vector2 = _rigid_grid_point(own[1],pivots[ci],angle,Vector2.ZERO)
+                    var quarter: float = roundf((b-a).angle_to(ob-oa)/(PI*0.5))*(PI*0.5)
+                    var target: Vector2 = ((a+b)*0.5).rotated(quarter)-(oa+ob)*0.5
+                    phase_choices.append(target-target.round())
+                var step: float = 0.125 if sweep<2 else 0.0625
+                for off in [Vector2.RIGHT,Vector2.LEFT,Vector2.UP,Vector2.DOWN]:
+                    var shift: Vector2 = start_shift+Vector2(off)*step
+                    phase_choices.append(shift-shift.round())
+                for shift in phase_choices:
+                    var score: Vector3 = _cycle_local_metric(ci,angle,shift,links,incident[ci],pivots,angles,shifts)
+                    if score.x>maxf(local.x,before.x)+0.000001 or score.y>best_local.y:
+                        continue
+                    if score.y<best_local.y or score.z<best_local.z-0.000001:
+                        best_local = score
+                        best_angle = angle
+                        best_shift = shift
+            if best_local.y<local.y or best_local.z<local.z-0.000001:
+                angles[ci] = best_angle
+                shifts[ci] = best_shift
+                changed = true
+        if not changed:
+            break
+        var trial: Dictionary = _joint_copy(tris,charts)
+        var ct: Array[Dictionary] = trial.tris
+        var cc: Array[Dictionary] = trial.charts
+        for chart in cc:
+            chart.min = Vector2(INF,INF)
+            chart.max = Vector2(-INF,-INF)
+        for t in ct:
+            var ci: int = int(t.chart)
+            var xy: PackedVector2Array = t.xy
+            var chart: Dictionary = cc[ci]
+            for k in range(xy.size()):
+                xy[k] = _rigid_grid_point(xy[k],pivots[ci],angles[ci],shifts[ci])
+                chart.min = Vector2(chart.min).min(xy[k])
+                chart.max = Vector2(chart.max).max(xy[k])
+            t.xy = xy
+        for chart in cc:
+            chart.min = Vector2(chart.min).floor()
+        var score: Vector3 = _face_grid_metrics(ct,physical)
+        if score.x>before.x+0.0001 or score.y>best.y or score.z>before.z+0.0001:
+            continue
+        var plane_score: Vector3 = _face_grid_metrics(ct,coplanar)
+        if plane_score.y>plane_before.y or plane_score.x>plane_before.x+0.0001 or plane_score.z>plane_before.z+0.0001:
+            continue
+        if not _joint_shape_ok(shape,_topology_distortion(ct,density)) or _hinge_pack_side(cc)>capacity:
+            continue
+        if score.y<best.y or score.z<best.z-0.00001:
+            best = score
+            best_tris = ct
+            best_charts = cc
+    if best_tris.is_empty():
+        return {"charts":charts,"applied":false,"report":"V30 旧配置維持"}
+    for i in range(tris.size()):
+        tris[i].xy = best_tris[i].xy
+    return {"charts":best_charts,"applied":true,"report":"V30 閉路整合 / 問題辺 %d→%d / 最大 %.4f→%.4fpx" % [int(before.y),int(best.y),before.x,best.x]}
+
+static func _cycle_local_metric(ci: int,angle: float,shift: Vector2,links: Array[Dictionary],incident: Array,pivots: PackedVector2Array,angles: PackedFloat32Array,shifts: PackedVector2Array) -> Vector3:
+    var result := Vector3.ZERO
+    for li in incident:
+        var e: Dictionary = links[int(li)]
+        var a: int = int(e.a)
+        var b: int = int(e.b)
+        var pa: PackedVector2Array = e.pa
+        var pb: PackedVector2Array = e.pb
+        var a0: Vector2 = _rigid_grid_point(pa[0],pivots[a],angle if a==ci else angles[a],shift if a==ci else shifts[a])
+        var a1: Vector2 = _rigid_grid_point(pa[1],pivots[a],angle if a==ci else angles[a],shift if a==ci else shifts[a])
+        var b0: Vector2 = _rigid_grid_point(pb[0],pivots[b],angle if b==ci else angles[b],shift if b==ci else shifts[b])
+        var b1: Vector2 = _rigid_grid_point(pb[1],pivots[b],angle if b==ci else angles[b],shift if b==ci else shifts[b])
+        var da: Vector2 = a1-a0
+        var db: Vector2 = b1-b0
+        var quarter: float = roundf(db.angle_to(da)/(PI*0.5))*(PI*0.5)
+        var error: Vector2 = a0-b0.rotated(quarter)
+        error -= error.round()
+        var residual: float = maxf(error.length(),(error+da-db.rotated(quarter)).length())
+        result.x = maxf(result.x,residual)
+        result.y += 1.0 if residual>0.25 else 0.0
+        result.z += residual*residual
+    return result
 
 ## Reconstruct convex four-corner boundaries, including collinear
 ## subdivided sides. Keep the mesh itself unchanged. Accept a rectangular

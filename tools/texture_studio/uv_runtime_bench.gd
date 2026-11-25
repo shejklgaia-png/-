@@ -47,11 +47,24 @@ func _run() -> void:
         grid_comparison = {"previous":_measure_grid(previous.triangles,previous.image.get_size()),"current":_measure_grid(tris,result.image.get_size()),"previous_charts":previous.charts,"current_charts":result.charts,"previous_atlas":previous.image.get_width(),"current_atlas":result.image.get_width(),"previous_us":old_us,"current_ms":elapsed,"version":result.unwrap_version,"report":result.affine_report}
         var grid_prefix: String = dest.get_basename()+"-grid"
         var old_ok: bool = _export_footprint_mesh(previous.triangles,grid_prefix+"-v28",{})
-        var new_ok: bool = _export_footprint_mesh(tris,grid_prefix+"-v29",{})
+        var new_ok: bool = _export_footprint_mesh(tris,grid_prefix+"-current",{})
         var old_atlas: Image = previous.image
         var new_atlas: Image = result.image
-        grid_comparison.artifact_ok = old_ok and new_ok and old_atlas.save_png(grid_prefix+"-v28.png")==OK and new_atlas.save_png(grid_prefix+"-v29.png")==OK
+        grid_comparison.artifact_ok = old_ok and new_ok and old_atlas.save_png(grid_prefix+"-v28.png")==OK and new_atlas.save_png(grid_prefix+"-current.png")==OK
         print("GRID_V29 ",JSON.stringify(grid_comparison))
+        var v29_start: int = Time.get_ticks_usec()
+        var v29: Dictionary = UV.build(source,density,true,true,true,true,true,false)
+        var v29_us: int = Time.get_ticks_usec()-v29_start
+        if v29.has("error"):
+            push_error(str(v29.error))
+            quit(2)
+            return
+        var previous_grid: Dictionary = _measure_grid(v29.triangles,v29.image.get_size())
+        var v29_image: Image = v29.image
+        var v29_mesh_ok: bool = _export_footprint_mesh(v29.triangles,grid_prefix+"-previous-v29",{})
+        var v30_mesh_ok: bool = _export_footprint_mesh(tris,grid_prefix+"-v30",{})
+        grid_comparison.v30_comparison = {"previous":previous_grid,"current":grid_comparison.current,"previous_charts":v29.charts,"current_charts":result.charts,"previous_atlas":v29_image.get_width(),"current_atlas":result.image.get_width(),"previous_us":v29_us,"current_ms":elapsed,"version":result.unwrap_version,"report":result.affine_report,"artifact_ok":v29_mesh_ok and v30_mesh_ok and v29_image.save_png(grid_prefix+"-previous-v29.png")==OK and new_atlas.save_png(grid_prefix+"-v30.png")==OK}
+        print("GRID_V30 ",JSON.stringify(grid_comparison.v30_comparison))
     var atlas: Image = result.image
     var side := atlas.get_size()
     var max_res: float = 0.0
