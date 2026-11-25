@@ -124,6 +124,9 @@ def check_stage(name, src, d):
         require(isinstance(read(src / "mesh_report.json"),list) and bool(read(src / "mesh_report.json")), "empty mesh report")
         require(bool(read(src / "complete.json").get("views")), "no completion views")
         read(src / "review.json")
+        provenance=read(src/"provenance.json")
+        require(provenance.get("tool")=="Modeling Studio - authoring render" and re.fullmatch(r"[0-9a-f]{40}",provenance.get("commit","")) and type(provenance.get("run_id")) is int and provenance["run_id"]>0 and type(provenance.get("artifact_id")) is int and provenance["artifact_id"]>0,"model run provenance required")
+        require(provenance.get("glb_sha256")==digest(src/"model.glb"),"run GLB mismatch")
         require((src/"godot_import.json").is_file() and (src/"interference.json").is_file(),"missing actual geometry diagnostics")
         for view in q.RENDER_VIEWS:
             png_size(src/(view+".png"))
@@ -131,6 +134,11 @@ def check_stage(name, src, d):
         q.visual_review(src,d["stages"]["model"]["files"]["model.glb"],d["stages"]["blueprint"]["key"])
         for view in q.RENDER_VIEWS:
             require(digest(src/(view+".png"))==d["stages"]["model"]["files"][view+".png"],"geometry render differs from model run")
+        review=read(src/"geometry_review.json")
+        for view in ("front","right","back","left","top","bottom"):
+            q.png(q.evidence(src,review["overlays"][view]))
+        require(review.get("unresolved_interference")==0,"unresolved interference candidates")
+        q.text(review.get("interference_notes"),"classification of intentional overlaps and defects")
     if name == "uv":
         u = read(src / "uv.json")
         require(u.get("source_glb_sha256") == d["stages"]["model"]["files"]["model.glb"], "UV source mismatch")
@@ -220,6 +228,8 @@ def stock(work):
             shutil.copytree(work/"objects"/item["key"],out/name)
             require(files(out/name)==item["files"],"stock copy mismatch")
         write(out/"job.json",d)
+        if (work/"rejections").is_dir():
+            shutil.copytree(work/"rejections",out/"rejections")
         write(out/"release.json",{"id":d["id"],"slot":d["slot"],"revision":key,"state":"stocked_not_in_game","format":"SERA_PARTS_STOCK_V2"})
         out.rename(dest)
     print("STOCKED",dest)
