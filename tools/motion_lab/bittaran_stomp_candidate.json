@@ -74,7 +74,7 @@
   "events": {},
   "bb_clip": {
     "name": "踏みつけ_L",
-    "mode": "candidate",
+    "mode": "guarded",
     "entry_frames": 24,
     "exit_frames": 24
   },
