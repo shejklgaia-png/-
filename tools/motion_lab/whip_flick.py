@@ -36,8 +36,28 @@ KICK=[
 (101,"settle",0,0,0,0,0,0,0,0,0,0,0,0,0,0),
 (116,"recovered",0,0,0,0,0,0,0,0,0,0,0,0,0,0)]
 
-def rows_for(variant):
-    rows={"sweep":SWEEP,"kick":KICK}[variant]
+def rows_for(variant,revision=3):
+    if revision==4 and variant=="sweep_reverse":
+        # Reflect world bearings about 25 degrees; do not reverse time.
+        # Proximal drive and distal lag are preserved, body yaw is reversed.
+        rows=[(*r[:6],-r[6],r[7],r[8],r[9],*(50-v for v in r[10:13]),*r[13:]) for r in SWEEP]
+    elif revision==4 and variant=="kick":
+        # Equal bearings during chamber: curl in a vertical plane, not
+        # a horizontal folded sweep. Open successive links over 12 frames.
+        changes={
+            10:(58,58,58,25,-75,100),
+            23:(64,64,64,59,-135,150),
+            34:(68,68,68,65,-137,155),
+            42:(71,71,71,32,-86,105),
+            46:(74,77,80,4,-22,34),
+            50:(77,78,79,-1,-1,0),
+            63:(77,78,79,-1,-1,0),
+            72:(73,75,77,-1,-1,0),
+            85:(44,44,44,15,-58,25)}
+        rows=[(*r[:10],*changes.get(r[0],r[10:])) for r in KICK]
+        rows.insert(4,(38,"release",.18,-.09,-1.02,6,-5,-17,-7,1,69,69,69,62,-128,150))
+    else:
+        rows={"sweep":SWEEP,"kick":KICK}[variant]
     # Lean toward the strike hip and lower the root, then apply geometry guard.
     return [(*r[:4],r[4]*1.16,-abs(r[5])*1.25,r[6],-r[7]*1.1,*r[8:]) for r in rows]
 
@@ -130,8 +150,8 @@ class WholeChain:
             "strike_link_min_z_m":[self.low(self.parts[o]) for o in self.strike],
             "floor_m":floor,"max_support_error_m":max(errors)})
 
-    def finish(self,out,variant):
+    def finish(self,out,variant,revision=3):
         (out/"whip_flick_report.json").write_text(json.dumps({
-            "version":25,"revision":3,"variant":variant,"frames":self.report,
+            "version":25,"revision":revision,"variant":variant,"frames":self.report,
             "scope":"rigid link FK overlap and offline support pose selection; flat floor only; collision and runtime not certified"
         },indent=2))
