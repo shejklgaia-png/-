@@ -121,6 +121,8 @@ def compile_procedural(d,nodes,end,out):
     phases=plan(spec["action"],base,feet,forward,span,stance["strike_marker"])
     frame_ids=[1+round(p["t"]*(end-1)) for p in phases]
     if len(set(frame_ids))!=len(frame_ids) or frame_ids[-1]!=end:raise ValueError("insufficient frames")
+    from dynamics import Interference
+    interference=Interference(meshes)
     mass=[(o,*mass_proxy(o)) for o in meshes];total=sum(w for _,w,_,_ in mass)
     if total<=0:raise ValueError("empty geometry mass")
     tracks={uid:{"location":[],"rotation_deg":[]} for uid,o in nodes.items() if o in objects}
@@ -166,10 +168,13 @@ def compile_procedural(d,nodes,end,out):
             lows={n:min((nodes[stance["sole_meshes"][n]].matrix_world@v.co).z for v in nodes[stance["sole_meshes"][n]].data.vertices) for n in ROLES}
             support_margin=margin(hull([actual[n] for n in p["support"]]),com)
             floor=min((o.matrix_world@v.co).z for o in meshes for v in o.data.vertices)
+            interference.sample()
+            hits=interference.frames[-1]
             # Measurements, not quality guarantees or automatic adoption.
             flags=[]
             if max(errors.values())>.005:flags.append("unreached_foot_target")
             if floor<-.002:flags.append("floor_penetration")
+            if hits:flags.append("interference_candidate")
             if any(abs(lows[n])>.005 for n in p["support"]):flags.append("support_height")
             if support_margin is None or support_margin<0:flags.append("static_support_margin")
             for uid,channels in tracks.items():
@@ -181,16 +186,26 @@ def compile_procedural(d,nodes,end,out):
             reports.append({"frame":f,"event":p["event"],"support":p["support"],
                             "targets_m":{n:list(v) for n,v in p["feet"].items()},"actual_m":{n:list(v) for n,v in actual.items()},
                             "foot_error_m":errors,"reach_clamp_m":reach,"foot_min_z_m":lows,
-                            "min_mesh_z_m":floor,"com_proxy_m":list(com),"support_margin_m":support_margin,"flags":flags})
+                            "min_mesh_z_m":floor,"com_proxy_m":list(com),"support_margin_m":support_margin,"interference_candidates":hits,"flags":flags})
     finally:
         for o in objects:o.location,o.rotation_euler=saved[o.name]
         update()
     d["tracks"]=tracks;d["events"]={p["event"]:f for p,f in zip(phases,frame_ids)}
     d["export_poses"]=[{"id":p["event"],"frame":f} for p,f in zip(phases,frame_ids)]
     d["pose_export_channels"]={uid:list(c) for uid,c in tracks.items()}
+    # Every interval with unchanged planned support is checked by the existing
+    # sampled contact diagnostics. No auto-approval when interpolation slips.
+    contacts=[]
+    for i,(a,b) in enumerate(zip(phases,phases[1:])):
+        for n in ROLES:
+            if n in a["support"] and n in b["support"] and (a["feet"][n]-b["feet"][n]).length<1e-7:
+                contacts.append({"marker":n+"_Sole","frames":[frame_ids[i],frame_ids[i+1]],"target":list(a["feet"][n]),"tolerance_m":.005})
+    d["contacts"]=contacts
     d.setdefault("spatial",{}).setdefault("floor",{"z":0.,"tolerance_m":.002,"meshes":[uid for uid,o in nodes.items() if o.type=="MESH"]})
     (out/"procedural_pose_report.json").write_text(json.dumps({
         "version":19,"action":spec["action"],"source_animation_used":False,"span_m":span,
-        "forward_world":list(forward),"key_poses":reports,"tracks":tracks,
+        "forward_world":list(forward),"key_poses":reports,"tracks":tracks,"planned_contact_intervals":contacts,
+        "key_pose_flag_count":sum(len(r["flags"]) for r in reports),
+        "interference":interference.report(),
         "status":"review_required","scope":"geometry-derived analytic two-link IK, approximate sole axis, sparse poses only; no swept collision, verified joint limits, physical fall, or dynamic trajectory optimization"
     },indent=2,ensure_ascii=False))
