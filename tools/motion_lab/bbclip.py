@@ -377,7 +377,7 @@ def _refine_performance(d,nodes,end,out):
     def timing_score(m):
         # Equal weight on three dimensionless readability targets.
         # Ratios are bounded to avoid rewarding numerical near-zero speeds.
-        terms=[min(2.,m[k]/max(b[k],.01)) for k in ("raise_tail_ratio","settle_tail_ratio")]
+        terms=[min(2.,max(m[k],.01)/max(b[k],.01)) for k in ("raise_tail_ratio","settle_tail_ratio")]
         terms.append(min(2.,max(b["strike_late_ratio"],.01)/max(m["strike_late_ratio"],.01)))
         return sum(terms)/3.
     # Materialize candidates before replacing d["tracks"].
