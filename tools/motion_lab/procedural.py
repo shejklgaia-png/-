@@ -12,27 +12,27 @@ def horizontal(v): return Vector((v.x,v.y,0))
 def yaw(a): return Quaternion((0,0,1),a)
 def deg(v): return [round(math.degrees(x),6) for x in v]
 
-def plan(action,root,feet,forward,span,strike):
+def plan(action,root,feet,forward,span,strike,performance=False):
     """Sparse world-space task goals; stance contacts are explicit per pose."""
     if action not in ACTIONS: raise ValueError("unsupported procedural action")
     keys=[]; side=Vector((forward.y,-forward.x,0))
-    def add(t,name,body=None,goals=None,air=(),angle=0.,tilt=0.,nod=0.,foot_yaws=None):
+    def add(t,name,body=None,goals=None,air=(),angle=0.,tilt=0.,nod=0.,foot_yaws=None,foot_pitch=0.):
         p=root.copy() if body is None else body.copy()
         q={n:v.copy() for n,v in (feet if goals is None else goals).items()}
         support=[n for n in ROLES if n not in air]
         keys.append(dict(t=t,event=name,body=p,feet=q,support=support,yaw=angle,tilt=tilt,head=nod,
-                         foot_yaws=dict(foot_yaws) if foot_yaws is not None else {n:0. for n in ROLES}))
+                         foot_yaws=dict(foot_yaws) if foot_yaws is not None else {n:0. for n in ROLES},foot_pitch=foot_pitch))
     add(0.,"ready")
     def shift(body,goals,air):
         p=body.copy(); stable=mean([goals[n] for n in ROLES if n not in air])
-        p+=.33*horizontal(stable-p);return p
+        p+=(.55 if performance else .33)*horizontal(stable-p);return p
     if action=="idle":
         add(.30,"compress",root+Vector((0,0,-.005*span)),nod=1.)
         add(.68,"release",root+Vector((0,0,.003*span)),nod=-.5)
         add(1.,"recovered")
     elif action.startswith(("walk_","turn_")):
-        distance=.08*span*(1 if action=="walk_forward" else -1) if action.startswith("walk_") else 0.
-        angle=math.radians(12)*(1 if action=="turn_left" else -1) if action.startswith("turn_") else 0.
+        distance=(.20 if performance else .08)*span*(1 if action=="walk_forward" else -1) if action.startswith("walk_") else 0.
+        angle=math.radians(45 if performance else 12)*(1 if action=="turn_left" else -1) if action.startswith("turn_") else 0.
         travel=forward*distance;final={n:root+yaw(angle)@(v-root)+travel for n,v in feet.items()}
         q={n:v.copy() for n,v in feet.items()}
         foot_yaws={n:0. for n in ROLES}
@@ -40,7 +40,7 @@ def plan(action,root,feet,forward,span,strike):
         for j,n in enumerate(order):
             t=j*.23; old=q[n].copy(); body=root+travel*(j/4)
             add(t+.04,f"shift_{j+1}",shift(body,q,(n,)),q,angle=angle*j/4,foot_yaws=foot_yaws)
-            q[n]=(old+final[n])*.5+Vector((0,0,.055*span))
+            q[n]=(old+final[n])*.5+Vector((0,0,(.10 if performance else .055)*span))
             foot_yaws[n]=angle*.5
             add(t+.12,f"swing_{j+1}",shift(body,q,(n,)),q,(n,),angle=angle*(j+.5)/4,foot_yaws=foot_yaws)
             q[n]=final[n].copy()
@@ -50,20 +50,22 @@ def plan(action,root,feet,forward,span,strike):
     elif action in ("stomp","sweep"):
         q={n:v.copy() for n,v in feet.items()}; body=shift(root,q,(strike,))
         add(.16,"anticipation",body+Vector((0,0,-.015*span)),q,nod=-2.)
-        q[strike]=feet[strike]+Vector((0,0,.13*span if action=="stomp" else .065*span))-forward*.025*span
-        add(.38,"apex",body,q,(strike,),nod=-3.)
-        add(.50,"hold_end",body,q,(strike,),nod=-3.)
+        lift=(.48 if action=="stomp" else .22) if performance else (.13 if action=="stomp" else .065)
+        inward=horizontal(root-feet[strike]).normalized()*.11*span if performance else Vector((0,0,0))
+        q[strike]=feet[strike]+Vector((0,0,lift*span))+inward-forward*(.07 if performance else .025)*span
+        add(.38,"apex",body,q,(strike,),tilt=math.radians(-9 if performance else 0),nod=-8. if performance else -3.,foot_pitch=math.radians(80 if performance else 0))
+        add(.50,"hold_end",body,q,(strike,),tilt=math.radians(-9 if performance else 0),nod=-8. if performance else -3.,foot_pitch=math.radians(80 if performance else 0))
         if action=="sweep":
             q[strike]=feet[strike]+forward*.075*span+side*(.045*span if strike.endswith("_R") else -.045*span)+Vector((0,0,.055*span))
-            add(.61,"sweep_pass",body,q,(strike,),nod=1.)
-        q[strike]=feet[strike]+forward*.045*span
-        add(.68,"impact",body+Vector((0,0,-.009*span)),q,nod=2.)
+            add(.61,"sweep_pass",body,q,(strike,),tilt=math.radians(8 if performance else 0),nod=4. if performance else 1.,foot_pitch=math.radians(45 if performance else 0))
+        q[strike]=feet[strike]+forward*(.13 if performance else .045)*span
+        add(.68,"impact",body+Vector((0,0,-(.035 if performance else .009)*span)),q,tilt=math.radians(7 if performance else 0),nod=6. if performance else 2.)
         q[strike]=(q[strike]+feet[strike])*.5+Vector((0,0,.035*span))
         add(.83,"return_swing",body,q,(strike,))
         add(1.,"recovered")
     elif action=="hit":
-        add(.18,"hit_recoil",root-forward*.02*span+Vector((0,0,-.012*span)),tilt=math.radians(5),nod=4.)
-        add(.46,"counter_recoil",root+forward*.008*span,tilt=math.radians(-2),nod=-2.)
+        add(.18,"hit_recoil",root-forward*(.06 if performance else .02)*span+Vector((0,0,-(.035 if performance else .012)*span)),tilt=math.radians(15 if performance else 5),nod=10. if performance else 4.)
+        add(.46,"counter_recoil",root+forward*(.02 if performance else .008)*span,tilt=math.radians(-6 if performance else -2),nod=-5. if performance else -2.)
         add(1.,"recovered")
     elif action=="down_recover":
         # A supported collapse prototype; not a physical fall or side roll.
@@ -122,7 +124,8 @@ def compile_procedural(d,nodes,end,out):
         geom[n]=(hip,knee,foot,q,anchor,knee.location.copy(),foot.location.copy())
         d["markers"][n+"_Sole"]={"node":c[-1],"local":list(anchor)}
     base=Vector((rb.x,rb.y,.24*span))
-    phases=plan(spec["action"],base,feet,forward,span,stance["strike_marker"])
+    performance=spec.get("profile")=="performance_v20"
+    phases=plan(spec["action"],base,feet,forward,span,stance["strike_marker"],performance)
     frame_ids=[1+round(p["t"]*(end-1)) for p in phases]
     if len(set(frame_ids))!=len(frame_ids) or frame_ids[-1]!=end:raise ValueError("insufficient frames")
     from dynamics import Interference
@@ -146,6 +149,8 @@ def compile_procedural(d,nodes,end,out):
             errors={};reach={}
             for n,(hip,knee,foot,fq,anchor,a,b) in geom.items():
                 desired=yaw(p["foot_yaws"][n])@fq
+                if n==stance["strike_marker"] and n not in p["support"] and p["foot_pitch"]:
+                    desired=Quaternion(side,p["foot_pitch"])@desired
                 target=p["feet"][n]-desired@anchor
                 h=hip.matrix_world.translation.copy();v=target-h
                 l1,l2=a.length,b.length
@@ -206,8 +211,11 @@ def compile_procedural(d,nodes,end,out):
                 contacts.append({"marker":n+"_Sole","frames":[frame_ids[i],frame_ids[i+1]],"target":list(a["feet"][n]),"tolerance_m":.005})
     d["contacts"]=contacts
     d.setdefault("spatial",{}).setdefault("floor",{"z":0.,"tolerance_m":.002,"meshes":[uid for uid,o in nodes.items() if o.type=="MESH"]})
+    if performance:
+        from runtime_contact import compile_contact_layer
+        compile_contact_layer(d,nodes,end,out,phases,frame_ids,geom,span)
     (out/"procedural_pose_report.json").write_text(json.dumps({
-        "version":19,"action":spec["action"],"source_animation_used":False,"span_m":span,
+        "version":20 if performance else 19,"action":spec["action"],"source_animation_used":False,"span_m":span,
         "forward_world":list(forward),"key_poses":reports,"tracks":tracks,"planned_contact_intervals":contacts,
         "key_pose_flag_count":sum(len(r["flags"]) for r in reports),
         "interference":interference.report(),
