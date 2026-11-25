@@ -124,17 +124,24 @@ def main():
             "max_jerk_m_s3":max((x.length for x in jerk),default=0),
             "loop_position_delta_m":(pos[-1]-pos[0]).length,
             "loop_velocity_delta_m_s":(velocity[-1]-velocity[0]).length}
+    from spatial import audit
+    spatial=audit(scene,nodes,marker_nodes,d.get("spatial",{}),end,out)
     capture=set([1,end]+list(range(1,end+1,max(1,(end-1)//8))))
     events=d.get("events",{})
     for name,f in events.items():
         if not isinstance(f,int) or not 1<=f<=end: raise ValueError("invalid event frame: "+name)
         capture.add(f)
     for c in d.get("contacts",[]): capture.update(c["frames"])
+    if spatial and spatial["violations"]:
+        # Prioritize first and last occurrence per diagnostic kind, bounded capture count.
+        for kind in spatial["counts"]:
+            frames=[v["frame"] for v in spatial["violations"] if v["kind"]==kind]
+            if frames: capture.update((min(frames),max(frames)))
     capture=sorted(capture)
     if len(capture)>40: raise ValueError("too many review frames (max 40)")
     (out/"motion_report.json").write_text(json.dumps({"fps":fps,"end_frame":end,"samples":samples,
         "contacts":contacts,"marker_nodes":{k:v.name for k,v in marker_nodes.items()},"metrics":metrics,
-        "capture_frames":capture,"events":events,"limitations":["contact markers only; no full collision or IK solve","visual quality not auto-approved"]},indent=2))
+        "capture_frames":capture,"events":events,"limitations":["explicit marker/mesh diagnostics only; no continuous collision or whole-body solver","visual quality not auto-approved"]},indent=2))
     if d.get("require_contacts",False) and not all(c["within_tolerance"] for c in contacts):
         raise ValueError("authored contact tolerance exceeded; see motion_report.json")
     scene.frame_set(1)
