@@ -15,7 +15,7 @@ def refine_trajectory(d,nodes,end,out,geom):
     spec=d["fk_performance"];policy=spec.get("trajectory_refine")
     if not policy:return
     guard=bool(spec.get("subframe_guard",False))
-    subdivisions=4 if guard else 2
+    subdivisions=2  # keep V26 candidate selection reproducible
     if policy not in ("heavy","medium","light"):raise ValueError("unknown trajectory profile")
     if d["fps"]!=60 or end<4 or end>601:raise ValueError("V26 requires 60 Hz")
     if spec.get("contact_policy") not in ("whip_flick_v25_r5","whip_flick_v25_r6"):
@@ -179,7 +179,8 @@ def refine_trajectory(d,nodes,end,out,geom):
         selected,support_report=stage(selected,support,"support")
         guard_report=None
         if guard:
-            from trajectory_guard import repair_floor,minimum_path
+            subdivisions=4  # V27 post-selection audit
+            from trajectory_guard import repair_floor
             base,bv=audit(selected,strike)
             q=np.array([[np.radians(selected[ids[o.name]]["rotation_deg"][i]["value"]) for o in strike] for i in range(end)])
             attack_meshes=[m for m in meshes if m.parent in strike]
@@ -211,10 +212,14 @@ def refine_trajectory(d,nodes,end,out,geom):
             ok=safe(before,after,delta) and after["subframe_support"]<before["subframe_support"]-.0001 and after["rms_jerk_rad_s3"]<=before["rms_jerk_rad_s3"]*1.05
             if ok:selected=trial
             guard_report["support_path"]={"states":dp,"before":before,"candidate":after,"max_vertex_delta_m":delta,"accepted":ok}
+            final,_=audit(selected,strike)
+            guard_report["final"]=final
+            guard_report["floor_target_met"]=final["subframe_floor"]<=.002
+            guard_report["support_target_met"]=final["subframe_support"]<=.005
         (out/"trajectory_source_tracks.json").write_text(json.dumps(source,separators=(",",":")))
         (out/"trajectory_review.json").write_text(json.dumps({
             "version":27 if guard else 26,"profile":policy,"locked_frames":[x+1 for x in locked],
-            "strike":strike_report,"support":support_report,"subframe_guard":guard_report,"audit_hz":60*subdivisions,
+            "strike":strike_report,"support":support_report,"subframe_guard":guard_report,"audit_hz":60*subdivisions,"selection_audit_hz":120,
             "review_status":"visual_review_required",
             "scope":"sampled Euler track BVH triangle overlap, OBB and floor/contact; not containment, CCD, dynamics, runtime or artistic approval"
         },indent=2))
