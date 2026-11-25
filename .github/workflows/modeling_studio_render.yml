@@ -11,6 +11,11 @@ on:
         description: Optional independent orthographic mask manifest under tools/modeling_studio
         required: false
         type: string
+      crate_baseline:
+        description: Export and render current production CRATE
+        required: false
+        type: boolean
+        default: false
   pull_request:
     types: [opened, synchronize, reopened]
     paths:
@@ -84,6 +89,20 @@ jobs:
           cp tools/modeling_studio/check_godot_import.gd "$godot_dir/project/"
           "$godot_dir/Godot_v4.7.2-stable_linux.x86_64" --headless --path "$godot_dir/project" --script res://check_godot_import.gd -- "$RUNNER_TEMP/sera-model"
           test -s "$RUNNER_TEMP/sera-model/godot_import.json"
+      - name: Export and render current CRATE
+        if: inputs.crate_baseline == true || startsWith(github.head_ref, 'modeling/crate-baseline-')
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot_dir="$RUNNER_TEMP/godot-model-review"
+          out="$RUNNER_TEMP/sera-model/crate_baseline"
+          mkdir -p "$out"
+          cp scripts/sera_crate_model.gd tools/modeling_studio/export_crate_baseline.gd "$godot_dir/project/"
+          "$godot_dir/Godot_v4.7.2-stable_linux.x86_64" --headless --path "$godot_dir/project" --script res://export_crate_baseline.gd -- "$out"
+          test -s "$out/crate_current.glb"
+          blender --background --factory-startup --python-exit-code 1 --python tools/modeling_studio/render_crate_baseline.py -- "$out"
+          git rev-parse HEAD > "$out/source_commit.txt"
+          git hash-object scripts/sera_crate_model.gd > "$out/source_blob.txt"
       - name: Prepare review bundle
         shell: bash
         run: |
