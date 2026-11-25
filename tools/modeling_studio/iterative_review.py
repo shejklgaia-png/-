@@ -136,14 +136,23 @@ def score(m):return (-m["motion_new"],-m["motion"],-m["static"],(m["front"]+m["r
 def main():
     ap=argparse.ArgumentParser()
     ap.add_argument("baseline",type=Path);ap.add_argument("out",type=Path)
-    ap.add_argument("--blender",default="blender");a=ap.parse_args()
+    ap.add_argument("--blender",default="blender")
+    ap.add_argument("--structural",action="store_true")
+    a=ap.parse_args()
+    if a.structural:
+        import structural_variants as sv
+        recipes,change,order,check,rank=sv.RECIPES,sv.mutate_structural,sv.priority,sv.guard,sv.score
+        def measure(p):return sv.cross_metrics(p,metrics(p))
+    else:
+        recipes,change,order,check,rank=RECIPES,mutate,priority,guard,score
+        measure=metrics
     root=a.out.resolve();root.mkdir(parents=True,exist_ok=False)
     baseline=root/"00_baseline";shutil.copytree(a.baseline,baseline)
     make_viewer(baseline)
-    initial=metrics(baseline);winner=baseline;best=initial
-    remaining=list(RECIPES);rows=[]
+    initial=measure(baseline);winner=baseline;best=initial
+    remaining=list(recipes);rows=[]
     def publish():
-        report={"format":"SERA_ITERATION_REVIEW_V1","target_rounds":10,"attempts":len(rows),
+        report={"format":"SERA_ITERATION_REVIEW_V2" if a.structural else "SERA_ITERATION_REVIEW_V1","target_rounds":10,"attempts":len(rows),
                 "successful":sum(r.get("status")=="rendered" for r in rows),
                 "selected":winner.name,"baseline":initial,"selected_metrics":best,"rounds":rows,
                 "visual_acceptance":"pending human/assistant visual review",
@@ -151,13 +160,13 @@ def main():
         write(root/"iteration_report.json",report)
     publish()
     for i in range(1,11):
-        key=max(remaining,key=lambda k:priority(k,best));remaining.remove(key)
+        key=max(remaining,key=lambda k:order(k,best));remaining.remove(key)
         candidate=root/(f"{i:02d}_"+key)
         source=root/(f"{i:02d}_design.json")
-        spec=mutate(read(winner/"design.json"),key)
+        spec=change(read(winner/"design.json"),key)
         spec["blockout_reference"]["baseline_iou"]={"front":best["front"],"right":best["right"]}
         write(source,spec)
-        row={"round":i,"recipe":key,"reason":RECIPES[key],"parent":winner.name}
+        row={"round":i,"recipe":key,"reason":recipes[key],"parent":winner.name}
         log=root/(f"{i:02d}_blender.log")
         try:
             with log.open("w",encoding="utf-8") as f:
@@ -165,9 +174,12 @@ def main():
             shutil.copy2(source,candidate/"design.json")
             review_outline(candidate)
             make_viewer(candidate)
-            m=metrics(candidate)
-            reasons=guard(m,best,initial)
-            accepted=not reasons and score(m)>score(best)
+            m=measure(candidate)
+            reasons=check(m,best,initial)
+            if a.structural:
+                row["image_change_vs_parent"]=sv.image_delta(candidate,winner)
+                row["image_change_vs_baseline"]=sv.image_delta(candidate,baseline)
+            accepted=not reasons and rank(m)>rank(best)
             row.update(status="rendered",metrics=m,accepted=accepted,guard_reasons=reasons,
                        decision="numeric improvement" if accepted else "retain previous candidate")
             if accepted:winner=candidate;best=m
@@ -175,6 +187,8 @@ def main():
         except Exception as e:
             row.update(status="failed",accepted=False,error=str(e))
         rows.append(row);publish()
+    if a.structural:
+        sv.sheet(root,rows)
     shutil.copy2(winner/"viewer.html",root/"best_viewer.html")
     shutil.copy2(winner/"model.glb",root/"best_model.glb")
     write(root/"manifest.json",{p.relative_to(root).as_posix():{"bytes":p.stat().st_size,"sha256":digest(p)} for p in sorted(root.rglob("*")) if p.is_file() and p.name!="manifest.json"})
