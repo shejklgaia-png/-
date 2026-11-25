@@ -7,6 +7,7 @@ import tempfile
 from pathlib import Path
 import factory as f
 import quality_gates as q
+import review_roles as rr
 
 ROLES={"head":"head","body":"body","arms":"arms","legs":"legs","weapon_r":"weapons","weapon_l":"weapons"}
 
@@ -15,8 +16,8 @@ def stock_ref(slot, item, art_hash):
     f.require(re.fullmatch(r"[A-Z][A-Z0-9_-]{1,39}",pid) and re.fullmatch(r"[0-9a-f]{64}",rev),"invalid stock reference")
     folder=f.STOCK/slot/pid/rev
     d=f.read(folder/"job.json"); release=f.read(folder/"release.json")
-    f.require(d["format"]=="SERA_PARTS_FACTORY_V5" and d["id"]==pid and d["slot"]==slot,"wrong part identity or old schema")
-    f.require(release["format"]=="SERA_PARTS_STOCK_V5" and release["revision"]==rev,"wrong stock revision")
+    f.require(d["format"]=="SERA_PARTS_FACTORY_V6" and d["id"]==pid and d["slot"]==slot,"wrong part identity or old schema")
+    f.require(release["format"]=="SERA_PARTS_STOCK_V6" and release["revision"]==rev,"wrong stock revision")
     previous="ROOT"
     for name in f.ORDER:
         row=d["stages"][name]
@@ -45,6 +46,7 @@ def release(src, deliver_to):
     v=f.read(src/"viewer_review.json")
     f.require(v.get("assembly_sha256")==r["assembly_sha256"] and v.get("viewer_sha256")==f.digest(src/"viewer.html"),"assembly viewer mismatch")
     f.require(v.get("texture_display")==v.get("touch_controls")=="accepted" and bool(v.get("reviewer")),"assembly viewer pending")
+    rr.check(src,"set",s["id"],{})
     manifest=f.files(src); rev=f.signature(manifest)
     root=f.STOCK/"sets"/s["id"]; root.mkdir(parents=True,exist_ok=True)
     dest=root/rev
