@@ -8,7 +8,8 @@ def main():
     p=argparse.ArgumentParser()
     p.add_argument("design",type=Path); p.add_argument("out",type=Path)
     p.add_argument("--action",help="Override procedural action for the procedural design")
-    p.add_argument("--preview-ik",action="store_true",help="Bake V20 runtime-like contact preview, not source animation")
+    p.add_argument("--preview-ik",action="store_true",help="Bake runtime-like contact preview, not source animation")
+    p.add_argument("--variant",choices=("extended","spear"),help="Choose V21 FK candidate")
     a=p.parse_args(sys.argv[sys.argv.index("--")+1:])
     d=json.loads(a.design.read_text()); out=a.out.resolve()
     if d["format"]!="SERA_MOTION_LAB_V1": raise ValueError("format")
@@ -17,9 +18,13 @@ def main():
         d["procedural_motion"]["action"]=a.action
     fps=int(d.get("fps",60))
     spec=d.get("procedural_motion",{})
+    if a.variant:
+        if not d.get("fk_performance"): raise ValueError("--variant requires FK design")
+        d["fk_performance"]["variant"]=a.variant
     if a.preview_ik:
-        if spec.get("profile")!="performance_v20": raise ValueError("--preview-ik requires V20")
-        spec["preview_ik"]=True
+        if d.get("fk_performance"): d["fk_performance"]["preview_ik"]=True
+        elif spec.get("profile")=="performance_v20": spec["preview_ik"]=True
+        else: raise ValueError("--preview-ik requires V20 or V21")
     if spec.get("profile")=="performance_v20" and spec.get("auto_duration",False):
         durations={"idle":3.0,"walk_forward":1.8,"walk_backward":1.8,"turn_left":1.6,"turn_right":1.6,"stomp":2.0,"sweep":1.8,"hit":0.85,"down_recover":3.5}
         d["end_frame"]=1+round(durations[spec["action"]]*fps)
@@ -70,7 +75,10 @@ def main():
     sys.path.insert(0,str(Path(__file__).resolve().parent))
     from rig_discovery import configure
     configure(d,nodes,out)
-    if d.get("procedural_motion"):
+    if d.get("fk_performance"):
+        from fk_performance import compile_fk
+        compile_fk(d,nodes,end,out)
+    elif d.get("procedural_motion"):
         from procedural import compile_procedural
         compile_procedural(d,nodes,end,out)
     from bbclip import compile_clip
