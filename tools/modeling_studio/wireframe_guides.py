@@ -145,6 +145,26 @@ def solve(spec):
         for a,b in zip(line,line[1:]):
             if tuple(sorted((index[a],index[b]))) not in counts:
                 raise ValueError("structural line not represented by a surface edge")
+    # Quantify warped polygon faces before Blender triangulates or bevels them.
+    max_warp=float(cfg.get("max_face_warp_m",0.001))
+    if not math.isfinite(max_warp) or max_warp<0:
+        raise ValueError("invalid face warp limit")
+    warps=[]
+    for f in faces:
+        pts=[vertices[i] for i in f]
+        normal=[0.,0.,0.]
+        for p,q in zip(pts,pts[1:]+pts[:1]):
+            for axis in range(3):
+                j,k=(axis+1)%3,(axis+2)%3
+                normal[axis]+=(p[j]-q[j])*(p[k]+q[k])
+        length=math.sqrt(sum(v*v for v in normal))
+        if length<1e-12:
+            raise ValueError("degenerate polygon normal")
+        center=[sum(p[a] for p in pts)/len(pts) for a in range(3)]
+        warp=max(abs(sum((p[a]-center[a])*normal[a] for a in range(3)))/length for p in pts)
+        if "max_face_warp_m" in cfg and warp>max_warp:
+            raise ValueError("nonplanar guide face exceeds authored limit: %.6f m"%warp)
+        warps.append(warp)
     report={"format":"SERA_WIREFRAME_GUIDE_V1","points":diagnostics,
             "edges":[[ids[a],ids[b]] for a,b in sorted(counts)],
             "faces":[[ids[i] for i in f] for f in faces],
@@ -152,5 +172,7 @@ def solve(spec):
             "planes":cfg.get("planes",[]),"fixed":cfg.get("fixed",{}),
             "silhouettes":cfg.get("silhouettes",{}),
             "view_calibration":views,
+            "face_warp_m":warps,"max_face_warp_m":max(warps),
+            "face_warp_limit_m":cfg.get("max_face_warp_m"),
             "limits":"Correspondence and topology are authored; unobserved coordinates require a shared plane or explicit fixed value. Residual is for guide vertices before bevel, not silhouette or visual approval."}
     return vertices,faces,report
