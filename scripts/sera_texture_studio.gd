@@ -1215,14 +1215,23 @@ func _paint_path(start: Vector2, finish: Vector2) -> void:
     # Sample the actual screen stroke, then subdivide intervals crossing
     # triangles or UV islands. Do not interpolate straight across atlas
     # gaps. Bound extra raycasts per input event for mobile.
-    var steps: int = clampi(ceili(start.distance_to(finish)/8.0),1,16)
+    # V25: finer screen sampling only for face-paint pen/eraser.
+    # Share the refinement budget across the entire event, including its tail.
+    var face_trace: bool = atlas_face_paint and tool_picker.selected in [0,1]
+    var spacing: float = 4.0 if face_trace else 8.0
+    var steps: int = clampi(ceili(start.distance_to(finish)/spacing),1,24 if face_trace else 16)
     var previous: Vector2 = start
     var previous_hit: Dictionary = _pick_paint_surface(start)
-    var budget: int = 48
+    var budget: int = 72 if face_trace else 48
     for i in range(1,steps+1):
         var next: Vector2 = start.lerp(finish,float(i)/steps)
         var next_hit: Dictionary = _pick_paint_surface(next)
-        budget = _trace_paint_interval(previous,next,previous_hit,next_hit,budget,0)
+        if face_trace:
+            var share: int = mini(budget,ceili(float(budget)/float(steps-i+1)))
+            var remaining: int = _trace_paint_interval(previous,next,previous_hit,next_hit,share,0)
+            budget -= share-remaining
+        else:
+            budget = _trace_paint_interval(previous,next,previous_hit,next_hit,budget,0)
         previous = next
         previous_hit = next_hit
     _composite()
@@ -1236,20 +1245,49 @@ func _pick_paint_surface(at: Vector2) -> Dictionary:
 
 func _trace_paint_interval(start: Vector2,finish: Vector2,a: Dictionary,b: Dictionary,budget: int,depth: int) -> int:
     var distance: float = start.distance_to(finish)
+    var face_trace: bool = atlas_face_paint and tool_picker.selected in [0,1]
     var crosses: bool = a.is_empty() != b.is_empty()
     if not a.is_empty() and not b.is_empty():
         crosses = int(a.triangle) != int(b.triangle)
+        if face_trace and distance > 4.0:
+            crosses = true
     elif a.is_empty() and b.is_empty():
-        crosses = distance > 4.0
-    if crosses and distance > 0.75 and budget > 0 and depth < 7:
+        crosses = distance > (2.0 if face_trace else 4.0)
+    if crosses and distance > (0.25 if face_trace else 0.75) and budget > 0 and depth < (8 if face_trace else 7):
         var mid: Vector2 = (start+finish)*0.5
         var hit: Dictionary = _pick_paint_surface(mid)
         budget = _trace_paint_interval(start,mid,a,hit,budget-1,depth+1)
         return _trace_paint_interval(mid,finish,hit,b,budget,depth+1)
-    if atlas_face_paint and tool_picker.selected in [0,1]:
-        _paint_face_bridge(a,b)
+    if face_trace and not a.is_empty() and not b.is_empty() and last_hit.x >= 0:
+        if last_chart != int(a.chart):
+            _break_face_stroke_link()
+        elif int(a.chart) != int(b.chart):
+            if not _paint_face_bridge(a,b):
+                _break_face_stroke_link()
+        elif not _face_same_chart_continuous(a,b):
+            _break_face_stroke_link()
     _paint(finish,false,b)
     return budget
+
+# Never interpolate a long physical jump between different triangles,
+# even when their packed UV chart is the same (e.g. an occlusion).
+func _face_same_chart_continuous(a: Dictionary,b: Dictionary) -> bool:
+    if a.is_empty() or b.is_empty():
+        return false
+    if int(a.triangle) == int(b.triangle):
+        return true
+    var pa: Vector3 = a.position
+    var pb: Vector3 = b.position
+    return pa.distance_to(pb) <= 4.0/float(maxi(atlas_density,1))
+
+func _break_face_stroke_link() -> void:
+    last_hit = Vector2i(-1,-1)
+    last_chart = -1
+    previous_mirror = Vector2i(-1,-1)
+    previous_mirror_chart = -1
+    previous_mirror_surface.clear()
+    if not current_surface_stroke.is_empty() and not (current_surface_stroke.samples as Array).is_empty():
+        surface_history_complete = false
 
 # Same physical edge interpolation for ordinary and mirrored samples.
 # Never draw a straight line between unrelated packed atlas islands.
@@ -1336,7 +1374,7 @@ func _paint(at: Vector2, flush: bool = true, picked: Variant = null) -> void:
             var muv: Vector2 = mirrored.uv
             var mp := Vector2i(clampi(floori(muv.x*img.get_width()),0,img.get_width()-1),clampi(floori(muv.y*img.get_height()),0,img.get_height()-1))
             if mp != p:
-                if previous_mirror.x >= 0 and previous_mirror_chart == int(mirrored.chart):
+                if previous_mirror.x >= 0 and previous_mirror_chart == int(mirrored.chart) and (not atlas_face_paint or tool_picker.selected not in [0,1] or _face_same_chart_continuous(previous_mirror_surface,mirrored)):
                     _line_pixels(previous_mirror,mp)
                 elif atlas_face_paint and tool_picker.selected in [0,1] and _paint_face_bridge(previous_mirror_surface,mirrored):
                     pass
