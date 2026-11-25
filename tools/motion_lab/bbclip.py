@@ -235,6 +235,8 @@ def compile_clip(scene,d,nodes,end,out):
             _refine_multifoot(d,nodes,end,out,dynamic=True)
     if d.get("performance_refinement"):
         _refine_performance(d,nodes,end,out)
+    if d.get("secondary_refinement"):
+        _refine_secondary(d,nodes,end,out)
 
 
 def _lock_support(d,nodes,end,out):
@@ -416,4 +418,68 @@ def _refine_performance(d,nodes,end,out):
         "landmarks_1based":{k:v for k,v in d["events"].items()},"baseline_performance":b,
         "selected_performance":evaluate(actual,marks,fps),"selected_metrics":actual,"candidates":rows,
         "scope":"heuristic readability of existing motion via coherent retiming; no new recoil, secondary action, actual force or artistic approval; original game unchanged"
+    },indent=2,ensure_ascii=False))
+
+
+def _refine_secondary(d,nodes,end,out):
+    from secondary import build_profiles,compensated,deviations
+    from dynamics import regressions
+    spec=d["secondary_refinement"];base_tracks=d["tracks"]
+    base=_evaluate_tracks(d,nodes,end,dynamic=True);b=base["sole"]
+    impact=d["events"]["impact_authored"]-1
+    selected=("unchanged",None,base_tracks,base,0.);rows=[]
+    for name,raw,profile in list(build_profiles(d,nodes,end,base)):
+        d["tracks"]=raw
+        raw_report=_evaluate_tracks(d,nodes,end)
+        variants,diagnostics=compensated(d,nodes,end,base,raw,raw_report)
+        for radius,track,max_angle in variants:
+            d["tracks"]=track
+            e=_evaluate_tracks(d,nodes,end,dynamic=True);q=e["sole"]
+            reasons,_=_compare(base,e)
+            # Intended body/head/upper-limb reaction must be bounded rather
+            # than identical to the previous motion. Foot marker limits stay strict.
+            allowed={"speed":.30,"acceleration":5.,"jerk":200.,"loop_velocity":.001}
+            for n in ("Body","Head","FrontLeg_L","FrontLowerLeg_L"):
+                for k,limit in allowed.items():
+                    tag=n+":"+k
+                    if tag in reasons and e["markers"][n][k]<=base["markers"][n][k]+limit:
+                        reasons.remove(tag)
+            failures=regressions(base,e);reasons.extend(sorted(set(x["kind"] for x in failures)))
+            sup,strike=deviations(base,e)
+            if sup>float(spec["max_support_path_error_m"]): reasons.append("support_reference_path")
+            if strike>float(spec["max_strike_path_error_m"]): reasons.append("strike_reference_path")
+            for k in ("max_drift_m","mean_drift_m","max_support_low_error_m"):
+                if q[k]>b[k]+.0001: reasons.append("sole_"+k)
+            if q["min_com_margin_m"]<b["min_com_margin_m"]-.001: reasons.append("static_support_margin")
+            for i in range(impact+1):
+                for k in ("strike_center_m","com_m"):
+                    if (Vector(q["frames"][i][k])-Vector(b["frames"][i][k])).length>.0001:
+                        reasons.append("preimpact_"+k);break
+                if any((Vector(q["frames"][i]["support_centers_m"][n])-Vector(v)).length>.0001
+                       for n,v in b["frames"][i]["support_centers_m"].items()):
+                    reasons.append("preimpact_support");break
+            if abs(q["frames"][impact]["strike_low_delta_m"]-b["frames"][impact]["strike_low_delta_m"])>.0001:
+                reasons.append("impact_floor")
+            if abs(q["frames"][-1]["strike_low_delta_m"]-b["frames"][-1]["strike_low_delta_m"])>.0001:
+                reasons.append("recovered_floor")
+            reasons=sorted(set(reasons))
+            # Prefer larger *requested* bounded recoil among feasible profiles,
+            # never call that artistic approval or measured impact force.
+            score=profile["max_sink_m"]
+            rows.append({"name":name,"smooth_radius":radius,**profile,"max_joint_delta_deg":max_angle,
+                         "support_reference_error_m":sup,"strike_reference_error_m":strike,
+                         "floor_depth_m":e["max_relative_floor_depth_m"],
+                         "invalid_load_frames":e["dynamics"]["invalid_load_frames"],
+                         "min_zmp_margin_m":e["dynamics"]["min_zmp_margin_m"],
+                         "dynamic_rejections":failures,"rejections":reasons,"solver_frames":diagnostics})
+            if not reasons and score>selected[-1]+1e-7:
+                selected=(name,radius,track,e,score)
+    name,radius,track,chosen,score=selected;d["tracks"]=track
+    actual=_evaluate_tracks(d,nodes,end,dynamic=True)
+    if regressions(chosen,actual) or _compare(chosen,actual)[0] or any(abs(x-y)>1e-6 for x,y in zip(deviations(base,chosen),deviations(base,actual))):
+        raise ValueError("secondary reevaluation mismatch")
+    (out/"secondary_report.json").write_text(json.dumps({
+        "version":17,"selected_profile":name,"selected_smooth_radius":radius,"selected_sink_m":score,
+        "baseline":base,"selected":actual,"candidates":rows,
+        "scope":"post-impact root translation and local head rotation with four-foot IK reference tracking; heuristic bounded profiles, not physical force, gameplay aim or artistic approval"
     },indent=2,ensure_ascii=False))

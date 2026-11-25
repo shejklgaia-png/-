@@ -14,7 +14,7 @@ def _smooth(x,radius):
     w/=w.sum()
     return np.convolve(np.pad(x,(radius,radius),mode="edge"),w,mode="valid")
 
-def propose(nodes,d,end,base,spec):
+def propose(nodes,d,end,base,spec,*,target_reference=None):
     """Solve all configured feet as one stacked weighted pose task per frame."""
     import bpy
     stance=d["support_lock"]; names=[*stance["markers"],stance["strike_marker"]]
@@ -39,6 +39,8 @@ def propose(nodes,d,end,base,spec):
     orient=float(spec.get("orientation_weight_m",.2))
     if not (np.isfinite(cap).all() and np.all((cap>0)&(cap<=math.pi/4)) and 0<orient<=1): raise ValueError("invalid IK settings")
     fps=int(d["fps"]); rows=base["sole"]["frames"]; strike=stance["strike_marker"]
+    target_rows=target_reference["sole"]["frames"] if target_reference is not None else None
+    if target_rows is not None and len(target_rows)!=end: raise ValueError("reference frame count")
     # Raise the striking sole only where it goes below its own Wait level.
     lift=np.array([max(0.,-r["strike_low_delta_m"]) for r in rows])
     def update(): bpy.context.view_layer.update()
@@ -74,7 +76,10 @@ def propose(nodes,d,end,base,spec):
             u=max(0.,min(1.,(i-1)/4.,(end-2-i)/4.)); ramp=u*u*(3-2*u)
             for j,n in enumerate(names):
                 at=j*9
-                if n==strike: goal[at+2]+=ramp*lift[i]
+                if target_rows is not None:
+                    ref=target_rows[i]
+                    goal[at:at+3]=ref["strike_center_m"] if n==strike else ref["support_centers_m"][n]
+                elif n==strike: goal[at+2]+=ramp*lift[i]
                 else: goal[at:at+3]+=ramp*(anchors[n]-start[at:at+3])
             def apply(x):
                 for (_,o,k),v,b in zip(axes,x,fk): o.rotation_euler[k]=float(b+v)
@@ -105,7 +110,7 @@ def propose(nodes,d,end,base,spec):
             solutions.append(x.copy())
             diagnostics.append({"frame":i+1,"initial_pose_residual":initial,
                                 "final_pose_residual":float(np.linalg.norm(goal-feature())),
-                                "requested_strike_lift_m":float(ramp*lift[i])})
+                                "requested_strike_lift_m":float(ramp*lift[i]) if target_rows is None else None})
     finally:
         for uid,(p,q) in saved.items():
             nodes[uid].location=p;nodes[uid].rotation_euler=q
