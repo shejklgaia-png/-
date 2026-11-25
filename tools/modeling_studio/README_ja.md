@@ -142,3 +142,12 @@ shape: wireframe を部品に指定。wireframe_example.json が動作確認用�
 - hard_surface_plan.json / compiled_design.json / hard_surface_review.json を成果物に追加。hard_surface_example.jsonは合成の機械部品組立例、クレートではない。外周25・内部線25・配置20・斜め20・材質10の総合評価は独立した各評価が揃うまで算出しない。品質/可動/負荷の採否は別途。
 - 未実装: 自動部品分割・線の意味認識・多方向対応付け・輪郭/構造線/材質の自動反復最適化・実機負荷計測。既存LOD・メッシュ/関節検査と連携し、未計測項目を合格扱いしない。
 参考: https://studio.blender.org/tools/pipeline-overview/asset-creation/modeling / https://docs.opencv.org/4.x/df/d0d/tutorial_find_contours.html / https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.least_squares.html
+
+## 設定画解析 V1：部品領域と構造線候補
+- OpenCV 4.12.0.88 のオフラインCLI: python structure_analysis.py image.png mask.png output_directory --clusters 8 --min-area 40
+- 画像は1方向にクロップした資料、maskは独立前景マスク(128以上を前景)。bilateralFilterとLabの色クラスタリング、連結成分で領域候補を抽出。小領域は無断統合せず未割当に記録。labels.png は16bitの領域IDマップ、regions.png は目視用。実部品の確定ではない。
+- 隣接領域グラフを4近傍から作り、接触画素数・平均Lab色差を記録。マスク外周/穴、円形候補、Canny/Hough線分の両側に異なる領域がある割合と境界強度で装甲境界候補を抽出。その他はunknown。信頼度は根拠指標であり正解確率ではない。影や塗装境界も候補になり得る。凹凸・関節・影・傷の意味は自動確定しない。
+- structure.json / labels.png / regions.png / structures.png / internal_edges.png を出力。全候補geometry_approved=false、実部品IDや意味は未確定。
+- structure_handoff.py structure.json selection.json design.json output.json は {view:"front",lines:[{id:"segment_0",part:"Armor",kind:"panel_boundary",approved:true,reason:"..." }]} の明示レビューを検査し、hard_surface.linesに転記可能な配列を別ファイルへ出力。元設計やメッシュを自動変更しない。既存の手入力設計も継続可。
+- modeling/structure-analysis-* の専用制作では合成機械モデルの実Blender正面・右・背面・斜め画像とα由来マスクから解析し、成果物ハッシュに追加。実設定画の部品分割精度や分類精度は独立正解ラベルで別途確認が必要。ゲーム本体・CIは変更しない。
+参考: https://docs.opencv.org/4.x/d2/dbd/tutorial_distance_transform.html / https://scikit-image.org/docs/stable/auto_examples/segmentation/plot_rag_merge.html
