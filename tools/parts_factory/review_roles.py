@@ -128,7 +128,7 @@ def packet_data(src,stage,job_id,upstream,work=None):
     items={}
     for original,dst in public_files(src,stage):
         p=q.evidence(src,original)
-        need("independent_reviews" not in Path(original).parts,"review files cannot be evidence")
+        need(not {"independent_reviews","supervision"}.intersection(p.relative_to(src.resolve()).parts),"review or draft files cannot substitute final evidence")
         label="candidate/"+dst
         need(label not in items,"duplicate packet path")
         items[label]=(p,q.sha(p))
@@ -185,7 +185,7 @@ def emit(out,stage,role,items,binding):
         exported[label]=q.sha(dest)
     request={"format":FORMAT,"role":role,"binding":binding,"packet_files":exported,
         "criteria":list(CRITERIA[stage][role]),
-        "instructions":"Open evidence files, evaluate independently before seeing author or other scores. Give a concrete defect or justification for every criterion and cite evidence paths. Do not approve missing or uninspected evidence. Record your real context ID; never fabricate independence."}
+        "instructions":"Open evidence files, evaluate independently before seeing author or other scores. Give a concrete defect or justification for every criterion and cite evidence paths. Do not approve missing or uninspected evidence. If draft evidence is present, compare it to the final candidate: reject cosmetic-only changes or unresolved defects, and require a concrete improvement or documented deterministic rebuild. Record your real context ID; never fabricate independence."}
     (out/"request.json").write_text(json.dumps(request,ensure_ascii=False,indent=2),encoding="utf-8")
     template={"format":FORMAT,"role":role,"binding_sha256":q.canonical(binding),
         "reviewer":{"actor":"","context_id":"","kind":"ai"},"independent_context_attested":False,"packet_files":exported,
@@ -245,13 +245,14 @@ def check(src,stage,job_id,upstream,work=None,allow_reject=False):
         if work:
             for path in (work/"review_vetoes").glob("*.json"):
                 old=q.load(path)
-                if old.get("stage")==stage and old.get("upstream")==binding["upstream"] and old.get("evidence_sha256")==q.canonical(binding["evidence"]):
+                current=q.canonical({k:v for k,v in binding["evidence"].items() if not k.startswith("draft/")})
+                if old.get("stage")==stage and old.get("upstream")==binding["upstream"] and old.get("candidate_evidence_sha256",old.get("evidence_sha256"))==current:
                     need(not any(x["verdict"]=="reject" for x in old["reviews"]),"rejected evidence unchanged; revise actual deliverable")
     return records
 
 # V6.1: bind an independently reviewed draft to a rebuilt candidate.
-# The draft is archived with its real reviews; final reviewers see only final
-# public evidence. The manifest is evidence of workflow, not authentication.
+# The draft is archived with its real reviews; final reviewers see before/after
+# public evidence, not prior scores. Evidence is not authentication.
 CYCLE="SERA_PF_SUPERVISION_V61"
 PRIMARY={
  "concept":("concept.json","design_brief.json"),
@@ -296,12 +297,16 @@ def check_cycle(src,stage,job_id,upstream,work=None):
     new={n:material_digest(src,n) for n in PRIMARY[stage]}
     changed=sorted(n for n in old if old[n]!=new[n])
     need(rec.get("changed_primary_files")==changed,"reconstruction change manifest mismatch")
+    if stage=="model":
+        p0=q.load(draft/"provenance.json");p1=q.load(src/"provenance.json")
+        for candidate,p in ((draft,p0),(src,p1)):
+            need(p.get("tool")=="Modeling Studio - authoring render" and re.fullmatch(r"[0-9a-f]{40}",p.get("commit","")) and type(p.get("run_id")) is int and p["run_id"]>0 and type(p.get("artifact_id")) is int and p["artifact_id"]>0 and p.get("glb_sha256")==q.sha(candidate/"model.glb"),"actual model build provenance required")
+        need(p0["run_id"]!=p1["run_id"] and p0["artifact_id"]!=p1["artifact_id"],"separate model rebuild run required")
     if not changed:
         # A deterministic model build can legitimately reproduce the same GLB:
         # require a second real recorded build and no first-pass veto.
         need(stage=="model" and all(r["verdict"]=="approve" for r in first),"actual reconstruction required; scores or renamed files are insufficient")
-        p0=q.load(draft/"provenance.json");p1=q.load(src/"provenance.json")
-        need(type(p0.get("run_id")) is int and p0["run_id"]>0 and type(p1.get("run_id")) is int and p1["run_id"]>0 and p0["run_id"]!=p1["run_id"] and p0.get("artifact_id")!=p1.get("artifact_id") and p0.get("glb_sha256")==p1.get("glb_sha256")==q.sha(src/"model.glb"),"distinct reproducible model build required")
+        need(p0["glb_sha256"]==p1["glb_sha256"],"reproducible model hash mismatch")
     actions=rec.get("actions")
     need(isinstance(actions,dict) and set(actions)==set(CRITERIA[stage]),"address every supervisor")
     for role,review in zip(CRITERIA[stage],first):
@@ -316,7 +321,8 @@ def check_cycle(src,stage,job_id,upstream,work=None):
         need(isinstance(refs,list) and bool(refs) and len(refs)==len(set(refs)),"reconstruction evidence required")
         for n in refs:
             need(isinstance(n,str) and not n.startswith(("supervision/","independent_reviews/")),"reconstruction evidence must be final material")
-            q.evidence(src,n)
+            p=q.evidence(src,n)
+            need(not {"supervision","independent_reviews"}.intersection(p.relative_to(src.resolve()).parts),"reconstruction evidence must refer to final files")
     # Fresh final review is bound to the rebuilt files and the archived draft.
     final=check(src,stage,job_id,upstream,work)
     final_author=author(src,stage)
@@ -348,7 +354,7 @@ def record_veto(work,stage,src):
     need(any(r["verdict"]!="approve" or (stage=="art" and r.get("selected_candidate_sha256")!=q.sha(src/"selected.png")) for r in records),"no veto to record")
     # Record even unaccepted attempts; never overwrite accepted snapshots.
     _,_,binding=packet_data(src,stage,d["id"],up,work)
-    obj={"stage":stage,"candidate_sha256":binding["candidate_sha256"],"evidence_sha256":q.canonical(binding["evidence"]),"upstream":binding["upstream"],"reviews":records}
+    obj={"stage":stage,"candidate_sha256":binding["candidate_sha256"],"evidence_sha256":q.canonical(binding["evidence"]),"candidate_evidence_sha256":q.canonical({k:v for k,v in binding["evidence"].items() if not k.startswith("draft/")}),"upstream":binding["upstream"],"reviews":records}
     path=work/"review_vetoes"/(q.canonical(obj)+".json")
     if not path.exists():f.write(path,obj)
     print(path)
