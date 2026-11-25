@@ -1,4 +1,4 @@
-"""PARTS FACTORY V2: resumable, non-destructive production coordinator."""
+"""PARTS FACTORY V3: resumable, non-destructive production coordinator."""
 import argparse
 import hashlib
 import json
@@ -7,6 +7,7 @@ import shutil
 import tempfile
 from pathlib import Path
 import quality_gates as q
+import reference_contract as rc
 
 ROOT = Path(__file__).resolve().parents[2]
 STOCK = ROOT / "parts_stock"
@@ -14,6 +15,7 @@ STAGES = {
     "concept": ("concept.json",),
     "art": ("selected.png", "art_review.json"),
     "blueprint": ("blueprint.png", "blueprint_review.json"),
+    "analysis": ("analysis.json", "correspondence.json"),
     "plan": ("design.json", "structure_plan.json"),
     "model": ("model.blend", "model.glb", "mesh_report.json", "complete.json", "review.json", "design.json"),
     "geometry": ("geometry_review.json", "front.png", "front_3q.png", "right.png", "back_3q.png", "back.png", "left.png", "top.png", "bottom.png"),
@@ -60,7 +62,7 @@ def files(folder):
 
 def state(work):
     d = read(work / "job.json")
-    require(d["format"] == "SERA_PARTS_FACTORY_V2", "invalid format")
+    require(d["format"] == "SERA_PARTS_FACTORY_V3", "invalid format")
     require(d["slot"] in SLOTS and re.fullmatch(r"[A-Z][A-Z0-9_-]{1,39}", d["id"]), "invalid job identity")
     return d
 
@@ -110,8 +112,11 @@ def check_stage(name, src, d):
         q.art(src)
     if name == "blueprint":
         q.blueprint(src,d["stages"]["art"]["files"]["selected.png"])
+    if name == "analysis":
+        rc.check_analysis(src,d["stages"]["blueprint"])
     if name == "plan":
         q.plan(src,d["stages"]["blueprint"]["key"])
+        rc.check_plan(src,d["stages"]["analysis"])
     if name == "model":
         design = read(src / "design.json")
         q.validate_permit(design,src / "design.json")
@@ -120,6 +125,7 @@ def check_stage(name, src, d):
         require(all(permit.get(k)==v for k,v in expected.items()),"model permit mismatch")
         require(q.canonical({k:v for k,v in design.items() if k!="parts_factory"}) == permit.get("design_hash"),"model design mismatch")
         require(permit.get("design_hash")==d["stages"]["plan"].get("design_hash"),"model was not made from accepted plan")
+        require(permit.get("reference_sha256")==d["stages"]["analysis"]["files"]["analysis.json"],"model reference mismatch")
         glb(src / "model.glb")
         require(isinstance(read(src / "mesh_report.json"),list) and bool(read(src / "mesh_report.json")), "empty mesh report")
         require(bool(read(src / "complete.json").get("views")), "no completion views")
@@ -135,6 +141,7 @@ def check_stage(name, src, d):
         for view in q.RENDER_VIEWS:
             require(digest(src/(view+".png"))==d["stages"]["model"]["files"][view+".png"],"geometry render differs from model run")
         review=read(src/"geometry_review.json")
+        rc.check_comparison(src,d["stages"]["analysis"],d["stages"]["model"],review)
         for view in ("front","right","back","left","top","bottom"):
             q.png(q.evidence(src,review["overlays"][view]))
         require(review.get("unresolved_interference")==0,"unresolved interference candidates")
@@ -183,8 +190,8 @@ def accept(work, name, src, producer):
     record = {"stage":name,"upstream":upstream,"producer":producer,"files":files(src)}
     if name=="plan":
         record["design_hash"]=q.canonical(read(src/"design.json"))
-    if name in ("art","blueprint","plan","model","paint"):
-        fingerprint=record["files"][{"art":"selected.png","blueprint":"blueprint.png","plan":"design.json","model":"model.glb","paint":"model.glb"}[name]]
+    if name in ("art","blueprint","analysis","plan","model","paint"):
+        fingerprint=record["files"][{"art":"selected.png","blueprint":"blueprint.png","analysis":"analysis.json","plan":"design.json","model":"model.glb","paint":"model.glb"}[name]]
         for rejected in (work/"rejections").glob("*.json"):
             old=read(rejected)
             require(not (old.get("target")==name and old.get("fingerprint")==fingerprint),"rejected artifact cannot be reaccepted unchanged")
@@ -230,7 +237,7 @@ def stock(work):
         write(out/"job.json",d)
         if (work/"rejections").is_dir():
             shutil.copytree(work/"rejections",out/"rejections")
-        write(out/"release.json",{"id":d["id"],"slot":d["slot"],"revision":key,"state":"stocked_not_in_game","format":"SERA_PARTS_STOCK_V2"})
+        write(out/"release.json",{"id":d["id"],"slot":d["slot"],"revision":key,"state":"stocked_not_in_game","format":"SERA_PARTS_STOCK_V3"})
         out.rename(dest)
     print("STOCKED",dest)
 
@@ -240,7 +247,7 @@ def reject(work, target, reason):
     q.text(reason,"specific defect and correction")
     require(target in d["stages"],"cannot reject a stage not yet accepted")
     item=d["stages"][target]
-    asset={"art":"selected.png","blueprint":"blueprint.png","plan":"design.json","model":"model.glb","paint":"model.glb"}.get(target)
+    asset={"art":"selected.png","blueprint":"blueprint.png","analysis":"analysis.json","plan":"design.json","model":"model.glb","paint":"model.glb"}.get(target)
     record={"target":target,"reason":reason,"revision":item["key"],"fingerprint":item["files"].get(asset),"invalidated":[x for x in ORDER[ORDER.index(target):] if x in d["stages"]]}
     write(work/"rejections"/(signature(record)+".json"),record)
     d["stages"]={k:v for k,v in d["stages"].items() if ORDER.index(k)<ORDER.index(target)}
@@ -256,6 +263,7 @@ def authorize(work, output):
     plan=d["stages"]["plan"]
     design=read(work/"objects"/plan["key"]/"design.json")
     payload=q.permit(design,d["id"],d["slot"],d["stages"]["blueprint"]["key"],plan["key"])
+    payload["parts_factory"]["reference_sha256"]=d["stages"]["analysis"]["files"]["analysis.json"]
     write(output,payload)
     print(output)
 
@@ -288,7 +296,7 @@ def main():
         require(re.fullmatch(r"[A-Z][A-Z0-9_-]{1,39}",args.id),"invalid ID")
         work.mkdir(parents=True,exist_ok=True)
         require(not (work/"job.json").exists(),"job already exists")
-        write(work/"job.json",{"format":"SERA_PARTS_FACTORY_V2","id":args.id,"slot":args.slot,"stages":{}})
+        write(work/"job.json",{"format":"SERA_PARTS_FACTORY_V3","id":args.id,"slot":args.slot,"stages":{}})
     elif args.cmd=="accept":
         accept(work,args.stage,args.source.resolve(),args.producer)
     elif args.cmd=="stock":
