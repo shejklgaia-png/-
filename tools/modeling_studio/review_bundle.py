@@ -55,6 +55,19 @@ def main():
         required = ["crate_candidate.glb","crate_candidate.blend","candidate_report.json",
                     "projections.json","camera_fit.json","contact_sheet.jpg"]+[v+".png" for v in VIEWS]
         paths += ["crate_candidate/"+p for p in required]
+    if (root/"crate_detail_v2").is_dir():
+        detail=root/"crate_detail_v2"
+        contact_sheet(detail)
+        required=["crate_candidate.glb","crate_candidate.blend","candidate_report.json",
+                  "projections.json","camera_fit.json","contact_sheet.jpg",
+                  "articulation_review.json","crate_godot_review.json"]+[v+".png" for v in VIEWS]
+        paths += ["crate_detail_v2/"+p for p in required]
+        source=root/"crate_detail_source"
+        paths += [p.relative_to(root).as_posix() for p in sorted(source.glob("*")) if p.is_file()]
+        got=json.loads((detail/"crate_godot_review.json").read_text())
+        expected=json.loads((detail/"candidate_report.json").read_text())
+        if got["counts"]["triangles"]!=expected["triangles"]:
+            raise ValueError("CRATE V2 Godot triangle count differs from Blender")
     files = {p:{"bytes":(root/p).stat().st_size,"sha256":hashlib.sha256((root/p).read_bytes()).hexdigest()} for p in paths}
     if any(v["bytes"]==0 for v in files.values()):
         raise ValueError("empty artifact")
