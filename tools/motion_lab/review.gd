@@ -90,6 +90,11 @@ func _run() -> void:
 	for raw_frame in report["capture_frames"]:
 		capture[int(raw_frame)] = true
 	var saved: Array[int] = []
+	var movie_saved: Array[int] = []
+	var movie_dir := dir.path_join("movie_frames")
+	if DirAccess.make_dir_recursive_absolute(movie_dir) != OK:
+		quit(13)
+		return
 	p.play(clip)
 	p.pause()
 	for sample in report["samples"]:
@@ -105,23 +110,27 @@ func _run() -> void:
 			if error > max_error:
 				max_error = error
 				worst_frame = frame
-		if not capture.has(frame):
-			continue
 		await process_frame
 		await RenderingServer.frame_post_draw
 		var img := root.get_texture().get_image()
-		if img == null or img.is_empty() or img.save_png(dir.path_join("godot_%04d.png" % frame)) != OK:
+		if img == null or img.is_empty() or img.save_png(movie_dir.path_join("frame_%04d.png" % frame)) != OK:
 			quit(7)
 			return
-		saved.append(frame)
+		movie_saved.append(frame)
+		if capture.has(frame):
+			if img.save_png(dir.path_join("godot_%04d.png" % frame)) != OK:
+				quit(7)
+				return
+			saved.append(frame)
 	var f := FileAccess.open(dir.path_join("godot_review.json"), FileAccess.WRITE)
 	if f == null:
 		quit(8)
 		return
 	var duration_error := absf(length - expected_length)
 	var tolerance := float(spec.get("roundtrip_tolerance_m", 0.002))
+	var movie_pass := movie_saved.size() == int(report["end_frame"])
 	var image_pass := saved.size() == capture.size() and not saved.is_empty()
 	var passed := duration_error <= 0.0002 and max_error <= tolerance and not markers.is_empty()
-	f.store_string(JSON.stringify({"animations":Array(names),"clip":clip,"length_seconds":length,"expected_length_seconds":expected_length,"duration_error_s":duration_error,"frames":saved.size(),"expected_frames":capture.size(),"saved_frames":saved,"capture_pass":image_pass,"import_bake_fps":fps,"evaluated_frames":report["samples"].size(),"marker_max_errors_m":marker_errors,"max_error_m":max_error,"worst_frame":worst_frame,"tolerance_m":tolerance,"roundtrip_pass":passed,"renderer":"gl_compatibility","scope":"isolated GLB preview; not game or Android"}, "\t"))
+	f.store_string(JSON.stringify({"animations":Array(names),"clip":clip,"length_seconds":length,"expected_length_seconds":expected_length,"duration_error_s":duration_error,"frames":saved.size(),"expected_frames":capture.size(),"saved_frames":saved,"capture_pass":image_pass,"movie_capture_pass":movie_pass,"movie_frames":movie_saved,"import_bake_fps":fps,"evaluated_frames":report["samples"].size(),"marker_max_errors_m":marker_errors,"max_error_m":max_error,"worst_frame":worst_frame,"tolerance_m":tolerance,"roundtrip_pass":passed,"renderer":"gl_compatibility","scope":"isolated GLB preview; not game or Android"}, "\t"))
 	f.close()
-	quit(0 if passed and image_pass else 12)
+	quit(0 if passed and image_pass and movie_pass else 12)
