@@ -3,7 +3,7 @@ extends RefCounted
 const MAX_TRIANGLES = 12000
 const PADDING = 2
 
-static func build(source: MeshInstance3D, density: int, preserve_shape: bool = true, balanced_shape: bool = false, exact_block: bool = true, face_paint: bool = false, coherent_face: bool = true, cycle_grid: bool = true, fast_cycle: bool = true, bounded_cycle: bool = true) -> Dictionary:
+static func build(source: MeshInstance3D, density: int, preserve_shape: bool = true, balanced_shape: bool = false, exact_block: bool = true, face_paint: bool = false, coherent_face: bool = true, cycle_grid: bool = true, fast_cycle: bool = true, bounded_cycle: bool = true, continuous_face: bool = true) -> Dictionary:
     var tris: Array[Dictionary] = []
     var charts: Array[Dictionary] = []
     var scale_basis: Basis = source.global_transform.basis if source.is_inside_tree() else source.transform.basis
@@ -72,6 +72,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     var affine_report: String = ""
     var coherent_applied: bool = false
     var cycle_applied: bool = false
+    var continuous_applied: bool = false
     if face_paint:
         affine_report = "面別計量キャンバス / 大域グリッド拘束なし / 整数配置"
         if coherent_face:
@@ -88,6 +89,11 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
                     var refinement: Dictionary = _refine_residual_grid(tris,charts,density)
                     charts = refinement.charts
                     affine_report += " / "+str(refinement.report)
+                if continuous_face and bounded_cycle and fast_cycle:
+                    var continuity: Dictionary = _continuous_face_layout(tris,charts,density)
+                    charts = continuity.charts
+                    continuous_applied = bool(continuity.applied)
+                    affine_report += " / "+str(continuity.report)
     elif preserve_shape:
         var topology_tris: Array[Dictionary] = []
         var topology_charts: Array[Dictionary] = []
@@ -206,7 +212,7 @@ static func build(source: MeshInstance3D, density: int, preserve_shape: bool = t
     arrays[Mesh.ARRAY_TEX_UV2] = diagnostic_uv
     var out := ArrayMesh.new()
     out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"face_paint":face_paint,"unwrap_version":((("face-paint-v32" if bounded_cycle else "face-paint-v31") if fast_cycle else "face-paint-v30") if cycle_applied else ("face-paint-v29" if coherent_applied else "face-paint-v24")) if face_paint else (("shape-affine-v20" if exact_block else "shape-affine-v19") if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
+    return {"mesh":out,"image":img,"triangles":tris,"charts":charts.size(),"preserve_shape":preserve_shape,"balanced_shape":balanced_shape and preserve_shape,"affine_report":affine_report,"initial_charts":initial_chart_count,"face_paint":face_paint,"unwrap_version":("face-paint-v33" if continuous_applied else ((("face-paint-v32" if bounded_cycle else "face-paint-v31") if fast_cycle else "face-paint-v30") if cycle_applied else ("face-paint-v29" if coherent_applied else "face-paint-v24"))) if face_paint else (("shape-affine-v20" if exact_block else "shape-affine-v19") if balanced_shape else "shape-hinge-v2") if preserve_shape else "boundary-v1"}
 
 ## Group connected coplanar triangles, and the two halves of slightly
 ## warped authored quads. Never use an internal triangulation diagonal
@@ -905,6 +911,252 @@ static func _cycle_local_metric(ci: int,angle: float,shift: Vector2,links: Array
         result.y += 1.0 if residual>0.25 else 0.0
         result.z += residual*residual
     return result
+
+# V33: assess the visual orientation of real texels, not the camera.
+# A normal near a model axis defines a stable local horizontal/vertical
+# frame. Angles are measured modulo 90 degrees for a square grid.
+static func _face_axis_basis(normal: Vector3) -> Array[Vector3]:
+    var up: Vector3 = Vector3.UP-normal*normal.dot(Vector3.UP)
+    if up.length_squared()<0.04:
+        up = Vector3.FORWARD-normal*normal.dot(Vector3.FORWARD)
+    var u: Vector3 = up.normalized().cross(normal).normalized()
+    return [u,normal.cross(u).normalized()]
+
+static func _face_axis_angle(t: Dictionary,key: String = "xy",scale: float = 1.0) -> float:
+    var n: Vector3 = t.face_normal
+    if maxf(absf(n.x),maxf(absf(n.y),absf(n.z)))<0.95:
+        return 0.0
+    var axes: Array[Vector3] = _face_axis_basis(n)
+    var p: PackedVector3Array = t.p
+    var q: PackedVector2Array = t[key]
+    var longest: int = 0
+    for k in range(1,3):
+        if p[k].distance_squared_to(p[(k+1)%3])>p[longest].distance_squared_to(p[(longest+1)%3]):
+            longest = k
+    var e: Vector3 = p[(longest+1)%3]-p[longest]
+    var model := Vector2(e.dot(axes[0]),e.dot(axes[1]))
+    var uv: Vector2 = (q[(longest+1)%3]-q[longest])*scale
+    return _rigid_quarter_angle(uv.angle_to(model))
+
+static func _face_visual_metrics(tris: Array[Dictionary],physical: Array[Dictionary]) -> Dictionary:
+    var axis_energy: float = 0.0
+    var tilted: int = 0
+    var singletons: Dictionary = {}
+    for t in tris:
+        var p: PackedVector3Array = t.p
+        var area: float = (p[1]-p[0]).cross(p[2]-p[0]).length()*0.5
+        var angle: float = _face_axis_angle(t)
+        axis_energy += area*angle*angle
+        tilted += 1 if absf(angle)>deg_to_rad(5.0) else 0
+        var ci: int = int(t.chart)
+        singletons[ci] = int(singletons.get(ci,0))+1
+    var isolated: int = 0
+    for count in singletons.values():
+        isolated += 1 if int(count)==1 else 0
+    var angular: int = 0
+    var severe: int = 0
+    var coplanar: int = 0
+    for link in physical:
+        var a: Dictionary = tris[int(link.ta)]
+        var b: Dictionary = tris[int(link.tb)]
+        var pa: PackedVector2Array = _segment_uv(a,int(link.ea),float(link.a0),float(link.a1),"xy")
+        var pb: PackedVector2Array = _segment_uv(b,int(link.eb),float(link.b0),float(link.b1),"xy")
+        angular += 1 if absf(_rigid_quarter_angle((pb[1]-pb[0]).angle_to(pa[1]-pa[0])))>deg_to_rad(10.0) else 0
+        var residual: float = _local_uv_link_error(tris,link)
+        severe += 1 if residual>1.0 else 0
+        var na: Vector3 = a.face_normal
+        var nb: Vector3 = b.face_normal
+        if na.dot(nb)>0.0 and na.cross(nb).length_squared()<=0.0000000001 and absf(na.dot(Vector3(b.p[0])-Vector3(a.p[0])))<=0.00001:
+            coplanar += 1 if residual>0.25 else 0
+    return {"grid":_face_grid_metrics(tris,physical),"axis_energy":axis_energy,"tilted":tilted,"singletons":isolated,"angular":angular,"severe":severe,"coplanar":coplanar}
+
+static func _face_visual_ok(before: Dictionary,after: Dictionary) -> bool:
+    var a: Vector3 = before.grid
+    var b: Vector3 = after.grid
+    return b.x<=a.x+0.0001 and b.y<=a.y and b.z<=a.z+0.0001 and int(after.severe)<=int(before.severe) and int(after.coplanar)<=int(before.coplanar) and int(after.angular)<=int(before.angular) and float(after.axis_energy)<=float(before.axis_energy)+0.000000001 and int(after.tilted)<=int(before.tilted)
+
+static func _face_chart_members(tris: Array[Dictionary],count: int) -> Array:
+    var members: Array = []
+    for i in range(count):
+        members.append([])
+    for i in range(tris.size()):
+        (members[int(tris[i].chart)] as Array).append(i)
+    return members
+
+static func _face_chart_normal(tris: Array[Dictionary],members: Array) -> Vector3:
+    var normal := Vector3.ZERO
+    for ti in members:
+        var p: PackedVector3Array = tris[int(ti)].p
+        normal += (p[1]-p[0]).cross(p[2]-p[0])
+    return normal.normalized()
+
+static func _face_chart_bounds(tris: Array[Dictionary],members: Array) -> Dictionary:
+    var lo := Vector2(INF,INF)
+    var hi := Vector2(-INF,-INF)
+    for ti in members:
+        for q in tris[int(ti)].xy:
+            lo = lo.min(q)
+            hi = hi.max(q)
+    return {"min":lo.floor(),"max":hi}
+
+# Project a gentle bend onto one common plane, so both triangles use
+# the identical formula for shared positions. Reject folds, overlap,
+# excessive stretching, and packing/visual regressions.
+static func _face_merge_projection(tris: Array[Dictionary],charts: Array[Dictionary],members: Array,a: int,b: int,density: int) -> Dictionary:
+    var ids: Array = members[a]+members[b]
+    if ids.size()>48:
+        return {}
+    var normal: Vector3 = _face_chart_normal(tris,ids)
+    if normal.length_squared()<0.99:
+        return {}
+    for ti in ids:
+        if normal.dot(Vector3(tris[int(ti)].face_normal))<cos(deg_to_rad(8.0)):
+            return {}
+    var axes: Array[Vector3] = _face_axis_basis(normal)
+    var scratch: Dictionary = _joint_copy(tris,charts)
+    var ct: Array[Dictionary] = scratch.tris
+    var cc: Array[Dictionary] = scratch.charts
+    var keep: int = mini(a,b)
+    var remove: int = maxi(a,b)
+    var root: int = int(members[a][0] if members[a].size()>=members[b].size() else members[b][0])
+    var origin: Vector3 = tris[root].p[0]
+    var anchor: Vector2 = tris[root].xy[0]
+    var phase: Vector2 = anchor-anchor.round()
+    # Anchor only the phase, keeping the axes fixed to the model.
+    for ti in ids:
+        var t: Dictionary = ct[int(ti)]
+        var xy := PackedVector2Array()
+        for p in t.p:
+            var d: Vector3 = Vector3(p)-origin
+            xy.append(Vector2(d.dot(axes[0]),d.dot(axes[1]))*float(density)+phase)
+        if (xy[1]-xy[0]).cross(xy[2]-xy[0])<=0.0000001:
+            return {}
+        t.xy = xy
+        t.chart = keep
+    for i in range(ids.size()):
+        for j in range(i+1,ids.size()):
+            if _overlaps(ct[int(ids[i])].xy,ct[int(ids[j])].xy):
+                return {}
+    cc[keep] = _face_chart_bounds(ct,ids)
+    cc.remove_at(remove)
+    for t in ct:
+        if int(t.chart)>remove:
+            t.chart = int(t.chart)-1
+    return {"tris":ct,"charts":cc}
+
+static func _continuous_face_layout(tris: Array[Dictionary],charts: Array[Dictionary],density: int) -> Dictionary:
+    if charts.size()>512 or tris.size()>2000:
+        return {"charts":charts,"applied":false,"report":"V33 規模上限"}
+    var physical: Array[Dictionary] = _seam_segments(tris,true)
+    var before: Dictionary = _face_visual_metrics(tris,physical)
+    var current: Dictionary = before
+    var shape: Vector3 = _topology_distortion(tris,density)
+    var capacity: int = _hinge_pack_side(charts)
+    var initial_charts: int = charts.size()
+    var tested: int = 0
+    var welded: int = 0
+    # Recompute membership after every accepted merge; never use stale
+    # chart IDs from the initial seam graph.
+    var blocked: Dictionary = {}
+    while tested<40 and welded<16:
+        var members: Array = _face_chart_members(tris,charts.size())
+        var proposals: Array[Dictionary] = []
+        for link in physical:
+            var ta: int = int(link.ta)
+            var tb: int = int(link.tb)
+            var t: Dictionary = tris[ta]
+            var u: Dictionary = tris[tb]
+            var a: int = int(t.chart)
+            var b: int = int(u.chart)
+            if a==b:
+                continue
+            var authored: bool = int(t.get("authored_face",-1))>=0 and int(t.get("authored_face",-1))==int(u.get("authored_face",-1)) and int(t.surface)==int(u.surface)
+            var dot: float = Vector3(t.face_normal).dot(Vector3(u.face_normal))
+            if dot<cos(deg_to_rad(12.0 if authored else 5.0)):
+                continue
+            var pair := Vector2i(mini(a,b),maxi(a,b))
+            if blocked.has(pair):
+                continue
+            var singleton: bool = members[a].size()==1 or members[b].size()==1
+            if not singleton and not authored:
+                continue
+            proposals.append({"a":a,"b":b,"pair":pair,"rank":(10.0 if authored else 0.0)+(5.0 if singleton else 0.0)+_local_uv_link_error(tris,link)})
+        if proposals.is_empty():
+            break
+        proposals.sort_custom(func(a: Dictionary,b: Dictionary) -> bool: return float(a.rank)>float(b.rank))
+        var proposal: Dictionary = proposals[0]
+        blocked[proposal.pair] = true
+        tested += 1
+        var candidate: Dictionary = _face_merge_projection(tris,charts,members,int(proposal.a),int(proposal.b),density)
+        if candidate.is_empty():
+            continue
+        var ct: Array[Dictionary] = candidate.tris
+        var cc: Array[Dictionary] = candidate.charts
+        var score: Dictionary = _face_visual_metrics(ct,physical)
+        if not _face_visual_ok(current,score) or int(score.singletons)>int(current.singletons):
+            continue
+        if not _joint_shape_ok(shape,_topology_distortion(ct,density)) or _hinge_pack_side(cc)>capacity:
+            continue
+        for i in range(tris.size()):
+            tris[i].xy = ct[i].xy
+            tris[i].chart = ct[i].chart
+        charts = cc
+        current = score
+        welded += 1
+        blocked.clear()
+    # Axis correction: rotate entire islands, never individual triangles.
+    # Try exact alignment and smaller rotations; compare actual seam
+    # residual and model-axis error, preserving all accepted welds.
+    var aligned: int = 0
+    var members: Array = _face_chart_members(tris,charts.size())
+    var order: Array[Dictionary] = []
+    for ci in range(charts.size()):
+        if members[ci].is_empty():
+            continue
+        var normal: Vector3 = _face_chart_normal(tris,members[ci])
+        if maxf(absf(normal.x),maxf(absf(normal.y),absf(normal.z)))<0.95:
+            continue
+        var sum := Vector2.ZERO
+        var total: float = 0.0
+        for ti in members[ci]:
+            var t: Dictionary = tris[int(ti)]
+            var p: PackedVector3Array = t.p
+            var area: float = (p[1]-p[0]).cross(p[2]-p[0]).length()*0.5
+            var angle: float = _face_axis_angle(t)
+            sum += Vector2(cos(angle*4.0),sin(angle*4.0))*area
+            total += area
+        if sum.length_squared()>0.000000000001 and absf(sum.angle()*0.25)>deg_to_rad(2.0):
+            order.append({"id":ci,"angle":sum.angle()*0.25,"rank":total*absf(sum.angle())})
+    order.sort_custom(func(a: Dictionary,b: Dictionary) -> bool: return float(a.rank)>float(b.rank))
+    for entry in order.slice(0,mini(24,order.size())):
+        var ci: int = int(entry.id)
+        var pivot: Vector2 = tris[int(members[ci][0])].xy[0]
+        var prior: Dictionary = _joint_copy(tris,charts)
+        var best: Dictionary = {}
+        var best_energy: float = float(current.axis_energy)
+        for fraction in [1.0,0.5,0.25]:
+            var ct: Array[Dictionary] = prior.tris
+            var cc: Array[Dictionary] = prior.charts
+            for ti in members[ci]:
+                var xy: PackedVector2Array = tris[int(ti)].xy.duplicate()
+                for k in range(3):
+                    xy[k] = (xy[k]-pivot).rotated(float(entry.angle)*float(fraction))+pivot
+                ct[int(ti)].xy = xy
+            cc[ci] = _face_chart_bounds(ct,members[ci])
+            var score: Dictionary = _face_visual_metrics(ct,physical)
+            if float(score.axis_energy)>=best_energy-0.000000001 or not _face_visual_ok(current,score) or _hinge_pack_side(cc)>capacity:
+                continue
+            best_energy = float(score.axis_energy)
+            best = _joint_copy(ct,cc)
+            best.score = score
+        if best.is_empty():
+            continue
+        for ti in members[ci]:
+            tris[int(ti)].xy = best.tris[int(ti)].xy
+        charts = best.charts
+        current = best.score
+        aligned += 1
+    return {"charts":charts,"applied":welded>0 or aligned>0,"report":"V33 面統合 %d/%d・軸補正 %d・島 %d→%d・単三角島 %d→%d・方向差10度超 %d→%d・軸傾き5度超 %d→%d" % [welded,tested,aligned,initial_charts,charts.size(),int(before.singletons),int(current.singletons),int(before.angular),int(current.angular),int(before.tilted),int(current.tilted)]}
 
 ## Reconstruct convex four-corner boundaries, including collinear
 ## subdivided sides. Keep the mesh itself unchanged. Accept a rectangular
