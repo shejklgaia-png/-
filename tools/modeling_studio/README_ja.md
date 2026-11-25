@@ -254,3 +254,11 @@ shape: wireframe を部品に指定。wireframe_example.json が動作確認用�
 - 独立探索枝の最良候補と、前回基準に対する技術ガードも合格した全体最良候補を分けて保存する。枝の改善は外部干渉候補の総数、中立時候補、新規候補、全関節候補の順で評価する。輪郭は参考値のみ。全体最良候補が更新されない場合も腕探索枝を破棄しない。
 - arm_pair_review.json、全10候補の実レンダー・HTML、arm_branch_viewer.html、best_viewer.html、全比較画像を保存。接触候補は離散姿勢の表面交差の指標であり、連続衝突検査・物理的成立・審美的完成の保証ではない。実機未確認。ゲーム本体のモデルは変更しない。
 - 調査：MoveIt Planning Scene https://moveit.picknik.ai/main/doc/examples/planning_scene/planning_scene_tutorial.html 。実ロボットの衝突リンクペア検査を参考にした探索方式で、MoveIt自体は導入しない。
+
+## 10回反復制作 V6：肩支持・中空履帯
+- iteration_mode=true / shoulder_track_mode=true、または modeling/crate-blockout-loop-v6-* を選択。V5の10_forwardを再現した基準を保持する。
+- 肩軸は胴体寄り（中心から200〜225mmを基本探索範囲）へ戻し、胴体に接続する多断面支持台、固定環状筐体、取付フランジと回転側出力フランジを分離。肘・手首の位置、内部リンクと外装の寸法を連動させる。肩位置の過度な外方移動を避ける。
+- 履帯の外周・内周・履帯片配置を共通の接線付きカプセル経路から構築。中空ベルト、前後輪、下部転輪3個、支持フレーム、簡略張力調整部、側面整備カバーを別部品とする。内周から前後輪半径と転輪位置を算出する。これは静的外観設計であり、実際の履帯駆動・張力・荷重設計を保証しない。
+- 6種類の組合せと、最良再設計候補を起点とした4種類の異なる寸法再試行。80離散姿勢、露出、階層、トポロジー、三角形上限を検査。輪郭は参考値のみ。接触の免除、可動範囲の縮小を行わない。再設計候補と基準を含む技術ガード合格候補を別保存し、外観は別途実画像で確認する。
+- 調査資料：Harmonic Drive FHA Mini https://www.harmonicdrive.net/products/miniature-products/miniature-actuators/fha-mini 、Cat足回り https://www.cat.com/en_US/products/new/parts/undercarriage/undercarriage-compact-track-multi-terrain-loaders.html 、張力調整部 https://parts.cat.com/en/catcorp/product/560-6422 。資料の寸法を転用せず、架空機械の形状と部品構成に反映。
+- 全10候補の実GLB・HTML・多方向レンダー・arm_pair_review.json・寸法設定を保存。ゲームモデルは未置換。
