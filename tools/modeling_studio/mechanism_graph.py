@@ -108,6 +108,13 @@ def compile_graph(source):
             parts.append(n);done.add(k);remaining.remove(k)
             entries[k]["parent"]=n.get("parent")
     spec["parts"]=parts
+    samples=cfg.get("joint_review_samples")
+    if samples is not None:
+        if not isinstance(samples,int) or isinstance(samples,bool) or not 2<=samples<=13 or spec.get("motion_sweeps"):
+            raise ValueError("invalid or conflicting graph joint review samples")
+        level=spec.get("hard_surface",{}).get("level",5)
+        spec["motion_sweeps"]=[{"node":k,"axis":e["joint"]["axis_local"],"degrees":e["joint"]["range_deg"],"samples":samples}
+            for k,e in entries.items() if e["joint"] and nodes[k].get("level",1)<=level]
     spec.setdefault("hard_surface",{})["level"]=spec.get("hard_surface",{}).get("level",5)
     report={"format":"SERA_MECHANISM_GRAPH_V1","nodes":entries,"order":[n["name"] for n in parts],
             "reference_policy":"Soft reference evidence; authored intent and physical plausibility prioritized.",
