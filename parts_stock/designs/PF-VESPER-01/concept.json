@@ -1,0 +1,61 @@
+{
+  "format": "SERA_VESPER_FRAME_SPEC_V1",
+  "id": "PF-VESPER-01",
+  "status": "design_frozen_geometry_candidate",
+  "name": "Vesper Frame / ヴェスパー・フレーム",
+  "lore": "旧工業圏の危険区域保守用Shellを近接制圧向けに再設計。中空軸駆動と交換装甲で軽快な取り回しを確保し、予測シールド下の近接部位破壊を狙う。",
+  "palette": [
+    "matte white",
+    "blue gray",
+    "graphite",
+    "cyan"
+  ],
+  "rig_target": "Standard.bbmodel humanoid; display pose approximate, bind transform not verified",
+  "parts": [
+    [
+      "PF-VH01",
+      "head",
+      "Vesper Visor",
+      "近距離観測"
+    ],
+    [
+      "PF-VB01",
+      "body",
+      "Vesper Core",
+      "中軽量胴体"
+    ],
+    [
+      "PF-VA01",
+      "arms",
+      "Vesper Edge Arms",
+      "高応答腕"
+    ],
+    [
+      "PF-VL01",
+      "legs",
+      "Vesper Strider",
+      "標準二脚"
+    ],
+    [
+      "PF-VW01",
+      "weapons",
+      "Mistral Blade",
+      "ブレード／ロイヤル候補"
+    ],
+    [
+      "PF-VW02",
+      "weapons",
+      "Shard Buckler",
+      "左手補助シールド"
+    ]
+  ],
+  "balance": "既存能力値に収まる設計。新規セット効果・特殊補正・正式数値は未確定。",
+  "references": [
+    "https://www.abb.com/global/en/areas/electrification/low-voltage/flexible-cable-protection-systems/cable-protection/pma/robotics",
+    "https://www.honpine.com/news/Company-News/-Next-Generation-Humanoid-Robot-Joint-Design-HONPINE-HPJM-with-Harmonic-Drive-Hollow-Shaft-and-Integrated-Encoder-Module.html"
+  ],
+  "limitations": [
+    "concept model; no texture atlas or game registration",
+    "assembly pose not final rig"
+  ]
+}
