@@ -102,10 +102,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [[ "${GITHUB_HEAD_REF:-}" == modeling/parts-factory/* ]]; then
+            id="${GITHUB_HEAD_REF#modeling/parts-factory/}"
+            [[ "$id" =~ ^[a-z][a-z0-9_-]{1,39}$ ]]
+            DESIGN="tools/modeling_studio/pf_${id}.json"
+          fi
           design=$(realpath -- "$DESIGN")
           root=$(realpath tools/modeling_studio)
           [[ "$design" == "$root/"*.json && -f "$design" ]]
-          if [[ "$ARM_SEARCH_MODE" == true ]]; then
+          if [[ "$(basename "$design")" == pf_*.json ]]; then
+            # PF source is immutable; do not substitute CRATE variant seeds.
+            [[ "$ARM_SEARCH_MODE" != true && "$INDUSTRIAL_DESIGN_MODE" != true && "$REFERENCE_DESIGN_MODE" != true && "$STRUCTURAL_MODE" != true ]]
+          elif [[ "$ARM_SEARCH_MODE" == true ]]; then
             "$RUNNER_TEMP/review-venv/bin/pip" install numpy==2.2.6
             "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/arm_search.py prepare "$design" "$RUNNER_TEMP/crate-arm-search-seed.json"
             design="$RUNNER_TEMP/crate-arm-search-seed.json"
