@@ -43,13 +43,17 @@ def sample(keys,t,smooth):
 def _compile_clip(scene,d,nodes,end,out,blend=None):
     spec=d.get("bb_clip")
     if not spec:return
-    if d["source_bbmodel"]!="models/bosses/Bittaran.bbmodel" or float(d["bb_unit_m"])!=.145:
+    generic=bool(spec.get("explicit_phase_frames"))
+    if generic:
+        if not d.get("source_bbmodel") or d.get("rig_discovery",{}).get("mode")!="quadruped":
+            raise ValueError("generic clip requires canonical rigid quadruped configuration")
+    elif d["source_bbmodel"]!="models/bosses/Bittaran.bbmodel" or float(d["bb_unit_m"])!=.145:
         raise ValueError("V10 Bittaran runtime unit required")
     if d.get("tracks"):raise ValueError("do not mix source clip and explicit tracks")
     repo=Path(__file__).resolve().parents[2]
     model=json.loads((repo/d["source_bbmodel"]).read_text())
     clips={a["name"]:a for a in model["animations"]}
-    wait=clips["Wait"];attack=clips[spec["name"]]
+    wait=clips[spec.get("wait_name","Wait")];attack=clips[spec["name"]]
     fps=int(d["fps"]);duration=float(attack["length"])
     entry=int(spec["entry_frames"]);exit=int(spec["exit_frames"]);middle=round(duration*fps)
     if abs(middle/fps-duration)>1e-5 or entry<1 or exit<1 or end!=1+entry+middle+exit:raise ValueError("source clip frame timing")
@@ -60,7 +64,7 @@ def _compile_clip(scene,d,nodes,end,out,blend=None):
         uid=g["uuid"];o=nodes[uid];bind_p=o.location.copy();bind_q=o.rotation_euler.to_quaternion()
         w=wait.get("animators",{}).get(uid,{}).get("keyframes",[])
         a=attack.get("animators",{}).get(uid,{}).get("keyframes",[])
-        if g["name"]=="Head":a=w # Head remains fixed at authored Wait, not a simulated live target.
+        if (uid==d.get("markers",{}).get("Head",{}).get("node") if generic else g["name"]=="Head") and spec.get("freeze_head",True):a=w
         wr,wp=channel(w,"rotation"),channel(w,"position")
         ar,ap=channel(a,"rotation"),channel(a,"position")
         def pose(r,p,t,s):
@@ -96,7 +100,15 @@ def _compile_clip(scene,d,nodes,end,out,blend=None):
                 keys=[keys[0],dict(keys[-1],value=keys[0]["value"])]
             tracks[uid][name]=keys
     d["tracks"]=tracks
-    d["events"].update({"wait":1,"attack_start":entry+1,"apex":entry+61,"hold_end":entry+76,"impact_authored":entry+91,"attack_end":entry+middle+1,"recovered":end})
+    if generic:
+        phases=spec["explicit_phase_frames"]
+        if set(phases)!={"apex","hold_end","impact_authored"} or any(type(v) is not int for v in phases.values()):
+            raise ValueError("explicit clip-relative phase frames required")
+        if not 0<phases["apex"]<phases["hold_end"]<phases["impact_authored"]<middle:
+            raise ValueError("invalid clip phase ordering")
+        d["events"].update({"wait":1,"attack_start":entry+1,**{k:entry+1+v for k,v in phases.items()},"attack_end":entry+middle+1,"recovered":end})
+    else:
+        d["events"].update({"wait":1,"attack_start":entry+1,"apex":entry+61,"hold_end":entry+76,"impact_authored":entry+91,"attack_end":entry+middle+1,"recovered":end})
     (out/"source_clip_report.json").write_text(json.dumps({"clip":spec["name"],"mode":spec["mode"],"blend":smooth,"unit_m":unit,"source_duration":duration,"entry_frames":entry,"exit_frames":exit,"source_sha256":json.loads((out/"rig_report.json").read_text())["sha256"],"scope":"authored local pose + preview entry/exit; no runtime battle IK, aim, collision or gameplay timing; candidate not approved"},indent=2,ensure_ascii=False))
 
 
