@@ -76,7 +76,12 @@
     "name": "踏みつけ_L",
     "mode": "guarded",
     "entry_frames": 24,
-    "exit_frames": 24
+    "exit_frames": 24,
+    "explicit_phase_frames": {
+      "apex": 60,
+      "hold_end": 75,
+      "impact_authored": 90
+    }
   },
   "review": {
     "target": [
@@ -233,5 +238,20 @@
         "rebound_ratio": 0.3
       }
     ]
+  },
+  "rig_discovery": {
+    "mode": "quadruped",
+    "apply": "verify",
+    "roles": {
+      "Body": "Body",
+      "Head": "Head",
+      "FrontFoot_L": "FrontFoot_L",
+      "FrontFoot_R": "FrontFoot_R",
+      "RearFoot_L": "RearFoot_L",
+      "RearFoot_R": "RearFoot_R"
+    },
+    "strike_role": "FrontFoot_L",
+    "reference_span_m": 5.539,
+    "scale_secondary": false
   }
 }
