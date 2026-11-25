@@ -1,6 +1,7 @@
 """Opt-in structured hard-surface design compiler. No image interpretation is implied."""
 import copy
 import math
+from intent_fit import solve_intent
 
 METHODS = {
     "outline":"wireframe", "section":"loft", "solid":"box", "extrusion":"prism",
@@ -42,14 +43,19 @@ def fit_dimensions(part):
         low,high=map(positive,t["bounds_m"])
         if low>high or not low<=value*factor<=high:
             raise ValueError("invalid dimension bounds or initial value")
-        candidate=min(high,max(low,target))/factor
+        intent_report=None
+        if "observations" in t:
+            chosen,intent_report=solve_intent(value*factor,low,high,t)
+            candidate=chosen/factor
+        else:
+            candidate=min(high,max(low,target))/factor
         if i is None:
             part[field]=candidate
         else:
             part[field][i]=candidate
         rows[key]={"before_m":value*factor,"after_m":candidate*factor,"target_m":target,
                    "before_error_m":abs(value*factor-target),"after_error_m":abs(candidate*factor-target),
-                   "bounded":not low<=target<=high}
+                   "bounded":not low<=target<=high,"intent_fit":intent_report}
     return rows
 
 def compile_design(source):
