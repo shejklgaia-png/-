@@ -1,4 +1,4 @@
-"""PARTS FACTORY V4: resumable, non-destructive production coordinator."""
+"""PARTS FACTORY V5: resumable, non-destructive production coordinator."""
 import argparse
 import hashlib
 import json
@@ -9,15 +9,16 @@ from pathlib import Path
 import quality_gates as q
 import reference_contract as rc
 import texture_contract as tc
+import design_knowledge as dk
 
 ROOT = Path(__file__).resolve().parents[2]
 STOCK = ROOT / "parts_stock"
 STAGES = {
-    "concept": ("concept.json",),
+    "concept": ("concept.json", "design_brief.json"),
     "art": ("selected.png", "art_review.json"),
     "blueprint": ("blueprint.png", "blueprint_review.json"),
     "analysis": ("analysis.json", "correspondence.json"),
-    "plan": ("design.json", "structure_plan.json"),
+    "plan": ("design.json", "structure_plan.json", "design_brief_snapshot.json"),
     "model": ("model.blend", "model.glb", "mesh_report.json", "complete.json", "review.json", "design.json"),
     "geometry": ("geometry_review.json", "front.png", "front_3q.png", "right.png", "back_3q.png", "back.png", "left.png", "top.png", "bottom.png"),
     "uv": ("uv.json", "uv_model.glb"),
@@ -63,7 +64,7 @@ def files(folder):
 
 def state(work):
     d = read(work / "job.json")
-    require(d["format"] == "SERA_PARTS_FACTORY_V4", "invalid format")
+    require(d["format"] == "SERA_PARTS_FACTORY_V5", "invalid format")
     require(d["slot"] in SLOTS and re.fullmatch(r"[A-Z][A-Z0-9_-]{1,39}", d["id"]), "invalid job identity")
     return d
 
@@ -109,6 +110,7 @@ def check_stage(name, src, d):
         require(obj.get("id") == d["id"] and obj.get("slot") == d["slot"], "concept identity mismatch")
         for k in ("name","lore","mechanism","references","rig_target","proposed_stats"):
             require(bool(obj.get(k)), "missing concept field " + k)
+        dk.check_brief(src,d["slot"])
     if name == "art":
         q.art(src)
     if name == "blueprint":
@@ -118,6 +120,7 @@ def check_stage(name, src, d):
     if name == "plan":
         q.plan(src,d["stages"]["blueprint"]["key"])
         rc.check_plan(src,d["stages"]["analysis"])
+        dk.check_plan(src,d["stages"]["concept"])
     if name == "model":
         design = read(src / "design.json")
         q.validate_permit(design,src / "design.json")
@@ -240,7 +243,7 @@ def stock(work):
         write(out/"job.json",d)
         if (work/"rejections").is_dir():
             shutil.copytree(work/"rejections",out/"rejections")
-        write(out/"release.json",{"id":d["id"],"slot":d["slot"],"revision":key,"state":"stocked_not_in_game","format":"SERA_PARTS_STOCK_V4"})
+        write(out/"release.json",{"id":d["id"],"slot":d["slot"],"revision":key,"state":"stocked_not_in_game","format":"SERA_PARTS_STOCK_V5"})
         out.rename(dest)
     print("STOCKED",dest)
 
@@ -299,7 +302,7 @@ def main():
         require(re.fullmatch(r"[A-Z][A-Z0-9_-]{1,39}",args.id),"invalid ID")
         work.mkdir(parents=True,exist_ok=True)
         require(not (work/"job.json").exists(),"job already exists")
-        write(work/"job.json",{"format":"SERA_PARTS_FACTORY_V4","id":args.id,"slot":args.slot,"stages":{}})
+        write(work/"job.json",{"format":"SERA_PARTS_FACTORY_V5","id":args.id,"slot":args.slot,"stages":{}})
     elif args.cmd=="accept":
         accept(work,args.stage,args.source.resolve(),args.producer)
     elif args.cmd=="stock":
@@ -314,10 +317,15 @@ def main():
         d=state(work); valid,key=verify(work,d)
         next_stage=ORDER[len(valid)] if len(valid)<len(ORDER) else "stock"
         result={"id":d["id"],"accepted":valid,"next":next_stage,"revision":key,"rejections":[read(p) for p in sorted((work/"rejections").glob("*.json"))]}
+        if args.cmd=="handoff" and not valid:
+            result["route"]="design_knowledge.py brief <slot> <keywords> <concept-dir>/design_brief.json -> accept concept"
         if args.cmd=="handoff" and valid:
             last=d["stages"][valid[-1]]
             result.update({"input_dir":str(work/"objects"/last["key"]),"input_hashes":last["files"],"producer":last["producer"]})
-            if next_stage=="model":
+            if next_stage=="plan":
+                result["design_brief"]=str(work/"objects"/d["stages"]["concept"]["key"]/"design_brief.json")
+                result["route"]="copy exact design brief snapshot and map knowledge to components"
+            elif next_stage=="model":
                 result["route"]="authorize-model -> tools/modeling_studio/pf_<id>.json -> modeling/parts-factory/<id-lower> PR or dedicated dispatch"
             elif next_stage=="uv":
                 result["route"]="texture_bridge.py prepare -> authored original-face UV layout -> validate -> Blender apply -> accept uv"
