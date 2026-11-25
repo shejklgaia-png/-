@@ -111,7 +111,7 @@ def packet_data(src,stage,job_id,upstream,work=None):
                 p=q.evidence(root,name)
                 digest=q.sha(p);need(digest==rec["files"][name],"upstream evidence changed")
                 items["upstream/"+st+"/"+name]=(p,digest)
-    manifest={k:v[1] for k,v in sorted(items.items())}
+    manifest={k:hashlib.sha256(view_payload(v[0],stage)).hexdigest() for k,v in sorted(items.items())}
     binding={"format":FORMAT,"job_id":job_id,"stage":stage,
         "candidate_sha256":q.canonical(private),
         "upstream":{k:v["key"] for k,v in upstream.items()},
@@ -149,7 +149,7 @@ def emit(out,stage,role,items,binding):
         "instructions":"Open evidence files, evaluate independently before seeing author or other scores. Give a concrete defect or justification for every criterion and cite evidence paths. Do not approve missing or uninspected evidence. Record your real context ID; never fabricate independence."}
     (out/"request.json").write_text(json.dumps(request,ensure_ascii=False,indent=2),encoding="utf-8")
     template={"format":FORMAT,"role":role,"binding_sha256":q.canonical(binding),
-        "reviewer":{"actor":"","context_id":"","kind":"ai"},"independent_context_attested":False,
+        "reviewer":{"actor":"","context_id":"","kind":"ai"},"independent_context_attested":False,"packet_files":exported,
         "verdict":"pending","criteria":{k:{"score":None,"reason":"","evidence":[]} for k in CRITERIA[stage][role]},
         "blocking_issues":[],"revision_advice":"","selected_candidate_sha256":None}
     (out/"response_template.json").write_text(json.dumps(template,ensure_ascii=False,indent=2),encoding="utf-8")
@@ -164,6 +164,10 @@ def check(src,stage,job_id,upstream,work=None,allow_reject=False):
             p=work/"objects"/rec["key"]/"author.json"
             contexts.add(identity(q.load(p),"upstream author")["context_id"])
     identities={(a["kind"],a["actor"].strip().casefold())}
+    if work:
+        for st,rec in upstream.items():
+            i=identity(q.load(work/"objects"/rec["key"]/"author.json"),"upstream author")
+            identities.add((i["kind"],i["actor"].strip().casefold()))
     records=[]
     for role,keys in CRITERIA[stage].items():
         p=src/"independent_reviews"/(role+".json")
@@ -175,6 +179,7 @@ def check(src,stage,job_id,upstream,work=None,allow_reject=False):
         need(actor not in identities,"review actor must differ from author and other reviewer")
         contexts.add(i["context_id"]);identities.add(actor)
         need(r.get("independent_context_attested") is True,"independence attestation missing")
+        need(r.get("packet_files")==binding["evidence"],"reviewed packet hash manifest mismatch")
         verdict=r.get("verdict");need(verdict in ("approve","reject","unverified"),"invalid verdict")
         q.rubric(r.get("criteria"),keys,role,minimum=4 if verdict=="approve" else 1)
         for k,row in r["criteria"].items():
@@ -188,7 +193,9 @@ def check(src,stage,job_id,upstream,work=None,allow_reject=False):
         else:need(bool(issues),"reject/unverified must explain blockers")
         if stage=="art" and verdict=="approve":
             # Reviewer chooses an actual candidate by hash, independent of author's selection.
-            need(r["selected_candidate_sha256"]==q.sha(src/"selected.png"),"reviewer selects different concept; revise and re-review")
+            candidate_hashes={digest for name,(_,digest) in items.items() if name.startswith("candidate/candidate_")}
+            need(r.get("selected_candidate_sha256") in candidate_hashes,"reviewer must select an actual candidate")
+            if not allow_reject:need(r["selected_candidate_sha256"]==q.sha(src/"selected.png"),"reviewer selects different concept; revise and re-review")
         records.append(r)
     if not allow_reject:
         need(all(r["verdict"]=="approve" for r in records),"independent review veto")
@@ -199,9 +206,10 @@ def record_veto(work,stage,src):
     d=f.state(work);f.verify(work,d);idx=f.ORDER.index(stage)
     up={k:d["stages"][k] for k in f.ORDER[:idx]}
     records=check(src,stage,d["id"],up,work,allow_reject=True)
-    need(any(r["verdict"]!="approve" for r in records),"no veto to record")
+    need(any(r["verdict"]!="approve" or (stage=="art" and r.get("selected_candidate_sha256")!=q.sha(src/"selected.png")) for r in records),"no veto to record")
     # Record even unaccepted attempts; never overwrite accepted snapshots.
-    obj={"stage":stage,"candidate_sha256":q.canonical(inventory(src)),"upstream":{k:v["key"] for k,v in up.items()},"reviews":records}
+    _,_,binding=packet_data(src,stage,d["id"],up,work)
+    obj={"stage":stage,"candidate_sha256":binding["candidate_sha256"],"evidence_sha256":q.canonical(binding["evidence"]),"upstream":binding["upstream"],"reviews":records}
     path=work/"review_vetoes"/(q.canonical(obj)+".json")
     if not path.exists():f.write(path,obj)
     print(path)
