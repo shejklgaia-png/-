@@ -123,16 +123,21 @@ def compile_fk(d,nodes,end,out):
     d["tracks"]=tracks
     d["events"]={k[1]:1+round(k[0]*fps) for k in keys}
     if len(set(d["events"].values()))!=len(keys):raise ValueError("duplicate event frame")
+    if spec.get("contact_policy")=="heavy_landing_v24":
+        if version!=22:raise ValueError("V24 requires V22 whole-body poses")
+        from heavy_landing import bake_heavy_landing
+        bake_heavy_landing(d,nodes,end,out,geom)
     d["export_poses"]=[{"id":n,"frame":f} for n,f in d["events"].items()]
     d["pose_export_channels"]={uid:list(ch) for uid,ch in tracks.items()}
     d.setdefault("spatial",{}).setdefault("floor",{"z":0.,"tolerance_m":.002,"meshes":[uid for uid,o in nodes.items() if o.type=="MESH"]})
-    # Preserve the strike chain throughout the authored clip. Only the three
-    # sibling legs receive optional runtime-style corrections.
+    # The three sibling legs receive optional runtime-style correction.
+    # V23 additionally enables bounded strike IK; V24 bakes its deliberate
+    # recovery into the authored strike chain instead.
     support=[n for n in ROLES if n!="FrontFoot_L"]
     phase={"support":support,"feet":feet,"foot_yaws":{n:0. for n in ROLES}}
     d["procedural_motion"]={"action":"stomp","max_contact_offset_m":.30,"preview_ik":bool(spec.get("preview_ik",False))}
     contact_policy=spec.get("contact_policy","support_only")
-    if contact_policy=="support_only":
+    if contact_policy in ("support_only","heavy_landing_v24"):
         phases,contact_frames=[phase,phase],[1,end]
     elif contact_policy=="post_impact_v23" and version==22:
         # Use the same V22 FK source, including all authored strike poses.
@@ -149,4 +154,4 @@ def compile_fk(d,nodes,end,out):
         raise ValueError("unsupported FK contact policy")
     try:compile_contact_layer(d,nodes,end,out,phases,contact_frames,geom,5.539)
     finally:del d["procedural_motion"]
-    (out/"fk_performance_report.json").write_text(json.dumps({"version":version,"contact_policy":contact_policy,"variant":variant,"keys":keys,"source_animation_used":False,"neutral_root_z_m":base,"authored_tracks":tracks,"review_status":"review_required","scope":"explicit body-relative link directions, V22 authored support-local rotation keys, and shape-preserving time curves; three support legs optional IK; no physical joint limits or collision approval"},indent=2,ensure_ascii=False))
+    (out/"fk_performance_report.json").write_text(json.dumps({"version":24 if contact_policy=="heavy_landing_v24" else version,"contact_policy":contact_policy,"variant":variant,"keys":keys,"source_animation_used":False,"neutral_root_z_m":base,"authored_tracks":tracks,"review_status":"review_required","scope":"explicit body-relative link directions, V22 authored support-local rotation keys, and shape-preserving time curves; three support legs optional IK; no physical joint limits or collision approval"},indent=2,ensure_ascii=False))
