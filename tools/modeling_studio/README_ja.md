@@ -111,3 +111,13 @@ modeling/crate-baseline-proportion-*のPRでは現行モデルの基準BLENDか�
 
 現行CRATEと比率候補・局所造形候補を同じ制作runで出力した場合、review_bundle.pyは各8方向の透過レンダリングをアルファ128で二値化し、bbox等方正規化後のIoU・不足/過剰画素・縦横比と重ね合わせ画像を candidate_comparison/ に生成する。赤は現行のみ、青は候補のみ、白は共通。comparison.json に方向別数値、平均、最も差が大きい方向を記録。候補は同名のカメラ方向を前提とする。これは現行からの変化量であり、設定画への一致度や改善の合否ではない。絶対寸法・位置・材質・可動互換は別途確認する。成果物ハッシュは1MiBずつ読み込んで計算する。比較画像もreview.jsonのハッシュ対象とする。
 参考: https://pillow.readthedocs.io/en/stable/reference/ImageChops.html / https://docs.blender.org/manual/en/4.5/render/cameras.html
+
+## 多方向輪郭・構造線先行モデリング V1
+shape: wireframe を部品に指定。wireframe_example.json が動作確認用の合成四面図座標例（クレート実設定画ではない）。既存shapeと混用可。
+- wireframe.views: front/back/right/left の origin_px（部品ローカル原点の画像座標）、px_per_m、任意の正の weight。画像Yは下向き、水平軸は正面+X・背面-X・右+Y・左-Y。単位m。部品ローカルの正投影で校正し、回転・透視のある資料は事前に補正する。
+- wireframe.points: 対応する頂点IDごとに観測できるビュー名と[x,y]ピクセル座標を記述。幅と奥行きを拘束する最低2方向が必要。背面や左面のない三面図でも可。隠れた点は推測値と実観測を混同しない。
+- 加重最小二乗でXYZを復元し各観測への再投影誤差が max_error_px（既定3）を超えれば拒否。対応点の自動認識はしない。
+- strips: [{rings:[[頂点ID...],[頂点ID...]],cap_start:true,cap_end:true}]。同一対応順の閉ループを接続。faces に明示面を追加可能。lines に外周・装甲境界などの連続頂点IDを指定し、実エッジとして存在することを確認。閉じた2面共有エッジ、重複面・潰れ辺を検査し、Blenderで辺のみのメッシュから面を生成、法線再計算、面取り・UV・既存レンダリングへ接続。
+- wireframe_guides.obj は仕上げ前のワールド座標線のみ、wireframe_guides.json は部品ローカルXYZ、各方向の観測・再投影・誤差、辺・面を記録。両方を成果物ハッシュに追加。OBJの線はGLB本体に混入しない。
+- 自動輪郭抽出・対応点同定・凹部推定・自己交差の完全検出・画像GUIは未実装。実設定画への再現性は別途測定する。輪郭だけでは凹部が決定できないため内部構造線を明示する。
+参考: https://docs.blender.org/manual/en/4.5/modeling/meshes/editing/edge/bridge_edge_loops.html / https://homepages.inf.ed.ac.uk/rbf/CVonline/LOCAL_COPIES/MANESSIS/liter/node7.html
