@@ -200,3 +200,9 @@ shape: wireframe を部品に指定。wireframe_example.json が動作確認用�
 - crate_blockout_v8.json はV7を保持した独立候補。アンテナ支持軸・頭部の実切削バイザー・多断面腕・三本爪の先端・連続ベルトと閉経路反復の履帯片・転輪ハブ・収納部を改良。既存の造形レシピを使用。
 - V7と同じ正面/右カメラ・概略トレースを維持。IoU差分と暫定下限（正面0.87、右0.92）を報告する。下限は作者判断であり合格保証ではない。形状と斜め方向の目視・接続・干渉は独立評価。可動とゲーム置換は保留。
 - 参考: https://studio.blender.org/tools/pipeline-overview/asset-creation/modeling
+
+## CRATE V9：機構分解・可動階層
+- V8を保持した独立候補。肩固定台と軸、上腕内部リンクと外装、肘固定フォーク・軸受・軸・カバー、前腕側回転ハブとフレーム・外装、手首固定軸受と回転軸・ハンド基部、三本の独立爪とパッドを分離。中立姿勢の親ローカル座標を使用。首旋回/傾斜・アンテナヒンジも追加。履帯と背面収納はV8維持。
+- joint_checks はnode/axis/range_deg/probe_deg/fixed/movingを指定。実Blenderの各代表メッシュの親子所属、固定側行列不変、回転側の期待行列との差、軸中心の移動を確認しjoint_hierarchy_review.jsonに記録。失敗時は制作を停止する。既存motion_sweepsによる離散干渉候補とは別。関節範囲は設定画から確定できないため作者推定で、ゲーム内制約を自動設定しない。
+- V8の固定カメラ・参考輪郭で外形比較。前面発光の位置と切削深さも変更した。見栄え・物理干渉・実機負荷は成果物確認後に判定。ゲーム内CRATEは未置換。
+参考: https://docs.blender.org/manual/en/4.0/scene_layout/object/editing/parent.html / https://docs.blender.org/manual/ja/4.5/modeling/modifiers/generate/booleans.html
