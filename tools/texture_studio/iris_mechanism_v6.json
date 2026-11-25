@@ -1,0 +1,104 @@
+{
+  "mesh_sha256": "2eb99829f1758053a69c76b5a089c7a61cdd15585bb2dad87ca720acf1331500",
+  "base_sha256": "d5b5b2d79843b64917972aa91c1bf7299c6730bda52fb55d37cbb322d577e590",
+  "resolution": 1024,
+  "margin": 0.008,
+  "assemblies": [
+    {
+      "id": "paired_feed_23",
+      "face": 23,
+      "kind": "pipe",
+      "material": "steel",
+      "radius": 0.0035,
+      "path": [
+        [
+          -0.041,
+          -0.008
+        ],
+        [
+          -0.022,
+          0.009
+        ],
+        [
+          0.021,
+          0.009
+        ],
+        [
+          0.041,
+          -0.008
+        ]
+      ]
+    },
+    {
+      "id": "paired_feed_66",
+      "face": 66,
+      "kind": "pipe",
+      "material": "steel",
+      "radius": 0.0035,
+      "path": [
+        [
+          -0.041,
+          -0.008
+        ],
+        [
+          -0.022,
+          0.009
+        ],
+        [
+          0.021,
+          0.009
+        ],
+        [
+          0.041,
+          -0.008
+        ]
+      ]
+    },
+    {
+      "id": "rear_manifold",
+      "face": 95,
+      "kind": "cooler",
+      "material": "dark_alloy",
+      "radius": 0.005,
+      "path": [
+        [
+          -0.055,
+          0.02
+        ],
+        [
+          0.055,
+          0.02
+        ]
+      ],
+      "count": 6,
+      "fin_span": 0.017,
+      "fin_radius": 0.0025
+    },
+    {
+      "id": "lower_manifold",
+      "face": 92,
+      "kind": "pipe",
+      "material": "steel",
+      "radius": 0.006,
+      "path": [
+        [
+          -0.075,
+          -0.015
+        ],
+        [
+          -0.04,
+          0.017
+        ],
+        [
+          0.045,
+          0.017
+        ],
+        [
+          0.08,
+          -0.015
+        ]
+      ],
+      "enabled": false
+    }
+  ]
+}
