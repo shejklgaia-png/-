@@ -383,6 +383,33 @@ func _measure_face_footprints(tris: Array,atlas: Image,density: int,dest: String
         var ok_erase: bool = best_erased.save_png(prefix+"-erased.png")==OK
         metrics.artifact_ok = ok_old and ok_new and ok_mask and ok_erase
         metrics.example = best_case
+        metrics.mesh_artifact_ok = _export_footprint_mesh(tris,prefix,best_case)
     studio.tool_picker.free()
     studio.free()
     return metrics
+
+
+# Export the actual mesh used for painting, not a rebuilt approximation.
+# Non-JSON extension keeps the existing baseline/face report collector
+# from interpreting this review asset as a metrics report.
+func _export_footprint_mesh(tris: Array,prefix: String,example: Dictionary) -> bool:
+    var mesh_triangles: Array = []
+    for t in tris:
+        var p: Array = []
+        var n: Array = []
+        var uv: Array = []
+        for i in range(3):
+            var pos: Vector3 = t.p[i]
+            var normal: Vector3 = t.n[i]
+            var texcoord: Vector2 = t.uv[i]
+            p.append([pos.x,pos.y,pos.z])
+            n.append([normal.x,normal.y,normal.z])
+            uv.append([texcoord.x,texcoord.y])
+        mesh_triangles.append({"p":p,"n":n,"uv":uv,"chart":int(t.chart),"cull":int(t.get("cull",0))})
+    var file := FileAccess.open(prefix+"-mesh.txt",FileAccess.WRITE)
+    if file == null:
+        return false
+    file.store_string(JSON.stringify({"triangles":mesh_triangles,"example":example,"uv_origin":"top-left","winding":"Godot clockwise"}))
+    var ok: bool = file.get_error()==OK
+    file.close()
+    return ok
