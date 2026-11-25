@@ -135,6 +135,8 @@ def main():
         paths += ["wireframe_guides.json","wireframe_guides.obj"]
         from wireframe_projection import review as review_wireframe
         paths += review_wireframe(root)
+    from hard_surface_review import review as review_hard_surface
+    paths += review_hard_surface(root)
     paths += compare_candidates(root)
     files = {p:{"bytes":(root/p).stat().st_size,"sha256":sha256_file(root/p)} for p in paths}
     if any(v["bytes"]==0 for v in files.values()):
