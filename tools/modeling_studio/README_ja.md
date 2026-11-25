@@ -173,3 +173,10 @@ shape: wireframe を部品に指定。wireframe_example.json が動作確認用�
 - box/cylinderの既存dimension_fitに任意のobservationsを指定可能。target_mを造形意図としてreason、intent_weight、tolerance_mを記述し、各参考値はsource/value_m/weight(0..1)/任意tolerance_mで指定。明示bounds_mは厳守。Huber損失で外れた参考値の影響を制限し、意図の二次損失と合算した凸目的を二分法で解く。各観測の残差と外れ値フラグ、意図の根拠、目的値を記録。従来設定は動作不変。
 - modeling/structure-analysis-v4-* の専用制作でV3の実モデル評価に反復候補の比較と合成矛盾寸法のコンパイル評価を追加する。審美的完成度や意図の自動推定を数値で保証する機能ではない。独立モデル、実設定画、曲線反復、多方向対応は次段階。
 参考: https://docs.opencv.org/3.4.6/d9/d61/tutorial_py_morphological_ops.html / https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.huber.html
+
+## V5：多方向部品対応・曲線反復候補
+- multiview_parts.py: 校正済み正投影の2カメラの視線に直交する共有軸へ領域画素を投影し、位置区間、色度、明度、見かけ面積を柔らかい手掛かりとして候補を比較する。相互最良・次点との余裕・コスト上限を満たす場合のみ強い候補。平行/対向視点はこの方法の直接比較対象外。同じ視点内の重複や複数方向で支持されない連鎖を拒否する。欠落視点を残す。中心点の光線最小二乗は概算位置仮説であり真の対応頂点ではない。実設定画のカメラ校正や視点間の姿勢差は別途推定が必要。
+- curved_repeats.py: 色、面積、サイズが近い領域について近似等間隔で緩やかに曲がる4個以上の列を候補化。折返し・ジグザグを抑制し、端点間隔と接線方向、累積回転から閉ループ候補を区別する。128領域・32要素の上限。真の履帯曲線や機構の確定はしない。
+- multiview_review.py: V4の保護条件を満たしたマップ（満たさなければV3候補）を固定入力にし、曲線グループ別の部品IoUと保護判定を出す。対応候補は曲線処理前の固定入力から生成し、後で独立部品IDに対する優勢IDの一致を評価（純度70%以上、曖昧は別集計）。一致率は未対応領域を除くため再現率ではない。合成12個の円列fixtureも報告。すべて候補であり形状自動変更なし。
+- modeling/structure-analysis-v5-* 専用制作に追加。正確でない設定画は設計意図の参考資料として柔らかく扱い、無理に対応させず作者判断で補完する。CRATE資料適用、意味推定・レシピ自動選択・実モデル造形は後続。
+参考: https://docs.opencv.org/4.x/da/de9/tutorial_py_epipolar_geometry.html / https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.linear_sum_assignment.html
