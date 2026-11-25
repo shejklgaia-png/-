@@ -256,6 +256,9 @@ jobs:
           test -s "$RUNNER_TEMP/sera-model/attachment_review.json"
           test -s "$RUNNER_TEMP/sera-model/attachment_graph.json"
           test -s "$RUNNER_TEMP/sera-model/texture_handoff.json"
+      - name: Prepare AI supervision priority queue
+        run: |
+          "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/supervision_queue.py "$RUNNER_TEMP/sera-model"
       - name: Prepare review bundle
         shell: bash
         run: |
