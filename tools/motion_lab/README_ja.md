@@ -20,3 +20,8 @@ https://docs.godotengine.org/en/stable/classes/class_gltfdocument.html
 ## V2: 再現性と品質診断
 V1 run 45512877274 は工程成功だが、Godotが肘クリップのみを再生していた。Blender 4.5のSCENE分割既定値を無効化し、開始時刻0、全動的チャンネルを含む単一GLBクリップを必須にする。GLBのJSONを調べ、Godot側も単一クリップ以外を拒否。マーカーを実際のノードとして書き出し、Blender Z上からGodot Y上へ変換した全フレームの世界座標を比較する。既定許容2mm、長さ差0.2ms。マーカー1個以上必須。これは指定点の再現性であり全関節完全一致の保証ではない。各キーのinterpolationはBEZIER/LINEAR/CONSTANT。eventsの名前→フレーム番号、および接触の開始終了フレームを共通撮影時刻に追加。速度・加速度・ジャーク・ループ継ぎ目の有限差分を記録する（自動的な芸術品質合格ではない）。画像と数値を併用する。失敗時はpartial artifactを確認する。
 参考: https://docs.blender.org/api/4.5/bpy.ops.export_scene.html
+
+## V3: 正本モデルの読み取りとFPS整合
+V2の出力は単一clip・121サンプル・2秒で正しかったがGodot指定点最大13.10mmで不合格。Godot GLTFDocument.generate_scene の既定30fpsを制作fps明示に変更し、2mm閾値維持。PRの専用制作は従来腕demoとBittaran正本の二ケースを独立実行。
+`source_bbmodel` は models/manifest.json に登録された正本のみ、`bb_unit_m` を明示する。Blockbench 5 free-model mesh/outliner/groupsの剛体階層に限定。グループUUIDでトラック・マーカー指定、重複や未参照UUIDは拒否。Blender Z上の軸とローカル絶対値を使用（BBのキーフレーム値そのままではない）。rig_report.jsonで原本SHA、UUID、親、Pivot、回転・変換位置を記録。Bittaranの試験は頭のヨー運動。0.065m/単位はプレビュー用仮設定、ゲームの倍率・接地オフセット・装備差・既存クリップ・テクスチャ・ゲームシェーダーは再現しない。原本、ゲーム実装を変更しない。BB mesh頂点の基準と回転整合性は実画像と既存ゲーム描画を比較するまで確定扱いしない。
+参考: https://docs.godotengine.org/en/latest/classes/class_gltfdocument.html
