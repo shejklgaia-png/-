@@ -27,6 +27,11 @@ on:
         required: false
         type: boolean
         default: true
+      arm_search_mode:
+        description: With industrial iteration, use independent contact-driven arm search
+        required: false
+        type: boolean
+        default: false
       reference_manifest:
         description: Optional independent orthographic mask manifest under tools/modeling_studio
         required: false
@@ -53,6 +58,7 @@ jobs:
       STRUCTURAL_MODE: ${{ startsWith(github.head_ref, 'modeling/crate-blockout-loop-v2-') || (inputs.iteration_mode == true && inputs.structural_mode == true) }}
       REFERENCE_DESIGN_MODE: ${{ startsWith(github.head_ref, 'modeling/crate-blockout-loop-v3-') || (inputs.iteration_mode == true && inputs.structural_mode == true && inputs.reference_design_mode == true) }}
       INDUSTRIAL_DESIGN_MODE: ${{ startsWith(github.head_ref, 'modeling/crate-blockout-loop-v4-') || (inputs.iteration_mode == true && inputs.structural_mode == true && inputs.reference_design_mode == true && inputs.industrial_design_mode == true) }}
+      ARM_SEARCH_MODE: ${{ startsWith(github.head_ref, 'modeling/crate-blockout-loop-v4-arm-search-') || (inputs.iteration_mode == true && inputs.structural_mode == true && inputs.reference_design_mode == true && inputs.industrial_design_mode == true && inputs.arm_search_mode == true) }}
       REFERENCE_MANIFEST: ${{ inputs.reference_manifest || '' }}
     steps:
       - uses: actions/checkout@v4
@@ -99,7 +105,11 @@ jobs:
           design=$(realpath -- "$DESIGN")
           root=$(realpath tools/modeling_studio)
           [[ "$design" == "$root/"*.json && -f "$design" ]]
-          if [[ "$INDUSTRIAL_DESIGN_MODE" == true ]]; then
+          if [[ "$ARM_SEARCH_MODE" == true ]]; then
+            "$RUNNER_TEMP/review-venv/bin/pip" install numpy==2.2.6
+            "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/arm_search.py prepare "$design" "$RUNNER_TEMP/crate-arm-search-seed.json"
+            design="$RUNNER_TEMP/crate-arm-search-seed.json"
+          elif [[ "$INDUSTRIAL_DESIGN_MODE" == true ]]; then
             "$RUNNER_TEMP/review-venv/bin/pip" install numpy==2.2.6
             "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/industrial_design_variants.py "$design" "$RUNNER_TEMP/crate-industrial-seed.json"
             design="$RUNNER_TEMP/crate-industrial-seed.json"
@@ -222,6 +232,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [[ "$ARM_SEARCH_MODE" == true ]]; then
+            "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/arm_search.py run "$RUNNER_TEMP/sera-model" "$RUNNER_TEMP/sera-iterations"
+            exit 0
+          fi
           flags=()
           if [[ "$INDUSTRIAL_DESIGN_MODE" == true ]]; then
             flags+=(--industrial-design)
