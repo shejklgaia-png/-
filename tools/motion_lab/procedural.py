@@ -37,15 +37,20 @@ def plan(action,root,feet,forward,span,strike,performance=False):
         q={n:v.copy() for n,v in feet.items()}
         foot_yaws={n:0. for n in ROLES}
         order=("RearFoot_L","FrontFoot_L","RearFoot_R","FrontFoot_R") if angle>=0 else ("RearFoot_R","FrontFoot_R","RearFoot_L","FrontFoot_L")
-        for j,n in enumerate(order):
-            t=j*.23; old=q[n].copy(); body=root+travel*(j/4)
-            add(t+.04,f"shift_{j+1}",shift(body,q,(n,)),q,angle=angle*j/4,foot_yaws=foot_yaws)
-            q[n]=(old+final[n])*.5+Vector((0,0,(.10 if performance else .055)*span))
-            foot_yaws[n]=angle*.5
-            add(t+.12,f"swing_{j+1}",shift(body,q,(n,)),q,(n,),angle=angle*(j+.5)/4,foot_yaws=foot_yaws)
-            q[n]=final[n].copy()
-            foot_yaws[n]=angle
-            add(t+.21,f"land_{j+1}",root+travel*((j+1)/4),q,angle=angle*(j+1)/4,foot_yaws=foot_yaws)
+        cycles=2 if performance and action.startswith("turn_") else 1
+        steps=4*cycles
+        dt=.92/steps
+        for j,n in enumerate(order*cycles):
+            t=j*dt;old=q[n].copy();body=root+travel*(j/steps)
+            fraction=(j//4+1)/cycles
+            dest=root+yaw(angle*fraction)@(feet[n]-root)+travel*fraction
+            add(t+dt*(.04/.23),f"shift_{j+1}",shift(body,q,(n,)),q,angle=angle*j/steps,foot_yaws=foot_yaws)
+            q[n]=(old+dest)*.5+Vector((0,0,(.10 if performance else .055)*span))
+            foot_yaws[n]=angle*(fraction-.5/cycles)
+            add(t+dt*(.12/.23),f"swing_{j+1}",shift(body,q,(n,)),q,(n,),angle=angle*(j+.5)/steps,foot_yaws=foot_yaws)
+            q[n]=dest.copy()
+            foot_yaws[n]=angle*fraction
+            add(t+dt*(.21/.23),f"land_{j+1}",root+travel*((j+1)/steps),q,angle=angle*(j+1)/steps,foot_yaws=foot_yaws)
         add(1.,"recovered",root+travel,final,angle=angle,foot_yaws=foot_yaws)
     elif action in ("stomp","sweep"):
         q={n:v.copy() for n,v in feet.items()}; body=shift(root,q,(strike,))
@@ -57,7 +62,8 @@ def plan(action,root,feet,forward,span,strike,performance=False):
         add(.50,"hold_end",body,q,(strike,),tilt=math.radians(-9 if performance else 0),nod=-8. if performance else -3.,foot_pitch=math.radians(80 if performance else 0))
         if action=="sweep":
             q[strike]=feet[strike]+forward*.075*span+side*(.045*span if strike.endswith("_R") else -.045*span)+Vector((0,0,.055*span))
-            add(.61,"sweep_pass",body,q,(strike,),tilt=math.radians(8 if performance else 0),nod=4. if performance else 1.,foot_pitch=math.radians(45 if performance else 0))
+            swing_body=body+horizontal(feet[strike]-root).normalized()*.06*span if performance else body
+            add(.61,"sweep_pass",swing_body,q,(strike,),angle=math.radians((20 if strike.endswith("_L") else -20) if performance else 0),tilt=math.radians(8 if performance else 0),nod=4. if performance else 1.,foot_pitch=math.radians(45 if performance else 0))
         q[strike]=feet[strike]+forward*(.13 if performance else .045)*span
         add(.68,"impact",body+Vector((0,0,-(.035 if performance else .009)*span)),q,tilt=math.radians(7 if performance else 0),nod=6. if performance else 2.)
         q[strike]=(q[strike]+feet[strike])*.5+Vector((0,0,.035*span))
