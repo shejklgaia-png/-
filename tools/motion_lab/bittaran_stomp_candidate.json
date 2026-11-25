@@ -86,5 +86,16 @@
     ],
     "scale": 8.8
   },
-  "roundtrip_tolerance_m": 0.002
+  "roundtrip_tolerance_m": 0.002,
+  "support_lock": {
+    "root": "a5760e7c-7b7a-2f1b-786b-7b49fe981d28",
+    "markers": [
+      "FrontFoot_R",
+      "RearFoot_R",
+      "RearFoot_L"
+    ],
+    "body_marker": "Body",
+    "strike_marker": "FrontFoot_L",
+    "max_shift_m": 0.25
+  }
 }

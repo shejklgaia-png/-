@@ -141,6 +141,26 @@ def _evaluate_tracks(d,nodes,end):
             "max_relative_floor_depth_m":max(depth),"mean_relative_floor_depth_m":sum(depth)/end}
     if not all(math.isfinite(x) for m in metrics.values() for x in m.values()) or not all(math.isfinite(x) for x in minima):
         raise ValueError("nonfinite guarded evaluation")
+    spec=d.get("support_lock")
+    if spec:
+        from spatial import hull,margin
+        names=spec["markers"]
+        if len(names)<3 or len(set(names))!=len(names) or any(n not in points for n in names):
+            raise ValueError("support lock requires three distinct explicit markers")
+        body=spec["body_marker"]; strike=spec["strike_marker"]
+        if body not in points or strike not in points or strike in names or body in names or body==strike:
+            raise ValueError("invalid support lock body/strike")
+        anchors={n:points[n][0] for n in names}
+        offsets=[]; drift=[]; margins=[]
+        for i in range(end):
+            offsets.append(list(sum((anchors[n]-points[n][i] for n in names),Vector((0,0,0)))/len(names)))
+            drift.extend((points[n][i]-anchors[n]).length for n in names)
+            margins.append(margin(hull([points[n][i] for n in names]),points[body][i]))
+        if any(v is None or not math.isfinite(v) for v in margins):
+            raise ValueError("degenerate support polygon")
+        result["support"]={"max_drift_m":max(drift),"mean_drift_m":sum(drift)/len(drift),
+                           "min_body_proxy_margin_m":min(margins),"offsets_m":offsets,
+                           "strike_positions_m":[list(v) for v in points[strike]]}
     return result
 
 
@@ -188,4 +208,67 @@ def compile_clip(scene,d,nodes,end,out):
         "version":11,"selected_blend":blend,"fallback_to_linear":blend==0.,
         "candidates":rows,"selected_metrics":baked,
         "scope":"sampled rigid preview; Wait-relative floor only, no gameplay contact correction; no automatic adoption"
+    },indent=2,ensure_ascii=False))
+
+
+    if d.get("support_lock"):
+        _lock_support(d,nodes,end,out)
+
+
+def _lock_support(d,nodes,end,out):
+    """Least-squares common translation for explicit planted foot pivots.
+    No joint rotation edits; geometry/kinematics guard may reject every correction.
+    """
+    spec=d["support_lock"];root=spec["root"];o=nodes[root]
+    if o.parent is not None or len(o.constraints) or root not in d["tracks"]:
+        raise ValueError("support lock requires animated unconstrained root")
+    for n in [*spec["markers"],spec["body_marker"],spec["strike_marker"]]:
+        p=nodes[d["markers"][n]["node"]]
+        while p is not None and p!=o: p=p.parent
+        if p is None: raise ValueError("support marker not under root")
+    cap=float(spec.get("max_shift_m",.25))
+    if not math.isfinite(cap) or not 0<cap<=1: raise ValueError("invalid support correction cap")
+    base_tracks=d["tracks"]
+    base=_evaluate_tracks(d,nodes,end)
+    offsets=[Vector(v) for v in base["support"]["offsets_m"]]
+    # Do not move the first or final Wait pose. A non-returning source is not
+    # silently corrected; candidate is still judged by residual drift.
+    offsets[0]=Vector((0,0,0));offsets[-1]=Vector((0,0,0))
+    keys=base_tracks[root]["location"]
+    if len(keys)!=end and not (len(keys)==2 and keys[0]["value"]==keys[-1]["value"]):
+        raise ValueError("unsupported root location track")
+    initial=base["support"]; selected=(0.,base_tracks,base); rows=[]
+    for strength in (0.,.25,.5,.75,1.):
+        track=dict(base_tracks); channels=dict(base_tracks[root]); new=[]
+        for i,offset in enumerate(offsets):
+            v=Vector(keys[i if len(keys)==end else 0]["value"])
+            delta=offset*strength
+            if delta.length>cap: delta=delta.normalized()*cap
+            new.append({"frame":i+1,"value":[round(x,7) for x in v+delta],"interpolation":"LINEAR"})
+        if max((Vector(k["value"])-Vector(new[0]["value"])).length for k in new)<1e-6:
+            new=[new[0],dict(new[-1],value=new[0]["value"])]
+        channels["location"]=new;track[root]=channels
+        d["tracks"]=track
+        evaluated=_evaluate_tracks(d,nodes,end)
+        reasons,_=_compare(base,evaluated)
+        support=evaluated["support"]
+        if support["max_drift_m"]>initial["max_drift_m"]+.0001: reasons.append("support_max_drift")
+        if support["mean_drift_m"]>initial["mean_drift_m"]+.0001: reasons.append("support_mean_drift")
+        if support["min_body_proxy_margin_m"]<min(0.,initial["min_body_proxy_margin_m"])-.0001:
+            reasons.append("body_proxy_outside_support")
+        impact=d["events"]["impact_authored"]-1
+        impact_shift=(Vector(support["strike_positions_m"][impact])-Vector(initial["strike_positions_m"][impact])).length
+        rows.append({"strength":strength,"max_drift_m":support["max_drift_m"],
+                     "mean_drift_m":support["mean_drift_m"],"min_body_proxy_margin_m":support["min_body_proxy_margin_m"],
+                     "max_relative_floor_depth_m":evaluated["max_relative_floor_depth_m"],
+                     "mean_relative_floor_depth_m":evaluated["mean_relative_floor_depth_m"],
+                     "world_impact_shift_m":impact_shift,"rejections":reasons})
+        if not reasons and support["max_drift_m"]<selected[2]["support"]["max_drift_m"]-.0001:
+            selected=(strength,track,evaluated)
+    strength,track,chosen=selected
+    d["tracks"]=track
+    (out/"support_lock_report.json").write_text(json.dumps({
+        "version":12,"selected_strength":strength,"baseline":base,
+        "selected":chosen,"candidates":rows,"max_shift_m":cap,
+        "scope":"explicit three-foot pivot anchors; body pivot proxy, not physical COM; relative strike geometry unchanged, world impact may shift; no gameplay adoption"
     },indent=2,ensure_ascii=False))
