@@ -30,6 +30,62 @@ def contact_sheet(root):
     sheet.save(root/"contact_sheet.jpg",quality=92)
     return views
 
+def sha256_file(path):
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def compare_candidates(root):
+    """Compare actual rendered silhouettes, never treat the baseline as concept art."""
+    from reference_review import mask, compare
+    baseline = root / "crate_baseline"
+    candidates = [name for name in ("crate_candidate", "crate_detail_v2")
+                  if (root / name).is_dir()]
+    if not candidates:
+        return []
+    if not baseline.is_dir():
+        raise ValueError("candidate exists without production baseline")
+    out = root / "candidate_comparison"
+    out.mkdir(exist_ok=False)
+    paths = []
+    variants = {}
+    for name in candidates:
+        scores = {}
+        for view in VIEWS:
+            a = mask(baseline / (view + ".png"), "alpha")
+            b = mask(root / name / (view + ".png"), "alpha")
+            score, overlay = compare(a, b, {}, {}, "bbox")
+            filename = name + "_" + view + "_overlay.png"
+            overlay.save(out / filename)
+            paths.append("candidate_comparison/" + filename)
+            score["baseline_image_size"] = list(a.size)
+            score["candidate_image_size"] = list(b.size)
+            scores[view] = score
+        variants[name] = {
+            "views": scores,
+            "mean_iou": sum(v["iou"] for v in scores.values()) / len(scores),
+            "lowest_iou_view": min(scores, key=lambda v: scores[v]["iou"]),
+        }
+    report = {
+        "format": "SERA_CANDIDATE_COMPARISON_V1",
+        "baseline": "crate_baseline",
+        "alignment": "independent_bbox_uniform_scale",
+        "alpha_threshold": 128,
+        "variants": variants,
+        "visual_acceptance": "not_reviewed",
+        "limits": "Actual model-to-model silhouettes, not concept-art accuracy. "
+                  "Independent framing removes translation and uniform scale; "
+                  "named view orientations must match. IoU measures change, not improvement. "
+                  "No guarantee of depth, material, topology or motion compatibility.",
+        "overlay_legend": {"red": "baseline_only", "blue": "candidate_only", "white": "both"},
+    }
+    (out / "comparison.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+    return paths + ["candidate_comparison/comparison.json"]
+
+
 def main():
     root = Path(sys.argv[1]).resolve()
     complete = json.loads((root/"complete.json").read_text())
@@ -75,7 +131,8 @@ def main():
             raise ValueError("grouped export triangle mismatch")
         if got["model_grouped.glb"]["meshes"]!=grouped["mesh_groups"]:
             raise ValueError("grouped export mesh count mismatch")
-    files = {p:{"bytes":(root/p).stat().st_size,"sha256":hashlib.sha256((root/p).read_bytes()).hexdigest()} for p in paths}
+    paths += compare_candidates(root)
+    files = {p:{"bytes":(root/p).stat().st_size,"sha256":sha256_file(root/p)} for p in paths}
     if any(v["bytes"]==0 for v in files.values()):
         raise ValueError("empty artifact")
     report = {"format":"SERA_MODEL_REVIEW_V1", "source_sha":__import__("os").environ.get("GITHUB_SHA"),
