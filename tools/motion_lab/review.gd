@@ -33,14 +33,15 @@ func _run() -> void:
 		quit(5)
 		return
 	var names := p.get_animation_list()
-	var clip := String(names[0])
+	var clips: Array[String] = []
 	for n in names:
 		if n != "RESET":
-			clip = n
-			break
-	if clip == "RESET":
+			clips.append(String(n))
+	if clips.size() != 1:
+		push_error("Expected one complete clip, found " + str(clips))
 		quit(6)
 		return
+	var clip := clips[0]
 	var length := p.get_animation(clip).length
 	var camera := Camera3D.new()
 	root.add_child(camera)
@@ -68,21 +69,54 @@ func _run() -> void:
 	env.environment.ambient_light_color = Color.WHITE
 	env.environment.ambient_light_energy = 0.7
 	root.add_child(env)
+	var report = JSON.parse_string(FileAccess.get_file_as_string(dir.path_join("motion_report.json")))
+	if not report is Dictionary:
+		quit(10)
+		return
+	var fps := float(report["fps"])
+	var expected_length := (float(report["end_frame"]) - 1.0) / fps
+	var markers: Dictionary = {}
+	for name in report["marker_nodes"]:
+		var node := model.find_child(String(report["marker_nodes"][name]), true, false) as Node3D
+		if node == null:
+			push_error("Missing exported marker: " + String(name))
+			quit(11)
+			return
+		markers[name] = node
+	var max_error := 0.0
+	var marker_errors: Dictionary = {}
+	var worst_frame := 1
+	var capture: Array = report["capture_frames"]
 	p.play(clip)
 	p.pause()
-	for i in range(9):
-		var t := length * float(i) / 8.0
+	for sample in report["samples"]:
+		var frame := int(sample["frame"])
+		var t := (float(frame) - 1.0) / fps
 		p.seek(t, true)
+		for name in markers:
+			var v: Array = sample["markers"][name]
+			var expected := Vector3(float(v[0]), float(v[2]), -float(v[1]))
+			var marker: Node3D = markers[name]
+			var error := marker.global_position.distance_to(expected)
+			marker_errors[name] = maxf(float(marker_errors.get(name, 0.0)), error)
+			if error > max_error:
+				max_error = error
+				worst_frame = frame
+		if not capture.has(frame):
+			continue
 		await process_frame
 		await RenderingServer.frame_post_draw
 		var img := root.get_texture().get_image()
-		if img == null or img.is_empty() or img.save_png(dir.path_join("godot_%02d.png" % i)) != OK:
+		if img == null or img.is_empty() or img.save_png(dir.path_join("godot_%04d.png" % frame)) != OK:
 			quit(7)
 			return
 	var f := FileAccess.open(dir.path_join("godot_review.json"), FileAccess.WRITE)
 	if f == null:
 		quit(8)
 		return
-	f.store_string(JSON.stringify({"animations":Array(names),"clip":clip,"length_seconds":length,"frames":9,"renderer":"gl_compatibility","scope":"isolated GLB preview; not game or Android"}, "\t"))
+	var duration_error := absf(length - expected_length)
+	var tolerance := float(spec.get("roundtrip_tolerance_m", 0.002))
+	var passed := duration_error <= 0.0002 and max_error <= tolerance and not markers.is_empty()
+	f.store_string(JSON.stringify({"animations":Array(names),"clip":clip,"length_seconds":length,"expected_length_seconds":expected_length,"duration_error_s":duration_error,"frames":capture.size(),"evaluated_frames":report["samples"].size(),"marker_max_errors_m":marker_errors,"max_error_m":max_error,"worst_frame":worst_frame,"tolerance_m":tolerance,"roundtrip_pass":passed,"renderer":"gl_compatibility","scope":"isolated GLB preview; not game or Android"}, "\t"))
 	f.close()
-	quit(0)
+	quit(0 if passed else 12)
