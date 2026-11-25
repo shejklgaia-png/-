@@ -40,3 +40,7 @@ V5の3ケース成功、IK成果物121フレームで床・干渉候補・接地
 ## V7: 全フレーム動画レビュー
 V6四ケース成功、補正成果物で床120mm→0、違反29→0、8フレーム包絡選択、ベイク再評価合格を確認。V7ではGodot GLBの各制作フレームに正確にseekし描画後PNG保存、全フレーム連番/保存実数を確認する。従来の疎な3視点Blender/Godot静止画も維持。FFmpegでH.264/yuv420p MP4、通常は制作FPS、半速は半分のFPSで同一の実画像を再生（補間なし）。終端姿勢を1フレーム保持するため動画長はN/FPS、モーションクリップ長は(N-1)/FPS。ffprobeで全フレームPTS・実フレーム数・FPS・長さを照合。video_report.json に両動画のSHA256、撮影元フレームのハッシュ、イベント時刻を記録。成功時のみフルPNG列を削除、失敗時はpartialに残す。動画は孤立Godot GLBの斜め固定視点、Androidや実ゲーム描画ではない。重量感・演技の自動合格は行わない。
 参考: https://docs.godotengine.org/en/stable/tutorials/animation/creating_movies.html ; https://ffmpeg.org/ffmpeg-formats.html ; https://ffmpeg.org/ffprobe.html
+
+## V8: 剛体ポーズ資産・フェーズ合成
+V7全4ケース成功、IK MP4 121フレーム・60fps 2.016667秒／30fps 4.033333秒、640x640、全時刻照合合格を確認。V8はBlenderのアーマチュア専用Pose Libraryに直接依存せず、剛体Node用のSERA_MOTION_POSES_V1 JSONを `tools/motion_lab/poses/` に置く。rigはprocedural全parts、BB正本パス/SHA256/単位、またはGLB SHA256を厳密照合。`pose_sequence.library` と `phases` (frame/event/pose/interpolation) を指定すると、同じチャンネル集合の絶対ローカル位置(m)・XYZ回転角(deg)を明示キーフレームへ展開し、イベント・ライブラリハッシュ・展開トラックをpose_compile_report.jsonへ記録。1/終端フレーム必須、重複イベント/不一致/明示トラック衝突は拒否。位相の時間・補間を変更して再使用可能。IK・床補正後の評価姿勢は export_poses と pose_export_channels で pose_candidates.jsonへ保存。候補は未承認、原本・採用済みライブラリへ自動登録しない。必要なレビュー後に明示的に登録する。同一rig厳密一致のみ、別骨格へのリターゲット、既存BBアニメーションの直接読込、ゲーム内ポーズ・全身戦闘ライブラリは未対応。初期ライブラリarm_demoは独立アームの試作用5姿勢、6フェーズ・IK接触保持・候補3件出力。専用5ケースで従来回帰と新経路を分離。
+参考: https://docs.blender.org/manual/en/4.5/animation/armatures/posing/editing/pose_library.html ; https://docs.blender.org/manual/en/4.5/editors/graph_editor/fcurves/introduction.html
