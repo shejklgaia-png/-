@@ -54,6 +54,9 @@ def main():
             o.name=name; nodes[name]=o
             if part.get("parent"): o.parent=nodes[part["parent"]]
             o.location=part.get("location",[0,0,0])
+    sys.path.insert(0,str(Path(__file__).resolve().parent))
+    from poses import compile_poses, export_poses
+    compile_poses(d,a.design,nodes,end,out)
     for name,channels in d["tracks"].items():
         o=nodes[name]; o.rotation_mode="XYZ"
         for prop,keys in channels.items():
@@ -146,6 +149,7 @@ def main():
         "capture_frames":capture,"events":events,"limitations":["explicit marker/mesh diagnostics only; no continuous collision or whole-body solver","visual quality not auto-approved"]},indent=2))
     if d.get("require_contacts",False) and not all(c["within_tolerance"] for c in contacts):
         raise ValueError("authored contact tolerance exceeded; see motion_report.json")
+    export_poses(scene,d,a.design,nodes,end,out)
     scene.frame_set(1)
     bpy.ops.wm.save_as_mainfile(filepath=str(out/"motion.blend"))
     bpy.ops.export_scene.gltf(filepath=str(out/"motion.glb"),export_format="GLB",export_animations=True,export_animation_mode="SCENE",export_anim_scene_split_object=False,export_anim_slide_to_zero=True,export_frame_range=True,export_force_sampling=True)
