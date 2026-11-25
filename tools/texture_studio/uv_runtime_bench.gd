@@ -140,6 +140,8 @@ func _run() -> void:
             bridge_ok += 1
     var stroke_metrics: Dictionary = _measure_face_strokes(tris,atlas,density) if variant=="face" else {}
     print("FACE_STROKES ",JSON.stringify(stroke_metrics))
+    var footprint_metrics: Dictionary = _measure_face_footprints(tris,atlas,density,dest) if variant=="face" else {}
+    print("FACE_FOOTPRINTS ",JSON.stringify(footprint_metrics))
     var baked := Image.create(side.x,side.y,false,Image.FORMAT_RGBA8)
     baked.blit_rect(painted,Rect2i(Vector2i.ZERO,side),Vector2i.ZERO)
     var restored_image := Image.new()
@@ -185,7 +187,7 @@ func _run() -> void:
                         post_mismatch+=1
     var distortion: Vector3 = UV._topology_distortion(tris,density)
     var diagnostic: Dictionary = UV.diagnostic_report(tris,side,density)
-    var report: Dictionary = {"id":id,"density":density,"version":result.unwrap_version,"triangles":tris.size(),"charts":result.charts,"atlas":side.x,"physical_edges":counted,"island_edges":island_edges,"island_bad":island_bad,"island_severe":island_severe,"island_max":island_max,"island_sum_sq":island_sum,"bad":bad,"severe":severe,"max":max_res,"sum_sq":sum_sq,"invalid":invalid,"winding_signature":winding_signature.sha256_text(),"overlap_pairs":overlap_pairs,"overlap_unchecked":overlap_unchecked,"min_ratio":min_ratio,"max_ratio":max_ratio,"shape_max":distortion.x,"shape_mean":distortion.y,"area_max":distortion.z,"elapsed_ms":elapsed,"diagnostic":diagnostic.report,"solver":result.affine_report,"bridge_count":bridge_count,"bridge_ok":bridge_ok,"png_roundtrip":png_ok,"mesh_restore":restore_ok,"post_bake_ok":post_ok,"post_bake_side":post_side,"post_bake_moved":post_moved,"post_bake_fallback":post_fallback,"post_bake_samples":post_samples,"post_bake_mismatch":post_mismatch,"post_bake_error":str(post.get("error","")),"face_stroke_metrics":stroke_metrics}
+    var report: Dictionary = {"id":id,"density":density,"version":result.unwrap_version,"triangles":tris.size(),"charts":result.charts,"atlas":side.x,"physical_edges":counted,"island_edges":island_edges,"island_bad":island_bad,"island_severe":island_severe,"island_max":island_max,"island_sum_sq":island_sum,"bad":bad,"severe":severe,"max":max_res,"sum_sq":sum_sq,"invalid":invalid,"winding_signature":winding_signature.sha256_text(),"overlap_pairs":overlap_pairs,"overlap_unchecked":overlap_unchecked,"min_ratio":min_ratio,"max_ratio":max_ratio,"shape_max":distortion.x,"shape_mean":distortion.y,"area_max":distortion.z,"elapsed_ms":elapsed,"diagnostic":diagnostic.report,"solver":result.affine_report,"bridge_count":bridge_count,"bridge_ok":bridge_ok,"png_roundtrip":png_ok,"mesh_restore":restore_ok,"post_bake_ok":post_ok,"post_bake_side":post_side,"post_bake_moved":post_moved,"post_bake_fallback":post_fallback,"post_bake_samples":post_samples,"post_bake_mismatch":post_mismatch,"post_bake_error":str(post.get("error","")),"face_stroke_metrics":stroke_metrics,"face_footprint_metrics":footprint_metrics}
     var file := FileAccess.open(dest,FileAccess.WRITE)
     if file == null:
         push_error("Cannot write UV report")
@@ -272,3 +274,115 @@ func _measure_face_strokes(tris: Array,atlas: Image,density: int) -> Dictionary:
     studio.tool_picker.free()
     studio.free()
     return output
+
+
+# V26 review: a SINGLE dab from one side. Compare the actual studio
+# method with chart omitted (V25-equivalent) and chart supplied (V26).
+# The other side is never directly dabbed. Keep the representative
+# maximum-gain case as actual RGBA atlas artifacts, not a mockup.
+func _measure_face_footprints(tris: Array,atlas: Image,density: int,dest: String) -> Dictionary:
+    var studio = Studio.new()
+    studio.triangles = tris
+    studio.img = atlas
+    studio.original = atlas
+    studio.atlas_density = density
+    studio.atlas_face_paint = true
+    var size: Vector2i = atlas.get_size()
+    var started: int = Time.get_ticks_usec()
+    studio.face_bridges = UV.face_bridge_index(tris)
+    studio.seam_texels = UV.seam_pixels(tris,size)
+    studio.face_brush_owners = UV.face_brush_owners(tris,size)
+    studio.face_brush_edges = UV.face_brush_edges(tris,studio.face_bridges,size)
+    var setup_us: int = Time.get_ticks_usec()-started
+    studio.tool_picker = Studio.StudioChoice.new()
+    studio.paint_color = Color8(231,57,103,255)
+    var ink := Image.create(size.x,size.y,false,Image.FORMAT_RGBA8)
+    studio.layers.append(ink)
+    var links: Array = UV._seam_segments(tris)
+    var count: int = mini(24,links.size())
+    var metrics: Dictionary = {"seams_total":links.size(),"seams_sampled":count,"setup_us":setup_us,"owner_bytes":studio.face_brush_owners.size()*4,"attempted":0,"skipped_invalid_center":0,"gained_cases":0,"gained_neighbor_pixels":0,"unexpected_pixels":0,"missing_source_pixels":0,"erase_failures":0,"legacy_us":0,"v26_us":0,"artifact_ok":false,"widths":{}}
+    var best_gain: int = -1
+    var best_old: Image
+    var best_new: Image
+    var best_erased: Image
+    var best_case: Dictionary = {}
+    for width in [1,3,5]:
+        studio.brush_size = width
+        var stats: Dictionary = {"attempted":0,"gained_cases":0,"gained_neighbor_pixels":0,"unexpected_pixels":0,"missing_source_pixels":0,"erase_failures":0,"legacy_us":0,"v26_us":0}
+        for i in range(count):
+            var link: Dictionary = links[floori(float(i)*links.size()/count)]
+            for reverse in [false,true]:
+                var ti: int = int(link.tb if reverse else link.ta)
+                var ni: int = int(link.ta if reverse else link.tb)
+                var chart: int = int(tris[ti].chart)
+                var neighbor: int = int(tris[ni].chart)
+                var edge: int = int(link.eb if reverse else link.ea)
+                var f0: float = float(link.b0 if reverse else link.a0)
+                var f1: float = float(link.b1 if reverse else link.a1)
+                var allowed: Dictionary = {chart:true}
+                for entry in studio.face_brush_edges.get(chart,[]):
+                    allowed[int(entry.dst.chart)] = true
+                for f in [0.2,0.5,0.8]:
+                    var hit: Dictionary = _stroke_sample(tris[ti],edge,lerpf(f0,f1,f),density,ti)
+                    var q: Vector2i = Vector2i((Vector2(hit.uv)*Vector2(size)).floor()).clamp(Vector2i.ZERO,size-Vector2i.ONE)
+                    if not studio._face_brush_owned(q,chart) or atlas.get_pixelv(q).a<0.5:
+                        metrics.skipped_invalid_center += 1
+                        continue
+                    stats.attempted += 1
+                    ink.fill(Color.TRANSPARENT)
+                    studio.tool_picker.selected = 0
+                    var tick: int = Time.get_ticks_usec()
+                    studio._dab(q)
+                    stats.legacy_us += Time.get_ticks_usec()-tick
+                    var old: Image = ink.duplicate() as Image
+                    ink.fill(Color.TRANSPARENT)
+                    tick = Time.get_ticks_usec()
+                    studio._dab(q,chart)
+                    stats.v26_us += Time.get_ticks_usec()-tick
+                    var bounds: Rect2i = old.get_used_rect().merge(ink.get_used_rect())
+                    var gained: int = 0
+                    for y in range(bounds.position.y,bounds.end.y):
+                        for x in range(bounds.position.x,bounds.end.x):
+                            var p := Vector2i(x,y)
+                            var owner: int = studio.face_brush_owners[y*size.x+x]
+                            var was: bool = old.get_pixelv(p).a>0.5
+                            var now: bool = ink.get_pixelv(p).a>0.5
+                            if now and not allowed.has(owner):
+                                stats.unexpected_pixels += 1
+                            if was and not now and owner==chart:
+                                stats.missing_source_pixels += 1
+                            if now and not was and owner==neighbor:
+                                gained += 1
+                    if gained>0:
+                        stats.gained_cases += 1
+                        stats.gained_neighbor_pixels += gained
+                    var keep: bool = width>1 and gained>best_gain
+                    if keep:
+                        best_gain = gained
+                        best_old = old
+                        best_new = ink.duplicate() as Image
+                        best_case = {"width":width,"source_triangle":ti,"neighbor_triangle":ni,"source_chart":chart,"neighbor_chart":neighbor,"center":[q.x,q.y],"gain":gained}
+                    studio.tool_picker.selected = 1
+                    studio._dab(q,chart)
+                    if ink.get_used_rect().size!=Vector2i.ZERO:
+                        stats.erase_failures += 1
+                    if keep:
+                        best_erased = ink.duplicate() as Image
+        metrics.widths[str(width)] = stats
+        for key in stats:
+            metrics[key] += stats[key]
+    if best_gain>=0:
+        var prefix: String = dest.get_basename()+"-footprint"
+        var old_view: Image = atlas.duplicate() as Image
+        var new_view: Image = atlas.duplicate() as Image
+        old_view.blend_rect(best_old,Rect2i(Vector2i.ZERO,size),Vector2i.ZERO)
+        new_view.blend_rect(best_new,Rect2i(Vector2i.ZERO,size),Vector2i.ZERO)
+        var ok_old: bool = old_view.save_png(prefix+"-legacy.png")==OK
+        var ok_new: bool = new_view.save_png(prefix+"-v26.png")==OK
+        var ok_mask: bool = best_new.save_png(prefix+"-ink.png")==OK
+        var ok_erase: bool = best_erased.save_png(prefix+"-erased.png")==OK
+        metrics.artifact_ok = ok_old and ok_new and ok_mask and ok_erase
+        metrics.example = best_case
+    studio.tool_picker.free()
+    studio.free()
+    return metrics
