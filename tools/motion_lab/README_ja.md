@@ -154,3 +154,9 @@ V18 GLBの実メッシュ形状を用いた独立SciPyプレビューを生成�
 - 実GLB形状の独立HTML MotionLab_V25_Clearance.html、4方向80枚を実描画し接触シートを視認。通常・半速再生のフレーム進行とIK切替、JSエラー0を確認。再生の全尺到達はログから確認できない。縦丸めが胴体の外に出てシルエットが改善、正逆の振り抜きの後脚貫通を大きく抑えた。Blender/Godot直接出力、Android、実ゲーム当たり判定、厳密な部品干渉は未確認。旧候補および既存戦闘原本、CI未変更。
 - 再現: bittaran_sweep_clearance_v25.json、bittaran_sweep_reverse_clearance_v25.json、bittaran_kick_clearance_v25.json を build.py に指定（variant sweep/sweep_reverse/kick）。既存の設計ファイルは維持。
 参考: https://www.sciencedirect.com/topics/computer-science/oriented-bounding-box ; https://www.animationmentor.com/blog/tutorial-use-character-staging-to-guide-viewer-focus/
+
+## V25 revision 6: 深い縦丸め・伸展後の跳ね上げ
+デコピンのみ変更し、正逆なぎ払いはrevision 5と同一。縦丸め頂点の上脚/下脚/先端仰角を36/-67/-143度へ変更。50サンプルで水平伸展、53で仰角2/5.2/8度の一回の上方オーバーシュート、57で収束中間、63で元の伸展へ戻る。足を踏みつけた後の跳ね返り禁止とは区別し、デコピンのフォロースルーとして意図した動作。旧候補と既存戦闘原本は維持。
+- 独立実メッシュ60fps/117サンプル検査：溜め時の脚先から付け根距離約136→105cm、伸展後3サンプル間隔で約30.9cm上昇、最大足先速度33.23m/s、非隣接最大OBB重なり4.21cm。OBBは表面の貫通深さではない。5cm要確認・10cm超出力停止の暫定ガードを維持。
+- MotionLab_V25_Flick_Snap.html の実描画で深い丸め、伸展、上方フォロースルー、回復の姿勢を視認。通常/半速再生のフレーム進行を確認。Blender/Godot直接出力、Android、厳密な連続衝突・ゲーム当たり判定は未確認。
+- 再現：bittaran_kick_snap_v25.json を build.py に指定。既存ゲームCIは変更しない。
