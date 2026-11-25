@@ -90,8 +90,25 @@ def public_files(src,stage):
     if stage=="set":
         # Set review filenames are declared by existing assembly review.
         r=q.load(src/"assembly_review.json")
-        names=["assembly.glb","viewer.html"]+[(row["file"],"view_"+view+".png") for view,row in sorted(r["views"].items())]
+        names=["assembly.glb","viewer.html","set.json","art/selected.png"]+[(row["file"],"view_"+view+".png") for view,row in sorted(r["views"].items())]
     return [(x,x) if isinstance(x,str) else x for x in names]
+
+def set_inputs(src):
+    import factory as f
+    from set_release import ROLES,stock_ref
+    s=q.load(src/"set.json")
+    need(set(s["parts"])==set(ROLES),"set roles missing")
+    inputs={};authors=[]
+    for role,slot in ROLES.items():
+        item=s["parts"][role]
+        expected=stock_ref(slot,item,s["set_art_sha256"])
+        root=f.STOCK/slot/item["id"]/item["revision"]
+        model=root/"paint"/"model.glb"
+        need(q.sha(model)==expected,"part GLB changed")
+        inputs["upstream/parts/"+role+".glb"]=(model,expected)
+        job=q.load(root/"job.json")
+        for st in job["stages"]:authors.append(identity(q.load(root/st/"author.json"),"part author"))
+    return inputs,authors
 
 def packet_data(src,stage,job_id,upstream,work=None):
     a=author(src,stage)
@@ -111,6 +128,7 @@ def packet_data(src,stage,job_id,upstream,work=None):
                 p=q.evidence(root,name)
                 digest=q.sha(p);need(digest==rec["files"][name],"upstream evidence changed")
                 items["upstream/"+st+"/"+name]=(p,digest)
+    if stage=="set":items.update(set_inputs(src)[0])
     manifest={k:hashlib.sha256(view_payload(v[0],stage)).hexdigest() for k,v in sorted(items.items())}
     binding={"format":FORMAT,"job_id":job_id,"stage":stage,
         "candidate_sha256":q.canonical(private),
@@ -168,6 +186,9 @@ def check(src,stage,job_id,upstream,work=None,allow_reject=False):
         for st,rec in upstream.items():
             i=identity(q.load(work/"objects"/rec["key"]/"author.json"),"upstream author")
             identities.add((i["kind"],i["actor"].strip().casefold()))
+    if stage=="set":
+        for i in set_inputs(src)[1]:
+            contexts.add(i["context_id"]);identities.add((i["kind"],i["actor"].strip().casefold()))
     records=[]
     for role,keys in CRITERIA[stage].items():
         p=src/"independent_reviews"/(role+".json")
@@ -199,6 +220,11 @@ def check(src,stage,job_id,upstream,work=None,allow_reject=False):
         records.append(r)
     if not allow_reject:
         need(all(r["verdict"]=="approve" for r in records),"independent review veto")
+        if work:
+            for path in (work/"review_vetoes").glob("*.json"):
+                old=q.load(path)
+                if old.get("stage")==stage and old.get("upstream")==binding["upstream"] and old.get("evidence_sha256")==q.canonical(binding["evidence"]):
+                    need(not any(x["verdict"]=="reject" for x in old["reviews"]),"rejected evidence unchanged; revise actual deliverable")
     return records
 
 def record_veto(work,stage,src):
