@@ -5,7 +5,7 @@ import math
 METHODS = {
     "outline":"wireframe", "section":"loft", "solid":"box", "extrusion":"prism",
     "joint":"cylinder", "revolution":"revolve", "variable_section":"sweep",
-    "explicit":"mesh", "fixed_tube":"tube", "pivot":"pivot",
+    "explicit":"mesh", "fixed_tube":"tube", "pivot":"pivot", "repeat":"repeat_path",
 }
 LINE_TYPES = {
     "silhouette":"shape", "panel_boundary":"split", "chamfer":"bevel",
@@ -110,6 +110,8 @@ def compile_design(source):
             raise ValueError("camera fit references landmarks omitted by level: "+view)
     spec["intentional_overlaps"]=[x for x in spec.get("intentional_overlaps",[]) if set(x["parts"])<=active_names]
     # Motion sweeps are not silently removed: author a level-specific list.
+    if not set(cfg.get("part_targets",{}))<=names:
+        raise ValueError("part target references unknown part")
     report["part_targets"]={k:v for k,v in cfg.get("part_targets",{}).items() if k in active_names}
     return spec,report
 
