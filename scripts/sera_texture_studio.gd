@@ -1497,8 +1497,8 @@ func _collect_face_brush_pixels(p: Vector2i,chart: int,reach: float) -> Array[Ve
         if scale<0.5 or scale>2.0:
             continue
         var extent: float = reach*scale
-        var old_center: Vector2 = d_start+(d_axis*old_local.x-d_in*old_local.y)*scale if old_local.is_finite() else Vector2(INF,INF)
-        var new_center: Vector2 = d_start+(d_axis*new_local.x-d_in*new_local.y)*scale if new_local.is_finite() else Vector2(INF,INF)
+        var old_center: Vector2 = d_start+d_axis*(old_local.x*scale)-d_in*(old_local.y*scale) if old_local.is_finite() else Vector2(INF,INF)
+        var new_center: Vector2 = d_start+d_axis*(new_local.x*scale)-d_in*(new_local.y*scale) if new_local.is_finite() else Vector2(INF,INF)
         var lo := Vector2(INF,INF)
         var hi := Vector2(-INF,-INF)
         if old_local.is_finite():
