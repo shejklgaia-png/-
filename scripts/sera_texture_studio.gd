@@ -1,6 +1,7 @@
 extends Control
 signal closed
 const UV = preload("res://scripts/sera_texture_uv.gd")
+const ReviewHTML = preload("res://scripts/sera_texture_review_html.gd")
 const PartSource = preload("res://scripts/sera_texture_part_source.gd")
 const PartCatalog = preload("res://scripts/sera_prototype_catalog.gd")
 const PartIcons = preload("res://scripts/sera_item_icons.gd")
@@ -1986,7 +1987,13 @@ func _save() -> void:
         return
     file.store_string(JSON.stringify({"version":1,"density":atlas_density,"preserve_shape":atlas_preserve_shape,"balanced_shape":atlas_balanced_shape,"unwrap_version":uv_unwrap_version,"affine_report":uv_affine_report,"initial_charts":uv_initial_charts,"final_charts":uv_final_charts,"charts":ids,"visible":layer_visible,"face_sources":face_sources,"face_paint":atlas_face_paint,"surface_history":surface_history if atlas_face_paint else [],"surface_history_complete":surface_history_complete if atlas_face_paint else false}))
     file.close()
-    _show_status("編集プロジェクト保存済み: "+stem)
+    # Compare the exact editable mesh and composite against the saved atlas.
+    var review_path: String = prefix+".review.html"
+    var review_error: Error = ReviewHTML.write(review_path,label+" / "+uv_unwrap_version,preview.mesh as ArrayMesh,img,save_mesh,baked)
+    if review_error != OK:
+        _show_status("編集プロジェクト保存済み・HTML検査出力失敗: "+str(review_error))
+        return
+    _show_status("編集プロジェクト・3D検査HTML保存済み: "+stem)
 
 func _load_project(path: String) -> void:
     var absolute := ProjectSettings.globalize_path(path).simplify_path()
