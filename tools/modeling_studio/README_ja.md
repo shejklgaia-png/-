@@ -93,3 +93,9 @@ Actions手動起動時に reference_manifest を指定するか、成果物を�
 ## CRATE 比率候補 V1
 
 modeling/crate-baseline-proportion-*のPRでは現行モデルの基準BLENDから独立した候補を作り、頭/胴/履帯/腕（手を含む）の各グループを三面図に合わせて幅・高さ・奥行きと位置を調整する。既存ノード名・親子関係・三角形数を保持するが、グループ変形により関節位置と倍率が変わるため既存アニメーションへの接続は未保証。比較用BLEND/GLB/8方向画像/一覧/変換情報をcrate_candidateに出力する。設定画はユーザーのライブラリにある2026-11-25 JSTの三面図を使用。簡易投影による候補IoU推定は実レンダリングの評価値ではない。ゲーム本体には反映しない。
+
+## CRATE 局所造形候補 V2
+
+最新三面図に合わせ、V1比率に加えてバイザー・アンテナ・胸部・背面カートリッジ・履帯・爪・腕装甲の局所形状を調整する。元GDScriptは変更せず、厳密な23個の文字列アンカーで検査用コピーを生成し、別GLB/BLEND/8方向画像に出力。V1も同時に生成する。V2のGLBはゲームの前方-Zへ戻す。以前の簡易IoU推定は引き継がない。
+5関節の各4姿勢をBlender BVHで検査し、ニュートラルにない部位間交差候補を記録。Godot 4.7.2で実候補GLBを読込、ピボット階層・回転と復元・三角形数の一致を検査する。非等方スケールとWristPivotの名前変化は記録し、ゲームのモーション互換性や接触/貫通の合否は別途判断する。現行モデル・ゲームCIは変更しない。
+参考: https://docs.blender.org/manual/en/5.1/modeling/modifiers/generate/bevel.html / https://docs.godotengine.org/en/stable/tutorials/3d/using_transforms.html / https://docs.godotengine.org/en/latest/classes/class_gltfdocument.html
