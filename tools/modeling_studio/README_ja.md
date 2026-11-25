@@ -151,3 +151,10 @@ shape: wireframe を部品に指定。wireframe_example.json が動作確認用�
 - structure_handoff.py structure.json selection.json design.json output.json は {view:"front",lines:[{id:"segment_0",part:"Armor",kind:"panel_boundary",approved:true,reason:"..." }]} の明示レビューを検査し、hard_surface.linesに転記可能な配列を別ファイルへ出力。元設計やメッシュを自動変更しない。既存の手入力設計も継続可。
 - modeling/structure-analysis-* の専用制作では合成機械モデルの実Blender正面・右・背面・斜め画像とα由来マスクから解析し、成果物ハッシュに追加。実設定画の部品分割精度や分類精度は独立正解ラベルで別途確認が必要。ゲーム本体・CIは変更しない。
 参考: https://docs.opencv.org/4.x/d2/dbd/tutorial_distance_transform.html / https://scikit-image.org/docs/stable/auto_examples/segmentation/plot_rag_merge.html
+
+## 設定画解析 V2：過剰分割抑制・円楕円弧・正解ラベル評価
+- structure_analysis_v2.py image.png mask.png v1_directory output_directory でV1の候補を保持したまま比較可能。4近傍接触が6px以上、境界Lab差9以下、統合グループ全体の色度範囲12以下、明度範囲48以下の候補のみ弱い境界から統合。円形領域候補は保護。数値は初期経験則であり一般的な部品判定閾値ではない。未割当画素は埋めない。
+- Cannyエッジ輪郭をfitEllipseで近似し、正規化半径誤差、軸比、実エッジ2px以内の支持率で候補を絞る。支持率48%以上で候補、85%以上かつ軸比85%以上で円、85%以上で楕円、それ以外は円弧候補。支持のない線は出力せず、支持された連続線分だけ保持。中心・径・角度は推定値。遮蔽や影・傷由来の誤認識は残り得る。
+- structure_metrics.py output_directory は既知の3部品ラベルと照明勾配を持つ合成評価図でV1/V2を比較。任意の独立16bitラベルマップは structure_metrics.py evaluation.json --truth truth.png --prediction labels.png で評価。ペア適合率（誤統合）、ペア再現率（過分割・未割当）、F1、部品別best IoU、背景誤検出を出力。best IoUは1対1対応ではない。実設定画の正解ラベルは別途必要。
+- 専用制作経路で正面/右/背面/斜めの実Blender画像についてV1/V2を同一入力で比較し、合成正解ラベル評価も成果物に含める。全候補は未承認のまま。V2も明示レビューhandoffに対応。ゲームモデルは変更しない。
+参考: https://docs.opencv.org/4.x/d3/dc0/group__imgproc__shape.html / https://scikit-image.org/docs/stable/auto_examples/segmentation/plot_metrics.html

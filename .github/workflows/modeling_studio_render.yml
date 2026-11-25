@@ -142,7 +142,9 @@ jobs:
           for view in front right front_3q back; do
             "$py" -c 'from PIL import Image; import sys; Image.open(sys.argv[1]).convert("RGBA").getchannel("A").save(sys.argv[2])' "$root/$view.png" "$root/structure_analysis/${view}_mask.png"
             "$py" tools/modeling_studio/structure_analysis.py "$root/$view.png" "$root/structure_analysis/${view}_mask.png" "$root/structure_analysis/$view"
+            "$py" tools/modeling_studio/structure_analysis_v2.py "$root/$view.png" "$root/structure_analysis/${view}_mask.png" "$root/structure_analysis/$view" "$root/structure_analysis/${view}_v2"
           done
+          "$py" tools/modeling_studio/structure_metrics.py "$root/structure_analysis/labeled_fixture"
       - name: Prepare review bundle
         shell: bash
         run: |
