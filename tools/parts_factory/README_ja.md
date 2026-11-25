@@ -1,22 +1,27 @@
-# PARTS FACTORY（パーファク）V1
-制作統括CLI。新規モデルをゲームに直接上書きしない。Python 3.10+ 標準ライブラリのみ。ユーザー指示「パーファクでヘッドを3種類制作」から、ChatGPTが個別ID・設定・外部調査・設計図・制作・評価・ストック・必要ならゲーム登録を一括統括する。CLIはAIを呼び出さず、各担当工程の実成果物を受け渡す。複数IDは独立作業ディレクトリで並行可能。同一IDの作業は単一担当で直列、ストック先へのGitコミットは直列。無関係CIは実行しない。
+# PARTS FACTORY（パーファク）V2 — 品質優先
+2026-11-25 Vesper V1失敗への是正。V1のジョブは互換なし。旧データを破壊せず、新規V2作業ディレクトリに再登録する。単なる箱・円柱の組立を完成扱いしない。設計画が視覚的な正本。全身セットは先にセット全体のデザインを比較・確定し、その後6部位を独立制作する。ゲーム本体/既存モデル/無関係CIを変更しない。
 
-## 運用
-1. 最新main・台帳・models/manifest.json・MODEL_PART_WORKFLOW・装備規約を確認し、未使用の制作ID（例 PF-H003）を割り当てる。ゲーム設計図IDとは別管理。既存作品とのシルエット・設定重複を確認。設定には名称・背景・機構・部品別外部調査URL・骨格/接続先・仮性能を記載。性能確定は既存装備承認規約に従う。
-2. python tools/parts_factory/factory.py init /tmp/pf-h003 PF-H003 head
-3. 工程ごとに実ファイルを別ディレクトリへ用意し、python tools/parts_factory/factory.py accept /tmp/pf-h003 concept /tmp/concept --producer "ChatGPT; source SHA; reference URLs" のように登録。status / handoff は次工程・入力ディレクトリ・ハッシュを出す。
-4. blueprint: ユーザーの制作指示に含まれる明示画像生成工程として別台帳作業に登録。水平45度刻み8方向・正投影前後左右上下、配色、構造注記。生成画の矛盾は設計意図に沿い修正可。実装作業中の無関係画像生成は禁止。設計JSONはモデスタ形式。
-5. model: design.json を tools/modeling_studio/ 配下の専用入力としてコミットし、既存 Modeling Studio - authoring render の workflow_dispatch で design を指定（iteration_mode=false）。成果物 sera-modeling-review を回収し、実レンダリングと形状を確認。既存CRATE特化反復を流用しない。BLEND/GLB/レポートを登録。実行コネクタにdispatch権限がない場合は実行できる経路を確保するまで停止、架空の結果で先に進めない。
-6. uv: テクスタAI手動。四角面基準、共有辺の方向・位相・長さ、面をまたぐパネルライン、隣接面パディング。uv.json に method=AI_MANUAL_FACE, source_glb_sha256 と実際のUV評価を記載、uv_model.glb と共に登録。三角化で面グループを崩さない。UVの改変は元モデルに逆流させない。
-7. paint: 機構・装甲・陰影をAI手動設計、512/1024/2048の正方形PNG、埋込テクスチャ付きmodel.glb、paint.json（source_uv_glb_sha256, painted_glb_sha256）を登録。ゲーム標準の解像度・描画予算は対象別に決める。必要なら原画・編集元も同梱。
-8. review: 塗装済みGLBそのものを8方向レンダリングし、review.json に painted_glb_sha256、reviewer、notes、checks（silhouette/mechanism/uv_seams/texture/rig/performance）を記録。各項目acceptedは実評価後のみ。数値基準は接続先・現行モデル・スマホ描画予算を根拠に記録。破綻時は該当工程に戻す。未確認は合格にしない。
-9. viewer: 塗装済みGLBとテクスチャを含む単体HTMLを作成。python tools/parts_factory/painted_viewer.py /tmp/pf-h003 /tmp/pf-viewer で生成。モデスタ既存offline_viewer.pyの操作UIを再利用し、埋込PNG/JPEGのbase colorとUVを表示する。未対応GLBは実レンダリングにフォールバックするが、3Dテクスチャ確認として合格にしない。PBR全体やGodot枠線は再現しない。実際の塗装・タッチ回転/移動/拡縮を確認し、viewer_review.jsonに painted_glb_sha256, viewer_sha256, reviewer, texture_display=accepted, touch_controls=accepted を記録。HTML配布規約に従い実ファイルを渡す。実機未確認なら別記。
-10. stock: python tools/parts_factory/factory.py stock /tmp/pf-h003。parts_stock/<slot>/<ID>/<最終工程SHA256>/ に各段階の元データを保存。GitHub Actionsの期限付きartifactだけを正本にしない。GitHubへコミットして初めて永続保管。大容量ファイルは既存リポジトリのLFS/保管方針・権限を確認し、利用できなければ保管未完了と明記。Godotから隔離。
-11. ゲーム登録: stockはゲーム実装とは別状態。ユーザーの指示範囲が実装までの場合、現行Blockbench正本・関節・装備フォーム・LABO・倉庫・NEXUS・保存形式・実モデル由来アイコンを既存手順に沿って登録。GLB→bbmodelの変換は互換性未確認なので自動上書きしない。正式性能/アイコンの承認規約は維持。マージと実機確認を分けて報告。
+## 作業順（強制ゲート）
+各段階は実ファイルを別ディレクトリに置き、`python tools/parts_factory/factory.py accept <work> <stage> <source> --producer "<tool/version; provenance>"` で登録。新規ジョブは `init <work> PF-H003 head`。status / handoff で次の作業・入力ハッシュ確認。各工程のJSON契約は quality_gates.py / factory.py が正本。レビューは自己評価であり、画像/美観の自動認識ではない。
 
-## 技術的連携
-- 工程ごとに入力・成果物・制作元のSHA256連鎖。ハッシュ一致なら登録を再利用、改変なら下流だけ失効。旧候補はobjectsに保持し再選択可能。ファイル一覧とハッシュを照合し欠損や混在を拒否。
-- 受け渡し契約はfactory.pyのSTAGESを参照。paint.jsonも必須。PNGヘッダー・GLBヘッダー/埋込画像・レビュー対象ハッシュを検査。ただし画像の美観・GLB完全仕様・虚偽のレビュー記載まで機械的に保証するものではない。
-- 制作物は仮ディレクトリから同一ファイルシステム内で確定。履歴を上書きしない。依存が変わらない工程は再生成不要。不要な候補の永続ストックはしない。
-- V1は人間/ChatGPTオーケストレーションのCLI。画像生成API、Actions dispatch、UV自動変換、ゲーム登録を自動実行するアダプターは未接続。塗装済みビューワー生成アダプターは実装したが、実モデルによる起動・描画検証は未実施。工程を止めずに完了扱いする機能は設けない。
-- 技術資料: Godot glTF https://docs.godotengine.org/en/stable/tutorials/assets_pipeline/importing_3d_scenes/available_formats.html ; Unity依存ハッシュ https://docs.unity3d.com/en-us/engine/6000.3/script-reference/UnityEditor.AssetDatabase.GetAssetDependencyHash.html ; 増分ビルド https://docs.unity3d.com/en-us/engine/6000.3/manual/assets-and-media/assets-managing-runtime/assetbundles-section/creating/asset-bundles-building ; 既存モデスタREADME。
+1. concept: concept.json に id, slot, name, lore, mechanism, references, rig_target, proposed_stats。セット所属時は共通コンセプトの set_art_sha256 を追加。外部資料は公式・技術者・企業・実例から調査。正式性能値・新規効果は既存装備承認規約に従う。
+2. art: 別台帳の明示画像生成作業で最低3つの異なるコンセプト画像。art_review.json に image_task_id, reviewer, selected, selection_reason, candidates（id/file/sha256/design_direction/rubric）。各rubricは appeal, identity, silhouette, mechanism, cohesion, readability の {score:1..5,reason:具体的記述}。選定画像は全項目4以上。selected.png は選定候補と完全一致。合格なしなら画像を再制作。スコアだけで審美性を保証しない。
+3. blueprint: blueprint.png と独立PNG10方向（水平45度8方向＋上下）。blueprint_review.json に selected_art_sha256, image_task_id, reviewer, views（front/front_right/right/back_right/back/back_left/left/front_left/top/bottom → {file,sha256,notes}）, scale_and_axes, resolved_inconsistencies, rubric（projection_consistency, proportions, palette, mechanism, assembly_interface）。別画像生成工程として明示された依頼のみ行う。多方向の構造不整合は修正してから進む。
+4. plan: design.json はモデスタ形式。structure_plan.json に blueprint_key, reviewer, rig_interface, silhouette_targets, detail_budget, components（feature, method_reason, mechanical_role, reference_coordinates, views, nodes）。各造形ノードを2方向以上の参照へ関連付ける。輪郭・内部構造線・断面・可動部・装甲分割の順。wireframe/loft/mechanism graphなどから対象に適した手法を選び、使用しない方式の理由も記録。部品数を品質の指標にしない。
+5. model: `authorize-model <work> tools/modeling_studio/pf_<id-lower>.json` を実行し許可付き入力を生成。既存モデスタの専用PRブランチ `modeling/parts-factory/<id-lower>` へそのJSONをコミットしてPR作成、または既存専用workflow_dispatchで指定。CRATE特化反復禁止。モデスタbuild.pyはpf_ファイルまたはparts_factoryマーカーの許可・入力整合を検査。実成果物ZIPを回収し、BLEND/GLB/設計/mesh_report/complete/review/godot_import/interference/8方向PNGと、provenance.json（tool="Modeling Studio - authoring render", commit, run_id, artifact_id, glb_sha256）を受け入れる。証跡は実runから記録する。
+6. geometry: 実モデルと正投影設計図の重ね合わせ（前後左右上下）と全8実レンダーを確認。geometry_review.json: model_glb_sha256, blueprint_key, reviewer, views（front/front_3q/right/back_3q/back/left/top/bottom → {file,sha256,notes}）, overlays（前後左右上下のview名→比較画像パス）, rubric（appeal/silhouette/proportions/armor_language/mechanism/rig_clearance/detail_balance）, blocking_issues=[], comparison_notes, iteration_notes, unresolved_interference=0, interference_notes。意図的接合と問題干渉を分類し、寸法/可動域/武器接地等を実評価する。すべて4以上かつ阻害要因なしが必要。
+7. uv: テクスタAI手動の実成果物。uv.json（method=AI_MANUAL_FACE, source_glb_sha256, reviewer, rubric=quad_orientation/shared_edges/texel_density/padding）、uv_model.glb。面基準と境界整合を確認。
+8. paint: 512/1024/2048 PNGと埋込テクスチャ付きmodel.glb、paint.json（source_uv_glb_sha256, painted_glb_sha256, reviewer, rubric=panel_language/mechanical_detail/light_direction/readability）。上方光源・面を跨ぐパネル・暗色機構を意識し、全解像度と継ぎ目を確認。
+9. review: 塗装済GLBそのものの全8実画像と review.json（painted_glb_sha256, blueprint_key, reviewer, views, rubric=appeal/identity/cohesion/silhouette/mechanism/uv_seams/texture/rig/performance, blocking_issues=[], comparison_notes, iteration_notes, notes, checks=旧V1の6項目accepted）。形状・質感・機構・実ゲーム予算の整合を評価。未確認は合格にしない。
+10. viewer: `python tools/parts_factory/painted_viewer.py <work> <out>` で塗装済HTML生成。viewer_review.jsonに対象ハッシュ・reviewer・texture_display/touch_controls=acceptedを実確認後に記録。WebGL簡易照明・Godotと非同等。実機未確認は明示。
+11. stock: `factory.py stock <work>` 後 `factory.py deliver <work> <output.html>` の順。全段階の受理とストックの完全性がなければ正式HTML配布不可。ストックは `parts_stock/<slot>/<id>/<revision>/`。GitHubへ永続保存した時点で永続ストック完了、Actionsの期限付き成果物だけでは不可。ゲーム登録は別手順。
+
+## 不合格・再制作
+`factory.py reject <work> <stage> --reason "具体的な欠陥・修正案"` で該当段階以降を失効、旧ファイルはobjects、不合格理由はrejectionsに保存。例えば造形不合格ならmodelだけでなくplanから修正する。選定画像/設計図/設計JSON/モデルGLB/塗装GLBの同一バイト成果物は再承認不可。修正は外形、構造、ディテール、塗装の優先順。未達を点数操作で通さない。初回候補を完成品として提出禁止。ユーザーが途中経過を明示要求した場合のみ「未完成」として候補を区別して共有。作業時間や権限等の制約で中断したら、最後に通過したゲート、具体的な阻害要因、残り工程を明記。非同期の完了約束をしない。
+
+## セット制作
+全身候補3案以上から選定（artと同じ契約）。共通art SHAを各部位のconceptへ設定し、頭、胴、両腕、下半身、右武器、左武器の6独立IDで上記工程を完了する。各部位は独立で反復可能。セット完成時に `python tools/parts_factory/set_release.py <source> <output.html>` を使用。sourceには art/（上記art一式）、set.json（format=SERA_PF_SET_V2,id,set_art_sha256,parts={head/body/arms/legs/weapon_r/weapon_l:{id,revision}}）、実assembly.glb、assembly_review.json（part_glb_sha256:各roleの塗装GLBハッシュ、assembly_sha256, views, rubric=appeal/cohesion/proportions/joint_clearance/weapon_clearance/texture_consistency/performance, notes, reviewer, blocking_issues=[]）、8方向実画像、viewer.html、viewer_review.json（assembly_sha256,viewer_sha256,reviewer,texture_display/touch_controls=accepted）。各部位のストック整合、セット配色、全身バランス、武器干渉を確認してからセット保管・配布。組立GLBの生成そのものはモデスタ/既存リグに従う別制作操作。
+
+## 技術境界
+ゲートは登録経路・許可付きモデル入力・正式出力を制御するが、任意の別名JSONで従来モデスタを直接使う行為を全体禁止するものではない。許可は署名付き認証ではなく、受理済みローカル記録と入力を結ぶ整合性メタデータ。ChatGPTが全工程の実行・証跡採取・審美評価を誠実に行う必要がある。画像生成API、GitHub dispatch、テクスタAI手動、自動組立/ゲーム登録のAPIは未接続。専用PR経路は追加済み。V2実データ通し制作・ブラウザ検証は未実施。既存CI/テスト禁止維持。
+参考: Pixar concept→model https://sciencebehindpixar.org/pipeline/modeling ; Disney visual development→model https://www.disneyanimation.com/process/modeling/ ; Blender Studio review/approval https://studio.blender.org/tools/overview/design-principles ; task layers https://studio.blender.org/tools/addons/asset_pipeline
