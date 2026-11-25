@@ -111,3 +111,6 @@ V21に対し、前左脚の踏みつけ1案を追加。21キー・2.20秒・60fp
 `blender -b --python-exit-code 1 --python tools/motion_lab/build.py -- tools/motion_lab/bittaran_fk_v22.json /tmp/mlab_v22 --variant chain`、別出力で `--preview-ik`。V21既存デザイン互換。
 V18 GLBの実メッシュ形状を用いた独立SciPyプレビューを生成し、初回正面/側面/斜め描画で過大な振りかぶりと約9cmの貫通を発見。振りかぶり角度・着地・圧縮・復帰キーを再設計。最終133F: 攻撃脚上昇4.10760m、水平変位2.00127m、支持3脚最大誤差OFF0.04979m→ON数値誤差、床最大突出OFF0.04401m→ON0.003109m、胴体上下幅0.28489m。V21 A案との同一ビューワー比較で等倍・半速再生・IK切替・3方向主要6フレーム×2案の実描画を確認、JSエラー0。斜め（攻撃脚側）で振りかぶり輪郭、胴体傾き、支持脚屈伸が改善。残課題: 振り上げがまだ大きく、打撃の重さと着地後の攻撃脚接触位置の固定が十分ではない。ゲーム採用未承認。Blender/Godot実出力、Android、関節制約・干渉・動力学は未確認。既存ゲームモーション・CI定義変更なし。
 参考: https://www.gamedeveloper.com/production/the-12-principles-of-animation-in-video-games ; https://www.animationmentor.com/blog/animation-tips-tricks-what-makes-or-breaks-a-good-body-mechanics-shot/
+
+## V23: 成功事例の標準化と着地固定
+標準制作フロー・考え方・資料・V22評価とV23実験は [SUCCESS_WORKFLOW_V22_ja.md](SUCCESS_WORKFLOW_V22_ja.md) を参照。`bittaran_fk_v23.json` はV22のFKキーを保持し、`contact_policy=post_impact_v23` で75〜92Fのみ攻撃脚の接地を追加。別出力で `--preview-ik`。独立ビューワーで比較済み。ゲーム原本・既存CI未変更。
