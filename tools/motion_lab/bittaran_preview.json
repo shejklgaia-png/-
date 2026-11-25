@@ -1,0 +1,85 @@
+{
+  "format": "SERA_MOTION_LAB_V1",
+  "source_bbmodel": "models/bosses/Bittaran.bbmodel",
+  "bb_unit_m": 0.065,
+  "fps": 60,
+  "end_frame": 121,
+  "tracks": {
+    "348b6623-ba71-b4b5-958a-5f3ce1bf9a05": {
+      "rotation_deg": [
+        {
+          "frame": 1,
+          "value": [
+            0,
+            0,
+            0
+          ]
+        },
+        {
+          "frame": 31,
+          "value": [
+            0,
+            0,
+            24
+          ]
+        },
+        {
+          "frame": 61,
+          "value": [
+            0,
+            0,
+            -24
+          ]
+        },
+        {
+          "frame": 91,
+          "value": [
+            0,
+            0,
+            12
+          ]
+        },
+        {
+          "frame": 121,
+          "value": [
+            0,
+            0,
+            0
+          ]
+        }
+      ]
+    }
+  },
+  "markers": {
+    "head_tip": {
+      "node": "348b6623-ba71-b4b5-958a-5f3ce1bf9a05",
+      "local": [
+        0,
+        0.15,
+        0
+      ]
+    },
+    "body": {
+      "node": "a5760e7c-7b7a-2f1b-786b-7b49fe981d28",
+      "local": [
+        0,
+        0,
+        0
+      ]
+    }
+  },
+  "events": {
+    "left": 31,
+    "right": 61,
+    "recovery": 121
+  },
+  "review": {
+    "target": [
+      0,
+      0,
+      0.5
+    ],
+    "scale": 4.5
+  },
+  "roundtrip_tolerance_m": 0.002
+}
