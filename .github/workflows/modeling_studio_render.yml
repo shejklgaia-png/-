@@ -254,6 +254,7 @@ jobs:
           set -euo pipefail
           "$RUNNER_TEMP/review-venv/bin/python" -c 'import sys; sys.path.insert(0,"tools/modeling_studio"); from offline_viewer import make_viewer; make_viewer(sys.argv[1])' "$RUNNER_TEMP/sera-model"
           test -s "$RUNNER_TEMP/sera-model/attachment_review.json"
+          test -s "$RUNNER_TEMP/sera-model/attachment_graph.json"
           test -s "$RUNNER_TEMP/sera-model/texture_handoff.json"
       - name: Prepare review bundle
         shell: bash
@@ -278,6 +279,9 @@ jobs:
       - name: Verify attachment audit result after artifact upload
         if: env.ATTACHMENT_MODE == 'true'
         run: python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); print(json.dumps(r,indent=2)); sys.exit(0 if r["all_passed"] else 1)' "$RUNNER_TEMP/sera-model/attachment_review.json"
+      - name: Verify whole assembly graph after artifact upload
+        if: env.ATTACHMENT_MODE == 'true' && always()
+        run: python3 -c 'import json,sys; r=json.load(open(sys.argv[1])); print(json.dumps({k:v for k,v in r.items() if k not in ("nodes","edges")},indent=2)); sys.exit(0 if r["all_root_connected"] else 1)' "$RUNNER_TEMP/sera-model/attachment_graph.json"
       - name: Run ten feedback-prioritized modeling iterations
         if: inputs.iteration_mode == true || startsWith(github.head_ref, 'modeling/crate-blockout-loop-')
         shell: bash
