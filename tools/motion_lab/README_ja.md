@@ -53,3 +53,6 @@ V8全5ケース成功、pose成果物15004940418を取得。接触は0.000834mm�
 
 ## V11: 速度・床突出保護付き補間探索
 Bittaran候補の `bb_clip.mode=guarded` は線形と単調Hermiteの混合率0〜1を0.125刻みで比較する。既存キー時刻・値と入退場時間を保持。各候補の全制作フレームで全指定マーカーの世界速度・加速度・jerk・ループ速度差、および全剛体メッシュ頂点のWait最低点からの下方突出最大/平均を評価する。線形基準に対し各指標の増加を許容誤差（速度0.001m/s、加速度0.05m/s²、jerk3m/s³、ループ速度差0.001m/s、突出0.1mm）以内に制限し、基準比平均が改善した候補だけ選択する。該当なしは線形へ戻す。選択トラック再評価と全候補の棄却理由をclip_guard_report.jsonへ保存。既存baseline/candidateモードも使用可能。床はWait相対の幾何診断であり実ゲーム接地IKではない。補正で原本キーを変えないため既存突出を解消する保証はない。ゲーム内モーションは置換しない。参考: https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.PchipInterpolator.html ; https://docs.blender.org/api/4.5/bpy.types.Depsgraph.html
+
+## V12: 三脚接地アンカーとルート移動補正
+V11 run 45584452920 成功、artifact 15008182065 の実レポートで blend=0、支持3脚のWaitからの最大変位0.2175m（共通Z下降）、床相対突出0.28900086mを確認。候補の `support_lock` は明示した3脚ピボットのWait座標との差の平均を、親なしBodyルートの補正量とする。補正強度0/.25/.5/.75/1、最大0.25m、初末姿勢固定、全154フレーム評価。V11の速度/加速度/jerk/床ガードに加え支持点変位・Bodyピボットの支持三角形に対する外側余裕を保護し、最大変位改善の候補のみ採用。全候補・世界座標の踏みつけ着弾点移動をsupport_lock_report.jsonへ記録。足裏接触点や質量分布は未確定なので足ピボット/Bodyピボットの代理指標。全身IKではなく共通移動のみ、相対攻撃軌道を保持する一方で世界座標の着弾位置は変化しうる。実ゲームの衝突・接地・物理安定性を保証しない。既存ゲームや正本未変更。参考 https://research.cs.wisc.edu/graphics/Gallery/kovar.vol/Cleanup/ ; https://mathweb.ucsd.edu/~sbuss/ResearchWeb/ikmethods/
