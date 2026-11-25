@@ -4,6 +4,9 @@ const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const Cut = preload("res://scripts/sera_base_grid_cut_control.gd")
 const Draft = preload("res://scripts/sera_grid_layout_draft.gd")
 const CODES = Draft.CODES
+const CATEGORIES = ["PRODUCTION", "POWER", "SUPPORT", "COMBAT"]
+const CATEGORY_LABELS = ["生産", "電力", "補助", "戦闘"]
+const Board = preload("res://scripts/sera_base_power_board.gd")
 const MODES = ["PLACE", "REMOVE"]
 const MODE_LABELS = ["配置", "撤去"]
 
@@ -18,6 +21,10 @@ var modules: Dictionary = {}
 var rail: Control
 var tools: Dictionary = {}
 var tray_title: Label
+var overview_label: Label
+var category_row: HBoxContainer
+var category_buttons: Dictionary = {}
+var active_category: String = "PRODUCTION"
 var detail_label: Label
 var status_label: Label
 var rotate_left: Control
@@ -31,7 +38,7 @@ var tray_slide: Tween
 var view_size: Vector2 = Vector2(720, 1280)
 var title_width: float = 284.0
 var title_height: float = 81.0
-var tray_height: float = 206.0
+var tray_height: float = 284.0
 
 
 func _ready() -> void:
@@ -55,6 +62,24 @@ func _ready() -> void:
     detail_label = _info_label("NodeDescription", 15, Color("#c4d6df"))
     status_label = _info_label("NodeStatus", 14, Color("#8ec4d3"))
     status_label.text = "設備を選択して配置 / ドラッグで移動"
+    overview_label = _info_label("GridRatedOverview", 15, Color("#b7dce6"))
+    category_row = HBoxContainer.new()
+    category_row.add_theme_constant_override("separation", 6)
+    tray.add_child(category_row)
+    for i in range(CATEGORIES.size()):
+        var tab := Button.new()
+        tab.name = "Category_" + CATEGORIES[i]
+        tab.text = CATEGORY_LABELS[i]
+        tab.focus_mode = Control.FOCUS_NONE
+        tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        tab.add_theme_font_override("font", LaboSkin.ui_font())
+        tab.add_theme_font_size_override("font_size", 17)
+        tab.add_theme_stylebox_override("normal", LaboSkin.style("normal"))
+        tab.add_theme_stylebox_override("pressed", LaboSkin.style("selected"))
+        tab.toggle_mode = true
+        tab.pressed.connect(_choose_category.bind(CATEGORIES[i]))
+        category_row.add_child(tab)
+        category_buttons[CATEGORIES[i]] = tab
     scroll = ScrollContainer.new()
     scroll.name = "NodeListScroll"
     scroll.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -75,6 +100,7 @@ func _ready() -> void:
         module.call("configure", "module", code, "%d CELLS" % (f.x * f.y))
         module.connect("activated", Callable(self, "_choose_node"))
         modules[code] = module
+    _apply_category()
     rail = Control.new()
     rail.name = "GridOperationRail"
     rail.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -127,7 +153,7 @@ func reflow(dims: Vector2) -> void:
     size = view_size
     title_width = minf(284.0, maxf(224.0, view_size.x * 0.66))
     title_height = 81.0
-    tray_height = 206.0
+    tray_height = 284.0
     base_plate.size = Vector2(title_width, title_height)
     grid_plate.size = Vector2(title_width, title_height)
     base_plate.queue_redraw()
@@ -145,7 +171,11 @@ func reflow(dims: Vector2) -> void:
     detail_label.size = Vector2(tray.size.x - 36, 42)
     status_label.position = Vector2(18, 84)
     status_label.size = Vector2(tray.size.x - 36, 24)
-    scroll.position = Vector2(12, 112)
+    overview_label.position = Vector2(18, 112)
+    overview_label.size = Vector2(tray.size.x - 36, 46)
+    category_row.position = Vector2(12, 160)
+    category_row.size = Vector2(tray.size.x - 24, 30)
+    scroll.position = Vector2(12, 194)
     scroll.size = Vector2(tray.size.x - 24, 86)
     rail.size = Vector2(68, 164)
     rail.position = Vector2(view_size.x - 77.0 if editing else
@@ -211,6 +241,45 @@ func _hide_tools_after_exit() -> void:
     if not editing:
         tray.visible = false
         rail.visible = false
+
+
+func _apply_category() -> void:
+    for key in category_buttons:
+        var tab: Button = category_buttons[key]
+        tab.set_pressed_no_signal(key == active_category)
+    for code in modules:
+        var item: Control = modules[code]
+        item.visible = Draft.CATEGORY_CODES[active_category].has(code)
+
+
+func _choose_category(value: String) -> void:
+    if not Draft.CATEGORY_CODES.has(value):
+        return
+    if value == active_category:
+        _apply_category()
+        return
+    active_category = value
+    selected_code = ""
+    for code in modules:
+        var item: Control = modules[code]
+        item.set("selected", false)
+        item.queue_redraw()
+    _apply_category()
+    scroll.scroll_horizontal = 0
+    show_node_description("")
+    _choose_operation("PLACE")
+    node_chosen.emit("")
+
+
+func set_rated_overview(totals: Dictionary) -> void:
+    if overview_label == null:
+        return
+    var area: int = Board.GRID_SIDE * Board.GRID_SIDE
+    var cost: float = float(totals["processing"]) + float(totals["wire_quarters"]) * 0.25
+    overview_label.text = "定格 / %d/%dマス・%d基 / 変換%dEP・蓄電%dEP\n原料%d / 帰還負荷%.2fEP / 戦闘%d基（種類%d・上限3）" % [
+        totals["cells"], area, totals["nodes"], totals["generation"], totals["storage"],
+        totals["raw"], cost, totals["combat_count"], totals["combat_types"]]
+    overview_label.add_theme_color_override("font_color", Color("#e7bb8a") if int(totals["combat_count"]) > 3 or int(totals["combat_count"]) > int(totals["combat_types"]) else Color("#b7dce6"))
 
 
 func _choose_node(value: String) -> void:
