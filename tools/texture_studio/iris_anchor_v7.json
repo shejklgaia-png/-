@@ -1,0 +1,202 @@
+{
+  "mesh_sha256": "2eb99829f1758053a69c76b5a089c7a61cdd15585bb2dad87ca720acf1331500",
+  "base_sha256": "d5b5b2d79843b64917972aa91c1bf7299c6730bda52fb55d37cbb322d577e590",
+  "resolution": 1024,
+  "margin": 0.008,
+  "anchors": [
+    {
+      "id": "left_piston",
+      "face": 88,
+      "point": [
+        -0.11,
+        -0.065
+      ],
+      "radius": 0.005,
+      "role": "existing piston end plate",
+      "luma_range": [
+        48,
+        105
+      ]
+    },
+    {
+      "id": "left_ring",
+      "face": 88,
+      "point": [
+        -0.028,
+        -0.042
+      ],
+      "radius": 0.005,
+      "role": "existing mount ring rim",
+      "luma_range": [
+        45,
+        110
+      ]
+    },
+    {
+      "id": "right_piston",
+      "face": 88,
+      "point": [
+        0.11,
+        -0.065
+      ],
+      "radius": 0.005,
+      "role": "existing piston end plate",
+      "luma_range": [
+        48,
+        105
+      ]
+    },
+    {
+      "id": "right_ring",
+      "face": 88,
+      "point": [
+        0.028,
+        -0.042
+      ],
+      "radius": 0.005,
+      "role": "existing mount ring rim",
+      "luma_range": [
+        45,
+        110
+      ]
+    },
+    {
+      "id": "rear_l",
+      "face": 95,
+      "point": [
+        -0.055,
+        0
+      ],
+      "radius": 0.004,
+      "role": "existing support rib end",
+      "luma_range": [
+        30,
+        75
+      ]
+    },
+    {
+      "id": "rear_r",
+      "face": 95,
+      "point": [
+        0.055,
+        0
+      ],
+      "radius": 0.004,
+      "role": "existing support rib end",
+      "luma_range": [
+        30,
+        75
+      ]
+    }
+  ],
+  "assemblies": [
+    {
+      "id": "left_return",
+      "face": 88,
+      "kind": "pipe",
+      "material": "dark_alloy",
+      "radius": 0.005,
+      "path": [
+        [
+          -0.11,
+          -0.065
+        ],
+        [
+          -0.11,
+          -0.083
+        ],
+        [
+          -0.066,
+          -0.083
+        ],
+        [
+          -0.045,
+          -0.061
+        ],
+        [
+          -0.028,
+          -0.042
+        ]
+      ],
+      "anchors": [
+        "left_piston",
+        "left_ring"
+      ],
+      "luma_range": [
+        8,
+        150
+      ]
+    },
+    {
+      "id": "right_return",
+      "face": 88,
+      "kind": "pipe",
+      "material": "dark_alloy",
+      "radius": 0.005,
+      "path": [
+        [
+          0.11,
+          -0.065
+        ],
+        [
+          0.11,
+          -0.083
+        ],
+        [
+          0.066,
+          -0.083
+        ],
+        [
+          0.045,
+          -0.061
+        ],
+        [
+          0.028,
+          -0.042
+        ]
+      ],
+      "anchors": [
+        "right_piston",
+        "right_ring"
+      ],
+      "luma_range": [
+        8,
+        150
+      ]
+    },
+    {
+      "id": "aligned_cooler",
+      "face": 95,
+      "kind": "cooler",
+      "material": "dark_alloy",
+      "radius": 0.006,
+      "path": [
+        [
+          -0.055,
+          0
+        ],
+        [
+          0.055,
+          0
+        ]
+      ],
+      "count": 6,
+      "fin_span": 0.018,
+      "fin_radius": 0.003,
+      "anchors": [
+        "rear_l",
+        "rear_r"
+      ],
+      "luma_range": [
+        10,
+        110
+      ]
+    }
+  ],
+  "mirror_pairs": [
+    [
+      "left_return",
+      "right_return"
+    ]
+  ]
+}
