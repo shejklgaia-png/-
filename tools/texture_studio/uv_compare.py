@@ -6,7 +6,7 @@ data={}
 for p in root.rglob("*.json"):
     variant,part=p.stem.split("-",1)
     data[variant,part]=json.loads(p.read_text())
-print("## Face-paint V32 bounded-grid evaluation (Linux Godot, not physical Android)")
+print("## Face-paint V33 continuous-chart and axis evaluation (Linux Godot, not physical Android)")
 print("|Part|V20 / V24 shape mean|V20 / V24 atlas|V20 / V24 ms|V20 / V24 bridge|UV max V20 / V24|")
 print("|---|---|---|---|---|---|")
 issues=[]
@@ -16,7 +16,7 @@ for part in parts:
         issues.append(part+":missing")
         continue
     print(f"|{part}|{b['shape_mean']:.6f} / {c['shape_mean']:.6f}|{b['atlas']} / {c['atlas']}|{b['elapsed_ms']} / {c['elapsed_ms']}|{b['bridge_ok']}/{b['bridge_count']} / {c['bridge_ok']}/{c['bridge_count']}|{b['max']:.4f} / {c['max']:.4f}|")
-    if b['version']!='shape-affine-v20' or c['version'] not in ('face-paint-v24','face-paint-v29','face-paint-v30','face-paint-v31','face-paint-v32'):
+    if b['version']!='shape-affine-v20' or c['version'] not in ('face-paint-v24','face-paint-v29','face-paint-v30','face-paint-v31','face-paint-v32','face-paint-v33'):
         issues.append(part+":version")
     if c['invalid'] or c['overlap_pairs'] or c['overlap_unchecked'] or c['physical_edges']!=b['physical_edges'] or c['triangles']!=b['triangles'] or c['winding_signature']!=b['winding_signature']:
         issues.append(part+":geometry/coverage")
@@ -54,14 +54,22 @@ for part in parts:
         issues.append(part+":V32 artifacts")
     else:
         p,n=v32['previous'],v32['current']
-        print(f"  {part} V31 -> V32: bad {p['bad']} -> {n['bad']}; severe {p['severe']} -> {n['severe']}; max {p['worst']:.5f} -> {n['worst']:.5f}; sum_sq {p['sum_sq']:.5f} -> {n['sum_sq']:.5f}; coplanar bad {p['coplanar_bad']} -> {n['coplanar_bad']}; time {v32['previous_us']/1000:.3f} -> {v32['current_ms']}ms; identical_uv={v32['identical_uv']}")
+        print(f"  {part} V31 -> current: bad {p['bad']} -> {n['bad']}; severe {p['severe']} -> {n['severe']}; max {p['worst']:.5f} -> {n['worst']:.5f}; sum_sq {p['sum_sq']:.5f} -> {n['sum_sq']:.5f}; coplanar bad {p['coplanar_bad']} -> {n['coplanar_bad']}; time {v32['previous_us']/1000:.3f} -> {v32['current_ms']}ms; identical_uv={v32['identical_uv']}")
         if p['edges']!=n['edges'] or n['bad']>p['bad'] or n['severe']>p['severe'] or n['worst']>p['worst']+0.0002 or n['sum_sq']>p['sum_sq']+0.005 or v32['current_atlas']>v32['previous_atlas'] or n['coplanar_bad']>p['coplanar_bad']:
             issues.append(part+":V32 regression")
+    v33=g.get('v33_comparison',{})
+    if not v33 or not v33.get('artifact_ok'):
+        issues.append(part+":V33 artifacts")
+    else:
+        p,n=v33['previous'],v33['current']
+        print(f"  {part} V32 -> V33: charts {v33['previous_charts']} -> {v33['current_charts']}; single triangles {p['single_triangle_charts']} -> {n['single_triangle_charts']}; tilted {p['axis_tilted_faces']} -> {n['axis_tilted_faces']}; angle>10deg {p['angular_bad']} -> {n['angular_bad']}; axis energy {p['axis_energy']:.9f} -> {n['axis_energy']:.9f}; UV gaps {p['same_chart_gaps']} -> {n['same_chart_gaps']}; bad {p['bad']} -> {n['bad']}; severe {p['severe']} -> {n['severe']}; max {p['worst']:.5f} -> {n['worst']:.5f}; time {v33['previous_us']/1000:.3f} -> {v33['current_ms']}ms")
+        if p['edges']!=n['edges'] or n['bad']>p['bad'] or n['severe']>p['severe'] or n['worst']>p['worst']+0.0002 or n['sum_sq']>p['sum_sq']+0.005 or v33['current_atlas']>v33['previous_atlas'] or n['coplanar_bad']>p['coplanar_bad'] or n['single_triangle_charts']>p['single_triangle_charts'] or n['axis_tilted_faces']>p['axis_tilted_faces'] or n['angular_bad']>p['angular_bad'] or n['axis_energy']>p['axis_energy']+1e-7 or n['same_chart_gaps']>p['same_chart_gaps']:
+            issues.append(part+":V33 regression")
     if c['bridge_count'] and c['bridge_ok']!=c['bridge_count']:
         issues.append(part+":bridge coverage")
     if c['atlas']>b['atlas']*2 or c['shape_max']>b['shape_max']+0.02 or c['shape_mean']>b['shape_mean']*1.05+1e-6 or c['area_max']>b['area_max']+0.02:
         issues.append(part+":capacity/shape")
-print("V32 regression gate:", "; ".join(issues) if issues else "passes structural checks; visual stroke and physical Android review still required")
+print("V33 regression gate:", "; ".join(issues) if issues else "passes structural checks; visual stroke and physical Android review still required")
 print("Residuals are reported, not treated as equivalent to paint continuity. Midpoint bridge is not a full brush test.")
 if issues or len(data)!=len(parts)*2:
     raise SystemExit(1)
