@@ -1,0 +1,466 @@
+{
+  "format": "SERA_DESIGN_LIBRARY_V5",
+  "entries": [
+    {
+      "id": "SERA-SILHOUETTE",
+      "revision": 1,
+      "category": "process",
+      "state": "guideline",
+      "slots": [
+        "head",
+        "body",
+        "arms",
+        "legs",
+        "weapons"
+      ],
+      "mandatory": true,
+      "title": "外形・識別性を細部より先に確立",
+      "tags": [
+        "輪郭",
+        "外形",
+        "blockout",
+        "シルエット"
+      ],
+      "intent": "戦闘画面の縮小表示でも部位と機能を判別可能にする",
+      "application": "正面・側面・斜めで特徴を確立し、輪郭と機構の意味が成立してから細部を作る。",
+      "checks": [
+        "全身縮小表示",
+        "斜めの立体美",
+        "設定画の識別特徴"
+      ],
+      "avoid": [
+        "均一な箱と円柱で埋める",
+        "部品数を品質指標にする"
+      ],
+      "sources": [
+        "tools/modeling_studio/README_ja.md",
+        "https://studio.blender.org/tools/artist-guide/asset-creation/modeling"
+      ],
+      "limitations": "輪郭一致率だけでは審美性を判断できない。",
+      "review": "現行モデスタとパーファクの既存方針。個別作品の承認ではない。"
+    },
+    {
+      "id": "SERA-FUNCTION",
+      "revision": 1,
+      "category": "process",
+      "state": "guideline",
+      "slots": [
+        "head",
+        "body",
+        "arms",
+        "legs",
+        "weapons"
+      ],
+      "mandatory": true,
+      "title": "機能と装甲の階層",
+      "tags": [
+        "機構",
+        "装甲",
+        "工業",
+        "mechanism"
+      ],
+      "intent": "外装・内部フレーム・駆動・接続部の役割を分離する",
+      "application": "各主形状に機能と設計画上の根拠を付け、隠れる面は必要な範囲で補完。装飾は用途に従属。",
+      "checks": [
+        "機構の固定側・可動側",
+        "装甲の着脱境界",
+        "情報量の主従"
+      ],
+      "avoid": [
+        "無目的な細部の大量追加",
+        "可動軸を装甲で塞ぐ"
+      ],
+      "sources": [
+        "tools/modeling_studio/README_ja.md",
+        "https://studio.blender.org/tools/artist-guide/asset-creation/modeling"
+      ],
+      "limitations": "実機械の強度・製造可能性は保証しない。",
+      "review": "既存方針の整理。"
+    },
+    {
+      "id": "SERA-BIND",
+      "revision": 1,
+      "category": "interface",
+      "state": "guideline",
+      "slots": [
+        "head",
+        "body",
+        "arms",
+        "legs",
+        "weapons"
+      ],
+      "mandatory": true,
+      "title": "標準リグ・接続座標を維持",
+      "tags": [
+        "接続",
+        "関節",
+        "rig",
+        "bind"
+      ],
+      "intent": "装備差し替えでアニメーションを破壊しない",
+      "application": "対象の最新正本と装備接続規約を参照し、ローカル原点・左右・親階層・可動域を記録する。",
+      "checks": [
+        "接続座標",
+        "中立姿勢",
+        "可動域で干渉確認"
+      ],
+      "avoid": [
+        "既存の骨名・単位を推測だけで変更",
+        "回転中心を外装中心と混同"
+      ],
+      "sources": [
+        "docs/MODEL_PART_WORKFLOW_ja.md",
+        "docs/SERA_EQUIPMENT_CROSS_CHAT_HANDOFF_ja.md"
+      ],
+      "limitations": "寸法・骨名は対象ごとの最新正本から採取。",
+      "review": "既存接続規約を優先する。"
+    },
+    {
+      "id": "SERA-TEXTURE",
+      "revision": 1,
+      "category": "paint",
+      "state": "guideline",
+      "slots": [
+        "head",
+        "body",
+        "arms",
+        "legs",
+        "weapons"
+      ],
+      "mandatory": true,
+      "title": "原面と表面連続性を優先",
+      "tags": [
+        "塗装",
+        "UV",
+        "パネルライン",
+        "texture"
+      ],
+      "intent": "三角対角の段差や境界色ずれを避ける",
+      "application": "原面単位の手動UV、3D座標描画、上方光源、意図した同材質境界のパディングを使用。",
+      "checks": [
+        "全方向実GLB",
+        "512/1024/2048",
+        "境界と縮小視認性"
+      ],
+      "avoid": [
+        "三角対角を装甲境界にする",
+        "強い一律陰影"
+      ],
+      "sources": [
+        "tools/texture_studio/AI_PIPELINE_ja.md",
+        "https://experienceleague.adobe.com/en/docs/substance-3d-painter/using/interface/texture-set/texture-set-settings"
+      ],
+      "limitations": "固定陰影とゲーム内光源の重複に注意。",
+      "review": "テクスタ既存方針。"
+    },
+    {
+      "id": "ARMOR-SECTION",
+      "revision": 1,
+      "category": "armor",
+      "state": "reference",
+      "slots": [
+        "head",
+        "body",
+        "arms",
+        "legs",
+        "weapons"
+      ],
+      "mandatory": false,
+      "title": "可変断面の面構成と積層装甲",
+      "tags": [
+        "装甲",
+        "loft",
+        "wireframe",
+        "角張った"
+      ],
+      "intent": "稜線の流れを保ちつつ正面と側面の厚みを変える",
+      "application": "既存loft/wireframe/明示meshを比較し、断面と傾斜縁を設定画から設計。リムや凹部は意味のある位置だけ。",
+      "checks": [
+        "斜めの厚み",
+        "端部の連続面",
+        "装甲と内部の隙間"
+      ],
+      "avoid": [
+        "全て同じ面取り",
+        "箱を積むだけ"
+      ],
+      "sources": [
+        "tools/modeling_studio/README_ja.md",
+        "https://studio.blender.org/tools/artist-guide/asset-creation/modeling"
+      ],
+      "limitations": "断面は資料に合わせて再設計する。",
+      "review": "造形方式の参照。完成モデル未承認。"
+    },
+    {
+      "id": "JOINT-HOLLOW",
+      "revision": 1,
+      "category": "joint",
+      "state": "reference",
+      "slots": [
+        "head",
+        "body",
+        "arms",
+        "legs",
+        "weapons"
+      ],
+      "mandatory": false,
+      "title": "中空同軸アクチュエーター",
+      "tags": [
+        "関節",
+        "軸受",
+        "hollow",
+        "駆動",
+        "cylinder",
+        "revolve"
+      ],
+      "intent": "回転軸を中心に固定台と回転ハブを分離する",
+      "application": "中心穴・外周ハウジング・軸受・可動側フランジを区別。装甲との間に可動余裕を置く。モデスタrevolve/cylinder/meshを比較。",
+      "checks": [
+        "穴が実際に見える",
+        "固定側と可動側の親子",
+        "回転クリアランス"
+      ],
+      "avoid": [
+        "単一円柱を外に貼る",
+        "軸と外装が一緒に回転"
+      ],
+      "sources": [
+        "https://www.honpine.com/products/Robot-Rotary-Actuators/Standard-Rotary-Actuators/Space-Limited-Hollow-Shaft-Harmonic-Drive-Dual-Encoder-Rotary-Actuator--.html",
+        "tools/modeling_studio/README_ja.md"
+      ],
+      "limitations": "実製品寸法・トルクをSERAに移植しない。",
+      "review": "メーカー資料と既存モデスタ機構例に基づく設計参考。"
+    },
+    {
+      "id": "MECH-FORK",
+      "revision": 1,
+      "category": "mechanism",
+      "state": "reference",
+      "slots": [
+        "arms",
+        "legs",
+        "body",
+        "weapons"
+      ],
+      "mandatory": false,
+      "title": "固定フォークと独立リンク",
+      "tags": [
+        "リンク",
+        "フォーク",
+        "肘",
+        "膝",
+        "sweep",
+        "機構"
+      ],
+      "intent": "可動リンクと支持構造の関係を外観から読み取れるようにする",
+      "application": "左右支持を一体の固定側とし、ピボットを中心に回るリンクを別メッシュ化。掃引・明示面を資料に合わせる。",
+      "checks": [
+        "支点の一貫性",
+        "干渉候補の分類",
+        "斜めの開口"
+      ],
+      "avoid": [
+        "リンクを浮かせる",
+        "回転範囲を塞ぐ"
+      ],
+      "sources": [
+        "tools/modeling_studio/README_ja.md",
+        "https://studio.blender.org/tools/artist-guide/asset-creation/modeling"
+      ],
+      "limitations": "荷重計算なし。",
+      "review": "CRATEの機構試作で使用された方式。外観の採否は別。"
+    },
+    {
+      "id": "SENSOR-RECESS",
+      "revision": 1,
+      "category": "sensor",
+      "state": "reference",
+      "slots": [
+        "head",
+        "body",
+        "arms",
+        "weapons"
+      ],
+      "mandatory": false,
+      "title": "奥まったセンサー開口",
+      "tags": [
+        "バイザー",
+        "カメラ",
+        "sensor",
+        "開口",
+        "発光"
+      ],
+      "intent": "発光部を筐体の表面装飾ではなく観測機構に見せる",
+      "application": "開口外周、傾斜リム、凹部壁、奥面を連続面で作り、センサーを内部に設置。",
+      "checks": [
+        "正面・斜めで最前面確認",
+        "遮蔽と発光の視認性"
+      ],
+      "avoid": [
+        "板の裏に発光部が埋まる",
+        "光だけで形状を表現"
+      ],
+      "sources": [
+        "tools/modeling_studio/README_ja.md"
+      ],
+      "limitations": "光学仕様はフィクション。",
+      "review": "CRATE V10の露出是正方式、実作品ごとに評価。"
+    },
+    {
+      "id": "PROP-NOZZLE",
+      "revision": 1,
+      "category": "propulsion",
+      "state": "reference",
+      "slots": [
+        "body",
+        "legs",
+        "arms"
+      ],
+      "mandatory": false,
+      "title": "推進器の支持・排気・遮熱分離",
+      "tags": [
+        "推進器",
+        "ノズル",
+        "thruster",
+        "排気"
+      ],
+      "intent": "推進軸と取付台の位置関係を明確にし、排気の空間を確保する",
+      "application": "既存の推進器規約・実モデルから取付点と軸を確認し、ノズル・支持・遮熱を分離した設計仮説にする。",
+      "checks": [
+        "排気方向",
+        "外装との距離",
+        "既存アニメーションとの整合"
+      ],
+      "avoid": [
+        "装甲の内側に排気",
+        "全身に無意味な穴を付ける"
+      ],
+      "sources": [
+        "docs/MODEL_PART_WORKFLOW_ja.md",
+        "tools/modeling_studio/README_ja.md"
+      ],
+      "limitations": "SERAの演出向け仮説。実推進装置の性能設計ではない。",
+      "review": "設計候補、実制作未検証。"
+    },
+    {
+      "id": "PAINT-PANEL",
+      "revision": 1,
+      "category": "paint",
+      "state": "reference",
+      "slots": [
+        "head",
+        "body",
+        "arms",
+        "legs",
+        "weapons"
+      ],
+      "mandatory": false,
+      "title": "面を跨ぐパネルと機構の描画",
+      "tags": [
+        "パネルライン",
+        "塗装",
+        "stroke",
+        "陰影",
+        "ボルト"
+      ],
+      "intent": "形状に従う線を描き、暗色部を内部機構として読ませる",
+      "application": "モデル座標stroke/planeを対象面に限定、色・明暗の階層と締結点を設定。原面と共有辺を追跡する。",
+      "checks": [
+        "端部で線が連続",
+        "不要な裏移りなし",
+        "縮小時にノイズ化しない"
+      ],
+      "avoid": [
+        "全ての面を格子で埋める",
+        "三角単位で線を分断"
+      ],
+      "sources": [
+        "tools/texture_studio/AI_PIPELINE_ja.md",
+        "https://experienceleague.adobe.com/en/docs/substance-3d-painter/using/interface/texture-set/texture-set-settings",
+        "tools/texture_studio/AI_SURFACE_V2_ja.md"
+      ],
+      "limitations": "既存描画は厳密測地線ではない。",
+      "review": "テクスタ基盤の技術参考。個々の塗装は未承認。"
+    },
+    {
+      "id": "FAIL-VESPER-V1",
+      "revision": 1,
+      "category": "failure",
+      "state": "failure",
+      "slots": [
+        "head",
+        "body",
+        "arms",
+        "legs",
+        "weapons"
+      ],
+      "mandatory": true,
+      "title": "Vesper V1：簡易造形の不採用",
+      "tags": [
+        "失敗",
+        "Vesper",
+        "箱",
+        "輪郭",
+        "weapon"
+      ],
+      "intent": "同じ低品質制作を繰り返さない",
+      "application": "コンセプトと設計図を省略せず、部位別造形・視覚比較・干渉分類・塗装を完了。剣先と足裏の関係、肩と胴の一体感、首腰露出を確認。",
+      "checks": [
+        "設計図との比較",
+        "全身と部位の実画像",
+        "武器接地・干渉",
+        "塗装済みビュー"
+      ],
+      "avoid": [
+        "旧V1形状の再利用",
+        "技術検査だけで完成扱い"
+      ],
+      "sources": [
+        "https://github.com/shejklgaia-png/-/pull/1305",
+        "SERA ledger 3c96d6b9-9101-4408-b9fa-f68e5a1fefcd"
+      ],
+      "limitations": "単一失敗事例を全機構の禁止に一般化しない。",
+      "review": "ユーザー不合格。台帳に旧形状再利用禁止を記録。"
+    },
+    {
+      "id": "EVIDENCE-IRIS-SEAM",
+      "revision": 1,
+      "category": "paint",
+      "state": "technical_evidence",
+      "slots": [
+        "head",
+        "body",
+        "arms",
+        "legs",
+        "weapons"
+      ],
+      "mandatory": false,
+      "title": "隣接面参照パディングの数値改善事例",
+      "tags": [
+        "UV",
+        "境界",
+        "seam",
+        "padding",
+        "アイリス"
+      ],
+      "intent": "被覆面を変えず境界色ずれを軽減する",
+      "application": "既存2Dと3D隣接方式を同一塗装で比較し、悪化時に2Dへ戻す。",
+      "checks": [
+        "同材質境界RMS",
+        "被覆画素変更ゼロ",
+        "実3D目視"
+      ],
+      "avoid": [
+        "意図した異材質境界まで均す",
+        "数値だけで塗装を採用"
+      ],
+      "sources": [
+        "tools/texture_studio/AI_PIPELINE_ja.md",
+        "https://github.com/shejklgaia-png/-/pull/1303",
+        "SERA ledger c50fef89-99aa-496e-beae-2c8df4aa5857"
+      ],
+      "limitations": "H02の一実例で他モデルへの一般化未確認。デザイン自体は不採用。",
+      "review": "H02 220同材質境界RGB RMS 8.645155→1.602366、被覆変更0。台帳記録。"
+    }
+  ]
+}
