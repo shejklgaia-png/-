@@ -35,6 +35,23 @@ func _run() -> void:
         quit(2)
         return
     var tris: Array = result.triangles
+    var grid_comparison: Dictionary = {}
+    if variant=="face":
+        var old_start: int = Time.get_ticks_usec()
+        var previous: Dictionary = UV.build(source,density,true,true,true,true,false)
+        var old_us: int = Time.get_ticks_usec()-old_start
+        if previous.has("error"):
+            push_error(str(previous.error))
+            quit(2)
+            return
+        grid_comparison = {"previous":_measure_grid(previous.triangles,previous.image.get_size()),"current":_measure_grid(tris,result.image.get_size()),"previous_charts":previous.charts,"current_charts":result.charts,"previous_atlas":previous.image.get_width(),"current_atlas":result.image.get_width(),"previous_us":old_us,"current_ms":elapsed,"version":result.unwrap_version,"report":result.affine_report}
+        var grid_prefix: String = dest.get_basename()+"-grid"
+        var old_ok: bool = _export_footprint_mesh(previous.triangles,grid_prefix+"-v28",{})
+        var new_ok: bool = _export_footprint_mesh(tris,grid_prefix+"-v29",{})
+        var old_atlas: Image = previous.image
+        var new_atlas: Image = result.image
+        grid_comparison.artifact_ok = old_ok and new_ok and old_atlas.save_png(grid_prefix+"-v28.png")==OK and new_atlas.save_png(grid_prefix+"-v29.png")==OK
+        print("GRID_V29 ",JSON.stringify(grid_comparison))
     var atlas: Image = result.image
     var side := atlas.get_size()
     var max_res: float = 0.0
@@ -187,7 +204,7 @@ func _run() -> void:
                         post_mismatch+=1
     var distortion: Vector3 = UV._topology_distortion(tris,density)
     var diagnostic: Dictionary = UV.diagnostic_report(tris,side,density)
-    var report: Dictionary = {"id":id,"density":density,"version":result.unwrap_version,"triangles":tris.size(),"charts":result.charts,"atlas":side.x,"physical_edges":counted,"island_edges":island_edges,"island_bad":island_bad,"island_severe":island_severe,"island_max":island_max,"island_sum_sq":island_sum,"bad":bad,"severe":severe,"max":max_res,"sum_sq":sum_sq,"invalid":invalid,"winding_signature":winding_signature.sha256_text(),"overlap_pairs":overlap_pairs,"overlap_unchecked":overlap_unchecked,"min_ratio":min_ratio,"max_ratio":max_ratio,"shape_max":distortion.x,"shape_mean":distortion.y,"area_max":distortion.z,"elapsed_ms":elapsed,"diagnostic":diagnostic.report,"solver":result.affine_report,"bridge_count":bridge_count,"bridge_ok":bridge_ok,"png_roundtrip":png_ok,"mesh_restore":restore_ok,"post_bake_ok":post_ok,"post_bake_side":post_side,"post_bake_moved":post_moved,"post_bake_fallback":post_fallback,"post_bake_samples":post_samples,"post_bake_mismatch":post_mismatch,"post_bake_error":str(post.get("error","")),"face_stroke_metrics":stroke_metrics,"face_footprint_metrics":footprint_metrics}
+    var report: Dictionary = {"id":id,"density":density,"version":result.unwrap_version,"triangles":tris.size(),"charts":result.charts,"atlas":side.x,"physical_edges":counted,"island_edges":island_edges,"island_bad":island_bad,"island_severe":island_severe,"island_max":island_max,"island_sum_sq":island_sum,"bad":bad,"severe":severe,"max":max_res,"sum_sq":sum_sq,"invalid":invalid,"winding_signature":winding_signature.sha256_text(),"overlap_pairs":overlap_pairs,"overlap_unchecked":overlap_unchecked,"min_ratio":min_ratio,"max_ratio":max_ratio,"shape_max":distortion.x,"shape_mean":distortion.y,"area_max":distortion.z,"elapsed_ms":elapsed,"diagnostic":diagnostic.report,"solver":result.affine_report,"bridge_count":bridge_count,"bridge_ok":bridge_ok,"png_roundtrip":png_ok,"mesh_restore":restore_ok,"post_bake_ok":post_ok,"post_bake_side":post_side,"post_bake_moved":post_moved,"post_bake_fallback":post_fallback,"post_bake_samples":post_samples,"post_bake_mismatch":post_mismatch,"post_bake_error":str(post.get("error","")),"face_stroke_metrics":stroke_metrics,"face_footprint_metrics":footprint_metrics,"grid_comparison":grid_comparison}
     var file := FileAccess.open(dest,FileAccess.WRITE)
     if file == null:
         push_error("Cannot write UV report")
@@ -579,3 +596,30 @@ func _footprint_surface_area(pixel: Vector2i,tris: Array,side: Vector2i) -> floa
             if absf(twice_area)>0.00000001:
                 total += absf(twice_area)*0.5*world_area/uv_area
     return total
+
+
+# Evaluate both actual packed atlases over identical physical edges.
+# Coplanar edges are reported separately from curvature/holonomy cuts.
+func _measure_grid(tris: Array,side: Vector2i) -> Dictionary:
+    var result: Dictionary = {"edges":0,"bad":0,"severe":0,"worst":0.0,"sum_sq":0.0,"angle_sum":0.0,"coplanar_edges":0,"coplanar_bad":0,"coplanar_worst":0.0,"coplanar_welded":0}
+    for link in UV._seam_segments(tris,true):
+        var metric: Dictionary = UV._diagnostic_edge_metrics(tris,link,Vector2(side))
+        if metric.is_empty():
+            continue
+        var e: float = float(metric.residual)
+        result.edges += 1
+        result.bad += 1 if e>0.25 else 0
+        result.severe += 1 if e>1.0 else 0
+        result.worst = maxf(result.worst,e)
+        result.sum_sq += e*e
+        result.angle_sum += float(metric.angle)
+        var a: Dictionary = tris[int(link.ta)]
+        var b: Dictionary = tris[int(link.tb)]
+        var na: Vector3 = a.face_normal
+        var nb: Vector3 = b.face_normal
+        if na.dot(nb)>0.0 and na.cross(nb).length_squared()<=0.0000000001 and absf(na.dot(Vector3(b.p[0])-Vector3(a.p[0])))<=0.00001:
+            result.coplanar_edges += 1
+            result.coplanar_bad += 1 if e>0.25 else 0
+            result.coplanar_worst = maxf(result.coplanar_worst,e)
+            result.coplanar_welded += 1 if int(a.chart)==int(b.chart) else 0
+    return result
