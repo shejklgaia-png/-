@@ -5040,6 +5040,68 @@ static func face_brush_owners(tris: Array,side: Vector2i) -> PackedInt32Array:
                     owners[i] = int(t.chart)
     return owners
 
+# V27: real surface coverage, distinct from the bake's fringe padding.
+# Store one representative point of positive-area triangle/cell overlap
+# in 30 bits (15 bits per local axis + 1 sentinel). Interior centers use
+# the same fixed code. Only partially covered cells need polygon clipping.
+static func face_brush_surface_samples(tris: Array,side: Vector2i,owners: PackedInt32Array) -> PackedInt32Array:
+    var samples := PackedInt32Array()
+    if owners.size()!=side.x*side.y:
+        return samples
+    samples.resize(owners.size())
+    samples.fill(0)
+    var scale := Vector2(side)
+    var cell := PackedVector2Array([Vector2.ZERO,Vector2.RIGHT,Vector2.ONE,Vector2.DOWN])
+    for t in tris:
+        var a: Vector2 = t.uv[0]*scale
+        var b: Vector2 = t.uv[1]*scale
+        var c: Vector2 = t.uv[2]*scale
+        var d: float = (b-a).cross(c-a)
+        if absf(d)<0.0000001:
+            continue
+        var lo := Vector2i(a.min(b).min(c).floor()).max(Vector2i.ZERO)
+        var hi := Vector2i(a.max(b).max(c).ceil()).min(side-Vector2i.ONE)
+        var chart: int = int(t.chart)
+        for y in range(lo.y,hi.y+1):
+            for x in range(lo.x,hi.x+1):
+                var index: int = y*side.x+x
+                if owners[index]!=chart:
+                    continue
+                var origin := Vector2(x,y)
+                var center: Vector2 = origin+Vector2(0.5,0.5)
+                var v: float = (center-a).cross(c-a)/d
+                var w: float = (b-a).cross(center-a)/d
+                if v>=0.0 and w>=0.0 and v+w<=1.0:
+                    samples[index] = _encode_face_sample(Vector2(0.5,0.5))
+                    continue
+                if samples[index]!=0:
+                    continue
+                var tri := PackedVector2Array([a-origin,b-origin,c-origin])
+                for polygon in Geometry2D.intersect_polygons(tri,cell):
+                    if polygon.size()<3:
+                        continue
+                    var area: float = 0.0
+                    var point := Vector2.ZERO
+                    for i in range(polygon.size()):
+                        area += polygon[i].cross(polygon[(i+1)%polygon.size()])
+                        point += polygon[i]
+                    if absf(area)<=0.00000001:
+                        continue
+                    # The intersection of a triangle and a square is convex;
+                    # its vertex average lies inside the sampled surface.
+                    samples[index] = _encode_face_sample(point/float(polygon.size()))
+                    break
+    return samples
+
+static func _encode_face_sample(point: Vector2) -> int:
+    var x: int = clampi(roundi(point.x*32766.0),0,32766)
+    var y: int = clampi(roundi(point.y*32766.0),0,32766)
+    return 1+(x | (y<<15))
+
+static func face_brush_sample(code: int) -> Vector2:
+    var value: int = code-1
+    return Vector2(float(value & 32767),float(value>>15))/32766.0
+
 # Cache directional edge frames in packed pixel coordinates. Shared
 # physical edge endpoints have identical orientation on both frames.
 static func face_brush_edges(tris: Array,bridges: Dictionary,side: Vector2i) -> Dictionary:
