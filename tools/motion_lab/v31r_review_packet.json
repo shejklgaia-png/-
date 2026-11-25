@@ -1,0 +1,125 @@
+{
+  "source": {
+    "commit": "d1c65fe472ab9172405e2312dbb3daf2f737e641",
+    "asset": "assets/sera_source.json",
+    "clip": "run_front_original",
+    "runtime_scope": "独立再構成・RUN方向制御近似",
+    "directly_comparable": false,
+    "engine_replay_verified": false
+  },
+  "candidate": {
+    "sha256": "76836c0ac99fd932bff5a174bf40c76e49c12e2710f5eee7a4ee836047199b18",
+    "viewer": "MotionLab_V31_Supervised_Review.html",
+    "action": "walk/turn_left/turn_right (comparison artifact digest)"
+  },
+  "stages": {
+    "director": {
+      "role": "director",
+      "candidate_sha256": "76836c0ac99fd932bff5a174bf40c76e49c12e2710f5eee7a4ee836047199b18",
+      "notes": "現行RUNの全身演技を保護。接地と腰軌道だけを変更。"
+    },
+    "author": {
+      "role": "author",
+      "candidate_sha256": "76836c0ac99fd932bff5a174bf40c76e49c12e2710f5eee7a4ee836047199b18",
+      "notes": "3動作各3強度を生成。"
+    },
+    "visual_reviewer": {
+      "role": "visual_reviewer",
+      "candidate_sha256": "76836c0ac99fd932bff5a174bf40c76e49c12e2710f5eee7a4ee836047199b18",
+      "notes": "前回V31より構え・振幅が現行に近い。腰上下動・膝屈曲が過大。",
+      "rendered_viewer_opened": true,
+      "views": [
+        "front",
+        "side",
+        "back",
+        "quarter",
+        "game_approximation"
+      ],
+      "full_playback_rates": [
+        1,
+        0.5
+      ],
+      "continuous_visual_review": false,
+      "evidence": [
+        "walk_sheet.jpg",
+        "turn_left_sheet.jpg",
+        "turn_right_sheet.jpg"
+      ],
+      "same_scale_time_camera": true,
+      "ik_comparison": "unverified",
+      "criteria": {
+        "intent": {
+          "status": "unverified",
+          "evidence": "三者比較シート、独立再構成。実機比較未完了。"
+        },
+        "silhouette": {
+          "status": "unverified",
+          "evidence": "三者比較シート、独立再構成。実機比較未完了。"
+        },
+        "amplitude": {
+          "status": "unverified",
+          "evidence": "三者比較シート、独立再構成。実機比較未完了。"
+        },
+        "timing": {
+          "status": "unverified",
+          "evidence": "三者比較シート、独立再構成。実機比較未完了。"
+        },
+        "weight": {
+          "status": "worse",
+          "evidence": "三者比較シート、独立再構成。実機比較未完了。"
+        },
+        "coordination": {
+          "status": "unverified",
+          "evidence": "三者比較シート、独立再構成。実機比較未完了。"
+        },
+        "contact": {
+          "status": "unverified",
+          "evidence": "三者比較シート、独立再構成。実機比較未完了。"
+        },
+        "interference": {
+          "status": "unverified",
+          "evidence": "三者比較シート、独立再構成。実機比較未完了。"
+        },
+        "recovery": {
+          "status": "unverified",
+          "evidence": "三者比較シート、独立再構成。実機比較未完了。"
+        },
+        "comparison": {
+          "status": "unverified",
+          "evidence": "三者比較シート、独立再構成。実機比較未完了。"
+        }
+      }
+    },
+    "technical_reviewer": {
+      "role": "technical_reviewer",
+      "candidate_sha256": "76836c0ac99fd932bff5a174bf40c76e49c12e2710f5eee7a4ee836047199b18",
+      "notes": "240Hz標本。接地固定・厳密衝突・可動限界未確認。",
+      "gates": {
+        "floor": false,
+        "root_range": false,
+        "contact_lock": false,
+        "engine_baseline": false,
+        "strict_collision": false
+      }
+    },
+    "reviser": {
+      "role": "reviser",
+      "candidate_sha256": "76836c0ac99fd932bff5a174bf40c76e49c12e2710f5eee7a4ee836047199b18",
+      "notes": "強度3候補を比較。次候補に再設計が必要。",
+      "rechecked": true
+    },
+    "judge": {
+      "role": "judge",
+      "candidate_sha256": "76836c0ac99fd932bff5a174bf40c76e49c12e2710f5eee7a4ee836047199b18",
+      "notes": "全9案棄却。",
+      "verdict": "reject"
+    }
+  },
+  "unresolved_issues": [
+    "過大な腰上下動",
+    "脚関節の変形",
+    "240Hz床基準未達",
+    "実機比較・接地固定・実ゲーム視点未確認",
+    "踏み込み未再試行"
+  ]
+}
