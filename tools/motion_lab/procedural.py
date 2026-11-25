@@ -16,11 +16,12 @@ def plan(action,root,feet,forward,span,strike):
     """Sparse world-space task goals; stance contacts are explicit per pose."""
     if action not in ACTIONS: raise ValueError("unsupported procedural action")
     keys=[]; side=Vector((forward.y,-forward.x,0))
-    def add(t,name,body=None,goals=None,air=(),angle=0.,tilt=0.,nod=0.):
+    def add(t,name,body=None,goals=None,air=(),angle=0.,tilt=0.,nod=0.,foot_yaws=None):
         p=root.copy() if body is None else body.copy()
         q={n:v.copy() for n,v in (feet if goals is None else goals).items()}
         support=[n for n in ROLES if n not in air]
-        keys.append(dict(t=t,event=name,body=p,feet=q,support=support,yaw=angle,tilt=tilt,head=nod))
+        keys.append(dict(t=t,event=name,body=p,feet=q,support=support,yaw=angle,tilt=tilt,head=nod,
+                         foot_yaws=dict(foot_yaws) if foot_yaws is not None else {n:0. for n in ROLES}))
     add(0.,"ready")
     def shift(body,goals,air):
         p=body.copy(); stable=mean([goals[n] for n in ROLES if n not in air])
@@ -34,15 +35,18 @@ def plan(action,root,feet,forward,span,strike):
         angle=math.radians(12)*(1 if action=="turn_left" else -1) if action.startswith("turn_") else 0.
         travel=forward*distance;final={n:root+yaw(angle)@(v-root)+travel for n,v in feet.items()}
         q={n:v.copy() for n,v in feet.items()}
+        foot_yaws={n:0. for n in ROLES}
         order=("RearFoot_L","FrontFoot_L","RearFoot_R","FrontFoot_R") if angle>=0 else ("RearFoot_R","FrontFoot_R","RearFoot_L","FrontFoot_L")
         for j,n in enumerate(order):
             t=j*.23; old=q[n].copy(); body=root+travel*(j/4)
-            add(t+.04,f"shift_{j+1}",shift(body,q,(n,)),q,angle=angle*j/4)
+            add(t+.04,f"shift_{j+1}",shift(body,q,(n,)),q,angle=angle*j/4,foot_yaws=foot_yaws)
             q[n]=(old+final[n])*.5+Vector((0,0,.055*span))
-            add(t+.12,f"swing_{j+1}",shift(body,q,(n,)),q,(n,),angle=angle*(j+.5)/4)
+            foot_yaws[n]=angle*.5
+            add(t+.12,f"swing_{j+1}",shift(body,q,(n,)),q,(n,),angle=angle*(j+.5)/4,foot_yaws=foot_yaws)
             q[n]=final[n].copy()
-            add(t+.21,f"land_{j+1}",root+travel*((j+1)/4),q,angle=angle*(j+1)/4)
-        add(1.,"recovered",root+travel,final,angle=angle)
+            foot_yaws[n]=angle
+            add(t+.21,f"land_{j+1}",root+travel*((j+1)/4),q,angle=angle*(j+1)/4,foot_yaws=foot_yaws)
+        add(1.,"recovered",root+travel,final,angle=angle,foot_yaws=foot_yaws)
     elif action in ("stomp","sweep"):
         q={n:v.copy() for n,v in feet.items()}; body=shift(root,q,(strike,))
         add(.16,"anticipation",body+Vector((0,0,-.015*span)),q,nod=-2.)
@@ -141,7 +145,7 @@ def compile_procedural(d,nodes,end,out):
             update()
             errors={};reach={}
             for n,(hip,knee,foot,fq,anchor,a,b) in geom.items():
-                desired=turn@fq
+                desired=yaw(p["foot_yaws"][n])@fq
                 target=p["feet"][n]-desired@anchor
                 h=hip.matrix_world.translation.copy();v=target-h
                 l1,l2=a.length,b.length
@@ -185,7 +189,7 @@ def compile_procedural(d,nodes,end,out):
                 channels["rotation_deg"].append({"frame":f,"value":deg(e),"interpolation":"LINEAR"})
             reports.append({"frame":f,"event":p["event"],"support":p["support"],
                             "targets_m":{n:list(v) for n,v in p["feet"].items()},"actual_m":{n:list(v) for n,v in actual.items()},
-                            "foot_error_m":errors,"reach_clamp_m":reach,"foot_min_z_m":lows,
+                            "foot_error_m":errors,"reach_clamp_m":reach,"foot_yaw_deg":{n:math.degrees(v) for n,v in p["foot_yaws"].items()},"foot_min_z_m":lows,
                             "min_mesh_z_m":floor,"com_proxy_m":list(com),"support_margin_m":support_margin,"interference_candidates":hits,"flags":flags})
     finally:
         for o in objects:o.location,o.rotation_euler=saved[o.name]
