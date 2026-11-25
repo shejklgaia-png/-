@@ -20,7 +20,7 @@ SOURCES={
 RECIPES={
  "shoulder_actuator":("actuator","Compact concentric output flange and shaped shoulder mounting housing.","arms"),
  "elbow_actuator":("actuator","Coaxial stepped rotor and narrower retaining flange, fixed side stays fixed.","arms"),
- "arm_assembly":("robot_arm","Larger cast link housings centered on shoulder/elbow/wrist axes; preserve all pivots.","arms"),
+ "arm_assembly":("robot_arm","Reposition elbow and wrist into a more continuous serial chain and rebuild the connected link housings; preserve rotational ranges.","arms"),
  "arm_service":("housing","Separate visible service seam and cover on forearm housing.","arms"),
  "wrist_flange":("actuator","Recessed ring and short output flange at the existing wrist axis.","arms"),
  "gripper_links":("gripper","Tapered fingers with distinct root and wear pad, no extra joint count.","arms"),
@@ -92,6 +92,20 @@ def mutate(spec,key):
                     b=p["ElbowBearing"+t+k];sv.ring(b,.0195,.038,.013,.004)
                 c=p["ElbowCap"+t];c["radius"]=.032;c["depth"]=.010;c["bevel"]=.002
             elif key=="arm_assembly":
+                # After blockout, joint centers take precedence over projected contours.
+                # Shift the fixed elbow fittings and rotating elbow subtree by the same vector.
+                el=p["ElbowJoint"+t];wr=p["WristJoint"+t]
+                de=[s*.034-el["location"][0],0,.010]
+                dw=[s*.008-wr["location"][0],0,0]
+                for n in ("ElbowJoint","ElbowAxle","ElbowCap","ElbowBearing"+t+"A","ElbowBearing"+t+"B","ElbowFork"+t+"A","ElbowFork"+t+"B"):
+                    name=n if n.endswith(t+"A") or n.endswith(t+"B") else n+t
+                    p[name]["location"]=[x+y for x,y in zip(p[name]["location"],de)]
+                for n in ("WristJoint","WristBearing"):
+                    a=p[n+t];a["location"]=[x+y for x,y in zip(a["location"],dw)]
+                # Rebuild core endpoints in their own mesh-local coordinates, not in projection space.
+                for n,j in (("UpperArmCore",el),("ForearmCore",wr)):
+                    core=p[n+t];origin=core["location"]
+                    core["path"]=[[ -x for x in origin],[x-y for x,y in zip(j["location"],origin)]]
                 sv.shell(p["UpperArm"+t],p["UpperArmCore"+t],[[.032,.028],[.050,.045],[.053,.045],[.034,.031]],[.20,.34,.65,.78],8)
                 sv.shell(p["Forearm"+t],p["ForearmCore"+t],[[.031,.029],[.055,.047],[.056,.051],[.038,.032]],[.13,.28,.64,.85],8)
             elif key=="arm_service":
@@ -137,8 +151,25 @@ def mutate(spec,key):
     return d
 
 def priority(key,m):
+    # Establish the arm chain before working on fittings. Then use mechanical evidence.
+    if key=="arm_assembly":return 1000000
     target=RECIPES[key][2]
-    return 1-min(v for k,v in m["local_iou"].items() if k.endswith("_"+target))
+    prefixes={"arms":("Shoulder","Elbow","Wrist","Claw"),"head":("Neck","Antenna"),"tracks":(),"chest":()}[target]
+    return sum(s["cross_new"] for n,v in m["per_joint"].items() if n.startswith(prefixes) for s in v)
+
+def guard(m,parent,base):
+    # Post-blockout only: no full-body or local silhouette thresholds.
+    return [r for r in sv.guard(m,parent,base) if not r.endswith(" silhouette")]
+
+def score(m):
+    return (-m["cross_new"],-m["cross_surface"],-m["motion_new"],-m["static"])
+
 def exploratory(key,m,parent,reasons):
-    return not reasons and m["local_mean"]>=parent["local_mean"]-.001
+    return not reasons
+
+def reference_observations(m,parent,base):
+    return {"policy":"post_blockout_advisory_only","global_delta_vs_baseline":{k:m[k]-base[k] for k in ("front","right")},
+            "local_delta_vs_baseline":{k:v-base["local_iou"][k] for k,v in m["local_iou"].items()},
+            "visual_review_required":True}
+
 if __name__=="__main__":prepare(sys.argv[1],sys.argv[2])
