@@ -5,7 +5,7 @@ from pathlib import Path
 from hard_surface import LINE_TYPES
 
 def handoff(report,selection,design):
-    if report.get("format")!="SERA_STRUCTURE_ANALYSIS_V1":
+    if report.get("format") not in ("SERA_STRUCTURE_ANALYSIS_V1","SERA_STRUCTURE_ANALYSIS_V2"):
         raise ValueError("unsupported analysis format")
     candidates={x["id"]:x for x in report["lines"]}
     parts={p["name"] for p in design["parts"]}
