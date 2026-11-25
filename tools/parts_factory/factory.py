@@ -1,4 +1,4 @@
-"""PARTS FACTORY V5: resumable, non-destructive production coordinator."""
+"""PARTS FACTORY V6: resumable, non-destructive production coordinator."""
 import argparse
 import hashlib
 import json
@@ -10,6 +10,7 @@ import quality_gates as q
 import reference_contract as rc
 import texture_contract as tc
 import design_knowledge as dk
+import review_roles as rr
 
 ROOT = Path(__file__).resolve().parents[2]
 STOCK = ROOT / "parts_stock"
@@ -64,7 +65,7 @@ def files(folder):
 
 def state(work):
     d = read(work / "job.json")
-    require(d["format"] == "SERA_PARTS_FACTORY_V5", "invalid format")
+    require(d["format"] == "SERA_PARTS_FACTORY_V6", "invalid format")
     require(d["slot"] in SLOTS and re.fullmatch(r"[A-Z][A-Z0-9_-]{1,39}", d["id"]), "invalid job identity")
     return d
 
@@ -192,7 +193,10 @@ def accept(work, name, src, producer):
     require(all(x in d["stages"] for x in ORDER[:idx]), "upstream stages missing")
     require(src.is_dir() and not src.is_symlink(), "source directory required")
     upstream = d["stages"][ORDER[idx-1]]["key"] if idx else "ROOT"
+    rr.author(src,name)
     check_stage(name,src,d)
+    prior={k:d['stages'][k] for k in ORDER[:idx]}
+    rr.check(src,name,d['id'],prior,work)
     record = {"stage":name,"upstream":upstream,"producer":producer,"files":files(src)}
     if name=="plan":
         record["design_hash"]=q.canonical(read(src/"design.json"))
@@ -243,7 +247,9 @@ def stock(work):
         write(out/"job.json",d)
         if (work/"rejections").is_dir():
             shutil.copytree(work/"rejections",out/"rejections")
-        write(out/"release.json",{"id":d["id"],"slot":d["slot"],"revision":key,"state":"stocked_not_in_game","format":"SERA_PARTS_STOCK_V5"})
+        if (work/"review_vetoes").is_dir():
+            shutil.copytree(work/"review_vetoes",out/"review_vetoes")
+        write(out/"release.json",{"id":d["id"],"slot":d["slot"],"revision":key,"state":"stocked_not_in_game","format":"SERA_PARTS_STOCK_V6"})
         out.rename(dest)
     print("STOCKED",dest)
 
@@ -302,7 +308,7 @@ def main():
         require(re.fullmatch(r"[A-Z][A-Z0-9_-]{1,39}",args.id),"invalid ID")
         work.mkdir(parents=True,exist_ok=True)
         require(not (work/"job.json").exists(),"job already exists")
-        write(work/"job.json",{"format":"SERA_PARTS_FACTORY_V5","id":args.id,"slot":args.slot,"stages":{}})
+        write(work/"job.json",{"format":"SERA_PARTS_FACTORY_V6","id":args.id,"slot":args.slot,"stages":{}})
     elif args.cmd=="accept":
         accept(work,args.stage,args.source.resolve(),args.producer)
     elif args.cmd=="stock":
@@ -316,7 +322,7 @@ def main():
     else:
         d=state(work); valid,key=verify(work,d)
         next_stage=ORDER[len(valid)] if len(valid)<len(ORDER) else "stock"
-        result={"id":d["id"],"accepted":valid,"next":next_stage,"revision":key,"rejections":[read(p) for p in sorted((work/"rejections").glob("*.json"))]}
+        result={"id":d["id"],"accepted":valid,"next":next_stage,"revision":key,"rejections":[read(p) for p in sorted((work/"rejections").glob("*.json"))],"review_vetoes":[read(p) for p in sorted((work/"review_vetoes").glob("*.json"))],"next_author_role":rr.PRODUCERS.get(next_stage),"required_review_roles":list(rr.CRITERIA.get(next_stage,{}))}
         if args.cmd=="handoff" and not valid:
             result["route"]="design_knowledge.py brief <slot> <keywords> <concept-dir>/design_brief.json -> accept concept"
         if args.cmd=="handoff" and valid:
