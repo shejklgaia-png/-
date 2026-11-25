@@ -15,8 +15,8 @@ def stock_ref(slot, item, art_hash):
     f.require(re.fullmatch(r"[A-Z][A-Z0-9_-]{1,39}",pid) and re.fullmatch(r"[0-9a-f]{64}",rev),"invalid stock reference")
     folder=f.STOCK/slot/pid/rev
     d=f.read(folder/"job.json"); release=f.read(folder/"release.json")
-    f.require(d["format"]=="SERA_PARTS_FACTORY_V2" and d["id"]==pid and d["slot"]==slot,"wrong part identity or old schema")
-    f.require(release["format"]=="SERA_PARTS_STOCK_V2" and release["revision"]==rev,"wrong stock revision")
+    f.require(d["format"]=="SERA_PARTS_FACTORY_V3" and d["id"]==pid and d["slot"]==slot,"wrong part identity or old schema")
+    f.require(release["format"]=="SERA_PARTS_STOCK_V3" and release["revision"]==rev,"wrong stock revision")
     previous="ROOT"
     for name in f.ORDER:
         row=d["stages"][name]
