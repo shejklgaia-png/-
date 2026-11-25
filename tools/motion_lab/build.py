@@ -55,6 +55,8 @@ def main():
             if part.get("parent"): o.parent=nodes[part["parent"]]
             o.location=part.get("location",[0,0,0])
     sys.path.insert(0,str(Path(__file__).resolve().parent))
+    from rig_discovery import configure
+    configure(d,nodes,out)
     from bbclip import compile_clip
     compile_clip(scene,d,nodes,end,out)
     from poses import compile_poses, export_poses
