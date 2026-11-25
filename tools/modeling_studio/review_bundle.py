@@ -141,6 +141,8 @@ def main():
         paths.append('mechanism_graph.json')
     if (root/"structure_analysis").is_dir():
         paths += [p.relative_to(root).as_posix() for p in sorted((root/"structure_analysis").rglob("*")) if p.is_file()]
+    if (root/"blockout_review").is_dir():
+        paths += [p.relative_to(root).as_posix() for p in sorted((root/"blockout_review").glob("*")) if p.is_file()]
     paths += compare_candidates(root)
     files = {p:{"bytes":(root/p).stat().st_size,"sha256":sha256_file(root/p)} for p in paths}
     if any(v["bytes"]==0 for v in files.values()):

@@ -29,7 +29,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
-      DESIGN: ${{ inputs.design || (startsWith(github.head_ref, 'modeling/structure-analysis-v6-') && 'tools/modeling_studio/mechanism_crate_study.json') || (startsWith(github.head_ref, 'modeling/structure-analysis-') && 'tools/modeling_studio/hard_surface_example.json') || (startsWith(github.head_ref, 'modeling/hard-surface-') && 'tools/modeling_studio/hard_surface_example.json') || (startsWith(github.head_ref, 'modeling/wireframe-guides-') && 'tools/modeling_studio/wireframe_example.json') || (startsWith(github.head_ref, 'modeling/crate-threeview-refine-v2-') && 'tools/modeling_studio/crate_threeview_v2.json') || (startsWith(github.head_ref, 'modeling/crate-threeview-') && 'tools/modeling_studio/crate_threeview_v1.json') || 'tools/modeling_studio/example.json' }}
+      DESIGN: ${{ inputs.design || (startsWith(github.head_ref, 'modeling/crate-blockout-') && 'tools/modeling_studio/crate_blockout_v7.json') || (startsWith(github.head_ref, 'modeling/structure-analysis-v6-') && 'tools/modeling_studio/mechanism_crate_study.json') || (startsWith(github.head_ref, 'modeling/structure-analysis-') && 'tools/modeling_studio/hard_surface_example.json') || (startsWith(github.head_ref, 'modeling/hard-surface-') && 'tools/modeling_studio/hard_surface_example.json') || (startsWith(github.head_ref, 'modeling/wireframe-guides-') && 'tools/modeling_studio/wireframe_example.json') || (startsWith(github.head_ref, 'modeling/crate-threeview-refine-v2-') && 'tools/modeling_studio/crate_threeview_v2.json') || (startsWith(github.head_ref, 'modeling/crate-threeview-') && 'tools/modeling_studio/crate_threeview_v1.json') || 'tools/modeling_studio/example.json' }}
       REFERENCE_MANIFEST: ${{ inputs.reference_manifest || '' }}
     steps:
       - uses: actions/checkout@v4
@@ -156,6 +156,10 @@ jobs:
           if [[ "$GITHUB_HEAD_REF" == modeling/structure-analysis-v5-* ]]; then
             "$py" tools/modeling_studio/multiview_review.py "$root"
           fi
+      - name: Review primary blockout silhouette
+        if: startsWith(github.head_ref, 'modeling/crate-blockout-')
+        run: |
+          "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/blockout_review.py "$RUNNER_TEMP/sera-model"
       - name: Prepare review bundle
         shell: bash
         run: |
