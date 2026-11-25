@@ -1,0 +1,473 @@
+{
+  "format": "SERA_MODELING_STUDIO_V1",
+  "review_resolution": 384,
+  "grouped_export": true,
+  "materials": {
+    "armor": {
+      "rgb": [
+        0.63,
+        0.65,
+        0.68
+      ],
+      "metallic": 0.3,
+      "roughness": 0.48
+    },
+    "dark": {
+      "rgb": [
+        0.12,
+        0.15,
+        0.18
+      ],
+      "metallic": 0.5,
+      "roughness": 0.55
+    },
+    "accent": {
+      "rgb": [
+        0.9,
+        0.35,
+        0.07
+      ]
+    },
+    "cyan": {
+      "rgb": [
+        0.05,
+        0.35,
+        0.6
+      ],
+      "emission": [
+        0.1,
+        0.75,
+        1
+      ],
+      "emission_strength": 2
+    }
+  },
+  "hard_surface": {
+    "level": 5,
+    "lines": [
+      {
+        "part": "Armor",
+        "view": "front",
+        "kind": "silhouette",
+        "pixels": [
+          [
+            138,
+            143
+          ],
+          [
+            246,
+            143
+          ],
+          [
+            246,
+            209
+          ],
+          [
+            138,
+            209
+          ]
+        ]
+      },
+      {
+        "part": "Armor",
+        "view": "front",
+        "kind": "recess",
+        "pixels": [
+          [
+            155,
+            160
+          ],
+          [
+            229,
+            160
+          ],
+          [
+            229,
+            190
+          ],
+          [
+            155,
+            190
+          ]
+        ]
+      },
+      {
+        "part": "Armor",
+        "view": "front",
+        "kind": "scratch",
+        "pixels": [
+          [
+            147,
+            151
+          ],
+          [
+            154,
+            154
+          ]
+        ]
+      },
+      {
+        "part": "Arm",
+        "view": "front_3q",
+        "kind": "curve",
+        "pixels": [
+          [
+            237,
+            188
+          ],
+          [
+            257,
+            207
+          ],
+          [
+            270,
+            199
+          ]
+        ]
+      }
+    ],
+    "part_targets": {
+      "Armor": {
+        "front": {
+          "resolution": 384,
+          "bounds_px": [
+            138,
+            143,
+            246,
+            209
+          ],
+          "min_iou": 0.9
+        },
+        "front_3q": {
+          "resolution": 384,
+          "bounds_px": [
+            129,
+            129,
+            255,
+            220
+          ],
+          "min_iou": 0.8
+        }
+      },
+      "Arm": {
+        "front_3q": {
+          "resolution": 384,
+          "bounds_px": [
+            224,
+            174,
+            283,
+            234
+          ],
+          "min_iou": 0.8
+        }
+      }
+    }
+  },
+  "review_cameras": {
+    "front": {
+      "direction": [
+        0,
+        -1,
+        0
+      ],
+      "target": [
+        0,
+        0,
+        0.65
+      ],
+      "ortho_scale": 3.2
+    },
+    "front_3q": {
+      "direction": [
+        1,
+        -1,
+        0.5
+      ],
+      "target": [
+        0,
+        0,
+        0.65
+      ],
+      "ortho_scale": 3.2
+    },
+    "right": {
+      "direction": [
+        1,
+        0,
+        0
+      ],
+      "target": [
+        0,
+        0,
+        0.65
+      ],
+      "ortho_scale": 3.2
+    }
+  },
+  "parts": [
+    {
+      "name": "Base",
+      "role": "chassis",
+      "method": "solid",
+      "level": 1,
+      "size": [
+        0.8,
+        0.7,
+        0.22
+      ],
+      "location": [
+        0,
+        0,
+        0.22
+      ],
+      "material": "dark",
+      "bevel": 0.025
+    },
+    {
+      "name": "Armor",
+      "role": "armor",
+      "method": "solid",
+      "level": 2,
+      "size": [
+        0.76,
+        0.64,
+        0.55
+      ],
+      "dimension_fit": {
+        "x": {
+          "target_m": 0.9,
+          "bounds_m": [
+            0.7,
+            1
+          ]
+        }
+      },
+      "location": [
+        0,
+        0,
+        0.78
+      ],
+      "cuts": [
+        {
+          "shape": "box",
+          "size": [
+            0.64,
+            0.2,
+            0.25
+          ],
+          "location": [
+            0,
+            -0.32,
+            0.02
+          ],
+          "bevel": 0
+        }
+      ],
+      "material": "armor",
+      "bevel": 0.025
+    },
+    {
+      "name": "ArmPivot",
+      "role": "joint_axis",
+      "method": "pivot",
+      "level": 3,
+      "location": [
+        0.55,
+        0,
+        0.67
+      ]
+    },
+    {
+      "name": "JointRing",
+      "role": "mechanical_joint",
+      "method": "revolution",
+      "level": 3,
+      "parent": "ArmPivot",
+      "profile": [
+        [
+          0.1,
+          -0.08
+        ],
+        [
+          0.17,
+          -0.08
+        ],
+        [
+          0.18,
+          0.06
+        ],
+        [
+          0.1,
+          0.06
+        ]
+      ],
+      "sides": 24,
+      "rotation_deg": [
+        0,
+        90,
+        0
+      ],
+      "material": "accent"
+    },
+    {
+      "name": "Arm",
+      "role": "manipulator",
+      "method": "variable_section",
+      "level": 3,
+      "parent": "ArmPivot",
+      "path": [
+        [
+          0,
+          0,
+          0
+        ],
+        [
+          0.18,
+          -0.05,
+          -0.08
+        ],
+        [
+          0.29,
+          -0.13,
+          -0.19
+        ],
+        [
+          0.35,
+          -0.25,
+          -0.12
+        ]
+      ],
+      "sections": [
+        [
+          0.11,
+          0.09
+        ],
+        [
+          0.12,
+          0.1
+        ],
+        [
+          0.08,
+          0.07
+        ],
+        [
+          0.05,
+          0.045
+        ]
+      ],
+      "sides": 8,
+      "material": "armor",
+      "bevel": 0.008
+    },
+    {
+      "name": "TrackL",
+      "role": "tread",
+      "method": "repeat",
+      "level": 4,
+      "plane": "yz",
+      "path": [
+        [
+          -0.38,
+          0.18
+        ],
+        [
+          -0.28,
+          0.06
+        ],
+        [
+          0.28,
+          0.06
+        ],
+        [
+          0.38,
+          0.18
+        ],
+        [
+          0.28,
+          0.33
+        ],
+        [
+          -0.28,
+          0.33
+        ]
+      ],
+      "count": 18,
+      "size": [
+        0.2,
+        0.065,
+        0.055
+      ],
+      "location": [
+        -0.47,
+        0,
+        0
+      ],
+      "material": "dark",
+      "bevel": 0.006
+    },
+    {
+      "name": "TrackR",
+      "role": "tread",
+      "method": "repeat",
+      "level": 4,
+      "plane": "yz",
+      "path": [
+        [
+          -0.38,
+          0.18
+        ],
+        [
+          -0.28,
+          0.06
+        ],
+        [
+          0.28,
+          0.06
+        ],
+        [
+          0.38,
+          0.18
+        ],
+        [
+          0.28,
+          0.33
+        ],
+        [
+          -0.28,
+          0.33
+        ]
+      ],
+      "count": 18,
+      "size": [
+        0.2,
+        0.065,
+        0.055
+      ],
+      "location": [
+        0.47,
+        0,
+        0
+      ],
+      "material": "dark",
+      "bevel": 0.006
+    },
+    {
+      "name": "Visor",
+      "role": "emission",
+      "method": "solid",
+      "level": 5,
+      "size": [
+        0.52,
+        0.022,
+        0.065
+      ],
+      "location": [
+        0,
+        -0.23,
+        0.8
+      ],
+      "material": "cyan",
+      "bevel": 0.006
+    }
+  ]
+}
