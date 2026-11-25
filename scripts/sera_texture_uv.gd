@@ -956,6 +956,7 @@ static func _face_visual_metrics(tris: Array[Dictionary],physical: Array[Diction
     var angular: int = 0
     var severe: int = 0
     var coplanar: int = 0
+    var grid := Vector3.ZERO
     for link in physical:
         var a: Dictionary = tris[int(link.ta)]
         var b: Dictionary = tris[int(link.tb)]
@@ -963,12 +964,15 @@ static func _face_visual_metrics(tris: Array[Dictionary],physical: Array[Diction
         var pb: PackedVector2Array = _segment_uv(b,int(link.eb),float(link.b0),float(link.b1),"xy")
         angular += 1 if absf(_rigid_quarter_angle((pb[1]-pb[0]).angle_to(pa[1]-pa[0])))>deg_to_rad(10.0) else 0
         var residual: float = _local_uv_link_error(tris,link)
+        grid.x = maxf(grid.x,residual)
+        grid.y += 1.0 if residual>0.25 else 0.0
+        grid.z += residual*residual
         severe += 1 if residual>1.0 else 0
         var na: Vector3 = a.face_normal
         var nb: Vector3 = b.face_normal
         if na.dot(nb)>0.0 and na.cross(nb).length_squared()<=0.0000000001 and absf(na.dot(Vector3(b.p[0])-Vector3(a.p[0])))<=0.00001:
             coplanar += 1 if residual>0.25 else 0
-    return {"grid":_face_grid_metrics(tris,physical),"axis_energy":axis_energy,"tilted":tilted,"singletons":isolated,"angular":angular,"severe":severe,"coplanar":coplanar}
+    return {"grid":grid,"axis_energy":axis_energy,"tilted":tilted,"singletons":isolated,"angular":angular,"severe":severe,"coplanar":coplanar}
 
 static func _face_visual_ok(before: Dictionary,after: Dictionary) -> bool:
     var a: Vector3 = before.grid
@@ -1044,6 +1048,30 @@ static func _face_merge_projection(tris: Array[Dictionary],charts: Array[Diction
             t.chart = int(t.chart)-1
     return {"tris":ct,"charts":cc}
 
+static func _face_validate_merge(candidate: Dictionary,current: Dictionary,physical: Array[Dictionary],shape: Vector3,capacity: int,density: int) -> Dictionary:
+    if not candidate.has("tris"):
+        return {}
+    var ct: Array[Dictionary] = candidate.tris
+    var cc: Array[Dictionary] = candidate.charts
+    if not _joint_shape_ok(shape,_topology_distortion(ct,density)):
+        return {}
+    var score: Dictionary = _face_visual_metrics(ct,physical)
+    if not _face_visual_ok(current,score) or int(score.singletons)>int(current.singletons) or _hinge_pack_side(cc)>capacity:
+        return {}
+    # A weld is not merely an integer-phase match: every shared UV
+    # endpoint in the merged island must coincide geometrically.
+    for link in physical:
+        var a: Dictionary = ct[int(link.ta)]
+        var b: Dictionary = ct[int(link.tb)]
+        if int(a.chart)!=int(b.chart):
+            continue
+        var pa: PackedVector2Array = _segment_uv(a,int(link.ea),float(link.a0),float(link.a1),"xy")
+        var pb: PackedVector2Array = _segment_uv(b,int(link.eb),float(link.b0),float(link.b1),"xy")
+        if maxf(pa[0].distance_to(pb[0]),pa[1].distance_to(pb[1]))>0.001:
+            return {}
+    candidate.score = score
+    return candidate
+
 static func _continuous_face_layout(tris: Array[Dictionary],charts: Array[Dictionary],density: int) -> Dictionary:
     if charts.size()>512 or tris.size()>2000:
         return {"charts":charts,"applied":false,"report":"V33 規模上限"}
@@ -1087,21 +1115,36 @@ static func _continuous_face_layout(tris: Array[Dictionary],charts: Array[Dictio
         var proposal: Dictionary = proposals[0]
         blocked[proposal.pair] = true
         tested += 1
-        var candidate: Dictionary = _face_merge_projection(tris,charts,members,int(proposal.a),int(proposal.b),density)
-        if candidate.is_empty():
+        var a: int = int(proposal.a)
+        var b: int = int(proposal.b)
+        var candidate: Dictionary = _face_merge_projection(tris,charts,members,a,b,density)
+        var accepted: Dictionary = _face_validate_merge(candidate,current,physical,shape,capacity,density)
+        if accepted.is_empty():
+            # If projection changes the grid too much, unfold the moving
+            # island onto the retained island's common edge. Rebuild link
+            # chart IDs because the earlier accepted merges renumbered them.
+            var links: Array = []
+            for link in physical:
+                var ca: int = int(tris[int(link.ta)].chart)
+                var cb: int = int(tris[int(link.tb)].chart)
+                if (ca==a and cb==b) or (ca==b and cb==a):
+                    var fresh: Dictionary = link.duplicate()
+                    fresh.a = ca
+                    fresh.b = cb
+                    links.append(fresh)
+            var keep: int = a if members[a].size()>=members[b].size() else b
+            var move: int = b if keep==a else a
+            if members[keep].size()+members[move].size()<=48:
+                candidate = _local_weld_candidate(tris,charts,members,links,keep,move,density,true)
+                accepted = _face_validate_merge(candidate,current,physical,shape,capacity,density)
+        if accepted.is_empty():
             continue
-        var ct: Array[Dictionary] = candidate.tris
-        var cc: Array[Dictionary] = candidate.charts
-        var score: Dictionary = _face_visual_metrics(ct,physical)
-        if not _face_visual_ok(current,score) or int(score.singletons)>int(current.singletons):
-            continue
-        if not _joint_shape_ok(shape,_topology_distortion(ct,density)) or _hinge_pack_side(cc)>capacity:
-            continue
+        var ct: Array[Dictionary] = accepted.tris
         for i in range(tris.size()):
             tris[i].xy = ct[i].xy
             tris[i].chart = ct[i].chart
-        charts = cc
-        current = score
+        charts = accepted.charts
+        current = accepted.score
         welded += 1
         blocked.clear()
     # Axis correction: rotate entire islands, never individual triangles.
