@@ -4,6 +4,7 @@ Optional dependencies for this CLI only: numpy, opencv-python-headless.
 import argparse
 import json
 import math
+import shutil
 import sys
 from pathlib import Path
 import quality_gates as q
@@ -36,6 +37,8 @@ def analyze(src, manifest, out):
     n=m["resolution"];scale=float(m["scale_m"]);target=np.asarray(m["target_m"],float)
     q.need(type(n) is int and 256<=n<=1024 and target.shape==(3,) and np.isfinite(target).all() and math.isfinite(scale) and scale>0,"invalid common frame")
     out.mkdir(parents=True,exist_ok=False)
+    shutil.copy2(src/"blueprint_review.json",out/"blueprint_review_snapshot.json")
+    shutil.copy2(manifest,out/"calibration_snapshot.json")
     result={}; association={}; masks={}
     for name in q.BLUEPRINT_VIEWS:
         cfg=m["views"][name]; row=b["views"][name]
@@ -97,13 +100,15 @@ def analyze(src, manifest, out):
             rows.extend([right,up]);rhs.extend([p[0]+right@target,-p[1]+up@target])
             obs.append(view)
         q.need(len(obs)>=2,"landmark needs multiple views")
+        q.need(len(set(obs))==len(obs),"duplicate landmark view")
         a=np.asarray(rows);bvec=np.asarray(rhs);xyz,_,rank,_=np.linalg.lstsq(a,bvec,rcond=None)
         q.need(rank==3,"landmark needs nonparallel views")
         residual=float(np.sqrt(np.mean((a@xyz-bvec)**2)))
         landmarks[name]={"world_m":xyz.tolist(),"rms_m":residual,"views":obs,"status":"hypothesis"}
-    q.need(len(landmarks)>=3,"three distinct authored corresponding landmarks required")
+    q.need(len(landmarks)>=3 and len({tuple(v['world_m']) for v in landmarks.values()})>=3,"three distinct authored corresponding landmarks required")
+    q.need(bool(sections),"no common horizontal sections; review calibration")
     dump(out/"analysis.json",{"format":"SERA_PF_REFERENCE_ANALYSIS_V3","blueprint_review_sha256":q.sha(src/"blueprint_review.json"),"resolution":n,"scale_m":scale,"target_m":target.tolist(),
-        "views":result,"landmarks":landmarks,"section_envelopes":sections,"correspondence_sha256":q.sha(out/"correspondence.json"),
+        "calibration_sha256":q.sha(out/"calibration_snapshot.json"),"views":result,"landmarks":landmarks,"section_envelopes":sections,"correspondence_sha256":q.sha(out/"correspondence.json"),
         "limits":"Approximate orthographic calibration, independent masks, candidate correspondences and section envelopes; concavities and hidden structures not solved."})
 
 def compare(analysis_dir, model_dir, out):
@@ -119,7 +124,7 @@ def compare(analysis_dir, model_dir, out):
         sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"modeling_studio"))
         from multiview_parts import camera
         c=camera(cam)
-        q.need(cam["resolution"]==n and abs(cam["ortho_scale"]-scale)<1e-6 and np.allclose(cam["target"],a["target_m"],atol=1e-6) and np.allclose(c["right"],right,atol=1e-5) and np.allclose(c["up"],up,atol=1e-5),"camera mismatch: "+name)
+        q.need(cam["resolution"]==n and abs(cam["ortho_scale"]-scale)<1e-6 and np.allclose(cam["target"],a["target_m"],atol=1e-6) and np.allclose(c["right"],right,atol=1e-5) and np.allclose(c["up"],up,atol=1e-5) and np.allclose(c["normal"],normal,atol=1e-5) and np.linalg.norm(np.cross(c["origin"]-np.array(a["target_m"]),normal))<1e-5,"camera mismatch: "+name)
         v=a["views"][name];mp=q.evidence(analysis_dir,v["mask"]);q.need(q.sha(mp)==v["mask_sha256"],"reference mask changed")
         mask=cv2.imread(str(mp),0)>127
         rp=model_dir/(name+".png");im=cv2.imread(str(rp),cv2.IMREAD_UNCHANGED)
