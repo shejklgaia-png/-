@@ -121,3 +121,12 @@ shape: wireframe を部品に指定。wireframe_example.json が動作確認用�
 - wireframe_guides.obj は仕上げ前のワールド座標線のみ、wireframe_guides.json は部品ローカルXYZ、各方向の観測・再投影・誤差、辺・面を記録。両方を成果物ハッシュに追加。OBJの線はGLB本体に混入しない。
 - 自動輪郭抽出・対応点同定・凹部推定・自己交差の完全検出・画像GUIは未実装。実設定画への再現性は別途測定する。輪郭だけでは凹部が決定できないため内部構造線を明示する。
 参考: https://docs.blender.org/manual/en/4.5/modeling/meshes/editing/edge/bridge_edge_loops.html / https://homepages.inf.ed.ac.uk/rbf/CVonline/LOCAL_COPIES/MANESSIS/liter/node7.html
+
+## 輪郭線先行 V2：平面拘束・矛盾管理・投影確認
+- planes: [{"axis":"z","points":["a","b","c"]}] で指定頂点が共有する軸座標を加重最小二乗で同時に解く。複数グループの推移的共有に対応。任意方向の平面ではない。fixed: {"a":{"y":0.12}} で隠れ点などの明示設計値を拘束する。観測不足を無断で補完しない。
+- ビューごとに weight と max_error_px を設定。低信頼ビューの重みを下げられるが観測残差は別々に記録・上限検査。固定値・共有平面の矛盾を拒否し、xyzごとの由来を記録する。
+- 各面のNewell法による代表平面からの最大ずれをm単位で記録し、max_face_warp_m を指定した場合は超過面を拒否する。任意の曲面や自己交差の完全検出ではない。
+- silhouettes: {"front":{"outline":[[u,v],...],"min_iou":0.97}} に外周ポリゴンを独立に入力。仕上げ前の投影面の和集合を共通座標でラスタ比較し、輪郭IoU・不足/過剰画素・目標達成状態を記録。目標未達は診断であり自動修正・合格ではない。
+- wireframe_projection/ に各部品・方向の線重ね合わせ画像とreport.jsonを出力。シアンは復元線、橙は観測点同士の接続、マゼンタは点残差、白/赤/青は投影輪郭の一致/不足/過剰。隠れ線消去・透視補正・実レンダリング評価とは別。すべて成果物ハッシュに追加。
+- wireframe_example.json は意図的に3pxの設定画矛盾と隠れ頂点を持つ合成資料。クレート設定画・ゲーム本体には未適用。
+参考: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.lsq_linear.html / https://docs.blender.org/manual/en/4.5/modeling/meshes/structure.html

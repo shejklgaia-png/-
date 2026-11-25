@@ -35,22 +35,66 @@ def solve(spec):
         raise ValueError("invalid guide point count")
     ids=list(points)
     index={name:i for i,name in enumerate(ids)}
-    vertices=[]
-    diagnostics={}
+    # Equality constraints share a coordinate across vertices, e.g. a planar armor face.
+    axes={"x":0,"y":1,"z":2}
+    parent={(name,axis):(name,axis) for name in ids for axis in range(3)}
+    def root(k):
+        while parent[k]!=k:
+            parent[k]=parent[parent[k]]
+            k=parent[k]
+        return k
+    for group in cfg.get("planes",[]):
+        axis=axes[group["axis"]]
+        names=group["points"]
+        if len(set(names))<2 or any(n not in points for n in names):
+            raise ValueError("invalid plane point group")
+        for n in names[1:]:
+            parent[root((n,axis))]=root((names[0],axis))
+    sums={}
+    observed={}
+    locks={}
+    def add(k,v,w):
+        r=root(k)
+        sums.setdefault(r,[]).append((v,w))
+        observed.setdefault(k,0)
+        observed[k]+=1
     for name,obs in points.items():
-        if not obs or not set(obs)<=set(views):
-            raise ValueError("missing or unknown observations: "+name)
-        values=[[],[],[]]
+        if not set(obs)<=set(views):
+            raise ValueError("unknown observations: "+name)
         for view,p in obs.items():
             u,v=pair(p)
             (ox,oy),s,w=calibration[view]
             axis,sign=AXES[view]
-            # Minimize weighted squared pixel reprojection error.
-            values[axis].append((sign*(u-ox)/s,w*s*s))
-            values[2].append(((oy-v)/s,w*s*s))
-        if any(not x for x in values):
-            raise ValueError("underdetermined guide point: "+name)
-        xyz=tuple(sum(v*w for v,w in x)/sum(w for v,w in x) for x in values)
+            add((name,axis),sign*(u-ox)/s,w*s*s)
+            add((name,2),(oy-v)/s,w*s*s)
+    for name,values in cfg.get("fixed",{}).items():
+        for axis,v in values.items():
+            r=root((name,axes[axis]))
+            v=float(v)
+            if not math.isfinite(v) or (r in locks and abs(locks[r]-v)>1e-9):
+                raise ValueError("conflicting fixed coordinate")
+            locks[r]=v
+    vertices=[]
+    diagnostics={}
+    limits={v:float(views[v].get("max_error_px",limit)) for v in views}
+    if any(not math.isfinite(x) or x<0 for x in limits.values()):
+        raise ValueError("invalid view error limit")
+    for name,obs in points.items():
+        xyz=[]
+        sources={}
+        for label,axis in axes.items():
+            k=(name,axis)
+            r=root(k)
+            terms=sums.get(r,[])
+            if r in locks:
+                val=locks[r]
+                sources[label]="fixed"
+            elif terms:
+                val=sum(v*w for v,w in terms)/sum(w for v,w in terms)
+                sources[label]="observed" if k in observed else "shared_plane"
+            else:
+                raise ValueError("underdetermined guide point: "+name+"/"+label)
+            xyz.append(val)
         if not all(math.isfinite(v) for v in xyz):
             raise ValueError("nonfinite solved point: "+name)
         projections={}
@@ -61,11 +105,11 @@ def solve(spec):
             if view in obs:
                 item["observed_px"]=pair(obs[view])
                 item["error_px"]=math.dist(pixel,item["observed_px"])
-                if item["error_px"]>limit:
+                if item["error_px"]>limits[view]:
                     raise ValueError("conflicting guide point %s/%s: %.3f px"%(name,view,item["error_px"]))
             projections[view]=item
-        diagnostics[name]={"xyz":xyz,"views":projections}
-        vertices.append(xyz)
+        diagnostics[name]={"xyz":xyz,"coordinate_sources":sources,"views":projections}
+        vertices.append(tuple(xyz))
     faces=[]
     def face(labels):
         if len(labels)<3 or len(set(labels))!=len(labels):
@@ -101,9 +145,34 @@ def solve(spec):
         for a,b in zip(line,line[1:]):
             if tuple(sorted((index[a],index[b]))) not in counts:
                 raise ValueError("structural line not represented by a surface edge")
+    # Quantify warped polygon faces before Blender triangulates or bevels them.
+    max_warp=float(cfg.get("max_face_warp_m",0.001))
+    if not math.isfinite(max_warp) or max_warp<0:
+        raise ValueError("invalid face warp limit")
+    warps=[]
+    for f in faces:
+        pts=[vertices[i] for i in f]
+        normal=[0.,0.,0.]
+        for p,q in zip(pts,pts[1:]+pts[:1]):
+            for axis in range(3):
+                j,k=(axis+1)%3,(axis+2)%3
+                normal[axis]+=(p[j]-q[j])*(p[k]+q[k])
+        length=math.sqrt(sum(v*v for v in normal))
+        if length<1e-12:
+            raise ValueError("degenerate polygon normal")
+        center=[sum(p[a] for p in pts)/len(pts) for a in range(3)]
+        warp=max(abs(sum((p[a]-center[a])*normal[a] for a in range(3)))/length for p in pts)
+        if "max_face_warp_m" in cfg and warp>max_warp:
+            raise ValueError("nonplanar guide face exceeds authored limit: %.6f m"%warp)
+        warps.append(warp)
     report={"format":"SERA_WIREFRAME_GUIDE_V1","points":diagnostics,
             "edges":[[ids[a],ids[b]] for a,b in sorted(counts)],
             "faces":[[ids[i] for i in f] for f in faces],
-            "authored_lines":cfg.get("lines",[]),"max_error_px":limit,
-            "limits":"Correspondence and topology are authored; occluded points need observations from other axes. Residual is for guide vertices before bevel, not silhouette or visual approval."}
+            "authored_lines":cfg.get("lines",[]),"max_error_px":limit,"view_limits_px":limits,
+            "planes":cfg.get("planes",[]),"fixed":cfg.get("fixed",{}),
+            "silhouettes":cfg.get("silhouettes",{}),
+            "view_calibration":views,
+            "face_warp_m":warps,"max_face_warp_m":max(warps),
+            "face_warp_limit_m":cfg.get("max_face_warp_m"),
+            "limits":"Correspondence and topology are authored; unobserved coordinates require a shared plane or explicit fixed value. Residual is for guide vertices before bevel, not silhouette or visual approval."}
     return vertices,faces,report
