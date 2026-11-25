@@ -16,9 +16,12 @@ def check_analysis(src,blueprint):
     q.need(a["blueprint_review_sha256"]==blueprint["files"]["blueprint_review.json"],"analysis blueprint revision mismatch")
     q.need(type(a["resolution"]) is int and 256<=a["resolution"]<=1024 and finite(a["scale_m"]) and a["scale_m"]>0 and vec(a["target_m"],3),"invalid analysis frame")
     q.need(set(a["views"])==set(q.BLUEPRINT_VIEWS),"missing analysis view")
-    # The blueprint record holds all source images, not just the sheet.
+    q.need(q.sha(src/"blueprint_review_snapshot.json")==a["blueprint_review_sha256"],"blueprint snapshot mismatch")
+    q.need(q.sha(src/"calibration_snapshot.json")==a["calibration_sha256"],"calibration snapshot mismatch")
+    b=q.load(src/"blueprint_review_snapshot.json")
+    # Bind each view to the same named source in the approved blueprint.
     for name,v in a["views"].items():
-        q.need(v["source_sha256"] in blueprint["files"].values(),"unbound source image")
+        q.need(v["source_sha256"]==b["views"][name]["sha256"]==blueprint["files"][b["views"][name]["file"]],"unbound source image")
         q.need(q.png(q.evidence(src,v["mask"]))==v["mask_sha256"],"reference mask changed")
         q.need(q.sha(q.evidence(src,v["structure"]))==v["structure_sha256"],"structure changed")
     q.need(q.sha(src/"correspondence.json")==a["correspondence_sha256"],"correspondence changed")
