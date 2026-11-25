@@ -72,7 +72,7 @@ var preserve_shape_requested: bool = true
 var atlas_preserve_shape: bool = true
 var balanced_shape_requested: bool = false
 var atlas_balanced_shape: bool = false
-var face_paint_requested: bool = false
+var face_paint_requested: bool = true
 var atlas_face_paint: bool = false
 var face_bridges: Dictionary = {}
 var surface_history: Array = []
@@ -257,7 +257,7 @@ func _build_ui() -> void:
     density_picker.select(2)
     density_picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
     row.add_child(density_picker)
-    uv_mode_button = _button(row,"形状優先",_toggle_uv_mode)
+    uv_mode_button = _button(row,_uv_mode_name(preserve_shape_requested,balanced_shape_requested,face_paint_requested),_toggle_uv_mode)
     _button(row,"UV再展開",_rebuild)
     uv_applied_label = Label.new()
     uv_applied_label.add_theme_font_size_override("font_size",17)
@@ -943,7 +943,7 @@ func _select_model(index: int) -> void:
 
 func _uv_mode_name(shape: bool,balanced: bool = false,face: bool = false) -> String:
     if face:
-        return "面別塗装・試作"
+        return "面別塗装"
     return "均衡優先" if shape and balanced else ("形状優先" if shape else "境界優先")
 
 func _refresh_uv_mode_state() -> void:
