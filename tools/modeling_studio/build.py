@@ -18,6 +18,7 @@ from hard_surface import compile_design, repeat_closed_path, positive
 from mechanism_graph import compile_graph
 from motion_lod import motion_review, export_lod
 from joint_hierarchy_review import review_joints
+from visibility_review import review_visibility
 from bpy_extras.object_utils import world_to_camera_view
 
 VIEWS = {
@@ -490,6 +491,9 @@ def main():
         (out/'hard_surface_plan.json').write_text(json.dumps(authoring,indent=2),encoding='utf-8')
         (out/'compiled_design.json').write_text(json.dumps(spec,indent=2),encoding='utf-8')
     write_wireframe_guides(spec, objects, out)
+    if spec.get('visibility_checks'):
+        visibility = review_visibility(spec['visibility_checks'])
+        (out/'visibility_review.json').write_text(json.dumps(visibility,indent=2),encoding='utf-8')
     report = mesh_report(objects)
     interference = mesh_interference(objects,spec.get("intentional_overlaps",[]))
     motion = motion_review(objects,spec.get("motion_sweeps",[]),spec.get("intentional_overlaps",[]))

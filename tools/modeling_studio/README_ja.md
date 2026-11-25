@@ -206,3 +206,8 @@ shape: wireframe を部品に指定。wireframe_example.json が動作確認用�
 - joint_checks はnode/axis/range_deg/probe_deg/fixed/movingを指定。実Blenderの各代表メッシュの親子所属、固定側行列不変、回転側の期待行列との差、軸中心の移動を確認しjoint_hierarchy_review.jsonに記録。失敗時は制作を停止する。既存motion_sweepsによる離散干渉候補とは別。関節範囲は設定画から確定できないため作者推定で、ゲーム内制約を自動設定しない。
 - V8の固定カメラ・参考輪郭で外形比較。前面発光の位置と切削深さも変更した。見栄え・物理干渉・実機負荷は成果物確認後に判定。ゲーム内CRATEは未置換。
 参考: https://docs.blender.org/manual/en/4.0/scene_layout/object/editing/parent.html / https://docs.blender.org/manual/ja/4.5/modeling/modifiers/generate/booleans.html
+
+## CRATE V10：関節とバイザーの是正
+- V9実GLB正面光線でHeadの前面がLightBarより手前に残ることを確認。切削を廃止し、頭部外周と開口、傾斜縁、凹部壁、奥面を連続した閉メッシュで構築。発光ラインと黒背景を開口内に配置。
+- visibility_checks は実組立メッシュに光線を当てて最前面が指定部品か確認する。正面・斜めの各3点を記録し、失敗も成果物に残す。有限点の幾何検査であり色・発光・全角度の合格ではない。
+- 肩/肘の軸受と固定フォークを小型化し、外装の端を短縮、内部リンクと手首ハブを調整。16関節の階層と範囲は維持。外観・干渉は実成果物で別確認、ゲーム本体未置換。
