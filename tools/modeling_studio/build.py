@@ -17,6 +17,7 @@ from wireframe_guides import solve as solve_wireframe
 from hard_surface import compile_design, repeat_closed_path, positive
 from mechanism_graph import compile_graph
 from motion_lod import motion_review, export_lod
+from joint_hierarchy_review import review_joints
 from bpy_extras.object_utils import world_to_camera_view
 
 VIEWS = {
@@ -480,6 +481,11 @@ def main():
     if mechanism is not None:
         (out/'mechanism_graph.json').write_text(json.dumps(mechanism,indent=2),encoding='utf-8')
     objects = build(spec)
+    if spec.get('joint_checks'):
+        joint_report = review_joints(objects,spec['joint_checks'])
+        (out/'joint_hierarchy_review.json').write_text(json.dumps(joint_report,indent=2),encoding='utf-8')
+        if not joint_report['all_passed']:
+            raise ValueError('joint hierarchy review failed')
     if authoring is not None:
         (out/'hard_surface_plan.json').write_text(json.dumps(authoring,indent=2),encoding='utf-8')
         (out/'compiled_design.json').write_text(json.dumps(spec,indent=2),encoding='utf-8')
