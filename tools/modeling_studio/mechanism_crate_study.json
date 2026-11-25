@@ -1,0 +1,1156 @@
+{
+  "format": "SERA_MODELING_STUDIO_V1",
+  "review_resolution": 512,
+  "grouped_export": true,
+  "materials": {
+    "white": {
+      "rgb": [
+        0.73,
+        0.74,
+        0.75
+      ],
+      "roughness": 0.42
+    },
+    "dark": {
+      "rgb": [
+        0.09,
+        0.105,
+        0.12
+      ],
+      "roughness": 0.58
+    },
+    "orange": {
+      "rgb": [
+        0.9,
+        0.34,
+        0.055
+      ],
+      "roughness": 0.42
+    },
+    "steel": {
+      "rgb": [
+        0.28,
+        0.31,
+        0.34
+      ],
+      "metallic": 0.65
+    },
+    "cyan": {
+      "rgb": [
+        0.06,
+        0.5,
+        0.65
+      ],
+      "emission": [
+        0.1,
+        0.8,
+        1
+      ],
+      "emission_strength": 3
+    }
+  },
+  "mechanism": {
+    "nodes": [
+      {
+        "name": "Root",
+        "role": "pivot",
+        "location": [
+          0,
+          0,
+          0
+        ],
+        "reason": "Shared central reference frame",
+        "evidence": [],
+        "provenance": "inferred"
+      },
+      {
+        "name": "Chassis",
+        "role": "chassis",
+        "location": [
+          0,
+          0,
+          0.15
+        ],
+        "size": [
+          0.4,
+          0.65,
+          0.17
+        ],
+        "material": "dark",
+        "bevel": 0.018,
+        "reason": "Central load-bearing frame",
+        "evidence": [],
+        "provenance": "inferred",
+        "parent": "Root"
+      },
+      {
+        "name": "Chest",
+        "role": "armor",
+        "location": [
+          0,
+          -0.025,
+          0.33
+        ],
+        "rings": [
+          [
+            [
+              -0.135,
+              -0.13,
+              -0.12
+            ],
+            [
+              0.135,
+              -0.13,
+              -0.12
+            ],
+            [
+              0.17,
+              -0.095,
+              -0.12
+            ],
+            [
+              0.17,
+              0.095,
+              -0.12
+            ],
+            [
+              0.135,
+              0.13,
+              -0.12
+            ],
+            [
+              -0.135,
+              0.13,
+              -0.12
+            ],
+            [
+              -0.17,
+              0.095,
+              -0.12
+            ],
+            [
+              -0.17,
+              -0.095,
+              -0.12
+            ]
+          ],
+          [
+            [
+              -0.18,
+              -0.17,
+              0
+            ],
+            [
+              0.18,
+              -0.17,
+              0
+            ],
+            [
+              0.215,
+              -0.135,
+              0
+            ],
+            [
+              0.215,
+              0.135,
+              0
+            ],
+            [
+              0.18,
+              0.17,
+              0
+            ],
+            [
+              -0.18,
+              0.17,
+              0
+            ],
+            [
+              -0.215,
+              0.135,
+              0
+            ],
+            [
+              -0.215,
+              -0.135,
+              0
+            ]
+          ],
+          [
+            [
+              -0.145,
+              -0.14,
+              0.13
+            ],
+            [
+              0.145,
+              -0.14,
+              0.13
+            ],
+            [
+              0.18,
+              -0.10500000000000001,
+              0.13
+            ],
+            [
+              0.18,
+              0.10500000000000001,
+              0.13
+            ],
+            [
+              0.145,
+              0.14,
+              0.13
+            ],
+            [
+              -0.145,
+              0.14,
+              0.13
+            ],
+            [
+              -0.18,
+              0.10500000000000001,
+              0.13
+            ],
+            [
+              -0.18,
+              -0.10500000000000001,
+              0.13
+            ]
+          ]
+        ],
+        "material": "white",
+        "bevel": 0.012,
+        "reason": "Sloped, broad chest armor gives a compact industrial silhouette",
+        "evidence": [
+          "reference front and 45-degree chest"
+        ],
+        "provenance": "reference",
+        "parent": "Root"
+      },
+      {
+        "name": "ChestAccent",
+        "role": "panel",
+        "location": [
+          0,
+          -0.194,
+          0.33
+        ],
+        "size": [
+          0.06,
+          0.02,
+          0.15
+        ],
+        "material": "orange",
+        "bevel": 0.008,
+        "reason": "Central equipment accent",
+        "evidence": [
+          "reference front orange accents"
+        ],
+        "provenance": "reference",
+        "parent": "Root"
+      },
+      {
+        "name": "Neck",
+        "role": "pivot",
+        "location": [
+          0,
+          0,
+          0.48
+        ],
+        "joint": {
+          "type": "revolute",
+          "axis_local": [
+            1,
+            0,
+            0
+          ],
+          "range_deg": [
+            -60,
+            60
+          ]
+        },
+        "reason": "Head tilts independently; range is a reference hypothesis",
+        "evidence": [
+          "reference lower pitch illustrations"
+        ],
+        "provenance": "reference",
+        "parent": "Root"
+      },
+      {
+        "name": "NeckSupport",
+        "role": "support",
+        "location": [
+          0,
+          0,
+          0.025
+        ],
+        "radius": 0.085,
+        "depth": 0.07,
+        "material": "dark",
+        "bevel": 0.006,
+        "reason": "Hidden support under head",
+        "evidence": [],
+        "provenance": "inferred",
+        "parent": "Neck"
+      },
+      {
+        "name": "Head",
+        "role": "armor",
+        "location": [
+          0,
+          -0.045,
+          0.15
+        ],
+        "rings": [
+          [
+            [
+              -0.14500000000000002,
+              -0.17,
+              -0.08
+            ],
+            [
+              0.14500000000000002,
+              -0.17,
+              -0.08
+            ],
+            [
+              0.19,
+              -0.125,
+              -0.08
+            ],
+            [
+              0.19,
+              0.125,
+              -0.08
+            ],
+            [
+              0.14500000000000002,
+              0.17,
+              -0.08
+            ],
+            [
+              -0.14500000000000002,
+              0.17,
+              -0.08
+            ],
+            [
+              -0.19,
+              0.125,
+              -0.08
+            ],
+            [
+              -0.19,
+              -0.125,
+              -0.08
+            ]
+          ],
+          [
+            [
+              -0.195,
+              -0.205,
+              -0.035
+            ],
+            [
+              0.195,
+              -0.205,
+              -0.035
+            ],
+            [
+              0.23,
+              -0.16999999999999998,
+              -0.035
+            ],
+            [
+              0.23,
+              0.16999999999999998,
+              -0.035
+            ],
+            [
+              0.195,
+              0.205,
+              -0.035
+            ],
+            [
+              -0.195,
+              0.205,
+              -0.035
+            ],
+            [
+              -0.23,
+              0.16999999999999998,
+              -0.035
+            ],
+            [
+              -0.23,
+              -0.16999999999999998,
+              -0.035
+            ]
+          ],
+          [
+            [
+              -0.175,
+              -0.19,
+              0.065
+            ],
+            [
+              0.175,
+              -0.19,
+              0.065
+            ],
+            [
+              0.225,
+              -0.14,
+              0.065
+            ],
+            [
+              0.225,
+              0.14,
+              0.065
+            ],
+            [
+              0.175,
+              0.19,
+              0.065
+            ],
+            [
+              -0.175,
+              0.19,
+              0.065
+            ],
+            [
+              -0.225,
+              0.14,
+              0.065
+            ],
+            [
+              -0.225,
+              -0.14,
+              0.065
+            ]
+          ],
+          [
+            [
+              -0.13,
+              -0.14,
+              0.105
+            ],
+            [
+              0.13,
+              -0.14,
+              0.105
+            ],
+            [
+              0.17,
+              -0.1,
+              0.105
+            ],
+            [
+              0.17,
+              0.1,
+              0.105
+            ],
+            [
+              0.13,
+              0.14,
+              0.105
+            ],
+            [
+              -0.13,
+              0.14,
+              0.105
+            ],
+            [
+              -0.17,
+              0.1,
+              0.105
+            ],
+            [
+              -0.17,
+              -0.1,
+              0.105
+            ]
+          ]
+        ],
+        "material": "white",
+        "bevel": 0.008,
+        "reason": "Wide chamfered head is the main identity feature",
+        "evidence": [
+          "reference front/side/45-degree head"
+        ],
+        "provenance": "reference",
+        "parent": "Neck"
+      },
+      {
+        "name": "Visor",
+        "role": "housing",
+        "location": [
+          0,
+          -0.237,
+          0.155
+        ],
+        "size": [
+          0.335,
+          0.035,
+          0.115
+        ],
+        "material": "dark",
+        "bevel": 0.013,
+        "reason": "Deep dark visor surround; single luminous line",
+        "evidence": [
+          "reference front visor"
+        ],
+        "provenance": "reference",
+        "parent": "Neck"
+      },
+      {
+        "name": "LightBar",
+        "role": "emission",
+        "location": [
+          0,
+          -0.259,
+          0.155
+        ],
+        "size": [
+          0.247,
+          0.008,
+          0.024
+        ],
+        "material": "cyan",
+        "bevel": 0.006,
+        "reason": "Continuous cyan status line",
+        "evidence": [
+          "reference front visor"
+        ],
+        "provenance": "reference",
+        "parent": "Neck"
+      },
+      {
+        "name": "HeadRing_R",
+        "role": "bearing",
+        "location": [
+          0.229,
+          -0.045,
+          0.15
+        ],
+        "radius": 0.092,
+        "depth": 0.045,
+        "rotation_deg": [
+          0,
+          90,
+          0
+        ],
+        "material": "orange",
+        "bevel": 0.008,
+        "reason": "Circular head side unit",
+        "evidence": [
+          "reference side orange circular housing"
+        ],
+        "provenance": "reference",
+        "parent": "Neck"
+      },
+      {
+        "name": "HeadHub_R",
+        "role": "bearing",
+        "location": [
+          0.258,
+          -0.045,
+          0.15
+        ],
+        "radius": 0.065,
+        "depth": 0.023,
+        "rotation_deg": [
+          0,
+          90,
+          0
+        ],
+        "material": "dark",
+        "bevel": 0.006,
+        "reason": "Dark inner hub",
+        "evidence": [
+          "reference side circular unit"
+        ],
+        "provenance": "reference",
+        "parent": "Neck"
+      },
+      {
+        "name": "Antenna_R",
+        "role": "link",
+        "location": [
+          0.14,
+          0.055,
+          0.25
+        ],
+        "path": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0.008,
+            0.045,
+            0.073
+          ],
+          [
+            0.019,
+            0.09,
+            0.17
+          ]
+        ],
+        "sections": [
+          [
+            0.022,
+            0.028
+          ],
+          [
+            0.021,
+            0.025
+          ],
+          [
+            0.012,
+            0.014
+          ]
+        ],
+        "sides": 6,
+        "material": "dark",
+        "bevel": 0.003,
+        "reason": "Backward slanted antenna",
+        "evidence": [
+          "reference upper silhouette"
+        ],
+        "provenance": "reference",
+        "parent": "Neck"
+      },
+      {
+        "name": "Pack",
+        "role": "housing",
+        "location": [
+          0,
+          0.21,
+          0.35
+        ],
+        "size": [
+          0.24,
+          0.15,
+          0.23
+        ],
+        "material": "dark",
+        "bevel": 0.014,
+        "reason": "Rear storage housing",
+        "evidence": [
+          "reference rear storage"
+        ],
+        "provenance": "reference",
+        "parent": "Root"
+      },
+      {
+        "name": "PackLight_R",
+        "role": "emission",
+        "location": [
+          0.066,
+          0.29,
+          0.35
+        ],
+        "size": [
+          0.024,
+          0.009,
+          0.14
+        ],
+        "material": "cyan",
+        "bevel": 0.004,
+        "reason": "Rear status strip",
+        "evidence": [
+          "reference rear cyan strips"
+        ],
+        "provenance": "reference",
+        "parent": "Root"
+      },
+      {
+        "name": "Track_R",
+        "role": "tread",
+        "location": [
+          0.265,
+          0,
+          0
+        ],
+        "plane": "yz",
+        "path": [
+          [
+            -0.39,
+            0.12
+          ],
+          [
+            -0.32,
+            0.045
+          ],
+          [
+            0.29,
+            0.045
+          ],
+          [
+            0.39,
+            0.12
+          ],
+          [
+            0.29,
+            0.22
+          ],
+          [
+            -0.32,
+            0.22
+          ]
+        ],
+        "count": 24,
+        "size": [
+          0.17,
+          0.052,
+          0.055
+        ],
+        "material": "dark",
+        "bevel": 0.003,
+        "reason": "Wide independent track loop, low stance",
+        "evidence": [
+          "reference side and bottom tracks"
+        ],
+        "provenance": "reference",
+        "parent": "Root"
+      },
+      {
+        "name": "TrackFrame_R",
+        "role": "housing",
+        "location": [
+          0.265,
+          0,
+          0.13
+        ],
+        "size": [
+          0.145,
+          0.63,
+          0.13
+        ],
+        "material": "dark",
+        "bevel": 0.016,
+        "reason": "Inferred internal track support frame",
+        "evidence": [],
+        "provenance": "inferred",
+        "parent": "Root"
+      },
+      {
+        "name": "Drive_R",
+        "role": "wheel",
+        "location": [
+          0.33,
+          0.25,
+          0.13
+        ],
+        "radius": 0.078,
+        "depth": 0.046,
+        "rotation_deg": [
+          0,
+          90,
+          0
+        ],
+        "material": "steel",
+        "bevel": 0.005,
+        "reason": "Wheel at track end",
+        "evidence": [
+          "reference track side"
+        ],
+        "provenance": "reference",
+        "parent": "Root"
+      },
+      {
+        "name": "Idler_R",
+        "role": "wheel",
+        "location": [
+          0.33,
+          -0.27,
+          0.13
+        ],
+        "radius": 0.078,
+        "depth": 0.046,
+        "rotation_deg": [
+          0,
+          90,
+          0
+        ],
+        "material": "steel",
+        "bevel": 0.005,
+        "reason": "Wheel at track end",
+        "evidence": [
+          "reference track side"
+        ],
+        "provenance": "reference",
+        "parent": "Root"
+      },
+      {
+        "name": "Shoulder_R",
+        "role": "pivot",
+        "location": [
+          0.235,
+          -0.02,
+          0.43
+        ],
+        "joint": {
+          "type": "revolute",
+          "axis_local": [
+            1,
+            0,
+            0
+          ],
+          "range_deg": [
+            -45,
+            45
+          ]
+        },
+        "reason": "Independent shoulder pivot; range inferred",
+        "evidence": [
+          "reference articulated arms"
+        ],
+        "provenance": "reference",
+        "parent": "Root"
+      },
+      {
+        "name": "ShoulderHub_R",
+        "role": "bearing",
+        "location": [
+          0.025,
+          0,
+          0
+        ],
+        "radius": 0.063,
+        "depth": 0.065,
+        "rotation_deg": [
+          0,
+          90,
+          0
+        ],
+        "material": "dark",
+        "bevel": 0.006,
+        "reason": "Mechanical shoulder hub",
+        "evidence": [
+          "reference circular joint"
+        ],
+        "provenance": "reference",
+        "parent": "Shoulder_R"
+      },
+      {
+        "name": "UpperArm_R",
+        "role": "link",
+        "location": [
+          0.045,
+          -0.04,
+          -0.035
+        ],
+        "size": [
+          0.105,
+          0.13,
+          0.095
+        ],
+        "material": "white",
+        "bevel": 0.016,
+        "reason": "Short armored upper arm",
+        "evidence": [
+          "reference arm silhouette"
+        ],
+        "provenance": "reference",
+        "parent": "Shoulder_R"
+      },
+      {
+        "name": "Elbow_R",
+        "role": "pivot",
+        "location": [
+          0.065,
+          -0.115,
+          -0.05
+        ],
+        "joint": {
+          "type": "revolute",
+          "axis_local": [
+            1,
+            0,
+            0
+          ],
+          "range_deg": [
+            -35,
+            65
+          ]
+        },
+        "reason": "Elbow movement independent of shoulder",
+        "evidence": [],
+        "provenance": "inferred",
+        "parent": "Shoulder_R"
+      },
+      {
+        "name": "Forearm_R",
+        "role": "link",
+        "location": [
+          0,
+          -0.075,
+          0
+        ],
+        "size": [
+          0.125,
+          0.15,
+          0.115
+        ],
+        "material": "white",
+        "bevel": 0.019,
+        "reason": "Thick forearm as work mechanism",
+        "evidence": [
+          "reference large forearm housing"
+        ],
+        "provenance": "reference",
+        "parent": "Elbow_R"
+      },
+      {
+        "name": "Wrist_R",
+        "role": "pivot",
+        "location": [
+          0,
+          -0.16,
+          0
+        ],
+        "joint": {
+          "type": "revolute",
+          "axis_local": [
+            0,
+            1,
+            0
+          ],
+          "range_deg": [
+            -90,
+            90
+          ]
+        },
+        "reason": "Wrist rotation inferred",
+        "evidence": [],
+        "provenance": "inferred",
+        "parent": "Elbow_R"
+      },
+      {
+        "name": "GripHub_R",
+        "role": "bearing",
+        "location": [
+          0,
+          0,
+          0
+        ],
+        "radius": 0.048,
+        "depth": 0.055,
+        "rotation_deg": [
+          90,
+          0,
+          0
+        ],
+        "material": "dark",
+        "bevel": 0.004,
+        "reason": "Claw hub",
+        "evidence": [
+          "reference manipulator"
+        ],
+        "provenance": "reference",
+        "parent": "Wrist_R"
+      },
+      {
+        "name": "Finger0_R",
+        "role": "claw",
+        "location": [
+          0,
+          -0.02,
+          0.06
+        ],
+        "path": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            -0.047,
+            0.025
+          ],
+          [
+            0,
+            -0.095,
+            -0.012
+          ],
+          [
+            0,
+            -0.105,
+            -0.041
+          ]
+        ],
+        "sections": [
+          [
+            0.025,
+            0.025
+          ],
+          [
+            0.025,
+            0.025
+          ],
+          [
+            0.021,
+            0.022
+          ],
+          [
+            0.014,
+            0.016
+          ]
+        ],
+        "sides": 6,
+        "material": "white",
+        "bevel": 0.003,
+        "reason": "Three curved mechanical fingers; proportions interpreted for visual balance",
+        "evidence": [
+          "reference three-finger claw"
+        ],
+        "provenance": "reference",
+        "parent": "Wrist_R"
+      },
+      {
+        "name": "Finger1_R",
+        "role": "claw",
+        "location": [
+          0.036,
+          -0.02,
+          -0.035
+        ],
+        "path": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            -0.047,
+            -0.018
+          ],
+          [
+            0,
+            -0.095,
+            0.015
+          ],
+          [
+            0,
+            -0.105,
+            0.04
+          ]
+        ],
+        "sections": [
+          [
+            0.025,
+            0.025
+          ],
+          [
+            0.025,
+            0.025
+          ],
+          [
+            0.021,
+            0.022
+          ],
+          [
+            0.014,
+            0.016
+          ]
+        ],
+        "sides": 6,
+        "material": "white",
+        "bevel": 0.003,
+        "reason": "Three curved mechanical fingers; proportions interpreted for visual balance",
+        "evidence": [
+          "reference three-finger claw"
+        ],
+        "provenance": "reference",
+        "parent": "Wrist_R"
+      },
+      {
+        "name": "Finger2_R",
+        "role": "claw",
+        "location": [
+          -0.036,
+          -0.02,
+          -0.035
+        ],
+        "path": [
+          [
+            0,
+            0,
+            0
+          ],
+          [
+            0,
+            -0.047,
+            -0.018
+          ],
+          [
+            0,
+            -0.095,
+            0.015
+          ],
+          [
+            0,
+            -0.105,
+            0.04
+          ]
+        ],
+        "sections": [
+          [
+            0.025,
+            0.025
+          ],
+          [
+            0.025,
+            0.025
+          ],
+          [
+            0.021,
+            0.022
+          ],
+          [
+            0.014,
+            0.016
+          ]
+        ],
+        "sides": 6,
+        "material": "white",
+        "bevel": 0.003,
+        "reason": "Three curved mechanical fingers; proportions interpreted for visual balance",
+        "evidence": [
+          "reference three-finger claw"
+        ],
+        "provenance": "reference",
+        "parent": "Wrist_R"
+      }
+    ],
+    "mirror_x": {
+      "HeadRing_R": "HeadRing_L",
+      "HeadHub_R": "HeadHub_L",
+      "Antenna_R": "Antenna_L",
+      "PackLight_R": "PackLight_L",
+      "Track_R": "Track_L",
+      "TrackFrame_R": "TrackFrame_L",
+      "Drive_R": "Drive_L",
+      "Idler_R": "Idler_L",
+      "Shoulder_R": "Shoulder_L",
+      "ShoulderHub_R": "ShoulderHub_L",
+      "UpperArm_R": "UpperArm_L",
+      "Elbow_R": "Elbow_L",
+      "Forearm_R": "Forearm_L",
+      "Wrist_R": "Wrist_L",
+      "GripHub_R": "GripHub_L",
+      "Finger0_R": "Finger0_L",
+      "Finger1_R": "Finger1_L",
+      "Finger2_R": "Finger2_L"
+    },
+    "joint_review_samples": 3
+  },
+  "hard_surface": {
+    "level": 5
+  }
+}

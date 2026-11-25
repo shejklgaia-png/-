@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from geometry_review import fit_camera, mesh_interference
 from wireframe_guides import solve as solve_wireframe
 from hard_surface import compile_design, repeat_closed_path, positive
+from mechanism_graph import compile_graph
 from motion_lod import motion_review, export_lod
 from bpy_extras.object_utils import world_to_camera_view
 
@@ -474,7 +475,10 @@ def main():
         raise ValueError("unsupported design format")
     # Refuse reuse, avoiding stale images or overwriting existing assets.
     out.mkdir(parents=True,exist_ok=False)
+    spec, mechanism = compile_graph(spec)
     spec, authoring = compile_design(spec)
+    if mechanism is not None:
+        (out/'mechanism_graph.json').write_text(json.dumps(mechanism,indent=2),encoding='utf-8')
     objects = build(spec)
     if authoring is not None:
         (out/'hard_surface_plan.json').write_text(json.dumps(authoring,indent=2),encoding='utf-8')

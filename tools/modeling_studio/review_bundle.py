@@ -137,6 +137,8 @@ def main():
         paths += review_wireframe(root)
     from hard_surface_review import review as review_hard_surface
     paths += review_hard_surface(root)
+    if (root/'mechanism_graph.json').is_file():
+        paths.append('mechanism_graph.json')
     if (root/"structure_analysis").is_dir():
         paths += [p.relative_to(root).as_posix() for p in sorted((root/"structure_analysis").rglob("*")) if p.is_file()]
     paths += compare_candidates(root)
