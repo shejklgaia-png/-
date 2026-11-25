@@ -78,6 +78,8 @@ var face_bridges: Dictionary = {}
 var face_brush_owners := PackedInt32Array()
 var face_brush_edges: Dictionary = {}
 var face_brush_samples := PackedInt32Array()
+# False is retained for the dedicated V27 geometry comparison only.
+var face_brush_preserve_previous: bool = true
 var face_brush_footprints: Dictionary = {}
 const FACE_BRUSH_CACHE_LIMIT = 512
 var surface_history: Array = []
@@ -1456,65 +1458,104 @@ func _spread_face_brush(p: Vector2i,chart: int,reach: float) -> void:
 func _collect_face_brush_pixels(p: Vector2i,chart: int,reach: float) -> Array[Vector2i]:
     var result: Array[Vector2i] = []
     var seen: Dictionary = {}
-    var surface_aware: bool = face_brush_samples.size()==img.get_width()*img.get_height()
+    var size: Vector2i = img.get_size()
+    var surface_aware: bool = face_brush_samples.size()==size.x*size.y
+    var preserve: bool = surface_aware and face_brush_preserve_previous
     var center: Vector2 = Vector2(p)+Vector2(0.5,0.5)
-    if surface_aware:
-        if not _face_brush_owned(p,chart):
-            return result
-        var source_code: int = face_brush_samples[p.y*img.get_width()+p.x]
-        if source_code==0:
-            return result
-        center = Vector2(p)+UV.face_brush_sample(source_code)
+    var representative: Vector2 = center
+    var has_sample: bool = false
+    if surface_aware and _face_brush_owned(p,chart):
+        var code: int = face_brush_samples[p.y*size.x+p.x]
+        if code!=0:
+            representative = Vector2(p)+UV.face_brush_sample(code)
+            has_sample = true
+    if surface_aware and not preserve and not has_sample:
+        return result
+    # One edge/candidate traversal for the union of V26 center sampling
+    # and V27 surface sampling. Only real surface texels can be added.
     for edge in face_brush_edges[chart]:
         var src: Dictionary = edge.src
-        var dst: Dictionary = edge.dst
         var s_start: Vector2 = src.start
         var s_axis: Vector2 = src.axis
         var s_in: Vector2 = src.inward
+        var s_len: float = src.length
+        var edge_end: Vector2 = s_start+s_axis*s_len
+        var margin: float = reach+0.71
+        var low: Vector2 = s_start.min(edge_end)-Vector2.ONE*margin
+        var high: Vector2 = s_start.max(edge_end)+Vector2.ONE*margin
+        if center.x<low.x or center.y<low.y or center.x>high.x or center.y>high.y:
+            continue
+        var old_local: Vector2 = _face_brush_local(center,s_start,s_axis,s_in,s_len,reach) if preserve or not surface_aware else Vector2(INF,INF)
+        var new_local: Vector2 = _face_brush_local(representative,s_start,s_axis,s_in,s_len,reach) if has_sample else Vector2(INF,INF)
+        if not old_local.is_finite() and not new_local.is_finite():
+            continue
+        var dst: Dictionary = edge.dst
         var d_start: Vector2 = dst.start
         var d_axis: Vector2 = dst.axis
         var d_in: Vector2 = dst.inward
-        var s_len: float = src.length
-        var d_len: float = dst.length
-        var along: float = (center-s_start).dot(s_axis)
-        var height: float = (center-s_start).dot(s_in)
-        var nearest: float = clampf(along,0.0,s_len)
-        if height < -0.71 or Vector2(along-nearest,height).length_squared()>reach*reach:
-            continue
-        var scale: float = d_len/s_len
-        # V24 is metric; reject pathological UV ratios and cap work.
+        var scale: float = float(dst.length)/s_len
         if scale<0.5 or scale>2.0:
             continue
-        height = maxf(0.0,height)
-        var projected: Vector2 = d_start+d_axis*(along*scale)-d_in*(height*scale)
         var extent: float = reach*scale
-        var bounds_extent: float = extent+0.5 if surface_aware else extent
-        var lo := Vector2i((projected-Vector2.ONE*bounds_extent).floor()).max(Vector2i.ZERO)
-        var hi := Vector2i((projected+Vector2.ONE*bounds_extent).ceil()).min(img.get_size()-Vector2i.ONE)
-        for y in range(lo.y,hi.y+1):
-            for x in range(lo.x,hi.x+1):
+        var old_center: Vector2 = d_start+d_axis*(old_local.x*scale)-d_in*(old_local.y*scale) if old_local.is_finite() else Vector2(INF,INF)
+        var new_center: Vector2 = d_start+d_axis*(new_local.x*scale)-d_in*(new_local.y*scale) if new_local.is_finite() else Vector2(INF,INF)
+        var lo := Vector2(INF,INF)
+        var hi := Vector2(-INF,-INF)
+        if old_local.is_finite():
+            lo = old_center-Vector2.ONE*extent
+            hi = old_center+Vector2.ONE*extent
+        if new_local.is_finite():
+            lo = lo.min(new_center-Vector2.ONE*(extent+0.5))
+            hi = hi.max(new_center+Vector2.ONE*(extent+0.5))
+        var from := Vector2i(lo.floor()).max(Vector2i.ZERO)
+        var to := Vector2i(hi.ceil()).min(size-Vector2i.ONE)
+        var target: int = int(dst.chart)
+        for y in range(from.y,to.y+1):
+            for x in range(from.x,to.x+1):
+                var index: int = y*size.x+x
+                if face_brush_owners[index]!=target:
+                    continue
+                var code: int = face_brush_samples[index] if surface_aware else 0
+                if surface_aware and code==0:
+                    continue
                 var q := Vector2i(x,y)
-                if seen.has(q) or not _face_brush_owned(q,int(dst.chart)) or not _inside(q):
+                if seen.has(q) or not _inside(q):
                     continue
                 var pixel: Vector2 = Vector2(q)+Vector2(0.5,0.5)
-                if surface_aware:
-                    var code: int = face_brush_samples[q.y*img.get_width()+q.x]
-                    if code==0:
-                        continue
-                    pixel = Vector2(q)+UV.face_brush_sample(code)
-                if pixel.distance_squared_to(projected)>extent*extent+0.00001:
-                    continue
-                var dx: float = (pixel-d_start).dot(d_axis)/scale
-                var dy: float = (pixel-d_start).dot(d_in)/scale
-                if dy < -0.71/scale:
-                    continue
-                dy = maxf(0.0,dy)
-                var crossing: float = (along*dy+dx*height)/(height+dy) if height+dy>0.00001 else dx
-                if crossing < -0.0001 or crossing > s_len+0.0001:
-                    continue
-                seen[q] = true
-                result.append(q)
+                var accept: bool = false
+                if old_local.is_finite():
+                    accept = _face_brush_crosses(pixel,old_center,old_local,d_start,d_axis,d_in,scale,s_len,extent)
+                if not accept and new_local.is_finite():
+                    var sampled: Vector2 = Vector2(q)+UV.face_brush_sample(code)
+                    # An identical center and target sample cannot change
+                    # a failed legacy predicate.
+                    if not old_local.is_finite() or new_local!=old_local or sampled!=pixel:
+                        accept = _face_brush_crosses(sampled,new_center,new_local,d_start,d_axis,d_in,scale,s_len,extent)
+                if accept:
+                    seen[q] = true
+                    result.append(q)
     return result
+
+func _face_brush_local(center: Vector2,start: Vector2,axis: Vector2,inward: Vector2,length: float,reach: float) -> Vector2:
+    var delta: Vector2 = center-start
+    var along: float = delta.dot(axis)
+    var height: float = delta.dot(inward)
+    var nearest: float = clampf(along,0.0,length)
+    if height< -0.71 or Vector2(along-nearest,height).length_squared()>reach*reach:
+        return Vector2(INF,INF)
+    return Vector2(along,maxf(0.0,height))
+
+func _face_brush_crosses(pixel: Vector2,projected: Vector2,local: Vector2,start: Vector2,axis: Vector2,inward: Vector2,scale: float,length: float,extent: float) -> bool:
+    if pixel.distance_squared_to(projected)>extent*extent+0.00001:
+        return false
+    var delta: Vector2 = pixel-start
+    var dx: float = delta.dot(axis)/scale
+    var dy: float = delta.dot(inward)/scale
+    if dy< -0.71/scale:
+        return false
+    dy = maxf(0.0,dy)
+    var crossing: float = (local.x*dy+dx*local.y)/(local.y+dy) if local.y+dy>0.00001 else dx
+    return crossing>= -0.0001 and crossing<=length+0.0001
 
 func _dab_one(p: Vector2i) -> void:
     if not _inside(p):

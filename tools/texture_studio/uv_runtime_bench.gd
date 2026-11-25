@@ -309,6 +309,23 @@ func _measure_face_footprints(tris: Array,atlas: Image,density: int,dest: String
     v26.paint_color = Color8(231,57,103,255)
     var v26_ink := Image.create(size.x,size.y,false,Image.FORMAT_RGBA8)
     v26.layers.append(v26_ink)
+    var v27 = Studio.new()
+    v27.triangles = tris
+    v27.img = atlas
+    v27.original = atlas
+    v27.atlas_density = density
+    v27.atlas_face_paint = true
+    v27.face_bridges = studio.face_bridges
+    v27.seam_texels = studio.seam_texels
+    v27.face_brush_owners = studio.face_brush_owners
+    v27.face_brush_edges = studio.face_brush_edges
+    v27.face_brush_samples = studio.face_brush_samples
+    v27.face_brush_preserve_previous = false
+    v27.tool_picker = Studio.StudioChoice.new()
+    v27.tool_picker.selected = 0
+    v27.paint_color = Color8(231,57,103,255)
+    var v27_ink := Image.create(size.x,size.y,false,Image.FORMAT_RGBA8)
+    v27.layers.append(v27_ink)
     var setup_us: int = Time.get_ticks_usec()-started
     studio.tool_picker = Studio.StudioChoice.new()
     studio.paint_color = Color8(231,57,103,255)
@@ -316,7 +333,7 @@ func _measure_face_footprints(tris: Array,atlas: Image,density: int,dest: String
     studio.layers.append(ink)
     var links: Array = UV._seam_segments(tris)
     var count: int = mini(24,links.size())
-    var metrics: Dictionary = {"seams_total":links.size(),"seams_sampled":count,"setup_us":setup_us,"owner_bytes":studio.face_brush_owners.size()*4,"surface_sample_bytes":studio.face_brush_samples.size()*4,"surface_gained_pixels":0,"surface_gained_area":0.0,"padding_gain_pixels":0,"attempted":0,"skipped_invalid_center":0,"gained_cases":0,"gained_neighbor_pixels":0,"unexpected_pixels":0,"missing_source_pixels":0,"erase_failures":0,"legacy_us":0,"v26_geometry_us":0,"v27_us":0,"surface_gain_vs_v26":0.0,"surface_loss_vs_v26":0.0,"padding_removed_vs_v26":0,"surface_gain_cases_vs_v26":0,"surface_loss_cases_vs_v26":0,"artifact_ok":false,"widths":{}}
+    var metrics: Dictionary = {"seams_total":links.size(),"seams_sampled":count,"setup_us":setup_us,"owner_bytes":studio.face_brush_owners.size()*4,"surface_sample_bytes":studio.face_brush_samples.size()*4,"surface_gained_pixels":0,"surface_gained_area":0.0,"padding_gain_pixels":0,"attempted":0,"skipped_invalid_center":0,"gained_cases":0,"gained_neighbor_pixels":0,"unexpected_pixels":0,"missing_source_pixels":0,"erase_failures":0,"legacy_us":0,"v26_geometry_us":0,"v27_us":0,"v28_us":0,"surface_gain_vs_v27":0.0,"surface_loss_vs_v27":0.0,"v27_missing_vs_v26":0.0,"v27_restored_by_v28":0.0,"all_neighbor_loss_vs_v26":0.0,"all_neighbor_loss_vs_v27":0.0,"surface_gain_vs_v26":0.0,"surface_loss_vs_v26":0.0,"padding_removed_vs_v26":0,"surface_gain_cases_vs_v26":0,"surface_loss_cases_vs_v26":0,"artifact_ok":false,"widths":{}}
     var best_gain: int = -1
     var best_surface_area: float = -1.0
     var chart_tris: Dictionary = {}
@@ -329,12 +346,19 @@ func _measure_face_footprints(tris: Array,atlas: Image,density: int,dest: String
     var best_old: Image
     var best_new: Image
     var best_v26: Image
+    var best_v27: Image
+    var worst_v27_loss: float = -1.0
+    var worst_case: Dictionary = {}
+    var worst_v26: Image
+    var worst_v27: Image
+    var worst_v28: Image
     var best_erased: Image
     var best_case: Dictionary = {}
     for width in [1,3,5]:
         studio.brush_size = width
         v26.brush_size = width
-        var stats: Dictionary = {"attempted":0,"surface_gained_pixels":0,"surface_gained_area":0.0,"padding_gain_pixels":0,"gained_cases":0,"gained_neighbor_pixels":0,"unexpected_pixels":0,"missing_source_pixels":0,"erase_failures":0,"legacy_us":0,"v26_geometry_us":0,"v27_us":0,"surface_gain_vs_v26":0.0,"surface_loss_vs_v26":0.0,"padding_removed_vs_v26":0,"surface_gain_cases_vs_v26":0,"surface_loss_cases_vs_v26":0}
+        v27.brush_size = width
+        var stats: Dictionary = {"attempted":0,"surface_gained_pixels":0,"surface_gained_area":0.0,"padding_gain_pixels":0,"gained_cases":0,"gained_neighbor_pixels":0,"unexpected_pixels":0,"missing_source_pixels":0,"erase_failures":0,"legacy_us":0,"v26_geometry_us":0,"v27_us":0,"v28_us":0,"surface_gain_vs_v27":0.0,"surface_loss_vs_v27":0.0,"v27_missing_vs_v26":0.0,"v27_restored_by_v28":0.0,"all_neighbor_loss_vs_v26":0.0,"all_neighbor_loss_vs_v27":0.0,"surface_gain_vs_v26":0.0,"surface_loss_vs_v26":0.0,"padding_removed_vs_v26":0,"surface_gain_cases_vs_v26":0,"surface_loss_cases_vs_v26":0}
         for i in range(count):
             var link: Dictionary = links[floori(float(i)*links.size()/count)]
             for reverse in [false,true]:
@@ -365,15 +389,21 @@ func _measure_face_footprints(tris: Array,atlas: Image,density: int,dest: String
                     tick = Time.get_ticks_usec()
                     v26._dab(q,chart)
                     stats.v26_geometry_us += Time.get_ticks_usec()-tick
+                    v27_ink.fill(Color.TRANSPARENT)
+                    tick = Time.get_ticks_usec()
+                    v27._dab(q,chart)
+                    stats.v27_us += Time.get_ticks_usec()-tick
                     ink.fill(Color.TRANSPARENT)
                     tick = Time.get_ticks_usec()
                     studio._dab(q,chart)
-                    stats.v27_us += Time.get_ticks_usec()-tick
-                    var bounds: Rect2i = old.get_used_rect().merge(ink.get_used_rect()).merge(v26_ink.get_used_rect())
+                    stats.v28_us += Time.get_ticks_usec()-tick
+                    var bounds: Rect2i = old.get_used_rect().merge(ink.get_used_rect()).merge(v26_ink.get_used_rect()).merge(v27_ink.get_used_rect())
                     var gained: int = 0
                     var gained_area: float = 0.0
                     var added_area: float = 0.0
                     var lost_area: float = 0.0
+                    var v27_loss: float = 0.0
+                    var restored_area: float = 0.0
                     for y in range(bounds.position.y,bounds.end.y):
                         for x in range(bounds.position.x,bounds.end.x):
                             var p := Vector2i(x,y)
@@ -385,6 +415,24 @@ func _measure_face_footprints(tris: Array,atlas: Image,density: int,dest: String
                             if was and not now and owner==chart:
                                 stats.missing_source_pixels += 1
                             var was_v26: bool = v26_ink.get_pixelv(p).a>0.5
+                            var was_v27: bool = v27_ink.get_pixelv(p).a>0.5
+                            if owner!=chart and chart_tris.has(owner) and ((now and not was) or now!=was_v26 or now!=was_v27 or was_v26!=was_v27):
+                                var area_key := Vector3i(x,y,owner)
+                                if not area_cache.has(area_key):
+                                    area_cache[area_key] = _footprint_surface_area(p,chart_tris[owner],size)
+                                var real_area: float = area_cache[area_key]
+                                if was_v26 and not now:
+                                    stats.all_neighbor_loss_vs_v26 += real_area
+                                if was_v27 and not now:
+                                    stats.all_neighbor_loss_vs_v27 += real_area
+                                if now and not was_v27:
+                                    stats.surface_gain_vs_v27 += real_area
+                                if was_v27 and not now:
+                                    stats.surface_loss_vs_v27 += real_area
+                                if was_v26 and not was_v27:
+                                    v27_loss += real_area
+                                    if now:
+                                        restored_area += real_area
                             if owner==neighbor and ((now and not was) or now!=was_v26):
                                 var key := Vector3i(x,y,neighbor)
                                 if not area_cache.has(key):
@@ -406,6 +454,14 @@ func _measure_face_footprints(tris: Array,atlas: Image,density: int,dest: String
                     if gained>0:
                         stats.gained_cases += 1
                         stats.gained_neighbor_pixels += gained
+                    stats.v27_missing_vs_v26 += v27_loss
+                    stats.v27_restored_by_v28 += restored_area
+                    if width>1 and v27_loss>worst_v27_loss:
+                        worst_v27_loss = v27_loss
+                        worst_v26 = v26_ink.duplicate() as Image
+                        worst_v27 = v27_ink.duplicate() as Image
+                        worst_v28 = ink.duplicate() as Image
+                        worst_case = {"width":width,"source_triangle":ti,"neighbor_triangle":ni,"source_chart":chart,"neighbor_chart":neighbor,"center":[q.x,q.y],"v27_loss_m2":v27_loss,"restored_m2":restored_area}
                     stats.surface_gained_area += gained_area
                     stats.surface_gain_vs_v26 += added_area
                     stats.surface_loss_vs_v26 += lost_area
@@ -421,6 +477,7 @@ func _measure_face_footprints(tris: Array,atlas: Image,density: int,dest: String
                         best_old = old
                         best_new = ink.duplicate() as Image
                         best_v26 = v26_ink.duplicate() as Image
+                        best_v27 = v27_ink.duplicate() as Image
                         best_case = {"width":width,"source_triangle":ti,"neighbor_triangle":ni,"source_chart":chart,"neighbor_chart":neighbor,"center":[q.x,q.y],"gain":gained,"surface_gain_m2":gained_area,"gain_vs_v26_m2":added_area,"loss_vs_v26_m2":lost_area}
                     studio.tool_picker.selected = 1
                     studio._dab(q,chart)
@@ -441,13 +498,28 @@ func _measure_face_footprints(tris: Array,atlas: Image,density: int,dest: String
         var v26_view: Image = atlas.duplicate() as Image
         v26_view.blend_rect(best_v26,Rect2i(Vector2i.ZERO,size),Vector2i.ZERO)
         var ok_v26: bool = v26_view.save_png(prefix+"-v26.png")==OK
-        var ok_new: bool = new_view.save_png(prefix+"-v27.png")==OK
+        var v27_view: Image = atlas.duplicate() as Image
+        v27_view.blend_rect(best_v27,Rect2i(Vector2i.ZERO,size),Vector2i.ZERO)
+        var ok_v27: bool = v27_view.save_png(prefix+"-v27.png")==OK
+        var ok_new: bool = new_view.save_png(prefix+"-v28.png")==OK
         var ok_mask: bool = best_new.save_png(prefix+"-ink.png")==OK
         var ok_erase: bool = best_erased.save_png(prefix+"-erased.png")==OK
-        metrics.artifact_ok = ok_old and ok_v26 and ok_new and ok_mask and ok_erase
-        metrics.candidate = "V27"
+        metrics.artifact_ok = ok_old and ok_v26 and ok_v27 and ok_new and ok_mask and ok_erase
+        metrics.candidate = "V28"
         metrics.example = best_case
         metrics.mesh_artifact_ok = _export_footprint_mesh(tris,prefix,best_case)
+    if worst_v27_loss>=0.0:
+        var worst_prefix: String = dest.get_basename()+"-recovery"
+        var recovery_ok: bool = true
+        for pair in [[worst_v26,"v26"],[worst_v27,"v27"],[worst_v28,"v28"]]:
+            var canvas: Image = atlas.duplicate() as Image
+            canvas.blend_rect(pair[0],Rect2i(Vector2i.ZERO,size),Vector2i.ZERO)
+            if canvas.save_png(worst_prefix+"-"+str(pair[1])+".png")!=OK:
+                recovery_ok = false
+        metrics.recovery_artifact_ok = recovery_ok and _export_footprint_mesh(tris,worst_prefix,worst_case)
+        metrics.recovery_example = worst_case
+    v27.tool_picker.free()
+    v27.free()
     v26.tool_picker.free()
     v26.free()
     studio.tool_picker.free()
