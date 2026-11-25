@@ -45,16 +45,22 @@ def compile_fk(d,nodes,end,out):
     if d.get("tracks") or d.get("bb_clip") or d.get("pose_sequence") or d.get("procedural_motion") or d.get("events"):
         raise ValueError("FK authoring requires exclusive new pose data")
     version=int(spec.get("version",21))
-    if version not in (21,22):raise ValueError("unsupported FK performance version")
-    lib=json.loads((Path(__file__).resolve().parent/f"fk_stomp_poses_v{version}.json").read_text())
-    if lib["format"]!=f"SERA_FK_PERFORMANCE_V{version-20}" or d["source_bbmodel"]!="models/bosses/Bittaran.bbmodel":
-        raise ValueError("V21 only supports the calibrated Bittaran geometry")
-    variant=spec.get("variant","chain" if version==22 else "extended");keys=lib["variants"][variant]["keys"]
+    if version not in (21,22,25):raise ValueError("unsupported FK performance version")
+    library="fk_attack_poses_v25.json" if version==25 else f"fk_stomp_poses_v{version}.json"
+    lib=json.loads((Path(__file__).resolve().parent/library).read_text())
+    fmt=3 if version==25 else version-20
+    if lib["format"]!=f"SERA_FK_PERFORMANCE_V{fmt}" or d["source_bbmodel"]!="models/bosses/Bittaran.bbmodel":
+        raise ValueError("FK library requires calibrated Bittaran geometry")
+    variant=spec.get("variant","sweep" if version==25 else "chain" if version==22 else "extended")
+    selected=lib["variants"][variant];keys=selected["keys"]
+    duration=selected["duration"] if version==25 else lib["duration"]
     support_order=lib.get("support_order",[])
-    if version==22 and support_order!=["FrontFoot_R","RearFoot_L","RearFoot_R"]:raise ValueError("invalid support role order")
-    if version==22 and any(len(k)!=7 or len(k[6])!=9 or any(len(v)!=3 for v in k[6]) for k in keys):raise ValueError("invalid authored support keys")
+    if version in (22,25) and support_order!=["FrontFoot_R","RearFoot_L","RearFoot_R"]:raise ValueError("invalid support role order")
+    if version in (22,25) and any(len(k)!=7 or len(k[6])!=9 or any(len(v)!=3 for v in k[6]) for k in keys):raise ValueError("invalid authored support keys")
     fps=int(d["fps"])
-    if fps!=lib["fps"] or end!=round(lib["duration"]*fps)+1:raise ValueError("V21 sample range mismatch")
+    if len(keys)<3 or keys[0][0]!=0 or keys[-1][0]!=duration or any(b[0]<=a[0] for a,b in zip(keys,keys[1:])):raise ValueError("invalid FK time keys")
+    if version==25 and (keys[-2][1]!="settle" or keys[-1][1]!="recovered" or keys[0][2:]!=keys[-2][2:] or keys[0][2:]!=keys[-1][2:]):raise ValueError("V25 requires exact stable landing/rest keys")
+    if fps!=lib["fps"] or end!=round(duration*fps)+1:raise ValueError("V21 sample range mismatch")
     stance=d["support_lock"];chains=d["multifoot_ik"]["chains"]
     if set(chains)!=set(ROLES) or any(len(c)!=3 for c in chains.values()) or stance["strike_marker"]!="FrontFoot_L":
         raise ValueError("V21 expects four direct three-joint chains and front-left striker")
@@ -70,7 +76,7 @@ def compile_fk(d,nodes,end,out):
     def low(o):return min((o.matrix_world@v.co).z for v in o.data.vertices)
     def flat(row):
         v=[*row[2],*row[3],row[4],*[x for pair in row[5] for x in pair]]
-        if version==22:v.extend(x for triple in row[6] for x in triple)
+        if version in (22,25):v.extend(x for triple in row[6] for x in triple)
         if not all(math.isfinite(x) for x in v):raise ValueError("nonfinite pose key")
         return v
     t=[row[0] for row in keys];columns=list(zip(*(flat(row) for row in keys)))
@@ -82,7 +88,7 @@ def compile_fk(d,nodes,end,out):
         for n,c in chains.items():
             hip,knee,foot=[nodes[u] for u in c];mesh=nodes[stance["sole_meshes"][n]]
             if hip.parent!=root or knee.parent!=hip or foot.parent!=knee or mesh.parent!=foot:raise ValueError("unsupported chain")
-            if version==22 and n in support_order and not neutral_support:
+            if version in (22,25) and n in support_order and not neutral_support:
                 j=13+9*support_order.index(n)
                 for i,o in enumerate((hip,knee,foot)):
                     o.rotation_euler=rotation(row[j+3*i:j+3*i+3]).to_euler("XYZ")
@@ -135,7 +141,7 @@ def compile_fk(d,nodes,end,out):
     # recovery into the authored strike chain instead.
     support=[n for n in ROLES if n!="FrontFoot_L"]
     phase={"support":support,"feet":feet,"foot_yaws":{n:0. for n in ROLES}}
-    d["procedural_motion"]={"action":"stomp","max_contact_offset_m":.30,"preview_ik":bool(spec.get("preview_ik",False))}
+    d["procedural_motion"]={"action":variant if version==25 else "stomp","max_contact_offset_m":.30,"preview_ik":bool(spec.get("preview_ik",False))}
     contact_policy=spec.get("contact_policy","support_only")
     if contact_policy in ("support_only","heavy_landing_v24"):
         phases,contact_frames=[phase,phase],[1,end]
@@ -154,4 +160,4 @@ def compile_fk(d,nodes,end,out):
         raise ValueError("unsupported FK contact policy")
     try:compile_contact_layer(d,nodes,end,out,phases,contact_frames,geom,5.539)
     finally:del d["procedural_motion"]
-    (out/"fk_performance_report.json").write_text(json.dumps({"version":24 if contact_policy=="heavy_landing_v24" else version,"contact_policy":contact_policy,"variant":variant,"keys":keys,"source_animation_used":False,"neutral_root_z_m":base,"authored_tracks":tracks,"review_status":"review_required","scope":"explicit body-relative link directions, V22 authored support-local rotation keys, and shape-preserving time curves; three support legs optional IK; no physical joint limits or collision approval"},indent=2,ensure_ascii=False))
+    (out/"fk_performance_report.json").write_text(json.dumps({"version":24 if contact_policy=="heavy_landing_v24" else version,"contact_policy":contact_policy,"variant":variant,"keys":keys,"source_animation_used":False,"neutral_root_z_m":base,"authored_tracks":tracks,"review_status":"review_required","scope":"explicit body-relative link directions, authored support-local rotation keys, and shape-preserving time curves; three support legs optional IK; no physical joint limits or collision approval"},indent=2,ensure_ascii=False))
