@@ -60,6 +60,15 @@ def prepare(src,dest):
             pair(mount,frame);pair(name,mount);pair(name,wheel);pair(rim,wheel);pair(hub,rim);pair(prefix+"Axle"+t,hub)
         for prefix in ("TrackPads","TrackPadsOuter","TrackGuideRidge"):
             pair(prefix+t,"Track"+t,True,d["track_design"]["pads"])
+    # V9 actual GLB sampled skid-to-chassis gap: 2.4966 mm.
+    for t in ("L","R"):
+        p["TrackSkidPlate"+t]["location"][2]+=.005
+        pair("TrackSkidPlate"+t,"Chassis")
+        for i in range(2):
+            pair("TrackMountBridge"+t+str(i),"Chassis")
+            pair("TrackMountBridge"+t+str(i),"TrackSupportFrame"+t)
+    pair("LightBar","Visor")
+    d["attachment_graph"]={"roots":["Chassis"],"max_gap_m":.001}
     d["attachment_checks"]=checks
     d["research_adaptations"].append({"recipe":"attachment_repair","url":"https://parts.cat.com/en/catcorp/product/654-4447","adaptation":"Connect side covers and roller shafts to a fixed roller support frame; fictional dimensions."})
     d.setdefault("design_notes",[]).append("V9 targeted floating part repair; texture-only detailing separated. No game asset replacement.")
