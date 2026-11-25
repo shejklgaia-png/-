@@ -105,5 +105,31 @@
     },
     "sole_band_m": 0.005,
     "impact_xy_tolerance_m": 0.01
+  },
+  "multifoot_ik": {
+    "max_delta_deg": 12,
+    "orientation_weight_m": 0.2,
+    "chains": {
+      "FrontFoot_R": [
+        "79f2d9ed-0865-43a3-440e-33b2e9102ff1",
+        "3c3488aa-0d7f-a96a-67fc-fae63efc1c7c",
+        "8b340000-0000-4000-8000-000000000001"
+      ],
+      "RearFoot_R": [
+        "ceab2567-f40d-e2f3-9b50-07b4297431ac",
+        "fee5447b-67b6-75a1-fbfe-440a3a2413b0",
+        "2201984b-aab1-afb1-10bd-65d9f5a1479d"
+      ],
+      "RearFoot_L": [
+        "a288d33f-2327-a71d-0f71-87c403330b56",
+        "fecfbbb4-f374-046f-01f0-999f2d57ea24",
+        "ed084c2d-5f2e-2efe-2aa0-a18c69aecc0c"
+      ],
+      "FrontFoot_L": [
+        "452934e7-122c-205e-7b0b-4b638c2b633d",
+        "bd5d90cf-5893-77b8-e01b-6673f242da40",
+        "8b340000-0000-4000-8000-000000000002"
+      ]
+    }
   }
 }
