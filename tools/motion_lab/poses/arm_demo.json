@@ -1,0 +1,205 @@
+{
+  "format": "SERA_MOTION_POSES_V1",
+  "rig": {
+    "kind": "procedural",
+    "parts": [
+      {
+        "id": "base",
+        "size": [
+          1.4,
+          1.2,
+          0.3
+        ],
+        "location": [
+          0,
+          0,
+          0.15
+        ],
+        "rgb": [
+          0.2,
+          0.25,
+          0.32
+        ]
+      },
+      {
+        "id": "shoulder",
+        "location": [
+          0,
+          0,
+          0.3
+        ]
+      },
+      {
+        "id": "upper",
+        "parent": "shoulder",
+        "size": [
+          0.23,
+          0.25,
+          1.1
+        ],
+        "location": [
+          0,
+          0,
+          0.55
+        ],
+        "rgb": [
+          0.35,
+          0.65,
+          0.78
+        ]
+      },
+      {
+        "id": "elbow",
+        "parent": "shoulder",
+        "location": [
+          0,
+          0,
+          1.1
+        ]
+      },
+      {
+        "id": "forearm",
+        "parent": "elbow",
+        "size": [
+          0.2,
+          0.22,
+          0.85
+        ],
+        "location": [
+          0,
+          0,
+          0.425
+        ],
+        "rgb": [
+          0.6,
+          0.66,
+          0.72
+        ]
+      },
+      {
+        "id": "tool",
+        "parent": "elbow",
+        "size": [
+          0.38,
+          0.3,
+          0.2
+        ],
+        "location": [
+          0,
+          0,
+          0.95
+        ],
+        "rgb": [
+          0.9,
+          0.6,
+          0.2
+        ]
+      },
+      {
+        "id": "contact_target",
+        "location": [
+          1.7644203136722703,
+          0,
+          0.8327290744234407
+        ]
+      }
+    ]
+  },
+  "poses": {
+    "ready": {
+      "status": "demo_only",
+      "channels": {
+        "shoulder": {
+          "rotation_deg": [
+            0,
+            0,
+            0
+          ]
+        },
+        "elbow": {
+          "rotation_deg": [
+            0,
+            0,
+            0
+          ]
+        }
+      }
+    },
+    "anticipation": {
+      "status": "demo_only",
+      "channels": {
+        "shoulder": {
+          "rotation_deg": [
+            0,
+            -18,
+            0
+          ]
+        },
+        "elbow": {
+          "rotation_deg": [
+            0,
+            -35,
+            0
+          ]
+        }
+      }
+    },
+    "approach": {
+      "status": "demo_only",
+      "channels": {
+        "shoulder": {
+          "rotation_deg": [
+            0,
+            35,
+            0
+          ]
+        },
+        "elbow": {
+          "rotation_deg": [
+            0,
+            45,
+            0
+          ]
+        }
+      }
+    },
+    "follow_through": {
+      "status": "demo_only",
+      "channels": {
+        "shoulder": {
+          "rotation_deg": [
+            0,
+            20,
+            0
+          ]
+        },
+        "elbow": {
+          "rotation_deg": [
+            0,
+            25,
+            0
+          ]
+        }
+      }
+    },
+    "recovery": {
+      "status": "demo_only",
+      "channels": {
+        "shoulder": {
+          "rotation_deg": [
+            0,
+            0,
+            0
+          ]
+        },
+        "elbow": {
+          "rotation_deg": [
+            0,
+            0,
+            0
+          ]
+        }
+      }
+    }
+  }
+}
