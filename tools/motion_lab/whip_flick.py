@@ -37,6 +37,22 @@ KICK=[
 (116,"recovered",0,0,0,0,0,0,0,0,0,0,0,0,0,0)]
 
 def rows_for(variant,revision=3):
+    if revision==6:
+        rows=rows_for(variant,5)
+        if variant!="kick":
+            return rows
+        # Deeper outward vertical chamber, then a single upward overshoot
+        # after the leg reaches its horizontal extension. All angles are
+        # world-link bearings/elevations, not local joint angle offsets.
+        edits={23:(25,25,25,33,-64,-140),
+               34:(30,30,30,36,-67,-143),
+               38:(33,33,33,36,-67,-143),
+               42:(43,43,43,28,-50,-108)}
+        rows=[(*r[:10],*edits.get(r[0],r[10:])) for r in rows]
+        extension=next(r for r in rows if r[0]==50)
+        rows.extend([(53,"flick_up",*extension[2:10],55,57,59,2,5.2,8),
+                     (57,"flick_settle",*extension[2:10],55,57,59,1,2,3)])
+        return sorted(rows)
     if revision==5:
         rows=rows_for(variant,4)
         if variant in ("sweep","sweep_reverse"):
@@ -108,7 +124,7 @@ class WholeChain:
         self.columns=list(zip(*(r[2:] for r in rows)))
         self.report=[]
         self.clearance=None
-        if revision==5:
+        if revision in (5,6):
             from strike_clearance import StrikeClearance
             self.clearance=StrikeClearance(meshes,self.strike)
 
