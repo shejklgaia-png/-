@@ -1,4 +1,4 @@
-"""CRATE V9 targeted repair: actual supports, not geometric surface decoration."""
+"""CRATE V11 supervised repair: actual supports, not geometric surface decoration."""
 import copy
 import sys
 from pathlib import Path
@@ -62,12 +62,39 @@ def prepare(src,dest):
             pair(prefix+t,"Track"+t,True,d["track_design"]["pads"])
     # V9 actual GLB sampled skid-to-chassis gap: 2.4966 mm.
     for t in ("L","R"):
-        p["TrackSkidPlate"+t]["location"][2]+=.005
+        # V10 raised the plate entirely into the chassis. Seat across the actual
+        # lower surface (z=.04937), leaving the lower half visibly outside.
+        p["TrackSkidPlate"+t]["location"][2]=.045
         pair("TrackSkidPlate"+t,"Chassis")
         for i in range(2):
             pair("TrackMountBridge"+t+str(i),"Chassis")
             pair("TrackMountBridge"+t+str(i),"TrackSupportFrame"+t)
+    # Preserve the visor front face at y=-.236 and emitter positions.
+    # Extend the rear mounting face into the closed head recess.
+    p["Visor"]["location"][1]+=.002
+    p["Visor"]["size"][1]+=.004
+    pair("Visor","Head")
     pair("LightBar","Visor")
+    # AI visual review: make the chest a sculpted shell instead of a broad box.
+    # Retain its lower mounting rings and upper neck seat; widen the side chamfers.
+    rings=p["Chest"]["rings"]
+    for idx,front_x,side_shift in ((2,.105,.018),(3,.095,.012)):
+        ring=rings[idx]
+        ring[0][0]=-front_x
+        ring[1][0]=front_x
+        ring[2][1]+=side_shift
+        ring[7][1]+=side_shift
+    # Add a primary angled transition rather than a separate decorative panel.
+    mid=[[(a+b)/2 for a,b in zip(v,w)] for v,w in zip(rings[2],rings[3])]
+    for i in (0,1):mid[i][1]-=.009
+    for i in (2,7):mid[i][1]-=.004
+    rings.insert(3,mid)
+    pair("Chest","Chassis")
+    d["research_adaptations"].extend([
+        {"recipe":"supervised_skid_seat","url":"https://parts.cat.com/en/catcorp/product/199-5421","adaptation":"Distinct bottom guard seated across lower chassis surface."},
+        {"recipe":"supervised_optical_mount","url":"https://support.zivid.com/en/latest/camera/reference-articles/mechanical-considerations-for-robot-mounting.html","adaptation":"Protected optical assembly mounted to enclosure, preserve visible face."}
+    ])
+    d["design_notes"].append("V11 supervised chest primary shape refinement. Source evidence: V10 run 45717641835, artifact 15069919165. New visual approval pending.")
     d["attachment_graph"]={"roots":["Chassis"],"max_gap_m":.001}
     d["attachment_checks"]=checks
     d["research_adaptations"].append({"recipe":"attachment_repair","url":"https://parts.cat.com/en/catcorp/product/654-4447","adaptation":"Connect side covers and roller shafts to a fixed roller support frame; fictional dimensions."})
