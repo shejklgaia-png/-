@@ -9,7 +9,7 @@ def main():
     p.add_argument("design",type=Path); p.add_argument("out",type=Path)
     p.add_argument("--action",help="Override procedural action for the procedural design")
     p.add_argument("--preview-ik",action="store_true",help="Bake runtime-like contact preview, not source animation")
-    p.add_argument("--variant",choices=("extended","spear","chain"),help="Choose V21 FK candidate")
+    p.add_argument("--variant",choices=("extended","spear","chain","sweep","kick"),help="Choose FK candidate")
     a=p.parse_args(sys.argv[sys.argv.index("--")+1:])
     d=json.loads(a.design.read_text()); out=a.out.resolve()
     if d["format"]!="SERA_MOTION_LAB_V1": raise ValueError("format")
@@ -28,6 +28,9 @@ def main():
     if spec.get("profile")=="performance_v20" and spec.get("auto_duration",False):
         durations={"idle":3.0,"walk_forward":1.8,"walk_backward":1.8,"turn_left":1.6,"turn_right":1.6,"stomp":2.0,"sweep":1.8,"hit":0.85,"down_recover":3.5}
         d["end_frame"]=1+round(durations[spec["action"]]*fps)
+    if d.get("fk_performance",{}).get("version")==25:
+        if d["fk_performance"].get("variant") not in ("sweep","kick"):raise ValueError("V25 action")
+        d["end_frame"]={"sweep":100,"kick":109}[d["fk_performance"]["variant"]]
     end=int(d["end_frame"])
     if fps not in (30,60) or not 2<=end<=601: raise ValueError("fps/frame limit")
     out.mkdir(parents=True,exist_ok=False)
