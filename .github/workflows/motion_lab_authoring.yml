@@ -19,8 +19,12 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || (github.event.pull_request.head.repo.full_name == github.repository && startsWith(github.head_ref, 'motion-lab/'))
     runs-on: ubuntu-24.04
     timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        case: ${{ fromJSON(github.event_name == 'workflow_dispatch' && '["custom"]' || '["demo","bittaran"]') }}
     env:
-      DESIGN: ${{ inputs.design || 'tools/motion_lab/example.json' }}
+      DESIGN: ${{ matrix.case == 'bittaran' && 'tools/motion_lab/bittaran_preview.json' || inputs.design || 'tools/motion_lab/example.json' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -81,14 +85,14 @@ jobs:
           git -C "$GITHUB_WORKSPACE" rev-parse HEAD > source_commit.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: sera-motion-review
+          name: sera-motion-review-${{ matrix.case }}
           path: ${{ runner.temp }}/sera-motion/
           if-no-files-found: error
           retention-days: 14
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: sera-motion-partial
+          name: sera-motion-partial-${{ matrix.case }}
           path: ${{ runner.temp }}/sera-motion/
           if-no-files-found: ignore
           retention-days: 7
