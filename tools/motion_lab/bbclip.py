@@ -233,6 +233,8 @@ def compile_clip(scene,d,nodes,end,out):
         _refine_multifoot(d,nodes,end,out)
         if d.get("dynamic_refinement"):
             _refine_multifoot(d,nodes,end,out,dynamic=True)
+    if d.get("performance_refinement"):
+        _refine_performance(d,nodes,end,out)
 
 
 def _lock_support(d,nodes,end,out):
@@ -362,4 +364,56 @@ def _refine_multifoot(d,nodes,end,out,*,dynamic=False):
         "version":15 if dynamic else 14,"selected_strength":strength,"selected_smooth_radius":radius,
         "baseline":base,"selected":actual,"candidates":rows,"solver_frames":diagnostics,
         "scope":"bounded sampled four-foot position/orientation IK; optional point-mass dynamic and discrete interference guards; no real joint limits, swept collision or gameplay adoption"
+    },indent=2,ensure_ascii=False))
+
+
+def _refine_performance(d,nodes,end,out):
+    from performance import candidates,evaluate,landmarks
+    from dynamics import regressions
+    spec=d["performance_refinement"]
+    base_tracks=d["tracks"];base=_evaluate_tracks(d,nodes,end,dynamic=True)
+    marks=landmarks(d,end);fps=int(d["fps"]);b=evaluate(base,marks,fps)
+    impact=marks[4];selected=("unchanged",0.,base_tracks,base,b,1.);rows=[]
+    def timing_score(m):
+        # Equal weight on three dimensionless readability targets.
+        # Ratios are bounded to avoid rewarding numerical near-zero speeds.
+        terms=[min(2.,max(m[k],.01)/max(b[k],.01)) for k in ("raise_tail_ratio","settle_tail_ratio")]
+        terms.append(min(2.,max(b["strike_late_ratio"],.01)/max(m["strike_late_ratio"],.01)))
+        return sum(terms)/3.
+    # Materialize candidates before replacing d["tracks"].
+    for name,strength,clock,track in list(candidates(d,end)):
+        d["tracks"]=track
+        e=_evaluate_tracks(d,nodes,end,dynamic=True);m=evaluate(e,marks,fps);reasons,_=_compare(base,e)
+        failures=regressions(base,e);reasons.extend(sorted(set(x["kind"] for x in failures)))
+        p,q=base["sole"],e["sole"]
+        for k in ("max_drift_m","mean_drift_m","max_support_low_error_m"):
+            if q[k]>p[k]+.0001: reasons.append("sole_"+k)
+        if q["min_com_margin_m"]<p["min_com_margin_m"]-.001: reasons.append("static_support_margin")
+        for k in ("raise_tail_ratio","settle_tail_ratio"):
+            if m[k]>b[k]+.005: reasons.append(k+"_regression")
+        if m["strike_late_ratio"]<b["strike_late_ratio"]-.005: reasons.append("strike_late_ratio_regression")
+        if m["hold_mean_speed_m_s"]>b["hold_mean_speed_m_s"]+.001: reasons.append("hold_regression")
+        # Exact fixed landmark geometry, including contact and recovery.
+        for i in marks:
+            for k in ("strike_center_m","com_m"):
+                if (Vector(q["frames"][i][k])-Vector(p["frames"][i][k])).length>.0001:
+                    reasons.append("landmark_"+k)
+        if abs(q["frames"][impact]["strike_low_delta_m"]-p["frames"][impact]["strike_low_delta_m"])>.0001:
+            reasons.append("impact_floor")
+        if m["impact_post_speed_m_s"]>b["impact_post_speed_m_s"]+.001: reasons.append("post_impact_speed")
+        score=timing_score(m)
+        rows.append({"profile":name,"strength":strength,"score":score,"clock_source_frame":[round(float(t)+1,6) for t in clock],
+                     "performance":m,"rejections":reasons,"dynamic_rejections":failures,
+                     "floor_depth_m":e["max_relative_floor_depth_m"],"support_drift_m":q["max_drift_m"]})
+        if not reasons and score<selected[-1]-.001:
+            selected=(name,strength,track,e,m,score)
+    name,strength,track,chosen,m,score=selected;d["tracks"]=track
+    actual=_evaluate_tracks(d,nodes,end,dynamic=True)
+    if regressions(chosen,actual) or _compare(chosen,actual)[0] or abs(timing_score(evaluate(actual,marks,fps))-timing_score(m))>1e-6:
+        raise ValueError("performance reevaluation mismatch")
+    (out/"performance_report.json").write_text(json.dumps({
+        "version":16,"selected_profile":name,"selected_strength":strength,
+        "landmarks_1based":{k:v for k,v in d["events"].items()},"baseline_performance":b,
+        "selected_performance":evaluate(actual,marks,fps),"selected_metrics":actual,"candidates":rows,
+        "scope":"heuristic readability of existing motion via coherent retiming; no new recoil, secondary action, actual force or artistic approval; original game unchanged"
     },indent=2,ensure_ascii=False))
