@@ -1,4 +1,4 @@
-"""PARTS FACTORY V3: resumable, non-destructive production coordinator."""
+"""PARTS FACTORY V4: resumable, non-destructive production coordinator."""
 import argparse
 import hashlib
 import json
@@ -8,6 +8,7 @@ import tempfile
 from pathlib import Path
 import quality_gates as q
 import reference_contract as rc
+import texture_contract as tc
 
 ROOT = Path(__file__).resolve().parents[2]
 STOCK = ROOT / "parts_stock"
@@ -62,7 +63,7 @@ def files(folder):
 
 def state(work):
     d = read(work / "job.json")
-    require(d["format"] == "SERA_PARTS_FACTORY_V3", "invalid format")
+    require(d["format"] == "SERA_PARTS_FACTORY_V4", "invalid format")
     require(d["slot"] in SLOTS and re.fullmatch(r"[A-Z][A-Z0-9_-]{1,39}", d["id"]), "invalid job identity")
     return d
 
@@ -151,10 +152,12 @@ def check_stage(name, src, d):
         require(u.get("source_glb_sha256") == d["stages"]["model"]["files"]["model.glb"], "UV source mismatch")
         require(u.get("method") == "AI_MANUAL_FACE", "manual face route required")
         glb(src / "uv_model.glb")
+        tc.uv(src,d)
         q.rubric(u.get("rubric"),("quad_orientation","shared_edges","texel_density","padding"),"UV")
         require(bool(u.get("reviewer")),"UV review required")
     if name == "paint":
         g = glb(src / "model.glb")
+        tc.paint(src,d,g)
         require(any(m.get("pbrMetallicRoughness",{}).get("baseColorTexture") for m in g.get("materials",[])), "painted GLB has no base-color texture")
         require(bool(g.get("images")) and all("bufferView" in i for i in g["images"]), "GLB images must be embedded")
         for size in (512,1024,2048):
@@ -237,7 +240,7 @@ def stock(work):
         write(out/"job.json",d)
         if (work/"rejections").is_dir():
             shutil.copytree(work/"rejections",out/"rejections")
-        write(out/"release.json",{"id":d["id"],"slot":d["slot"],"revision":key,"state":"stocked_not_in_game","format":"SERA_PARTS_STOCK_V3"})
+        write(out/"release.json",{"id":d["id"],"slot":d["slot"],"revision":key,"state":"stocked_not_in_game","format":"SERA_PARTS_STOCK_V4"})
         out.rename(dest)
     print("STOCKED",dest)
 
@@ -296,7 +299,7 @@ def main():
         require(re.fullmatch(r"[A-Z][A-Z0-9_-]{1,39}",args.id),"invalid ID")
         work.mkdir(parents=True,exist_ok=True)
         require(not (work/"job.json").exists(),"job already exists")
-        write(work/"job.json",{"format":"SERA_PARTS_FACTORY_V3","id":args.id,"slot":args.slot,"stages":{}})
+        write(work/"job.json",{"format":"SERA_PARTS_FACTORY_V4","id":args.id,"slot":args.slot,"stages":{}})
     elif args.cmd=="accept":
         accept(work,args.stage,args.source.resolve(),args.producer)
     elif args.cmd=="stock":
@@ -317,7 +320,7 @@ def main():
             if next_stage=="model":
                 result["route"]="authorize-model -> tools/modeling_studio/pf_<id>.json -> modeling/parts-factory/<id-lower> PR or dedicated dispatch"
             elif next_stage=="uv":
-                result["route"]="Texture Studio AI manual face route; preserve original quad orientation"
+                result["route"]="texture_bridge.py prepare -> authored original-face UV layout -> validate -> Blender apply -> accept uv"
         print(json.dumps(result,ensure_ascii=False,indent=2))
 
 if __name__=="__main__":
