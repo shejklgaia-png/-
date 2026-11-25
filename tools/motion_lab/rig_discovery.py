@@ -1,11 +1,11 @@
 """Rigid model inventory and explicitly role-seeded topology discovery."""
-import json, math, re
+import json, math, unicodedata
 from copy import deepcopy
 
 FOOT_ROLES=("FrontFoot_L","FrontFoot_R","RearFoot_L","RearFoot_R")
 
 def normalized(name):
-    return re.sub(r"[^a-z0-9]","",str(name).casefold())
+    return "".join(c for c in unicodedata.normalize("NFKC",str(name)).casefold() if c.isalnum())
 
 def resolve(nodes,spec):
     by_obj={o.name:uid for uid,o in nodes.items()}
@@ -109,6 +109,8 @@ def configure(d,nodes,out):
     dynamic=deepcopy(d.get("dynamic_refinement",{}))
     # Existing explicit settings must agree; no silent remapping.
     if mode=="verify":
+        if not {"Body","Head",*FOOT_ROLES}.issubset(d.get("markers",{})):
+            raise ValueError("missing explicit role markers")
         for name,point in d.get("markers",{}).items():
             if name in r["markers"] and point!=r["markers"][name]:
                 raise ValueError("explicit marker mismatch "+name)
