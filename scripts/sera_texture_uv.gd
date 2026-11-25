@@ -645,6 +645,15 @@ static func _cycle_face_layout(tris: Array[Dictionary],charts: Array[Dictionary]
         return {"charts":charts,"applied":false,"report":"V30 規模上限"}
     var physical: Array[Dictionary] = _seam_segments(tris,true)
     var before: Vector3 = _face_grid_metrics(tris,physical)
+    var coplanar: Array[Dictionary] = []
+    for link in physical:
+        var a: Dictionary = tris[int(link.ta)]
+        var b: Dictionary = tris[int(link.tb)]
+        var na: Vector3 = a.face_normal
+        var nb: Vector3 = b.face_normal
+        if na.dot(nb)>0.0 and na.cross(nb).length_squared()<=0.0000000001 and absf(na.dot(Vector3(b.p[0])-Vector3(a.p[0])))<=0.00001:
+            coplanar.append(link)
+    var plane_before: Vector3 = _face_grid_metrics(tris,coplanar)
     var shape: Vector3 = _topology_distortion(tris,density)
     var capacity: int = _hinge_pack_side(charts)
     var links: Array[Dictionary] = []
@@ -761,6 +770,9 @@ static func _cycle_face_layout(tris: Array[Dictionary],charts: Array[Dictionary]
             chart.min = Vector2(chart.min).floor()
         var score: Vector3 = _face_grid_metrics(ct,physical)
         if score.x>before.x+0.0001 or score.y>best.y or score.z>before.z+0.0001:
+            continue
+        var plane_score: Vector3 = _face_grid_metrics(ct,coplanar)
+        if plane_score.y>plane_before.y or plane_score.x>plane_before.x+0.0001 or plane_score.z>plane_before.z+0.0001:
             continue
         if not _joint_shape_ok(shape,_topology_distortion(ct,density)) or _hinge_pack_side(cc)>capacity:
             continue
