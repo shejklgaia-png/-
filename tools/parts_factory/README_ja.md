@@ -1,5 +1,5 @@
-# PARTS FACTORY（パーファク）V3 — 設計図解析・品質優先
-2026-11-25 Vesper V1失敗への是正。V1/V2のジョブは互換なし。旧データを破壊せず、新規V3作業ディレクトリに再登録する。単なる箱・円柱の組立を完成扱いしない。設計画が視覚的な正本。全身セットは先にセット全体のデザインを比較・確定し、その後6部位を独立制作する。ゲーム本体/既存モデル/無関係CIを変更しない。
+# PARTS FACTORY（パーファク）V4 — テクスタ直接連携
+2026-11-25 Vesper V1失敗への是正。V1/V2/V3のジョブは互換なし。旧データを破壊せず、新規V4作業ディレクトリに再登録する。単なる箱・円柱の組立を完成扱いしない。設計画が視覚的な正本。全身セットは先にセット全体のデザインを比較・確定し、その後6部位を独立制作する。ゲーム本体/既存モデル/無関係CIを変更しない。
 
 ## V3追加：設定画解析ブリッジ（必須）
 - `python -m pip install numpy opencv-python-headless` は解析専用環境に導入。ゲーム依存には追加しない。
@@ -7,7 +7,7 @@
 - `python tools/parts_factory/reference_bridge.py analyze <accepted_blueprint_dir> <calibration.json> <out>` → analysis.json、10方向正規化マスク/画像/既存モデスタstructure_analysisの領域・内部線・隣接・候補画像、multiview_partsの対応候補、断面包絡、対応ランドマークの3D最小二乗推定と残差。`factory.py accept <work> analysis <out> --producer ...`。曖昧な関連は候補のまま。矩形断面包絡は奥行きの上限の概算であり、正確な断面/凹部の復元ではない。
 - planにはanalysis.jsonの完全コピーをanalysis_snapshot.jsonとして同梱し、structure_plan.jsonへreference_sha256、ambiguity_resolution、section_strategy、componentsごとのanalysis_evidence（view,kind=region/line/landmark/section/inferred,reference,interpretation）を追加。design.jsonはreview_resolutionを一致させ、review_camerasのfront/right/back/left/top/bottomを共通target/ortho_scaleと固定directionで設定（それぞれ[0,-1,0],[1,0,0],[0,1,0],[-1,0,0],[0,0,1],[0,0,-1]）。roll/quaternion/カメラfit禁止。landmarksに解析点名を既存モデスタの{node,local}形式で割り当てる。
 - model許可にreference_sha256を付与。実制作ZIPのprojections.jsonも必ず保存。`reference_bridge.py compare <accepted_analysis_dir> <actual_model_dir> <out>` は実カメラとモデルの解析ハッシュを確認し6方向の輪郭IoU、不足/過剰ピクセル、最大距離、色分け重ね画像、ランドマーク投影残差、低IoU優先順位を出す。自動造形変更・自動審美評価はしない。
-- geometry受理フォルダにcomparison.jsonと6方向overlayをコピーし、geometry_review.jsonのoverlaysをそのパスと一致させ、reference_limits（各方向→{min_iou:0.5..1,reason}）、landmark_disposition、correction_priorityを追加。閾値は対象別の設計意図に基づき明記。不合格ならplanへ戻る（元図面不整合ならblueprint/analysisへ）。閾値の後付け緩和を合格理由にしない。V3ストックのみ新規セットに採用可。
+- geometry受理フォルダにcomparison.jsonと6方向overlayをコピーし、geometry_review.jsonのoverlaysをそのパスと一致させ、reference_limits（各方向→{min_iou:0.5..1,reason}）、landmark_disposition、correction_priorityを追加。閾値は対象別の設計意図に基づき明記。不合格ならplanへ戻る（元図面不整合ならblueprint/analysisへ）。閾値の後付け緩和を合格理由にしない。V4ストックのみ新規セットに採用可。
 - 参考: Blender orthographic cameras https://docs.blender.org/manual/en/3.5/render/cameras.html ; Laurentini visual hull https://ieeexplore.ieee.org/abstract/document/273735/ 。輪郭一致と見栄えを分けて評価する。
 
 ## 作業順（強制ゲート）
@@ -35,3 +35,16 @@
 ## 技術境界
 ゲートは登録経路・許可付きモデル入力・正式出力を制御するが、任意の別名JSONで従来モデスタを直接使う行為を全体禁止するものではない。許可は署名付き認証ではなく、受理済みローカル記録と入力を結ぶ整合性メタデータ。ChatGPTが全工程の実行・証跡採取・審美評価を誠実に行う必要がある。画像生成API、GitHub dispatch、テクスタAI手動、自動組立/ゲーム登録のAPIは未接続。専用PR経路は追加済み。V3実データ通し制作・ブラウザ検証は未実施。既存CI/テスト禁止維持。
 参考: Pixar concept→model https://sciencebehindpixar.org/pipeline/modeling ; Disney visual development→model https://www.disneyanimation.com/process/modeling/ ; Blender Studio review/approval https://studio.blender.org/tools/overview/design-principles ; task layers https://studio.blender.org/tools/addons/asset_pipeline
+
+## V4：モデスタ→テクスタ原面連携（必須）
+画像生成AIによる塗装ではなく、AIが原面UV・材質・モデル座標レイヤーを手動設計し、既存Texture Studio AI pipelineが描画する。元BLENDのポリゴン/ループID、三角化対応、部品名・親・行列・材質を保持。Z上からY上への座標変換は(X,Z,-Y)、UVはV下。既存ゲーム、モデル正本、Godot内テクスタUIは変更しない。制作済みBLENDに対するオフライン処理のみ。Blender 4.5とPython 3.10+（numpy scipy Pillow shapely>=2）を使用。ライブモディファイア、シェイプキー、共有メッシュ、負スケールは拒否。必要ならモデスタ側で承認済モデルを修正し再取得する。パーツ254、原面65534のID上限。モデル正本を変更しない。
+
+1. `python tools/parts_factory/texture_bridge.py prepare WORK HANDOFF --blender blender` — geometry受理済みBLENDを開き、face_geometry.json/handoff.jsonを出力。元ファイルのハッシュと受理済みgeometry revisionを固定。新規フォルダのみ。
+2. AIがface_geometry.jsonを読み、全原面の手動UVを設計。uv_layout.json は {"format":"SERA_PF_MANUAL_UV_V4","method":"AI_MANUAL_FACE","geometry_sha256":"...","faces":{"0":{"uv":[[u,v],...],"chart":0,"reason":"配置・向き・境界の具体的根拠"}}}。各原面の全ループ順を厳守、三角対角線を切断しない。対称/方位、面積、接続、パネルライン継続性を考慮。UV島内連結は同一コーナー座標、島間は十分な余白を確保。自動レイアウトによる代替は禁止。
+3. `texture_bridge.py validate HANDOFF uv_layout.json UV_DATA` — UV三角の退化/原面内反転/正面積重複（Shapely 2 STRtree、許容1e-10）と同一島共有辺の座標を検査。島間共有辺の長さ比、面積ベース密度を記録。元面グループ付きmesh.json、uv_metrics.json出力。余白の適否・島間位相・意図した左右反転・美観は手動確認が必要。エラー時はレイアウト修正。 
+4. `texture_bridge.py export WORK HANDOFF UV_DATA UV_ACCEPT --blender blender` — 元BLENDを読み、同じコーナーへUVを適用してuv_model.glb・uv.blendを別出力。ハッシュ連携と階層保持。生成uv.jsonのreviewer/rubricを実UV確認後に記録し `factory.py accept WORK uv UV_ACCEPT --producer ...`。自動合格しない。
+5. AIが既存ai_pipeline.pyのplan仕様でsurface_plan.jsonを作成。geometry_sha256はuv_metrics.jsonのpainter_geometry_sha256。face_materialは原面順、paletteはRGB、layersはparts/faces/materialsで範囲を明示する。位置/法線と原面を基準に装甲パネル、凹凸・機構・締結点、上方照明を描く。元モデルの形状・接続部を保持。既存ai_surface_toolsのinspect等も補助利用可。
+6. `texture_bridge.py bake UV_ACCEPT surface_plan.json BAKED` — 同一の設計レイヤーから512/1024/2048を個別ベイク。上限4096サンプル辺、同材質の3D隣接パディング、既存テクスタの色差比較・IDマップ。V4 bridgeは基礎ai_pipelineの直接接続であり、仮想凹凸V3/接触遮蔽V4の追加ベイクは未統合。3解像度の成果物と各reportをbake_manifestで束ねる。
+7. `texture_bridge.py export WORK HANDOFF UV_ACCEPT PAINT_ACCEPT --baked BAKED --size 1024 --blender blender` — 元BLENDへ受理済UVを再適用し、元材質のコピーにテクスチャを結線、GLBへ内蔵。実GLB全プリミティブのbaseColorTexture/TEXCOORD_0を確認し、埋込画像をデコードして採用PNGとRGB画素完全一致を要求する。painted.blendと3解像度PNG、報告を出力。paint.jsonのreviewer/rubricは実塗装確認後に記録。factory.py accept paint へ。その後も実8方向レビュー、正式HTML、ストックを省略不可。動的光とベイク光の重複、ミップ、性能は別評価。
+8. 画像やモデルが未取得・工程が未承認の場合は停止。不合格時はUVまたは塗装へ戻る。正式リリースと候補共有を混同しない。
+参考：Blender Mesh loops https://docs.blender.org/api/current/bpy.types.Mesh.html ; Substance 3D Painter 3D Space Neighbor https://experienceleague.adobe.com/en/docs/substance-3d-painter/using/interface/texture-set/texture-set-settings ; Shapely STRtree https://shapely.readthedocs.io/en/stable/strtree.html 。V4通し制作未確認、外部アプリの自動操作ではなくCLI連携。
