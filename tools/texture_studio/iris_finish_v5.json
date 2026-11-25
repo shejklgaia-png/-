@@ -1,0 +1,255 @@
+{
+  "mesh_sha256": "2eb99829f1758053a69c76b5a089c7a61cdd15585bb2dad87ca720acf1331500",
+  "base_sha256": "2f356e6d75f4aa4f9ef378b19b46fa960682f6b1ea8fc9b45ab70e03829ff65e",
+  "resolution": 1024,
+  "layers": [
+    {
+      "id": "lower_side_vent_98",
+      "kind": "vent",
+      "face": 98,
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "length": 0.1,
+      "width": 0.016,
+      "count": 4,
+      "opacity": 0.85,
+      "luma_range": [
+        85,
+        160
+      ]
+    },
+    {
+      "id": "lower_side_vent_110",
+      "kind": "vent",
+      "face": 110,
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "length": 0.1,
+      "width": 0.016,
+      "count": 4,
+      "opacity": 0.85,
+      "luma_range": [
+        85,
+        160
+      ]
+    },
+    {
+      "id": "inner_rail_102",
+      "kind": "rail",
+      "face": 102,
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "length": 0.063,
+      "width": 0.006,
+      "opacity": 0.85,
+      "luma_range": [
+        20,
+        85
+      ]
+    },
+    {
+      "id": "inner_rail_114",
+      "kind": "rail",
+      "face": 114,
+      "axis": [
+        0,
+        1,
+        0
+      ],
+      "length": 0.063,
+      "width": 0.006,
+      "opacity": 0.85,
+      "luma_range": [
+        20,
+        85
+      ]
+    },
+    {
+      "id": "upper_vent_97",
+      "kind": "vent",
+      "face": 97,
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "length": 0.085,
+      "width": 0.008,
+      "count": 4,
+      "opacity": 0.65,
+      "luma_range": [
+        130,
+        205
+      ]
+    },
+    {
+      "id": "upper_vent_109",
+      "kind": "vent",
+      "face": 109,
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "length": 0.085,
+      "width": 0.008,
+      "count": 4,
+      "opacity": 0.65,
+      "luma_range": [
+        130,
+        205
+      ]
+    },
+    {
+      "id": "under_brow_rail_23",
+      "kind": "rail",
+      "face": 23,
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "length": 0.055,
+      "width": 0.008,
+      "opacity": 0.9,
+      "luma_range": [
+        15,
+        82
+      ]
+    },
+    {
+      "id": "under_brow_rail_66",
+      "kind": "rail",
+      "face": 66,
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "length": 0.055,
+      "width": 0.008,
+      "opacity": 0.9,
+      "luma_range": [
+        15,
+        82
+      ]
+    },
+    {
+      "id": "under_brow_rail_41",
+      "kind": "rail",
+      "face": 41,
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "length": 0.055,
+      "width": 0.008,
+      "opacity": 0.9,
+      "luma_range": [
+        15,
+        82
+      ]
+    },
+    {
+      "id": "under_brow_rail_64",
+      "kind": "rail",
+      "face": 64,
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "length": 0.055,
+      "width": 0.008,
+      "opacity": 0.9,
+      "luma_range": [
+        15,
+        82
+      ]
+    },
+    {
+      "id": "crown_vent_21",
+      "kind": "vent",
+      "face": 21,
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "length": 0.075,
+      "width": 0.012,
+      "count": 4,
+      "opacity": 0.8,
+      "luma_range": [
+        130,
+        205
+      ],
+      "enabled": false
+    },
+    {
+      "id": "crown_vent_63",
+      "kind": "vent",
+      "face": 63,
+      "axis": [
+        0,
+        0,
+        1
+      ],
+      "length": 0.075,
+      "width": 0.012,
+      "count": 4,
+      "opacity": 0.8,
+      "luma_range": [
+        130,
+        205
+      ],
+      "enabled": false
+    },
+    {
+      "id": "inner_brace_92",
+      "kind": "rail",
+      "face": 92,
+      "axis": [
+        1,
+        0,
+        0
+      ],
+      "length": 0.11,
+      "width": 0.012,
+      "opacity": 0.9,
+      "luma_range": [
+        15,
+        85
+      ],
+      "enabled": false
+    },
+    {
+      "id": "inner_brace_95",
+      "kind": "rail",
+      "face": 95,
+      "axis": [
+        1,
+        0,
+        0
+      ],
+      "length": 0.11,
+      "width": 0.012,
+      "opacity": 0.9,
+      "luma_range": [
+        15,
+        85
+      ],
+      "enabled": true
+    }
+  ]
+}
