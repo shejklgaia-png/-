@@ -95,8 +95,8 @@ def main():
         obj.parent=nodes[point["node"]]; obj.location=point.get("local",[0,0,0])
         marker_nodes[name]=obj
     sys.path.insert(0,str(Path(__file__).resolve().parent))
-    from ik import bake_ik
-    ik_dynamic=bake_ik(scene,nodes,marker_nodes,d.get("ik",[]),end,out)
+    from refine_ik import refine_ik
+    ik_dynamic=refine_ik(scene,nodes,marker_nodes,d,end,out)
     from optimize import optimize
     optimized_dynamic=optimize(scene,nodes,marker_nodes,d,end,out)
     # Evaluate every authored frame, not just key poses. Contacts use world positions.
