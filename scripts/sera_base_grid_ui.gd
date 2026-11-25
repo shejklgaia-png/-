@@ -75,7 +75,7 @@ func _ready() -> void:
         tab.add_theme_font_override("font", LaboSkin.ui_font())
         tab.add_theme_font_size_override("font_size", 17)
         tab.add_theme_stylebox_override("normal", LaboSkin.style("normal"))
-        tab.add_theme_stylebox_override("pressed", LaboSkin.style("selected"))
+        tab.add_theme_stylebox_override("pressed", LaboSkin.style("pressed"))
         tab.toggle_mode = true
         tab.pressed.connect(_choose_category.bind(CATEGORIES[i]))
         category_row.add_child(tab)
@@ -173,8 +173,9 @@ func reflow(dims: Vector2) -> void:
     status_label.size = Vector2(tray.size.x - 36, 24)
     overview_label.position = Vector2(18, 112)
     overview_label.size = Vector2(tray.size.x - 36, 46)
+    overview_label.add_theme_font_size_override("font_size", 13 if view_size.x < 500.0 else 15)
     category_row.position = Vector2(12, 160)
-    category_row.size = Vector2(tray.size.x - 24, 30)
+    category_row.size = Vector2(tray.size.x - 24, 32)
     scroll.position = Vector2(12, 194)
     scroll.size = Vector2(tray.size.x - 24, 86)
     rail.size = Vector2(68, 164)
@@ -276,7 +277,7 @@ func set_rated_overview(totals: Dictionary) -> void:
         return
     var area: int = Board.GRID_SIDE * Board.GRID_SIDE
     var cost: float = float(totals["processing"]) + float(totals["wire_quarters"]) * 0.25
-    overview_label.text = "定格 / %d/%dマス・%d基 / 変換%dEP・蓄電%dEP\n原料%d / 帰還負荷%.2fEP / 戦闘%d基（種類%d・上限3）" % [
+    overview_label.text = "定格 / %d/%dマス・%d基 / 変換%dEP・蓄電%dEP\n原料%d / 帰還負荷%.2fEP / 戦闘%d基/%d種（上限3）" % [
         totals["cells"], area, totals["nodes"], totals["generation"], totals["storage"],
         totals["raw"], cost, totals["combat_count"], totals["combat_types"]]
     overview_label.add_theme_color_override("font_color", Color("#e7bb8a") if int(totals["combat_count"]) > 3 or int(totals["combat_count"]) > int(totals["combat_types"]) else Color("#b7dce6"))
