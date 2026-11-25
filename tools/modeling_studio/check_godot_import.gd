@@ -7,7 +7,7 @@ func _initialize() -> void:
 		return
 	var folder := args[0]
 	var reports := {}
-	for filename in ["model.glb", "model_lod.glb"]:
+	for filename in ["model.glb", "model_lod.glb", "model_grouped.glb"]:
 		var path: String = folder.path_join(filename)
 		if not FileAccess.file_exists(path):
 			if filename == "model.glb":
