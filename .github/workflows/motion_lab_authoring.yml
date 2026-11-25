@@ -72,8 +72,17 @@ jobs:
           unzip -q "$g/$archive" -d "$g"
           printf 'config_version=5\n[application]\nconfig/name="Motion Lab isolated review"\n[display]\nwindow/size/viewport_width=640\nwindow/size/viewport_height=640\n[rendering]\nrenderer/rendering_method="gl_compatibility"\n' > "$g/project/project.godot"
           cp tools/motion_lab/review.gd "$g/project/"
-          timeout 180 xvfb-run -a "$g/Godot_v4.7.2-stable_linux.x86_64" --path "$g/project" --audio-driver Dummy --script res://review.gd -- "$RUNNER_TEMP/sera-motion"
+          timeout 600 xvfb-run -a "$g/Godot_v4.7.2-stable_linux.x86_64" --path "$g/project" --audio-driver Dummy --script res://review.gd -- "$RUNNER_TEMP/sera-motion"
           test -s "$RUNNER_TEMP/sera-motion/godot_review.json"
+      - name: Encode and verify full-speed and slow motion video
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y ffmpeg
+          fi
+          python3 tools/motion_lab/video.py "$RUNNER_TEMP/sera-motion"
       - name: Bundle actual rendered images
         shell: bash
         run: |
@@ -81,8 +90,8 @@ jobs:
           cd "$RUNNER_TEMP/sera-motion"
           python3 -m venv "$RUNNER_TEMP/motion-review-venv"
           "$RUNNER_TEMP/motion-review-venv/bin/pip" install Pillow==11.3.0
-          "$RUNNER_TEMP/motion-review-venv/bin/python" "$GITHUB_WORKSPACE/tools/motion_lab/bundle.py" .
           git -C "$GITHUB_WORKSPACE" rev-parse HEAD > source_commit.txt
+          "$RUNNER_TEMP/motion-review-venv/bin/python" "$GITHUB_WORKSPACE/tools/motion_lab/bundle.py" .
       - uses: actions/upload-artifact@v4
         with:
           name: sera-motion-review-${{ matrix.case }}

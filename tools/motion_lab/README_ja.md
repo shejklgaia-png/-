@@ -36,3 +36,7 @@ V4の専用3ジョブが成功、IK実成果物で接触誤差8.35e-7m、Godot�
 
 ## V6: 保護付き床補正
 V5の3ケース成功、IK成果物121フレームで床・干渉候補・接地・静的余裕違反0、最小余裕0.453286mを確認。`optimize` は明示root（親なし、制約/NLAなし）、max_lift_m、require_improvementを指定。評価済みメッシュの床貫通深さから0/4/8フレームの持ち上げ包絡候補を生成し、床損失・接触誤差・新規干渉候補・接地・静的重心余裕を比較。候補評価中は元キー不変。改善し、指定保護指標を悪化させない候補の中で床損失を優先、近似同等なら滑らかさ/変位コストで選択する。採用時のみ位置を毎フレームベイクし再評価、不一致は書き出し拒否。候補なしは元モーションを維持（require_improvementなら未達を失敗扱い）。spatial_before/candidate/after_bake.json と optimization_report.json を保存。床を12cm貫通する設計の独立payloadデモを追加。ルート上下移動のみで、部品同士の自動回避、全身IK、連続衝突、動的重心、演技評価には非対応。既存ゲーム・正本モデルは変更しない。
+
+## V7: 全フレーム動画レビュー
+V6四ケース成功、補正成果物で床120mm→0、違反29→0、8フレーム包絡選択、ベイク再評価合格を確認。V7ではGodot GLBの各制作フレームに正確にseekし描画後PNG保存、全フレーム連番/保存実数を確認する。従来の疎な3視点Blender/Godot静止画も維持。FFmpegでH.264/yuv420p MP4、通常は制作FPS、半速は半分のFPSで同一の実画像を再生（補間なし）。終端姿勢を1フレーム保持するため動画長はN/FPS、モーションクリップ長は(N-1)/FPS。ffprobeで全フレームPTS・実フレーム数・FPS・長さを照合。video_report.json に両動画のSHA256、撮影元フレームのハッシュ、イベント時刻を記録。成功時のみフルPNG列を削除、失敗時はpartialに残す。動画は孤立Godot GLBの斜め固定視点、Androidや実ゲーム描画ではない。重量感・演技の自動合格は行わない。
+参考: https://docs.godotengine.org/en/stable/tutorials/animation/creating_movies.html ; https://ffmpeg.org/ffmpeg-formats.html ; https://ffmpeg.org/ffprobe.html
