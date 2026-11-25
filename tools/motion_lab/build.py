@@ -30,7 +30,8 @@ def main():
         d["end_frame"]=1+round(durations[spec["action"]]*fps)
     if d.get("fk_performance",{}).get("version")==25:
         if d["fk_performance"].get("variant") not in ("sweep","kick"):raise ValueError("V25 action")
-        d["end_frame"]={"sweep":100,"kick":109}[d["fk_performance"]["variant"]]
+        durations={"sweep":109,"kick":117} if d["fk_performance"].get("contact_policy")=="whip_flick_v25" else {"sweep":100,"kick":109}
+        d["end_frame"]=durations[d["fk_performance"]["variant"]]
     end=int(d["end_frame"])
     if fps not in (30,60) or not 2<=end<=601: raise ValueError("fps/frame limit")
     out.mkdir(parents=True,exist_ok=False)

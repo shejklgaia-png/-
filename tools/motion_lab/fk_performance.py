@@ -54,6 +54,14 @@ def compile_fk(d,nodes,end,out):
     variant=spec.get("variant","sweep" if version==25 else "chain" if version==22 else "extended")
     selected=lib["variants"][variant];keys=selected["keys"]
     duration=selected["duration"] if version==25 else lib["duration"]
+    whip=spec.get("contact_policy")=="whip_flick_v25"
+    whip_rows=None
+    if whip:
+        if version!=25:raise ValueError("whole-chain attack requires V25")
+        from whip_flick import WholeChain,rows_for,source_keys
+        whip_rows=rows_for(variant)
+        keys=source_keys(whip_rows,lib["neutral"],keys[0][6])
+        duration=whip_rows[-1][0]/60
     support_order=lib.get("support_order",[])
     if version in (22,25) and support_order!=["FrontFoot_R","RearFoot_L","RearFoot_R"]:raise ValueError("invalid support role order")
     if version in (22,25) and any(len(k)!=7 or len(k[6])!=9 or any(len(v)!=3 for v in k[6]) for k in keys):raise ValueError("invalid authored support keys")
@@ -105,7 +113,7 @@ def compile_fk(d,nodes,end,out):
             foot.rotation_euler=(q2.inverted()@q3).to_euler("XYZ")
         update()
     try:
-        apply(flat(keys[0]),neutral_support=True);base=-min(low(o) for o in meshes);apply(flat(keys[0]))
+        apply(flat(keys[0]),neutral_support=True);base=-min(low(o) for o in meshes);apply(flat(keys[0]),neutral_support=whip)
         for n,c in chains.items():
             hip,knee,foot=[nodes[u] for u in c];mesh=nodes[stance["sole_meshes"][n]]
             verts=[mesh.matrix_world@v.co for v in mesh.data.vertices];z=min(v.z for v in verts)
@@ -115,14 +123,17 @@ def compile_fk(d,nodes,end,out):
             feet[n]=anchor
             geom[n]=(hip,knee,foot,foot.matrix_world.to_quaternion(),local,knee.location.copy(),foot.location.copy())
             d["markers"][n+"_Sole"]={"node":c[-1],"local":list(local)}
+        whole=WholeChain(root,head,geom,meshes,whip_rows) if whip else None
         for f in range(1,end+1):
-            apply([pchip(t,col,(f-1)/fps) for col in columns])
+            apply([pchip(t,col,(f-1)/fps) for col in columns],neutral_support=whip)
+            if whole:whole.apply(f)
             for uid,ch in tracks.items():
                 o=nodes[uid];q=o.rotation_euler.to_quaternion()
                 e=q.to_euler("XYZ",previous[uid]) if uid in previous else q.to_euler("XYZ")
                 previous[uid]=e.copy()
                 ch["location"].append({"frame":f,"value":list(o.location),"interpolation":"LINEAR"})
                 ch["rotation_deg"].append({"frame":f,"value":[math.degrees(v) for v in e],"interpolation":"LINEAR"})
+        if whole:whole.finish(out,variant)
     finally:
         for o in objects:o.location,o.rotation_euler=saved[o.name]
         update()
@@ -147,7 +158,7 @@ def compile_fk(d,nodes,end,out):
     phase={"support":support,"feet":feet,"foot_yaws":{n:0. for n in ROLES}}
     d["procedural_motion"]={"action":variant if version==25 else "stomp","max_contact_offset_m":.30,"preview_ik":bool(spec.get("preview_ik",False))}
     contact_policy=spec.get("contact_policy","support_only")
-    if contact_policy in ("support_only","heavy_landing_v24","ground_drag_v25"):
+    if contact_policy in ("support_only","heavy_landing_v24","ground_drag_v25","whip_flick_v25"):
         phases,contact_frames=[phase,phase],[1,end]
     elif contact_policy=="post_impact_v23" and version==22:
         # Use the same V22 FK source, including all authored strike poses.
