@@ -19,6 +19,9 @@ PRODUCERS={"concept":"designer","art":"designer","blueprint":"designer","analysi
 "set":"assembly_artist"}
 # Each critical deliverable has two independent vetoes.
 CRITERIA={
+ "concept":{ART:("identity","appeal","world_cohesion"),TECH:("mechanism","rig_target","reference_quality")},
+ "analysis":{ART:("reference_fidelity","silhouette"),TECH:("calibration","correspondence","uncertainty")},
+ "model":{ART:("appeal","silhouette","armor_language"),TECH:("mesh_integrity","reference_match","rig_clearance","provenance")},
  "art":{ART:("appeal","identity","silhouette","cohesion","readability"),TECH:("mechanism","feasibility","reference_consistency")},
  "blueprint":{ART:("design_fidelity","proportions","palette"),TECH:("projection_consistency","mechanism","interface")},
  "plan":{ART:("design_fidelity","shape_language","detail_hierarchy"),TECH:("structure","rig_interface","method_choice","reference_traceability")},
@@ -32,16 +35,21 @@ CRITERIA={
 # Only allowlisted assets and numerical diagnostics are copied into reviewer packets.
 # Self-review JSONs are omitted; art candidate filenames are relabeled.
 RAW={
+ "concept":("concept.json","design_brief.json"),
+ "analysis":("analysis.json","correspondence.json"),
+ "model":("model.glb","mesh_report.json","godot_import.json","interference.json","provenance.json","projections.json",*tuple(v+".png" for v in q.RENDER_VIEWS)),
  "art":(), "blueprint":("blueprint.png",),
  "plan":("design.json","structure_plan.json"),
  "geometry":("comparison.json",*tuple(v+".png" for v in q.RENDER_VIEWS)),
  "uv":("uv_model.glb","uv_layout.json","uv_metrics.json","face_geometry.json"),
- "paint":("model.glb","texture_512.png","texture_1024.png","texture_2048.png","surface_plan.json","embedded_review.json","bake_manifest.json"),
+ "paint":("model.glb","texture_512.png","texture_1024.png","texture_2048.png","surface_plan.json","embedded_review.json","bake_manifest.json",*tuple(v+".png" for v in q.RENDER_VIEWS)),
  "review":tuple(v+".png" for v in q.RENDER_VIEWS),
  "viewer":("viewer.html",),
  "set":("assembly.glb","viewer.html",*tuple(v+".png" for v in q.RENDER_VIEWS))
 }
 UPSTREAM={
+ "analysis":{"blueprint":("blueprint.png",)},
+ "model":{"plan":("design.json","structure_plan.json"),"blueprint":("blueprint.png",),"analysis":("analysis.json",)},
  "art":{"concept":("concept.json","design_brief.json")},
  "blueprint":{"art":("selected.png",)},
  "plan":{"blueprint":("blueprint.png",),"analysis":("analysis.json","correspondence.json")},
@@ -84,6 +92,10 @@ def public_files(src,stage):
     if stage=="blueprint":
         r=q.load(src/"blueprint_review.json")
         names.extend((row["file"],"view_"+view+".png") for view,row in sorted(r["views"].items()))
+    if stage=="analysis":
+        # Include actual image evidence, not just analysis numbers.
+        names.extend(p.relative_to(src).as_posix() for p in sorted(src.rglob("*.png")) if "supervision" not in p.relative_to(src).parts and "independent_reviews" not in p.relative_to(src).parts)
+        need(any(str(x).endswith(".png") for x in names),"analysis images required")
     if stage=="geometry":
         r=q.load(src/"comparison.json")
         names.extend((row["overlay"],"overlay_"+view+".png") for view,row in sorted(r["views"].items()))
@@ -195,6 +207,7 @@ def check(src,stage,job_id,upstream,work=None,allow_reject=False):
         r=q.load(p)
         need(r.get("format")==FORMAT and r.get("role")==role and r.get("binding_sha256")==q.canonical(binding),"stale review or wrong role")
         i=identity(r.get("reviewer"),role)
+        need(i["kind"]=="ai","AI supervision required")
         need(i["context_id"] not in contexts,"review context overlaps a producer or another reviewer")
         actor=(i["kind"],i["actor"].strip().casefold())
         need(actor not in identities,"review actor must differ from author and other reviewer")
@@ -226,6 +239,78 @@ def check(src,stage,job_id,upstream,work=None,allow_reject=False):
                 if old.get("stage")==stage and old.get("upstream")==binding["upstream"] and old.get("evidence_sha256")==q.canonical(binding["evidence"]):
                     need(not any(x["verdict"]=="reject" for x in old["reviews"]),"rejected evidence unchanged; revise actual deliverable")
     return records
+
+# V6.1: bind an independently reviewed draft to a rebuilt candidate.
+# The draft is archived with its real reviews; final reviewers see only final
+# public evidence. The manifest is evidence of workflow, not authentication.
+CYCLE="SERA_PF_SUPERVISION_V61"
+PRIMARY={
+ "concept":("concept.json","design_brief.json"),
+ "art":("selected.png",),
+ "blueprint":("blueprint.png",),
+ "analysis":("analysis.json","correspondence.json"),
+ "plan":("design.json","structure_plan.json"),
+ "model":("model.glb",),
+ "geometry":("comparison.json","geometry_review.json"),
+ "uv":("uv_model.glb","uv_layout.json"),
+ "paint":("model.glb","texture_1024.png","surface_plan.json"),
+ "review":("review.json",),
+ "viewer":("viewer.html",),
+ "set":("assembly.glb","viewer.html")
+}
+def material_digest(src,name):
+    p=q.evidence(src,name)
+    if p.suffix==".json":
+        obj=q.load(p)
+        # Reviewer names, scores and timestamps alone are not reconstruction.
+        def clean(v):
+            if isinstance(v,dict):
+                return {k:clean(x) for k,x in v.items() if k not in ("reviewer","rubric","score","timestamp","created_at","updated_at","iteration_notes","approval","checks")}
+            if isinstance(v,list):return [clean(x) for x in v]
+            return v
+        return q.canonical(clean(obj))
+    return q.sha(p)
+
+def check_cycle(src,stage,job_id,upstream,work=None):
+    need(stage in CRITERIA and stage in PRIMARY,"missing supervision policy")
+    draft=src/"supervision"/"draft"
+    need(draft.is_dir() and not draft.is_symlink() and not (draft/"supervision").exists(),"independently reviewed draft required")
+    # Reject symlinks throughout both candidates before reading evidence.
+    inventory(src)
+    a,_,binding=packet_data(draft,stage,job_id,upstream,work)
+    first=check(draft,stage,job_id,upstream,work,allow_reject=True)
+    rec=q.load(src/"supervision"/"reconstruction.json")
+    need(rec.get("format")==CYCLE and rec.get("stage")==stage and rec.get("draft_binding_sha256")==q.canonical(binding),"wrong draft binding")
+    first_hashes={role:q.sha(draft/"independent_reviews"/(role+".json")) for role in CRITERIA[stage]}
+    need(rec.get("draft_review_sha256")==first_hashes,"draft review binding mismatch")
+    old={n:material_digest(draft,n) for n in PRIMARY[stage]}
+    new={n:material_digest(src,n) for n in PRIMARY[stage]}
+    changed=sorted(n for n in old if old[n]!=new[n])
+    need(rec.get("changed_primary_files")==changed,"reconstruction change manifest mismatch")
+    if not changed:
+        # A deterministic model build can legitimately reproduce the same GLB:
+        # require a second real recorded build and no first-pass veto.
+        need(stage=="model" and all(r["verdict"]=="approve" for r in first),"actual reconstruction required; scores or renamed files are insufficient")
+        p0=q.load(draft/"provenance.json");p1=q.load(src/"provenance.json")
+        need(type(p0.get("run_id")) is int and p0["run_id"]>0 and type(p1.get("run_id")) is int and p1["run_id"]>0 and p0["run_id"]!=p1["run_id"] and p0.get("artifact_id")!=p1.get("artifact_id") and p0.get("glb_sha256")==p1.get("glb_sha256")==q.sha(src/"model.glb"),"distinct reproducible model build required")
+    actions=rec.get("actions")
+    need(isinstance(actions,dict) and set(actions)==set(CRITERIA[stage]),"address every supervisor")
+    for role,review in zip(CRITERIA[stage],first):
+        row=actions[role]
+        need(isinstance(row,dict),"invalid reconstruction action")
+        q.text(row.get("response"),"response to "+role)
+        q.text(row.get("method"),"reconstruction method for "+role)
+        issues=row.get("resolved_issues")
+        need(isinstance(issues,dict) and set(issues)==set(review["blocking_issues"]),"resolve every recorded blocker")
+        for value in issues.values():q.text(value,"blocker resolution")
+        refs=row.get("evidence")
+        need(isinstance(refs,list) and bool(refs) and len(refs)==len(set(refs)),"reconstruction evidence required")
+        for n in refs:
+            need(isinstance(n,str) and not n.startswith(("supervision/","independent_reviews/")),"reconstruction evidence must be final material")
+            q.evidence(src,n)
+    # Fresh final review is bound to the rebuilt files and the archived draft.
+    final=check(src,stage,job_id,upstream,work)
+    return {"format":CYCLE,"draft_binding_sha256":q.canonical(binding),"reconstruction_sha256":q.sha(src/"supervision"/"reconstruction.json"),"final_review_sha256":{role:q.sha(src/"independent_reviews"/(role+".json")) for role in CRITERIA[stage]}}
 
 def record_veto(work,stage,src):
     import factory as f
