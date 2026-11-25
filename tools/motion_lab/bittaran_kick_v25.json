@@ -34,6 +34,6 @@
     "version": 25,
     "variant": "kick",
     "preview_ik": false,
-    "contact_policy": "support_only"
+    "contact_policy": "ground_drag_v25"
   }
 }

@@ -133,6 +133,10 @@ def compile_fk(d,nodes,end,out):
         if version!=22:raise ValueError("V24 requires V22 whole-body poses")
         from heavy_landing import bake_heavy_landing
         bake_heavy_landing(d,nodes,end,out,geom)
+    if spec.get("contact_policy")=="ground_drag_v25":
+        if version!=25:raise ValueError("ground drag requires V25 attack library")
+        from ground_drag import bake_ground_drag
+        bake_ground_drag(d,nodes,end,out,geom)
     d["export_poses"]=[{"id":n,"frame":f} for n,f in d["events"].items()]
     d["pose_export_channels"]={uid:list(ch) for uid,ch in tracks.items()}
     d.setdefault("spatial",{}).setdefault("floor",{"z":0.,"tolerance_m":.002,"meshes":[uid for uid,o in nodes.items() if o.type=="MESH"]})
@@ -143,7 +147,7 @@ def compile_fk(d,nodes,end,out):
     phase={"support":support,"feet":feet,"foot_yaws":{n:0. for n in ROLES}}
     d["procedural_motion"]={"action":variant if version==25 else "stomp","max_contact_offset_m":.30,"preview_ik":bool(spec.get("preview_ik",False))}
     contact_policy=spec.get("contact_policy","support_only")
-    if contact_policy in ("support_only","heavy_landing_v24"):
+    if contact_policy in ("support_only","heavy_landing_v24","ground_drag_v25"):
         phases,contact_frames=[phase,phase],[1,end]
     elif contact_policy=="post_impact_v23" and version==22:
         # Use the same V22 FK source, including all authored strike poses.
