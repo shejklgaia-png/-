@@ -83,7 +83,27 @@ func _run() -> void:
                     identical = false
                     break
         grid_comparison.v31_comparison = {"previous":reference_grid,"current":grid_comparison.current,"previous_charts":v30.charts,"current_charts":result.charts,"previous_atlas":v30_image.get_width(),"current_atlas":new_atlas.get_width(),"previous_us":v30_us,"current_ms":elapsed,"identical_uv":identical,"version":result.unwrap_version,"report":result.affine_report,"artifact_ok":reference_ok and candidate_ok and v30_image.save_png(grid_prefix+"-previous-v30.png")==OK and new_atlas.save_png(grid_prefix+"-v31.png")==OK}
+        # Existing V31 report measures V30 against the current candidate.
         print("GRID_V31 ",JSON.stringify(grid_comparison.v31_comparison))
+        var v31_start: int = Time.get_ticks_usec()
+        var v31: Dictionary = UV.build(source,density,true,true,true,true,true,true,true,false)
+        var v31_us: int = Time.get_ticks_usec()-v31_start
+        if v31.has("error"):
+            push_error(str(v31.error))
+            quit(2)
+            return
+        var v31_image: Image = v31.image
+        var v31_grid: Dictionary = _measure_grid(v31.triangles,v31_image.get_size())
+        var v31_mesh_ok: bool = _export_footprint_mesh(v31.triangles,grid_prefix+"-previous-v31",{})
+        var v32_mesh_ok: bool = _export_footprint_mesh(tris,grid_prefix+"-v32",{})
+        var same_uv: bool = v31_image.get_size()==new_atlas.get_size() and v31.triangles.size()==tris.size()
+        if same_uv:
+            for i in range(tris.size()):
+                if v31.triangles[i].uv!=tris[i].uv or int(v31.triangles[i].chart)!=int(tris[i].chart):
+                    same_uv = false
+                    break
+        grid_comparison.v32_comparison = {"previous":v31_grid,"current":grid_comparison.current,"previous_charts":v31.charts,"current_charts":result.charts,"previous_atlas":v31_image.get_width(),"current_atlas":new_atlas.get_width(),"previous_us":v31_us,"current_ms":elapsed,"identical_uv":same_uv,"version":result.unwrap_version,"report":result.affine_report,"artifact_ok":v31_mesh_ok and v32_mesh_ok and v31_image.save_png(grid_prefix+"-previous-v31.png")==OK and new_atlas.save_png(grid_prefix+"-v32.png")==OK}
+        print("GRID_V32 ",JSON.stringify(grid_comparison.v32_comparison))
     var atlas: Image = result.image
     var side := atlas.get_size()
     var max_res: float = 0.0
