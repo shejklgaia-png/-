@@ -27,7 +27,7 @@ def margin(poly,p):
         distances.append(math.hypot(x-t*dx,y-t*dy))
     return min(distances)*(1 if inside else -1)
 
-def audit(scene,nodes,markers,spec,end,out):
+def audit(scene,nodes,markers,spec,end,out, *, frame_hook=None, filename="spatial_report.json"):
     if not spec: return None
     floor=spec.get("floor",{})
     z=float(floor.get("z",0)); tol=float(floor.get("tolerance_m",.002))
@@ -55,6 +55,8 @@ def audit(scene,nodes,markers,spec,end,out):
     results=[]; anchors={}; violations=[]
     for frame in range(1,end+1):
         scene.frame_set(frame); scene.view_layers[0].update()
+        if frame_hook is not None:
+            frame_hook(frame); scene.view_layers[0].update()
         import bpy
         dg=bpy.context.evaluated_depsgraph_get()
         geo={}
@@ -108,5 +110,5 @@ def audit(scene,nodes,markers,spec,end,out):
             if active and m is not None and m<0: violations.append({"frame":frame,"kind":"static_margin","margin_m":m})
         results.append(row)
     summary={"frames":results,"violations":violations,"counts":{k:sum(v["kind"]==k for v in violations) for k in ("floor","interference_candidate","support_contact","static_margin")},"scope":"discrete frame mesh surface overlap/AABB containment candidates; explicit point masses; quasi-static planar support; no swept collision, penetration volume, friction or dynamic stability"}
-    (out/"spatial_report.json").write_text(json.dumps(summary,indent=2))
+    (out/filename).write_text(json.dumps(summary,indent=2))
     return summary
