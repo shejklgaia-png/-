@@ -1147,7 +1147,8 @@
       "Finger0_R": "Finger0_L",
       "Finger1_R": "Finger1_L",
       "Finger2_R": "Finger2_L"
-    }
+    },
+    "joint_review_samples": 3
   },
   "hard_surface": {
     "level": 5
