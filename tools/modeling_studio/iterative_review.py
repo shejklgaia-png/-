@@ -145,7 +145,7 @@ def main():
         import industrial_design_variants as iv
         import reference_design_variants as rv
         import structural_variants as sv
-        recipes,change,order,check,rank=iv.RECIPES_TEXT,iv.mutate,iv.priority,rv.guard,rv.score
+        recipes,change,order,check,rank=iv.RECIPES_TEXT,iv.mutate,iv.priority,iv.guard,iv.score
         def measure(p):return rv.local_metrics(p,sv.cross_metrics(p,metrics(p)),a.blender)
     elif a.reference_design:
         import reference_design_variants as rv
@@ -189,6 +189,8 @@ def main():
             make_viewer(candidate)
             m=measure(candidate)
             reasons=check(m,best,initial)
+            if a.industrial_design:
+                row["reference_observations"]=iv.reference_observations(m,best,initial)
             if a.structural or a.reference_design or a.industrial_design:
                 row["image_change_vs_parent"]=sv.image_delta(candidate,winner)
                 row["image_change_vs_baseline"]=sv.image_delta(candidate,baseline)
