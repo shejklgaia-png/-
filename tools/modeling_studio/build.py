@@ -38,6 +38,9 @@ def material(name, spec):
     shader.inputs["Base Color"].default_value = mat.diffuse_color
     shader.inputs["Metallic"].default_value = spec.get("metallic", .25)
     shader.inputs["Roughness"].default_value = spec.get("roughness", .45)
+    if "emission" in spec:
+        shader.inputs["Emission Color"].default_value = (*spec["emission"],1.0)
+        shader.inputs["Emission Strength"].default_value = spec.get("emission_strength",1.0)
     return mat
 
 
@@ -318,6 +321,40 @@ def render_views(objects, out, resolution, landmarks, cameras, camera_fits):
         bpy.data.objects.remove(obj, do_unlink=True)
 
 
+def export_grouped(objects, path):
+    """Join export-only copies by parent and material; keep editable source unchanged."""
+    groups={}
+    for obj in objects:
+        if obj.type=="MESH":
+            key=(obj.parent.name if obj.parent else "",obj.data.materials[0].name)
+            groups.setdefault(key,[]).append(obj)
+    copies=[]
+    try:
+        for (parent,mat),members in groups.items():
+            dup=[]
+            for obj in members:
+                copy=obj.copy()
+                copy.data=obj.data.copy()
+                bpy.context.collection.objects.link(copy)
+                dup.append(copy)
+                copies.append(copy)
+            bpy.ops.object.select_all(action="DESELECT")
+            for obj in dup: obj.select_set(True)
+            bpy.context.view_layer.objects.active=dup[0]
+            bpy.ops.object.join()
+            dup[0].name=parent+"_"+mat+"_export"
+        bpy.ops.object.select_all(action="DESELECT")
+        for obj in bpy.context.scene.objects:
+            if obj.type=="EMPTY" or (obj.type=="MESH" and obj not in objects):
+                obj.select_set(True)
+        bpy.ops.export_scene.gltf(filepath=str(path),export_format="GLB",
+                                  use_selection=True,export_yup=True,export_animations=False)
+    finally:
+        for obj in list(bpy.context.scene.objects):
+            if obj.type=="MESH" and obj not in objects:
+                bpy.data.objects.remove(obj,do_unlink=True)
+    return len(groups)
+
 def main():
     args = sys.argv[sys.argv.index("--")+1:]
     if len(args)!=2:
@@ -341,6 +378,9 @@ def main():
         obj.select_set(True)
     bpy.ops.export_scene.gltf(filepath=str(out/"model.glb"),export_format='GLB',
                               use_selection=True,export_yup=True,export_animations=False)
+    if spec.get("grouped_export"):
+        n=export_grouped(objects,out/"model_grouped.glb")
+        (out/"grouped_export.json").write_text(json.dumps({"mesh_groups":n,"source_meshes":len(report),"source_triangles":sum(row["triangles"] for row in report),"limits":"Material/pivot grouping only; triangle count and imported hierarchy require verification."},indent=2))
     if spec.get("lod"):
         lod = export_lod(objects,spec["lod"],out/"model_lod.glb")
         (out/"lod_report.json").write_text(json.dumps(lod,indent=2),encoding="utf-8")
