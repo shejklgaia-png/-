@@ -475,6 +475,11 @@ def main():
     spec = json.loads(source.read_text(encoding="utf-8"))
     if spec.get("format")!="SERA_MODELING_STUDIO_V1":
         raise ValueError("unsupported design format")
+    # Parts Factory jobs require an authorization bound to the accepted design.
+    if source.name.lower().startswith('pf_') or 'parts_factory' in spec:
+        sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'parts_factory'))
+        from quality_gates import validate_permit
+        validate_permit(spec,source)
     # Refuse reuse, avoiding stale images or overwriting existing assets.
     out.mkdir(parents=True,exist_ok=False)
     spec, mechanism = compile_graph(spec)

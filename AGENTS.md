@@ -27,7 +27,7 @@
 6. Log meaningful changes in `DEVELOPMENT.md`. Increment SERA version only for requested gameplay changes.
 
 ## Routed rules (load when relevant)
-- **パーファク / PARTS FACTORY:** [`tools/parts_factory/README_ja.md`](tools/parts_factory/README_ja.md)。企画→明示画像生成→モデスタ→テクスタAI手動→塗装→実3Dレビュー→HTML→ストックを一指示で統括。個別工程の成功を実成果物で確認し、ゲーム登録は既存装備規約に従う。
+- **パーファク / PARTS FACTORY V2（必須）:** [`tools/parts_factory/README_ja.md`](tools/parts_factory/README_ja.md)。パーツ制作指示は必ずfactory.pyで開始し、候補画像3案以上→選定→10方向設計図→構造計画→authorize-model→専用モデスタ→実造形レビュー→テクスタAI手動→塗装→最終評価→正式HTML/ストックの順。工程の直接迂回、未承認モデルの完成提出は禁止。画像生成は明示された制作依頼に含まれる場合のみ別台帳で実施。セットは共通画と6独立部位の承認後set_release.pyで組立評価。中断時は未完了と明示し、既存装備規約を維持。Vesper V1は不採用候補、再利用禁止（失敗分析資料のみ）。
 - **調査の入口・GitHub再検索:** [`docs/agent/WORKFLOW_ENTRYPOINTS_ja.md`](docs/agent/WORKFLOW_ENTRYPOINTS_ja.md)。枠線、NEXUS装備プレビュー、BASE施設の調査先と、接続・権限・操作可否の切り分け。
 - `docs/agent/SOURCE_POLICY.md`: canonical model sources, generated assets, GitSync/Android, import, rendering and diagnostic guards.
 - **HTML配布・起動リンク:** `docs/SERA_HTML_ARTIFACT_DELIVERY_POLICY_ja.md` — Raw URLをアプリの直リンクとして提示しない。公開HTTPS/実HTML添付/複数ファイル配布を区別し、起動を確認する。
