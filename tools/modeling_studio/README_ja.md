@@ -106,3 +106,8 @@ modeling/crate-baseline-proportion-*のPRでは現行モデルの基準BLENDか�
 最新三面図に合わせ、V1比率に加えてバイザー・アンテナ・胸部・背面カートリッジ・履帯・爪・腕装甲の局所形状を調整する。元GDScriptは変更せず、厳密な23個の文字列アンカーで検査用コピーを生成し、別GLB/BLEND/8方向画像に出力。V1も同時に生成する。V2のGLBはゲームの前方-Zへ戻す。以前の簡易IoU推定は引き継がない。
 5関節の各4姿勢をBlender BVHで検査し、ニュートラルにない部位間交差候補を記録。Godot 4.7.2で実候補GLBを読込、ピボット階層・回転と復元・三角形数の一致を検査する。非等方スケールとWristPivotの名前変化は記録し、ゲームのモーション互換性や接触/貫通の合否は別途判断する。現行モデル・ゲームCIは変更しない。
 参考: https://docs.blender.org/manual/en/5.1/modeling/modifiers/generate/bevel.html / https://docs.godotengine.org/en/stable/tutorials/3d/using_transforms.html / https://docs.godotengine.org/en/latest/classes/class_gltfdocument.html
+
+## 候補間の実レンダリング比較
+
+現行CRATEと比率候補・局所造形候補を同じ制作runで出力した場合、review_bundle.pyは各8方向の透過レンダリングをアルファ128で二値化し、bbox等方正規化後のIoU・不足/過剰画素・縦横比と重ね合わせ画像を candidate_comparison/ に生成する。赤は現行のみ、青は候補のみ、白は共通。comparison.json に方向別数値、平均、最も差が大きい方向を記録。候補は同名のカメラ方向を前提とする。これは現行からの変化量であり、設定画への一致度や改善の合否ではない。絶対寸法・位置・材質・可動互換は別途確認する。成果物ハッシュは1MiBずつ読み込んで計算する。比較画像もreview.jsonのハッシュ対象とする。
+参考: https://pillow.readthedocs.io/en/stable/reference/ImageChops.html / https://docs.blender.org/manual/en/4.5/render/cameras.html
