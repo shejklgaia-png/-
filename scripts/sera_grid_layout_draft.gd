@@ -3,6 +3,13 @@ extends RefCounted
 const Board = preload("res://scripts/sera_base_power_board.gd")
 const CODES = ["S1","S2","S3","A1","A2","A3","E1","E2","E3","O1","O2","O3","GEN","BAT","WIRE","AMP","YIELD","SAVE","ATK","BREAK","HP","DEF","SPD","EN"]
 const NAMES = ["スクラップ・低","スクラップ・中","スクラップ・高","金属複合材・低","金属複合材・中","金属複合材・高","電子部品・低","電子部品・中","電子部品・高","有機素材・低","有機素材・中","有機素材・高","変換炉","蓄電池","送電線","容量増幅","生産補助","省電制御","出力増幅","破砕制御","耐久補強","装甲安定","駆動補助","EN循環"]
+const CATEGORY_CODES = {
+    "PRODUCTION": ["S1","S2","S3","A1","A2","A3","E1","E2","E3","O1","O2","O3"],
+    "POWER": ["GEN","BAT","WIRE"],
+    "SUPPORT": ["AMP","YIELD","SAVE"],
+    "COMBAT": ["ATK","BREAK","HP","DEF","SPD","EN"]
+}
+const COMBAT_EP = {"ATK":25,"BREAK":20,"HP":15,"DEF":20,"SPD":18,"EN":18}
 var entries: Array[Dictionary] = []
 var picked: int = -1
 var drag_origin := Vector2i.ZERO
@@ -28,6 +35,39 @@ static func description(code: String) -> String:
         return ""
     var f := footprint(code)
     return "%s / %dマス" % [NAMES[idx], f.x * f.y]
+
+## Rated totals only: no port connectivity, actual earnings or power allocation.
+func rated_overview() -> Dictionary:
+    var totals := {"cells":0,"nodes":entries.size(),"generation":0,"storage":500,
+        "raw":0,"processing":0,"wire_quarters":0,"combat_count":0}
+    var combat_types := {}
+    for entry in entries:
+        var code := str(entry["code"])
+        var f := footprint(code)
+        totals["cells"] += f.x * f.y
+        if CATEGORY_CODES["PRODUCTION"].has(code):
+            match code.right(1):
+                "1":
+                    totals["raw"] += 10
+                    totals["processing"] += 6
+                "2":
+                    totals["raw"] += 20
+                    totals["processing"] += 20
+                "3":
+                    totals["raw"] += 40
+                    totals["processing"] += 56
+        elif code == "GEN":
+            totals["generation"] += 140
+        elif code == "BAT":
+            totals["storage"] += 500
+        elif code == "WIRE":
+            totals["wire_quarters"] += 1
+        elif COMBAT_EP.has(code):
+            totals["combat_count"] += 1
+            combat_types[code] = true
+    totals["combat_types"] = combat_types.size()
+    return totals
+
 
 func setup(parent: Node3D) -> void:
     bodies = _batch(parent, "GridDraftBodies")
