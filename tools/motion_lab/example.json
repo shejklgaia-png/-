@@ -243,5 +243,13 @@
       1.25
     ],
     "scale": 5
-  }
+  },
+  "events": {
+    "anticipation": 22,
+    "elbow_anticipation": 28,
+    "contact_start": 53,
+    "contact_end": 70,
+    "recovery": 121
+  },
+  "roundtrip_tolerance_m": 0.002
 }

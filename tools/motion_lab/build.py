@@ -1,5 +1,5 @@
 """Offline rigid-node animation authoring. Blender 4.5 LTS only."""
-import argparse, json, math, sys
+import argparse, json, math, sys, struct, re
 from pathlib import Path
 import bpy
 from mathutils import Vector
@@ -63,15 +63,29 @@ def main():
                 if bag:
                     for fc in bag.fcurves:
                         for kp in fc.keyframe_points:
-                            kp.interpolation="BEZIER"
+                            channel="location" if fc.data_path=="location" else "rotation_deg"
+                            modes={int(k["frame"]):k.get("interpolation","BEZIER") for k in channels.get(channel,[])}
+                            mode=modes.get(round(kp.co.x),"BEZIER")
+                            if mode not in ("BEZIER","LINEAR","CONSTANT"): raise ValueError("unsupported interpolation")
+                            kp.interpolation=mode
                             kp.handle_left_type="AUTO_CLAMPED"; kp.handle_right_type="AUTO_CLAMPED"
+    # Named exported empties are unambiguous cross-engine world-space markers.
+    marker_nodes={}
+    for name,point in d.get("markers",{}).items():
+        if not re.fullmatch(r"[A-Za-z0-9_]+",name):
+            raise ValueError("marker id must be ASCII alphanumeric/underscore")
+        label="MLAB_marker_"+name
+        if bpy.data.objects.get(label): raise ValueError("marker name collision: "+label)
+        obj=bpy.data.objects.new(label,None); scene.collection.objects.link(obj)
+        obj.parent=nodes[point["node"]]; obj.location=point.get("local",[0,0,0])
+        marker_nodes[name]=obj
     # Evaluate every authored frame, not just key poses. Contacts use world positions.
     samples=[]; contacts=[]
     for f in range(1,end+1):
         scene.frame_set(f); bpy.context.view_layer.update()
         points={}
         for name,point in d.get("markers",{}).items():
-            v=nodes[point["node"]].matrix_world @ Vector(point.get("local",[0,0,0]))
+            v=marker_nodes[name].matrix_world.translation
             points[name]=list(v)
         samples.append({"frame":f,"markers":points})
     for c in d.get("contacts",[]):
@@ -82,10 +96,45 @@ def main():
             target=Vector(s["markers"][c["target_marker"]]) if "target_marker" in c else Vector(c["target"])
             values.append((Vector(s["markers"][name])-target).length)
         contacts.append({"marker":name,"frames":[first,last],"max_error_m":max(values),"mean_error_m":sum(values)/len(values),"tolerance_m":c.get("tolerance_m",.01),"within_tolerance":max(values)<=c.get("tolerance_m",.01)})
-    (out/"motion_report.json").write_text(json.dumps({"fps":fps,"end_frame":end,"samples":samples,"contacts":contacts,"limitations":["contact markers only; no full collision or IK solve","visual quality not auto-approved"]},indent=2))
+    # Finite differences on world-space markers. This is diagnostic, not a style score.
+    metrics={}
+    for name in marker_nodes:
+        pos=[Vector(s["markers"][name]) for s in samples]
+        velocity=[(b-a)*fps for a,b in zip(pos,pos[1:])]
+        accel=[(b-a)*fps for a,b in zip(velocity,velocity[1:])]
+        jerk=[(b-a)*fps for a,b in zip(accel,accel[1:])]
+        metrics[name]={"path_length_m":sum((b-a).length for a,b in zip(pos,pos[1:])),
+            "max_speed_m_s":max((x.length for x in velocity),default=0),
+            "max_acceleration_m_s2":max((x.length for x in accel),default=0),
+            "max_jerk_m_s3":max((x.length for x in jerk),default=0),
+            "loop_position_delta_m":(pos[-1]-pos[0]).length,
+            "loop_velocity_delta_m_s":(velocity[-1]-velocity[0]).length}
+    capture=set([1,end]+list(range(1,end+1,max(1,(end-1)//8))))
+    events=d.get("events",{})
+    for name,f in events.items():
+        if not isinstance(f,int) or not 1<=f<=end: raise ValueError("invalid event frame: "+name)
+        capture.add(f)
+    for c in d.get("contacts",[]): capture.update(c["frames"])
+    capture=sorted(capture)
+    if len(capture)>40: raise ValueError("too many review frames (max 40)")
+    (out/"motion_report.json").write_text(json.dumps({"fps":fps,"end_frame":end,"samples":samples,
+        "contacts":contacts,"marker_nodes":{k:v.name for k,v in marker_nodes.items()},"metrics":metrics,
+        "capture_frames":capture,"events":events,"limitations":["contact markers only; no full collision or IK solve","visual quality not auto-approved"]},indent=2))
     scene.frame_set(1)
     bpy.ops.wm.save_as_mainfile(filepath=str(out/"motion.blend"))
-    bpy.ops.export_scene.gltf(filepath=str(out/"motion.glb"),export_format="GLB",export_animations=True,export_animation_mode="SCENE",export_frame_range=True,export_force_sampling=True)
+    bpy.ops.export_scene.gltf(filepath=str(out/"motion.glb"),export_format="GLB",export_animations=True,export_animation_mode="SCENE",export_anim_scene_split_object=False,export_anim_slide_to_zero=True,export_frame_range=True,export_force_sampling=True)
+    # Reject split/missing channels even if Blender returned FINISHED.
+    with (out/"motion.glb").open("rb") as stream:
+        magic,version,total=struct.unpack("<4sII",stream.read(12))
+        n,kind=struct.unpack("<I4s",stream.read(8))
+        if magic!=b"glTF" or version!=2 or kind!=b"JSON": raise ValueError("invalid GLB")
+        gltf=json.loads(stream.read(n))
+    clips=gltf.get("animations",[])
+    if len(clips)!=1: raise ValueError("expected exactly one complete GLB clip")
+    actual={(gltf["nodes"][c["target"]["node"]].get("name"),c["target"]["path"]) for c in clips[0]["channels"]}
+    expected={(name,{"location":"translation","rotation_deg":"rotation"}[prop]) for name,channels in d["tracks"].items() for prop,keys in channels.items() if any(k["value"]!=keys[0]["value"] for k in keys[1:])}
+    (out/"clip_report.json").write_text(json.dumps({"clip":clips[0].get("name"),"channels":sorted(actual),"required":sorted(expected),"missing":sorted(expected-actual)},indent=2))
+    if expected-actual: raise ValueError("missing animated node channels: "+str(expected-actual))
     # Render actual animated geometry, using fixed framing for all samples.
     center=Vector(d["review"]["target"]); scale=float(d["review"]["scale"])
     scene.render.engine="BLENDER_WORKBENCH"
@@ -99,7 +148,7 @@ def main():
     camera=bpy.data.objects.new("ReviewCamera",camera_data); scene.collection.objects.link(camera); scene.camera=camera
     for name,offset in {"front":(0,-8,0),"side":(8,0,0),"three_quarter":(6,-8,5)}.items():
         camera.location=center+Vector(offset); camera.rotation_euler=(center-camera.location).to_track_quat("-Z","Y").to_euler()
-        for f in sorted(set([1,end]+list(range(1,end+1,max(1,(end-1)//8))))):
+        for f in capture:
             scene.frame_set(f); scene.render.filepath=str(out/f"{name}_{f:04}.png")
             bpy.ops.render.render(write_still=True)
     (out/"blender_complete.json").write_text(json.dumps({"source":str(a.design.name),"frames":end,"fps":fps}))

@@ -16,3 +16,7 @@ motion.blend、motion.glb、motion_report.json、Blender 3視点の複数フレ�
 https://docs.blender.org/manual/en/4.5/advanced/command_line/arguments.html
 https://docs.blender.org/manual/en/4.5/addons/import_export/scene_gltf2.html
 https://docs.godotengine.org/en/stable/classes/class_gltfdocument.html
+
+## V2: 再現性と品質診断
+V1 run 45512877274 は工程成功だが、Godotが肘クリップのみを再生していた。Blender 4.5のSCENE分割既定値を無効化し、開始時刻0、全動的チャンネルを含む単一GLBクリップを必須にする。GLBのJSONを調べ、Godot側も単一クリップ以外を拒否。マーカーを実際のノードとして書き出し、Blender Z上からGodot Y上へ変換した全フレームの世界座標を比較する。既定許容2mm、長さ差0.2ms。マーカー1個以上必須。これは指定点の再現性であり全関節完全一致の保証ではない。各キーのinterpolationはBEZIER/LINEAR/CONSTANT。eventsの名前→フレーム番号、および接触の開始終了フレームを共通撮影時刻に追加。速度・加速度・ジャーク・ループ継ぎ目の有限差分を記録する（自動的な芸術品質合格ではない）。画像と数値を併用する。失敗時はpartial artifactを確認する。
+参考: https://docs.blender.org/api/4.5/bpy.ops.export_scene.html
