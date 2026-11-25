@@ -119,3 +119,11 @@ V18 GLBの実メッシュ形状を用いた独立SciPyプレビューを生成�
 重い機械生命体では着地時の衝撃を攻撃脚の跳ね返りではなく、胴体・支持脚の圧縮と遅延反動で表現する。V22のFK、振りかぶり、胴体、頭部、支持3脚の原本を維持。V23の着地IK解除で攻撃脚が浮く問題に対し、heavy_landing.pyで攻撃脚の着地以降の回転のみを独立ベイクする。着地75F→意図的戻し開始102Fまで27区間・0.45秒固定、102→124Fは単一の低い戻し（暫定最大7.5cm、2.2秒/133Fの尺維持）、124→133Fは基本接地を維持。実足裏最低頂点を基準にし、水平移動は五次smoothstep、垂直は64u^3(1-u)^3、足向きはSLERP。両端速度・加速度0の目標軌道。既存の解析二リンクIKをオフラインの接地/戻し軌道作成だけに使用、実行時支持IKは三脚のみ。到達残差または固定誤差5mm超は出力拒否。heavy_landing_report.jsonに全サンプルを記録。既存ゲームモーション未置換。
 `blender -b --python-exit-code 1 --python tools/motion_lab/build.py -- tools/motion_lab/bittaran_fk_v24.json /tmp/mlab_v24 --variant chain`、別出力で `--preview-ik`。
 実形状を用いる独立SciPy比較で戻し高さ4.5/7.5/10cmを検査。7.5cm案では接地固定中の高さ・水平移動は数値誤差、戻し水平距離0.57946m、足上昇4.10760m維持、最大床突出IK後0.0005972m、終端メッシュ差は数値誤差。戻し高さ・尺は暫定。V23との実HTML比較で3方向×6主要フレーム×2案=36枚、通常/半速再生、IK切替、JSエラー0を確認。圧縮と回復中の攻撃脚浮きを解消、胴体の反動は維持。独立プレビューでありBlender/Godot直接出力、Android、連続衝突・物理可動限界は未確認。参考: https://research.cs.wisc.edu/graphics/Gallery/kovar.vol/Cleanup/ ; https://github.khronos.org/Vulkan-Site/tutorial/latest/Advanced_glTF/Procedural_Animation_IK/04_foot_placement.html
+
+## V25: 地表なぎ払い・地表を弾くデコピン
+対象は地上を歩く小型のSERA。空中の相手を蹴る演技ではない。前左脚のFK演技として、なぎ払いは地表を這う水平の弧、弾きは地面に向けて脚先を畳んでから瞬間的に低く前へ伸ばすデコピン型に修正。着地後の跳ね返りは禁止。元のV25高い攻撃候補は採用しない。
+- なぎ払い100F/1.65秒・21キー、弾き109F/1.80秒・23キー。V22の支持脚局所角キーとPCHIPを活用。足先方位・関節の演技を先に定義し、主要キーおよび途中サンプルの最低メッシュ高を基準に上脚仰角を調整。支持脚の接地IKのみを別段で補正。
+- 独立実メッシュプレビュー（V18静的GLB形状、SciPy、60fps）ではapex→follow区間の攻撃脚最低メッシュ高がなぎ払い3.03〜6.50cm、弾き1.44〜6.50cm。区間水平変位4.341m/1.879m、最大速度21.416m/s/13.135m/s、支持脚補正前最大誤差1.634cm/2.316cm、補正後数値誤差。床突出は数値誤差、最終接地後跳ね返り・滑り0。保存キーは角度0.005度/位置0.01mmに丸めており上記は丸め前の独立検査値。
+- HTML MotionLab_V25_Ground_Attacks.htmlで正面・側面・斜め・真上の6主要姿勢×2動作＝48枚を描画確認。通常/半速再生・IK切替・JSエラー0。低い軌道を確認したが、実SERAモデルと当たり判定、地形への追従、部品干渉、Blender/Godot直接出力・Android実機は未検証。既存ゲームモーションは未置換。寸法・タイミングは暫定値。
+- 再現: blender -b --python-exit-code 1 --python tools/motion_lab/build.py -- tools/motion_lab/bittaran_sweep_v25.json /tmp/mlab_v25_sweep --variant sweep （kickはbittaran_kick_v25.jsonと--variant kick）。別出力で--preview-ik。
+参考: https://www.gamedeveloper.com/production/the-12-principles-of-animation-in-video-games ; https://docs.scipy.org/doc/scipy/reference/generated/scipy.interpolate.PchipInterpolator.html
