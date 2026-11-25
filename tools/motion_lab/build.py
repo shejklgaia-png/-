@@ -30,7 +30,7 @@ def main():
         d["end_frame"]=1+round(durations[spec["action"]]*fps)
     if d.get("fk_performance",{}).get("version")==25:
         policy=d["fk_performance"].get("contact_policy")
-        durations={"sweep":109,"sweep_reverse":109,"kick":117} if policy=="whip_flick_v25_r4" else {"sweep":109,"kick":117} if policy=="whip_flick_v25" else {"sweep":100,"kick":109}
+        durations={"sweep":109,"sweep_reverse":109,"kick":117} if policy in ("whip_flick_v25_r4","whip_flick_v25_r5") else {"sweep":109,"kick":117} if policy=="whip_flick_v25" else {"sweep":100,"kick":109}
         if d["fk_performance"].get("variant") not in durations:raise ValueError("V25 action")
         d["end_frame"]=durations[d["fk_performance"]["variant"]]
     end=int(d["end_frame"])

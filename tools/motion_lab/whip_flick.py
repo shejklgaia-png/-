@@ -37,6 +37,28 @@ KICK=[
 (116,"recovered",0,0,0,0,0,0,0,0,0,0,0,0,0,0)]
 
 def rows_for(variant,revision=3):
+    if revision==5:
+        rows=rows_for(variant,4)
+        if variant in ("sweep","sweep_reverse"):
+            rows=[(*r[:10],*(max(-9,v) for v in r[10:13]),*r[13:]) for r in rows]
+            if variant=="sweep":
+                rows=[(*r[:10],min(82,r[10]),min(108,r[11]),min(112,r[12]),*r[13:]) for r in rows]
+        elif variant=="kick":
+            # Curl in an outward-facing vertical plane, not through the chest.
+            # Keep the same release/extension/hold timing as revision 4.
+            edits={10:(25,25,25,15,-65,-115),
+                   23:(25,25,25,30,-60,-135),
+                   34:(30,30,30,30,-60,-135),
+                   38:(33,33,33,30,-60,-135),
+                   42:(43,43,43,24,-45,-100),
+                   46:(55,57,59,4,-22,-35),
+                   50:(55,57,59,-1,-1,0),
+                   63:(55,57,59,-1,-1,0),
+                   72:(55,57,59,-1,-1,0),
+                   85:(30,30,30,12,-45,-95)}
+            rows=[(*r[:10],*edits.get(r[0],r[10:])) for r in rows]
+        else:raise ValueError("unsupported clearance variant")
+        return rows
     if revision==4 and variant=="sweep_reverse":
         # Reflect world bearings about 25 degrees; do not reverse time.
         # Proximal drive and distal lag are preserved, body yaw is reversed.
@@ -65,7 +87,7 @@ def source_keys(rows,neutral,support):
     return [[r[0]/60,r[1],list(r[2:5]),list(r[5:8]),r[8],neutral,support] for r in rows]
 
 class WholeChain:
-    def __init__(self,root,head,geom,meshes,rows):
+    def __init__(self,root,head,geom,meshes,rows,revision=3):
         import bpy
         self.update=bpy.context.view_layer.update
         self.root=root;self.geom=geom;self.rows=rows
@@ -85,6 +107,10 @@ class WholeChain:
         self.times=[r[0] for r in rows]
         self.columns=list(zip(*(r[2:] for r in rows)))
         self.report=[]
+        self.clearance=None
+        if revision==5:
+            from strike_clearance import StrikeClearance
+            self.clearance=StrikeClearance(meshes,self.strike)
 
     def low(self,objects):
         return min((m.matrix_world@v.co).z for m in objects for v in m.data.vertices)
@@ -149,9 +175,13 @@ class WholeChain:
         self.report.append({"frame":frame,"root_z_m":self.root.location.z,
             "strike_link_min_z_m":[self.low(self.parts[o]) for o in self.strike],
             "floor_m":floor,"max_support_error_m":max(errors)})
+        if self.clearance:
+            self.report[-1]["clearance"]=self.clearance.measure()
+            if self.report[-1]["clearance"]["nonadjacent_m"]>.10:
+                raise ValueError(f"large nonadjacent strike OBB overlap at frame {frame}; inspect pose")
 
     def finish(self,out,variant,revision=3):
         (out/"whip_flick_report.json").write_text(json.dumps({
             "version":25,"revision":revision,"variant":variant,"frames":self.report,
-            "scope":"rigid link FK overlap and offline support pose selection; flat floor only; collision and runtime not certified"
+            "scope":"rigid link FK overlap and offline support pose selection; flat floor only; optional rev5 OBB proxy; exact mesh/continuous collision and runtime not certified"
         },indent=2))
