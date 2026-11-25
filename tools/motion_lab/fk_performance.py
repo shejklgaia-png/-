@@ -52,14 +52,16 @@ def compile_fk(d,nodes,end,out):
     if lib["format"]!=f"SERA_FK_PERFORMANCE_V{fmt}" or d["source_bbmodel"]!="models/bosses/Bittaran.bbmodel":
         raise ValueError("FK library requires calibrated Bittaran geometry")
     variant=spec.get("variant","sweep" if version==25 else "chain" if version==22 else "extended")
-    selected=lib["variants"][variant];keys=selected["keys"]
+    whip_revision=4 if spec.get("contact_policy")=="whip_flick_v25_r4" else 3
+    if variant=="sweep_reverse" and not (version==25 and whip_revision==4):raise ValueError("reverse sweep requires revision 4")
+    selected=lib["variants"]["sweep" if variant=="sweep_reverse" else variant];keys=selected["keys"]
     duration=selected["duration"] if version==25 else lib["duration"]
-    whip=spec.get("contact_policy")=="whip_flick_v25"
+    whip=spec.get("contact_policy") in ("whip_flick_v25","whip_flick_v25_r4")
     whip_rows=None
     if whip:
         if version!=25:raise ValueError("whole-chain attack requires V25")
         from whip_flick import WholeChain,rows_for,source_keys
-        whip_rows=rows_for(variant)
+        whip_rows=rows_for(variant,whip_revision)
         keys=source_keys(whip_rows,lib["neutral"],keys[0][6])
         duration=whip_rows[-1][0]/60
     support_order=lib.get("support_order",[])
@@ -133,7 +135,7 @@ def compile_fk(d,nodes,end,out):
                 previous[uid]=e.copy()
                 ch["location"].append({"frame":f,"value":list(o.location),"interpolation":"LINEAR"})
                 ch["rotation_deg"].append({"frame":f,"value":[math.degrees(v) for v in e],"interpolation":"LINEAR"})
-        if whole:whole.finish(out,variant)
+        if whole:whole.finish(out,variant,whip_revision)
     finally:
         for o in objects:o.location,o.rotation_euler=saved[o.name]
         update()
@@ -158,7 +160,7 @@ def compile_fk(d,nodes,end,out):
     phase={"support":support,"feet":feet,"foot_yaws":{n:0. for n in ROLES}}
     d["procedural_motion"]={"action":variant if version==25 else "stomp","max_contact_offset_m":.30,"preview_ik":bool(spec.get("preview_ik",False))}
     contact_policy=spec.get("contact_policy","support_only")
-    if contact_policy in ("support_only","heavy_landing_v24","ground_drag_v25","whip_flick_v25"):
+    if contact_policy in ("support_only","heavy_landing_v24","ground_drag_v25","whip_flick_v25","whip_flick_v25_r4"):
         phases,contact_frames=[phase,phase],[1,end]
     elif contact_policy=="post_impact_v23" and version==22:
         # Use the same V22 FK source, including all authored strike poses.
