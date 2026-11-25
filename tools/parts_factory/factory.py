@@ -79,6 +79,7 @@ def verify(work, d):
         folder = work / "objects" / item["key"]
         require(re.fullmatch(r"[0-9a-f]{64}", item["key"]), "invalid cache key")
         require(item["upstream"] == previous, "stale upstream: " + name)
+        require(item.get("supervision",{}).get("format")==rr.CYCLE and item["files"].get("supervision/reconstruction.json")==item["supervision"].get("reconstruction_sha256"),"legacy or missing supervision; start a new V6.1 job")
         require(files(folder) == item["files"], "changed or missing files: " + name)
         require(signature({k:v for k,v in item.items() if k != "key"}) == item["key"], "record mismatch")
         previous = item["key"]
@@ -196,8 +197,8 @@ def accept(work, name, src, producer):
     rr.author(src,name)
     check_stage(name,src,d)
     prior={k:d['stages'][k] for k in ORDER[:idx]}
-    rr.check(src,name,d['id'],prior,work)
-    record = {"stage":name,"upstream":upstream,"producer":producer,"files":files(src)}
+    supervision=rr.check_cycle(src,name,d['id'],prior,work)
+    record = {"stage":name,"upstream":upstream,"producer":producer,"files":files(src),"supervision":supervision}
     if name=="plan":
         record["design_hash"]=q.canonical(read(src/"design.json"))
     if name in ("art","blueprint","analysis","plan","model","paint"):
@@ -322,7 +323,7 @@ def main():
     else:
         d=state(work); valid,key=verify(work,d)
         next_stage=ORDER[len(valid)] if len(valid)<len(ORDER) else "stock"
-        result={"id":d["id"],"accepted":valid,"next":next_stage,"revision":key,"rejections":[read(p) for p in sorted((work/"rejections").glob("*.json"))],"review_vetoes":[read(p) for p in sorted((work/"review_vetoes").glob("*.json"))],"next_author_role":rr.PRODUCERS.get(next_stage),"required_review_roles":list(rr.CRITERIA.get(next_stage,{}))}
+        result={"id":d["id"],"accepted":valid,"next":next_stage,"revision":key,"rejections":[read(p) for p in sorted((work/"rejections").glob("*.json"))],"review_vetoes":[read(p) for p in sorted((work/"review_vetoes").glob("*.json"))],"next_author_role":rr.PRODUCERS.get(next_stage),"required_review_roles":list(rr.CRITERIA.get(next_stage,{})),"required_supervision_cycle":rr.CYCLE}
         if args.cmd=="handoff" and not valid:
             result["route"]="design_knowledge.py brief <slot> <keywords> <concept-dir>/design_brief.json -> accept concept"
         if args.cmd=="handoff" and valid:

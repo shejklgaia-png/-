@@ -21,6 +21,7 @@ def stock_ref(slot, item, art_hash):
     previous="ROOT"
     for name in f.ORDER:
         row=d["stages"][name]
+        f.require(row.get("supervision",{}).get("format")==rr.CYCLE and row["files"].get("supervision/reconstruction.json")==row["supervision"].get("reconstruction_sha256"),"legacy unsupervised part; rebuild under V6.1")
         f.require(row["upstream"]==previous and f.signature({k:v for k,v in row.items() if k!="key"})==row["key"],"invalid stage chain")
         f.require(f.files(folder/name)==row["files"],"changed stock files: "+pid+"/"+name)
         previous=row["key"]
@@ -46,7 +47,7 @@ def release(src, deliver_to):
     v=f.read(src/"viewer_review.json")
     f.require(v.get("assembly_sha256")==r["assembly_sha256"] and v.get("viewer_sha256")==f.digest(src/"viewer.html"),"assembly viewer mismatch")
     f.require(v.get("texture_display")==v.get("touch_controls")=="accepted" and bool(v.get("reviewer")),"assembly viewer pending")
-    rr.check(src,"set",s["id"],{})
+    rr.check_cycle(src,"set",s["id"],{})
     manifest=f.files(src); rev=f.signature(manifest)
     root=f.STOCK/"sets"/s["id"]; root.mkdir(parents=True,exist_ok=True)
     dest=root/rev
