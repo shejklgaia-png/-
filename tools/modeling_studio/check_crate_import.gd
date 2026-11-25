@@ -43,12 +43,23 @@ func _initialize() -> void:
 				quit(7)
 				return
 			results.append(check_pivot(wrist))
+	var counts := {"meshes":0,"triangles":0}
+	count_meshes(crate,counts)
+	for row in results:
+		if not row["rotation_changed"] or not row["restored"]:
+			scene.free()
+			quit(9)
+			return
+	if counts["meshes"] <= 0 or counts["triangles"] <= 0:
+		scene.free()
+		quit(10)
+		return
 	var file := FileAccess.open(folder.path_join("crate_godot_review.json"),FileAccess.WRITE)
 	if file == null:
 		scene.free()
 		quit(8)
 		return
-	file.store_string(JSON.stringify({"format":"SERA_CRATE_GODOT_REVIEW_V1","engine":Engine.get_version_info()["string"],"pivots":results,"limits":"Hierarchy and local rotation checks only. Nonuniform scale, renamed wrist, game animation scripts and actual rendering require review."},"\t"))
+	file.store_string(JSON.stringify({"format":"SERA_CRATE_GODOT_REVIEW_V1","engine":Engine.get_version_info()["string"],"pivots":results,"counts":counts,"limits":"Hierarchy and local rotation checks only. Nonuniform scale, renamed wrist, game animation scripts and actual rendering require review."},"\t"))
 	file.close()
 	scene.free()
 	print("CRATE GLB hierarchy and joint rotation inspection PASS")
@@ -61,3 +72,17 @@ func check_pivot(pivot: Node3D) -> Dictionary:
 	var changed := not pivot.transform.is_equal_approx(base)
 	pivot.transform = base
 	return {"path":str(pivot.get_path()),"scale":[pivot.scale.x,pivot.scale.y,pivot.scale.z],"rotation_changed":changed,"restored":pivot.transform.is_equal_approx(base),"wrist_name_exact":not str(pivot.name).begins_with("WristPivot") or pivot.name==&"WristPivot"}
+
+func count_meshes(node: Node, counts: Dictionary) -> void:
+	if node is MeshInstance3D:
+		var mesh := (node as MeshInstance3D).mesh
+		if mesh != null:
+			counts["meshes"] += 1
+			for i in range(mesh.get_surface_count()):
+				if mesh.surface_get_primitive_type(i) == Mesh.PRIMITIVE_TRIANGLES:
+					var arr := mesh.surface_get_arrays(i)
+					var indices: Variant = arr[Mesh.ARRAY_INDEX]
+					var vertices: Variant = arr[Mesh.ARRAY_VERTEX]
+					counts["triangles"] += int(indices.size()/3) if indices != null and indices.size() > 0 else int(vertices.size()/3)
+	for child in node.get_children():
+		count_meshes(child,counts)
