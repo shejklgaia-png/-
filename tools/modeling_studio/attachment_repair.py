@@ -1,4 +1,4 @@
-"""CRATE V11 supervised repair: actual supports, not geometric surface decoration."""
+"""CRATE V13 supervised repair: actual supports, not geometric surface decoration."""
 import copy
 import sys
 from pathlib import Path
@@ -99,5 +99,39 @@ def prepare(src,dest):
     d["attachment_checks"]=checks
     d["research_adaptations"].append({"recipe":"attachment_repair","url":"https://parts.cat.com/en/catcorp/product/654-4447","adaptation":"Connect side covers and roller shafts to a fixed roller support frame; fictional dimensions."})
     d.setdefault("design_notes",[]).append("V9 targeted floating part repair; texture-only detailing separated. No game asset replacement.")
+    # V13: actual V12 diagnostics, not a blanket collision exemption.
+    # Keep joint pivots, sweep limits, tread envelope and the face geometry.
+    # Taper the fixed neck near the pitching head; the axle stays unchanged.
+    for idx,sy,dz in ((1,.79,.004),(2,.65,.006)):
+        for v in p["Neck"]["rings"][idx]:
+            v[1]=.008+(v[1]-.008)*sy
+            v[2]-=dz
+    for t in ("L","R"):
+        # Coaxial output collar: rear axial face is separated from fixed bearing.
+        # Bore seats on the existing rotating axle; distal flange stays intact.
+        hand=p["HandBase"+t]
+        hand["profile"][0]=[.0215,.0015]
+        hand["profile"][1]=[.031,.0015]
+        hand["profile"][2]=[.047,.011]
+        hand["profile"][5][0]=.0215
+        pair("HandBase"+t,"WristAxle"+t)
+        # Relieve the proximal forearm core and retain its distal support.
+        core=p["ForearmCore"+t]
+        start,end=core["path"]
+        core["path"][0]=[a+(b-a)*.12 for a,b in zip(start,end)]
+        core["sections"][0]=[.018,.019]
+        # Structural gusset broadens toward the chest and tapers at housing.
+        gusset=p["ShoulderLowerGusset"+t]
+        gusset["sections"]=[[.038,.020],[.033,.024],[.022,.013]]
+    # Sculpt side facets into primary chest shell (no decorative panel meshes).
+    # Preserve front accent seat, mounting rings and outer shoulder envelope.
+    for idx in (2,3,4):
+        ring=p["Chest"]["rings"][idx]
+        for j in (2,7):
+            ring[j][0]*=.96
+        for j in (3,6):
+            ring[j][0]*=.97
+    d["design_notes"].append("V13 supervised proposal from V12 artifact 15072179850: fixed neck relief, coaxial wrist collar separation, forearm root taper, structural shoulder gusset and chest side facets. New renders and motion/attachment audits required before approval.")
+    d["research_adaptations"].append({"recipe":"coaxial_joint_relief","url":"https://legacy.harmonicdrive.net/reference/applicationhandbook/display.php?id=ir_6apa","adaptation":"Separate fixed bearing housing and rotating output flange; retain fictional scale and pivots."})
     write(Path(dest),d)
 if __name__=="__main__":prepare(sys.argv[1],sys.argv[2])
