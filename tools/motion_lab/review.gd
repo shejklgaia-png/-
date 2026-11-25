@@ -18,12 +18,17 @@ func _run() -> void:
 		quit(2)
 		return
 	var dir := args[0]
+	var report = JSON.parse_string(FileAccess.get_file_as_string(dir.path_join("motion_report.json")))
+	if not report is Dictionary:
+		quit(10)
+		return
+	var fps := float(report["fps"])
 	var doc := GLTFDocument.new()
 	var state := GLTFState.new()
 	if doc.append_from_file(dir.path_join("motion.glb"), state) != OK:
 		quit(3)
 		return
-	var model := doc.generate_scene(state)
+	var model := doc.generate_scene(state, fps, false, false)
 	if model == null:
 		quit(4)
 		return
@@ -69,11 +74,6 @@ func _run() -> void:
 	env.environment.ambient_light_color = Color.WHITE
 	env.environment.ambient_light_energy = 0.7
 	root.add_child(env)
-	var report = JSON.parse_string(FileAccess.get_file_as_string(dir.path_join("motion_report.json")))
-	if not report is Dictionary:
-		quit(10)
-		return
-	var fps := float(report["fps"])
 	var expected_length := (float(report["end_frame"]) - 1.0) / fps
 	var markers: Dictionary = {}
 	for name in report["marker_nodes"]:
@@ -117,6 +117,6 @@ func _run() -> void:
 	var duration_error := absf(length - expected_length)
 	var tolerance := float(spec.get("roundtrip_tolerance_m", 0.002))
 	var passed := duration_error <= 0.0002 and max_error <= tolerance and not markers.is_empty()
-	f.store_string(JSON.stringify({"animations":Array(names),"clip":clip,"length_seconds":length,"expected_length_seconds":expected_length,"duration_error_s":duration_error,"frames":capture.size(),"evaluated_frames":report["samples"].size(),"marker_max_errors_m":marker_errors,"max_error_m":max_error,"worst_frame":worst_frame,"tolerance_m":tolerance,"roundtrip_pass":passed,"renderer":"gl_compatibility","scope":"isolated GLB preview; not game or Android"}, "\t"))
+	f.store_string(JSON.stringify({"animations":Array(names),"clip":clip,"length_seconds":length,"expected_length_seconds":expected_length,"duration_error_s":duration_error,"frames":capture.size(),"import_bake_fps":fps,"evaluated_frames":report["samples"].size(),"marker_max_errors_m":marker_errors,"max_error_m":max_error,"worst_frame":worst_frame,"tolerance_m":tolerance,"roundtrip_pass":passed,"renderer":"gl_compatibility","scope":"isolated GLB preview; not game or Android"}, "\t"))
 	f.close()
 	quit(0 if passed else 12)
