@@ -9,6 +9,7 @@ def main():
     p.add_argument("design",type=Path); p.add_argument("out",type=Path)
     p.add_argument("--action",help="Override procedural action for the procedural design")
     p.add_argument("--preview-ik",action="store_true",help="Bake runtime-like contact preview, not source animation")
+    p.add_argument("--subframe-guard",action="store_true",help="V27 240Hz sampled floor and support path guard (requires trajectory review)")
     p.add_argument("--trajectory-review",choices=("heavy","medium","light"),help="V26 optional offline trajectory candidates; preserve source tracks")
     p.add_argument("--variant",choices=("extended","spear","chain","sweep","sweep_reverse","kick"),help="Choose FK candidate")
     a=p.parse_args(sys.argv[sys.argv.index("--")+1:])
@@ -25,6 +26,9 @@ def main():
     if a.trajectory_review:
         if not d.get("fk_performance"): raise ValueError("--trajectory-review requires supported FK design")
         d["fk_performance"]["trajectory_refine"]=a.trajectory_review
+    if a.subframe_guard:
+        if not d.get("fk_performance",{}).get("trajectory_refine"):raise ValueError("--subframe-guard requires --trajectory-review")
+        d["fk_performance"]["subframe_guard"]=True
     if a.preview_ik:
         if d.get("fk_performance"): d["fk_performance"]["preview_ik"]=True
         elif spec.get("profile")=="performance_v20": spec["preview_ik"]=True
