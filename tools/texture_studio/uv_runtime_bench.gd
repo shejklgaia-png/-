@@ -104,6 +104,19 @@ func _run() -> void:
                     break
         grid_comparison.v32_comparison = {"previous":v31_grid,"current":grid_comparison.current,"previous_charts":v31.charts,"current_charts":result.charts,"previous_atlas":v31_image.get_width(),"current_atlas":new_atlas.get_width(),"previous_us":v31_us,"current_ms":elapsed,"identical_uv":same_uv,"version":result.unwrap_version,"report":result.affine_report,"artifact_ok":v31_mesh_ok and v32_mesh_ok and v31_image.save_png(grid_prefix+"-previous-v31.png")==OK and new_atlas.save_png(grid_prefix+"-v32.png")==OK}
         print("GRID_V32 ",JSON.stringify(grid_comparison.v32_comparison))
+        var v32_start: int = Time.get_ticks_usec()
+        var v32: Dictionary = UV.build(source,density,true,true,true,true,true,true,true,true,false)
+        var v32_us: int = Time.get_ticks_usec()-v32_start
+        if v32.has("error"):
+            push_error(str(v32.error))
+            quit(2)
+            return
+        var v32_image: Image = v32.image
+        var v32_grid: Dictionary = _measure_grid(v32.triangles,v32_image.get_size())
+        var v32_reference_ok: bool = _export_footprint_mesh(v32.triangles,grid_prefix+"-previous-v32",{})
+        var v33_mesh_ok: bool = _export_footprint_mesh(tris,grid_prefix+"-v33",{})
+        grid_comparison.v33_comparison = {"previous":v32_grid,"current":grid_comparison.current,"previous_charts":v32.charts,"current_charts":result.charts,"previous_atlas":v32_image.get_width(),"current_atlas":new_atlas.get_width(),"previous_us":v32_us,"current_ms":elapsed,"version":result.unwrap_version,"report":result.affine_report,"artifact_ok":v32_reference_ok and v33_mesh_ok and v32_image.save_png(grid_prefix+"-previous-v32.png")==OK and new_atlas.save_png(grid_prefix+"-v33.png")==OK}
+        print("GRID_V33 ",JSON.stringify(grid_comparison.v33_comparison))
     var atlas: Image = result.image
     var side := atlas.get_size()
     var max_res: float = 0.0
@@ -653,7 +666,18 @@ func _footprint_surface_area(pixel: Vector2i,tris: Array,side: Vector2i) -> floa
 # Evaluate both actual packed atlases over identical physical edges.
 # Coplanar edges are reported separately from curvature/holonomy cuts.
 func _measure_grid(tris: Array,side: Vector2i) -> Dictionary:
-    var result: Dictionary = {"edges":0,"bad":0,"severe":0,"worst":0.0,"sum_sq":0.0,"angle_sum":0.0,"coplanar_edges":0,"coplanar_bad":0,"coplanar_worst":0.0,"coplanar_welded":0}
+    var result: Dictionary = {"edges":0,"bad":0,"severe":0,"worst":0.0,"sum_sq":0.0,"angle_sum":0.0,"coplanar_edges":0,"coplanar_bad":0,"coplanar_worst":0.0,"coplanar_welded":0,"single_triangle_charts":0,"axis_tilted_faces":0,"axis_energy":0.0,"angular_bad":0,"same_chart_gaps":0}
+    var counts: Dictionary = {}
+    for t in tris:
+        var ci: int = int(t.chart)
+        counts[ci] = int(counts.get(ci,0))+1
+        var p: PackedVector3Array = t.p
+        var area: float = (p[1]-p[0]).cross(p[2]-p[0]).length()*0.5
+        var angle: float = UV._face_axis_angle(t,"uv",float(side.x))
+        result.axis_energy += area*angle*angle
+        result.axis_tilted_faces += 1 if absf(angle)>deg_to_rad(5.0) else 0
+    for count in counts.values():
+        result.single_triangle_charts += 1 if int(count)==1 else 0
     for link in UV._seam_segments(tris,true):
         var metric: Dictionary = UV._diagnostic_edge_metrics(tris,link,Vector2(side))
         if metric.is_empty():
@@ -665,8 +689,14 @@ func _measure_grid(tris: Array,side: Vector2i) -> Dictionary:
         result.worst = maxf(result.worst,e)
         result.sum_sq += e*e
         result.angle_sum += float(metric.angle)
+        result.angular_bad += 1 if float(metric.angle)>10.0 else 0
         var a: Dictionary = tris[int(link.ta)]
         var b: Dictionary = tris[int(link.tb)]
+        if int(a.chart)==int(b.chart):
+            var pa: PackedVector2Array = UV._segment_uv(a,int(link.ea),float(link.a0),float(link.a1),"uv")
+            var pb: PackedVector2Array = UV._segment_uv(b,int(link.eb),float(link.b0),float(link.b1),"uv")
+            if maxf(pa[0].distance_to(pb[0]),pa[1].distance_to(pb[1]))*float(side.x)>0.0011:
+                result.same_chart_gaps += 1
         var na: Vector3 = a.face_normal
         var nb: Vector3 = b.face_normal
         if na.dot(nb)>0.0 and na.cross(nb).length_squared()<=0.0000000001 and absf(na.dot(Vector3(b.p[0])-Vector3(a.p[0])))<=0.00001:
