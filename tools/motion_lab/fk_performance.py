@@ -131,6 +131,22 @@ def compile_fk(d,nodes,end,out):
     support=[n for n in ROLES if n!="FrontFoot_L"]
     phase={"support":support,"feet":feet,"foot_yaws":{n:0. for n in ROLES}}
     d["procedural_motion"]={"action":"stomp","max_contact_offset_m":.30,"preview_ik":bool(spec.get("preview_ik",False))}
-    try:compile_contact_layer(d,nodes,end,out,[phase,phase],[1,end],geom,5.539)
+    contact_policy=spec.get("contact_policy","support_only")
+    if contact_policy=="support_only":
+        phases,contact_frames=[phase,phase],[1,end]
+    elif contact_policy=="post_impact_v23" and version==22:
+        # Use the same V22 FK source, including all authored strike poses.
+        # The runtime contact layer captures the actual visible strike
+        # foot at impact, ramps in/out over up to four frames, and does
+        # not touch the strike limb outside the explicit contact window.
+        impact=d["events"]["impact"]; release=d["events"]["rebound"]
+        if not 1<impact<release<end or release-impact<8:
+            raise ValueError("invalid post-impact contact window")
+        all_planted={**phase,"support":[*support,"FrontFoot_L"]}
+        phases=[phase,all_planted,all_planted,phase]
+        contact_frames=[1,impact,release,end]
+    else:
+        raise ValueError("unsupported FK contact policy")
+    try:compile_contact_layer(d,nodes,end,out,phases,contact_frames,geom,5.539)
     finally:del d["procedural_motion"]
-    (out/"fk_performance_report.json").write_text(json.dumps({"version":version,"variant":variant,"keys":keys,"source_animation_used":False,"neutral_root_z_m":base,"authored_tracks":tracks,"review_status":"review_required","scope":"explicit body-relative link directions, V22 authored support-local rotation keys, and shape-preserving time curves; three support legs optional IK; no physical joint limits or collision approval"},indent=2,ensure_ascii=False))
+    (out/"fk_performance_report.json").write_text(json.dumps({"version":version,"contact_policy":contact_policy,"variant":variant,"keys":keys,"source_animation_used":False,"neutral_root_z_m":base,"authored_tracks":tracks,"review_status":"review_required","scope":"explicit body-relative link directions, V22 authored support-local rotation keys, and shape-preserving time curves; three support legs optional IK; no physical joint limits or collision approval"},indent=2,ensure_ascii=False))
