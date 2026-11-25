@@ -165,3 +165,11 @@ shape: wireframe を部品に指定。wireframe_example.json が動作確認用�
 - 選択値・全候補の比較・V1/V2/候補の実モデル評価・ID画像・領域画像・曲線候補を出力。V1円候補を保持するが機械的意味は未承認。ホールドアウト悪化時はV2既定値維持と記録。既定値は自動変更しない。反復構造の認識は未実装。
 - modeling/structure-analysis-v3-* の専用制作経路で実行し、既存成果物ハッシュに含める。Android実機負荷・クレート設定画への適用は別途。
 参考: https://docs.blender.org/api/current/mathutils.bvhtree.html / https://scikit-image.org/docs/stable/auto_examples/segmentation/plot_metrics.html
+
+## V4：反復構造候補・デザイン意図優先
+- 設定画は正解CADではない。明示仕様・機能、識別特徴、意図、立体の見栄え・機構整合を優先し、寸法や図面間の一致は参考とする。見えない箇所は作者判断で補完し、その根拠を記録する。厳密図面の再提出を前提にしない。
+- repeat_recognition.py はV3の候補領域から色・サイズ・面積・中心点間隔の近い3個以上の連続直線列を抽出。離れた領域も同じ機構の候補にできる。元のマップは保持し、別の仮グループマップを作る。空白を埋めず、重複グループは除外する。曲線・不規則な繰返し・透視・遮蔽・意味認識は未解決。
+- repeat_review.py は実メッシュIDに対する各部品best IoUの悪化（1ポイント超）とペア適合率/F1悪化を検査。全方向の保護条件と少なくとも一方向の部品平均IoU改善を満たした場合のみレビュー候補とする。真値は候補生成に使用しない。V3既定値や形状は自動変更しない。
+- box/cylinderの既存dimension_fitに任意のobservationsを指定可能。target_mを造形意図としてreason、intent_weight、tolerance_mを記述し、各参考値はsource/value_m/weight(0..1)/任意tolerance_mで指定。明示bounds_mは厳守。Huber損失で外れた参考値の影響を制限し、意図の二次損失と合算した凸目的を二分法で解く。各観測の残差と外れ値フラグ、意図の根拠、目的値を記録。従来設定は動作不変。
+- modeling/structure-analysis-v4-* の専用制作でV3の実モデル評価に反復候補の比較と合成矛盾寸法のコンパイル評価を追加する。審美的完成度や意図の自動推定を数値で保証する機能ではない。独立モデル、実設定画、曲線反復、多方向対応は次段階。
+参考: https://docs.opencv.org/3.4.6/d9/d61/tutorial_py_morphological_ops.html / https://docs.scipy.org/doc/scipy/reference/generated/scipy.special.huber.html
