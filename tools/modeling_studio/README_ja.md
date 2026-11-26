@@ -301,3 +301,6 @@ shape: wireframe を部品に指定。wireframe_example.json が動作確認用�
 7. 仕上げ：形状確定後テクスタへ引き渡し、実機検証と最終承認を別管理。
 監修記録には成果物ID/コミット、実際に見た画像名、部品ごとの観察、修正指示、維持条件、技術検査結果、未確認事項を含める。監修記録の雛形は staged_review_template.json。未確認なら pending とし、見ていない画像を確認済みにしない。これは会話内AIによる役割分担と手順であり、Actions内の独立AI監修やバックグラウンドAI連携を実装したものではない。
 参考: https://studio.blender.org/tools/artist-guide/asset-creation/modeling ; https://renderman.pixar.com/pixars-usd-pipeline 。ゲーム本体の変更なし。
+
+## モデスタ・テクスタ連携制作の現行運用（2026-11-26）
+CRATE V17.2までの制作経験を統合した標準手順・品質基準・微小UV描画衝突の許容条件・納品仕様は [連携制作運用](../../docs/SERA_MODELING_TEXTURE_OPERATION_20261126_ja.md) を参照する。既存の段階分業とHTML配布規約を補完し、以後の連携制作に適用する。
