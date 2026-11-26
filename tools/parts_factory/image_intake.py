@@ -48,7 +48,7 @@ def read_bundle(work, archive, out):
     need(not out.exists(), "new evidence directory required")
     with zipfile.ZipFile(archive) as z:
         infos=z.infolist(); names=[i.filename for i in infos]
-        need(7<=len(names)<=25 and len(names)==len(set(names)), "unexpected or duplicate archive entries")
+        need(5<=len(names)<=25 and len(names)==len(set(names)), "unexpected or duplicate archive entries")
         need(sum(i.file_size for i in infos)<=MAX_TOTAL, "archive expansion limit")
         for i in infos:
             mode=(i.external_attr>>16)&0xFFFF
@@ -63,11 +63,13 @@ def read_bundle(work, archive, out):
         need(isinstance(m.get("image_task_id"),str) and 3<=len(m["image_task_id"])<=128, "image task ID missing")
         sources=m.get("sources"); candidates=m.get("candidates")
         need(isinstance(sources,list) and 1<=len(sources)<=8 and isinstance(candidates,list) and 3<=len(candidates)<=8,"expected 3–8 candidate images")
-        declared={"manifest.json"}; source_pixels={}; payload={}; ids=set(); hashes=set()
+        declared={"manifest.json"}; source_pixels={}; payload={}; ids=set(); hashes=set(); pixel_hashes=set(); total_pixels=0
         for row in sources:
             path=row["path"]; need(path.startswith("sources/") and path not in declared,"duplicate/invalid source path")
             data,pixels=read_png(z,path,row["sha256"]); declared.add(path)
             need(row.get("width")==pixels.width and row.get("height")==pixels.height,"source size mismatch")
+            total_pixels+=pixels.width*pixels.height
+            need(total_pixels<=48_000_000,"aggregate source pixel limit")
             source_pixels[path]=pixels;payload[path]=data
         for row in candidates:
             cid=row["id"]; path=row["path"]; source=row["source"]
@@ -79,6 +81,8 @@ def read_bundle(work, archive, out):
             need(isinstance(box,list) and len(box)==4 and all(type(x) is int for x in box),"invalid crop")
             x0,y0,x1,y1=box
             need(0<=x0<x1<=parent.width and 0<=y0<y1<=parent.height,"crop outside source")
+            pixel_key=(pixels.size,sha(pixels.tobytes()))
+            need(pixel_key not in pixel_hashes,"duplicate candidate pixels");pixel_hashes.add(pixel_key)
             crop=parent.crop(tuple(box))
             need(crop.size==pixels.size and all(channel.getbbox() is None for channel in ImageChops.difference(crop,pixels).split()),"candidate differs from original crop")
             payload[path]=data
