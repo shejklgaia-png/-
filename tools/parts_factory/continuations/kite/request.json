@@ -5,8 +5,8 @@
   "operation": "tool",
   "tool": "blueprint_draft",
   "upstream_revision": "b8c79da1b4c0342b5baa031a86d7863ea47cb89bc5767eeb69454dcb7d097605",
-  "source_run": 45755563487,
-  "source_artifact": 15087283332,
+  "source_run": 45757033757,
+  "source_artifact": 15088835325,
   "source_name": "pf-kite-head-continuation",
   "drawing": {
     "format": "SERA_PF_DRAFT_DRAWING_V1",
@@ -2287,7 +2287,7 @@
       },
       {
         "name": "front_lower_face_R",
-        "material": "rim",
+        "material": "frame",
         "points": [
           [
             0,
@@ -2323,7 +2323,7 @@
       },
       {
         "name": "front_lower_face_L",
-        "material": "rim",
+        "material": "frame",
         "points": [
           [
             0,
@@ -2776,6 +2776,232 @@
         "visible_from": [
           0,
           -0.55,
+          -1
+        ]
+      },
+      {
+        "name": "front_chassis_side_closure_R",
+        "material": "frame",
+        "points": [
+          [
+            1.86,
+            -2.25,
+            2.52
+          ],
+          [
+            2.18,
+            -2.53,
+            2.47
+          ],
+          [
+            1.14,
+            -2.42,
+            1.12
+          ],
+          [
+            1.05,
+            -1.9,
+            0.504
+          ],
+          [
+            1.13,
+            -1.74,
+            0.658
+          ],
+          [
+            1.64,
+            -1.82,
+            1.2124
+          ]
+        ],
+        "visible_from": [
+          0.8,
+          -1,
+          0
+        ]
+      },
+      {
+        "name": "front_chassis_side_closure_L",
+        "material": "frame",
+        "points": [
+          [
+            -1.64,
+            -1.82,
+            1.2124
+          ],
+          [
+            -1.13,
+            -1.74,
+            0.658
+          ],
+          [
+            -1.05,
+            -1.9,
+            0.504
+          ],
+          [
+            -1.14,
+            -2.42,
+            1.12
+          ],
+          [
+            -2.18,
+            -2.53,
+            2.47
+          ],
+          [
+            -1.86,
+            -2.25,
+            2.52
+          ]
+        ],
+        "visible_from": [
+          -0.8,
+          -1,
+          0
+        ]
+      },
+      {
+        "name": "rear_side_closure_R",
+        "material": "frame",
+        "points": [
+          [
+            2.55,
+            2.45,
+            3.32
+          ],
+          [
+            2.24,
+            2.65,
+            3.48
+          ],
+          [
+            2.17,
+            2.76,
+            2.7
+          ],
+          [
+            1.94,
+            2.64,
+            1.86
+          ],
+          [
+            1.92,
+            2.62,
+            1.86
+          ],
+          [
+            2.18,
+            2.28,
+            2.4
+          ]
+        ],
+        "visible_from": [
+          0.8,
+          1,
+          0
+        ]
+      },
+      {
+        "name": "rear_side_closure_L",
+        "material": "frame",
+        "points": [
+          [
+            -2.18,
+            2.28,
+            2.4
+          ],
+          [
+            -1.92,
+            2.62,
+            1.86
+          ],
+          [
+            -1.94,
+            2.64,
+            1.86
+          ],
+          [
+            -2.17,
+            2.76,
+            2.7
+          ],
+          [
+            -2.24,
+            2.65,
+            3.48
+          ],
+          [
+            -2.55,
+            2.45,
+            3.32
+          ]
+        ],
+        "visible_from": [
+          -0.8,
+          1,
+          0
+        ]
+      },
+      {
+        "name": "underside_front_closure_R",
+        "material": "frame",
+        "points": [
+          [
+            0,
+            -2.78,
+            2.12
+          ],
+          [
+            1.05,
+            -1.9,
+            0.504
+          ],
+          [
+            1.25,
+            -2.02,
+            0.2
+          ],
+          [
+            0,
+            -2.02,
+            0.2
+          ]
+        ],
+        "visible_from": [
+          0,
+          -0.5,
+          -1
+        ]
+      },
+      {
+        "name": "underside_front_closure_L",
+        "material": "frame",
+        "points": [
+          [
+            0,
+            -2.02,
+            0.2
+          ],
+          [
+            -1.25,
+            -2.02,
+            0.2
+          ],
+          [
+            -1.05,
+            -1.9,
+            0.504
+          ],
+          [
+            0,
+            -2.78,
+            2.12
+          ]
+        ],
+        "visible_from": [
+          0,
+          -0.5,
           -1
         ]
       }
