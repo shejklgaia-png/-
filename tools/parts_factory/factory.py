@@ -198,6 +198,8 @@ def accept(work, name, src, producer):
     upstream = d["stages"][ORDER[idx-1]]["key"] if idx else "ROOT"
     rr.author(src,name)
     check_stage(name,src,d)
+    if name=="viewer" and d.get("review_mode",rr.STRICT)==rr.SELF:
+        require("SELF REVIEW / NOT INDEPENDENT" in (src/"viewer.html").read_text(encoding="utf-8"),"viewer must disclose single-AI review")
     prior={k:d['stages'][k] for k in ORDER[:idx]}
     supervision=rr.check_cycle(src,name,d['id'],prior,work)
     record = {"stage":name,"upstream":upstream,"producer":producer,"files":files(src),"supervision":supervision}
@@ -237,6 +239,7 @@ def stock(work):
     root.mkdir(parents=True,exist_ok=True)
     if dest.exists():
         require(read(dest/"job.json")==d, "stock record differs")
+        require(read(dest/"release.json").get("review_mode",rr.STRICT)==d.get("review_mode",rr.STRICT),"stock review mode differs")
         for name,item in d["stages"].items():
             require(files(dest/name)==item["files"], "stock corrupted: "+name)
         print("ALREADY STOCKED",dest)
@@ -287,6 +290,7 @@ def deliver(work, output):
     require(valid==ORDER,"delivery blocked: incomplete quality gates")
     root=STOCK/d["slot"]/d["id"]/key
     require((root/"release.json").is_file() and read(root/"job.json")==d,"stock before delivery")
+    require(read(root/"release.json").get("review_mode",rr.STRICT)==d.get("review_mode",rr.STRICT),"stock review mode differs")
     for stage,item in d["stages"].items():
         require(files(root/stage)==item["files"],"stock changed: "+stage)
     require(not output.exists(),"refuse overwrite")
