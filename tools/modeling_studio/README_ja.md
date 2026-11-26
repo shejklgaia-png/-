@@ -301,3 +301,14 @@ shape: wireframe を部品に指定。wireframe_example.json が動作確認用�
 7. 仕上げ：形状確定後テクスタへ引き渡し、実機検証と最終承認を別管理。
 監修記録には成果物ID/コミット、実際に見た画像名、部品ごとの観察、修正指示、維持条件、技術検査結果、未確認事項を含める。監修記録の雛形は staged_review_template.json。未確認なら pending とし、見ていない画像を確認済みにしない。これは会話内AIによる役割分担と手順であり、Actions内の独立AI監修やバックグラウンドAI連携を実装したものではない。
 参考: https://studio.blender.org/tools/artist-guide/asset-creation/modeling ; https://renderman.pixar.com/pixars-usd-pipeline 。ゲーム本体の変更なし。
+
+
+## 原画準拠の面設計方式（VEXER V1失敗対策・2026-11-26）
+- 新規の非単純形状は、まず原画の主シルエット・稜線・面方向・奥行き・前後のつながりを2方向以上から対応付け、共通座標の頂点/面ネットワークを設計する。図面はCAD真値ではない。見えない箇所・矛盾は補完根拠を記録する。箱/円柱は実機構に適する場合のみ、薄板の一律押し出しで外装全体を代替しない。
+- 概形は無彩色で主要面を先行。原画と同じ固定カメラで正面、側面、背面、斜め、上下の実レンダーを比較する。頭/車体など主構造の厚み、比率、稜線、面のつながり、空間の抜けを監修し、不合格なら頂点と面を再構築。概形を受理する前に副装甲/装飾を大量に追加しない。
+- 副形状は支持面に対応した共通座標で設計。厚み、装甲の回り込み、開口、凹部、支持経路を明示。次に細部・テクスタ、ゲーム描画の確認。技術検査と造形審査は別。数値/ポリゴン数/成功runだけで承認しない。
+- 新方式の入力は `surface_authoring`（format: SERA_SURFACE_AUTHORING_V1、stage: primary/secondary/refinement、reference: 原画識別子、views: 方向名配列、vertices: ID→XYZ m、patches: 配列）。patchは name/material/reason/evidence（2方向以上）/mode（closed又はshell）/faces（頂点IDの三角・四角面）と任意parent。shellは全外面頂点ID→内面頂点IDのinnerを明示し、内面と境界壁を生成する。閉じた外面はclosed。頂点座標の共有は幾何学的な対応であり、別パーツ間の自動溶接はしない。既存partsと併用できる。全パッチは同じ親座標系を用いるか、親別に座標IDを分ける。
+- secondary/refinementは前段の実画像をAIが確認した記録 prior_review:{decision:"accepted_for_next_stage",artifact,reviewer,observation} を必要とする。これは入力契約であり、実物確認の自動証明・独立審査ではない。surface_authoring_report.jsonは面の閉鎖・連結・向き・非退化を確認したコンパイル報告で、自己交差・厚みの均一性・原画への一致・接続・外観合格は保証しない。必要に応じて明示三角分割を行う。
+- 制作AIと監修AIの判断を分離して記録（同一AIなら同一と明記）。実画像、原画、同一条件の前後差、問題部位、再設計指示、未確認事項を保存。ユーザー不採用モデルは失敗資料として隔離し、完成品や基準モデルに流用しない。VEXER V1は不採用。新方式の初稿では基礎頭蓋から再構築する。
+- 制作専用PR・成果物と本体登録を区別する。ゲームに入れることは別承認。パーファクの正式工程・承認ゲートを迂回しない。実画像がない場合は未完了とし、正式納品しない。
+- 参考: Blender Studio https://studio.blender.org/tools/artist-guide/asset-creation/modeling ; Blender Solidify https://docs.blender.org/manual/en/5.0/modeling/modifiers/generate/solidify.html ; ゲームアーティストの実例 https://80.lv/articles/010md-hard-surface-modeling-game-art-tips-from-emil-skriver 。均一厚みが保証されないため今回は内外面座標の明示方式を採用。既存ゲーム/CIは変更しない。
