@@ -111,3 +111,12 @@ V6の記述と矛盾する場合は本節を優先。concept/art/blueprint/analy
 - 一括品はパーツ選択で資料・各表示を切替。セットの場合は全身組立も閲覧可能にする。実ファイル・ハッシュ・リビジョンを一致させる。未検証の3D代替画像は明示し、必須機能未確認のまま納品完了としない。
 - スマートフォンの縦画面・タッチ操作を優先し、原則として外部依存のないダウンロード可能な自己完結HTMLを配布する。既存HTML配布規約を維持。
 - 現行painted_viewer.py及びset_release.pyの機能実装とは区別した納品契約である。対応実装と実成果物での閲覧確認を済ませてから正式納品する。既存ゲームやCIは変更しない。
+
+## V6.6：再開可能な制作コントローラ（2026-11-26）
+旧KITE専用ワークフローは毎回concept/artを再生成し、blueprint以降を起動できなかった。継続処理は `continuation.py` に分離する。承認済の実 `work/` を前回の専用制作artifactから復元し、factory.verifyによる全ファイル・上流ハッシュ検査を通過した場合だけ次へ進む。過去工程を作り直さない。
+- KITEの専用制作ブランチでは `tools/parts_factory/continuations/kite/request.json` の更新で `.github/workflows/pf_kite_continue.yml` が起動。前回run/artifact ID・artifact名・job ID・upstream revision・next stageを明示する。GitHub APIで同じ制作ブランチの成功した制作runと成果物の関係を照合。concurrencyで専用継続runを直列化する。
+- `operation`: prepare（検証・次工程handoff）、draft_packet（初稿の実証拠パケット）、rebuild_template（初稿審査付き再構築記録の雛形）、final_packet（再構築後の証拠パケット）、accept（既存factory.acceptでのみ受理）。prepareは制作進捗を増やさない。accept以外で承認しない。stockはV6.5納品確認と別途永続ストック処理が必要。
+- 受け渡し用ZIPは24MiB以下、manifest.jsonとcandidate/配下の実成果物のみ。manifest format=SERA_PF_CONTINUATION_V1、job_id、stage、operation、upstream_revision、files（candidate/内相対パス→SHA256）。requestにはZIP全体のpayload_sha256と実producerも必要。V6.4の分割搬送で専用transportフォルダに配置。ZIP内のコードや任意コマンドは実行しない。パス・SHA・展開サイズ・重複を検証する。
+- 成功時は `continuation_output/work` と `handoff.json`、実選定画像とconceptを次のartifactに保存。失敗時は可能な範囲で元の受理済状態と具体的エラーを保存。次の実行は最新受理済みrevisionを読み直し、古いrevisionや誤ったstageの要求は拒否する。期限付きartifactだけで完成品の永続保存を称しない。
+- 制作AIが実資料を作成し、実画像/モデルを評価する工程は依然必要。コントローラは自動審美判定・画像生成・モデル生成・AI起動・ブラウザ操作を行わない。既存ChatGPT定期タスクを制作担当として利用し、handoffを取得して実作業を行う。専用runnerの実行開始と制作AIの稼働は別。自動生成不能なら理由を具体化し、未承認のまま停止する。大規模バイナリの搬送やモデスタ/テクスタの自動実行アダプタ、V6.5 viewer/stock統合は別途必要。既存ゲーム本体/無関係CIは変更しない。
+- 参考：GitHub Actions cross-run artifact retrieval https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows 、concurrency https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax 、Temporalのdurable execution https://docs.temporal.io/durable-execution と冪等activity https://docs.temporal.io/activities 。外部サービスを新規契約せず既存GitHub/ChatGPTで構成する。
