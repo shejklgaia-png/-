@@ -1,4 +1,4 @@
-"""CRATE V15 full-body supervised repair: actual supports, not geometric surface decoration."""
+"""CRATE V16 joint reconstruction supervised repair: actual supports, not geometric surface decoration."""
 import copy
 import sys
 from pathlib import Path
@@ -197,5 +197,51 @@ def prepare(src,dest):
         v[1]=.010+(v[1]-.010)*.88
     d["design_notes"].append("V15: genuine rear service pocket and bilateral chest sockets; V14 interface and tread retained. Flat surface color, recessed detail only, independent game lighting.")
     d["research_adaptations"].append({"recipe":"service_recess","url":"https://www.rittal.com/us-en_US/Solutions/Rittal-Product-Solutions/Industrial-enclosure-solutions","adaptation":"Service-access panels and protected cooling recesses in robot enclosure."})
+    # V16: explicit fixed housing / rotating output interfaces.
+    # Preserve all existing pivot transforms and the exterior optical shell.
+    # The fixed neck pedestal previously extended into the moving yaw bracket.
+    for idx,z in ((1,.4285),(2,.434)):
+        for v in p["Neck"]["rings"][idx]:v[2]=z
+    b=p["NeckYawBearing"]
+    b.pop("radius");b.pop("depth")
+    b.update(shape="revolve",profile=[[.035,-.0175],[.061,-.0175],
+        [.066,-.013],[.066,.013],[.061,.0175],[.035,.0175]],bevel=.0005)
+    # Axial output sleeve seats into the fixed bearing and carries pitch support.
+    a=iv.append_part(d,"NeckYawOutput","NeckYaw","steel","revolve",[0,0,.011],
+        profile=[[.014,-.014],[.0348,-.014],[.0348,.016],[.014,.016]],
+        sides=20,rotation_deg=[0,0,0])
+    a["bevel"]=.0003
+    for idx,z in ((0,-.010),(1,-.006)):
+        for v in p["NeckPitchSupport"]["rings"][idx]:v[2]=z
+    pair("NeckYawBearing","Neck")
+    pair("NeckYawOutput","NeckYawBearing")
+    pair("NeckPitchSupport","NeckYawOutput")
+    for t in ("L","R"):
+        # Seat coaxial shafts within the existing bored housings.
+        p["ShoulderAxle"+t]["radius"]=.0287
+        p["ElbowAxle"+t]["radius"]=.0193
+        # Two load-bearing yoke branches join the upper-arm core, rather
+        # than terminating as isolated ornamental rings at the hinge.
+        for suffix,sign in (("A",1),("B",-1)):
+            fork=p["ElbowFork"+t+suffix]
+            fork["path"][0]=[sign*.022,.054,.012]
+            fork["path"][1]=[sign*.010,.027,.008]
+            fork["sections"]=[[.010,.021],[.009,.024],[.007,.026]]
+        # Taper the proximal shell where it passes the fixed yoke.
+        fore=p["Forearm"+t]
+        fore["sections"][0]=[.022,.024]
+        fore["sections"][1]=[.039,.035]
+        # Wrist is an actual bored housing and a separate tool output shaft.
+        # Shift the fixed front face behind the rotating claw hinge pins.
+        wb=p["WristBearing"+t]
+        wb["location"][1]+=.009
+        wb.pop("radius");wb.pop("depth")
+        wb.update(shape="revolve",profile=[[.0222,-.014],[.032,-.014],
+            [.036,-.010],[.036,.010],[.032,.014],[.0222,.014]],bevel=.0005)
+        wa=p["WristAxle"+t]
+        wa["location"][1]=.0025;wa["depth"]=.055;wa["bevel"]=.0005
+        pair("WristBearing"+t,"WristAxle"+t)
+    d["design_notes"].append("V16: distinct yaw pedestal/bored bearing/output sleeve; seated shoulder and elbow axles, inward-rooted elbow forks, proximal forearm clearance, bored wrist housing and shortened output shaft. All pivot transforms and sweep limits unchanged. Fresh connection and interference audits required.")
+    d["research_adaptations"].append({"recipe":"separate_rotor_stator","url":"https://www.harmonicdrive.net/_hd/content/applicationHandbooks/6AxisPrimaryAxes.pdf","adaptation":"Fixed housings, supported coaxial outputs and explicit shaft fits; fictional dimensions, not engineering load validation."})
     write(Path(dest),d)
 if __name__=="__main__":prepare(sys.argv[1],sys.argv[2])
