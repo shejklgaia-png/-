@@ -46,6 +46,11 @@ def render(out,spec,art,concept):
         # Back-to-front drawing patches; independent from Modeling Studio mesh production.
         ordered=sorted(patches,key=lambda p:sum(dot(v,n) for v in p["points"])/len(p["points"]))
         for patch in ordered:
+            # Explicit drafting face direction, not a material or mesh normal claim.
+            face=patch.get("visible_from")
+            if face is not None:
+                q.need(len(face)==3 and all(type(x) in (int,float) and math.isfinite(x) for x in face),"invalid drafting direction")
+                if dot(norm(face),n)<=.035:continue
             pts=[proj(v) for v in patch["points"]]
             area=abs(sum(a[0]*b[1]-b[0]*a[1] for a,b in zip(pts,pts[1:]+pts[:1])))/2
             if area<1:continue
@@ -67,7 +72,7 @@ def render(out,spec,art,concept):
         tile=Image.open(out/(name+".png")).resize((380,380),Image.Resampling.LANCZOS)
         board.paste(tile,(x,y+34))
         draw.text((x+8,y+5),name.replace("_"," ").upper(),fill="#172838",font=font(20))
-    draw.text((40,1006),"WHITE / GUNMETAL / ICE BLUE / SERVICE ORANGE   |   Neck clearance is a design target, not dynamic verification",fill="#334E62",font=font(18))
+    draw.text((40,1006),"W 5.90  /  H 5.60  /  D 6.10   |   NECK APERTURE 2.50 x 2.50   |   PROPOSED SOURCE UNITS - NOT MEASURED",fill="#334E62",font=font(18))
     board.save(out/"blueprint.png")
     f.write(out/"drawing_receipt.json",{"status":"unapproved_draft","source_art_sha256":f.digest(art),
         "source_sha256":f.digest(out/"drawing_source.json"),"views":views,"blueprint_sha256":f.digest(out/"blueprint.png"),
