@@ -120,3 +120,18 @@ V6の記述と矛盾する場合は本節を優先。concept/art/blueprint/analy
 - 成功時は `continuation_output/work` と `handoff.json`、実選定画像とconceptを次のartifactに保存。失敗時は可能な範囲で元の受理済状態と具体的エラーを保存。次の実行は最新受理済みrevisionを読み直し、古いrevisionや誤ったstageの要求は拒否する。期限付きartifactだけで完成品の永続保存を称しない。
 - 制作AIが実資料を作成し、実画像/モデルを評価する工程は依然必要。コントローラは自動審美判定・画像生成・モデル生成・AI起動・ブラウザ操作を行わない。既存ChatGPT定期タスクを制作担当として利用し、handoffを取得して実作業を行う。専用runnerの実行開始と制作AIの稼働は別。自動生成不能なら理由を具体化し、未承認のまま停止する。大規模バイナリの搬送やモデスタ/テクスタの自動実行アダプタ、V6.5 viewer/stock統合は別途必要。既存ゲーム本体/無関係CIは変更しない。
 - 参考：GitHub Actions cross-run artifact retrieval https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows 、concurrency https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax 、Temporalのdurable execution https://docs.temporal.io/durable-execution と冪等activity https://docs.temporal.io/activities 。外部サービスを新規契約せず既存GitHub/ChatGPTで構成する。
+
+## V6.7：実制作ツールの直接連携
+継続コントローラのrequestに operation="tool" と tool を指定する。tool_runner.pyが現在の工程・受理済revision・job ID・実成果物SHAを照合し、固定の既存制作CLIを呼ぶ。任意のシェルコマンドは受付しない。技術処理で品質承認は追加しない。
+| tool | 必須の次工程 | 入力・処理 |
+| --- | --- | --- |
+| blueprint_brief | blueprint | 受理済conceptと採用画、10方向座標、接続・寸法資料を実データで準備 |
+| analyze | analysis | calibration.jsonと独立マスクのpayload、reference_bridge.analyze |
+| model_build | model | factory.authorizeから既存モデスタbuild.py、Blender、隔離Godotインポート |
+| geometry_compare | geometry | 受理済analysis/modelの実投影比較、実8方向レンダー |
+| uv_prepare | uv | 受理済BLENDから原面・ループ抽出 |
+| uv_build | uv | AI作成uv_layout.jsonのpayload、テクスタの検査・Blender export |
+| paint_build | paint | AI作成surface_plan.jsonのpayload、テクスタ512/1024/2048ベイクとGLB埋込照合 |
+
+payloadが必要な場合はV6.6 ZIP構造でmanifest.operationをtool、request.payload_sha256をZIP SHA、producerを実担当に指定する。追加依存環境は専用runnerで必要時のみ導入。モデルbuild_receiptのartifact_idはアップロード後に実APIで確定するまでnull、承認用provenanceは実成果物取得後に作る。tool_output/とtool_receipt.jsonを保存し、workは受理済revisionのまま保持する。初稿と再構築は別実runを使い、各回の実成果物を監修してV6.6 packet/acceptへ送る。blueprint_briefは実設計図ではない。描画付き塗装レビュー、V6.5ビューワー・永続ストック、自動AI画像生成および審査は別途必要。モデル・UV・塗装の実生産は対象工程に到達後確認する。既存ゲーム・正本・無関係CIは変更しない。
+参考：GitHub Actions https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows 、Blender CLI https://docs.blender.org/manual/en/dev/advanced/command_line/arguments.html 。既存専用ツールを固定CLIとして再利用し、別の汎用メッシュ生成は採用しない。
