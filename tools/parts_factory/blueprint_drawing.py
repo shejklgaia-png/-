@@ -59,6 +59,9 @@ def render(out,spec,art,concept):
         # Pure draft, no fake certification or measured mesh values.
         dest=out/(name+".png");im.save(dest)
         views[name]={"file":dest.name,"sha256":f.digest(dest),"notes":"Shared-scale design projection; hidden surfaces are authored proposals, not observed geometry."}
+    bounds=[[min(p[i] for p in points),max(p[i] for p in points)] for i in range(3)]
+    width,depth,height=(b[1]-b[0] for b in bounds)
+    aperture=spec.get("neck_aperture",{})
     w,h=2000,1050
     board=Image.new("RGB",(w,h),"#E7EDF2");draw=ImageDraw.Draw(board)
     def font(n):
@@ -72,10 +75,10 @@ def render(out,spec,art,concept):
         tile=Image.open(out/(name+".png")).resize((380,380),Image.Resampling.LANCZOS)
         board.paste(tile,(x,y+34))
         draw.text((x+8,y+5),name.replace("_"," ").upper(),fill="#172838",font=font(20))
-    draw.text((40,1006),"W 5.90  /  H 5.60  /  D 6.10   |   NECK APERTURE 2.50 x 2.50   |   PROPOSED SOURCE UNITS - NOT MEASURED",fill="#334E62",font=font(18))
+    draw.text((40,1006),f"W {width:.2f}  /  H {height:.2f}  /  D {depth:.2f}   |   NECK APERTURE {aperture.get('width',0):.2f} x {aperture.get('depth',0):.2f}   |   PROPOSED SOURCE UNITS - NOT MEASURED",fill="#334E62",font=font(18))
     board.save(out/"blueprint.png")
     f.write(out/"drawing_receipt.json",{"status":"unapproved_draft","source_art_sha256":f.digest(art),
         "source_sha256":f.digest(out/"drawing_source.json"),"views":views,"blueprint_sha256":f.digest(out/"blueprint.png"),
         "units":"Blockbench source units; no metre conversion or collision verification",
-        "proposed_bounds":[[min(p[i] for p in points),max(p[i] for p in points)] for i in range(3)],
+        "proposed_bounds":bounds,
         "limits":"2D drafting via common projected patch outlines. Occlusion is approximate. No mesh, UV, game geometry or aesthetic approval."})
