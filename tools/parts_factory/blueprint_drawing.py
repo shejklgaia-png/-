@@ -42,20 +42,54 @@ def render(out,spec,art,concept):
         def proj(p):
             v=sub(p,target)
             return (center[0]+scale*dot(v,right),center[1]-scale*dot(v,up))
-        im=Image.new("RGB",(size,size),"#F5F7F9");draw=ImageDraw.Draw(im)
-        # Back-to-front drawing patches; independent from Modeling Studio mesh production.
-        ordered=sorted(patches,key=lambda p:sum(dot(v,n) for v in p["points"])/len(p["points"]))
-        for patch in ordered:
-            # Explicit drafting face direction, not a material or mesh normal claim.
+        import numpy as np
+        from PIL import ImageColor
+        depth=np.full((size,size),-np.inf)
+        ids=np.full((size,size),-1,dtype=np.int32)
+        rgb=np.empty((size,size,3),dtype=np.uint8);rgb[:]=ImageColor.getrgb("#F5F7F9")
+        for idx,patch in enumerate(patches):
             face=patch.get("visible_from")
-            if face is not None:
-                q.need(len(face)==3 and all(type(x) in (int,float) and math.isfinite(x) for x in face),"invalid drafting direction")
-                if dot(norm(face),n)<=.035:continue
-            pts=[proj(v) for v in patch["points"]]
-            area=abs(sum(a[0]*b[1]-b[0]*a[1] for a,b in zip(pts,pts[1:]+pts[:1])))/2
-            if area<1:continue
-            draw.polygon(pts,fill=COLORS[patch["material"]])
-            draw.line(pts+[pts[0]],fill="#243442",width=2,joint="curve")
+            if face is not None and dot(norm(face),n)<=.035:continue
+            vertices=[(*proj(v),dot(v,n)) for v in patch["points"]]
+            # Ear clipping in the projected plane preserves concave panel outlines.
+            poly=list(range(len(vertices)))
+            def orient(a,b,c):
+                return (b[0]-a[0])*(c[1]-a[1])-(b[1]-a[1])*(c[0]-a[0])
+            signed=sum(vertices[i][0]*vertices[(i+1)%len(vertices)][1]-vertices[(i+1)%len(vertices)][0]*vertices[i][1] for i in poly)
+            if abs(signed)<1e-6:continue
+            if signed<0:poly.reverse()
+            tris=[]
+            while len(poly)>3:
+                found=False
+                for j,b in enumerate(poly):
+                    a,c=poly[j-1],poly[(j+1)%len(poly)]
+                    A,B,C=[vertices[k] for k in (a,b,c)]
+                    if orient(A,B,C)<=1e-8:continue
+                    if any(min(orient(A,B,vertices[k]),orient(B,C,vertices[k]),orient(C,A,vertices[k]))>1e-8 for k in poly if k not in (a,b,c)):continue
+                    tris.append((a,b,c));poly.pop(j);found=True;break
+                if not found:break
+            if len(poly)==3:tris.append(tuple(poly))
+            for tri in tris:
+                a,b,c=np.array([vertices[k] for k in tri])
+                area=orient(a,b,c)
+                if abs(area)<1e-8:continue
+                x0=max(0,int(math.floor(min(a[0],b[0],c[0]))));x1=min(size,int(math.ceil(max(a[0],b[0],c[0])))+1)
+                y0=max(0,int(math.floor(min(a[1],b[1],c[1]))));y1=min(size,int(math.ceil(max(a[1],b[1],c[1])))+1)
+                if x0>=x1 or y0>=y1:continue
+                yy,xx=np.mgrid[y0:y1,x0:x1];xx=xx+.5;yy=yy+.5
+                u=((b[0]-xx)*(c[1]-yy)-(b[1]-yy)*(c[0]-xx))/area
+                v=((c[0]-xx)*(a[1]-yy)-(c[1]-yy)*(a[0]-xx))/area
+                w=1-u-v;z=u*a[2]+v*b[2]+w*c[2]
+                d=depth[y0:y1,x0:x1]
+                mask=(u>=-1e-8)&(v>=-1e-8)&(w>=-1e-8)&(z>=d)
+                d[mask]=z[mask];ids[y0:y1,x0:x1][mask]=idx
+                rgb[y0:y1,x0:x1][mask]=ImageColor.getrgb(COLORS[patch["material"]])
+        # Visible panel boundaries only; no hidden or edge-on floating strokes.
+        edge=np.zeros_like(ids,dtype=bool)
+        edge[1:,:]|=ids[1:,:]!=ids[:-1,:]
+        edge[:,1:]|=ids[:,1:]!=ids[:,:-1]
+        rgb[edge&(ids>=0)]=ImageColor.getrgb("#243442")
+        im=Image.fromarray(rgb)
         # Pure draft, no fake certification or measured mesh values.
         dest=out/(name+".png");im.save(dest)
         views[name]={"file":dest.name,"sha256":f.digest(dest),"notes":"Shared-scale design projection; hidden surfaces are authored proposals, not observed geometry."}
@@ -81,4 +115,4 @@ def render(out,spec,art,concept):
         "source_sha256":f.digest(out/"drawing_source.json"),"views":views,"blueprint_sha256":f.digest(out/"blueprint.png"),
         "units":"Blockbench source units; no metre conversion or collision verification",
         "proposed_bounds":bounds,
-        "limits":"2D drafting via common projected patch outlines. Occlusion is approximate. No mesh, UV, game geometry or aesthetic approval."})
+        "limits":"2D drafting via common projected patch outlines. Per-pixel orthographic depth; authored nonplanar outlines remain approximations. No mesh, UV, game geometry or aesthetic approval."})
