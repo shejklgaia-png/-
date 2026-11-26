@@ -17,11 +17,14 @@ def stock_ref(slot, item, art_hash):
     folder=f.STOCK/slot/pid/rev
     d=f.read(folder/"job.json"); release=f.read(folder/"release.json")
     f.require(d["format"]=="SERA_PARTS_FACTORY_V6" and d["id"]==pid and d["slot"]==slot,"wrong part identity or old schema")
+    f.require(d.get("review_mode",rr.STRICT)==rr.STRICT,"single-AI reviewed part cannot enter independent set; independent rebuild required")
+    f.require(release.get("review_mode",rr.STRICT)==rr.STRICT,"non-independent release metadata")
     f.require(release["format"]=="SERA_PARTS_STOCK_V6" and release["revision"]==rev,"wrong stock revision")
     previous="ROOT"
     for name in f.ORDER:
         row=d["stages"][name]
         f.require(row.get("supervision",{}).get("format")==rr.CYCLE and row["files"].get("supervision/reconstruction.json")==row["supervision"].get("reconstruction_sha256"),"legacy unsupervised part; rebuild under V6.1")
+        f.require(row["supervision"].get("review_mode",rr.STRICT)==rr.STRICT,"non-independent stage in independent stock")
         f.require(row["upstream"]==previous and f.signature({k:v for k,v in row.items() if k!="key"})==row["key"],"invalid stage chain")
         f.require(f.files(folder/name)==row["files"],"changed stock files: "+pid+"/"+name)
         previous=row["key"]
