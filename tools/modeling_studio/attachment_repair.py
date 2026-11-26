@@ -244,6 +244,8 @@ def prepare(src,dest):
     d["design_notes"].append("V16: distinct yaw pedestal/bored bearing/output sleeve; seated shoulder and elbow axles, inward-rooted elbow forks, proximal forearm clearance, bored wrist housing and shortened output shaft. All pivot transforms and sweep limits unchanged. Fresh connection and interference audits required.")
     d["research_adaptations"].append({"recipe":"separate_rotor_stator","url":"https://www.harmonicdrive.net/_hd/content/applicationHandbooks/6AxisPrimaryAxes.pdf","adaptation":"Fixed housings, supported coaxial outputs and explicit shaft fits; fictional dimensions, not engineering load validation."})
     # V17: resolve buried track wheels, not a cosmetic axial offset alone.
+    # Include supports appended during V11/V16 before looking them up.
+    p={a["name"]:a for a in d["parts"]}
     # V16 actual source: end R77 / road R46, center distance 84.86mm,
     # 38.14mm radial overlap. Preserve the end wheel and track path.
     for s,t in ((-1,"L"),(1,"R")):
