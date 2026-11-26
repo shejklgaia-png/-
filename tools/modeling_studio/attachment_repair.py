@@ -1,4 +1,4 @@
-"""CRATE V14 full-body supervised repair: actual supports, not geometric surface decoration."""
+"""CRATE V15 full-body supervised repair: actual supports, not geometric surface decoration."""
 import copy
 import sys
 from pathlib import Path
@@ -182,5 +182,19 @@ def prepare(src,dest):
         for row in p["Shoulder"+t]["profile"][2:4]:
             row[0]*=.96
     d["design_notes"].append("V14 full-body candidate: head crown, neck, chest, pack, arms, antennae, claws, shoulder and track covers reconstructed; existing mechanical interfaces, tread and pivots retained. Texture Studio paint separate, visual approval pending.")
+    # V15: functional recesses in the actual enclosure, not floating trim meshes.
+    pack=p["Pack"]
+    pack.setdefault("cuts",[]).append({"shape":"box","location":[0,.075,0],
+        "size":[.077,.022,.105],"bevel":0})
+    for s in (-1,1):
+        # shallow lateral service socket below the shoulder, preserve load path
+        p["Chest"].setdefault("cuts",[]).append({"shape":"box",
+            "location":[s*.137,-.036,.259],"size":[.025,.083,.065],"bevel":0})
+    # Relieve the upper fixed neck at the yaw support without moving the joints.
+    for v in p["Neck"]["rings"][2]:
+        v[0]*=.90
+        v[1]=.010+(v[1]-.010)*.88
+    d["design_notes"].append("V15: genuine rear service pocket and bilateral chest sockets; V14 interface and tread retained. Flat surface color, recessed detail only, independent game lighting.")
+    d["research_adaptations"].append({"recipe":"service_recess","url":"https://www.rittal.com/us-en_US/Solutions/Rittal-Product-Solutions/Industrial-enclosure-solutions","adaptation":"Service-access panels and protected cooling recesses in robot enclosure."})
     write(Path(dest),d)
 if __name__=="__main__":prepare(sys.argv[1],sys.argv[2])
