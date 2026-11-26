@@ -17,6 +17,11 @@ jobs:
           persist-credentials: false
       - name: Create reviewed concept with actual Parts Factory CLI
         run: python3 tools/parts_factory/jobs/pf-kite-head/produce_concept.py
+      - name: Receive actual concept image evidence
+        if: ${{ hashFiles('tools/parts_factory/jobs/pf-kite-head/inbox/KITE_art_draft.zip') != '' }}
+        run: |
+          python3 -m pip install Pillow==11.3.0
+          python3 tools/parts_factory/image_intake.py pf_kite_output/work tools/parts_factory/jobs/pf-kite-head/inbox/KITE_art_draft.zip pf_kite_output/art_draft_quarantine
       - name: Store production files
         if: always()
         uses: actions/upload-artifact@v4
