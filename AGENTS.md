@@ -55,3 +55,6 @@
 
 ## 全3D制作の共通プレビュー（2026-11-26）
 3Dモデルが必要な全制作ツール・全成果物のプレビューはHTMLを基本とし、対象の最新ゲーム描画に基づく陰影と枠線を個別ON/OFFできることを必須とする。既定は両ON、スマホ操作対応、実モデル使用。ゲーム正本と近似表示を区別し、パーファク固有の閲覧モードは維持。詳細は `docs/SERA_HTML_ARTIFACT_DELIVERY_POLICY_ja.md` の全3D生産共通標準。未対応ビューワーは実装・実成果物確認まで対応済みとしない。
+
+## パーファクV6.6継続処理（2026-11-26）
+最新の受理済み専用制作artifactのworkを `tools/parts_factory/continuation.py` で検証・復元し、revisionに束縛された次工程のrequest/証拠packet/受理を引き継ぐ。既存受理工程の再生成を避ける。KITEの専用継続workflowは `.github/workflows/pf_kite_continue.yml`。詳細はREADME V6.6。制作AIとrunnerを区別し、prepareだけで制作進捗を加算しない。既存品質ゲートとV6.5納品規約は維持。独立AIの自動起動・モデスタ/テクスタの全自動連携は未接続。
