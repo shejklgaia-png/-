@@ -1,4 +1,4 @@
-# PARTS FACTORY（パーファク）V6.3 — 全工程AI監修・再構築
+# PARTS FACTORY（パーファク）V6.4 — 全工程AI監修・再構築
 2026-11-25 Vesper V1失敗への是正。V1/V2/V3/V4/V5のジョブは互換なし。旧データを破壊せず、新規V6作業ディレクトリに再登録する。単なる箱・円柱の組立を完成扱いしない。設計画が視覚的な正本。全身セットは先にセット全体のデザインを比較・確定し、その後6部位を独立制作する。ゲーム本体/既存モデル/無関係CIを変更しない。
 
 ## V3追加：設定画解析ブリッジ（必須）
@@ -96,3 +96,8 @@ V6の記述と矛盾する場合は本節を優先。concept/art/blueprint/analy
 画像生成は制作指示と分離し、候補は被写体単体、無地背景、文字・UI・レポート・認証・品質評価・ポリゴン数・完了や登録表示なし。初稿と再構築の両方で画像自体を開き、虚偽完成・技術測定・認証表示があれば不採用として隔離し、次の候補へ。文字禁止だけで自動検出はできない。審査時に候補ごとに `image_content_review.json`（format=SERA_PF_IMAGE_CONTENT_V1、reviewer、images={候補ID:{sha256,claims_absent:true,notes:目視根拠}}）を実画像に結び付ける。artの両役割にも visual_truthfulness 基準を追加。自動審美・OCR承認は禁止。
 ローカルPNGをGitHubへ直接送れない場合は、原画と候補切出しPNGと manifest.json を1つの24MiB以下のZIPにする。manifestは format=SERA_PF_ART_TRANSFER_V1,job_id,concept_revision,phase=draft|rebuilt,status=unreviewed,image_task_id,sources=[{path: sources/name.png,sha256,width,height}],candidates=[{id,path:candidates/name.png,sha256,source:対応原画path,crop:[x0,y0,x1,y1]}]。原画単体なら全画像の矩形。PNGを劣化させずSHAと実画素一致を検査。別ファイル/不正パス/重複/過大展開を拒否。画像変換は切出しのみ、設計そのものの再構築とは扱わない。
 `python -m pip install Pillow==11.3.0` の専用制作環境で `python tools/parts_factory/image_intake.py WORK ARCHIVE NEW_QUARANTINE_DIR`。受理済concept revisionを固定し、検査済画像を未審査隔離ディレクトリに展開する。正式art承認は既存の初稿批評・実再構築・再審査とfactory acceptが必要。ファイル転送だけでは受理しない。GitHubブラウザで専用制作ブランチにZIPを手動アップロード可能（25MiB/ファイル上限のため24MiBに制限）。自動バイナリ転送は未接続。参考 https://docs.github.com/en/repositories/working-with-files/managing-files/adding-a-file-to-a-repository ; https://docs.python.org/3/library/zipfile.html 。
+
+## V6.4：ChatGPT作業ファイルの自動搬送
+画像生成の原本・GLB等のバイナリは作業領域に保持し、ZIP (24MiB以下) を `python tools/parts_factory/artifact_transport.py pack ARCHIVE NEW_DIR` で540000バイト単位に分割、Base64テキスト（720000文字以下）とmanifest.jsonを作る。ChatGPTはユーザー自身の非公開制作ページの添付に各テキストを登録し、sourceとして読み戻す。添付SHAとtext_sha256、文字長とBase64書式を照合したうえで接続済GitHubのcreate_blob(encoding=base64)に1片ずつ渡す。巨大な単一リクエストは禁止。各blob SHAを対応するpartNNN.binとmanifestに対応付け、専用制作ブランチにcreate_tree/create_commit/update_ref(expected_sha)で一括配置。途中で欠落したらコミットしない。同じ名前の新ジョブは専用フォルダとハッシュを変更する。
+ランナーで `python tools/parts_factory/artifact_transport.py join TRANSPORT_DIR NEW_ARCHIVE` を実行し、各断片SHA/サイズ/順序と全ZIP SHA/サイズが一致した場合だけ元ファイルを復元する。画像はさらにimage_intakeで検証、未審査隔離。搬送成功はart承認ではない。AIの監修・再構築・実成果物検査は既存契約を維持。ChatGPTが接続ツールを順に実行する方式であり、独立常駐サービス、別AI自動起動、追加有料APIは不要/未使用。ページやコネクタの権限・容量制限、画像生成品質、Actions利用枠は残る。中継データは非公開制作ページ、Gitの専用制作ブランチに保存される。秘密情報は搬送しない。手動ZIP搬入はフォールバックとして維持。
+参考: https://docs.github.com/ja/rest/git/blobs ; https://docs.github.com/ja/rest/git/trees ; https://docs.python.org/3/library/base64.html ; https://docs.python.org/3/library/hashlib.html
