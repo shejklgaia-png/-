@@ -30,7 +30,7 @@ CRITERIA={
  "concept":{ART:("identity","appeal","world_cohesion"),TECH:("mechanism","rig_target","reference_quality")},
  "analysis":{ART:("reference_fidelity","silhouette"),TECH:("calibration","correspondence","uncertainty")},
  "model":{ART:("appeal","silhouette","armor_language"),TECH:("mesh_integrity","reference_match","rig_clearance","provenance")},
- "art":{ART:("appeal","identity","silhouette","cohesion","readability"),TECH:("mechanism","feasibility","reference_consistency")},
+ "art":{ART:("appeal","identity","silhouette","cohesion","readability","visual_truthfulness"),TECH:("mechanism","feasibility","reference_consistency","visual_truthfulness")},
  "blueprint":{ART:("design_fidelity","proportions","palette"),TECH:("projection_consistency","mechanism","interface")},
  "plan":{ART:("design_fidelity","shape_language","detail_hierarchy"),TECH:("structure","rig_interface","method_choice","reference_traceability")},
  "geometry":{ART:("appeal","silhouette","proportions","armor_language","detail_balance"),TECH:("reference_match","mesh_integrity","mechanism","rig_clearance","budget")},
@@ -196,7 +196,7 @@ def emit(out,stage,role,items,binding):
         "criteria":list(CRITERIA[stage][role]),
         "instructions":"Open evidence files, evaluate independently before seeing author or other scores. Give a concrete defect or justification for every criterion and cite evidence paths. Do not approve missing or uninspected evidence. If draft evidence is present, compare it to the final candidate: reject cosmetic-only changes or unresolved defects, and require a concrete improvement or documented deterministic rebuild. Record your real context ID; never fabricate independence."}
     if binding.get("review_mode")==SELF:
-        request["instructions"]="Single-AI supervised review, NOT independent. Open the actual evidence, conduct a separate critical pass in the named role, cite inspected evidence paths, record specific defects and reconstruction advice. Compare final to draft and reject unresolved or merely cosmetic changes. Use the real author actor/context ID. Never claim independent review. Missing evidence is unverified."
+        request["instructions"]="Single-AI supervised review, NOT independent. Open the actual evidence. Reject any fabricated completion, certification, stock, or technical measurement claims embedded in concept art. Conduct a separate critical pass in the named role, cite inspected evidence paths, record specific defects and reconstruction advice. Compare final to draft and reject unresolved or merely cosmetic changes. Use the real author actor/context ID. Never claim independent review. Missing evidence is unverified."
         request["review_mode"]=SELF
     (out/"request.json").write_text(json.dumps(request,ensure_ascii=False,indent=2),encoding="utf-8")
     template={"format":FORMAT,"role":role,"binding_sha256":q.canonical(binding),
