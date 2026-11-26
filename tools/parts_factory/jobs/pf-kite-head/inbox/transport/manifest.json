@@ -1,0 +1,49 @@
+{
+  "format": "SERA_PF_BINARY_TRANSPORT_V1",
+  "archive_bytes": 3306895,
+  "archive_sha256": "e0504fb2ca1285bbafef8b1d516e71dc8fda7ef7b8a42e4091e3a5e3b7f5cc96",
+  "parts": [
+    {
+      "path": "part000.bin",
+      "bytes": 540000,
+      "sha256": "9b17d456c845609139c996164bb569f6b57028be0a64f004402e2ca9f3a2c566",
+      "text_sha256": "1639d383cac701ed078bb0bdfdd1072dd9e9fed665470322674864c205e9cff4"
+    },
+    {
+      "path": "part001.bin",
+      "bytes": 540000,
+      "sha256": "6a8d0e84318c9c47ad86a68e371a810f5f89986b29e9d5973386aa4910cd3fdc",
+      "text_sha256": "2578ba509435bcdf9f36fa3b969f29a1a7bb21e76e611d8f75ebcd4e6b926ed6"
+    },
+    {
+      "path": "part002.bin",
+      "bytes": 540000,
+      "sha256": "1b34ffb167fd292ff046f4484170d81a4332fe690aa664c940fee9ecae11f86a",
+      "text_sha256": "cd41f3f49624936aa75815b5ef1d6b7aaaf45cc232cc0e15c567c7132417cbf1"
+    },
+    {
+      "path": "part003.bin",
+      "bytes": 540000,
+      "sha256": "1160a16bf67f0b0e38a2ebda204db719411d88c1bbb83357152f0bff17092af1",
+      "text_sha256": "1ed0a7777a013ef95e825b0717d17b32bd81b2a583ead70928dbb8bf92bf926b"
+    },
+    {
+      "path": "part004.bin",
+      "bytes": 540000,
+      "sha256": "7a11e7502896ab4a90c76f2b1d000fa662f9a5b9734e375a96fea45160c546e6",
+      "text_sha256": "41fddef348e7c143c30913b1de000a6125f5d68f7d3e4cee3a45dc82002f25d7"
+    },
+    {
+      "path": "part005.bin",
+      "bytes": 540000,
+      "sha256": "3312d243e73c38ae47620787a893badf468abc88584ce4ce1fcb1fd20d4cb2d2",
+      "text_sha256": "0936bfe10d0a20b7ba4829051902b090cb199cae978b1ea172c08805fbdf768a"
+    },
+    {
+      "path": "part006.bin",
+      "bytes": 66895,
+      "sha256": "b4958117e1417f080d5ab6f49426ccc04c78df468a30135964d16cca67aac431",
+      "text_sha256": "38d4abdc15b7d92252be0ec008d4d7b6ca7b541a4146ed16df13baf76b8b5a38"
+    }
+  ]
+}

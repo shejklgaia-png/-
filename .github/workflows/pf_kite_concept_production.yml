@@ -18,10 +18,16 @@ jobs:
       - name: Create reviewed concept with actual Parts Factory CLI
         run: python3 tools/parts_factory/jobs/pf-kite-head/produce_concept.py
       - name: Receive actual concept image evidence
-        if: ${{ hashFiles('tools/parts_factory/jobs/pf-kite-head/inbox/KITE_art_draft.zip') != '' }}
+        if: ${{ hashFiles('tools/parts_factory/jobs/pf-kite-head/inbox/KITE_art_draft.zip', 'tools/parts_factory/jobs/pf-kite-head/inbox/transport/manifest.json') != '' }}
         run: |
-          python3 -m pip install Pillow==11.3.0
-          python3 tools/parts_factory/image_intake.py pf_kite_output/work tools/parts_factory/jobs/pf-kite-head/inbox/KITE_art_draft.zip pf_kite_output/art_draft_quarantine
+          python3 -m venv "$RUNNER_TEMP/pf-intake"
+          "$RUNNER_TEMP/pf-intake/bin/pip" install Pillow==11.3.0
+          archive="tools/parts_factory/jobs/pf-kite-head/inbox/KITE_art_draft.zip"
+          if [ -f "tools/parts_factory/jobs/pf-kite-head/inbox/transport/manifest.json" ]; then
+            archive="$RUNNER_TEMP/KITE_art_draft.zip"
+            python3 tools/parts_factory/artifact_transport.py join "tools/parts_factory/jobs/pf-kite-head/inbox/transport" "$archive" | tee pf_kite_output/transport_report.json
+          fi
+          "$RUNNER_TEMP/pf-intake/bin/python" tools/parts_factory/image_intake.py pf_kite_output/work "$archive" pf_kite_output/art_draft_quarantine
       - name: Store production files
         if: always()
         uses: actions/upload-artifact@v4
