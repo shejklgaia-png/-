@@ -32,6 +32,19 @@ def review(which,src):
         response.update(reviewer=actor,independent_context_attested=False,verdict=spec["verdict"],blocking_issues=spec["issues"],revision_advice=spec["advice"])
         response["criteria"]={key:{"score":row[0],"reason":row[1],"evidence":["candidate/concept.json","candidate/design_brief.json"]} for key,row in spec["criteria"].items()}
         write(src/"independent_reviews"/(role+".json"),response)
+# Capture the canonical rig geometry used in the authored concept.
+rig=load(ROOT/"models/core/Standard.bbmodel")
+head=next(g for g in rig["groups"] if g["name"]=="Head")
+neck=next(g for g in rig["groups"] if g["name"]=="Neck")
+def bounds(name):
+    e=next(g for g in rig["elements"] if g["name"]==name)
+    vs=list(e["vertices"].values())
+    return [[round(min(v[i] for v in vs)+e["origin"][i]-head["origin"][i],5),round(max(v[i] for v in vs)+e["origin"][i]-head["origin"][i],5)] for i in range(3)]
+measured={"head_pivot":head["origin"],"neck_pivot":neck["origin"],"standard_head_relative_bounds":bounds("Head_Mesh"),"neck_mesh_relative_bounds":bounds("Neck_Mesh")}
+write(OUT/"rig_evidence.json",measured)
+for key,value in measured.items():
+    if load(SOURCE/"final.json")["rig_target"][key]!=value:
+        raise ValueError("Canonical rig changed: "+key)
 run(PF/"factory.py","init",WORK,"PF-KITE-HEAD","head","--review-mode","supervised_self_review")
 draft=OUT/"draft"; final=OUT/"final"
 stage_candidate("draft",draft); review("draft",draft)
