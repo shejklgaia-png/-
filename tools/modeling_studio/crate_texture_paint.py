@@ -43,66 +43,9 @@ def main(root):
     mats=[f["material"] for f in g["faces"]]
     if set(mats)-set(palette):raise ValueError("unexpected materials "+str(set(mats)-set(palette)))
     layers=[];log=[]
-    def plane(pid,axis,offset,width,color,opacity=1,faces=None,relief=False):
-        row={"kind":"plane","parts":[pid],"normal":[int(i==axis) for i in range(3)],
-             "offset":float(offset),"width":float(width),"color":color,"opacity":opacity,"relief":relief}
-        if faces is not None:row["faces"]=faces
-        layers.append(row)
-    def dot(pid,q,width,color,relief=False):
-        layers.append({"kind":"dot","parts":[pid],"center":q.tolist(),"width":width,"color":color,"relief":relief})
-    def seam(pid,axis,ratio,fasten=False):
-        ids=np.flatnonzero(part==pid);pts=p[ids];lo=pts.min((0,1));hi=pts.max((0,1))
-        span=hi-lo;offset=lo[axis]+span[axis]*ratio
-        width=min(.0032,max(.0016,span[axis]*.012))
-        plane(pid,axis,offset,width*2.1,[145,152,158],.9)
-        plane(pid,axis,offset,width,[44,53,63])
-        plane(pid,axis,offset+width*1.7,width*.6,[247,246,237],.65)
-        if not fasten:return
-        # Locate actual triangle/offset-plane intersections rather than floating bolt coordinates.
-        points=[]
-        for tri in pts:
-            hits=[]
-            for a,b in zip(tri,np.roll(tri,-1,axis=0)):
-                v=b[axis]-a[axis]
-                if abs(v)>1e-9:
-                    t=(offset+width*3-a[axis])/v
-                    if 0<=t<=1:hits.append(a+(b-a)*t)
-            if len(hits)>=2:points.append((hits[0]+hits[1])/2)
-        chosen=[]
-        for q in sorted(points,key=lambda q:(float(q[0]),float(q[2]),float(q[1]))):
-            if all(np.linalg.norm(q-v)>.043 for v in chosen):
-                chosen.append(q)
-                if len(chosen)>=12:break
-        for q in chosen:
-            dot(pid,q,.0048,[52,61,69]);dot(pid,q,.0031,[149,159,167],True)
-        log.append({"part":pid,"seam_axis":axis,"fastener_centers":len(chosen)})
-    # Authored cover division, different directions for head, body, arm and drivetrain.
-    for row in g["parts"]:
-        pid=row["id"];name=row["name"];ids=np.flatnonzero(part==pid)
-        if not len(ids):continue
-        pts=p[ids];lo=pts.min((0,1));hi=pts.max((0,1));span=hi-lo
-        if name=="Head":
-            seam(pid,1,.74,True);seam(pid,2,.22,True)
-        elif name=="Chest":
-            seam(pid,1,.28,True);seam(pid,1,.79,True)
-        elif name=="Pack":
-            seam(pid,1,.77,True)
-            rear=sorted(set(int(face[t]) for t in ids if n[t,2]<-.75))
-            if rear:
-                for frac in (.35,.43,.51,.59):
-                    plane(pid,1,lo[1]+span[1]*frac,.003,[29,37,46],1,rear,True)
-        elif name=="Chassis":
-            seam(pid,1,.39,True)
-        elif name.startswith(("UpperArm","Forearm")) and "Core" not in name:
-            seam(pid,int(np.argmax(span)),.29,True)
-        elif name.startswith(("TrackHub","TrackSkidPlate")):
-            seam(pid,2,.28,True)
-        elif name.startswith(("Shoulder","ElbowCap","HandBase")) and "Mount" not in name and span.max()>.06:
-            seam(pid,int(np.argmax(span)),.62,False)
-        elif name.startswith(("ClawTop","ClawLower","Antenna")) and mats[int(face[ids[0]])] in ("white","steel","frame") and span.max()>.075:
-            seam(pid,int(np.argmax(span)),.74,False)
-        elif name=="RoofServiceCover":
-            seam(pid,0,.25,True)
+    # V16: no automatic cross-section rings, broad decorative bands, or
+    # unscoped planes. A geometric joint seam belongs to the game ID outline,
+    # not the albedo. Only defined maintenance features are painted below.
     # V15: projected, chamfered maintenance panels on the actual exterior faces.
     # Color accents are materials, not directional lighting. Projected detail
     # spans polygon boundaries without relying on the UV chart orientation.
@@ -138,11 +81,16 @@ def main(root):
                     q=p[t].mean(0)
                     if abs(q[0])<.128 and .226<q[1]<.292 and -.007<q[2]<.079:
                         mats[int(face[t])]="recess"
-                for y in (.243,.256,.269):
-                    line(pid,fs,[2,1],[[.009,y],[.064,y]],.003,[42,49,57])
+                # Contacts and retainer only on the actual socket floor, not its rim.
+                floor=[f for f in fs if mats[f]=="recess" and
+                       max(abs(v[0]) for v in g["faces"][f]["positions"])<.125]
+                line(pid,floor,[2,1],[[.013,.242],[.059,.242],[.059,.276],[.013,.276],[.013,.242]],.0025,[110,122,134])
+                for z in (.022,.036,.050):
+                    bolt(pid,floor,[2,1],[z,.259],.0025)
+                log.append({"part":pid,"purpose":"recess connector contacts","floor_faces":len(floor)})
             fs=scoped(pid,2,1)
             hatch(pid,fs,[0,1],[-.081,.200],[.081,.285],.013)
-            line(pid,fs,[0,1],[[-.052,.245],[-.024,.245],[-.012,.255],[.012,.255],[.024,.245],[.052,.245]],.004,[87,101,113])
+
         elif name=="Pack":
             fs=scoped(pid,2,-1)
             hatch(pid,fs,[0,1],[-.051,.263],[.051,.401],.012)
@@ -151,24 +99,33 @@ def main(root):
                 q=p[t].mean(0)
                 if abs(q[0])<.039 and .279<q[1]<.384 and q[2]>-.286:
                     mats[int(face[t])]="recess"
+            floor=[f for f in fs if mats[f]=="recess" and
+                   min(v[2] for v in g["faces"][f]["positions"])>-.280]
             for y in (.303,.318,.333,.348,.363):
-                line(pid,fs,[0,1],[[-.029,y],[.029,y]],.004,[33,41,49])
-                line(pid,fs,[0,1],[[-.027,y+.006],[.027,y+.006]],.0018,[113,127,139])
-            for sign in (-1,1):
-                sf=scoped(pid,0,sign)
-                hatch(pid,sf,[2,1],[-.269,.266],[-.169,.392],.012)
+                line(pid,floor,[0,1],[[-.029,y],[.029,y]],.003,[24,32,40])
+                line(pid,floor,[0,1],[[-.027,y+.005],[.027,y+.005]],.0016,[113,127,139])
+            log.append({"part":pid,"purpose":"recess cooling fins","floor_faces":len(floor)})
         elif name.startswith("TrackHub") and name[-1] in ("L","R"):
             sign=-1 if name[-1]=="L" else 1
             fs=scoped(pid,0,sign)
             hatch(pid,fs,[2,1],[-.049,.119],[.049,.153],.006)
-            for z in (-.029,0,.029):bolt(pid,fs,[2,1],[z,.136],.0023)
+
         elif name=="Head":
-            for sign in (-1,1):
-                fs=scoped(pid,0,sign)
-                hatch(pid,fs,[2,1],[-.172,.524],[-.080,.599],.012)
             fs=scoped(pid,2,-1)
             hatch(pid,fs,[0,1],[-.128,.535],[.128,.633],.014)
-        elif name.startswith(("Forearm","UpperArm")) and name[-1] in ("L","R") and "Core" not in name:
+        elif name in ("ShoulderCapL","ShoulderCapR","ElbowCapL","ElbowCapR"):
+            sign=-1 if name[-1]=="L" else 1
+            pts=p[part==pid];lo=pts.min((0,1));hi=pts.max((0,1))
+            fs=scoped(pid,0,sign)
+            # Real end-cap face only; fasteners sit on the existing removable cap.
+            outer=hi[0] if sign>0 else lo[0]
+            fs=[f for f in fs if all(abs(v[0]-outer)<.003 for v in g["faces"][f]["positions"])]
+            center=(lo+hi)/2
+            rad=.029 if name.startswith("Shoulder") else .026
+            for ang in np.linspace(0,2*np.pi,6,endpoint=False):
+                bolt(pid,fs,[2,1],[float(center[2]+rad*np.cos(ang)),float(center[1]+rad*np.sin(ang))],.0023)
+            log.append({"part":pid,"purpose":"existing removable bearing end-cap fasteners","faces":len(fs)})
+        elif name.startswith("Forearm") and name[-1] in ("L","R") and "Core" not in name:
             sign=-1 if name[-1]=="L" else 1
             fs=scoped(pid,0,sign)
             pts=p[part==pid];lo=pts.min((0,1));hi=pts.max((0,1))
@@ -198,12 +155,21 @@ def main(root):
                     log.append({"part":pid,"fitted_hatch_scale":scale,"projected_samples":len(samples)+len(bolts)})
                     break
             else:log.append({"part":pid,"fitted_hatch":"no closed fit"})
+    # Scope checks prevent arbitrary lines returning to axes, pins and pivots.
+    allowed={"Chest","Pack","Head","TrackHubL","TrackHubR","ForearmL","ForearmR",
+             "ShoulderCapL","ShoulderCapR","ElbowCapL","ElbowCapR"}
+    for layer in layers:
+        if layer["kind"] not in ("projected_stroke","projected_dot") or not layer.get("faces"):
+            raise ValueError("unscoped or decorative line")
+        for pid in layer["parts"]:
+            if g["parts"][pid]["name"] not in allowed:raise ValueError("unexpected painted component")
+            if any(g["faces"][f]["part"]!=pid for f in layer["faces"]):raise ValueError("foreign face scope")
     palette["recess"]=[39,46,54]
     plan={"geometry_sha256":digest,"resolution":2048,"supersample":1,"padding":3,
           "light":[-.18,1,.32],"ambient":1.0,"direct":0.0,"palette":palette,
           "face_material":mats,"emissive_materials":["cyan"],"layers":layers}
     write(out/"surface_plan.json",plan)
-    write(out/"paint_intent.json",{"status":"candidate","rules":"scoped chamfered access hatches, actual recess floors, flat surface color; no directional diffuse bake","fasteners":log,
+    write(out/"paint_intent.json",{"status":"candidate","rules":"functional hatches, recess contacts and cooling fins, actual removable bearing cap fasteners only; no unscoped rings or directional diffuse bake","fasteners":log,
          "uv":"repacked existing Modeling Studio UVs; inspect density and raster collisions; no manual approval"})
     bake(mesh,plan,out/"paint")
 
