@@ -245,6 +245,35 @@ def apply_modifier(obj, mod):
     bpy.ops.object.modifier_apply(modifier=mod.name)
 
 
+def apply_normal_finish(obj, cfg):
+    """Preserve intentional hard edges; smooth only the declared curvature."""
+    mode = cfg["mode"]
+    if mode == "flat":
+        for poly in obj.data.polygons:
+            poly.use_smooth = False
+        obj.data.update()
+        return
+    bm = bmesh.new()
+    try:
+        bm.from_mesh(obj.data)
+        bm.normal_update()
+        limit = math.radians(cfg["angle_deg"])
+        for face in bm.faces:
+            face.smooth = True
+        for edge in bm.edges:
+            edge.smooth = (edge.is_manifold and
+                           edge.calc_face_angle(0.0) <= limit)
+        bm.to_mesh(obj.data)
+    finally:
+        bm.free()
+    obj.data.update()
+    if mode == "weighted":
+        mod = obj.modifiers.new("Declared weighted normals", 'WEIGHTED_NORMAL')
+        mod.keep_sharp = True
+        mod.mode = 'FACE_AREA_WITH_ANGLE'
+        apply_modifier(obj, mod)
+
+
 def build_part(spec, mats):
     obj = shape(spec["name"], spec)
     for i,cut in enumerate(spec.get("cuts", [])):
@@ -264,6 +293,8 @@ def build_part(spec, mats):
         mod.width = width
         mod.segments = spec.get("bevel_segments", 2)
         mod.limit_method = 'ANGLE'
+        if 'bevel_angle_deg' in spec:
+            mod.angle_limit = math.radians(spec['bevel_angle_deg'])
         mod.harden_normals = True
         apply_modifier(obj, mod)
     if "cleanup_distance" in spec:
@@ -286,7 +317,9 @@ def build_part(spec, mats):
             a,b,c=(obj.data.vertices[i].co for i in tri.vertices)
             if (b-a).cross(c-a).length<1e-12:
                 raise ValueError("cleanup left degenerate triangle: "+obj.name)
-    if spec.get("weighted_normals", width > 0):
+    if "normal_finish" in spec:
+        apply_normal_finish(obj, spec["normal_finish"])
+    elif spec.get("weighted_normals", width > 0):
         for face in obj.data.polygons:
             face.use_smooth = True
         mod = obj.modifiers.new("Weighted normals", 'WEIGHTED_NORMAL')
@@ -553,6 +586,27 @@ def main():
     if not 128<=resolution<=2048:
         raise ValueError("review_resolution must be 128..2048")
     render_views(objects,out,resolution,spec.get("landmarks", {}),spec.get("review_cameras", {}),spec.get("camera_fits", {}), authoring.get("part_targets", {}) if authoring else {})
+    if spec.get("clay_review", False):
+        # Render the identical geometry/cameras without palette or emission.
+        # Material override is render-only; exported GLB/BLEND stay unchanged.
+        clay = out / "clay"
+        clay.mkdir()
+        view_layer = bpy.context.view_layer
+        previous = view_layer.material_override
+        neutral = material("Form review neutral", {
+            "rgb": [.36, .36, .36], "metallic": 0, "roughness": .65})
+        try:
+            view_layer.material_override = neutral
+            render_views(objects, clay, resolution, spec.get("landmarks", {}),
+                         spec.get("review_cameras", {}), spec.get("camera_fits", {}),
+                         authoring.get("part_targets", {}) if authoring else {})
+        finally:
+            view_layer.material_override = previous
+        (clay / "review_mode.json").write_text(json.dumps({
+            "mode": "neutral_material", "geometry": "same exported model",
+            "aesthetic_review": "pending",
+            "limitations": "Neutral render is evidence, not automatic approval."
+        }, indent=2), encoding="utf-8")
     (out/"complete.json").write_text(json.dumps(dict(format=spec["format"],views=list(VIEWS),
         triangles=sum(row["triangles"] for row in report)),indent=2),encoding="utf-8")
 
