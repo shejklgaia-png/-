@@ -108,7 +108,7 @@ def main(root):
         elif name.startswith("TrackHub") and name[-1] in ("L","R"):
             sign=-1 if name[-1]=="L" else 1
             fs=scoped(pid,0,sign)
-            hatch(pid,fs,[2,1],[-.049,.119],[.049,.153],.006)
+            hatch(pid,fs,[2,1],[-.049,.124],[.049,.154],.006)
 
         elif name=="Head":
             fs=scoped(pid,2,-1)

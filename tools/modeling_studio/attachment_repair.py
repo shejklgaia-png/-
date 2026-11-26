@@ -1,4 +1,4 @@
-"""CRATE V16 joint reconstruction supervised repair: actual supports, not geometric surface decoration."""
+"""CRATE V17 independent track wheels supervised repair: actual supports, not geometric surface decoration."""
 import copy
 import sys
 from pathlib import Path
@@ -243,5 +243,64 @@ def prepare(src,dest):
         pair("WristBearing"+t,"WristAxle"+t)
     d["design_notes"].append("V16: distinct yaw pedestal/bored bearing/output sleeve; seated shoulder and elbow axles, inward-rooted elbow forks, proximal forearm clearance, bored wrist housing and shortened output shaft. All pivot transforms and sweep limits unchanged. Fresh connection and interference audits required.")
     d["research_adaptations"].append({"recipe":"separate_rotor_stator","url":"https://www.harmonicdrive.net/_hd/content/applicationHandbooks/6AxisPrimaryAxes.pdf","adaptation":"Fixed housings, supported coaxial outputs and explicit shaft fits; fictional dimensions, not engineering load validation."})
+    # V17: resolve buried track wheels, not a cosmetic axial offset alone.
+    # V16 actual source: end R77 / road R46, center distance 84.86mm,
+    # 38.14mm radial overlap. Preserve the end wheel and track path.
+    for s,t in ((-1,"L"),(1,"R")):
+        for i,y in enumerate((-.084,0,.084)):
+            k=t+str(i)
+            roller=p["TrackRoadRoller"+k]
+            roller["location"][1:]=[y,.072]
+            roller["profile"]=[[.014,-.041],[.035,-.041],[.035,-.010],
+                [.026,-.010],[.026,.010],[.035,.010],[.035,.05512],[.014,.05512]]
+            # Both original wheel axes point +X; mirror axial profile on L.
+            if s<0:
+                for row in roller["profile"]:row[1]*=-1
+            rim=p["TrackRoadRim"+k]
+            rim["location"]=[s*.270,y,.072]
+            rim["radius"]=.0255
+            hub=p["TrackRoadHub"+k]
+            hub["location"]=[s*.277,y,.072]
+            shaft=p["TrackRoadShaft"+k]
+            shaft["location"]=[s*.219,y,.072]
+            shaft["depth"]=.116
+            # New inboard bearing seat bridges the lowered axle to frame.
+            # Axial envelope .145-.169, roller starts at .171.
+            name="TrackRoadBearingMount"+k
+            a=iv.append_part(d,name,"BodyRoot","frame","box",
+                [s*.157,y,.089],size=[.024,.029,.042])
+            a["bevel"]=0
+            pair(name,"TrackSupportFrame"+t)
+            pair(name,"TrackRoadShaft"+k)
+            # The lowered axle now connects to the frame through its seat.
+            # Replace (not merely ignore) the previous direct shaft-frame check.
+            checks[:]=[c for c in checks if not(c["part"]=="TrackRoadShaft"+k and c["support"]=="TrackSupportFrame"+t)]
+        for prefix in ("FrontWheel","RearWheel"):
+            wheel=p[prefix+t]
+            # Extend only the outer axial flange; keep tread guide groove centered.
+            for row in wheel["profile"]:
+                if row[1]*s>.04:row[1]=s*.055
+            for suffix in ("Rim","Hub","Axle"):
+                p[prefix+suffix+t]["location"][0]+=s*.004
+            p["Track"+prefix+"Shaft"+t]["depth"]=.116
+        # Bottom of frame clears the new roller envelope by 1mm.
+        for idx,z in ((0,-.014),(1,-.012)):
+            for v in p["TrackSupportFrame"+t]["rings"][idx]:v[2]=z
+        cover=p["TrackHub"+t]
+        cover["location"][2]+=.003
+        for ring in cover["rings"]:
+            for v in ring:v[2]*=.8
+        for i in range(2):p["TrackCoverSupport"+t+str(i)]["location"][2]+=.003
+    # Enforce the design-space projection gaps before Blender authoring.
+    import math
+    gap=math.hypot(.197-.084,.114-.072)-.077-.035
+    assert gap>.008 and .084-2*.035>.01
+    assert .139-.028*.8-(.072+.035)>.009
+    d["track_design"]["road_roller_radius"]=.035
+    d["track_design"]["road_roller_centers_y"]=[-.084,0,.084]
+    d["track_design"]["road_roller_center_z"]=.072
+    d["track_design"]["wheel_to_roller_nominal_gap_m"]=gap
+    d["design_notes"].append("V17: independent road rollers R35 centered at +/-84mm and z72mm; end-wheel radius and track path unchanged. Outer wheel flange/rims exposed, inboard bearing seats and slim lifted side cover. Nominal radial end-wheel gap 8.55mm, center roller gap 14mm, cover gap 9.6mm. Actual rendered clearance and interference require review.")
+    d["research_adaptations"].append({"recipe":"independent_track_roller_support","url":"https://parts.cat.com/en/catcorp/by-industry-building-construction","adaptation":"Distinct end wheel, road roller and shaft support; retain authored endless belt geometry."})
     write(Path(dest),d)
 if __name__=="__main__":prepare(sys.argv[1],sys.argv[2])
