@@ -14,7 +14,7 @@ concurrency:
 jobs:
   resume:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,7 +29,17 @@ jobs:
           from pathlib import Path
           cfg=json.loads(Path("tools/parts_factory/continuations/kite/request.json").read_text())
           assert cfg["job_id"]=="PF-KITE-HEAD"
-          assert cfg["operation"] in ("prepare","draft_packet","rebuild_template","final_packet","accept")
+          assert cfg["operation"] in ("prepare","draft_packet","rebuild_template","final_packet","accept","tool")
+          import sys
+          sys.path.insert(0,"tools/parts_factory")
+          import tool_runner
+          tool=cfg.get("tool","") if cfg["operation"]=="tool" else ""
+          if tool:
+              _,payload,blender=tool_runner.check_request(Path("tools/parts_factory/continuations/kite/request.json"))
+          else:
+              assert cfg["operation"]!="tool"
+              payload=cfg["operation"]!="prepare"; blender=False
+          scientific=tool in ("analyze","geometry_compare","uv_build","paint_build")
           assert type(cfg["source_run"]) is int and cfg["source_run"]>0
           assert type(cfg["source_artifact"]) is int and cfg["source_artifact"]>0
           repo=os.environ["GITHUB_REPOSITORY"]
@@ -42,7 +52,7 @@ jobs:
           assert a["workflow_run"]["id"]==cfg["source_run"] and a["name"]==cfg["source_name"] and not a["expired"]
           assert a["name"] in ("pf-kite-head-concept","pf-kite-head-continuation")
           with open(os.environ["GITHUB_OUTPUT"],"a") as fp:
-              fp.write(f"run={cfg['source_run']}\nname={a['name']}\noperation={cfg['operation']}\n")
+              fp.write(f"run={cfg['source_run']}\nname={a['name']}\noperation={cfg['operation']}\ntool={tool}\npayload={str(payload).lower()}\nblender={str(blender).lower()}\nscientific={str(scientific).lower()}\n")
           PY
       - uses: actions/download-artifact@v4
         with:
@@ -50,16 +60,62 @@ jobs:
           run-id: ${{ steps.source.outputs.run }}
           github-token: ${{ github.token }}
           path: previous_checkpoint
-      - name: Resume verified job or process reviewed stage inbox
+      - name: Install isolated scientific production dependencies
+        if: steps.source.outputs.scientific == 'true'
+        run: |
+          python3 -m venv "$RUNNER_TEMP/pf-venv"
+          "$RUNNER_TEMP/pf-venv/bin/pip" install numpy==2.2.6 scipy==1.15.3 Pillow==11.3.0 shapely==2.1.1 opencv-python-headless==4.12.0.88
+      - name: Install Blender for actual model and texture production
+        if: steps.source.outputs.blender == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          archive=blender-4.5.3-linux-x64.tar.xz
+          ok=0
+          for base in https://download.blender.org/release/Blender4.5 https://mirror.blender.org/release/Blender4.5; do
+            rm -f "$archive" checksums.txt selected.sha256
+            if curl --fail --location --retry 2 --connect-timeout 20 --max-time 240 "$base/blender-4.5.3.sha256" -o checksums.txt &&
+               awk -v a="$archive" '$2==a || $2=="*"a {print}' checksums.txt > selected.sha256 &&
+               [ "$(wc -l < selected.sha256)" -eq 1 ] &&
+               curl --fail --location --retry 2 --connect-timeout 20 --max-time 300 "$base/$archive" -o "$archive" &&
+               sha256sum --check selected.sha256; then ok=1; break; fi
+          done
+          [ "$ok" -eq 1 ]
+          tar -xf "$archive"
+          echo "$RUNNER_TEMP/blender-4.5.3-linux-x64" >> "$GITHUB_PATH"
+      - name: Install isolated Godot model importer
+        if: steps.source.outputs.tool == 'model_build'
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          archive=Godot_v4.7.2-stable_linux.x86_64.zip
+          curl --fail --location --retry 3 --connect-timeout 20 --max-time 240 "https://github.com/godotengine/godot-builds/releases/download/4.7.2-stable/$archive" -o "$archive"
+          unzip -q "$archive"
+      - name: Resume verified job and execute allowed production tool
         env:
           PF_OPERATION: ${{ steps.source.outputs.operation }}
+          PF_TOOL: ${{ steps.source.outputs.tool }}
+          PF_PAYLOAD: ${{ steps.source.outputs.payload }}
+          PF_SCIENTIFIC: ${{ steps.source.outputs.scientific }}
+        shell: bash
         run: |
+          set -euo pipefail
           cfg=tools/parts_factory/continuations/kite/request.json
-          if [ "$PF_OPERATION" = prepare ]; then
-            python3 tools/parts_factory/continuation.py previous_checkpoint/work "$cfg" continuation_output
-          else
+          args=()
+          if [ "$PF_PAYLOAD" = true ]; then
             python3 tools/parts_factory/artifact_transport.py join tools/parts_factory/continuations/kite/transport "$RUNNER_TEMP/stage_payload.zip"
-            python3 tools/parts_factory/continuation.py previous_checkpoint/work "$cfg" continuation_output --payload "$RUNNER_TEMP/stage_payload.zip"
+            args+=(--payload "$RUNNER_TEMP/stage_payload.zip")
+          fi
+          py=python3
+          if [ "$PF_SCIENTIFIC" = true ]; then py="$RUNNER_TEMP/pf-venv/bin/python"; fi
+          if [ "$PF_OPERATION" = tool ]; then
+            if [ "$PF_TOOL" = model_build ]; then
+              args+=(--godot "$RUNNER_TEMP/Godot_v4.7.2-stable_linux.x86_64")
+            fi
+            "$py" tools/parts_factory/tool_runner.py previous_checkpoint/work "$cfg" continuation_output "${args[@]}"
+          else
+            "$py" tools/parts_factory/continuation.py previous_checkpoint/work "$cfg" continuation_output "${args[@]}"
           fi
       - name: Publish next-stage request and durable production state
         if: always()
