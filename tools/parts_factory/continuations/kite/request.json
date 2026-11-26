@@ -2,9 +2,10 @@
   "format": "SERA_PF_CONTINUATION_V1",
   "job_id": "PF-KITE-HEAD",
   "stage": "blueprint",
-  "operation": "prepare",
+  "operation": "tool",
+  "tool": "blueprint_brief",
   "upstream_revision": "b8c79da1b4c0342b5baa031a86d7863ea47cb89bc5767eeb69454dcb7d097605",
-  "source_run": 45751997119,
-  "source_artifact": 15086585431,
-  "source_name": "pf-kite-head-concept"
+  "source_run": 45752878531,
+  "source_artifact": 15086422625,
+  "source_name": "pf-kite-head-continuation"
 }
