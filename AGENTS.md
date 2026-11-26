@@ -58,3 +58,6 @@
 
 ## パーファクV6.6継続処理（2026-11-26）
 最新の受理済み専用制作artifactのworkを `tools/parts_factory/continuation.py` で検証・復元し、revisionに束縛された次工程のrequest/証拠packet/受理を引き継ぐ。既存受理工程の再生成を避ける。KITEの専用継続workflowは `.github/workflows/pf_kite_continue.yml`。詳細はREADME V6.6。制作AIとrunnerを区別し、prepareだけで制作進捗を加算しない。既存品質ゲートとV6.5納品規約は維持。独立AIの自動起動・モデスタ/テクスタの全自動連携は未接続。
+
+## パーファクV6.7実制作連携
+専用継続requestのoperation=toolでtool_runner.pyの固定アダプタを使用する。受理済みrevisionと次工程に基づき、reference_bridge・モデスタbuild.py・隔離Godotインポート・texture_bridgeの原面抽出/UV検査/3解像度ベイクを呼ぶ。実作者の設計/UV/塗装入力とAI監修は別途必要。tool receiptは承認ではなくfactory acceptの品質ゲートを維持。README V6.7を参照。既存ゲーム本体と無関係CIは変更しない。
