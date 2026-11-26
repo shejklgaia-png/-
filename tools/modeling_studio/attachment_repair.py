@@ -190,6 +190,7 @@ def prepare(src,dest):
         # shallow lateral service socket below the shoulder, preserve load path
         p["Chest"].setdefault("cuts",[]).append({"shape":"box",
             "location":[s*.137,-.036,.259],"size":[.025,.083,.065],"bevel":0})
+    p["Chest"]["cleanup_distance"]=.000001
     # Relieve the upper fixed neck at the yaw support without moving the joints.
     for v in p["Neck"]["rings"][2]:
         v[0]*=.90
