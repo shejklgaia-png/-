@@ -34,6 +34,9 @@ jobs:
           archive="$RUNNER_TEMP/KITE_art_rebuilt.zip"
           python3 tools/parts_factory/artifact_transport.py join "tools/parts_factory/jobs/pf-kite-head/inbox/rebuilt_transport" "$archive" | tee pf_kite_output/rebuilt_transport_report.json
           "$RUNNER_TEMP/pf-intake/bin/python" tools/parts_factory/image_intake.py pf_kite_output/work "$archive" pf_kite_output/art_rebuilt_quarantine
+      - name: Apply authored visual supervision and accept rebuilt art
+        if: ${{ hashFiles('tools/parts_factory/jobs/pf-kite-head/inbox/rebuilt_transport/manifest.json') != '' }}
+        run: python3 tools/parts_factory/jobs/pf-kite-head/produce_art.py
       - name: Store production files
         if: always()
         uses: actions/upload-artifact@v4
