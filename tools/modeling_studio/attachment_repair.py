@@ -304,5 +304,44 @@ def prepare(src,dest):
     d["track_design"]["wheel_to_roller_nominal_gap_m"]=gap
     d["design_notes"].append("V17: independent road rollers R35 centered at +/-84mm and z72mm; end-wheel radius and track path unchanged. Outer wheel flange/rims exposed, inboard bearing seats and slim lifted side cover. Nominal radial end-wheel gap 8.55mm, center roller gap 14mm, cover gap 9.6mm. Actual rendered clearance and interference require review.")
     d["research_adaptations"].append({"recipe":"independent_track_roller_support","url":"https://parts.cat.com/en/catcorp/by-industry-building-construction","adaptation":"Distinct end wheel, road roller and shaft support; retain authored endless belt geometry."})
+    # V17.2: preserve the optical opening and mounts while rebuilding
+    # the head envelope as parallel-edge, planar octagonal sections.
+    h=p["Head"]["vertices"]
+    def section(r):
+        a=h[r*8:r*8+8]
+        return (max(v[0] for v in a),min(v[1] for v in a),
+                max(v[1] for v in a),a[0][2])
+    def octagon(x,f,b,z,c):
+        assert 0<c<min(x,(b-f)/2)
+        return [[-x+c,f,z],[x-c,f,z],[x,f+c,z],[x,b-c,z],
+                [x-c,b,z],[-x+c,b,z],[-x,b-c,z],[-x,f+c,z]]
+    # Match each octagonal corner direction at 45 degrees in XY.
+    # Retain front/rear extrema and face recess vertices 48..59.
+    for r,c in enumerate((.029,.023,.032,.037,.034,.023)):
+        x,f,b,z=section(r)
+        h[r*8:r*8+8]=octagon(x,f,b,z,c)
+    # The optical aperture must remain inside its planar front frame.
+    assert min(h[9][0],h[17][0])>.157
+    # V17.1: avoid the bevel clamp collapsing the 2mm lower frame band.
+    # The source audit found 16 zero-UV triangles in the two frames.
+    for t in ("L","R"):
+        frame=p["TrackSupportFrame"+t]
+        frame["bevel"]=.00045
+        frame["cleanup_distance"]=.000001
+    # Verify authored diagonal quads (before bevel, independent of renderer).
+    import math
+    def sub(a,b):return [x-y for x,y in zip(a,b)]
+    def cross(a,b):return [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]]
+    residual=[]
+    for r in range(5):
+        for j in range(8):
+            k=(j+1)%8
+            a,b,c,e=h[r*8+j],h[r*8+k],h[(r+1)*8+j],h[(r+1)*8+k]
+            n=cross(sub(b,a),sub(c,a));length=math.sqrt(sum(v*v for v in n))
+            assert length>1e-10
+            residual.append(abs(sum(x*y for x,y in zip(n,sub(e,a))))/length)
+    assert max(residual)<1e-8
+    d["head_planarity_audit"]={"authored_quads":len(residual),"max_residual_m":max(residual),"chamfer_xy_degrees":45,"scope":"before bevel; actual rendered review required"}
+    d["design_notes"].append("V17.2: planar head octagonal sections, matched diagonal orientation; optical opening and mounts retained; support frame bevel reduced and opt-in cleanup added after V17.1 UV degeneration.")
     write(Path(dest),d)
 if __name__=="__main__":prepare(sys.argv[1],sys.argv[2])
