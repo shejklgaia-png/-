@@ -71,6 +71,13 @@ def bake(d,plan,out):
             if radius<=0:raise ValueError('width must be positive')
             if kind=='stroke' or kind=='cylinder':dist,delta=stroke(q,np.asarray(layer['points'],float))
             elif kind=='dot':delta=q-np.asarray(layer['center']);dist=np.linalg.norm(delta,axis=1)
+            elif kind in ('projected_stroke','projected_dot'):
+                axes=layer['axes']
+                if len(axes)!=2 or len(set(axes))!=2 or not all(i in (0,1,2) for i in axes):raise ValueError('projected axes')
+                qp=q[:,axes]
+                if kind=='projected_stroke':dist,d2=stroke(qp,np.asarray(layer['points'],float))
+                else:d2=qp-np.asarray(layer['center'],float);dist=np.linalg.norm(d2,axis=1)
+                delta=np.zeros_like(q);delta[:,axes]=d2
             elif kind=='plane':v=np.asarray(layer['normal'],float);v/=np.linalg.norm(v); signed=q@v-float(layer['offset']);dist=abs(signed);delta=signed[:,None]*v
             else:raise ValueError('unsupported primitive '+kind)
             a=np.clip((1-dist/radius)*4,0,1)*float(layer.get('opacity',1)); target=np.tile(np.asarray(layer['color'],float),(len(q),1))
