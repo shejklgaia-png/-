@@ -67,6 +67,9 @@ def art(src):
     r=load(src/"art_review.json")
     rows=r.get("candidates",[])
     need(isinstance(rows,list) and len(rows)>=3,"at least three distinct concept images required")
+    content=load(src/"image_content_review.json")
+    need(content.get("format")=="SERA_PF_IMAGE_CONTENT_V1" and bool(content.get("reviewer")) and isinstance(content.get("images"),dict),"visual content review required")
+    need(set(content["images"])=={row["id"] for row in rows},"visual content review candidate mismatch")
     names=set(); hashes=set(); winner=None
     for row in rows:
         key=row["id"]
@@ -74,6 +77,9 @@ def art(src):
         actual=png(evidence(src,row["file"]))
         need(actual==row.get("sha256") and actual not in hashes,"duplicate or wrong concept image")
         hashes.add(actual)
+        inspected=content["images"][key]
+        need(inspected.get("sha256")==actual and inspected.get("claims_absent") is True,"unreviewed or misleading image claims")
+        text(inspected.get("notes"),"visual claim inspection "+key)
         rubric(row["rubric"],ART,key,minimum=1)
         text(row.get("design_direction"),key)
         if key==r.get("selected"):

@@ -1,4 +1,4 @@
-# PARTS FACTORY（パーファク）V6.2 — 全工程AI監修・再構築
+# PARTS FACTORY（パーファク）V6.3 — 全工程AI監修・再構築
 2026-11-25 Vesper V1失敗への是正。V1/V2/V3/V4/V5のジョブは互換なし。旧データを破壊せず、新規V6作業ディレクトリに再登録する。単なる箱・円柱の組立を完成扱いしない。設計画が視覚的な正本。全身セットは先にセット全体のデザインを比較・確定し、その後6部位を独立制作する。ゲーム本体/既存モデル/無関係CIを変更しない。
 
 ## V3追加：設定画解析ブリッジ（必須）
@@ -91,3 +91,8 @@ V6の記述と矛盾する場合は本節を優先。concept/art/blueprint/analy
 ## V6.2（優先）：独立AIが使えない環境での制作継続
 独立審査は既定の independent を維持。独立起動不可の場合、新規ジョブを `factory.py init WORK PF-KITE-HEAD head --review-mode supervised_self_review` で開始できる。全11工程で初稿→アート/技術の観点別AI批評→実ファイルの再構築→最終批評を維持し、元の数値・証跡・実画像・UV・埋込GLB・タッチ操作ゲートは変更しない。各役割を順番に行い、別AIを装わない。レビュー応答に review_mode=supervised_self_review、independent_context_attested=false、実作者のactor/context_idを明記。未確認はunverified、欠陥はreject。初稿の指摘と対応を保存し、実成果物を変更して再審査。点数の操作だけは禁止。モードはジョブと各工程のハッシュに固定。既存独立ジョブは既定互換。ストックとHTMLに単一AI監修を表示し、独立審査済と称しない。独立審査済のセットへの混入は拒否する（セット側単一AIモードは別途実装）。
 参考: Self-Refine https://arxiv.org/abs/2303.17651 ; 自己修正の限界 https://doi.org/10.1162/tacl_a_00713 ; Blender Studio https://studio.blender.org/tools/pipeline/workflow 。単一AI批評は独立性や品質保証の代替ではない。実制作・ブラウザ・専用Actionsの通し検証は未実施。CLI取得、画像生成結果の受渡し、専用Actions/テクスタの実行環境は別途必要。
+
+## V6.3（画像搬入・虚偽完成画隔離）
+画像生成は制作指示と分離し、候補は被写体単体、無地背景、文字・UI・レポート・認証・品質評価・ポリゴン数・完了や登録表示なし。初稿と再構築の両方で画像自体を開き、虚偽完成・技術測定・認証表示があれば不採用として隔離し、次の候補へ。文字禁止だけで自動検出はできない。審査時に候補ごとに `image_content_review.json`（format=SERA_PF_IMAGE_CONTENT_V1、reviewer、images={候補ID:{sha256,claims_absent:true,notes:目視根拠}}）を実画像に結び付ける。artの両役割にも visual_truthfulness 基準を追加。自動審美・OCR承認は禁止。
+ローカルPNGをGitHubへ直接送れない場合は、原画と候補切出しPNGと manifest.json を1つの24MiB以下のZIPにする。manifestは format=SERA_PF_ART_TRANSFER_V1,job_id,concept_revision,phase=draft|rebuilt,status=unreviewed,image_task_id,sources=[{path: sources/name.png,sha256,width,height}],candidates=[{id,path:candidates/name.png,sha256,source:対応原画path,crop:[x0,y0,x1,y1]}]。原画単体なら全画像の矩形。PNGを劣化させずSHAと実画素一致を検査。別ファイル/不正パス/重複/過大展開を拒否。画像変換は切出しのみ、設計そのものの再構築とは扱わない。
+`python -m pip install Pillow==11.3.0` の専用制作環境で `python tools/parts_factory/image_intake.py WORK ARCHIVE NEW_QUARANTINE_DIR`。受理済concept revisionを固定し、検査済画像を未審査隔離ディレクトリに展開する。正式art承認は既存の初稿批評・実再構築・再審査とfactory acceptが必要。ファイル転送だけでは受理しない。GitHubブラウザで専用制作ブランチにZIPを手動アップロード可能（25MiB/ファイル上限のため24MiBに制限）。自動バイナリ転送は未接続。参考 https://docs.github.com/en/repositories/working-with-files/managing-files/adding-a-file-to-a-repository ; https://docs.python.org/3/library/zipfile.html 。
