@@ -39,7 +39,7 @@ jobs:
           else:
               assert cfg["operation"]!="tool"
               payload=cfg["operation"]!="prepare"; blender=False
-          scientific=tool in ("analyze","geometry_compare","uv_build","paint_build")
+          scientific=tool in ("blueprint_draft","analyze","geometry_compare","uv_build","paint_build")
           assert type(cfg["source_run"]) is int and cfg["source_run"]>0
           assert type(cfg["source_artifact"]) is int and cfg["source_artifact"]>0
           repo=os.environ["GITHUB_REPOSITORY"]
