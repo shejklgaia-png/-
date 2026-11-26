@@ -266,6 +266,26 @@ def build_part(spec, mats):
         mod.limit_method = 'ANGLE'
         mod.harden_normals = True
         apply_modifier(obj, mod)
+    if "cleanup_distance" in spec:
+        # Explicit opt-in repair of coincident cutter/bevel vertices, before UV.
+        dist=float(spec["cleanup_distance"])
+        if not 0<dist<=1e-5:raise ValueError("invalid cleanup distance")
+        bm=bmesh.new()
+        try:
+            bm.from_mesh(obj.data)
+            bmesh.ops.remove_doubles(bm,verts=list(bm.verts),dist=dist)
+            bmesh.ops.dissolve_degenerate(bm,edges=list(bm.edges),dist=dist)
+            bmesh.ops.recalc_face_normals(bm,faces=list(bm.faces))
+            if any(not e.is_manifold for e in bm.edges):
+                raise ValueError("cleanup produced non-manifold mesh: "+obj.name)
+            bm.to_mesh(obj.data)
+        finally:bm.free()
+        obj.data.update()
+        obj.data.calc_loop_triangles()
+        for tri in obj.data.loop_triangles:
+            a,b,c=(obj.data.vertices[i].co for i in tri.vertices)
+            if (b-a).cross(c-a).length<1e-12:
+                raise ValueError("cleanup left degenerate triangle: "+obj.name)
     if spec.get("weighted_normals", width > 0):
         for face in obj.data.polygons:
             face.use_smooth = True
