@@ -173,7 +173,31 @@ def main(root):
             fs=scoped(pid,0,sign)
             pts=p[part==pid];lo=pts.min((0,1));hi=pts.max((0,1))
             dz=hi[2]-lo[2];dy=hi[1]-lo[1]
-            hatch(pid,fs,[2,1],[float(lo[2]+dz*.19),float(lo[1]+dy*.22)],[float(hi[2]-dz*.19),float(hi[1]-dy*.22)],.005)
+            # Find a closed chamfered hatch whose outline and fasteners
+            # remain on the projected outward arm surface.
+            axes=[2,1];tris=p[(part==pid)&(n[:,0]*sign>.35)][:,:,axes]
+            center=(lo[axes]+hi[axes])/2
+            span=(hi[axes]-lo[axes])/2*np.array([.62,.56])
+            def covered(points):
+                q=np.asarray(points,float)
+                hit=np.zeros(len(q),bool)
+                for tri in tris:
+                    a=(tri[1:]-tri[0]).T
+                    if abs(np.linalg.det(a))<1e-12:continue
+                    w=(q-tri[0])@np.linalg.inv(a).T
+                    hit|=(w>=-1e-7).all(1)&(w.sum(1)<=1+1e-7)
+                return bool(hit.all())
+            for scale in (1,.9,.8,.7,.6,.5,.4):
+                x,y=(center-span*scale).tolist();X,Y=(center+span*scale).tolist()
+                ch=min(.005,(X-x)*.18,(Y-y)*.18)
+                pts=np.array([[x+ch,y],[X-ch,y],[X,y+ch],[X,Y-ch],[X-ch,Y],[x+ch,Y],[x,Y-ch],[x,y+ch],[x+ch,y]])
+                samples=np.concatenate([np.linspace(a,b,25) for a,b in zip(pts[:-1],pts[1:])])
+                bolts=[[x+ch*1.5,y+ch*1.5],[X-ch*1.5,y+ch*1.5],[x+ch*1.5,Y-ch*1.5],[X-ch*1.5,Y-ch*1.5]]
+                if covered(np.concatenate([samples,bolts])):
+                    hatch(pid,fs,axes,[x,y],[X,Y],ch)
+                    log.append({"part":pid,"fitted_hatch_scale":scale,"projected_samples":len(samples)+len(bolts)})
+                    break
+            else:log.append({"part":pid,"fitted_hatch":"no closed fit"})
     palette["recess"]=[39,46,54]
     plan={"geometry_sha256":digest,"resolution":2048,"supersample":1,"padding":3,
           "light":[-.18,1,.32],"ambient":1.0,"direct":0.0,"palette":palette,
