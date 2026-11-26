@@ -1,0 +1,33 @@
+{
+  "id": "PF-KITE-HEAD",
+  "slot": "head",
+  "name": "KITE / カイト",
+  "lore": "廃工業区画で探索と近接戦を両立する軽量Sapient用Shell頭部。複眼センサーと背面放熱カセットを備える。",
+  "mechanism": {
+    "silhouette": "前低後高の一般的な楔形装甲。横長バイザー。",
+    "front": "庇状上部装甲の下に暗色の凹状開口とアイスブルー発光窓。",
+    "sides": "側頭装甲と内部フレーム、補助センサー。",
+    "rear": "交換式放熱カセット。",
+    "paint": "白装甲、ガンメタル、青いセンサー、少量のオレンジ。面を跨ぐパネルライン。"
+  },
+  "references": [
+    {
+      "url": "https://mastcamz.asu.edu/cameras/tech-specs/",
+      "application": "複眼観測の参考"
+    },
+    {
+      "url": "https://www.pemnet.com/products/engineering-guides/captive-panel-screws/",
+      "application": "脱着パネルの参考"
+    }
+  ],
+  "rig_target": {
+    "canonical_source": "models/core/Standard.bbmodel",
+    "status": "首関節の座標、外形未測定"
+  },
+  "proposed_stats": {
+    "role": "軽量偵察・近接戦闘型",
+    "hp": "未確定",
+    "defense": "未確定",
+    "special_effects": "未承認"
+  }
+}

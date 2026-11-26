@@ -1,0 +1,26 @@
+name: PARTS FACTORY - KITE concept production
+on:
+  push:
+    branches: ['production/parts-factory/pf-kite-head-v62']
+    paths:
+      - 'tools/parts_factory/jobs/pf-kite-head/**'
+      - '.github/workflows/pf_kite_concept_production.yml'
+permissions:
+  contents: read
+jobs:
+  concept:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Create reviewed concept with actual Parts Factory CLI
+        run: python3 tools/parts_factory/jobs/pf-kite-head/produce_concept.py
+      - name: Store production files
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pf-kite-head-concept
+          path: pf_kite_output/
+          if-no-files-found: error
