@@ -253,6 +253,9 @@ def prepare(src,dest):
             roller["location"][1:]=[y,.072]
             roller["profile"]=[[.014,-.041],[.035,-.041],[.035,-.010],
                 [.026,-.010],[.026,.010],[.035,.010],[.035,.05512],[.014,.05512]]
+            # Both original wheel axes point +X; mirror axial profile on L.
+            if s<0:
+                for row in roller["profile"]:row[1]*=-1
             rim=p["TrackRoadRim"+k]
             rim["location"]=[s*.270,y,.072]
             rim["radius"]=.0255
@@ -276,10 +279,13 @@ def prepare(src,dest):
             wheel=p[prefix+t]
             # Extend only the outer axial flange; keep tread guide groove centered.
             for row in wheel["profile"]:
-                if row[1]>.04:row[1]=.055
+                if row[1]*s>.04:row[1]=s*.055
             for suffix in ("Rim","Hub","Axle"):
                 p[prefix+suffix+t]["location"][0]+=s*.004
             p["Track"+prefix+"Shaft"+t]["depth"]=.116
+        # Bottom of frame clears the new roller envelope by 1mm.
+        for idx,z in ((0,-.014),(1,-.012)):
+            for v in p["TrackSupportFrame"+t]["rings"][idx]:v[2]=z
         cover=p["TrackHub"+t]
         cover["location"][2]+=.003
         for ring in cover["rings"]:
