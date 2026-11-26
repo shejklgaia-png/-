@@ -12,6 +12,7 @@ import continuation as c
 ROOT=f.ROOT
 TOOLS={
     "blueprint_brief": ("blueprint", False, False),
+    "blueprint_draft": ("blueprint", False, False),
     "analyze": ("analysis", True, False),
     "model_build": ("model", False, True),
     "geometry_compare": ("geometry", False, False),
@@ -65,6 +66,9 @@ def execute(source,config,out,archive=None,blender="blender",godot=None):
                 "rig_target":concept["rig_target"],"mechanism":concept["mechanism"],
                 "authoring_requirements":["shared scale and origin across all ten views","show unseen surfaces as authored design, not observed evidence","separate neck clearance from external shell","draft, critique, actual reconstruction, final review"],
                 "status":"unapproved_authoring_input","not_a_blueprint":True})
+        elif tool=="blueprint_draft":
+            from blueprint_drawing import render
+            render(result,req["drawing"],accepted("art")/"selected.png",accepted("concept")/"concept.json")
         elif tool=="analyze":
             from reference_bridge import analyze
             analyze(accepted("blueprint"),inp/"calibration.json",result)
