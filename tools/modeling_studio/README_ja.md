@@ -312,3 +312,6 @@ shape: wireframe を部品に指定。wireframe_example.json が動作確認用�
 - 制作AIと監修AIの判断を分離して記録（同一AIなら同一と明記）。実画像、原画、同一条件の前後差、問題部位、再設計指示、未確認事項を保存。ユーザー不採用モデルは失敗資料として隔離し、完成品や基準モデルに流用しない。VEXER V1は不採用。新方式の初稿では基礎頭蓋から再構築する。
 - 制作専用PR・成果物と本体登録を区別する。ゲームに入れることは別承認。パーファクの正式工程・承認ゲートを迂回しない。実画像がない場合は未完了とし、正式納品しない。
 - 参考: Blender Studio https://studio.blender.org/tools/artist-guide/asset-creation/modeling ; Blender Solidify https://docs.blender.org/manual/en/5.0/modeling/modifiers/generate/solidify.html ; ゲームアーティストの実例 https://80.lv/articles/010md-hard-surface-modeling-game-art-tips-from-emil-skriver 。均一厚みが保証されないため今回は内外面座標の明示方式を採用。既存ゲーム/CIは変更しない。
+
+## モデスタ・テクスタ連携制作の現行運用（2026-11-26）
+CRATE V17.2までの制作経験を統合した標準手順・品質基準・微小UV描画衝突の許容条件・納品仕様は [連携制作運用](../../docs/SERA_MODELING_TEXTURE_OPERATION_20261126_ja.md) を参照する。既存の段階分業、正式工程・承認ゲートとHTML配布規約を補完する。
