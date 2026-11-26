@@ -1,0 +1,71 @@
+name: PARTS FACTORY - KITE continuation production
+on:
+  push:
+    branches: ['production/parts-factory/pf-kite-head-v62']
+    paths:
+      - 'tools/parts_factory/continuations/kite/request.json'
+      - '.github/workflows/pf_kite_continue.yml'
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: pf-kite-head-continuation
+  cancel-in-progress: false
+jobs:
+  resume:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Resolve and validate previous production checkpoint
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          from pathlib import Path
+          cfg=json.loads(Path("tools/parts_factory/continuations/kite/request.json").read_text())
+          assert cfg["job_id"]=="PF-KITE-HEAD"
+          assert cfg["operation"] in ("prepare","draft_packet","rebuild_template","final_packet","accept")
+          assert type(cfg["source_run"]) is int and cfg["source_run"]>0
+          assert type(cfg["source_artifact"]) is int and cfg["source_artifact"]>0
+          repo=os.environ["GITHUB_REPOSITORY"]
+          def get(path):
+              return json.loads(subprocess.check_output(["gh","api",path]))
+          run=get(f"repos/{repo}/actions/runs/{cfg['source_run']}")
+          assert run["head_branch"]=="production/parts-factory/pf-kite-head-v62" and run["conclusion"]=="success", "checkpoint must be a successful dedicated production run"
+          assert run["path"] in (".github/workflows/pf_kite_concept_production.yml",".github/workflows/pf_kite_continue.yml")
+          a=get(f"repos/{repo}/actions/artifacts/{cfg['source_artifact']}")
+          assert a["workflow_run"]["id"]==cfg["source_run"] and a["name"]==cfg["source_name"] and not a["expired"]
+          assert a["name"] in ("pf-kite-head-concept","pf-kite-head-continuation")
+          with open(os.environ["GITHUB_OUTPUT"],"a") as fp:
+              fp.write(f"run={cfg['source_run']}\nname={a['name']}\noperation={cfg['operation']}\n")
+          PY
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ steps.source.outputs.name }}
+          run-id: ${{ steps.source.outputs.run }}
+          github-token: ${{ github.token }}
+          path: previous_checkpoint
+      - name: Resume verified job or process reviewed stage inbox
+        env:
+          PF_OPERATION: ${{ steps.source.outputs.operation }}
+        run: |
+          cfg=tools/parts_factory/continuations/kite/request.json
+          if [ "$PF_OPERATION" = prepare ]; then
+            python3 tools/parts_factory/continuation.py previous_checkpoint/work "$cfg" continuation_output
+          else
+            python3 tools/parts_factory/artifact_transport.py join tools/parts_factory/continuations/kite/transport "$RUNNER_TEMP/stage_payload.zip"
+            python3 tools/parts_factory/continuation.py previous_checkpoint/work "$cfg" continuation_output --payload "$RUNNER_TEMP/stage_payload.zip"
+          fi
+      - name: Publish next-stage request and durable production state
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pf-kite-head-continuation
+          path: continuation_output/
+          if-no-files-found: error
+          retention-days: 90
