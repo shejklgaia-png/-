@@ -315,3 +315,24 @@ shape: wireframe を部品に指定。wireframe_example.json が動作確認用�
 
 ## モデスタ・テクスタ連携制作の現行運用（2026-11-26）
 CRATE V17.2までの制作経験を統合した標準手順・品質基準・微小UV描画衝突の許容条件・納品仕様は [連携制作運用](../../docs/SERA_MODELING_TEXTURE_OPERATION_20261126_ja.md) を参照する。既存の段階分業、正式工程・承認ゲートとHTML配布規約を補完する。
+
+## 造形品質先行 V3：形状と陰影を分離する（2026-11-26）
+
+VEXER V1〜V10の反復で、メッシュ健全性・輪郭寸法・交差数だけでは美観が上がらないことを確認した。原画を参考にしつつ、3Dの量感、シルエット、面の連続性、機構を優先する。設定画への一致を特に指示された場合はその意図を優先する。
+
+### 制作順序
+1. AIが主要形状・面の方向・機能・維持する特徴を定義する。複雑な新規頭部では、同じ配色の細部違いではなく、頭部の比率・眼窩・顎・外殻が異なる最低3つの粗い3D候補を独立設計する。既存の良い造形の局所修正は単案でもよい。
+2. 同じカメラ・スケールで正面・斜め・側面・後面の実レンダーと無彩色（clay_review=true）を比較。小さなゲーム内相当表示でも輪郭が読めるか判断する。色・ポリゴン数・原画一致だけで選定しない。未確認候補は採用しない。
+3. 主要形状が採用されるまで副形状・細部・テクスタへ進まない。AIが形状監修と技術監修を役割別に記録し、選んだ理由と不採用理由を残す。同じAIなら独立審査とは呼ばない。
+4. 主面・折れ・支持面・開口を確定してから、曲面と稜線に別の法線処理を指定する。曲面の放射三角陰影は法線をまず診断し、形状の欠陥なら造形を直す。平面の不一致をスムーズ化で隠さない。
+5. 実GLB・無彩色と配色レンダーを再確認してから、予算に合わせて軽量化・UV・テクスタへ進む。完成候補とゲーム採用は分離する。
+
+### surface_authoring の追加入力（任意、既存方式は変更なし）
+- 各patchの finish: {"mode":"angle","angle_deg":65,"bevel_m":0,"bevel_segments":1,"bevel_angle_deg":30}
+  - flat: 全面フラット。angle: 面の隣接角度でスムーズ/シャープを区別。weighted: angleに面積・角度加重法線を追加。ベベルは実ジオメトリ、角度制限と幅は部品に応じて明示。従来patchは既存のフラット挙動を保持。
+  - 曲面レンズにはangle、広い装甲主面にはflatまたは意図的な面取り＋weightedを候補とする。実画像で確認し、全体の無条件スムーズ化・ベベル化は禁止。
+- planar_regions: [{"name":"main_plate","vertices":["a","b","c","d"],"tolerance_m":0.0001}]。外面の4点以上を明示。最長基線と最も離れた点から参照平面を作り、最大距離・peak-to-peakをsurface_authoring_report.jsonに記録。最小二乗最適平面ではなく、曲面には指定しない。診断値で合否を自動決定しない。
+- トップレベル clay_review: true。通常8方向に加えてclay/に同じ形状・カメラ・照明の無彩色8方向を出力。BLEND/GLBの材質を変更しない。実行時間は増える。画像生成AIではない。
+- これらは造形の審美評価を自動化するものではない。新旧候補の実レンダー比較・AI監修・承認を別途必要とする。
+
+参考: https://studio.blender.org/tools/artist-guide/asset-creation/modeling / https://80.lv/articles/hard-surface-character-workflow-for-games / https://docs.blender.org/manual/en/latest/modeling/meshes/editing/mesh/normals.html / https://docs.blender.org/manual/en/4.5/modeling/modifiers/generate/bevel.html
