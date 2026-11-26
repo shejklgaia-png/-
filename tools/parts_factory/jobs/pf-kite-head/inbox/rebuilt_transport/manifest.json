@@ -1,0 +1,37 @@
+{
+  "format": "SERA_PF_BINARY_TRANSPORT_V1",
+  "archive_bytes": 2668051,
+  "archive_sha256": "dafbbd1137ce1c658a219616477d04745a86f0b56eeff8904daa5cbdce0e4b40",
+  "parts": [
+    {
+      "path": "part000.bin",
+      "bytes": 540000,
+      "sha256": "0e8aa9a5d5f9a898dd1d61998e7a8764feceb8f6c9116f1387fe9bb5c926847b",
+      "text_sha256": "0e191ca07c74140d1333f3636350bfa7a28e5d86804f3414b0da0daf1e456582"
+    },
+    {
+      "path": "part001.bin",
+      "bytes": 540000,
+      "sha256": "194c2adf726ea36f531eee746c4d8221460ed94e2e419d606150431c6599fe16",
+      "text_sha256": "fd9a33c1caf6625e2d19cf12127e9c1ec0621661d445ad6cfe40895e2fbdcc7b"
+    },
+    {
+      "path": "part002.bin",
+      "bytes": 540000,
+      "sha256": "011f75c3d95e1a85f561e66d672ae4012a72acbd455b29b8adcc209c2249524f",
+      "text_sha256": "43283f225f82df9598b244b0b85b7818b053d66b72955ab45ad7d6b238929b01"
+    },
+    {
+      "path": "part003.bin",
+      "bytes": 540000,
+      "sha256": "9fb2ce0ccf238fa1b4b832a3afeb61f3e0397f324b4baa39abab12d61b0e5b39",
+      "text_sha256": "91d77708056ae84725ad856c3f2bb5f1816fb3747564dff3bd3a1b1efaa11cd0"
+    },
+    {
+      "path": "part004.bin",
+      "bytes": 508051,
+      "sha256": "dc28a2a5285253d1136f759b2b46273fc5fc306f3819d0cc9a55a69ece711626",
+      "text_sha256": "5971aa0e7000d396c1c6894f10ba5c1bb7929b62a61771346feeb7a242e6e6ed"
+    }
+  ]
+}

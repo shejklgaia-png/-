@@ -28,6 +28,12 @@ jobs:
             python3 tools/parts_factory/artifact_transport.py join "tools/parts_factory/jobs/pf-kite-head/inbox/transport" "$archive" | tee pf_kite_output/transport_report.json
           fi
           "$RUNNER_TEMP/pf-intake/bin/python" tools/parts_factory/image_intake.py pf_kite_output/work "$archive" pf_kite_output/art_draft_quarantine
+      - name: Receive rebuilt concept image evidence
+        if: ${{ hashFiles('tools/parts_factory/jobs/pf-kite-head/inbox/rebuilt_transport/manifest.json') != '' }}
+        run: |
+          archive="$RUNNER_TEMP/KITE_art_rebuilt.zip"
+          python3 tools/parts_factory/artifact_transport.py join "tools/parts_factory/jobs/pf-kite-head/inbox/rebuilt_transport" "$archive" | tee pf_kite_output/rebuilt_transport_report.json
+          "$RUNNER_TEMP/pf-intake/bin/python" tools/parts_factory/image_intake.py pf_kite_output/work "$archive" pf_kite_output/art_rebuilt_quarantine
       - name: Store production files
         if: always()
         uses: actions/upload-artifact@v4
