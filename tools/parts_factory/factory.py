@@ -66,6 +66,7 @@ def files(folder):
 def state(work):
     d = read(work / "job.json")
     require(d["format"] == "SERA_PARTS_FACTORY_V6", "invalid format")
+    require(d.get("review_mode",rr.STRICT) in rr.MODES,"invalid review mode")
     require(d["slot"] in SLOTS and re.fullmatch(r"[A-Z][A-Z0-9_-]{1,39}", d["id"]), "invalid job identity")
     return d
 
@@ -80,6 +81,7 @@ def verify(work, d):
         require(re.fullmatch(r"[0-9a-f]{64}", item["key"]), "invalid cache key")
         require(item["upstream"] == previous, "stale upstream: " + name)
         require(item.get("supervision",{}).get("format")==rr.CYCLE and item["files"].get("supervision/reconstruction.json")==item["supervision"].get("reconstruction_sha256"),"legacy or missing supervision; start a new V6.1 job")
+        require(item["supervision"].get("review_mode",rr.STRICT)==d.get("review_mode",rr.STRICT),"review mode mismatch")
         require(files(folder) == item["files"], "changed or missing files: " + name)
         require(signature({k:v for k,v in item.items() if k != "key"}) == item["key"], "record mismatch")
         previous = item["key"]
@@ -250,7 +252,7 @@ def stock(work):
             shutil.copytree(work/"rejections",out/"rejections")
         if (work/"review_vetoes").is_dir():
             shutil.copytree(work/"review_vetoes",out/"review_vetoes")
-        write(out/"release.json",{"id":d["id"],"slot":d["slot"],"revision":key,"state":"stocked_not_in_game","format":"SERA_PARTS_STOCK_V6"})
+        write(out/"release.json",{"id":d["id"],"slot":d["slot"],"revision":key,"state":"stocked_not_in_game","format":"SERA_PARTS_STOCK_V6","review_mode":d.get("review_mode",rr.STRICT)})
         out.rename(dest)
     print("STOCKED",dest)
 
@@ -289,6 +291,8 @@ def deliver(work, output):
         require(files(root/stage)==item["files"],"stock changed: "+stage)
     require(not output.exists(),"refuse overwrite")
     output.parent.mkdir(parents=True,exist_ok=True)
+    if d.get("review_mode",rr.STRICT)==rr.SELF:
+        require("SELF REVIEW / NOT INDEPENDENT" in (root/"viewer"/"viewer.html").read_text(encoding="utf-8"),"viewer must disclose single-AI review")
     shutil.copy2(root/"viewer"/"viewer.html",output)
     print(output)
 
@@ -296,7 +300,7 @@ def deliver(work, output):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     sub = p.add_subparsers(dest="cmd",required=True)
-    a = sub.add_parser("init"); a.add_argument("work",type=Path); a.add_argument("id"); a.add_argument("slot",choices=SLOTS)
+    a = sub.add_parser("init"); a.add_argument("work",type=Path); a.add_argument("id"); a.add_argument("slot",choices=SLOTS); a.add_argument("--review-mode",choices=rr.MODES,default=rr.STRICT)
     a = sub.add_parser("accept"); a.add_argument("work",type=Path); a.add_argument("stage",choices=ORDER); a.add_argument("source",type=Path); a.add_argument("--producer",required=True,help="tool version + source commit/run or AI review provenance")
     for cmd in ("status","stock","handoff"):
         a = sub.add_parser(cmd); a.add_argument("work",type=Path)
@@ -309,7 +313,7 @@ def main():
         require(re.fullmatch(r"[A-Z][A-Z0-9_-]{1,39}",args.id),"invalid ID")
         work.mkdir(parents=True,exist_ok=True)
         require(not (work/"job.json").exists(),"job already exists")
-        write(work/"job.json",{"format":"SERA_PARTS_FACTORY_V6","id":args.id,"slot":args.slot,"stages":{}})
+        write(work/"job.json",{"format":"SERA_PARTS_FACTORY_V6","id":args.id,"slot":args.slot,"review_mode":args.review_mode,"stages":{}})
     elif args.cmd=="accept":
         accept(work,args.stage,args.source.resolve(),args.producer)
     elif args.cmd=="stock":
@@ -323,7 +327,7 @@ def main():
     else:
         d=state(work); valid,key=verify(work,d)
         next_stage=ORDER[len(valid)] if len(valid)<len(ORDER) else "stock"
-        result={"id":d["id"],"accepted":valid,"next":next_stage,"revision":key,"rejections":[read(p) for p in sorted((work/"rejections").glob("*.json"))],"review_vetoes":[read(p) for p in sorted((work/"review_vetoes").glob("*.json"))],"next_author_role":rr.PRODUCERS.get(next_stage),"required_review_roles":list(rr.CRITERIA.get(next_stage,{})),"required_supervision_cycle":rr.CYCLE}
+        result={"id":d["id"],"review_mode":d.get("review_mode",rr.STRICT),"accepted":valid,"next":next_stage,"revision":key,"rejections":[read(p) for p in sorted((work/"rejections").glob("*.json"))],"review_vetoes":[read(p) for p in sorted((work/"review_vetoes").glob("*.json"))],"next_author_role":rr.PRODUCERS.get(next_stage),"required_review_roles":list(rr.CRITERIA.get(next_stage,{})),"required_supervision_cycle":rr.CYCLE}
         if args.cmd=="handoff" and not valid:
             result["route"]="design_knowledge.py brief <slot> <keywords> <concept-dir>/design_brief.json -> accept concept"
         if args.cmd=="handoff" and valid:

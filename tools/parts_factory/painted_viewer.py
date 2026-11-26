@@ -72,6 +72,9 @@ def build(work, out):
     data={"glb":base64.b64encode(model.read_bytes()).decode(),
           "images":{v:"data:image/png;base64,"+base64.b64encode((review/(v+".png")).read_bytes()).decode() for v in VIEWS},"joints":[]}
     header=HEAD.replace("CRATE / MODEL REVIEW","SERA / PARTS FACTORY").replace("3Dは確認用の簡易照明。","3Dはbase colorテクスチャ＋簡易照明。")
+    if d.get("review_mode")=="supervised_self_review":
+        header=header.replace("SERA / PARTS FACTORY","SERA / PARTS FACTORY — SELF REVIEW / NOT INDEPENDENT")
+        if "SELF REVIEW / NOT INDEPENDENT" not in header:raise ValueError("review mode label missing")
     html=header+json.dumps(data,separators=(",",":"))+script()
     out.mkdir(parents=True)
     (out/"viewer.html").write_text(html,encoding="utf-8")

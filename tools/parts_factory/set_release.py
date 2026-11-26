@@ -17,6 +17,7 @@ def stock_ref(slot, item, art_hash):
     folder=f.STOCK/slot/pid/rev
     d=f.read(folder/"job.json"); release=f.read(folder/"release.json")
     f.require(d["format"]=="SERA_PARTS_FACTORY_V6" and d["id"]==pid and d["slot"]==slot,"wrong part identity or old schema")
+    f.require(d.get("review_mode",rr.STRICT)==rr.STRICT,"single-AI reviewed part cannot enter independent set; independent rebuild required")
     f.require(release["format"]=="SERA_PARTS_STOCK_V6" and release["revision"]==rev,"wrong stock revision")
     previous="ROOT"
     for name in f.ORDER:

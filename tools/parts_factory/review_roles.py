@@ -11,6 +11,14 @@ from pathlib import Path
 import quality_gates as q
 
 FORMAT="SERA_PF_REVIEW_V6"
+STRICT="independent"
+SELF="supervised_self_review"
+MODES=(STRICT,SELF)
+
+def review_mode(work=None):
+    mode=q.load(work/"job.json").get("review_mode",STRICT) if work is not None else STRICT
+    need(mode in MODES,"invalid review mode")
+    return mode
 ART="art_director"
 TECH="technical_auditor"
 PRODUCERS={"concept":"designer","art":"designer","blueprint":"designer","analysis":"engineer",
@@ -155,6 +163,7 @@ def packet_data(src,stage,job_id,upstream,work=None):
         "candidate_sha256":q.canonical(private),
         "upstream":{k:v["key"] for k,v in upstream.items()},
         "evidence":manifest}
+    if review_mode(work)==SELF:binding["review_mode"]=SELF
     return a,items,binding
 
 def view_payload(p,stage):
@@ -186,11 +195,15 @@ def emit(out,stage,role,items,binding):
     request={"format":FORMAT,"role":role,"binding":binding,"packet_files":exported,
         "criteria":list(CRITERIA[stage][role]),
         "instructions":"Open evidence files, evaluate independently before seeing author or other scores. Give a concrete defect or justification for every criterion and cite evidence paths. Do not approve missing or uninspected evidence. If draft evidence is present, compare it to the final candidate: reject cosmetic-only changes or unresolved defects, and require a concrete improvement or documented deterministic rebuild. Record your real context ID; never fabricate independence."}
+    if binding.get("review_mode")==SELF:
+        request["instructions"]="Single-AI supervised review, NOT independent. Open the actual evidence, conduct a separate critical pass in the named role, cite inspected evidence paths, record specific defects and reconstruction advice. Compare final to draft and reject unresolved or merely cosmetic changes. Use the real author actor/context ID. Never claim independent review. Missing evidence is unverified."
+        request["review_mode"]=SELF
     (out/"request.json").write_text(json.dumps(request,ensure_ascii=False,indent=2),encoding="utf-8")
     template={"format":FORMAT,"role":role,"binding_sha256":q.canonical(binding),
         "reviewer":{"actor":"","context_id":"","kind":"ai"},"independent_context_attested":False,"packet_files":exported,
         "verdict":"pending","criteria":{k:{"score":None,"reason":"","evidence":[]} for k in CRITERIA[stage][role]},
         "blocking_issues":[],"revision_advice":"","selected_candidate_sha256":None}
+    if binding.get("review_mode")==SELF:template["review_mode"]=SELF
     (out/"response_template.json").write_text(json.dumps(template,ensure_ascii=False,indent=2),encoding="utf-8")
 
 def check(src,stage,job_id,upstream,work=None,allow_reject=False):
@@ -217,11 +230,16 @@ def check(src,stage,job_id,upstream,work=None,allow_reject=False):
         need(r.get("format")==FORMAT and r.get("role")==role and r.get("binding_sha256")==q.canonical(binding),"stale review or wrong role")
         i=identity(r.get("reviewer"),role)
         need(i["kind"]=="ai","AI supervision required")
-        need(i["context_id"] not in contexts,"review context overlaps a producer or another reviewer")
-        actor=(i["kind"],i["actor"].strip().casefold())
-        need(actor not in identities,"review actor must differ from author and other reviewer")
-        contexts.add(i["context_id"]);identities.add(actor)
-        need(r.get("independent_context_attested") is True,"independence attestation missing")
+        if review_mode(work)==SELF:
+            need(r.get("review_mode")==SELF and r.get("independent_context_attested") is False,"self review must explicitly disclaim independence")
+            need(a["kind"]=="ai" and i["actor"].strip().casefold()==a["actor"].strip().casefold() and i["context_id"]==a["context_id"],"self review must use real author identity/context")
+        else:
+            need(r.get("review_mode",STRICT)==STRICT,"strict job requires independent review")
+            need(i["context_id"] not in contexts,"review context overlaps a producer or another reviewer")
+            actor=(i["kind"],i["actor"].strip().casefold())
+            need(actor not in identities,"review actor must differ from author and other reviewer")
+            contexts.add(i["context_id"]);identities.add(actor)
+            need(r.get("independent_context_attested") is True,"independence attestation missing")
         need(r.get("packet_files")==binding["evidence"],"reviewed packet hash manifest mismatch")
         verdict=r.get("verdict");need(verdict in ("approve","reject","unverified"),"invalid verdict")
         q.rubric(r.get("criteria"),keys,role,minimum=4 if verdict=="approve" else 1)
@@ -326,11 +344,11 @@ def check_cycle(src,stage,job_id,upstream,work=None):
     # Fresh final review is bound to the rebuilt files and the archived draft.
     final=check(src,stage,job_id,upstream,work)
     final_author=author(src,stage)
-    for producer,reviews in ((a,final),(final_author,first)):
+    for producer,reviews in (((a,final),(final_author,first)) if review_mode(work)==STRICT else ()):
         for review in reviews:
             i=review["reviewer"]
             need(i["context_id"]!=producer["context_id"] and i["actor"].strip().casefold()!=producer["actor"].strip().casefold(),"reviewer overlaps draft or rebuilt producer")
-    return {"format":CYCLE,"draft_binding_sha256":q.canonical(binding),"reconstruction_sha256":q.sha(src/"supervision"/"reconstruction.json"),"final_review_sha256":{role:q.sha(src/"independent_reviews"/(role+".json")) for role in CRITERIA[stage]}}
+    return {"format":CYCLE,"review_mode":review_mode(work),"draft_binding_sha256":q.canonical(binding),"reconstruction_sha256":q.sha(src/"supervision"/"reconstruction.json"),"final_review_sha256":{role:q.sha(src/"independent_reviews"/(role+".json")) for role in CRITERIA[stage]}}
 
 def cycle_template(src,stage,job_id,upstream,work=None):
     draft=src/"supervision"/"draft"
