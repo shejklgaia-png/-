@@ -61,3 +61,6 @@
 
 ## パーファクV6.7実制作連携
 専用継続requestのoperation=toolでtool_runner.pyの固定アダプタを使用する。受理済みrevisionと次工程に基づき、reference_bridge・モデスタbuild.py・隔離Godotインポート・texture_bridgeの原面抽出/UV検査/3解像度ベイクを呼ぶ。実作者の設計/UV/塗装入力とAI監修は別途必要。tool receiptは承認ではなくfactory acceptの品質ゲートを維持。README V6.7を参照。既存ゲーム本体と無関係CIは変更しない。
+
+## パーファクV6.8作図
+採用画像と共通座標のパネル輪郭を用いた10方向設計図初稿を tool_runner.py の blueprint_draft で作図可能。実画像の審査、座標の実再構築、再審査を行い、factory accept以外で承認しない。設計座標による2D近似作図は正式モデスタ3Dモデル・計測・干渉検査の代替ではない。README V6.8参照。
