@@ -260,7 +260,7 @@ jobs:
         run: |
           "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/supervision_queue.py "$RUNNER_TEMP/sera-model"
       - name: Texture Studio full-body candidate
-        if: startsWith(github.head_ref, 'modeling/crate-blockout-attachment-v14-')
+        if: startsWith(github.head_ref, 'modeling/crate-blockout-attachment-v14-') || startsWith(github.head_ref, 'modeling/crate-blockout-attachment-v15-')
         shell: bash
         run: |
           set -euo pipefail
