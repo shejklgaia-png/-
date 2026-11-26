@@ -259,6 +259,17 @@ jobs:
       - name: Prepare AI supervision priority queue
         run: |
           "$RUNNER_TEMP/review-venv/bin/python" tools/modeling_studio/supervision_queue.py "$RUNNER_TEMP/sera-model"
+      - name: Texture Studio full-body candidate
+        if: startsWith(github.head_ref, 'modeling/crate-blockout-attachment-v14-')
+        shell: bash
+        run: |
+          set -euo pipefail
+          root="$RUNNER_TEMP/sera-model"
+          py="$RUNNER_TEMP/review-venv/bin/python"
+          "$py" -m pip install scipy==1.15.3
+          blender --background "$root/model.blend" --python-exit-code 1 --python tools/modeling_studio/crate_texture_blender.py -- extract "$root"
+          "$py" tools/modeling_studio/crate_texture_paint.py "$root"
+          blender --background "$root/textured/uv.blend" --python-exit-code 1 --python tools/modeling_studio/crate_texture_blender.py -- apply "$root"
       - name: Prepare review bundle
         shell: bash
         run: |

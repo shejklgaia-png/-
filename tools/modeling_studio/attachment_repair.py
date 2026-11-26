@@ -1,4 +1,4 @@
-"""CRATE V13 supervised repair: actual supports, not geometric surface decoration."""
+"""CRATE V14 full-body supervised repair: actual supports, not geometric surface decoration."""
 import copy
 import sys
 from pathlib import Path
@@ -133,5 +133,54 @@ def prepare(src,dest):
             ring[j][0]*=.97
     d["design_notes"].append("V13 supervised proposal from V12 artifact 15072179850: fixed neck relief, coaxial wrist collar separation, forearm root taper, structural shoulder gusset and chest side facets. New renders and motion/attachment audits required before approval.")
     d["research_adaptations"].append({"recipe":"coaxial_joint_relief","url":"https://legacy.harmonicdrive.net/reference/applicationhandbook/display.php?id=ir_6apa","adaptation":"Separate fixed bearing housing and rotating output flange; retain fictional scale and pivots."})
+    # V14 full-body shell design: all principal assemblies receive new shapes.
+    # Keep interface rings, existing pivots, lower skid seats and optical aperture.
+    for v in p["Head"]["vertices"]:
+        if v[2] > .64 and abs(v[0]) > .12:
+            v[0] *= .94
+        if .485 < v[2] < .615 and abs(v[0]) > .175:
+            v[0] *= .985
+    for idx,ring in enumerate(p["Chest"]["rings"]):
+        if idx in (2,3,4):
+            for j in (2,3,6,7):
+                ring[j][0] *= .94 if idx==3 else .97
+            for j in (3,4,5,6):
+                ring[j][1] *= .96
+    # Circular fixed yaw seat stays separate from the rotating pitch support.
+    for idx,ring in enumerate(p["Neck"]["rings"]):
+        if idx==2:
+            for v in ring:
+                v[0]*=.81
+                v[1]=.016+(v[1]-.016)*.83
+    for idx,ring in enumerate(p["Pack"]["rings"]):
+        if idx in (1,2):
+            for j in (2,3,6,7):
+                ring[j][0]*=.97
+    for t in ("L","R"):
+        for name in ("UpperArm","Forearm"):
+            arm=p[name+t]
+            # Taper hard-shell ends around the existing load-bearing core.
+            for idx,section in enumerate(arm["sections"]):
+                if idx in (1,2):
+                    section[0]*=1.035 if name=="UpperArm" else .95
+                    section[1]*=.94
+        for ring in p["Antenna"+t]["rings"][1:-1]:
+            for v in ring:
+                v[0]*=.9
+        for name in ("ClawTop","ClawLowerA","ClawLowerB"):
+            claw=p[name+t]
+            for section in claw["sections"][1:-1]:
+                section[0]*=.94
+                section[1]*=.93
+        # Keep wheel shafts, treads, and attachment plane; sculpt the outer cover.
+        hub=p["TrackHub"+t]
+        for idx,ring in enumerate(hub["rings"]):
+            if idx in (1,2):
+                for v in ring:
+                    v[1]*=.96
+        # A more compact shoulder housing without touching the coaxial mount.
+        for row in p["Shoulder"+t]["profile"][2:4]:
+            row[0]*=.96
+    d["design_notes"].append("V14 full-body candidate: head crown, neck, chest, pack, arms, antennae, claws, shoulder and track covers reconstructed; existing mechanical interfaces, tread and pivots retained. Texture Studio paint separate, visual approval pending.")
     write(Path(dest),d)
 if __name__=="__main__":prepare(sys.argv[1],sys.argv[2])
