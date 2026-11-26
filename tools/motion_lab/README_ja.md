@@ -212,3 +212,7 @@ biped_v31.py はV30の読み込み/役割推定を再利用する独立CLI。左
 
 ## V31R: AI監修・判断・修正の役割分離
 [AI監修型制作フロー](SUPERVISED_WORKFLOW_ja.md) を適用する。役割別の引き渡しと不合格棄却を明示し、絶対運用ルールを維持。supervised_review.py の独立完了ゲート、reference_pose_repair.py の試験修正関数を追加。3動作9案は全て不合格、既存ゲーム・CI未変更。
+
+## V38: 支持点の全区間監査（独立ツール）
+`contact_phase_audit.py` はNPZの foot_vertices[N,F,V,3]（Y-up m、固定頂点対応、足ごとの頂点数が同一）、root_translation[N,3]、anchors[N,F,V]（明示支持頂点）、contact[N,F]（明示接地区間）を読む。足裏最低点から支持を推定しない。世界座標の同一素材点を連続支持区間の開始から追跡し、水平滑り、床高、貫通、支持点指定の欠落、空中相を検査。周期境界をまたぐ場合はroot移動量を累積した複数周期を渡す。既定5mm、空中ピーク最低2mmは暫定の走行用閾値で歩行には適用しない。CLI: `python tools/motion_lab/contact_phase_audit.py input.npz --out audit.json`。成功は標本上の運動学のみ。力学、接地ラベルの真偽、厳密干渉、全区間視認、実ゲーム再生、芸術品質は別検査。既存生成工程への強制組み込みは未実施。
+V38試作の2周期481標本で支持点欠落0、滑り・床突出は丸め誤差、空中相ピーク約4.93cm。意図的な滑り、支持点欠落、2cm床貫通の3異常を独立ローカル検査で棄却。モーションは採用しない。ゲーム・既存CI未変更。参考: https://research.cs.wisc.edu/graphics/Gallery/kovar.vol/Cleanup/ ; https://www.animationmentor.com/blog/animating-dynamic-run-cycles/
