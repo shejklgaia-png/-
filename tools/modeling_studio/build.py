@@ -504,6 +504,10 @@ def main():
     out.mkdir(parents=True,exist_ok=False)
     spec, mechanism = compile_graph(spec)
     spec, authoring = compile_design(spec)
+    from surface_authoring import compile_surfaces
+    spec, surfaces = compile_surfaces(spec)
+    if surfaces is not None:
+        (out/'surface_authoring_report.json').write_text(json.dumps(surfaces,indent=2),encoding='utf-8')
     if mechanism is not None:
         (out/'mechanism_graph.json').write_text(json.dumps(mechanism,indent=2),encoding='utf-8')
     objects = build(spec)
