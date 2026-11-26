@@ -57,6 +57,80 @@ def validate_faces(faces, coords, label):
     require(len(reached) == len(faces), label + ": disconnected face islands")
     return e
 
+
+def finish_spec(patch):
+    """Opt-in shading and edge finishing; old surface designs are unchanged."""
+    cfg = patch.get("finish")
+    if cfg is None:
+        return {}
+    label = patch["name"]
+    require(isinstance(cfg, dict) and set(cfg) <= {
+        "mode", "angle_deg", "bevel_m", "bevel_segments", "bevel_angle_deg"
+    }, label + ": invalid finish fields")
+    mode = cfg.get("mode", "flat")
+    require(mode in ("flat", "angle", "weighted"), label + ": invalid finish mode")
+    def number(key, default, lo, hi):
+        value = cfg.get(key, default)
+        require(isinstance(value, (float, int)) and not isinstance(value, bool)
+                and math.isfinite(value) and lo <= value <= hi,
+                label + ": invalid finish " + key)
+        return float(value)
+    angle = number("angle_deg", 45, 1, 179)
+    width = number("bevel_m", 0, 0, .02)
+    limit = number("bevel_angle_deg", 30, 1, 179)
+    segments = cfg.get("bevel_segments", 1)
+    require(isinstance(segments, int) and not isinstance(segments, bool) and
+            1 <= segments <= 3, label + ": invalid bevel segments")
+    return {"normal_finish": {"mode": mode, "angle_deg": angle},
+            "bevel": width, "bevel_segments": segments, "bevel_angle_deg": limit}
+
+
+def vector_sub(a, b):
+    return tuple(x-y for x, y in zip(a, b))
+
+
+def cross3(a, b):
+    return (a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0])
+
+
+def planar_diagnostics(patch, coords, outer):
+    """Measure authored major planes, not arbitrary triangle count.
+    A stable plane is formed from the longest baseline and farthest point.
+    Report-only: intended curvature must not be labeled as a plane.
+    """
+    reports = []
+    regions = patch.get("planar_regions", [])
+    require(isinstance(regions, list), patch["name"] + ": invalid planar regions")
+    names = set()
+    for region in regions:
+        require(isinstance(region, dict), patch["name"] + ": invalid planar region")
+        label = region.get("name")
+        ids = region.get("vertices")
+        require(isinstance(label, str) and label.strip() and label not in names,
+                patch["name"] + ": duplicate/empty planar region")
+        names.add(label)
+        require(isinstance(ids, list) and len(ids) >= 4 and len(set(ids)) == len(ids)
+                and set(ids) <= set(outer), label + ": invalid planar region vertices")
+        points = [coords[v] for v in ids]
+        a, b = max(((a,b) for i,a in enumerate(points) for b in points[i+1:]),
+                   key=lambda pair: math.dist(*pair))
+        axis = vector_sub(b,a)
+        normal = max((cross3(axis,vector_sub(c,a)) for c in points),
+                                        key=lambda n: math.hypot(*n))
+        length = math.hypot(*normal)
+        require(length > 1e-12, label + ": collinear planar region")
+        distances = [sum(x*y for x,y in zip(vector_sub(p,a),normal))/length for p in points]
+        tolerance = region.get("tolerance_m", .0001)
+        require(isinstance(tolerance,(int,float)) and not isinstance(tolerance,bool)
+                and math.isfinite(tolerance) and tolerance > 0, label + ": invalid tolerance")
+        residual = max(abs(x) for x in distances)
+        reports.append({"name":label,"vertex_count":len(ids),
+                        "max_abs_residual_m":residual,
+                        "peak_to_peak_m":max(distances)-min(distances),
+                        "tolerance_m":tolerance,"within_tolerance":residual <= tolerance})
+    return reports
+
+
 def compile_surfaces(spec):
     """Compile optional authored surface networks into ordinary explicit mesh parts."""
     if "surface_authoring" not in spec:
@@ -113,13 +187,17 @@ def compile_surfaces(spec):
         require(all(len(v)==2 for v in edges(polygons).values()), name + ": compiled mesh not closed")
         part = {"name":name, "shape":"mesh", "material":patch["material"],
                 "vertices":vertices, "faces":polygons}
+        finish = finish_spec(patch)
+        part.update(finish)
+        planes = planar_diagnostics(patch, coords, outer)
         if "parent" in patch:
             require(patch["parent"] in existing, name + ": parent must precede patch")
             part["parent"] = patch["parent"]
         parts.append(part)
         existing.add(name)
         report.append({"part":name,"mode":mode,"vertices":len(vertices),"faces":len(polygons),
-                       "source_vertex_ids":outer,"reason":patch["reason"],"evidence":patch["evidence"]})
+                       "source_vertex_ids":outer,"reason":patch["reason"],"evidence":patch["evidence"],
+                       "finish":finish or {"mode":"legacy_flat"}, "planar_regions":planes})
     require(bool(report), "no surface patches")
     return result, {"format":"SERA_SURFACE_REPORT_V1","stage":cfg["stage"],
                     "reference":cfg["reference"],"views":cfg["views"],"patches":report,
