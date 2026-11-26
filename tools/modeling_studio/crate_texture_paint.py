@@ -103,11 +103,83 @@ def main(root):
             seam(pid,int(np.argmax(span)),.74,False)
         elif name=="RoofServiceCover":
             seam(pid,0,.25,True)
+    # V15: projected, chamfered maintenance panels on the actual exterior faces.
+    # Color accents are materials, not directional lighting. Projected detail
+    # spans polygon boundaries without relying on the UV chart orientation.
+    def scoped(pid,axis,sign):
+        ids=np.flatnonzero((part==pid)&(n[:,axis]*sign>.35))
+        return sorted(set(int(face[t]) for t in ids))
+    def line(pid,faces,axes,points,width,color):
+        if not faces:return
+        layers.append({"kind":"projected_stroke","parts":[pid],"faces":faces,
+            "axes":axes,"points":points,"width":width,"color":color})
+    def bolt(pid,faces,axes,q,r=.003):
+        if not faces:return
+        for width,color in ((r*1.5,[47,54,62]),(r,[155,164,171]),(r*.35,[48,53,61])):
+            layers.append({"kind":"projected_dot","parts":[pid],"faces":faces,
+                "axes":axes,"center":q,"width":width,"color":color})
+    def hatch(pid,faces,axes,lo,hi,ch=.008,bolts=True):
+        x,y=lo;X,Y=hi
+        pts=[[x+ch,y],[X-ch,y],[X,y+ch],[X,Y-ch],[X-ch,Y],[x+ch,Y],[x,Y-ch],[x,y+ch],[x+ch,y]]
+        line(pid,faces,axes,pts,.005,[150,158,165])
+        line(pid,faces,axes,pts,.0024,[39,47,55])
+        if bolts:
+            for a,b in ((x+ch*1.5,y+ch*1.5),(X-ch*1.5,y+ch*1.5),(x+ch*1.5,Y-ch*1.5),(X-ch*1.5,Y-ch*1.5)):
+                bolt(pid,faces,axes,[a,b])
+    for row in g["parts"]:
+        pid=row["id"];name=row["name"]
+        if name=="Chest":
+            for sign in (-1,1):
+                fs=scoped(pid,0,sign)
+                hatch(pid,fs,[2,1],[-.094,.200],[.119,.318],.018)
+                # Paint only the physically recessed socket floor.
+                ids=np.flatnonzero((part==pid)&(n[:,0]*sign>.35))
+                for t in ids:
+                    q=p[t].mean(0)
+                    if abs(q[0])<.128 and .226<q[1]<.292 and -.007<q[2]<.079:
+                        mats[int(face[t])]="recess"
+                for y in (.243,.256,.269):
+                    line(pid,fs,[2,1],[[.009,y],[.064,y]],.003,[42,49,57])
+            fs=scoped(pid,2,1)
+            hatch(pid,fs,[0,1],[-.081,.200],[.081,.285],.013)
+            line(pid,fs,[0,1],[[-.052,.245],[-.024,.245],[-.012,.255],[.012,.255],[.024,.245],[.052,.245]],.004,[87,101,113])
+        elif name=="Pack":
+            fs=scoped(pid,2,-1)
+            hatch(pid,fs,[0,1],[-.051,.263],[.051,.401],.012)
+            ids=np.flatnonzero((part==pid)&(n[:,2]<-.35))
+            for t in ids:
+                q=p[t].mean(0)
+                if abs(q[0])<.039 and .279<q[1]<.384 and q[2]>-.286:
+                    mats[int(face[t])]="recess"
+            for y in (.303,.318,.333,.348,.363):
+                line(pid,fs,[0,1],[[-.029,y],[.029,y]],.004,[33,41,49])
+                line(pid,fs,[0,1],[[-.027,y+.006],[.027,y+.006]],.0018,[113,127,139])
+            for sign in (-1,1):
+                sf=scoped(pid,0,sign)
+                hatch(pid,sf,[2,1],[-.269,.266],[-.169,.392],.012)
+        elif name.startswith("TrackHub") and name[-1] in ("L","R"):
+            sign=-1 if name[-1]=="L" else 1
+            fs=scoped(pid,0,sign)
+            hatch(pid,fs,[2,1],[-.049,.119],[.049,.153],.006)
+            for z in (-.029,0,.029):bolt(pid,fs,[2,1],[z,.136],.0023)
+        elif name=="Head":
+            for sign in (-1,1):
+                fs=scoped(pid,0,sign)
+                hatch(pid,fs,[2,1],[-.172,.524],[-.080,.599],.012)
+            fs=scoped(pid,2,-1)
+            hatch(pid,fs,[0,1],[-.128,.535],[.128,.633],.014)
+        elif name.startswith(("Forearm","UpperArm")) and name[-1] in ("L","R") and "Core" not in name:
+            sign=-1 if name[-1]=="L" else 1
+            fs=scoped(pid,0,sign)
+            pts=p[part==pid];lo=pts.min((0,1));hi=pts.max((0,1))
+            dz=hi[2]-lo[2];dy=hi[1]-lo[1]
+            hatch(pid,fs,[2,1],[float(lo[2]+dz*.19),float(lo[1]+dy*.22)],[float(hi[2]-dz*.19),float(hi[1]-dy*.22)],.005)
+    palette["recess"]=[39,46,54]
     plan={"geometry_sha256":digest,"resolution":2048,"supersample":1,"padding":3,
-          "light":[-.18,1,.32],"ambient":.78,"direct":.20,"palette":palette,
+          "light":[-.18,1,.32],"ambient":1.0,"direct":0.0,"palette":palette,
           "face_material":mats,"emissive_materials":["cyan"],"layers":layers}
     write(out/"surface_plan.json",plan)
-    write(out/"paint_intent.json",{"status":"candidate","rules":"full-body cover divisions, actual surface fasteners, rear vents, upper light","fasteners":log,
+    write(out/"paint_intent.json",{"status":"candidate","rules":"scoped chamfered access hatches, actual recess floors, flat surface color; no directional diffuse bake","fasteners":log,
          "uv":"repacked existing Modeling Studio UVs; inspect density and raster collisions; no manual approval"})
     bake(mesh,plan,out/"paint")
 
