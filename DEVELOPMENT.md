@@ -1,3 +1,6 @@
+## 2026-11-26 PARTS FACTORY V6.6 制作継続コントローラ
+- 受理済みworkの復元・全ハッシュ検査、revision束縛の次工程request、draft/final packet・再構築記録・既存acceptの共通実行経路、失敗時の状態保全を実装。専用KITE branch run 45752878531成功、artifact 15086422625の36ファイルと選定PNG一致確認。2/11維持、blueprint awaiting_authoring。既存1時間タスクを新経路へ更新。AI制作自動起動・後続専用ツール連携・大規模搬送・V6.5 viewer/stockは未完。prepare以外の操作は実行未確認。ゲーム/無関係CI不変。
+
 ## 2026-11-26 全3D生産の共通HTMLプレビュー規約
 - 全3D制作の実モデルHTMLプレビュー、最新ゲーム描画に基づく陰影・枠線の独立切替（既定両ON）、タッチ操作、近似表示の明記を標準化。HTML配布規約とAGENTSへ記録。既存ビューワーへの機能実装・動作確認は未実施。ゲーム本体・CI不変。
 
