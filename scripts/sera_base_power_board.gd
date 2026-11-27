@@ -95,16 +95,17 @@ static func tile_width_for(side: int) -> float:
     return TILE_WIDTH * float(GRID_SIDE) / float(side)
 
 
-static func rebuild_preview_cells(stage: Node3D, side: int) -> void:
-    var frame := stage.get_node_or_null("PowerGrid10x10")
-    if frame == null:
-        return
+static func rebuild_preview_cells(stage: Node3D, side: int) -> bool:
+    var frame := stage.get_node_or_null("PowerGrid10x10") as Node3D
+    if frame == null or not BOARD_SIDES.has(side):
+        return false
     for shade in range(2):
         var old := frame.get_node_or_null("PowerTileShade%d" % shade)
         if old != null:
             frame.remove_child(old)
             old.queue_free()
     _cells(frame, side)
+    return true
 
 
 static func _cells(parent: Node3D, side: int = GRID_SIDE) -> void:
