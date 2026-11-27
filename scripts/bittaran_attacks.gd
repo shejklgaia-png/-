@@ -30,11 +30,11 @@ const SOURCE_BODY_RETURN_SECONDS: float = 0.62
 const SOURCE_KICK_STOMP_RETURN_SECONDS: float = (
     SOURCE_LEG_RETURN_SECONDS + SOURCE_BODY_RETURN_SECONDS)
 const ORIGINAL_CLIP_LENGTHS: Dictionary = {
-    "stomp": 1.75, "kick": 1.0, "sweep": 2.625
+    "stomp": 1.75, "kick": 1.0, "sweep": 2.8
 }
 ## The 22:13 source only has rear STOMP and SWEEP (not rear KICK).
 const REAR_CLIP_LENGTHS: Dictionary = {
-    "stomp": 1.0, "sweep": 1.54167
+    "stomp": 1.0, "sweep": 2.5
 }
 const START_RANGE_METERS: float = 9.0
 const STOMP_WINDUP_SECONDS: float = 1.25
@@ -93,17 +93,17 @@ const REAR_SWEEP_HALF_ANGLE_DEGREES: float = 165.0
 const SOURCE_HIT_DELAY_SECONDS: float = 0.10
 const KICK_EXTENSION_START_KEY_SECONDS: float = 0.25
 const KICK_EXTENSION_END_KEY_SECONDS: float = 0.75
-const SWEEP_FRONT_HIT_START_SECONDS: float = 0.67
-const SWEEP_FRONT_HIT_END_SECONDS: float = 1.38
-const SWEEP_REAR_HIT_START_SECONDS: float = 0.17
-const SWEEP_REAR_HIT_END_SECONDS: float = 0.63
+const SWEEP_FRONT_HIT_START_SECONDS: float = 0.50
+const SWEEP_FRONT_HIT_END_SECONDS: float = 1.50
+const SWEEP_REAR_HIT_START_SECONDS: float = 0.50
+const SWEEP_REAR_HIT_END_SECONDS: float = 1.25
 # The independent visual dirt trail follows the ORIGINAL first stroke:
 # before v482, FX were authored over 0.75..1.25 (front) / 0.25..0.75
 # (rear). Keep source-time FX unchanged when changing damage windows.
-const SWEEP_FRONT_FIRST_STROKE_START_KEY_SECONDS: float = 0.75
-const SWEEP_REAR_FIRST_STROKE_START_KEY_SECONDS: float = 0.25
-const SWEEP_FRONT_FX_FIRST_STROKE_END_KEY_SECONDS: float = 1.25
-const SWEEP_REAR_FX_FIRST_STROKE_END_KEY_SECONDS: float = 0.75
+const SWEEP_FRONT_FIRST_STROKE_START_KEY_SECONDS: float = 0.50
+const SWEEP_REAR_FIRST_STROKE_START_KEY_SECONDS: float = 0.50
+const SWEEP_FRONT_FX_FIRST_STROKE_END_KEY_SECONDS: float = 1.50
+const SWEEP_REAR_FX_FIRST_STROKE_END_KEY_SECONDS: float = 1.25
 
 ## The rendered LOWER-LEG and FOOT are still the only damage
 ## geometry. These are motion-time gates, not substitute hitboxes.
@@ -647,12 +647,13 @@ func _advance_original_only(delta: float, player_position: Vector3,
         "recovery": source_return_seconds(kind),
         "leg_return_seconds": source_leg_return_seconds(kind),
         "authored_full_sweep": kind == "sweep",
+        "reviewed_sweep": kind == "sweep",
         "body_return_seconds": source_body_return_seconds(kind),
         "stance_prepare": false,
         "tracking": false,
         "hit_window": phase == "strike" and source_hit_window(
             kind, leg_id, clip_time),
-        # FX are source-baked to the FULL original floor-scrape path.
+        # FX follow the approved sweep stroke window and actual toe contact.
         # Keep those clouds independent from player-damage hit windows.
         "sweep_fx_window": phase == "strike" and kind == "sweep" and (
             source_sweep_fx_window(leg_id, clip_time)),

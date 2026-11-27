@@ -2032,6 +2032,8 @@ func _advance_target_motion(delta: float) -> void:
                 result["position"] = target.position + Vector3(
                     sin(upright_yaw), 0.0, cos(upright_yaw)) * distance
             result["yaw"] = upright_yaw
+    var reviewed_yaw_rate: float = wrapf(float(result["yaw"])
+        - target.rotation.y, -PI, PI) / maxf(delta, 0.000001)
     target.position = result["position"]
     target.rotation.y = float(result["yaw"])
     bittaran_motion = (
@@ -2041,6 +2043,7 @@ func _advance_target_motion(delta: float) -> void:
         # The rig NEVER writes the Head quaternion while changing clips;
         # current procedural yaw persists until the tracking controller's
         # next collision-safe update at the end of this physics frame.
+        bittaran_rig.call("set_reviewed_turn_rate", reviewed_yaw_rate)
         bittaran_rig.call("set_motion", bittaran_motion, delta)
     if target_floor_mark != null:
         target_floor_mark.position = Vector3(

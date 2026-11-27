@@ -2790,6 +2790,8 @@ var source_ik_last_attack_time: float = -1.0
 var source_ik_step_pair: int = -1
 var source_ik_next_pair: int = 0
 var source_ik_step_elapsed: float = 0.0
+var reviewed_step_duration: float = SOURCE_STEP_DURATION_SECONDS
+var reviewed_step_motion: String = "Approach"
 # v464: a completed NORMAL diagonal swing is one gait step.
 # The two reset-to-Wait pairs after attacks do NOT count.
 var source_ik_completed_walk_steps: int = 0
@@ -3634,7 +3636,7 @@ func _source_ik_ground_attacking_limb(
         if bottom < FLOOR_Y - SWEEP_TOE_FLOOR_TOLERANCE_METERS:
             height_error = FLOOR_Y + SWEEP_TOE_CLEARANCE_METERS - bottom
             weight = 1.0
-        elif rear and phase == "strike" and (
+        elif rear and not bool(frame.get("reviewed_sweep", false)) and phase == "strike" and (
                 source_t >= REAR_SWEEP_SETTLE_START_SECONDS) and (
                 bottom <= FLOOR_Y + REAR_SWEEP_NEAR_FLOOR_METERS):
             var settle: float = clampf(
@@ -3881,6 +3883,12 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
     # the neutral stand-up settle has actually completed.
     var can_step: bool = (motion == "Approach" or motion == "Turn") and (
         not break_reaction_active())
+    var reviewed_gait: bool = actor.has_method("apply_reviewed_gait_reference") and (
+        not break_reaction_active() and not source_ik_postattack_active
+        and not source_ik_postattack_hold and source_ik_replant_id.is_empty()
+        and source_ik_home_handoff_id.is_empty()
+        and source_ik_wait_restored_id.is_empty())
+    var reviewed_scale: float = maxf(absf(actor.global_basis.get_scale().y), 0.001)
     var postattack_handoff_seconds: float = (
         SOURCE_POSTATTACK_GAIT_BLEND_SECONDS
         / BittaranAttackTimings.source_return_speed())
@@ -3934,14 +3942,30 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
             # is within the ordinary distance-trigger threshold.
             _source_ik_begin_pair(recovery_catchup_pending_pair)
             recovery_catchup_pending_pair = -1
-        elif maxf(errors[0], errors[1]) > SOURCE_STEP_TRIGGER_METERS:
+        elif maxf(errors[0], errors[1]) > (minf(SOURCE_STEP_TRIGGER_METERS,
+                0.35 * 0.84825 * reviewed_scale) if reviewed_gait
+                else SOURCE_STEP_TRIGGER_METERS):
             var pick: int = source_ik_next_pair
-            if errors[1 - pick] > errors[pick] + 0.20:
+            if not reviewed_gait and errors[1 - pick] > errors[pick] + 0.20:
                 pick = 1 - pick
             _source_ik_begin_pair(pick)
     # v462: only the postattack reset gait is accelerated. Normal
     # walking remains at its original 0.52s cadence and height.
     var current_step_duration: float = SOURCE_STEP_DURATION_SECONDS
+    if reviewed_gait and source_ik_step_pair >= 0:
+        if source_ik_step_elapsed <= 0.000001:
+            reviewed_step_motion = motion
+            if motion == "Approach":
+                var speed: float = movement / maxf(delta, 0.000001)
+                reviewed_step_duration = clampf(0.35 * 0.84825 * reviewed_scale
+                    / maxf(speed, 0.05), 0.25, 0.665)
+            elif motion == "Turn":
+                var yaw_speed: float = absf(float(actor.get("reviewed_turn_rate")))
+                reviewed_step_duration = clampf(0.36 * deg_to_rad(30.0)
+                    / maxf(yaw_speed, 0.01), 0.24, 0.864)
+            else:
+                reviewed_step_duration = SOURCE_STEP_DURATION_SECONDS
+        current_step_duration = reviewed_step_duration
     if source_ik_postattack_active:
         current_step_duration /= (
             BittaranAttackTimings.source_return_speed())
@@ -3952,6 +3976,11 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
         source_ik_step_elapsed / current_step_duration,
         0.0, 1.0)
     var eased: float = step_t * step_t * (3.0 - 2.0 * step_t)
+    if reviewed_gait:
+        var reference_motion: String = reviewed_step_motion if source_ik_step_pair >= 0 else motion
+        actor.call("apply_reviewed_gait_reference", reference_motion,
+            source_ik_step_pair, step_t, source_ik_next_pair)
+        eased = step_t * step_t * step_t * (10.0 + step_t * (-15.0 + 6.0 * step_t))
     for index in range(legs.size()):
         var limb: Dictionary = legs[index]
         # The two contact points belong to one rigid foot mesh.
@@ -3980,7 +4009,11 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
                 SOURCE_POSTATTACK_STEP_HEIGHT_METERS
                 if source_ik_postattack_active
                 else SOURCE_STEP_HEIGHT_METERS)
-            goal.y += lift_height * sin(PI * step_t)
+            if reviewed_gait:
+                lift_height = (0.18125 if reviewed_step_motion == "Turn" else 0.232) * reviewed_scale
+                goal.y += lift_height * 64.0 * pow(step_t, 3.0) * pow(1.0 - step_t, 3.0)
+            else:
+                goal.y += lift_height * sin(PI * step_t)
             rotation = (limb["rotation_from"] as Quaternion).slerp(
                 _source_ik_toe_down_rotation(
                     limb, _rotation_home(limb)), eased).normalized()
@@ -4172,6 +4205,16 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
                 limb["sole_local"] as Vector3)
             limb["last_rotation"] = (
                 solved_foot.global_basis.get_rotation_quaternion())
+        elif reviewed_gait:
+            # Use the reviewed knee plane as the pose prior, then lock the
+            # actual support point. This is not a second root animation.
+            error = _source_ik_solve_striker(limb, goal, rotation,
+                limb["sole_local"], (limb["lower"] as Node3D).global_position)
+            var reviewed_foot: Node3D = limb["foot"]
+            limb["last_goal"] = reviewed_foot.to_global(limb["sole_local"] as Vector3)
+            limb["last_rotation"] = reviewed_foot.global_basis.get_rotation_quaternion()
+            limb["last_knee"] = (limb["lower"] as Node3D).global_position
+            limb["last_foot"] = reviewed_foot.global_position
         else:
             error = _solve(limb, goal, rotation)
         limb["last_error"] = error
