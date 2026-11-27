@@ -86,3 +86,9 @@
 - 制作時に共通ナレッジを参照する自動取得経路を追加。SERA本体の tools/knowledge_bridge.py は公開 main を浅く取得して、Markdownをデータとして読む（取得先コードは実行しない）。制作クエリは外部送信しない。取得不能・部分取得・該当なしを区別する。1プロセス中は同一コミットのスナップショットを使用し、オフラインは SERA_KNOWLEDGE_OFFLINE=1 で明示。
 - モデスタ、モーラボの build.py、テクスタの ai_pipeline.py CLI とパーファクの design_knowledge.py、texture_bridge.py に接続。結果は knowledge_snapshot.json または設計briefの shared_knowledge。制作完了時の knowledge_evidence.json は該当成果物のSHA256を記録する。取得・生成はAIによる本文評価や品質承認の代替ではない。着手前のAI参照義務は維持。
 - SERA_knowledge の tools/evidence_review.py は制作成果物のハッシュと検索スナップショットを確認し、審査用パケットを生成する。審査者・対象・条件・制約・観測結果・実際のJSON数値の位置を明示した判断を受けた場合のみ reviewed_draft を作成。独立審査者の実在・測定の妥当性・再現性は別途確認する。自動公開・自動verified昇格は禁止。既存の制作承認ゲート・CI制限・ゲームの実行時処理は変更しない。
+
+## ナレッジ活用基盤 V4（2026-11-27）
+- 実制作で得た knowledge_snapshot.json / knowledge_evidence.json を保全。SERA_knowledge/tools/usage_log.py に審査済み実結果と各参照IDの adopt/reject/defer/not_applicable、理由、比較条件、観測日時を渡す。イベントはローカル保存し、公開・アップロードは自動化しない。未計測は unmeasured として分離。
+- tools/analytics.py report で収集済み成果物の参照件数と審査イベントの採用件数を別集計する。同一scope/protocol/metric/unit/direction内の観測値のみ時系列化し、未計測を0扱いしない。失敗タグと悪化指標の反復は再発候補として扱い、因果関係を断定しない。
+- analytics.py audit で関連ID欠落・重複・共有タグと肯否表現に基づく矛盾候補・review_due_jst/supersedes・鮮度を確認。期限やキーワードは再審査の目安であり、機械的な失効や自動削除はしない。transferで異分野資料を意図的に取得し、対象分野の原理・制約と比較する。実装判断・品質承認は従来通りAI監修と実証を必要とする。
+- ナレッジ利用の集計値は実在する記録のみ。架空の成功率、計測値、審査者は禁止。制作/ゲームCI制限と既存品質ゲートを変更しない。
