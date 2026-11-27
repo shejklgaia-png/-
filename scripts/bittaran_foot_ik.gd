@@ -2791,6 +2791,7 @@ var source_ik_step_pair: int = -1
 var source_ik_next_pair: int = 0
 var source_ik_step_elapsed: float = 0.0
 var reviewed_step_duration: float = SOURCE_STEP_DURATION_SECONDS
+var reviewed_step_motion: String = "Approach"
 # v464: a completed NORMAL diagonal swing is one gait step.
 # The two reset-to-Wait pairs after attacks do NOT count.
 var source_ik_completed_walk_steps: int = 0
@@ -3945,7 +3946,7 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
                 0.35 * 0.84825 * reviewed_scale) if reviewed_gait
                 else SOURCE_STEP_TRIGGER_METERS):
             var pick: int = source_ik_next_pair
-            if errors[1 - pick] > errors[pick] + 0.20:
+            if not reviewed_gait and errors[1 - pick] > errors[pick] + 0.20:
                 pick = 1 - pick
             _source_ik_begin_pair(pick)
     # v462: only the postattack reset gait is accelerated. Normal
@@ -3953,6 +3954,7 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
     var current_step_duration: float = SOURCE_STEP_DURATION_SECONDS
     if reviewed_gait and source_ik_step_pair >= 0:
         if source_ik_step_elapsed <= 0.000001:
+            reviewed_step_motion = motion
             if motion == "Approach":
                 var speed: float = movement / maxf(delta, 0.000001)
                 reviewed_step_duration = clampf(0.35 * 0.84825 * reviewed_scale
@@ -3975,9 +3977,9 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
         0.0, 1.0)
     var eased: float = step_t * step_t * (3.0 - 2.0 * step_t)
     if reviewed_gait:
-        if can_step or source_ik_step_pair < 0:
-            actor.call("apply_reviewed_gait_reference", motion,
-                source_ik_step_pair, step_t, source_ik_next_pair)
+        var reference_motion: String = reviewed_step_motion if source_ik_step_pair >= 0 else motion
+        actor.call("apply_reviewed_gait_reference", reference_motion,
+            source_ik_step_pair, step_t, source_ik_next_pair)
         eased = step_t * step_t * step_t * (10.0 + step_t * (-15.0 + 6.0 * step_t))
     for index in range(legs.size()):
         var limb: Dictionary = legs[index]
@@ -4008,7 +4010,7 @@ func _source_ik_advance_locomotion(delta: float, motion: String) -> void:
                 if source_ik_postattack_active
                 else SOURCE_STEP_HEIGHT_METERS)
             if reviewed_gait:
-                lift_height = (0.18125 if motion == "Turn" else 0.232) * reviewed_scale
+                lift_height = (0.18125 if reviewed_step_motion == "Turn" else 0.232) * reviewed_scale
                 goal.y += lift_height * 64.0 * pow(step_t, 3.0) * pow(1.0 - step_t, 3.0)
             else:
                 goal.y += lift_height * sin(PI * step_t)
