@@ -10,6 +10,7 @@ var initialized: bool = false
 var heading: float = 0.0
 var velocity: Vector3 = Vector3.ZERO
 var running: bool = false
+var speed_ratio: float = 0.0
 var over: float = 0.0
 var cooldown: float = 0.0
 var twist: Vector3 = Vector3.ZERO
@@ -77,6 +78,7 @@ func cancel() -> void:
     initialized = false
     velocity = Vector3.ZERO
     running = false
+    speed_ratio = 0.0
     turn_stage = 0
     over = 0.0
     cooldown = 0.0
@@ -91,6 +93,7 @@ func motion_velocity(wanted: Vector3, max_speed: float, delta: float) -> Vector3
         var seconds: float = 0.30 if wanted.length_squared() > 0.0001 else 0.19
         velocity = velocity.move_toward(wanted, max_speed * delta / seconds)
     running = velocity.length_squared() > 0.0025
+    speed_ratio = clampf(velocity.length() / maxf(max_speed, 0.001), 0.0, 1.0)
     return velocity
 
 func _wrap(a: float) -> float:
@@ -234,7 +237,8 @@ func present(rig: Node3D, delta: float, is_run: bool, target_yaw: float) -> void
         if turn_stage == 0:
             over = over+dt if absf(err) > deg_to_rad(55.0) else 0.0
             if over >= 0.045 and cooldown <= 0.0:
-                _start_turn(rig, predicted, chain)
+                var turn_target: float = predicted if _wrap(predicted-heading)*err > 0.0 else target_yaw
+                _start_turn(rig, turn_target, chain)
                 over = 0.0
         if turn_stage != 0:
             _advance_turn(dt, predicted)
