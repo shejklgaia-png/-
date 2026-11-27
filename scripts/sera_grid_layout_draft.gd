@@ -1,6 +1,11 @@
 extends RefCounted
 ## Session-only GRID layout draft. No ownership, saves or resource awards.
 const Board = preload("res://scripts/sera_base_power_board.gd")
+const Icons = preload("res://scripts/sera_grid_node_icons.gd")
+var board_side: int = Board.GRID_SIDE
+var layouts: Dictionary = {}
+var icon_parent: Node3D
+var icon_batches: Dictionary = {}
 const CODES = ["S1","S2","S3","A1","A2","A3","E1","E2","E3","O1","O2","O3","GEN","BAT","WIRE","AMP","YIELD","SAVE","ATK","BREAK","HP","DEF","SPD","EN"]
 const NAMES = ["スクラップ・低","スクラップ・中","スクラップ・高","金属複合材・低","金属複合材・中","金属複合材・高","電子部品・低","電子部品・中","電子部品・高","有機素材・低","有機素材・中","有機素材・高","変換炉","蓄電池","送電線","容量増幅","生産補助","省電制御","出力増幅","破砕制御","耐久補強","装甲安定","駆動補助","EN循環"]
 const CATEGORY_CODES = {
@@ -38,7 +43,7 @@ static func description(code: String) -> String:
 
 ## Rated totals only: no port connectivity, actual earnings or power allocation.
 func rated_overview() -> Dictionary:
-    var totals := {"cells":0,"nodes":entries.size(),"generation":0,"storage":500,
+    var totals := {"side":board_side,"cells":0,"nodes":entries.size(),"generation":0,"storage":500,
         "raw":0,"processing":0,"wire_quarters":0,"combat_count":0}
     var combat_types := {}
     for entry in entries:
@@ -69,7 +74,53 @@ func rated_overview() -> Dictionary:
     return totals
 
 
+func set_board_side(side: int) -> bool:
+    if not Board.BOARD_SIDES.has(side):
+        return false
+    if side == board_side:
+        return true
+    if not is_instance_valid(icon_parent) or not Board.rebuild_preview_cells(icon_parent, side):
+        return false
+    cancel_drag()
+    layouts[board_side] = entries.duplicate(true)
+    var next: Array[Dictionary] = []
+    if layouts.has(side):
+        next.assign(layouts[side])
+    entries = next
+    board_side = side
+    picked = -1
+    _refresh()
+    return true
+
+
+func _icon_batch(code: String) -> MultiMeshInstance3D:
+    if icon_batches.has(code):
+        return icon_batches[code] as MultiMeshInstance3D
+    var tex := Icons.texture(code)
+    if tex == null:
+        return null
+    var node := MultiMeshInstance3D.new()
+    node.name = "GridIcon_" + code
+    var multi := MultiMesh.new()
+    multi.transform_format = MultiMesh.TRANSFORM_3D
+    multi.mesh = QuadMesh.new()
+    multi.instance_count = Board.MAX_SIDE * Board.MAX_SIDE
+    multi.visible_instance_count = 0
+    node.multimesh = multi
+    var mat := StandardMaterial3D.new()
+    mat.albedo_texture = tex
+    mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+    mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+    node.material_override = mat
+    node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+    icon_parent.add_child(node)
+    icon_batches[code] = node
+    return node
+
+
 func setup(parent: Node3D) -> void:
+    icon_parent = parent
     bodies = _batch(parent, "GridDraftBodies")
     marks = _batch(parent, "GridDraftDirectionMarks")
     _refresh()
@@ -81,7 +132,7 @@ func _batch(parent: Node3D, label: String) -> MultiMeshInstance3D:
     mult.transform_format = MultiMesh.TRANSFORM_3D
     mult.use_colors = true
     mult.mesh = BoxMesh.new()
-    mult.instance_count = Board.GRID_SIDE * Board.GRID_SIDE
+    mult.instance_count = Board.MAX_SIDE * Board.MAX_SIDE
     mult.visible_instance_count = 0
     node.multimesh = mult
     var mat := StandardMaterial3D.new()
@@ -107,7 +158,7 @@ func _at(cell: Vector2i) -> int:
 
 func _valid(entry: Dictionary, skip: int = -1) -> bool:
     var rect := _area(entry)
-    if not Rect2i(Vector2i.ZERO, Vector2i(Board.GRID_SIDE, Board.GRID_SIDE)).encloses(rect):
+    if not Rect2i(Vector2i.ZERO, Vector2i(board_side, board_side)).encloses(rect):
         return false
     for i in range(entries.size()):
         if i != skip and rect.intersects(_area(entries[i])):
@@ -237,8 +288,12 @@ func _color(code: String) -> Color:
 func _refresh() -> void:
     if not is_instance_valid(bodies) or not is_instance_valid(marks):
         return
-    var pitch: float = Board.CELL_PITCH
-    var half: float = (Board.GRID_SIDE - 1) * 0.5
+    var pitch: float = Board.pitch_for(board_side)
+    var half: float = (board_side - 1) * 0.5
+    var counts: Dictionary = {}
+    for key in icon_batches:
+        var batch: MultiMeshInstance3D = icon_batches[key]
+        batch.multimesh.visible_instance_count = 0
     for i in range(entries.size()):
         var e: Dictionary = entries[i]
         var rect := _area(e)
@@ -247,13 +302,26 @@ func _refresh() -> void:
         var code: String = str(e["code"])
         var height: float = 0.10 if code == "WIRE" else 0.34
         pos.y = 0.423 + height * 0.5
-        var scale := Vector3(rect.size.x*pitch-0.13,height,rect.size.y*pitch-0.13)
+        var scale := Vector3(rect.size.x*pitch-pitch*0.127,height,rect.size.y*pitch-pitch*0.127)
         bodies.multimesh.set_instance_transform(i, Transform3D(Basis.IDENTITY.scaled(scale),pos))
         bodies.multimesh.set_instance_color(i, Color("#d1f1ff") if i == picked else _color(code))
         var direction: Vector3 = [Vector3.FORWARD,Vector3.RIGHT,Vector3.BACK,Vector3.LEFT][int(e["rot"])]
-        var reach: float = (scale.x if absf(direction.x) > 0.5 else scale.z) * 0.5 - 0.16
+        var reach: float = (scale.x if absf(direction.x) > 0.5 else scale.z) * 0.5 - pitch * 0.16
         var marker := pos + direction * maxf(0.0, reach) + Vector3.UP * (height*0.5+0.025)
-        marks.multimesh.set_instance_transform(i, Transform3D(Basis.IDENTITY.scaled(Vector3(0.19,0.045,0.19)),marker))
+        if code == "WIRE":
+            marker.y = pos.y - 0.02 # Four-way wire has no orientation marker.
+        marks.multimesh.set_instance_transform(i, Transform3D(Basis.IDENTITY.scaled(Vector3(pitch*0.17,0.045,pitch*0.17)),marker))
         marks.multimesh.set_instance_color(i, Color("#d5f4ff"))
+        var icon := _icon_batch(code)
+        if icon != null:
+            var j: int = int(counts.get(code, 0))
+            var extent: float = pitch * 0.70
+            var face := Basis(Vector3.RIGHT, -PI * 0.5).scaled(Vector3(extent, 1.0, extent))
+            var icon_pos := pos + Vector3.UP * (height * 0.5 + 0.055)
+            icon.multimesh.set_instance_transform(j, Transform3D(face, icon_pos))
+            counts[code] = j + 1
+    for key in counts:
+        var batch: MultiMeshInstance3D = icon_batches[key]
+        batch.multimesh.visible_instance_count = int(counts[key])
     bodies.multimesh.visible_instance_count = entries.size()
     marks.multimesh.visible_instance_count = entries.size()
