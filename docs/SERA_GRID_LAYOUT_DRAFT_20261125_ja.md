@@ -18,3 +18,9 @@
 - 定格概要：占有面積、総設備数、変換上限（140EP×GEN）、基本500EP＋蓄電池、原料処理上限、満量加工費＋配線維持費、戦闘支援基数／種類数。戦闘3基超・重複種類は注意色。配置自体は禁止しない。数値は未接続・OFF・増幅・原料不足を考慮しない設計定格で、帰還実績・蓄電残量とは別。操作時のみ集計。
 - 次段階案：固定端子のセル座標と回転規則を確定し、上下左右の接続判定→有効給電網→未接続表示→実稼働ON/OFF→プリセットと所有権→帰還精算の順。戦闘支援の暫定数値は変更しない。専用3Dモデルは別途着手指示まで保留、俯瞰シルエットが占有セル内という規則を維持。
 - 参考: Factorio電力情報 https://wiki.factorio.com/Electricity 、Shapez 2未接続端の予測表示 https://shapez2.wiki.gg/wiki/Changelog 、Godot UI HBoxContainer https://docs.godotengine.org/en/stable/classes/class_hboxcontainer.html 。CI・テスト・実機・モデル制作なし。
+
+## ノード識別・盤面密度プレビュー（2026-11-27）
+- 24種の機能記号。生産4系統×品質1〜3を形状と品質バーで識別、電力3、補助3、戦闘6は専用図形。パレットと盤面に同一の自作SVG記号を表示。パレットに実占有矩形のミニ図も表示。ノード本体の暫定形状は維持し、正式3D制作は保留。
+- 10/12/14/16/18の5段階の盤面密度を切り替える。物理外枠・中心・固定ケーブルは維持し、ピッチとタイル幅を 10/side 倍にする。座標変換・配置境界・選択マーカー・矢印位置・MultiMesh容量は密度に追随。密度ごとのレイアウトをBASEセッション内だけ保持。成長解放やセーブではない。
+- 設備アイコンはコード別MultiMeshを必要時のみ確保し、配置操作時だけ変換を更新。24種共通の図形データはキャッシュ。最大324セルを確保。給電、端子、実経済、所有、強化、永続保存は未実装。CI・Godot実行・実機未確認。
+- 参考：Godot Image.load_svg_from_string https://docs.godotengine.org/en/stable/classes/class_image.html 、MultiMesh https://docs.godotengine.org/en/stable/classes/class_multimesh.html 。
