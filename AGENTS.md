@@ -81,3 +81,8 @@
 - 複数知見をまとめる場合は synthesis コマンドで本文付き比較パケットを生成し、AIが合意点・矛盾・条件・転用可否を吟味する。統合案は候補から開始し、証拠がない限り verified に昇格しない。
 - 制作終了時に参照ID・採否・理由・観測結果・証拠・再現条件を記録。公開可能性を別途確認し、feedback コマンドで候補をリポジトリ外に作成できる。審査後のみ experience/success、experience/failure、methodology、evaluation、synthesis へ新規記録する。未測定・未検証・不採用は成功と混同しない。公開前に秘密情報・個人情報・非公開成果物を除く。
 - 既存のユーザー指示、ゲームCI制限、制作専用の例外、台帳運用を変更しない。ナレッジ検索のためにCIを起動しない。
+
+## ナレッジ活用基盤 V3（2026-11-27）
+- 制作時に共通ナレッジを参照する自動取得経路を追加。SERA本体の tools/knowledge_bridge.py は公開 main を浅く取得して、Markdownをデータとして読む（取得先コードは実行しない）。制作クエリは外部送信しない。取得不能・部分取得・該当なしを区別する。1プロセス中は同一コミットのスナップショットを使用し、オフラインは SERA_KNOWLEDGE_OFFLINE=1 で明示。
+- モデスタ、モーラボの build.py、テクスタの ai_pipeline.py CLI とパーファクの design_knowledge.py、texture_bridge.py に接続。結果は knowledge_snapshot.json または設計briefの shared_knowledge。制作完了時の knowledge_evidence.json は該当成果物のSHA256を記録する。取得・生成はAIによる本文評価や品質承認の代替ではない。着手前のAI参照義務は維持。
+- SERA_knowledge の tools/evidence_review.py は制作成果物のハッシュと検索スナップショットを確認し、審査用パケットを生成する。審査者・対象・条件・制約・観測結果・実際のJSON数値の位置を明示した判断を受けた場合のみ reviewed_draft を作成。独立審査者の実在・測定の妥当性・再現性は別途確認する。自動公開・自動verified昇格は禁止。既存の制作承認ゲート・CI制限・ゲームの実行時処理は変更しない。
