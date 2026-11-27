@@ -231,6 +231,9 @@ var attack_windup_clip: String = ""
 var attack_windup_end: float = 0.0
 var attack_windup_phase: float = 0.0
 var equipment_handler: RefCounted
+const V107Motion = preload("res://scripts/sera_v107_locomotion.gd")
+var v107: V107Motion
+var v107_floor_y: float = -0.03556323
 var bird_authoring: Dictionary = {}
 var bird_bone_ids: Array[String] = []
 var head_c_proxy: Node3D
@@ -628,7 +631,8 @@ func _update_foot_contacts(delta: float) -> void:
                 foot_contact_elapsed = 0.0
                 # On an actual touchdown, use the lowest mesh vertex of
                 # BOTH feet to align the visual rig. This also includes bird C.
-                equipment_handler.call("snap_run_contact_foot_to_floor", side)
+                if not _v107_run():
+                    equipment_handler.call("snap_run_contact_foot_to_floor", side)
                 foot_contact.emit(side)
     foot_contact_initialized = true
 
@@ -1211,6 +1215,13 @@ func _switch_clip(wanted: String, fade_seconds: float) -> void:
         prior_rotations[uid] = pivot.quaternion
         prior_offsets[uid] = pivot.position - bind_positions[uid]
         prior_scales[uid] = pivot.scale
+    if v107 != null and wanted not in RUN_CLIPS and wanted != WAIT_CLIP:
+        # Rebase the outgoing displayed root into the physical actor frame.
+        var visual_yaw := Quaternion(Vector3.UP, rotation.y)
+        if prior_rotations.has(RUN_ROOT_BONE_UUID):
+            prior_rotations[RUN_ROOT_BONE_UUID] = (visual_yaw * (prior_rotations[RUN_ROOT_BONE_UUID] as Quaternion)).normalized()
+            prior_offsets[RUN_ROOT_BONE_UUID] = visual_yaw * (prior_offsets[RUN_ROOT_BONE_UUID] as Vector3)
+        cancel_v107_locomotion()
     attack_windup_active = false
     current_clip = wanted
     # Reset RUN's cached travel heading at the transition, not later in
@@ -1392,6 +1403,38 @@ func _blended_boost_pose(uid: String) -> Dictionary:
         "scale": fore_aft_scale.lerp(lateral_scale, lateral_weight)
     }
 
+# Only the gameplay rig opts in. Keep exhibition, bird C and heavy SLIDE unchanged.
+func enable_v107_locomotion() -> void:
+    v107 = V107Motion.new()
+    v107.enabled = v107.valid()
+    v107_floor_y = position.y
+
+func _v107_allowed() -> bool:
+    return v107 != null and v107.enabled and loading_ok and equipment_handler != null \
+        and str(equipment_handler.call("current_for", "legs")) != "C" \
+        and not heavy_slide_run_enabled and not training_ko_active \
+        and not combat_playback and not step_playback and not jump_playback \
+        and not damage_playback and not guard_playback
+
+func _v107_run() -> bool:
+    return _v107_allowed() and current_clip in RUN_CLIPS
+
+func v107_move_velocity(wanted: Vector3, maximum: float, delta: float, boost_pose: bool) -> Vector3:
+    if not _v107_allowed() or boost_pose:
+        cancel_v107_locomotion()
+        return wanted
+    return v107.motion_velocity(wanted, maximum, delta)
+
+func v107_visual_forward(fallback: Vector3) -> Vector3:
+    if _v107_allowed() and v107.initialized:
+        return Basis(Vector3.UP, v107.heading) * Vector3.FORWARD
+    return fallback
+
+func cancel_v107_locomotion() -> void:
+    if v107 != null:
+        v107.cancel()
+        rotation.y = 0.0
+
 func set_moving(moving: bool, boosting: bool = false,
         local_direction: Vector2 = Vector2(0.0, 1.0),
         boost_input_active: bool = false) -> void:
@@ -1434,7 +1477,7 @@ func set_moving(moving: bool, boosting: bool = false,
         if wanted == RUN_CLIP:
             return
         wait_to_run_landing_active = false
-    if current_clip == WAIT_CLIP and wanted == RUN_CLIP \
+    if current_clip == WAIT_CLIP and wanted == RUN_CLIP and not _v107_allowed() \
             and not jump_playback and not combat_playback and not step_playback:
         wait_to_run_landing_elapsed = 0.0
         _switch_clip(JUMP_CLIP, 0.0)  # ENTRY: no interpolation
@@ -2057,6 +2100,8 @@ func _process(delta: float) -> void:
         var playback_rate: float = RUN_ANIMATION_SPEED if current_clip in RUN_CLIPS else (
             1.0 / equipment_damage_scale if current_clip == DAMAGE_CLIP else (
                 equipment_reaction_speed if current_clip == GUARD_REACTION_CLIP else 1.0))
+        if _v107_run():
+            playback_rate *= 0.65 + 0.35 * v107.speed_ratio
         if current_clip in [STRIKE_CLIP, STRIKE_2_CLIP, STRIKE_3_CLIP,
                 KATANA_CLIP, KATANA_SECOND_CLIP, BASH_CLIP]:
             playback_rate *= equipment_melee_attack_speed_scale
@@ -2107,6 +2152,8 @@ func _process(delta: float) -> void:
             boost_direction_initialized = false
     if current_clip == BOOST_CLIP and not combat_paused:
         _advance_slide_blend(delta)
+    if v107 != null and (not _v107_allowed() or current_clip not in RUN_CLIPS and current_clip != WAIT_CLIP):
+        cancel_v107_locomotion()
     _apply_animation(delta)
     # v299: Only WAIT poses and RUN touchdown events measure the true
     # lowest foot vertices for root-height correction. Other poses restore
@@ -2118,6 +2165,8 @@ func _process(delta: float) -> void:
             and not guard_playback and not jump_playback and not damage_playback):
         equipment_handler.call("clear_run_contact_height")
         equipment_handler.call("snap_grounded_sole_to_floor")
+        if _v107_allowed() and blending_for >= blend_duration and v107.turn_stage == 0:
+            v107_floor_y = position.y
     elif (landing_pose_active or wait_to_run_landing_active) and current_clip == JUMP_CLIP:
         # The completed Kick_b is crossfaded into authored Jump 0.375..0.5.
         # Plant the actual lowest foot throughout that transition; the
@@ -2129,7 +2178,10 @@ func _process(delta: float) -> void:
                 and not damage_playback:
             # Keep the previous contact height between touches; sample a new
             # lowest-foot position only at the next foot_contact sound event.
-            equipment_handler.call("restore_run_contact_height")
+            if _v107_run():
+                position.y = v107_floor_y
+            else:
+                equipment_handler.call("restore_run_contact_height")
             _update_foot_contacts(delta)
         else:
             equipment_handler.call("clear_run_contact_height")
@@ -2145,6 +2197,15 @@ func _process(delta: float) -> void:
     else:
         equipment_handler.call("clear_run_contact_height")
         reset_foot_contacts()
+    if _v107_allowed() and (current_clip in RUN_CLIPS or current_clip == WAIT_CLIP):
+        var player_node: Node3D = get_parent() as Node3D
+        if player_node != null:
+            var target_forward: Vector3 = -player_node.global_basis.z
+            var target_yaw: float = atan2(-target_forward.x, -target_forward.z)
+            v107.present(self, delta, current_clip in RUN_CLIPS, target_yaw)
+            # The separate HEAD C proxy follows the final procedural head pose too.
+            if is_instance_valid(head_c_proxy) and bones.has(RUN_HEAD_BONE_UUID):
+                head_c_proxy.quaternion = (bones[RUN_HEAD_BONE_UUID] as Node3D).quaternion
     if wait_to_run_landing_active \
             and wait_to_run_landing_elapsed >= WAIT_RUN_LANDING_SECONDS:
         # Sample the complete final grounded key BEFORE switching to RUN.
@@ -2230,6 +2291,17 @@ func _stabilize_run_head_rotation(t: float, authored_head: Quaternion) -> Quater
     return (parent_orientation.inverse() * stabilized).normalized()
 
 func _blended_run_pose(uid: String, t: float, stabilize_head: bool = true) -> Dictionary:
+    if _v107_run():
+        if v107.has_bone(uid):
+            return v107.sample(uid, atan2(run_direction_smoothed.x, run_direction_smoothed.y), t)
+        # V107 moves equipped items through their existing hand parents.
+        var idle_tracks: Dictionary = animations[WAIT_CLIP]["tracks"].get(uid, {})
+        var idle_rotations: Array = idle_tracks.get("rotation", [])
+        var idle_positions: Array = idle_tracks.get("position", [])
+        var idle_scales: Array = idle_tracks.get("scale", [])
+        return {"rotation": _rotation_at(idle_rotations, 0.0) if not idle_rotations.is_empty() else bind_rotations[uid],
+            "position": _value_at(idle_positions, 0.0) * UNIT,
+            "scale": _value_at(idle_scales, 0.0) if not idle_scales.is_empty() else Vector3.ONE}
     var total_weight: float = 0.0
     var blended_rotation: Quaternion = Quaternion.IDENTITY
     var blended_translation: Vector3 = Vector3.ZERO
