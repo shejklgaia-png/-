@@ -4,7 +4,10 @@ Knowledge is guidance, not auto-generated geometry or game approval.
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+import knowledge_bridge as kb
 import quality_gates as q
 
 ROOT=Path(__file__).resolve().parent/"design_library"
@@ -61,6 +64,7 @@ def brief(slot,query,limit=8,root=ROOT):
     if not optional:
         optional=sorted((e for e in rows if not e["mandatory"]),key=key)[:min(limit,3)]
     return {"format":"SERA_PF_DESIGN_BRIEF_V5","slot":slot,"query":query,
+            "shared_knowledge":kb.retrieve("factory", slot+" "+query),
             "entries":[{"key":key(e),"sha256":q.canonical(e),"entry":e} for e in mandatory+optional]}
 
 def check_brief(src,slot):
