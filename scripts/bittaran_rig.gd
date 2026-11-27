@@ -3,6 +3,7 @@ extends Node3D
 ## looping IDLE/TURN/APPROACH clips. Player's SeraRig is never modified.
 const SOURCE_PATH: String = "res://models/bosses/Bittaran.bbmodel"
 const EMBEDDED = preload("res://assets/bittaran_data.gd")
+const REVIEWED = preload("res://assets/bittaran_reviewed_motion.gd")
 const GROUND_CONTACTS = preload("res://assets/bittaran_ground_contacts.gd")
 const OUTLINE_SCRIPT = preload("res://scripts/sera_view_edges.gd")
 const MaterialShading = preload("res://scripts/sera_fullbody_material_preview.gd")
@@ -163,6 +164,14 @@ var source_aim_primary_settled: bool = false
 # Procedural HEAD look yaw is not part of an authored blend source.
 var external_head_yaw: float = 0.0
 var loading_ok: bool = false
+var reviewed_cache: Dictionary = {}
+var reviewed_turn_rate: float = 0.0
+var reviewed_turn_clip: String = "left"
+const REVIEWED_SOURCE_IDS: Dictionary = {
+    "Wait": "standby", "Idle": "standby",
+    "なぎ払い": "sweep_fl", "なぎ払い_R": "sweep_fr",
+    "後足なぎ払い_L": "sweep_rl", "後足なぎ払い_R": "sweep_rr"
+}
 
 func _ready() -> void:
     # Interpolate all IK pose joints against the interpolated combat camera.
@@ -399,7 +408,107 @@ func _sample_rotation(keys: Array, t: float) -> Quaternion:
             return _bb_rotation(euler)
     return _key_rotation(rotations[rotations.size() - 1])
 
+
+## Absolute local quaternion samples from the approved preview. The head,
+## mesh pivots, physical root and combat ownership remain unchanged.
+func _reviewed_bytes(id: String) -> PackedByteArray:
+    if not reviewed_cache.has(id):
+        reviewed_cache[id] = REVIEWED.clip_bytes(id)
+    return reviewed_cache[id]
+
+func _reviewed_indices(id: String, seconds: float) -> Vector3:
+    var meta: Array = REVIEWED.META[id]
+    var count: int = int(meta[1])
+    var frame: float = clampf(seconds / float(meta[0]), 0.0, 1.0) * float(count - 1)
+    var a: int = floori(frame)
+    return Vector3(a, mini(a + 1, count - 1), frame - float(a))
+
+func _reviewed_quaternion(raw: PackedByteArray, frame: int, joint_index: int) -> Quaternion:
+    var o: int = frame * REVIEWED.FRAME_BYTES + 6 + joint_index * 8
+    return Quaternion(
+        float(raw.decode_s16(o)) / 32767.0,
+        float(raw.decode_s16(o + 2)) / 32767.0,
+        float(raw.decode_s16(o + 4)) / 32767.0,
+        float(raw.decode_s16(o + 6)) / 32767.0).normalized()
+
+func _reviewed_rotation(id: String, joint_index: int, seconds: float) -> Quaternion:
+    var raw: PackedByteArray = _reviewed_bytes(id)
+    var frame: Vector3 = _reviewed_indices(id, seconds)
+    return _reviewed_quaternion(raw, int(frame.x), joint_index).slerp(
+        _reviewed_quaternion(raw, int(frame.y), joint_index), frame.z).normalized()
+
+func _reviewed_offset_at(raw: PackedByteArray, frame: int) -> Vector3:
+    var o: int = frame * REVIEWED.FRAME_BYTES
+    return Vector3(raw.decode_s16(o), raw.decode_s16(o + 2),
+        raw.decode_s16(o + 4)) * 0.0001
+
+func _reviewed_body_offset(id: String, seconds: float) -> Vector3:
+    var raw: PackedByteArray = _reviewed_bytes(id)
+    var frame: Vector3 = _reviewed_indices(id, seconds)
+    return _reviewed_offset_at(raw, int(frame.x)).lerp(
+        _reviewed_offset_at(raw, int(frame.y)), frame.z)
+
+func _apply_reviewed_pose(id: String, seconds: float) -> void:
+    var raw: PackedByteArray = _reviewed_bytes(id)
+    var meta: Array = REVIEWED.META[id]
+    if raw.size() != int(meta[1]) * REVIEWED.FRAME_BYTES:
+        return
+    var frame: Vector3 = _reviewed_indices(id, seconds)
+    var offset: Vector3 = _reviewed_offset_at(raw, int(frame.x)).lerp(
+        _reviewed_offset_at(raw, int(frame.y)), frame.z)
+    for j in range(REVIEWED.NAMES.size()):
+        var uid: String = str(bone_uuid_by_name.get(REVIEWED.NAMES[j], ""))
+        if not bones.has(uid):
+            continue
+        var joint: Node3D = bones[uid]
+        joint.position = bind_positions[uid]
+        if j == 0:
+            joint.position += offset
+        joint.quaternion = _reviewed_quaternion(raw, int(frame.x), j).slerp(
+            _reviewed_quaternion(raw, int(frame.y), j), frame.z).normalized()
+
+func set_reviewed_turn_rate(rate: float) -> void:
+    reviewed_turn_rate = rate
+    if absf(rate) > 0.00001:
+        reviewed_turn_clip = "left" if rate > 0.0 else "right"
+
+## Match the approved sample phase to the LIVE airborne diagonal. The
+## existing world-space IK retains planted soles and handles AI speed.
+## IK pair 0 = FR/RL, pair 1 = FL/RR; the preview uses FL/RR first.
+func apply_reviewed_gait_reference(motion: String, pair: int,
+        step_fraction: float, next_pair: int) -> void:
+    if motion == "Idle" or motion == "Wait":
+        _apply_reviewed_pose("standby", 0.0)
+        return
+    var phase: float = 0.0
+    var id: String = "walk"
+    if motion == "Turn":
+        id = reviewed_turn_clip
+        if pair == 0:
+            phase = 0.56 + 0.36 * step_fraction
+        elif pair == 1:
+            phase = 0.08 + 0.36 * step_fraction
+        else:
+            phase = 0.50 if next_pair == 0 else 0.0
+    else:
+        if pair == 0:
+            phase = 0.15 + 0.35 * step_fraction
+        elif pair == 1:
+            phase = 0.65 + 0.35 * step_fraction
+        else:
+            phase = 0.50 if next_pair == 1 else 0.0
+    var meta: Array = REVIEWED.META[id]
+    _apply_reviewed_pose(id, phase * float(meta[0]))
+
 func apply_pose(clip_name: String, t: float) -> void:
+    if clip_name == "Wait" or clip_name == "Idle":
+        _apply_reviewed_pose("standby", 0.0)
+        return
+    if clip_name == "Approach" or clip_name == "Turn":
+        var id: String = "walk" if clip_name == "Approach" else reviewed_turn_clip
+        var meta: Array = REVIEWED.META[id]
+        _apply_reviewed_pose(id, fposmod(t, float(meta[0])))
+        return
     if not animations.has(clip_name):
         return
     var clip: Dictionary = animations[clip_name]
@@ -696,6 +805,10 @@ func inspect_blockbench_ground_contacts(clip_name: String,
 
 func _authored_key_rotation(clip_name: String,
         bone_name: String, seconds: float) -> Quaternion:
+    var reviewed_id: String = str(REVIEWED_SOURCE_IDS.get(clip_name, ""))
+    var reviewed_joint: int = REVIEWED.NAMES.find(bone_name)
+    if not reviewed_id.is_empty() and reviewed_joint >= 0:
+        return _reviewed_rotation(reviewed_id, reviewed_joint, seconds)
     var uid: String = str(bone_uuid_by_name.get(bone_name, ""))
     if uid.is_empty() or not animations.has(clip_name):
         return Quaternion.IDENTITY
@@ -715,6 +828,10 @@ func _authored_key_position(clip_name: String,
     if uid.is_empty():
         return Vector3.ZERO
     var position: Vector3 = bind_positions.get(uid, Vector3.ZERO)
+    var reviewed_id: String = str(REVIEWED_SOURCE_IDS.get(clip_name, ""))
+    if not reviewed_id.is_empty() and REVIEWED.NAMES.has(bone_name):
+        return position + (_reviewed_body_offset(reviewed_id, seconds)
+            if bone_name == "Body" else Vector3.ZERO)
     if not animations.has(clip_name):
         return position
     var clip: Dictionary = animations[clip_name]
@@ -934,6 +1051,8 @@ func _body_damp_compensation(kind: String, id: String,
     return Quaternion.IDENTITY
 
 func authored_clip_length(kind: String) -> float:
+    if kind == "sweep":
+        return float(REVIEWED.META["sweep_fl"][0])
     if not ATTACK_NAMES.has(kind):
         return 0.0
     var clip: Dictionary = animations.get(str(ATTACK_NAMES[kind]), {})
@@ -1290,6 +1409,10 @@ func _apply_front_test_attack(frame: Dictionary) -> void:
 func apply_source_clip_exact(clip_name: String, seconds: float) -> void:
     if not loading_ok or not animations.has(clip_name):
         return
+    var reviewed_id: String = str(REVIEWED_SOURCE_IDS.get(clip_name, ""))
+    if not reviewed_id.is_empty():
+        _apply_reviewed_pose(reviewed_id, seconds)
+        return
     var clip: Dictionary = animations[clip_name]
     var t: float = clampf(seconds, 0.0, float(clip.get("length", 0.0)))
     var tracks: Dictionary = clip.get("animators", {})
@@ -1459,6 +1582,12 @@ func apply_source_attack_aim(
         return
     var leg_id: String = str(frame.get("id", ""))
     var kind: String = str(frame.get("kind", ""))
+    if kind == "sweep":
+        # The approved torso/shoulder arc owns the entire sweep.
+        source_aim_body_yaw = 0.0
+        source_aim_shoulder_yaw = 0.0
+        source_aim_body_offset = Vector3.ZERO
+        return
     if not ATTACK_LEG_BONES.has(leg_id):
         return
     var body_uid: String = str(bone_uuid_by_name.get("Body", ""))
@@ -1648,6 +1777,39 @@ func remember_grounded_source_wait_handoff() -> void:
         }
 
 
+
+func _apply_reviewed_sweep(id: String, frame: Dictionary) -> void:
+    var phase: String = str(frame.get("phase", "strike"))
+    var t: float = float(frame.get("authored_time", 0.0))
+    var meta: Array = REVIEWED.META[id]
+    if phase == "entry":
+        t = 0.0
+        source_wait_to_idle_blend_from.clear()
+    elif phase == "recovery" or phase == "hold":
+        t = float(meta[0])
+    _apply_reviewed_pose(id, t)
+    if phase == "entry":
+        var weight: float = _source_timed_smoothstep(
+            float(frame.get("phase_elapsed", 0.0)),
+            maxf(float(frame.get("entry_seconds", 0.32)), 0.001))
+        for uid in source_last_grounded_idle_pose:
+            if not bones.has(uid):
+                continue
+            var joint: Node3D = bones[uid]
+            var saved: Dictionary = source_last_grounded_idle_pose[uid]
+            joint.position = (saved["position"] as Vector3).lerp(joint.position, weight)
+            joint.quaternion = (saved["rotation"] as Quaternion).slerp(
+                joint.quaternion, weight).normalized()
+    elif phase == "recovery" and float(frame.get("phase_elapsed", 0.0)) >= (
+            float(frame.get("recovery", 0.20)) - 0.000001):
+        source_wait_to_idle_blend_from.clear()
+        source_wait_to_idle_blend_elapsed = 0.0
+        for uid in bones:
+            var joint: Node3D = bones[uid]
+            if joint.name != "Head":
+                source_wait_to_idle_blend_from[uid] = {
+                    "position": joint.position, "rotation": joint.quaternion}
+
 func apply_original_attack_only(frame: Dictionary) -> void:
     if not loading_ok or frame.is_empty():
         return
@@ -1660,6 +1822,9 @@ func apply_original_attack_only(frame: Dictionary) -> void:
     if clip_name.is_empty():
         return
     if not animations.has(clip_name):
+        return
+    if kind == "sweep" and REVIEWED_SOURCE_IDS.has(clip_name):
+        _apply_reviewed_sweep(str(REVIEWED_SOURCE_IDS[clip_name]), frame)
         return
     var clip_t: float = float(frame.get("authored_time", 0.0))
     var phase: String = str(frame.get("phase", "strike"))
