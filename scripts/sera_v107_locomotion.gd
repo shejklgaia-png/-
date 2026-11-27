@@ -54,6 +54,7 @@ var action_reach: float = 0.10
 var action_settled: bool = false
 var action_load: float = 1.0
 var action_lift: float = 0.015
+var action_brake_goal: Transform3D = Transform3D.IDENTITY
 
 func _s5(u: float) -> float:
     var x: float = clampf(u, 0.0, 1.0)
@@ -108,7 +109,8 @@ func _choose_start(rig: Node3D, direction: Vector3) -> float:
 
 # Called before the physics body moves, so the foot anchors belong to the
 # actually displayed preceding frame. Re-input interrupts STOP immediately.
-func prepare_transition(rig: Node3D, wanted: Vector3, is_run: bool, is_wait: bool) -> void:
+func prepare_transition(rig: Node3D, wanted: Vector3, is_run: bool, is_wait: bool,
+        max_speed: float, physics_delta: float) -> void:
     if not is_run and not is_wait:
         requested = false
         transition = 0
@@ -144,7 +146,19 @@ func prepare_transition(rig: Node3D, wanted: Vector3, is_run: bool, is_wait: boo
                 var lead_low: bool = (left <= right+0.035) if action_lead == 0 else (right <= left+0.035)
                 action_lift = 0.085 if lead_low else 0.015
                 action_reach = 0.145 if front_low else 0.10
-                action_end = rig.global_position + velocity*0.095
+                # Match the discrete move_toward deceleration integral.
+                # Keep the brake foot target fixed even if collision changes
+                # the actual stopping point; rebase only the recovery stance.
+                var step: float = maxf(0.00001, max_speed*physics_delta/0.19)
+                var ticks: float = maxf(0.0, ceilf(velocity.length()/step)-1.0)
+                var travel: float = maxf(0.0, physics_delta*(ticks*velocity.length()
+                    - step*ticks*(ticks+1.0)*0.5))
+                action_end = rig.global_position+action_direction*travel
+                var end_frame: Transform3D = rig.global_transform
+                end_frame.origin = action_end
+                action_brake_goal = end_frame*_foot_local(rig, action_lead, 0.0, 0.0, true)
+                var forward_offset: float = (action_brake_goal.origin-action_end).dot(action_direction)
+                action_brake_goal.origin += action_direction*((0.27 if front_low else 0.34)-forward_offset)
                 action_settled = false
                 transition = 2
         elif transition == 1:
@@ -198,8 +212,13 @@ func apply_transition(rig: Node3D) -> void:
     var bones: Dictionary = rig.get("bones")
     var bind: Dictionary = rig.get("bind_positions")
     var goal: Array[Transform3D] = []
+    var live_feet: Array[Transform3D] = []
+    var local_dir: Vector3 = rig.global_basis.orthonormalized().inverse()*action_direction
+    var angle: float = atan2(local_dir.x, -local_dir.z)
     if starting:
-        goal.assign([chain[2].global_transform, chain[5].global_transform])
+        live_feet.assign([chain[2].global_transform, chain[5].global_transform])
+        for i in range(2):
+            goal.append(rig.global_transform*_foot_local(rig, i, angle, action_match, false))
     else:
         if not action_settled and velocity.length_squared() < 0.000001:
             action_end = rig.global_position
@@ -216,16 +235,24 @@ func apply_transition(rig: Node3D) -> void:
         var node: Node3D = bones[uid]
         var initial: Transform3D = action_pose[uid]
         var target: Transform3D = node.transform
-        if not starting:
+        if starting:
+            # One planned endpoint during load/drive; blend to the live
+            # gait only at handoff instead of chasing its bob throughout.
+            var planned: Dictionary = sample(uid, angle, action_match)
+            var planned_q: Quaternion = planned["rotation"]
+            var planned_pos: Vector3 = planned["position"]
+            var fixed: Transform3D = Transform3D(Basis(planned_q), (bind[uid] as Vector3)+planned_pos)
+            target = fixed.interpolate_with(target, join)
+        else:
             var p: Dictionary = rig.call("_sample_step_clip_pose", WAIT_NAME, uid, 0.0)
-            target = Transform3D(Basis(p["rotation"]), (bind[uid] as Vector3)+(p["position"] as Vector3))
+            var idle_q: Quaternion = p["rotation"]
+            target = Transform3D(Basis(idle_q), (bind[uid] as Vector3)+(p["position"] as Vector3))
         node.transform = initial.interpolate_with(target, blend)
     var waist: Node3D = bones[Bank.UUIDS[0]]
     var load: float = _ease(t/START_LOAD)*(1.0-_s5((t-START_LOAD)/(START_SECONDS-START_LOAD))) if starting else \
         _ease(t/action_reach)*(1.0-_ease((t-0.21)/0.27))
     load *= action_load if starting else 1.0
     waist.position.y -= (0.125 if starting else 0.095)*load
-    var local_dir: Vector3 = rig.global_basis.orthonormalized().inverse()*action_direction
     var tilt_axis: Vector3 = Vector3.UP.cross(local_dir)
     if tilt_axis.length_squared() > 0.0001:
         waist.quaternion = (Quaternion(tilt_axis.normalized(), (0.10 if starting else -0.12)*load)*waist.quaternion).normalized()
@@ -239,11 +266,9 @@ func apply_transition(rig: Node3D) -> void:
         targets[k] = _step_target(action_feet[k], goal[k], (t-0.025)/0.235, 0.075)
         targets[o] = _step_target(action_feet[o], goal[o], (t-START_TOE_OFF)/(0.29-START_TOE_OFF), 0.06)
         for i in range(2):
-            targets[i] = targets[i].interpolate_with(goal[i], join)
+            targets[i] = targets[i].interpolate_with(live_feet[i], join)
     else:
-        var ahead: Transform3D = goal[k]
-        var distance: float = (ahead.origin-action_end).dot(action_direction)
-        ahead.origin += action_direction*((0.27 if action_reach > 0.11 else 0.34)-distance)
+        var ahead: Transform3D = action_brake_goal
         # Freeze the planned brake plant at predicted stop position; collect
         # the other foot, then return the braking foot to the idle stance.
         targets[k] = _step_target(action_feet[k], ahead, t/action_reach, action_lift) if t < action_reach else \

@@ -1425,7 +1425,7 @@ func v107_move_velocity(wanted: Vector3, maximum: float, delta: float, boost_pos
     if not _v107_allowed() or boost_pose:
         cancel_v107_locomotion()
         return wanted
-    v107.prepare_transition(self, wanted, current_clip in RUN_CLIPS, current_clip == WAIT_CLIP)
+    v107.prepare_transition(self, wanted, current_clip in RUN_CLIPS, current_clip == WAIT_CLIP, maximum, delta)
     return v107.motion_velocity(wanted, maximum, delta)
 
 func v107_visual_forward(fallback: Vector3) -> Vector3:
@@ -2210,7 +2210,8 @@ func _process(delta: float) -> void:
                 position.y = v107_floor_y
             else:
                 equipment_handler.call("restore_run_contact_height")
-            _update_foot_contacts(delta)
+            if not _v107_run() or v107.transition == 0:
+                _update_foot_contacts(delta)
         else:
             equipment_handler.call("clear_run_contact_height")
             reset_foot_contacts()
@@ -2234,6 +2235,7 @@ func _process(delta: float) -> void:
             var was_braking: bool = v107.transition == 2
             if current_clip in RUN_CLIPS and v107.transition != 0:
                 v107.apply_transition(self)
+                _update_foot_contacts(delta)
             if was_braking and v107.transition == 0:
                 # Display terminal WAIT pose before returning to the normal idle loop.
                 _switch_clip(WAIT_CLIP, 0.0)
