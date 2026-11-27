@@ -2,6 +2,8 @@ extends Control
 ## Procedural, texture-free chamfered SERA UI: large mode plate, module and
 ## bare wireframe operation icons. No emoji/fallback icon glyphs.
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
+const Icons = preload("res://scripts/sera_grid_node_icons.gd")
+const Draft = preload("res://scripts/sera_grid_layout_draft.gd")
 
 signal activated(code: String)
 
@@ -71,8 +73,18 @@ func _draw() -> void:
         ]), Color("#233e4d") if selected else Color("#152b39"))
         draw_polyline(outline, active if selected else Color("#456475"),
             1.4, true)
-        draw_string(LaboSkin.title_font(), Vector2(0, h * 0.62), code,
-            HORIZONTAL_ALIGNMENT_CENTER, w, 30, ink)
+        var tex := Icons.texture(code)
+        if tex != null:
+            draw_texture_rect(tex, Rect2(8, 8, 38, 38), false)
+        draw_string(LaboSkin.title_font(), Vector2(48, 29), code,
+            HORIZONTAL_ALIGNMENT_LEFT, w - 50, 16, ink)
+        var f := Draft.footprint(code)
+        var cell_size := minf(9.0, 34.0 / float(maxi(f.x, f.y)))
+        var mini := Vector2(w - 13.0 - float(f.x) * cell_size, 35.0)
+        for y in range(f.y):
+            for x in range(f.x):
+                draw_rect(Rect2(mini + Vector2(x, y) * cell_size,
+                    Vector2.ONE * (cell_size - 1.0)), active)
         draw_string(LaboSkin.data_font(), Vector2(0, h - 7.0),
             caption, HORIZONTAL_ALIGNMENT_CENTER, w, 10,
             Color("#91aab9"))
