@@ -79,6 +79,8 @@ func set_board_side(side: int) -> bool:
         return false
     if side == board_side:
         return true
+    if not is_instance_valid(icon_parent) or not Board.rebuild_preview_cells(icon_parent, side):
+        return false
     cancel_drag()
     layouts[board_side] = entries.duplicate(true)
     var next: Array[Dictionary] = []
@@ -87,7 +89,6 @@ func set_board_side(side: int) -> bool:
     entries = next
     board_side = side
     picked = -1
-    Board.rebuild_preview_cells(icon_parent, side)
     _refresh()
     return true
 
@@ -307,12 +308,14 @@ func _refresh() -> void:
         var direction: Vector3 = [Vector3.FORWARD,Vector3.RIGHT,Vector3.BACK,Vector3.LEFT][int(e["rot"])]
         var reach: float = (scale.x if absf(direction.x) > 0.5 else scale.z) * 0.5 - pitch * 0.16
         var marker := pos + direction * maxf(0.0, reach) + Vector3.UP * (height*0.5+0.025)
+        if code == "WIRE":
+            marker.y = pos.y - 0.02 # Four-way wire has no orientation marker.
         marks.multimesh.set_instance_transform(i, Transform3D(Basis.IDENTITY.scaled(Vector3(pitch*0.17,0.045,pitch*0.17)),marker))
         marks.multimesh.set_instance_color(i, Color("#d5f4ff"))
         var icon := _icon_batch(code)
         if icon != null:
             var j: int = int(counts.get(code, 0))
-            var extent: float = pitch * (0.55 if code != "WIRE" else 0.66)
+            var extent: float = pitch * 0.70
             var face := Basis(Vector3.RIGHT, -PI * 0.5).scaled(Vector3(extent, 1.0, extent))
             var icon_pos := pos + Vector3.UP * (height * 0.5 + 0.055)
             icon.multimesh.set_instance_transform(j, Transform3D(face, icon_pos))
