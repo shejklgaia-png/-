@@ -4319,7 +4319,7 @@ func _launch_followup_strike() -> void:
 # Exit an authored strike once, then dispatch any queued lateral/back Kick.
 # Called either at Melee3's flick cancel point or at a clip's normal end.
 # Only stage 3 opens the existing post-finisher Bash/Kick link window.
-func _finish_strike_and_release_queued_kick() -> void:
+func _finish_strike_and_release_queued_kick(natural_end: bool = false) -> void:
     var committed_kick_flick: Vector2 = Vector2.ZERO
     var committed_kick_world_direction: Vector3 = Vector3.ZERO
     var committed_kick_side: int = 0
@@ -4341,7 +4341,8 @@ func _finish_strike_and_release_queued_kick() -> void:
     _clear_strike_tracking()
     if jump_active and not damage_reaction_active:
         _enter_jump_fall()
-    rig.call("finish_attack", false, jump_active and not damage_reaction_active)
+    rig.call("finish_attack", false, jump_active and not damage_reaction_active,
+        natural_end and committed_kick_side == 0 and direction_input.length_squared() <= 0.000001)
     if committed_kick_side != 0 and committed_kick_flick.length_squared() > 0.000001:
         _launch_combo_side_kick(committed_kick_flick, committed_kick_side,
             committed_kick_world_direction)
@@ -4462,7 +4463,7 @@ func _advance_attack(delta: float) -> void:
                     _check_strike_contact()
                     if hit_stop_remaining > 0.0:
                         return
-                _finish_strike_and_release_queued_kick()
+                _finish_strike_and_release_queued_kick(true)
         CombatState.BASH:
             # Follow the moving target during the actual shield impact too.
             if not bash_did_hit:
