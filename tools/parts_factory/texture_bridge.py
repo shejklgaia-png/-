@@ -82,6 +82,7 @@ def validate(handoff,layout,out):
         "triangles":len(polys),"original_faces":len(groups),"overlap_pairs":0,"same_chart_max_error":same_chart_error,
         "seam_count":len(seams),"max_seam_length_ratio":max_ratio,"seams":seams,
         "density_min":min(density),"density_max":max(density),"limits":"Positive area overlap threshold 1e-10 normalized area; padding and appearance need separate review."})
+    kb.receipt(out,("uv_metrics.json","uv_layout.json","mesh.json"))
 
 def bake(uvdir,planpath,out):
     sys.path.insert(0,str(Path(__file__).resolve().parents[1]/"texture_studio"))
@@ -103,6 +104,7 @@ def bake(uvdir,planpath,out):
         "layout_sha256":uv["layout_sha256"],"mesh_sha256":uv["mesh_sha256"],"surface_plan_sha256":f.digest(out/"surface_plan.json"),
         "textures":textures,"reports":reports,"visual_approval":"pending","tool":"Texture Studio ai_pipeline"})
 
+    kb.receipt(out,("bake_manifest.json","512/report.json","1024/report.json","2048/report.json","texture_1024.png"))
 
 def export(work,handoff,uvdir,out,blender,baked=None,size=1024):
     import struct,io
