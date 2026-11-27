@@ -1,6 +1,6 @@
 extends RefCounted
-## V107 sampled RUN playback; native target tracking and planted turn controller.
-const Bank = preload("res://assets/sera_v107_motion_data.gd")
+## V111 sampled RUN playback; retain V107 native target tracking and planted turn controller.
+const Bank = preload("res://assets/sera_v111_motion_data.gd")
 const FRAME_BYTES: int = 158
 const FLOOR_OFFSET: float = -0.03556323
 var data: PackedByteArray = Marshalls.base64_to_raw(Bank.DATA)
@@ -277,3 +277,72 @@ func present(rig: Node3D, delta: float, is_run: bool, target_yaw: float) -> void
         var bone: Node3D = bones.get(uid) as Node3D
         if bone != null:
             bone.quaternion = (Quaternion(Vector3.UP,deg_to_rad(twist[i]))*bone.quaternion).normalized()
+
+    # RUN already includes V111's approved sword-arm poses in the bank.
+    # On WAIT, the native turn still uses the authored idle arm chain:
+    # reproduce V111's wrist extension in rig space after target twist.
+    if not is_run:
+        _present_v111_idle_blade(rig)
+
+# Standard A blade axis is local -Z. These idle references and conservative
+# local sword bounds are recovered from Standard.bbmodel / approved V111.
+const V111_IDLE_CHEST := Quaternion(-0.13002907, -0.25660526, -0.01137679, 0.95766213)
+const V111_IDLE_HAND := Quaternion(-0.02280013, -0.18007302, -0.52144305, 0.83375716)
+const V111_BLADE_MIN := Vector3(-0.13031, -0.065, -1.50918)
+const V111_BLADE_MAX := Vector3(0.38969, 0.065, 0.31082)
+
+func _v111_blade_height(q: Quaternion, wrist: Vector3) -> float:
+    # Conservative eight-corner bound; no per-frame mesh reads.
+    var low: float = INF
+    for x in [V111_BLADE_MIN.x, V111_BLADE_MAX.x]:
+        for y in [V111_BLADE_MIN.y, V111_BLADE_MAX.y]:
+            for z in [V111_BLADE_MIN.z, V111_BLADE_MAX.z]:
+                low = minf(low, (wrist + q * Vector3(x, y, z)).y)
+    return low
+
+func _present_v111_idle_blade(rig: Node3D) -> void:
+    if str(rig.call("get_equipment_selection", "weapon_r")) != "A":
+        return
+    var blocker: Dictionary = rig.call("get_equipment_two_handed_blocker", "weapon_r")
+    if not blocker.is_empty():
+        return
+    var bones: Dictionary = rig.get("bones")
+    var chest: Node3D = bones.get(Bank.UUIDS[2]) as Node3D
+    var forearm: Node3D = bones.get(Bank.UUIDS[11]) as Node3D
+    var hand: Node3D = bones.get(Bank.UUIDS[12]) as Node3D
+    if chest == null or forearm == null or hand == null:
+        return
+    var rb: Basis = rig.global_basis.orthonormalized()
+    var chest_q: Quaternion = (rb.inverse() * chest.global_basis.orthonormalized()).get_rotation_quaternion()
+    var chest_delta: Quaternion = (chest_q * V111_IDLE_CHEST.normalized().inverse()).normalized()
+    var chest_forward: Vector3 = chest_delta * Vector3.FORWARD
+    var yaw: float = atan2(-chest_forward.x, -chest_forward.z)
+    var base: Quaternion = (Quaternion(Vector3.UP, yaw * 0.45) *
+        Quaternion(Vector3.RIGHT, deg_to_rad(8.0)) * V111_IDLE_HAND.normalized()).normalized()
+    var wrist: Vector3 = rig.to_local(hand.global_position)
+    var arm_axis: Vector3 = wrist - rig.to_local(forearm.global_position)
+    if arm_axis.length_squared() < 0.000001:
+        return
+    var blade: Vector3 = base * Vector3.FORWARD
+    var turn := Quaternion(blade.normalized(), arm_axis.normalized())
+    var angle: float = blade.normalized().angle_to(arm_axis.normalized())
+    var amount: float = minf(0.22, deg_to_rad(12.0) / maxf(angle, 0.000001))
+    var floor_y: float = -rig.position.y + 0.06
+    if _v111_blade_height(base, wrist) < floor_y:
+        return
+    var q: Quaternion = (Quaternion.IDENTITY.slerp(turn, amount) * base).normalized()
+    if _v111_blade_height(q, wrist) < floor_y:
+        var lo: float = 0.0
+        var hi: float = amount
+        for i in range(16):
+            var mid: float = (lo + hi) * 0.5
+            var candidate: Quaternion = (Quaternion.IDENTITY.slerp(turn, mid) * base).normalized()
+            if _v111_blade_height(candidate, wrist) >= floor_y:
+                lo = mid
+            else:
+                hi = mid
+        q = (Quaternion.IDENTITY.slerp(turn, lo) * base).normalized()
+    var blend: float = _ease(float(rig.get("blending_for")) /
+        maxf(0.00001, float(rig.get("blend_duration"))))
+    var current: Quaternion = (rb.inverse() * hand.global_basis.orthonormalized()).get_rotation_quaternion()
+    hand.global_basis = rb * Basis(current.slerp(q, blend).normalized())
