@@ -1092,6 +1092,7 @@ func _build_character() -> void:
     rig.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
     rig.position.y = 0.195  # Compensates for -3 BB units in Wait_motion root track
     player.add_child(rig)
+    rig.call("enable_v107_locomotion")
     if rig.has_signal("foot_contact"):
         rig.connect("foot_contact", Callable(self, "_on_foot_contact"))
     # v97: anchor the ground marker to the world, not the jumping player's Y.
@@ -4678,6 +4679,8 @@ func _physics_process(delta: float) -> void:
         elif hit_stop_remaining <= 0.0:
             _advance_attack(delta)
     var before_slide_y: float = player.position.y
+    if rig != null and (damage_reaction_active or stepping_this_frame or jumping_this_frame or landing_this_frame or somersault_this_frame or back_somersault_active or landing_active or combat_state != CombatState.IDLE):
+        rig.call("cancel_v107_locomotion")
     if damage_reaction_active:
         # Freeze player input while physical knockback is applied above;
         # keep collision recovery available even in the damage state.
@@ -4693,31 +4696,22 @@ func _physics_process(delta: float) -> void:
         # Keep v9 camera-relative input and choose animation relative to the
         # target-facing character, not to the camera or the screen.
         var world_move: Vector3 = _screen_drag_to_ground(direction_input) if running else Vector3.ZERO
+        var maximum: float = float(part_stats.get("run_speed", 4.0625)) * boost_speed_multiplier
+        var wanted_velocity: Vector3 = world_move * maximum
+        var applied_velocity: Vector3 = wanted_velocity
         if rig != null:
-            # Match RUN pose directions to SERA's real locked-part-facing
-            # heading rather than the former whole-BODY reference.
             var target_forward: Vector3 = _locked_target_facing_direction()
-            var local_run_direction: Vector2 = MOTION_DIRECTION.local_run_direction(
-                world_move, target_forward, -player.global_transform.basis.z)
-            # A brief neutral thumb crossing MUST NOT flash WAIT or RUN
-            # between two BOOST directions. Rig still receives the latest
-            # local heading when RUN input is present; a zero heading keeps
-            # the previously displayed BOOST direction until touch resumes.
             var show_boost_pose: bool = (
                 movement_boost_active or boost_pose_grace_remaining > 0.0)
-            var show_moving_pose: bool = running or (
+            applied_velocity = rig.call("v107_move_velocity", wanted_velocity, maximum, delta, show_boost_pose)
+            var pose_forward: Vector3 = target_forward if show_boost_pose else rig.call("v107_visual_forward", target_forward)
+            var local_run_direction: Vector2 = MOTION_DIRECTION.local_run_direction(
+                applied_velocity, pose_forward, -player.global_transform.basis.z)
+            var show_moving_pose: bool = applied_velocity.length_squared() > 0.0025 or (
                 show_boost_pose and gesture_active)
             rig.call("set_moving", show_moving_pose, show_boost_pose,
                 local_run_direction, movement_boost_active)
-        if running:
-            # v9 behavior: world_move already uses the current camera's ground axes.
-            # Analog RUN strength reaches unity at the 112px rim; BOOST changes
-            # speed only after the new 184.8px threshold is confirmed.
-            player.velocity = world_move * float(part_stats.get("run_speed", 4.0625)) * boost_speed_multiplier
-            # Drag keeps working along the cube's faces instead of becoming
-            # blocked or falling through it. No world X/Z bounds are added.
-        else:
-            player.velocity = Vector3.ZERO
+        player.velocity = applied_velocity
         player.move_and_slide()
     elif not stepping_this_frame and combat_state != CombatState.DASH \
             and combat_state != CombatState.BASH_TRACK and combat_state != CombatState.STRIKE_TRACK \
