@@ -656,7 +656,7 @@ func _create_grid_selection() -> void:
     grid_selection_mesh = MeshInstance3D.new()
     grid_selection_mesh.name = "SelectedGridCellPreview"
     var marker := BoxMesh.new()
-    marker.size = Vector3(PowerBoard.TILE_WIDTH, 0.016, PowerBoard.TILE_WIDTH)
+    marker.size = Vector3(PowerBoard.tile_width_for(grid_draft.board_side), 0.016, PowerBoard.tile_width_for(grid_draft.board_side))
     grid_selection_mesh.mesh = marker
     var material := StandardMaterial3D.new()
     material.albedo_color = Color(0.51, 0.83, 0.91, 0.26)
@@ -1599,6 +1599,7 @@ func _create_power_controls() -> void:
     hud.add_child(grid_ui)
     grid_ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
     grid_ui.connect("node_chosen", Callable(self, "_grid_node_chosen"))
+    grid_ui.connect("density_chosen", Callable(self, "_grid_density_chosen"))
     grid_ui.connect("operation_changed", Callable(self, "_grid_operation_changed"))
     # The BASE/GRID plate must not overdraw the LABO's own title tabs.
     # Observe the modal directly instead of polling its visibility every frame.
@@ -1638,6 +1639,23 @@ func _power_back_pressed() -> void:
         _leave_power_board()
 
 
+func _grid_density_chosen(side: int) -> void:
+    if not grid_placement_active or power_transition_busy:
+        grid_ui.call("set_density", grid_draft.board_side)
+        return
+    _grid_cancel_pointer()
+    grid_draft.clear_selection()
+    if grid_draft.set_board_side(side):
+        grid_selection_mesh.visible = false
+        var width: float = PowerBoard.tile_width_for(side)
+        var marker := grid_selection_mesh.mesh as BoxMesh
+        marker.size = Vector3(width, 0.016, width)
+        grid_ui.call("set_draft_status", "%d×%d / 密度別の設計プレビュー" % [side, side])
+        grid_ui.call("set_rated_overview", grid_draft.rated_overview())
+    grid_ui.call("set_density", grid_draft.board_side)
+    _grid_sync_handles()
+
+
 func _grid_node_chosen(_code: String) -> void:
     _grid_cancel_pointer()
     grid_draft.clear_selection()
@@ -1663,9 +1681,9 @@ func _grid_sync_handles() -> void:
     if not grid_placement_active or power_transition_busy or grid_drag_started or rect.size == Vector2i.ZERO or str(grid_ui.get("selected_operation")) == "REMOVE":
         grid_ui.call("hide_rotation_handles")
         return
-    var half: float = PowerBoard.GRID_SIDE * 0.5
-    var left := PowerBoard.BOARD_CENTER + Vector3((rect.position.x-half)*PowerBoard.CELL_PITCH, 0.79, (rect.position.y-half)*PowerBoard.CELL_PITCH)
-    var right := left + Vector3(rect.size.x*PowerBoard.CELL_PITCH,0,0)
+    var half: float = grid_draft.board_side * 0.5
+    var left := PowerBoard.BOARD_CENTER + Vector3((rect.position.x-half)*PowerBoard.pitch_for(grid_draft.board_side), 0.79, (rect.position.y-half)*PowerBoard.pitch_for(grid_draft.board_side))
+    var right := left + Vector3(rect.size.x*PowerBoard.pitch_for(grid_draft.board_side),0,0)
     grid_ui.call("set_rotation_handles", cam.unproject_position(left), cam.unproject_position(right))
 
 
@@ -1683,8 +1701,8 @@ func _grid_select_cell(cell: Vector2i) -> void:
     if grid_selection_mesh == null:
         return
     grid_selection_mesh.position = PowerBoard.BOARD_CENTER + Vector3(
-        (float(cell.x) - (PowerBoard.GRID_SIDE - 1) * 0.5) * PowerBoard.CELL_PITCH, 0.463,
-        (float(cell.y) - (PowerBoard.GRID_SIDE - 1) * 0.5) * PowerBoard.CELL_PITCH)
+        (float(cell.x) - (grid_draft.board_side - 1) * 0.5) * PowerBoard.pitch_for(grid_draft.board_side), 0.463,
+        (float(cell.y) - (grid_draft.board_side - 1) * 0.5) * PowerBoard.pitch_for(grid_draft.board_side))
     grid_selection_mesh.visible = true
 
 
@@ -1700,18 +1718,18 @@ func _grid_cell_from_pixel(pixel: Vector2, allow_gaps: bool = false) -> Vector2i
         return Vector2i(-1, -1)
     var world_point: Vector3 = origin + normal * distance
     var grid_x: float = (world_point.x - PowerBoard.BOARD_CENTER.x) / (
-        PowerBoard.CELL_PITCH) + PowerBoard.GRID_SIDE * 0.5
+        PowerBoard.pitch_for(grid_draft.board_side)) + grid_draft.board_side * 0.5
     var grid_y: float = (world_point.z - PowerBoard.BOARD_CENTER.z) / (
-        PowerBoard.CELL_PITCH) + PowerBoard.GRID_SIDE * 0.5
+        PowerBoard.pitch_for(grid_draft.board_side)) + grid_draft.board_side * 0.5
     var x: int = floori(grid_x)
     var y: int = floori(grid_y)
-    if x < 0 or y < 0 or x >= PowerBoard.GRID_SIDE or y >= PowerBoard.GRID_SIDE:
+    if x < 0 or y < 0 or x >= grid_draft.board_side or y >= grid_draft.board_side:
         return Vector2i(-1, -1)
     # Ignore the narrow gaps between actual square tile surfaces.
-    var center_x: float = (float(x) - (PowerBoard.GRID_SIDE - 1) * 0.5) * PowerBoard.CELL_PITCH
-    var center_z: float = (float(y) - (PowerBoard.GRID_SIDE - 1) * 0.5) * PowerBoard.CELL_PITCH
-    if not allow_gaps and (absf(world_point.x - PowerBoard.BOARD_CENTER.x - center_x) > PowerBoard.TILE_WIDTH * 0.5 or
-            absf(world_point.z - PowerBoard.BOARD_CENTER.z - center_z) > PowerBoard.TILE_WIDTH * 0.5):
+    var center_x: float = (float(x) - (grid_draft.board_side - 1) * 0.5) * PowerBoard.pitch_for(grid_draft.board_side)
+    var center_z: float = (float(y) - (grid_draft.board_side - 1) * 0.5) * PowerBoard.pitch_for(grid_draft.board_side)
+    if not allow_gaps and (absf(world_point.x - PowerBoard.BOARD_CENTER.x - center_x) > PowerBoard.tile_width_for(grid_draft.board_side) * 0.5 or
+            absf(world_point.z - PowerBoard.BOARD_CENTER.z - center_z) > PowerBoard.tile_width_for(grid_draft.board_side) * 0.5):
         return Vector2i(-1, -1)
     return Vector2i(x, y)
 
