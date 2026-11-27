@@ -2100,6 +2100,8 @@ func _process(delta: float) -> void:
         var playback_rate: float = RUN_ANIMATION_SPEED if current_clip in RUN_CLIPS else (
             1.0 / equipment_damage_scale if current_clip == DAMAGE_CLIP else (
                 equipment_reaction_speed if current_clip == GUARD_REACTION_CLIP else 1.0))
+        if _v107_run():
+            playback_rate *= 0.65 + 0.35 * v107.speed_ratio
         if current_clip in [STRIKE_CLIP, STRIKE_2_CLIP, STRIKE_3_CLIP,
                 KATANA_CLIP, KATANA_SECOND_CLIP, BASH_CLIP]:
             playback_rate *= equipment_melee_attack_speed_scale
