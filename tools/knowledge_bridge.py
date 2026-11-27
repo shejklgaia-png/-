@@ -106,7 +106,7 @@ def retrieve(kind, query="", limit=8):
         def adjust(row):
             base=rank(row)
             item=entries.get(row["id"],{})
-            factor=item.get("factor",1) if item.get("body_sha256")==sha(row["body"].encode()) else 1
+            factor=item.get("factor",1) if item.get("body_sha256")==sha("\n".join(row["body"].splitlines()).encode()) else 1
             return base*factor,base,factor,row
         ranked=sorted((adjust(r) for r in rows),key=lambda x:(x[0],x[3]["path"]),reverse=True)
         hits=[dict(row,score=n,base_score=base,ranking_factor=factor) for n,base,factor,row in ranked if n>0][:limit]
