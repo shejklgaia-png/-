@@ -1,5 +1,5 @@
 extends Control
-## Procedural, texture-free chamfered SERA UI: large mode plate, module and
+## Procedural chamfered SERA UI: large mode plate, module and
 ## bare wireframe operation icons. No emoji/fallback icon glyphs.
 const LaboSkin = preload("res://scripts/sera_labo_round_skin.gd")
 const Icons = preload("res://scripts/sera_grid_node_icons.gd")
@@ -85,8 +85,8 @@ func _draw() -> void:
             for x in range(f.x):
                 draw_rect(Rect2(mini + Vector2(x, y) * cell_size,
                     Vector2.ONE * (cell_size - 1.0)), active)
-        draw_string(LaboSkin.data_font(), Vector2(0, h - 7.0),
-            caption, HORIZONTAL_ALIGNMENT_CENTER, w, 10,
+        draw_string(LaboSkin.data_font(), Vector2(7, h - 7.0),
+            caption, HORIZONTAL_ALIGNMENT_LEFT, 55.0, 10,
             Color("#91aab9"))
         if selected:
             draw_line(Vector2(13, h - 3), Vector2(w - 13, h - 3),
