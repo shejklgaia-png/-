@@ -72,6 +72,26 @@ def snapshot():
         if len(ids)!=len(set(ids)):warnings.append("duplicate IDs; distinguish by path and SHA")
         return commit,rules,rows,warnings
 
+def ranking_profile(kind):
+    path=os.environ.get("SERA_KNOWLEDGE_PROFILE")
+    if not path:return {}, "not_configured"
+    try:
+        p=Path(path)
+        if p.stat().st_size>2_000_000:raise ValueError("profile too large")
+        d=json.loads(p.read_text(encoding="utf-8"))
+        scope=os.environ.get("SERA_KNOWLEDGE_SCOPE")
+        protocol=os.environ.get("SERA_KNOWLEDGE_PROTOCOL")
+        if not scope or not protocol or d.get("format")!="SERA_RANKING_PROFILE_V5" or (d.get("kind"),d.get("scope"),d.get("protocol"))!=(kind,scope,protocol):
+            raise ValueError("scope mismatch")
+        entries=d["entries"]
+        if not isinstance(entries,dict):raise ValueError("invalid entries")
+        for item in entries.values():
+            if not isinstance(item,dict) or type(item.get("factor")) not in (int,float) or not .85<=item["factor"]<=1.15:
+                raise ValueError("invalid factor")
+        return entries,"local_advisory"
+    except (OSError,ValueError,KeyError,TypeError,AttributeError):
+        return {},"invalid_or_mismatched"
+
 def retrieve(kind, query="", limit=8):
     result={"format":"SERA_KNOWLEDGE_SNAPSHOT_V3","kind":kind,"query":str(query)[:1000],
             "status":"unavailable","matches":[],"approval_added":False,
@@ -82,8 +102,17 @@ def retrieve(kind, query="", limit=8):
         def rank(row):
             fields=((row["title"],6),(row["tags"],4),(row["category"],3),(row["body"],1))
             return sum(w*(sum(t in norm(v) for t in terms)+3*sum(t in norm(v) for t in specific)) for v,w in fields)
-        ranked=sorted(((rank(r),r) for r in rows), key=lambda x:(x[0],x[1]["path"]),reverse=True)
-        hits=[dict(row,score=n) for n,row in ranked if n>0][:limit]
+        entries,profile_status=ranking_profile(kind)
+        def adjust(row):
+            base=rank(row)
+            item=entries.get(row["id"],{})
+            factor=item.get("factor",1) if item.get("body_sha256")==sha(row["body"].encode()) else 1
+            return base*factor,base,factor,row
+        ranked=sorted((adjust(r) for r in rows),key=lambda x:(x[0],x[3]["path"]),reverse=True)
+        hits=[dict(row,score=n,base_score=base,ranking_factor=factor) for n,base,factor,row in ranked if n>0][:limit]
+        failure_warnings=[dict(row,score=base) for _,base,_,row in ranked if base>0 and row["path"].startswith("experience/failure/")][:limit]
+        result.update(ranking_profile_status=profile_status,failure_warnings=failure_warnings,
+                      failure_warning_status="advisory_author_review_required")
         result.update(commit=commit,rules=rules,matches=hits,scanned=len(rows),warnings=warnings,
                       status="partial" if warnings else ("retrieved" if hits else "no_match"))
     except (OSError,UnicodeError,RuntimeError,subprocess.SubprocessError) as exc:
@@ -98,6 +127,8 @@ def preflight(kind, query, out):
     packet=retrieve(kind,query)
     write(Path(out)/"knowledge_snapshot.json",packet)
     print("SERA knowledge:",packet["status"],packet.get("commit",""),flush=True)
+    for row in packet.get("failure_warnings",[]):
+        print("SERA failure advisory:",row["id"],row["title"],flush=True)
     return packet
 
 def receipt(out, filenames, snapshot_file="knowledge_snapshot.json"):
