@@ -11,6 +11,7 @@ const MODES = ["PLACE", "REMOVE"]
 const MODE_LABELS = ["配置", "撤去"]
 
 signal node_chosen(code: String)
+signal density_chosen(side: int)
 signal operation_changed(operation: String)
 
 var base_plate: Control
@@ -23,6 +24,8 @@ var tools: Dictionary = {}
 var tray_title: Label
 var overview_label: Label
 var category_row: HBoxContainer
+var density_row: HBoxContainer
+var density_buttons: Dictionary = {}
 var category_buttons: Dictionary = {}
 var active_category: String = "PRODUCTION"
 var detail_label: Label
@@ -38,7 +41,7 @@ var tray_slide: Tween
 var view_size: Vector2 = Vector2(720, 1280)
 var title_width: float = 284.0
 var title_height: float = 81.0
-var tray_height: float = 284.0
+var tray_height: float = 322.0
 
 
 func _ready() -> void:
@@ -80,6 +83,23 @@ func _ready() -> void:
         tab.pressed.connect(_choose_category.bind(CATEGORIES[i]))
         category_row.add_child(tab)
         category_buttons[CATEGORIES[i]] = tab
+    density_row = HBoxContainer.new()
+    density_row.add_theme_constant_override("separation", 4)
+    tray.add_child(density_row)
+    for side in Board.BOARD_SIDES:
+        var tab := Button.new()
+        tab.text = "%d×%d" % [side, side]
+        tab.focus_mode = Control.FOCUS_NONE
+        tab.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+        tab.add_theme_font_override("font", LaboSkin.ui_font())
+        tab.add_theme_font_size_override("font_size", 13)
+        tab.add_theme_stylebox_override("normal", LaboSkin.terminal_segment_style("normal"))
+        tab.add_theme_stylebox_override("pressed", LaboSkin.terminal_segment_style("pressed"))
+        tab.toggle_mode = true
+        tab.pressed.connect(_request_density.bind(side))
+        density_row.add_child(tab)
+        density_buttons[side] = tab
+    set_density(Board.GRID_SIDE)
     scroll = ScrollContainer.new()
     scroll.name = "NodeListScroll"
     scroll.mouse_filter = Control.MOUSE_FILTER_STOP
@@ -153,7 +173,7 @@ func reflow(dims: Vector2) -> void:
     size = view_size
     title_width = minf(284.0, maxf(224.0, view_size.x * 0.66))
     title_height = 81.0
-    tray_height = 284.0
+    tray_height = 322.0
     base_plate.size = Vector2(title_width, title_height)
     grid_plate.size = Vector2(title_width, title_height)
     base_plate.queue_redraw()
@@ -176,7 +196,9 @@ func reflow(dims: Vector2) -> void:
     overview_label.add_theme_font_size_override("font_size", 13 if view_size.x < 500.0 else 15)
     category_row.position = Vector2(12, 160)
     category_row.size = Vector2(tray.size.x - 24, 32)
-    scroll.position = Vector2(12, 194)
+    density_row.position = Vector2(12, 194)
+    density_row.size = Vector2(tray.size.x - 24, 34)
+    scroll.position = Vector2(12, 232)
     scroll.size = Vector2(tray.size.x - 24, 86)
     rail.size = Vector2(68, 164)
     rail.position = Vector2(view_size.x - 77.0 if editing else
@@ -275,12 +297,23 @@ func _choose_category(value: String) -> void:
 func set_rated_overview(totals: Dictionary) -> void:
     if overview_label == null:
         return
-    var area: int = Board.GRID_SIDE * Board.GRID_SIDE
+    var side: int = int(totals.get("side", Board.GRID_SIDE))
+    var area: int = side * side
     var cost: float = float(totals["processing"]) + float(totals["wire_quarters"]) * 0.25
     overview_label.text = "定格 / %d/%dマス・%d基 / 変換%dEP・蓄電%dEP\n原料%d / 帰還負荷%.2fEP / 戦闘%d基/%d種（上限3）" % [
         totals["cells"], area, totals["nodes"], totals["generation"], totals["storage"],
         totals["raw"], cost, totals["combat_count"], totals["combat_types"]]
     overview_label.add_theme_color_override("font_color", Color("#e7bb8a") if int(totals["combat_count"]) > 3 or int(totals["combat_count"]) > int(totals["combat_types"]) else Color("#b7dce6"))
+
+
+func _request_density(side: int) -> void:
+    density_chosen.emit(side)
+
+
+func set_density(side: int) -> void:
+    for key in density_buttons:
+        var tab: Button = density_buttons[key]
+        tab.set_pressed_no_signal(key == side)
 
 
 func _choose_node(value: String) -> void:
