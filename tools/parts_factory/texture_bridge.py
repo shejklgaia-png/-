@@ -3,12 +3,16 @@ import argparse, json, math, shutil, sys, subprocess
 from pathlib import Path
 import factory as f
 import quality_gates as q
+sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+import knowledge_bridge as kb
 
 def prepare(work,out,blender):
     d=f.state(work);valid,_=f.verify(work,d)
     q.need("geometry" in valid,"geometry approval required")
+    packet=kb.retrieve("texture",d["slot"]+" UV surface paint")
     model=work/"objects"/d["stages"]["model"]["key"]
     subprocess.run([blender,"-b",str(model/"model.blend"),"--python-exit-code","1","--python",str(Path(__file__).with_name("blender_texture.py")),"--","extract",str(out)],check=True)
+    kb.write(out/"knowledge_snapshot.json",packet)
     g=f.read(out/"face_geometry.json")
     q.need(g["source_blend_sha256"]==d["stages"]["model"]["files"]["model.blend"],"source mismatch")
     f.write(out/"handoff.json",{"format":"SERA_PF_TEXTURE_HANDOFF_V4","id":d["id"],"geometry_key":d["stages"]["geometry"]["key"],
@@ -71,6 +75,7 @@ def validate(handoff,layout,out):
     mesh={"positions":positions,"uvs":uvs,"chart":charts,"parts":parts,"source_faces":groups}
     fingerprint=geometry(mesh)[-1]
     out.mkdir(parents=True,exist_ok=False);shutil.copy2(layout,out/"uv_layout.json");shutil.copy2(handoff/"handoff.json",out/"handoff.json")
+    kb.preflight("texture","UV layout seam padding",out)
     f.write(out/"mesh.json",mesh)
     f.write(out/"uv_metrics.json",{"format":"SERA_PF_UV_METRICS_V4","geometry_sha256":g["geometry_sha256"],
         "layout_sha256":f.digest(out/"uv_layout.json"),"mesh_sha256":f.digest(out/"mesh.json"),"painter_geometry_sha256":fingerprint,
@@ -86,6 +91,7 @@ def bake(uvdir,planpath,out):
     q.need(plan["geometry_sha256"]==geometry(mesh)[-1]==uv["painter_geometry_sha256"],"paint geometry mismatch")
     q.need(plan.get("layers") and all(layer.get("faces") or layer.get("parts") or layer.get("materials") for layer in plan["layers"]),"authored scoped surface layers required")
     out.mkdir(parents=True,exist_ok=False);shutil.copy2(planpath,out/"surface_plan.json")
+    kb.preflight("texture","surface paint panel lines compression",out)
     textures={};reports={}
     for n in (512,1024,2048):
         # Same normalized surface strokes, independently rasterized rather than resized.
