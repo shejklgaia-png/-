@@ -3,6 +3,8 @@ import argparse, json, math, sys, struct, re
 from pathlib import Path
 import bpy
 from mathutils import Vector
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import knowledge_bridge as kb
 
 def main():
     p=argparse.ArgumentParser()
@@ -48,6 +50,7 @@ def main():
     end=int(d["end_frame"])
     if fps not in (30,60) or not 2<=end<=601: raise ValueError("fps/frame limit")
     out.mkdir(parents=True,exist_ok=False)
+    kb.preflight('motion', ' '.join(filter(None, (a.design.stem, a.action, a.variant))), out)
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene=bpy.context.scene
     scene.render.fps=fps; scene.frame_start=1; scene.frame_end=end
@@ -228,5 +231,6 @@ def main():
         for f in capture:
             scene.frame_set(f); scene.render.filepath=str(out/f"{name}_{f:04}.png")
             bpy.ops.render.render(write_still=True)
+    kb.receipt(out, ("motion.glb", "motion_report.json", "clip_report.json", "spatial_report.json"))
     (out/"blender_complete.json").write_text(json.dumps({"source":str(a.design.name),"frames":end,"fps":fps}))
 if __name__=="__main__": main()
