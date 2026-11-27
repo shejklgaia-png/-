@@ -20,6 +20,8 @@ from motion_lod import motion_review, export_lod
 from joint_hierarchy_review import review_joints
 from visibility_review import review_visibility
 from bpy_extras.object_utils import world_to_camera_view
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import knowledge_bridge as kb
 
 VIEWS = {
     "front": (0, -1, 0), "back": (0, 1, 0),
@@ -535,6 +537,7 @@ def main():
         validate_permit(spec,source)
     # Refuse reuse, avoiding stale images or overwriting existing assets.
     out.mkdir(parents=True,exist_ok=False)
+    kb.preflight('modeling', str(spec.get('name', source.stem)), out)
     spec, mechanism = compile_graph(spec)
     spec, authoring = compile_design(spec)
     from surface_authoring import compile_surfaces
@@ -607,6 +610,7 @@ def main():
             "aesthetic_review": "pending",
             "limitations": "Neutral render is evidence, not automatic approval."
         }, indent=2), encoding="utf-8")
+    kb.receipt(out, ("model.glb", "mesh_report.json", "interference.json", "projections.json"))
     (out/"complete.json").write_text(json.dumps(dict(format=spec["format"],views=list(VIEWS),
         triangles=sum(row["triangles"] for row in report)),indent=2),encoding="utf-8")
 
