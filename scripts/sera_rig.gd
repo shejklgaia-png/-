@@ -19,6 +19,7 @@ const KICK_AUTHORING_SOURCE: String = "res://models/core/Standard.bbmodel"
 # v293: import only the new authored second Katana clip; leave A meshes intact.
 const KATANA_SECOND_AUTHORING_SOURCE: String = "res://models/core/Katana.bbmodel"
 const EMBEDDED = preload("res://assets/sera_data.gd")
+const COMBO_RECOVERY = preload("res://assets/sera_combo_recovery_v01.gd")
 const KATANA_EMBEDDED = preload("res://assets/sera_katana_data.gd")
 # Independently versioned 39KB authored kick-only resource. Mandatory for
 # v272: do not rely solely on a potentially stale source/whole-model embed.
@@ -259,6 +260,7 @@ func _ready() -> void:
     _build_model(data)
     _install_bird_model()
     _build_animations(data)
+    COMBO_RECOVERY.install(self)
     _merge_authored_katana_second_clip()
     _build_katana_second_strike()
     _merge_authored_side_kick_clips()
@@ -1440,6 +1442,10 @@ func set_moving(moving: bool, boosting: bool = false,
         boost_input_active: bool = false) -> void:
     if not loading_ok or combat_playback or step_playback or jump_playback or damage_playback or guard_playback:
         return
+    # A purely visual recovery never locks movement or any other action.
+    if current_clip in COMBO_RECOVERY.CLIPS and not moving:
+        locomotion_mode = "idle"
+        return
     # Boosting includes the old 0.50s visual grace. Actual BOOST is passed
     # separately so reusing its pose for heavy SLIDE never enables BOOST FX.
     var sliding: bool = (moving and heavy_slide_run_enabled
@@ -2040,7 +2046,8 @@ func start_bash() -> void:
     combat_playback = true
     _switch_clip(BASH_CLIP, 0.055)
 
-func finish_attack(resume_moving: bool, airborne_fall: bool = false) -> void:
+func finish_attack(resume_moving: bool, airborne_fall: bool = false,
+        allow_combo_recovery: bool = false) -> void:
     if damage_playback:
         return
     freeze_attack_pose = false
@@ -2048,6 +2055,18 @@ func finish_attack(resume_moving: bool, airborne_fall: bool = false) -> void:
     combat_playback = false
     if airborne_fall:
         resume_jump_fall()
+    elif allow_combo_recovery and not resume_moving and not jump_playback \
+            and equipment_handler != null \
+            and str(equipment_handler.call("current_for", "legs")) == "A" \
+            and str(equipment_handler.call("current_for", "weapon_r")) == "A" \
+            and absf((get_parent() as Node3D).global_position.y) <= 0.05:
+        var index: int = [STRIKE_CLIP, STRIKE_2_CLIP, STRIKE_3_CLIP].find(current_clip)
+        if index >= 0 and animations.has(COMBO_RECOVERY.CLIPS[index]):
+            # Capture the actual strike pose; the approved grounded recovery
+            # has a different visual height from the legacy combat baseline.
+            _switch_clip(COMBO_RECOVERY.CLIPS[index], 0.065)
+            return
+        _switch_clip(WAIT_CLIP, BLEND_SECONDS)
     else:
         _switch_clip(RUN_CLIP if resume_moving else WAIT_CLIP, BLEND_SECONDS)
 
@@ -2206,6 +2225,10 @@ func _process(delta: float) -> void:
             # The separate HEAD C proxy follows the final procedural head pose too.
             if is_instance_valid(head_c_proxy) and bones.has(RUN_HEAD_BONE_UUID):
                 head_c_proxy.quaternion = (bones[RUN_HEAD_BONE_UUID] as Node3D).quaternion
+    if current_clip in COMBO_RECOVERY.CLIPS and clip_finished(current_clip):
+        # Sample the exact final pose first. WAIT supplies its normal ground
+        # alignment on the next frame; do not blend the root correction twice.
+        _switch_clip(WAIT_CLIP, 0.0)
     if wait_to_run_landing_active \
             and wait_to_run_landing_elapsed >= WAIT_RUN_LANDING_SECONDS:
         # Sample the complete final grounded key BEFORE switching to RUN.
