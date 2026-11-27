@@ -121,4 +121,13 @@ def bake(d,plan,out):
 
 
 if __name__=='__main__':
-    ap=argparse.ArgumentParser();ap.add_argument('mesh');ap.add_argument('plan');ap.add_argument('output');args=ap.parse_args(); print(json.dumps(bake(load(args.mesh),load(args.plan),args.output),indent=2))
+    import sys
+    sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
+    import knowledge_bridge as kb
+    ap=argparse.ArgumentParser();ap.add_argument('mesh');ap.add_argument('plan');ap.add_argument('output');args=ap.parse_args()
+    packet=kb.retrieve("texture",Path(args.plan).stem+" UV panel line")
+    report=bake(load(args.mesh),load(args.plan),args.output)
+    out=Path(args.output)
+    kb.write(out/"knowledge_snapshot.json",packet)
+    kb.receipt(out,("albedo.png","report.json","plan.json"))
+    print(json.dumps(report,indent=2))
