@@ -1425,6 +1425,7 @@ func v107_move_velocity(wanted: Vector3, maximum: float, delta: float, boost_pos
     if not _v107_allowed() or boost_pose:
         cancel_v107_locomotion()
         return wanted
+    v107.prepare_transition(self, wanted, current_clip in RUN_CLIPS, current_clip == WAIT_CLIP)
     return v107.motion_velocity(wanted, maximum, delta)
 
 func v107_visual_forward(fallback: Vector3) -> Vector3:
@@ -1446,6 +1447,10 @@ func set_moving(moving: bool, boosting: bool = false,
     if current_clip in COMBO_RECOVERY.CLIPS and not moving:
         locomotion_mode = "idle"
         return
+    if _v107_allowed() and not boosting and v107.transition != 0:
+        # STOP remains visually active after physical velocity reaches zero.
+        # A resumed input selects START; all combat/boost paths still override.
+        moving = true
     # Boosting includes the old 0.50s visual grace. Actual BOOST is passed
     # separately so reusing its pose for heavy SLIDE never enables BOOST FX.
     var sliding: bool = (moving and heavy_slide_run_enabled
@@ -2130,6 +2135,10 @@ func _process(delta: float) -> void:
     if guard_reaction_playing() and clip_time >= float(animations[GUARD_REACTION_CLIP]["length"]):
         # The authored clip is tagged loop, but each guarded hit plays once.
         _switch_clip(GUARD_CLIP, 0.075)
+    if _v107_run() and not combat_paused:
+        v107.advance_transition(delta)
+        if v107.transition == 1:
+            clip_time = v107.start_phase()
     if not combat_paused:
         blending_for += delta
         if current_clip in RUN_CLIPS and run_motion_initialized:
@@ -2222,6 +2231,13 @@ func _process(delta: float) -> void:
             var target_forward: Vector3 = -player_node.global_basis.z
             var target_yaw: float = atan2(-target_forward.x, -target_forward.z)
             v107.present(self, delta, current_clip in RUN_CLIPS, target_yaw)
+            var was_braking: bool = v107.transition == 2
+            if current_clip in RUN_CLIPS and v107.transition != 0:
+                v107.apply_transition(self)
+            if was_braking and v107.transition == 0:
+                # Display terminal WAIT pose before returning to the normal idle loop.
+                _switch_clip(WAIT_CLIP, 0.0)
+                reset_foot_contacts()
             # The separate HEAD C proxy follows the final procedural head pose too.
             if is_instance_valid(head_c_proxy) and bones.has(RUN_HEAD_BONE_UUID):
                 head_c_proxy.quaternion = (bones[RUN_HEAD_BONE_UUID] as Node3D).quaternion

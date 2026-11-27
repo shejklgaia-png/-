@@ -34,6 +34,232 @@ var previous_target: float = 0.0
 var target_ready: bool = false
 var target_rate: float = 0.0
 
+# V111's steady gait bank is unchanged. These presentation states restore
+# the missing authored start/brake timing independently of physical velocity.
+const START_SECONDS: float = 0.35
+const STOP_SECONDS: float = 0.62
+const START_LOAD: float = 0.105
+const START_TOE_OFF: float = 0.124
+const WAIT_NAME: String = "Wait_motion"
+var transition: int = 0 # 0 steady, 1 drive, 2 brake/recover
+var transition_time: float = 0.0
+var requested: bool = false
+var action_direction: Vector3 = Vector3.FORWARD
+var action_feet: Array[Transform3D] = []
+var action_pose: Dictionary = {}
+var action_match: float = 0.0
+var action_lead: int = 0
+var action_end: Vector3 = Vector3.ZERO
+var action_reach: float = 0.10
+var action_settled: bool = false
+var action_load: float = 1.0
+var action_lift: float = 0.015
+
+func _s5(u: float) -> float:
+    var x: float = clampf(u, 0.0, 1.0)
+    return x*x*x*(10.0+x*(-15.0+6.0*x))
+
+func _capture_action(rig: Node3D, chain: Array[Node3D]) -> void:
+    action_feet.assign([chain[2].global_transform, chain[5].global_transform])
+    action_pose.clear()
+    var bones: Dictionary = rig.get("bones")
+    for uid in Bank.UUIDS:
+        var node: Node3D = bones[uid]
+        action_pose[uid] = Transform3D(node.basis, node.position)
+    transition_time = 0.0
+
+# Local rigid-chain FK, using the same UUIDs, bind positions and sampled
+# rotations as the renderer. No mutation of the live rig during phase choice.
+func _foot_local(rig: Node3D, side: int, angle: float, phase: float, idle: bool) -> Transform3D:
+    var bind: Dictionary = rig.get("bind_positions")
+    var f := Transform3D.IDENTITY
+    for i in [0, 13+side*3, 14+side*3, 15+side*3]:
+        var uid: String = Bank.UUIDS[i]
+        var p: Dictionary
+        if idle:
+            p = rig.call("_sample_step_clip_pose", WAIT_NAME, uid, 0.0)
+        else:
+            p = sample(uid, angle, phase)
+        var offset: Vector3 = p["position"]
+        var q: Quaternion = p["rotation"]
+        f = f * Transform3D(Basis(q), (bind[uid] as Vector3)+offset)
+    return f
+
+func _choose_start(rig: Node3D, direction: Vector3) -> float:
+    var local: Vector3 = rig.global_basis.orthonormalized().inverse() * direction
+    var angle: float = atan2(local.x, -local.z)
+    var best: float = -INF
+    var result: float = 95.0/120.0 if action_lead == 0 else 35.0/120.0
+    if local.z < -0.68:
+        return result
+    for i in range(Bank.PHASES):
+        var phase: float = float(i)/float(Bank.PHASES)
+        var a: Transform3D = _foot_local(rig, action_lead, angle, phase, false)
+        var b: Transform3D = _foot_local(rig, 1-action_lead, angle, phase, false)
+        var advance: float = (a.origin-b.origin).dot(local)
+        if advance <= 0.0:
+            continue
+        var score: float = advance + (0.5 if a.origin.y < b.origin.y else 0.0) \
+            - 3.0*maxf(0.0, a.origin.y-b.origin.y)
+        if score > best:
+            best = score
+            result = phase
+    return result
+
+# Called before the physics body moves, so the foot anchors belong to the
+# actually displayed preceding frame. Re-input interrupts STOP immediately.
+func prepare_transition(rig: Node3D, wanted: Vector3, is_run: bool, is_wait: bool) -> void:
+    if not is_run and not is_wait:
+        requested = false
+        transition = 0
+        return
+    if turn_stage != 0:
+        requested = false
+        return
+    var active: bool = wanted.length_squared() > 0.0001
+    if active and not requested and (is_wait or transition == 2):
+        var chain: Array[Node3D] = _chains(rig)
+        if chain.size() == 6:
+            action_direction = wanted.normalized()
+            _capture_action(rig, chain)
+            action_lead = 0 if (action_feet[0].origin-action_feet[1].origin).dot(action_direction) > 0.0 else 1
+            action_match = _choose_start(rig, action_direction)
+            action_load = 1.0-clampf(speed_ratio, 0.0, 1.0)
+            transition = 1
+    elif not active and requested:
+        if is_run and velocity.length() > 0.12:
+            var chain: Array[Node3D] = _chains(rig)
+            if chain.size() == 6:
+                action_direction = velocity.normalized()
+                _capture_action(rig, chain)
+                var front: int = 0 if (action_feet[0].origin-action_feet[1].origin).dot(action_direction) > 0.0 else 1
+                # Use the lower displayed sole when available, not a gait
+                # reset or a hard-coded left/right braking foot.
+                var equipment: RefCounted = rig.get("equipment_handler")
+                var heights: Dictionary = equipment.call("get_active_foot_heights")
+                var left: float = float(heights.get("L", action_feet[0].origin.y))
+                var right: float = float(heights.get("R", action_feet[1].origin.y))
+                var front_low: bool = (left <= right+0.035) if front == 0 else (right <= left+0.035)
+                action_lead = 1-front if front_low else front
+                var lead_low: bool = (left <= right+0.035) if action_lead == 0 else (right <= left+0.035)
+                action_lift = 0.085 if lead_low else 0.015
+                action_reach = 0.145 if front_low else 0.10
+                action_end = rig.global_position + velocity*0.095
+                action_settled = false
+                transition = 2
+        elif transition == 1:
+            transition = 0
+    requested = active
+
+func advance_transition(delta: float) -> void:
+    if transition != 0:
+        transition_time = minf(START_SECONDS if transition == 1 else STOP_SECONDS,
+            transition_time+maxf(0.0, delta))
+
+func start_phase() -> float:
+    return fposmod(action_match-(START_SECONDS-transition_time)*1.875, 1.0)
+
+func _step_target(a: Transform3D, b: Transform3D, u: float, lift: float) -> Transform3D:
+    var x: float = clampf(u, 0.0, 1.0)
+    var f: Transform3D = a.interpolate_with(b, _s5(x))
+    f.origin.y += lift*sin(PI*x)
+    return f
+
+# Lower the visual waist within a bounded range to give the planted foot
+# reach; preserve physical player/capsule, and solve the existing rigid legs.
+func _fit_action(rig: Node3D, chain: Array[Node3D], goals: Array[Transform3D], support: int) -> void:
+    var waist: Node3D = rig.get_node_or_null("Waist") as Node3D
+    if waist == null:
+        return
+    var j: int = support*3
+    var hip: Vector3 = chain[j].global_position
+    var reach: float = hip.distance_to(chain[j+1].global_position) \
+        + chain[j+1].global_position.distance_to(chain[j+2].global_position)-0.004
+    var d: Vector3 = goals[support].origin-hip
+    var flat: float = d.x*d.x+d.z*d.z
+    var lower: float = minf(0.0, d.y+sqrt(maxf(0.0, reach*reach-flat)))
+    waist.position.y += maxf(-0.18, lower)
+    for i in range(2):
+        _solve(chain[i*3], chain[i*3+1], chain[i*3+2], goals[i])
+
+# Called AFTER target-facing yaw and the normal RUN sample are applied.
+# Capture/release blends use local rotations, while support goals are world
+# transforms. This is the native recreation of V111's drive83/pose76 beats.
+func apply_transition(rig: Node3D) -> void:
+    if transition == 0 or action_feet.size() != 2:
+        return
+    var chain: Array[Node3D] = _chains(rig)
+    if chain.size() != 6:
+        transition = 0
+        return
+    var t: float = transition_time
+    var starting: bool = transition == 1
+    var u: float = clampf(t/(START_SECONDS if starting else STOP_SECONDS), 0.0, 1.0)
+    var bones: Dictionary = rig.get("bones")
+    var bind: Dictionary = rig.get("bind_positions")
+    var goal: Array[Transform3D] = []
+    if starting:
+        goal.assign([chain[2].global_transform, chain[5].global_transform])
+    else:
+        if not action_settled and velocity.length_squared() < 0.000001:
+            action_end = rig.global_position
+            action_settled = true
+        var end_frame: Transform3D = rig.global_transform
+        end_frame.origin = action_end
+        for i in range(2):
+            goal.append(end_frame*_foot_local(rig, i, 0.0, 0.0, true))
+    var blend: float = _s5((t-START_LOAD)/(START_SECONDS-START_LOAD)) if starting else _ease(t/0.55)
+    var join: float = _s5((t-0.253)/(START_SECONDS-0.253)) if starting else _ease((t-0.52)/0.10)
+    for uid in Bank.UUIDS:
+        if not action_pose.has(uid):
+            continue
+        var node: Node3D = bones[uid]
+        var initial: Transform3D = action_pose[uid]
+        var target: Transform3D = node.transform
+        if not starting:
+            var p: Dictionary = rig.call("_sample_step_clip_pose", WAIT_NAME, uid, 0.0)
+            target = Transform3D(Basis(p["rotation"]), (bind[uid] as Vector3)+(p["position"] as Vector3))
+        node.transform = initial.interpolate_with(target, blend)
+    var waist: Node3D = bones[Bank.UUIDS[0]]
+    var load: float = _ease(t/START_LOAD)*(1.0-_s5((t-START_LOAD)/(START_SECONDS-START_LOAD))) if starting else \
+        _ease(t/action_reach)*(1.0-_ease((t-0.21)/0.27))
+    load *= action_load if starting else 1.0
+    waist.position.y -= (0.125 if starting else 0.095)*load
+    var local_dir: Vector3 = rig.global_basis.orthonormalized().inverse()*action_direction
+    var tilt_axis: Vector3 = Vector3.UP.cross(local_dir)
+    if tilt_axis.length_squared() > 0.0001:
+        waist.quaternion = (Quaternion(tilt_axis.normalized(), (0.10 if starting else -0.12)*load)*waist.quaternion).normalized()
+    var k: int = action_lead
+    var o: int = 1-k
+    var targets: Array[Transform3D] = []
+    targets.assign(action_feet)
+    if starting:
+        # Rear support stays in world space through toe-off; both feet
+        # converge to the actual chosen RUN sample, not phase zero.
+        targets[k] = _step_target(action_feet[k], goal[k], (t-0.025)/0.235, 0.075)
+        targets[o] = _step_target(action_feet[o], goal[o], (t-START_TOE_OFF)/(0.29-START_TOE_OFF), 0.06)
+        for i in range(2):
+            targets[i] = targets[i].interpolate_with(goal[i], join)
+    else:
+        var ahead: Transform3D = goal[k]
+        var distance: float = (ahead.origin-action_end).dot(action_direction)
+        ahead.origin += action_direction*((0.27 if action_reach > 0.11 else 0.34)-distance)
+        # Freeze the planned brake plant at predicted stop position; collect
+        # the other foot, then return the braking foot to the idle stance.
+        targets[k] = _step_target(action_feet[k], ahead, t/action_reach, action_lift) if t < action_reach else \
+            _step_target(ahead, goal[k], (t-0.28)/0.24, 0.07)
+        targets[o] = _step_target(action_feet[o], goal[o], (t-minf(action_reach, 0.06))/(0.28-minf(action_reach, 0.06)), 0.075)
+        for i in range(2):
+            targets[i] = targets[i].interpolate_with(goal[i], join)
+    if u < 0.99999:
+        _fit_action(rig, chain, targets, o if starting and t < START_TOE_OFF else (k if not starting and t >= action_reach and t < 0.28 else o))
+    # Exact endpoint already is the corresponding local RUN/WAIT sample.
+    if u >= 0.99999:
+        transition = 0
+        action_pose.clear()
+        action_feet.clear()
+
+
 func _init() -> void:
     for i in range(Bank.UUIDS.size()):
         indices[Bank.UUIDS[i]] = i
@@ -85,6 +311,11 @@ func cancel() -> void:
     twist = Vector3.ZERO
     target_ready = false
     current_feet.clear()
+    transition = 0
+    transition_time = 0.0
+    requested = false
+    action_feet.clear()
+    action_pose.clear()
 
 func motion_velocity(wanted: Vector3, max_speed: float, delta: float) -> Vector3:
     if turn_stage != 0:
@@ -158,9 +389,12 @@ func _start_turn(rig: Node3D, target: float, chain: Array[Node3D]) -> void:
     base_yaw = heading
     goal_yaw = base_yaw + clampf(_wrap(target-base_yaw), -deg_to_rad(75.0), deg_to_rad(75.0))
     origin = rig.global_position
-    rest = [chain[2].global_transform, chain[5].global_transform]
-    planted = rest.duplicate()
-    current_feet = rest.duplicate()
+    # Plan toward the actual authored idle stance, not a rotated arbitrary
+    # last frame of a crossfade. Start from the displayed contacts.
+    rest.assign([rig.global_transform*_foot_local(rig, 0, 0.0, 0.0, true),
+        rig.global_transform*_foot_local(rig, 1, 0.0, 0.0, true)])
+    planted.assign([chain[2].global_transform, chain[5].global_transform])
+    current_feet = planted.duplicate()
     # Positive Godot yaw turns left. Move the inside foot first.
     swing = 0 if goal_yaw > base_yaw else 1
     _plan_step()
@@ -228,13 +462,15 @@ func present(rig: Node3D, delta: float, is_run: bool, target_yaw: float) -> void
     cooldown = maxf(0.0, cooldown-dt)
     # The physical body keeps its existing lock and collision transform.
     rig.rotation.y = _wrap(heading-target_yaw)
+    var was_turning: bool = turn_stage != 0
     if is_run:
         turn_stage = 0
         over = 0.0
         var limit: float = 1.6 if velocity.length() < 1.4 else 3.2
-        heading += clampf(err*7.0, -limit, limit)*dt
+        if transition != 2:
+            heading += clampf(err*7.0, -limit, limit)*dt
     elif chain.size() == 6:
-        if turn_stage == 0:
+        if turn_stage == 0 and not requested and float(rig.get("blending_for")) >= float(rig.get("blend_duration")):
             over = over+dt if absf(err) > deg_to_rad(55.0) else 0.0
             if over >= 0.045 and cooldown <= 0.0:
                 var turn_target: float = predicted if _wrap(predicted-heading)*err > 0.0 else target_yaw
@@ -243,10 +479,10 @@ func present(rig: Node3D, delta: float, is_run: bool, target_yaw: float) -> void
         if turn_stage != 0:
             _advance_turn(dt, predicted)
     rig.rotation.y = _wrap(heading-target_yaw)
-    if turn_stage != 0 and chain.size() == 6:
+    if (turn_stage != 0 or (was_turning and not is_run)) and chain.size() == 6:
         var waist: Node3D = rig.get_node_or_null("Waist") as Node3D
         if waist != null:
-            var lift: float = 0.105 * _ease(rise_clock/0.14)
+            var lift: float = 0.105 * _ease(rise_clock/0.14) if turn_stage != 0 else 0.0
             if turn_stage == 2:
                 lift *= 1.0-_ease(timer/duration)
             # Respect reach of both rigid chains before raising the pelvis.
