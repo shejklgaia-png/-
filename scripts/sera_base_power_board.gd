@@ -5,6 +5,8 @@ const StaticBake = preload("res://scripts/sera_static_bake.gd")
 ## Economy and electrical simulation remain separate from the board.
 const FixedLayout = preload("res://scripts/sera_base_authored_layout.gd")
 const GRID_SIDE: int = 10
+const BOARD_SIDES = [10, 12, 14, 16, 18]
+const MAX_SIDE: int = 18
 const CELL_PITCH: float = 1.024
 const TILE_WIDTH: float = 0.936
 const BOARD_CENTER: Vector3 = Vector3(35.5, 0.0, -20.0)
@@ -85,22 +87,44 @@ static func _tube(parent: Node3D, name: String, radius: float,
     parent.add_child(item)
 
 
-static func _cells(parent: Node3D) -> void:
+static func pitch_for(side: int) -> float:
+    return CELL_PITCH * float(GRID_SIDE) / float(side)
+
+
+static func tile_width_for(side: int) -> float:
+    return TILE_WIDTH * float(GRID_SIDE) / float(side)
+
+
+static func rebuild_preview_cells(stage: Node3D, side: int) -> void:
+    var frame := stage.get_node_or_null("PowerGrid10x10")
+    if frame == null:
+        return
+    for shade in range(2):
+        var old := frame.get_node_or_null("PowerTileShade%d" % shade)
+        if old != null:
+            frame.remove_child(old)
+            old.queue_free()
+    _cells(frame, side)
+
+
+static func _cells(parent: Node3D, side: int = GRID_SIDE) -> void:
     var tile_mesh := BoxMesh.new()
-    tile_mesh.size = Vector3(TILE_WIDTH, 0.085, TILE_WIDTH)
+    var width := tile_width_for(side)
+    var pitch := pitch_for(side)
+    tile_mesh.size = Vector3(width, 0.085, width)
     for shade in range(2):
         var groups := MultiMesh.new()
         groups.transform_format = MultiMesh.TRANSFORM_3D
         groups.mesh = tile_mesh
-        groups.instance_count = int(GRID_SIDE * GRID_SIDE / 2)
+        groups.instance_count = int(side * side / 2)
         var index: int = 0
-        for z in range(GRID_SIDE):
-            for x in range(GRID_SIDE):
+        for z in range(side):
+            for x in range(side):
                 if (x + z) % 2 != shade:
                     continue
                 var offset := Vector3(
-                    (float(x) - (GRID_SIDE - 1) * 0.5) * CELL_PITCH,
-                    0.38, (float(z) - (GRID_SIDE - 1) * 0.5) * CELL_PITCH)
+                    (float(x) - (side - 1) * 0.5) * pitch,
+                    0.38, (float(z) - (side - 1) * 0.5) * pitch)
                 groups.set_instance_transform(index,
                     Transform3D(Basis.IDENTITY, BOARD_CENTER + offset))
                 index += 1
