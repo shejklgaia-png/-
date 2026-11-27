@@ -232,7 +232,7 @@ var attack_windup_end: float = 0.0
 var attack_windup_phase: float = 0.0
 var equipment_handler: RefCounted
 const V107Motion = preload("res://scripts/sera_v107_locomotion.gd")
-var v107: RefCounted
+var v107: V107Motion
 var v107_floor_y: float = -0.03556323
 var bird_authoring: Dictionary = {}
 var bird_bone_ids: Array[String] = []
@@ -2163,7 +2163,7 @@ func _process(delta: float) -> void:
             and not guard_playback and not jump_playback and not damage_playback):
         equipment_handler.call("clear_run_contact_height")
         equipment_handler.call("snap_grounded_sole_to_floor")
-        if _v107_allowed():
+        if _v107_allowed() and blending_for >= blend_duration and v107.turn_stage == 0:
             v107_floor_y = position.y
     elif (landing_pose_active or wait_to_run_landing_active) and current_clip == JUMP_CLIP:
         # The completed Kick_b is crossfaded into authored Jump 0.375..0.5.
