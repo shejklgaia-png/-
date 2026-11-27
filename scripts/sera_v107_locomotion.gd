@@ -188,8 +188,9 @@ func _advance_turn(dt: float, target: float) -> void:
             plans += 1
             plan_timer = 0.0
     var alpha: float = _ease(u)
-    current_feet[swing] = foot_start[swing].interpolate_with(foot_goal[swing], alpha)
-    var foot_pose: Transform3D = current_feet[swing]
+    var foot_pose: Transform3D = foot_start[swing].interpolate_with(foot_goal[swing], alpha)
+    var toe_alpha: float = _ease((u - 0.08) / 0.62)
+    foot_pose.basis = foot_start[swing].basis.slerp(foot_goal[swing].basis, toe_alpha)
     foot_pose.origin.y += 0.075 * sin(PI*u)
     current_feet[swing] = foot_pose
     var goal_heading: float = lerpf(base_yaw, goal_yaw, 0.68) if turn_stage == 1 else goal_yaw
@@ -268,6 +269,7 @@ func present(rig: Node3D, delta: float, is_run: bool, target_yaw: float) -> void
         twist[i] += clampf((dest[i]-twist[i])*(1.0-exp(-rate*dt)),-cap,cap)
     for i in range(3):
         var uid: String = Bank.UUIDS[[1,2,4][i]]
-        var bone: Node3D = rig.bones.get(uid) as Node3D
+        var bones: Dictionary = rig.get("bones")
+        var bone: Node3D = bones.get(uid) as Node3D
         if bone != null:
             bone.quaternion = (Quaternion(Vector3.UP,deg_to_rad(twist[i]))*bone.quaternion).normalized()
