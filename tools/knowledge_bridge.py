@@ -1,5 +1,6 @@
 """Production knowledge snapshot. Read public Git objects as data, never execute them."""
 import functools
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -92,10 +93,30 @@ def ranking_profile(kind):
     except (OSError,ValueError,KeyError,TypeError,AttributeError):
         return {},"invalid_or_mismatched"
 
+def comparison_binding(kind):
+    path=os.environ.get("SERA_KNOWLEDGE_COMPARISON_PLAN")
+    arm=os.environ.get("SERA_KNOWLEDGE_COMPARISON_ARM")
+    run=os.environ.get("SERA_KNOWLEDGE_RUN_KEY")
+    if not any((path,arm,run)):return {"status":"not_configured"}
+    try:
+        if not path or arm not in ("baseline","candidate") or not run or not re.fullmatch(r"[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}",run):
+            raise ValueError("missing plan, arm or run key")
+        p=Path(path)
+        if p.stat().st_size>256000:raise ValueError("plan too large")
+        raw=p.read_bytes();d=json.loads(raw)
+        if d.get("format")!="SERA_COMPARISON_PLAN_V6" or d.get("kind")!=kind:
+            raise ValueError("plan kind mismatch")
+        return dict(status="bound",plan_sha256=sha(raw),arm=arm,run_key=run,
+                    bound_at=datetime.now(timezone.utc).isoformat(),
+                    production_commit=os.environ.get("GITHUB_SHA"),
+                    workflow_run=os.environ.get("GITHUB_RUN_ID"))
+    except (OSError,ValueError,TypeError,AttributeError):
+        return {"status":"invalid_binding"}
+
 def retrieve(kind, query="", limit=8):
     result={"format":"SERA_KNOWLEDGE_SNAPSHOT_V3","kind":kind,"query":str(query)[:1000],
             "status":"unavailable","matches":[],"approval_added":False,
-            "requires_author_review":True}
+            "requires_author_review":True,"comparison":comparison_binding(kind)}
     try:
         commit,rules,rows,warnings=snapshot()
         terms=set(norm(TERMS[kind]).split()); specific=set(norm(query).split())
