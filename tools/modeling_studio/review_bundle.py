@@ -148,6 +148,8 @@ def main():
     if (root/'visibility_review.json').is_file():
         paths.append('visibility_review.json')
     paths += compare_candidates(root)
+    if (root/"modules").is_dir():
+        paths += [p.relative_to(root).as_posix() for p in sorted((root/"modules").glob("*")) if p.is_file()]
     files = {p:{"bytes":(root/p).stat().st_size,"sha256":sha256_file(root/p)} for p in paths}
     if any(v["bytes"]==0 for v in files.values()):
         raise ValueError("empty artifact")
