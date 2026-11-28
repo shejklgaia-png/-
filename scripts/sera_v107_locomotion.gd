@@ -1,6 +1,6 @@
 extends RefCounted
-## V111 sampled RUN playback; retain V107 native target tracking and planted turn controller.
-const Bank = preload("res://assets/sera_v111_motion_data.gd")
+## V116 sampled RUN playback; retain V107 native target tracking and planted turn controller.
+const Bank = preload("res://assets/sera_v116_motion_data.gd")
 const FRAME_BYTES: int = 158
 const FLOOR_OFFSET: float = -0.03556323
 var data: PackedByteArray = Marshalls.base64_to_raw(Bank.DATA)
