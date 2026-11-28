@@ -1,0 +1,128 @@
+{
+  "schema": "sera.birdleg.pose.v1",
+  "reference": "SERA_BirdLeg_R05.html",
+  "angles_deg": {
+    "Waist": [
+      0,
+      0,
+      0
+    ],
+    "Torso": [
+      0,
+      0,
+      0
+    ],
+    "Chest": [
+      0,
+      0,
+      0
+    ],
+    "Neck": [
+      0,
+      0,
+      0
+    ],
+    "Head": [
+      0,
+      0,
+      0
+    ],
+    "Shoulder_L": [
+      0,
+      0,
+      0
+    ],
+    "UpperArm_L": [
+      0,
+      0,
+      0
+    ],
+    "Forearm_L": [
+      0,
+      0,
+      0
+    ],
+    "Hand_L": [
+      0,
+      0,
+      0
+    ],
+    "Shield": [
+      0,
+      0,
+      0
+    ],
+    "Shoulder_R": [
+      0,
+      0,
+      0
+    ],
+    "UpperArm_R": [
+      0,
+      0,
+      0
+    ],
+    "Forearm_R": [
+      0,
+      0,
+      0
+    ],
+    "Hand_R": [
+      0,
+      0,
+      0
+    ],
+    "Sword": [
+      0,
+      0,
+      0
+    ],
+    "Bird_Thigh_L": [
+      0,
+      11.5,
+      -3
+    ],
+    "Bird_LowerLeg_L": [
+      0,
+      0,
+      0
+    ],
+    "Bird_Foot_L": [
+      0,
+      -30,
+      2.5
+    ],
+    "Bird_Thigh_R": [
+      0,
+      0,
+      0
+    ],
+    "Bird_LowerLeg_R": [
+      0,
+      0,
+      0
+    ],
+    "Bird_Foot_R": [
+      0,
+      0,
+      0
+    ],
+    "BOOSTER": [
+      0,
+      0,
+      0
+    ],
+    "Thruster_L": [
+      0,
+      0,
+      0
+    ],
+    "Thruster_R": [
+      0,
+      0,
+      0
+    ]
+  },
+  "auto_ground": true,
+  "height_offset_cm": 0
+}
