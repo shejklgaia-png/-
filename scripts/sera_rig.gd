@@ -125,9 +125,11 @@ const RUN_HEAD_BONE_UUID: String = "a4a11a19-29e6-e88c-b28d-3c9f2d4345ad"
 # v113: Retain 35% of cyclic head angular sway relative to the Waist.
 # Keep the existing target-facing joint yaw and intentional root turning bank.
 const RUN_HEAD_SWAY_RETENTION: float = 0.35
-# Final locomotion-only world-space head stabilization. Yaw is independent
-# of the authored pitch/roll: retain 20% of each, not 20% of target tracking.
-const LOCK_HEAD_LEVEL_WEIGHT: float = 0.80
+# v552: retain more natural motion. The RUN bank already stabilizes the
+# authored head, so include some neck inclination before leveling.
+# Target yaw is independent of both inclination weights.
+const LOCK_HEAD_LEVEL_WEIGHT: float = 0.50
+const LOCK_HEAD_NECK_TILT_WEIGHT: float = 0.50
 var lock_head_target_world: Vector3 = Vector3.ZERO
 var lock_head_target_valid: bool = false
 const RUN_HEAD_REFERENCE_PHASES = [0.0, 0.25, 0.5, 0.75]
@@ -354,16 +356,17 @@ func _apply_locomotion_head_lock() -> void:
     if aim.length_squared() <= 0.000001:
         return
     # YXZ isolates world heading (Y) from pitch (X) and roll (Z).
-    # Construct the final orientation, rather than blending toward it:
-    # a quaternion-wide 80% blend would leave 20% of the yaw error.
-    var e: Vector3 = head.global_basis.orthonormalized().get_euler(EULER_ORDER_YXZ)
-    e.y = atan2(-aim.x, -aim.z)
-    e.x *= 1.0-LOCK_HEAD_LEVEL_WEIGHT
-    e.z *= 1.0-LOCK_HEAD_LEVEL_WEIGHT
-    var final_basis: Basis = Basis.from_euler(e, EULER_ORDER_YXZ)
+    # Keep exact target yaw. Inherit a portion of neck inclination even
+    # when the baked head is already almost level, then damp pitch/roll.
     var parent: Node3D = head.get_parent() as Node3D
     if parent == null:
         return
+    var e: Vector3 = head.global_basis.orthonormalized().get_euler(EULER_ORDER_YXZ)
+    var neck: Vector3 = parent.global_basis.orthonormalized().get_euler(EULER_ORDER_YXZ)
+    e.x = lerpf(e.x, neck.x, LOCK_HEAD_NECK_TILT_WEIGHT) * (1.0-LOCK_HEAD_LEVEL_WEIGHT)
+    e.z = lerpf(e.z, neck.z, LOCK_HEAD_NECK_TILT_WEIGHT) * (1.0-LOCK_HEAD_LEVEL_WEIGHT)
+    e.y = atan2(-aim.x, -aim.z)
+    var final_basis: Basis = Basis.from_euler(e, EULER_ORDER_YXZ)
     head.quaternion = (parent.global_basis.orthonormalized().inverse()*final_basis).get_rotation_quaternion().normalized()
     if is_instance_valid(head_c_proxy):
         var proxy_parent: Node3D = head_c_proxy.get_parent() as Node3D
