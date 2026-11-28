@@ -3,6 +3,7 @@
 ## v99: Authored jump landing pose, hold 0.60s after landing before standing.
 extends Node3D
 const VersionIndicator = preload("res://scripts/version_indicator.gd")
+const CombatReturnTransition = preload("res://scripts/sera_combat_return_transition.gd")
 const LaboTypography = preload("res://scripts/sera_labo_round_skin.gd")
 const RENDER_ORDER = preload("res://scripts/render_order_policy.gd")
 const CombatVitals = preload("res://scripts/combat_vitals.gd")
@@ -722,10 +723,16 @@ func _request_return_to_nexus() -> void:
     call_deferred("_change_to_nexus")
 
 func _change_to_nexus() -> void:
-    var result: Error = get_tree().change_scene_to_file(NEXUS_SCENE)
-    if result != OK:
+    var root := get_tree().root
+    if root.get_node_or_null("NexusEntryTransition") != null:
         _returning_to_nexus = false
-        push_error("Training to Nexus scene load failed (%d)" % result)
+        return
+    # Use the existing NEXUS entry-cover contract for budgeted startup,
+    # input blocking and BGM handoff, with a black combat-return cover.
+    var transition := CombatReturnTransition.new()
+    transition.name = "NexusEntryTransition"
+    root.add_child(transition)
+    transition.run(self, NEXUS_SCENE)
 
 func _load_handedness_preference() -> void:
     var settings := ConfigFile.new()
@@ -2635,6 +2642,9 @@ func _update_enemy_fire_eligibility() -> void:
             target_hp, player_hp, stagger_remaining, part_break_remaining))
 
 func _input(event: InputEvent) -> void:
+    if _returning_to_nexus:
+        get_viewport().set_input_as_handled()
+        return
     if event is InputEventScreenTouch:
         if event.pressed:
             # Any new finger press cancels a prior tap ripple immediately,

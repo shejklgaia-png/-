@@ -423,7 +423,7 @@ func _debug_break_leg(id: String) -> bool:
 
 
 func _input(event: InputEvent) -> void:
-    if _mission_entry_pending:
+    if _mission_entry_pending or _returning_to_nexus:
         get_viewport().set_input_as_handled()
         return
     if event is InputEventScreenTouch and event.pressed:
