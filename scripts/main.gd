@@ -4770,6 +4770,16 @@ func _physics_process(delta: float) -> void:
     aim = _locked_target_facing_direction()
     if aim.length_squared() > 0.000001:
         player.look_at(player.global_position + aim, Vector3.UP)
+    # Supply the actual lock point, not the body yaw. The head may be offset
+    # from the collision root, especially when strafing near a selected leg.
+    if rig != null:
+        var head_aim: Vector3 = Vector3.ZERO
+        if is_instance_valid(target):
+            head_aim = target.global_position
+            if target_parts != null and not locked_target_part_id.is_empty() \
+                    and bool(target_parts.call("has_part", locked_target_part_id)):
+                head_aim = target_parts.call("get_part_aim_world", locked_target_part_id)
+        rig.call("set_locomotion_head_target", head_aim, is_instance_valid(target))
     # v311: physical travel is the committed screen vector, while the pose
     # continuously follows current locked-target forward. A target switch
     # can smoothly rebase the animation without changing displacement.
