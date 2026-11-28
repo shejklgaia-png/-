@@ -579,6 +579,59 @@ def main():
         obj.select_set(True)
     bpy.ops.export_scene.gltf(filepath=str(out/"model.glb"),export_format='GLB',
                               use_selection=True,export_yup=True,export_animations=False)
+    if spec.get("module_exports"):
+        # GRAVE component study: export independently usable part-local GLBs
+        # from the exact finished Blender meshes used by the assembly.
+        import hashlib
+        from mathutils import Matrix
+        cfg = spec["module_exports"]
+        directory = out / "modules"
+        directory.mkdir()
+        by_name = {obj.name: obj for obj in objects if obj.type == "MESH"}
+        records = []
+        expected = {row["name"] for row in cfg["modules"]}
+        if expected != set(by_name):
+            raise ValueError("module export names do not match built mesh nodes")
+        for row in cfg["modules"]:
+            original = by_name[row["name"]]
+            placement = [list(r) for r in original.matrix_world]
+            original.data.calc_loop_triangles()
+            bpy.ops.object.select_all(action='DESELECT')
+            duplicate = original.copy()
+            duplicate.data = original.data.copy()
+            bpy.context.collection.objects.link(duplicate)
+            duplicate.parent = None
+            duplicate.matrix_world = Matrix.Identity(4)
+            duplicate.select_set(True)
+            bpy.context.view_layer.objects.active = duplicate
+            bpy.context.view_layer.update()
+            target = directory / (row["name"] + ".glb")
+            try:
+                bpy.ops.export_scene.gltf(filepath=str(target), export_format="GLB",
+                    use_selection=True, export_yup=True, export_animations=False)
+                if not target.is_file() or not target.stat().st_size:
+                    raise RuntimeError("missing module export: " + row["name"])
+                records.append({**row, "file": target.name,
+                    "sha256": hashlib.sha256(target.read_bytes()).hexdigest(),
+                    "bytes": target.stat().st_size,
+                    "triangles": len(original.data.loop_triangles),
+                    "blender_world_matrix": placement,
+                    "gltf_world_matrix": [list(r) for r in (
+                        Matrix(((1,0,0,0),(0,0,1,0),(0,-1,0,0),(0,0,0,1)))
+                        @ original.matrix_world
+                        @ Matrix(((1,0,0,0),(0,0,-1,0),(0,1,0,0),(0,0,0,1))))]})
+            finally:
+                data = duplicate.data
+                bpy.data.objects.remove(duplicate, do_unlink=True)
+                bpy.data.meshes.remove(data)
+        (directory / "assembly.json").write_text(json.dumps({
+            "format": cfg["format"], "source": cfg["source"], "modules": records,
+            "matrix_convention": "row-major matrices, column vectors; Blender Z-up and GLB Y-up; standalone meshes use part-local origins",
+            "limits": "Independent exports share assembly mesh data; attachment, clearance and visual approval are separate."
+        }, indent=2), encoding="utf-8")
+        bpy.ops.object.select_all(action='DESELECT')
+        for obj in objects:
+            obj.select_set(True)
     if spec.get("grouped_export"):
         n=export_grouped(objects,out/"model_grouped.glb")
         (out/"grouped_export.json").write_text(json.dumps({"mesh_groups":n,"source_meshes":len(report),"source_triangles":sum(row["triangles"] for row in report),"limits":"Material/pivot grouping only; triangle count and imported hierarchy require verification."},indent=2))
