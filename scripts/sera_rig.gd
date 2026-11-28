@@ -125,6 +125,11 @@ const RUN_HEAD_BONE_UUID: String = "a4a11a19-29e6-e88c-b28d-3c9f2d4345ad"
 # v113: Retain 35% of cyclic head angular sway relative to the Waist.
 # Keep the existing target-facing joint yaw and intentional root turning bank.
 const RUN_HEAD_SWAY_RETENTION: float = 0.35
+# Final locomotion-only world-space head stabilization. Yaw is independent
+# of the authored pitch/roll: retain 20% of each, not 20% of target tracking.
+const LOCK_HEAD_LEVEL_WEIGHT: float = 0.80
+var lock_head_target_world: Vector3 = Vector3.ZERO
+var lock_head_target_valid: bool = false
 const RUN_HEAD_REFERENCE_PHASES = [0.0, 0.25, 0.5, 0.75]
 const RUN_HEAD_PARENT_BONES = [RUN_TORSO_BONE_UUID, RUN_CHEST_BONE_UUID, RUN_NECK_BONE_UUID]
 const RUN_HEAD_UPPER_BONES = [RUN_TORSO_BONE_UUID, RUN_CHEST_BONE_UUID, RUN_NECK_BONE_UUID, RUN_HEAD_BONE_UUID]
@@ -325,6 +330,47 @@ func set_heavy_slide_run_enabled(enabled: bool) -> void:
 # The collision root faces the locked enemy, while RUN Waist rotates
 # independently. Resolve a visible bone for the directional UI/combos.
 # Head C uses the same bone orientation, so this works for all head sets.
+func set_locomotion_head_target(point: Vector3, active: bool) -> void:
+    lock_head_target_world = point
+    lock_head_target_valid = active
+
+func _apply_locomotion_head_lock() -> void:
+    # Gameplay explicitly supplies a target; NEXUS and authored combat,
+    # hit reactions, jumps, steps, guards and KO keep their original poses.
+    if not lock_head_target_valid or combat_playback or damage_playback \
+            or guard_playback or step_playback or jump_playback or training_ko_active:
+        return
+    if current_clip != WAIT_CLIP and current_clip != BOOST_CLIP and current_clip not in RUN_CLIPS:
+        return
+    var head: Node3D = bones.get(RUN_HEAD_BONE_UUID) as Node3D
+    if not is_instance_valid(head):
+        return
+    var aim_origin: Vector3 = head.global_position
+    if is_instance_valid(head_c_proxy) and equipment_handler != null \
+            and str(equipment_handler.call("current_for", "head")) == "C":
+        aim_origin = head_c_proxy.global_position
+    var aim: Vector3 = lock_head_target_world-aim_origin
+    aim.y = 0.0
+    if aim.length_squared() <= 0.000001:
+        return
+    # YXZ isolates world heading (Y) from pitch (X) and roll (Z).
+    # Construct the final orientation, rather than blending toward it:
+    # a quaternion-wide 80% blend would leave 20% of the yaw error.
+    var e: Vector3 = head.global_basis.orthonormalized().get_euler(EULER_ORDER_YXZ)
+    e.y = atan2(-aim.x, -aim.z)
+    e.x *= 1.0-LOCK_HEAD_LEVEL_WEIGHT
+    e.z *= 1.0-LOCK_HEAD_LEVEL_WEIGHT
+    var final_basis: Basis = Basis.from_euler(e, EULER_ORDER_YXZ)
+    var parent: Node3D = head.get_parent() as Node3D
+    if parent == null:
+        return
+    head.quaternion = (parent.global_basis.orthonormalized().inverse()*final_basis).get_rotation_quaternion().normalized()
+    if is_instance_valid(head_c_proxy):
+        var proxy_parent: Node3D = head_c_proxy.get_parent() as Node3D
+        if proxy_parent != null:
+            head_c_proxy.quaternion = (proxy_parent.global_basis.orthonormalized().inverse()*final_basis).get_rotation_quaternion().normalized()
+
+
 func get_visible_facing_pivot() -> Node3D:
     if not loading_ok:
         return null
@@ -2243,6 +2289,8 @@ func _process(delta: float) -> void:
             # The separate HEAD C proxy follows the final procedural head pose too.
             if is_instance_valid(head_c_proxy) and bones.has(RUN_HEAD_BONE_UUID):
                 head_c_proxy.quaternion = (bones[RUN_HEAD_BONE_UUID] as Node3D).quaternion
+    # Last writer: after V111, start/stop IK, turn, grounding and head proxy.
+    _apply_locomotion_head_lock()
     if current_clip in COMBO_RECOVERY.CLIPS and clip_finished(current_clip):
         # Sample the exact final pose first. WAIT supplies its normal ground
         # alignment on the next frame; do not blend the root correction twice.
